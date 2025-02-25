@@ -26,6 +26,7 @@ enum CACHE_KEY {
   SYNTHETIC_LOG_TRANSACTION_HASH = 'syntheticLogTransactionHash',
   FILTERID = 'filterId',
   CURRENT_NETWORK_EXCHANGE_RATE = 'currentNetworkExchangeRate',
+  ETH_GET_BLOCK_RECEIPTS = 'eth_getBlockReceipts',
 }
 
 enum CACHE_TTL {

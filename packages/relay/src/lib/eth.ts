@@ -32,7 +32,7 @@ import constants from './constants';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
-import { Block, Log, Transaction, Transaction1559 } from './model';
+import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { DebugService } from './services/debugService';
@@ -41,7 +41,7 @@ import { CommonService, FilterService } from './services/ethService';
 import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
-import { IAccountInfo } from './types/mirrorNode';
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 
 const _ = require('lodash');
 const asm = require('@ethersproject/asm');
@@ -102,6 +102,7 @@ export class EthImpl implements Eth {
   static ethFeeHistory = 'eth_feeHistory';
   static ethGasPrice = 'eth_gasPrice';
   static ethGetBalance = 'eth_getBalance';
+  static ethGetBlockReceipts = 'eth_getBlockReceipts';
   static ethGetBlockByHash = 'eth_GetBlockByHash';
   static ethGetBlockByNumber = 'eth_GetBlockByNumber';
   static ethGetCode = 'eth_getCode';
@@ -2848,5 +2849,108 @@ export class EthImpl implements Eth {
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
     return exchangeRateInCents;
+  }
+
+  /**
+   * Gets all transaction receipts for a block by block hash or block number.
+   * @param {string} blockHashOrNumber The block hash or block number
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
+   */
+  public async getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${blockHashOrNumber})`);
+    }
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockHashOrNumber}`;
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(
+            `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
+          );
+        }
+      }
+      return cachedResponse;
+    }
+    if (this.common.blockTagIsLatestOrPending(blockHashOrNumber)) {
+      blockHashOrNumber = await this.common.getLatestBlockNumber(requestDetails);
+    }
+
+    const params: IContractResultsParams = {
+      blockHash: blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length > 32 ? blockHashOrNumber : undefined,
+      blockNumber:
+        blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length < 32 ? Number(blockHashOrNumber) : undefined,
+    };
+
+    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
+
+    if (!contractResults || contractResults.length === 0) {
+      return [];
+    }
+
+    const num =
+      blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length < 32
+        ? Number(blockHashOrNumber)
+        : blockHashOrNumber;
+    const block = await this.mirrorNodeClient.getBlock(num, requestDetails);
+
+    const blockTimestamp = block.timestamp;
+    const effectiveGas = await this.getCurrentGasPriceForBlock(block.block_hash, requestDetails);
+    const paramTimestamp = {
+      timestamp: [`lte:${blockTimestamp.to}`, `gte:${blockTimestamp.from}`],
+    };
+
+    const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
+    contractResults.map((contractResult) => this.mapResultWithLogs(contractResult, logs));
+
+    const receipts: Receipt[] = [];
+
+    for (const contractResult of contractResults) {
+      const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
+      const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
+
+      const receipt = {
+        blockHash: toHash32(contractResult.block_hash),
+        blockNumber: numberTo0x(contractResult.block_number),
+        from: from,
+        to: to,
+        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
+        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
+        contractAddress: contractResult.to,
+        logs: contractResult.logs,
+        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        transactionHash: toHash32(contractResult.hash),
+        transactionIndex: numberTo0x(contractResult.transaction_index),
+        effectiveGasPrice: effectiveGas,
+        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
+        status: contractResult.status,
+        type: nullableNumberTo0x(contractResult.type),
+      };
+
+      receipts.push(receipt);
+    }
+
+    return receipts;
+  }
+
+  private mapResultWithLogs(result, logs) {
+    const log = logs.find((log) => log.transactionHash === result.hash);
+    if (log) {
+      result.logs = new Log({
+        address: log.address,
+        blockHash: toHash32(result.block_hash),
+        blockNumber: numberTo0x(result.block_number),
+        data: log.data,
+        logIndex: numberTo0x(log.logIndex),
+        removed: false,
+        topics: log.topics,
+        transactionHash: toHash32(result.hash),
+        transactionIndex: numberTo0x(result.transaction_index),
+      });
+    }
   }
 }
