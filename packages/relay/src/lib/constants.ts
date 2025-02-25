@@ -5,28 +5,28 @@ import { BigNumber } from 'bignumber.js';
 
 enum CACHE_KEY {
   ACCOUNT = 'account',
+  CURRENT_NETWORK_EXCHANGE_RATE = 'currentNetworkExchangeRate',
   ETH_BLOCK_NUMBER = 'eth_block_number',
   ETH_CALL = 'eth_call',
   ETH_GET_BALANCE = 'eth_get_balance',
   ETH_GET_BLOCK_BY_HASH = 'eth_getBlockByHash',
   ETH_GET_BLOCK_BY_NUMBER = 'eth_getBlockByNumber',
+  ETH_GET_BLOCK_RECEIPTS = 'eth_getBlockReceipts',
+  ETH_GET_TRANSACTION_COUNT = 'eth_getTransactionCount',
   ETH_GET_TRANSACTION_COUNT_BY_HASH = 'eth_getBlockTransactionCountByHash',
   ETH_GET_TRANSACTION_COUNT_BY_NUMBER = 'eth_getBlockTransactionCountByNumber',
-  ETH_GET_TRANSACTION_COUNT = 'eth_getTransactionCount',
   ETH_GET_TRANSACTION_RECEIPT = 'eth_getTransactionReceipt',
   FEE_HISTORY = 'fee_history',
   FILTER = 'filter',
+  FILTERID = 'filterId',
   GAS_PRICE = 'gas_price',
-  NETWORK_FEES = 'network_fees',
   GET_BLOCK = 'getBlock',
   GET_CONTRACT = 'getContract',
   GET_CONTRACT_RESULT = 'getContractResult',
   GET_TINYBAR_GAS_FEE = 'getTinyBarGasFee',
+  NETWORK_FEES = 'network_fees',
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
   SYNTHETIC_LOG_TRANSACTION_HASH = 'syntheticLogTransactionHash',
-  FILTERID = 'filterId',
-  CURRENT_NETWORK_EXCHANGE_RATE = 'currentNetworkExchangeRate',
-  ETH_GET_BLOCK_RECEIPTS = 'eth_getBlockReceipts',
 }
 
 enum CACHE_TTL {
