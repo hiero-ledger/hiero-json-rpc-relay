@@ -33,6 +33,12 @@ export const METHODS: { [key: string]: IMethodValidation } = {
       required: true,
     },
   },
+  eth_getBlockReceipts: {
+    0: {
+      type: 'blockParams',
+      required: true,
+    },
+  },
   eth_getBlockByNumber: {
     0: {
       required: true,
