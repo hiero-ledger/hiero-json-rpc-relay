@@ -2947,6 +2947,7 @@ export class EthImpl implements Eth {
       }
       return cachedResponse;
     }
+
     if (this.common.blockTagIsLatestOrPending(blockHashOrNumber)) {
       blockHashOrNumber = await this.common.getLatestBlockNumber(requestDetails);
     }
@@ -3005,6 +3006,7 @@ export class EthImpl implements Eth {
       receipts.push(receipt);
     }
 
+    await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
     return receipts;
   }
 
