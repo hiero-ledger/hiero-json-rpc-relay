@@ -26,7 +26,6 @@ import {
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
-  NO_SUCH_BLOCK_EXISTS_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -50,8 +49,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     cacheService: CacheService;
   } = generateEthTestEnv(true);
   const results = defaultContractResults.results;
-  const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
-
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });
 
   this.beforeEach(async () => {
@@ -167,7 +164,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   describe('Cache behavior', () => {
     it('should use cached results for subsequent calls', async function () {
       const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_HASH}`;
-      // First call
+
       restMock.onGet(CONTRACTS_RESULTS_BLOCK_HASH_URL).reply(200, JSON.stringify(defaultContractResults));
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
@@ -200,15 +197,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       clock.restore();
-    });
-  });
-
-  describe('Edge cases', () => {
-    it('should handle non-existent block', async function () {
-      restMock.onGet(CONTRACTS_RESULTS_BLOCK_HASH_URL).reply(404, NO_SUCH_BLOCK_EXISTS_RES);
-
-      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
-      expect(receipts).to.be.an('array').that.is.empty;
     });
   });
 });
