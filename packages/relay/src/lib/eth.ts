@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import asm from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId, Hbar, PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers';
+import _ from 'lodash';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
@@ -42,9 +44,6 @@ import { IFilterService } from './services/ethService/ethFilterService/IFilterSe
 import HAPIService from './services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
-
-const _ = require('lodash');
-const asm = require('@ethersproject/asm');
 
 interface LatestBlockNumberTimestamp {
   blockNumber: string | null;
