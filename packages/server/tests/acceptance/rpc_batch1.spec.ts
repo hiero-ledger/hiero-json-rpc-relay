@@ -21,6 +21,7 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
+import { BLOCK_PARAMS_ERROR } from '../../src/validator/constants';
 import basicContract from '../../tests/contracts/Basic.json';
 import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
@@ -54,7 +55,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   let mirrorContractDetails;
   let account2Address: string;
   let expectedGasPrice: string;
-
+  let createChildTx: ethers.ContractTransactionResponse;
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const requestId = 'rpc_batch1Test';
   const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
@@ -129,7 +130,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       await relay.pollForValidTransactionReceipt(response.hash);
 
       // @ts-ignore
-      const createChildTx: ethers.ContractTransactionResponse = await parentContract.createChild(1);
+      createChildTx = await parentContract.createChild(1);
       await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
       if (global.logger.isLevelEnabled('trace')) {
@@ -764,6 +765,58 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(blockResult.transactions).to.not.be.empty;
         expect(blockResult.transactions.map((tx) => tx.hash)).to.contain(txHash);
         expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffffffffffff9c');
+      });
+
+      it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {
+        const res = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          [{ blockHash: mirrorBlock.hash.substring(0, 66) }],
+          requestIdPrefix,
+        );
+
+        expect(res).to.have.length(1);
+        expect(res[0]).to.have.property('blockHash');
+        expect(res[0].blockHash).to.equal(mirrorBlock.hash.substring(0, 66));
+        expect(res[0]).to.have.property('status');
+        expect(res[0].status).to.equal('0x1');
+        expect(res[0]).to.have.property('transactionHash');
+        expect(res[0].transactionHash).to.equal(createChildTx.hash);
+      });
+
+      it('should execute "eth_getBlockReceipts" with block number successfully', async function () {
+        const res = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          [numberTo0x(mirrorBlock.number)],
+          requestIdPrefix,
+        );
+
+        expect(res).to.have.length(1);
+        expect(res[0]).to.have.property('blockHash');
+        expect(res[0].blockHash).to.equal(mirrorBlock.hash.substring(0, 66));
+        expect(res[0]).to.have.property('status');
+        expect(res[0].status).to.equal('0x1');
+        expect(res[0]).to.have.property('transactionHash');
+        expect(res[0].transactionHash).to.equal(createChildTx.hash);
+      });
+
+      it('should execute "eth_getBlockReceipts" with tag "earliest" successfully', async function () {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, ['earliest'], requestIdPrefix);
+
+        expect(res).to.have.length(0);
+      });
+
+      it('should execute "eth_getBlockReceipts" with tag "latest" successfully', async function () {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, ['latest'], requestIdPrefix);
+
+        expect(res).to.have.length(0);
+      });
+
+      it('should throw error on "eth_getBlockReceipts" with invalid parameter passed', async function () {
+        const error = predefined.INVALID_PARAMETER(0, BLOCK_PARAMS_ERROR);
+        Assertions.assertPredefinedRpcError(error, relay.call, true, relay, [
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          ['0x', requestIdPrefix],
+        ]);
       });
     });
 

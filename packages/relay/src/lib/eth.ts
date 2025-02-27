@@ -443,7 +443,7 @@ export class EthImpl implements Eth {
     }
 
     // get latest block fee
-    let nextBaseFeePerGas: string = _.last(feeHistory.baseFeePerGas);
+    let nextBaseFeePerGas: string | undefined = _.last(feeHistory.baseFeePerGas);
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
@@ -2856,14 +2856,14 @@ export class EthImpl implements Eth {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
-  public async getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+  public async getBlockReceipts(blockParam: string | object, requestDetails: RequestDetails): Promise<Receipt[]> {
     const requestIdPrefix = requestDetails.formattedRequestId;
-
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${blockHashOrNumber})`);
+      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockParam)})`);
     }
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockHashOrNumber}`;
+    let blockNumOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumOrTag}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
     if (cachedResponse) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -2876,14 +2876,16 @@ export class EthImpl implements Eth {
       return cachedResponse;
     }
 
-    if (this.common.blockTagIsLatestOrPending(blockHashOrNumber)) {
-      blockHashOrNumber = await this.common.getLatestBlockNumber(requestDetails);
+    if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
+      blockNumOrTag = await this.common.getLatestBlockNumber(requestDetails);
+    }
+
+    if (blockNumOrTag === 'earliest') {
+      blockNumOrTag = (await this.mirrorNodeClient.getBlock(0, requestDetails)).number;
     }
 
     const params: IContractResultsParams = {
-      blockHash: blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length > 32 ? blockHashOrNumber : undefined,
-      blockNumber:
-        blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length < 32 ? Number(blockHashOrNumber) : undefined,
+      blockNumber: Number(blockNumOrTag),
     };
 
     const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
@@ -2892,11 +2894,7 @@ export class EthImpl implements Eth {
       return [];
     }
 
-    const num =
-      blockHashOrNumber.startsWith('0x') && blockHashOrNumber.length < 32
-        ? Number(blockHashOrNumber)
-        : blockHashOrNumber;
-    const block = await this.mirrorNodeClient.getBlock(num, requestDetails);
+    const block = await this.mirrorNodeClient.getBlock(Number(blockNumOrTag), requestDetails);
 
     const blockTimestamp = block.timestamp;
     const effectiveGas = await this.getCurrentGasPriceForBlock(block.block_hash, requestDetails);
