@@ -2903,11 +2903,13 @@ export class EthImpl implements Eth {
     };
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-    contractResults.map((contractResult) => this.mapResultWithLogs(contractResult, logs));
 
+    contractResults.forEach((contractResult) => this.mapResultWithLogs(contractResult, logs));
+
+    const filteredContractResults = contractResults.filter((contractResult) => contractResult && contractResult.logs);
     const receipts: Receipt[] = [];
 
-    for (const contractResult of contractResults) {
+    for (const contractResult of filteredContractResults) {
       const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
       const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
 
@@ -2937,19 +2939,19 @@ export class EthImpl implements Eth {
   }
 
   private mapResultWithLogs(result, logs) {
-    const log = logs.find((log) => log.transactionHash === result.hash);
-    if (log) {
-      result.logs = new Log({
-        address: log.address,
-        blockHash: toHash32(result.block_hash),
-        blockNumber: numberTo0x(result.block_number),
-        data: log.data,
-        logIndex: numberTo0x(log.logIndex),
-        removed: false,
-        topics: log.topics,
-        transactionHash: toHash32(result.hash),
-        transactionIndex: numberTo0x(result.transaction_index),
+    const matchingLogs = logs
+      .filter((log) => log.transactionHash === result.hash)
+      .map((log) => {
+        return new Log({
+          address: log.address,
+          blockHash: toHash32(result.block_hash),
+          blockNumber: numberTo0x(result.block_number),
+          data: log.data,
+          logIndex: numberTo0x(log.logIndex),
+          removed: false,
+          topics: log.topics,
+        });
       });
-    }
+    result.logs = matchingLogs;
   }
 }
