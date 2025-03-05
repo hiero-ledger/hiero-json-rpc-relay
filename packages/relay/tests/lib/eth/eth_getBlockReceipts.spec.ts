@@ -156,7 +156,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should return empty array for block with no transactions', async function () {
-      restMock.onGet(CONTRACTS_RESULTS_BLOCK_HASH_URL).reply(200, JSON.stringify({ results: [] }));
+      restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
 
       const receipts = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
       expect(receipts).to.be.an('array').that.is.empty;

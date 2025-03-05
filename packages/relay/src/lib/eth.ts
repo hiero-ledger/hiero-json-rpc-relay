@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import asm from '@ethersproject/asm';
+import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId, Hbar, PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
@@ -1204,7 +1204,7 @@ export class EthImpl implements Eth {
         } else if (result?.type === constants.TYPE_CONTRACT) {
           if (result?.entity.runtime_bytecode !== EthImpl.emptyHex) {
             const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = asm.disassemble(result?.entity.runtime_bytecode);
+            const opcodes = disassemble(result?.entity.runtime_bytecode);
             const hasProhibitedOpcode =
               opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
             if (!hasProhibitedOpcode) {
