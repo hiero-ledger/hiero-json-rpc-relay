@@ -2852,7 +2852,7 @@ export class EthImpl implements Eth {
 
   /**
    * Gets all transaction receipts for a block by block hash or block number.
-   * @param {string} blockHashOrNumber The block hash or block number
+   * @param {string | object} blockParam The block hash, block number, or block tag
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
@@ -2863,15 +2863,14 @@ export class EthImpl implements Eth {
     }
 
     let blockNumOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumOrTag}`;
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${this.getCacheKeyFromBlockParam(blockParam)}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
     if (cachedResponse) {
       if (this.logger.isLevelEnabled('debug')) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
-          );
-        }
+        this.logger.debug(
+          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
+        );
       }
       return cachedResponse;
     }
@@ -2938,6 +2937,11 @@ export class EthImpl implements Eth {
     return receipts;
   }
 
+  /**
+   * Maps the contract result with the logs
+   * @param {any} result - The contract result
+   * @param {Log[]} logs - The logs
+   */
   private mapResultWithLogs(result, logs) {
     const matchingLogs = logs
       .filter((log) => log.transactionHash === result.hash)
@@ -2953,5 +2957,21 @@ export class EthImpl implements Eth {
         });
       });
     result.logs = matchingLogs;
+  }
+
+  /**
+   * Extracts the block hash or number from the block parameter for the cache key
+   * @param {string | object} blockParam - The block parameter
+   * @returns {string} The cache key
+   */
+  private getCacheKeyFromBlockParam(blockParam: string | object): string {
+    if (typeof blockParam === 'object') {
+      if ('blockHash' in blockParam) {
+        return blockParam.blockHash as string;
+      } else if ('blockNumber' in blockParam) {
+        return blockParam.blockNumber as string;
+      }
+    }
+    return blockParam as string;
   }
 }
