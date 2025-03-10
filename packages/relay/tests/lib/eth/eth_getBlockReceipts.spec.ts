@@ -198,7 +198,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   describe('Cache behavior', () => {
     it('should use cached results for subsequent calls', async function () {
-      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_HASH}`;
+      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER}`;
 
       setupStandardResponses();
       const specificCacheServiceSpy = sinon
@@ -217,7 +217,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should set cache when not previously cached', async function () {
-      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER_HEX}`;
+      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER}`;
       const cacheSetSpy = sinon.spy(cacheService, 'set');
 
       setupStandardResponses();

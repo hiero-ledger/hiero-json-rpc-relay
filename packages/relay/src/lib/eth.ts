@@ -2864,7 +2864,7 @@ export class EthImpl implements Eth {
 
     let blockNumOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${this.getCacheKeyFromBlockParam(blockParam)}`;
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumOrTag}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
     if (cachedResponse) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -2879,8 +2879,8 @@ export class EthImpl implements Eth {
       blockNumOrTag = await this.common.getLatestBlockNumber(requestDetails);
     }
 
-    if (blockNumOrTag === 'earliest') {
-      blockNumOrTag = (await this.mirrorNodeClient.getBlock(0, requestDetails)).number;
+    if (blockNumOrTag === EthImpl.blockEarliest) {
+      blockNumOrTag = '0x0';
     }
 
     const params: IContractResultsParams = {
@@ -2957,21 +2957,5 @@ export class EthImpl implements Eth {
         });
       });
     result.logs = matchingLogs;
-  }
-
-  /**
-   * Extracts the block hash or number from the block parameter for the cache key
-   * @param {string | object} blockParam - The block parameter
-   * @returns {string} The cache key
-   */
-  private getCacheKeyFromBlockParam(blockParam: string | object): string {
-    if (typeof blockParam === 'object') {
-      if ('blockHash' in blockParam) {
-        return blockParam.blockHash as string;
-      } else if ('blockNumber' in blockParam) {
-        return blockParam.blockNumber as string;
-      }
-    }
-    return blockParam as string;
   }
 }
