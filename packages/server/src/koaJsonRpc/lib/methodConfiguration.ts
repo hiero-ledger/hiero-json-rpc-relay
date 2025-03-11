@@ -55,6 +55,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   eth_getBlockByNumber: {
     total: tier2rateLimit,
   },
+  eth_getBlockReceipts: {
+    total: tier2rateLimit,
+  },
   eth_getBlockTransactionCountByHash: {
     total: tier2rateLimit,
   },
