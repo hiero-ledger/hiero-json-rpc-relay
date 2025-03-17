@@ -35,8 +35,6 @@ import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
-import { DebugService } from './services/debugService';
-import { IDebugService } from './services/debugService/IDebugService';
 import { CommonService, FilterService } from './services/ethService';
 import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
@@ -111,7 +109,6 @@ export class EthImpl implements Eth {
   static ethGetTransactionCountByNumber = 'eth_GetTransactionCountByNumber';
   static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
   static ethSendRawTransaction = 'eth_sendRawTransaction';
-  static debugTraceTransaction = 'debug_traceTransaction';
 
   // block constants
   static blockLatest = 'latest';
@@ -220,11 +217,6 @@ export class EthImpl implements Eth {
   private readonly filterServiceImpl: FilterService;
 
   /**
-   * The Debug Service implementation that takes care of all filter API operations.
-   */
-  private readonly debugServiceImpl: DebugService;
-
-  /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
    * using Hedera Hashgraph as the underlying network.
    *
@@ -255,7 +247,6 @@ export class EthImpl implements Eth {
       registry,
     );
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
-    this.debugServiceImpl = new DebugService(mirrorNodeClient, logger, this.common);
     this.filterServiceImpl = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
   }
 
@@ -276,10 +267,6 @@ export class EthImpl implements Eth {
 
   filterService(): IFilterService {
     return this.filterServiceImpl;
-  }
-
-  debugService(): IDebugService {
-    return this.debugServiceImpl;
   }
 
   /**

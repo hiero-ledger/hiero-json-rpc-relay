@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RelayImpl } from '@hashgraph/json-rpc-relay';
-import { ITracerConfig, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import pino from 'pino';
 
 import KoaJsonRpc from '../koaJsonRpc';
 import { logAndHandleResponse } from '../utils';
-import { TracerType, TYPES } from '../validator';
 
 const defineDebugRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pino.Logger) {
   /**
@@ -42,10 +40,7 @@ const defineDebugRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: p
           }
         }
 
-        return relay
-          .eth()
-          .debugService()
-          .debug_traceTransaction(transactionIdOrHash, tracer, tracerConfig, requestDetails);
+        return relay.debug().traceTransaction(transactionIdOrHash, tracer, tracerConfig, requestDetails);
       },
       app,
       logger,
