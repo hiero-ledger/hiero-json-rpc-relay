@@ -13,7 +13,7 @@ const defineNetRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pin
    * @returns false
    */
   app.useRpc('net_listening', async () => {
-    return logAndHandleResponse('net_listening', [], () => '' + relay.net().listening(), app, logger);
+    return logAndHandleResponse('net_listening', [], () => relay.net().listening(), app, logger);
   });
 
   /**
