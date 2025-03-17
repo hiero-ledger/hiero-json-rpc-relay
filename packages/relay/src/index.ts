@@ -13,18 +13,6 @@ export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
 export { RelayImpl } from './lib/relay';
 
-export interface Relay {
-  web3(): Web3;
-
-  net(): Net;
-
-  eth(): Eth;
-
-  subs(): Subs | undefined;
-
-  mirrorClient(): MirrorNodeClient;
-}
-
 export interface Subs {
   generateId(): string;
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Relay } from '@hashgraph/json-rpc-relay';
+import { RelayImpl } from '@hashgraph/json-rpc-relay';
 import { ITracerConfig, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import pino from 'pino';
 
@@ -8,7 +8,7 @@ import KoaJsonRpc from '../koaJsonRpc';
 import { logAndHandleResponse } from '../utils';
 import { TracerType, TYPES } from '../validator';
 
-const defineDebugRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Logger) {
+const defineDebugRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pino.Logger) {
   /**
    * Returns all traces of a given transaction.
    *

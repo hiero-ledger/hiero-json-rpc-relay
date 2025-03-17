@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Net, Relay, Subs, Web3 } from '../index';
+import { Eth, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -25,7 +25,7 @@ import { SubscriptionController } from './subscriptionController';
 import { RequestDetails } from './types';
 import { Web3Impl } from './web3';
 
-export class RelayImpl implements Relay {
+export class RelayImpl {
   /**
    * @private
    * @readonly
