@@ -770,7 +770,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {
         const res = await relay.call(
           RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
-          [{ blockHash: mirrorBlock.hash.substring(0, 66) }],
+          [mirrorBlock.hash.substring(0, 66)],
           requestIdPrefix,
         );
 
