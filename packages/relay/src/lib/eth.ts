@@ -2927,13 +2927,13 @@ export class EthImpl implements Eth {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
-  public async getBlockReceipts(blockParam: string | object, requestDetails: RequestDetails): Promise<Receipt[]> {
+  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockParam)})`);
+      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
     }
 
-    let blockNumOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
+    let blockNumOrTag = await this.extractBlockNumberOrTag(blockHashOrBlockNumber, requestDetails);
 
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumOrTag}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
