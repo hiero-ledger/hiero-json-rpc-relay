@@ -30,11 +30,6 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pin
    * @returns hex
    */
   app.useRpc('eth_estimateGas', async (params: any) => {
-    // HotFix for Metamask sending `0x` on data param
-    if (params?.[0]?.data === '0x') {
-      delete params[0].data;
-    }
-
     return logAndHandleResponse(
       'eth_estimateGas',
       params,

@@ -541,9 +541,14 @@ export class EthImpl implements Eth {
     _blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
+    // Removing empty '0x' data parameter sent by Metamask
+    if (transaction.data === '0x') {
+      delete transaction.data;
+    }
+
     const requestIdPrefix = requestDetails.formattedRequestId;
-    const callData = transaction.data ? transaction.data : transaction.input;
-    const callDataSize = callData ? callData.length : 0;
+    const callData = transaction.data || transaction.input;
+    const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
       this.ethExecutionsCounter
