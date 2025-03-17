@@ -85,7 +85,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       // mirror node request mocks
       setupStandardResponses();
 
-      const receipts = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(2);
 
@@ -147,14 +147,14 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     it('should return empty array for block with no transactions', async function () {
       restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
 
-      const receipts = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       expect(receipts).to.be.an('array').that.is.empty;
     });
 
     it('should properly format all receipt fields', async function () {
       setupStandardResponses();
 
-      const receipts = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       expect(receipts[0]).to.include.all.keys([
         'blockHash',
         'blockNumber',
@@ -204,11 +204,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       const specificCacheServiceSpy = sinon
         .spy(cacheService, 'getAsync')
         .withArgs(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
-      const firstResponse = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
+      const firstResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
       // Subsequent calls should use cache
-      const secondResponse = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
-      const thirdResponse = await ethImpl.getBlockReceipts({ blockHash: BLOCK_HASH }, requestDetails);
+      const secondResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+      const thirdResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
       expect(specificCacheServiceSpy.calledThrice).to.be.true;
       expect(specificCacheServiceSpy.callCount).to.equal(3);

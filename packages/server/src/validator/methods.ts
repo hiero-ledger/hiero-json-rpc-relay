@@ -35,7 +35,7 @@ export const METHODS: { [key: string]: IMethodValidation } = {
   },
   eth_getBlockReceipts: {
     0: {
-      type: 'blockParams',
+      type: 'blockNumber|blockHash',
       required: true,
     },
   },
