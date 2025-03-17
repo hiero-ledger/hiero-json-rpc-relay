@@ -12,7 +12,7 @@ import constants, { CallType, TracerType } from './constants';
 import { predefined } from './errors/JsonRpcError';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService } from './services/ethService/ethCommonService';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper, RequestDetails } from './types';
 /**
  * Represents a DebugService for tracing and debugging transactions.
  *
@@ -69,32 +69,34 @@ export class DebugImpl implements Debug {
    * Trace a transaction for debugging purposes.
    *
    * @async
-   * @param {string} transactionIdOrHash - The ID or hash of the transaction to be traced.
-   * @param {TracerType} tracer - The type of tracer to use (either 'CallTracer' or 'OpcodeLogger').
-   * @param {ITracerConfig} tracerConfig - The configuration object for the tracer.
+   * @param {any[]} params - The raw parameters array from the RPC call.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @throws {Error} Throws an error if the specified tracer type is not supported or if an exception occurs during the trace.
+   * @throws {Error} Throws an error if the Debug API is not enabled, if the specified tracer type is not supported, or if an exception occurs during the trace.
    * @returns {Promise<any>} A Promise that resolves to the result of the trace operation.
    *
    * @example
-   * const result = await traceTransaction('0x123abc', TracerType.CallTracer, {"tracerConfig": {"onlyTopCall": false}}, some request id);
+   * const result = await traceTransaction(['0x123abc', { tracer: 'callTracer', tracerConfig: { onlyTopCall: false } }], requestDetails);
    */
-  async traceTransaction(
-    transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
-    requestDetails: RequestDetails,
-  ): Promise<any> {
+  async traceTransaction(params: any[], requestDetails: RequestDetails): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
+      this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${JSON.stringify(params)})`);
     }
+
     try {
       DebugImpl.requireDebugAPIEnabled();
+
+      // Parse and validate parameters
+      const { transactionIdOrHash, tracer, tracerConfig } = this.parseTraceTransactionParams(params);
+
+      // Execute the appropriate tracer based on type
       if (tracer === TracerType.CallTracer) {
         return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
       } else if (tracer === TracerType.OpcodeLogger) {
         return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
       }
+
+      // Should never reach here as we default to OpcodeLogger
+      throw new Error(`Unsupported tracer type: ${tracer}`);
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }

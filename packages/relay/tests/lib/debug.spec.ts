@@ -15,7 +15,7 @@ import { TracerType } from '../../src/lib/constants';
 import { DebugImpl } from '../../src/lib/debug';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { CommonService } from '../../src/lib/services/ethService';
-import { RequestDetails } from '../../src/lib/types';
+import { ITracerConfig, RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
@@ -314,7 +314,7 @@ describe('Debug API Test Suite', async function () {
           debugService.traceTransaction,
           true,
           debugService,
-          [transactionHash, callTracer, tracerConfigFalse, requestDetails],
+          [[transactionHash, callTracer, tracerConfigFalse], requestDetails],
         );
       });
     });
@@ -326,7 +326,7 @@ describe('Debug API Test Suite', async function () {
           debugService.traceTransaction,
           true,
           debugService,
-          [transactionHash, callTracer, tracerConfigFalse, requestDetails],
+          [[transactionHash, callTracer, tracerConfigFalse], requestDetails],
         );
       });
     });
@@ -334,9 +334,7 @@ describe('Debug API Test Suite', async function () {
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('should successfully debug a transaction', async function () {
         const traceTransaction = await debugService.traceTransaction(
-          transactionHash,
-          callTracer,
-          tracerConfigFalse,
+          [transactionHash, callTracer, tracerConfigFalse],
           requestDetails,
         );
         expect(traceTransaction).to.exist;
@@ -368,9 +366,7 @@ describe('Debug API Test Suite', async function () {
           };
 
           const result = await debugService.traceTransaction(
-            transactionHash,
-            callTracer,
-            tracerConfigFalse,
+            [transactionHash, callTracer, tracerConfigFalse],
             requestDetails,
           );
 
@@ -390,9 +386,7 @@ describe('Debug API Test Suite', async function () {
             calls: undefined,
           };
           const result = await debugService.traceTransaction(
-            transactionHash,
-            callTracer,
-            tracerConfigTrue,
+            [transactionHash, callTracer, tracerConfigTrue],
             requestDetails,
           );
 
@@ -432,7 +426,10 @@ describe('Debug API Test Suite', async function () {
                 })),
               };
 
-              const result = await debugService.traceTransaction(transactionHash, opcodeLogger, config, requestDetails);
+              const result = await debugService.traceTransaction(
+                [transactionHash, opcodeLogger, config],
+                requestDetails,
+              );
 
               expect(result).to.deep.equal(expectedResult);
             });
@@ -467,9 +464,7 @@ describe('Debug API Test Suite', async function () {
           );
 
           await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
-            nonExistentTransactionHash,
-            callTracer,
-            tracerConfigTrue,
+            [nonExistentTransactionHash, callTracer, tracerConfigTrue],
             requestDetails,
           ]);
         });
@@ -498,6 +493,174 @@ describe('Debug API Test Suite', async function () {
             const address = await debugService.resolveAddress(accountAddress, requestDetails);
             expect(address).to.eq(accountAddress);
           });
+        });
+      });
+    });
+  });
+
+  // **note**: This suite uses (debugService as any) to access private methods
+  describe('Debug helper methods', async function () {
+    describe('isValidTracerType', async function () {
+      const validTracerTypes = [TracerType.CallTracer, TracerType.OpcodeLogger, 'callTracer', 'opcodeLogger'];
+
+      const invalidTracerTypes = ['invalidTracer', 123, null, undefined, {}];
+
+      validTracerTypes.forEach((type) => {
+        it(`should validate ${type} as a correct tracer type`, function () {
+          expect((debugService as any).isValidTracerType(type)).to.be.true;
+        });
+      });
+
+      invalidTracerTypes.forEach((type) => {
+        it(`should reject ${String(type)} as an invalid tracer type`, function () {
+          expect((debugService as any).isValidTracerType(type)).to.be.false;
+        });
+      });
+    });
+
+    describe('isValidCallTracerConfig', async function () {
+      const validConfigs = [{}, { onlyTopCall: true }, { onlyTopCall: false }];
+
+      const invalidConfigs = [null, 'string', { onlyTopCall: 'yes' }];
+
+      validConfigs.forEach((config, index) => {
+        it(`should validate valid call tracer config #${index + 1}`, function () {
+          expect((debugService as any).isValidCallTracerConfig(config)).to.be.true;
+        });
+      });
+
+      invalidConfigs.forEach((config, index) => {
+        it(`should reject invalid call tracer config #${index + 1}`, function () {
+          expect((debugService as any).isValidCallTracerConfig(config)).to.be.false;
+        });
+      });
+    });
+
+    describe('isValidOpcodeLoggerConfig', async function () {
+      const validConfigs = [
+        {},
+        { enableMemory: true },
+        { disableStack: false },
+        { disableStorage: true },
+        { enableMemory: true, disableStack: false, disableStorage: true },
+      ];
+
+      const invalidConfigs = [null, 'string', { enableMemory: 'yes' }];
+
+      validConfigs.forEach((config, index) => {
+        it(`should validate valid opcode logger config #${index + 1}`, function () {
+          expect((debugService as any).isValidOpcodeLoggerConfig(config)).to.be.true;
+        });
+      });
+
+      invalidConfigs.forEach((config, index) => {
+        it(`should reject invalid opcode logger config #${index + 1}`, function () {
+          expect((debugService as any).isValidOpcodeLoggerConfig(config)).to.be.false;
+        });
+      });
+
+      it('should accept unknown properties in config', function () {
+        expect((debugService as any).isValidOpcodeLoggerConfig({ unknownOption: true })).to.be.true;
+      });
+    });
+
+    describe('isValidTracerConfig', async function () {
+      const validConfigs = [{}, { onlyTopCall: true }, { enableMemory: true }];
+
+      const invalidConfigs = [null, 'string', 123];
+
+      validConfigs.forEach((config, index) => {
+        it(`should validate valid tracer config #${index + 1}`, function () {
+          expect((debugService as any).isValidTracerConfig(config)).to.be.true;
+        });
+      });
+
+      invalidConfigs.forEach((config, index) => {
+        it(`should reject invalid tracer config #${index + 1}`, function () {
+          expect((debugService as any).isValidTracerConfig(config)).to.be.false;
+        });
+      });
+    });
+
+    describe('parseTraceTransactionParams', async function () {
+      const testCases = [
+        {
+          name: 'transaction hash only',
+          params: [transactionHash],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.OpcodeLogger,
+            tracerConfig: {},
+          },
+        },
+        {
+          name: 'tracer as string',
+          params: [transactionHash, 'callTracer'],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.CallTracer,
+            tracerConfig: {},
+          },
+        },
+        {
+          name: 'object with tracer field',
+          params: [transactionHash, { tracer: 'callTracer' }],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.CallTracer,
+            tracerConfig: {},
+          },
+        },
+        {
+          name: 'object with tracerConfig field',
+          params: [transactionHash, { tracerConfig: { onlyTopCall: true } }],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.OpcodeLogger,
+            tracerConfig: { onlyTopCall: true },
+          },
+        },
+        {
+          name: 'object with both tracer and tracerConfig fields',
+          params: [
+            transactionHash,
+            {
+              tracer: 'callTracer',
+              tracerConfig: { onlyTopCall: true },
+            },
+          ],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.CallTracer,
+            tracerConfig: { onlyTopCall: true },
+          },
+        },
+        {
+          name: 'direct config object',
+          params: [transactionHash, { enableMemory: true }],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.OpcodeLogger,
+            tracerConfig: { enableMemory: true },
+          },
+        },
+        {
+          name: 'separate tracer and config params',
+          params: [transactionHash, 'callTracer', { onlyTopCall: true }],
+          expected: {
+            transactionIdOrHash: transactionHash,
+            tracer: TracerType.CallTracer,
+            tracerConfig: { onlyTopCall: true },
+          },
+        },
+      ];
+
+      testCases.forEach((testCase) => {
+        it(`should handle ${testCase.name}`, function () {
+          const result = (debugService as any).parseTraceTransactionParams(testCase.params);
+          expect(result.transactionIdOrHash).to.equal(testCase.expected.transactionIdOrHash);
+          expect(result.tracer).to.equal(testCase.expected.tracer);
+          expect(result.tracerConfig).to.deep.equal(testCase.expected.tracerConfig);
         });
       });
     });

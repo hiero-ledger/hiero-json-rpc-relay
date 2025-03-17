@@ -18,30 +18,7 @@ const defineDebugRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: p
     return logAndHandleResponse(
       'debug_traceTransaction',
       params,
-      (requestDetails: RequestDetails) => {
-        const transactionIdOrHash = params[0];
-        let tracer: TracerType = TracerType.OpcodeLogger;
-        let tracerConfig: ITracerConfig = {};
-
-        // Second param can be either a TracerType string, or an object for TracerConfig or TracerConfigWrapper
-        if (TYPES.tracerType.test(params[1])) {
-          tracer = params[1];
-          if (TYPES.tracerConfig.test(params[2])) {
-            tracerConfig = params[2];
-          }
-        } else if (TYPES.tracerConfig.test(params[1])) {
-          tracerConfig = params[1];
-        } else if (TYPES.tracerConfigWrapper.test(params[1])) {
-          if (TYPES.tracerType.test(params[1].tracer)) {
-            tracer = params[1].tracer;
-          }
-          if (TYPES.tracerConfig.test(params[1].tracerConfig)) {
-            tracerConfig = params[1].tracerConfig;
-          }
-        }
-
-        return relay.debug().traceTransaction(transactionIdOrHash, tracer, tracerConfig, requestDetails);
-      },
+      (requestDetails) => relay.debug().traceTransaction(params, requestDetails),
       app,
       logger,
     );

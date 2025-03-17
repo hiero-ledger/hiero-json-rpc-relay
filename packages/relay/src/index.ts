@@ -22,12 +22,7 @@ export interface Subs {
 }
 
 export interface Debug {
-  traceTransaction: (
-    transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
-    requestDetails: RequestDetails,
-  ) => Promise<any>;
+  traceTransaction: (params: any[], requestDetails: RequestDetails) => Promise<any>;
 }
 
 export interface Web3 {
