@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { MirrorNodeClient } from './lib/clients';
-import { TracerType } from './lib/constants';
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IFilterService } from './lib/services/ethService/ethFilterService/IFilterService';
-import { IContractCallRequest, ITracerConfig, RequestDetails } from './lib/types';
+import { IContractCallRequest, RequestDetails } from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -129,6 +126,24 @@ export interface Eth {
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 
+  newFilter(
+    fromBlock: string,
+    toBlock: string,
+    requestDetails: RequestDetails,
+    address?: string,
+    topics?: any[],
+  ): Promise<string>;
+
+  newBlockFilter(requestDetails: RequestDetails): Promise<string>;
+
+  getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]>;
+
+  getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]>;
+
+  newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError>;
+
+  uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean>;
+
   protocolVersion(requestDetails: RequestDetails): JsonRpcError;
 
   sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
@@ -146,6 +161,4 @@ export interface Eth {
   syncing(requestDetails: RequestDetails): Promise<boolean>;
 
   accounts(requestDetails: RequestDetails): Array<any>;
-
-  filterService(): IFilterService;
 }

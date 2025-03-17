@@ -36,7 +36,6 @@ import { Block, Log, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
-import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo } from './types/mirrorNode';
@@ -214,7 +213,7 @@ export class EthImpl implements Eth {
   /**
    * The Filter Service implementation that takes care of all filter API operations.
    */
-  private readonly filterServiceImpl: FilterService;
+  private readonly filterService: FilterService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
@@ -247,7 +246,7 @@ export class EthImpl implements Eth {
       registry,
     );
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
-    this.filterServiceImpl = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
+    this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
   }
 
   private shouldUseCacheForBalance(tag: string | null): boolean {
@@ -263,10 +262,6 @@ export class EthImpl implements Eth {
       labelNames: labelNames,
       registers: [register],
     });
-  }
-
-  filterService(): IFilterService {
-    return this.filterServiceImpl;
   }
 
   /**
@@ -767,6 +762,101 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestDetails.formattedRequestId} mining()`);
     }
     return false;
+  }
+
+  /**
+   * Creates a new filter object based on filter options to notify when the state changes (logs).
+   *
+   * @param {string} fromBlock - The starting block number or tag
+   * @param {string} toBlock - The ending block number or tag
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @param {string} address - The address to filter logs for
+   * @param {any[]} topics - The topics to filter logs for
+   * @returns {Promise<string>} A filter ID that can be used to query for changes
+   */
+  async newFilter(
+    fromBlock: string = 'latest',
+    toBlock: string = 'latest',
+    requestDetails: RequestDetails,
+    address?: string,
+    topics?: any[],
+  ): Promise<string> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${requestIdPrefix} newFilter(fromBlock=${fromBlock}, toBlock=${toBlock}, address=${address}, topics=${topics})`,
+      );
+    }
+    return this.filterService.newFilter(fromBlock, toBlock, requestDetails, address, topics);
+  }
+
+  /**
+   * Returns an array of all logs matching the filter with the given ID.
+   *
+   * @param {string} filterId - The filter ID
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<Log[]>} Array of log objects matching the filter criteria
+   */
+  async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getFilterLogs(${filterId})`);
+    }
+    return this.filterService.getFilterLogs(filterId, requestDetails);
+  }
+
+  /**
+   * Polling method for a filter, which returns an array of events that occurred since the last poll.
+   *
+   * @param {string} filterId - The filter ID
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<string[] | Log[]>} Array of new logs or block hashes depending on the filter type
+   */
+  async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getFilterChanges(${filterId})`);
+    }
+    return this.filterService.getFilterChanges(filterId, requestDetails);
+  }
+
+  /**
+   * Creates a filter in the node to notify when a new block arrives.
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<string>} A filter ID that can be used to check for new blocks
+   */
+  async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} newBlockFilter()`);
+    }
+    return this.filterService.newBlockFilter(requestDetails);
+  }
+
+  /**
+   * Uninstalls a filter with the given ID.
+   *
+   * @param {string} filterId - The filter ID to uninstall
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<boolean>} True if the filter was successfully uninstalled, false otherwise
+   */
+  async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} uninstallFilter(${filterId})`);
+    }
+    return this.filterService.uninstallFilter(filterId, requestDetails);
+  }
+
+  /**
+   * Creates a filter in the node to notify when new pending transactions arrive.
+   * This method is not supported and returns an error.
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<JsonRpcError>} An error indicating the method is not supported
+   */
+  async newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} newPendingTransactionFilter()`);
+    }
+    return this.filterService.newPendingTransactionFilter();
   }
 
   /**

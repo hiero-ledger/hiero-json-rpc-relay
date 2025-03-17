@@ -107,12 +107,6 @@ export class FilterService implements IFilterService {
     address?: string,
     topics?: any[],
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} newFilter(fromBlock=${fromBlock}, toBlock=${toBlock}, address=${address}, topics=${topics})`,
-      );
-    }
     try {
       FilterService.requireFiltersEnabled();
 
@@ -136,10 +130,6 @@ export class FilterService implements IFilterService {
   }
 
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} newBlockFilter()`);
-    }
     try {
       FilterService.requireFiltersEnabled();
       return await this.createFilter(
@@ -155,10 +145,6 @@ export class FilterService implements IFilterService {
   }
 
   public async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} uninstallFilter(${filterId})`);
-    }
     FilterService.requireFiltersEnabled();
 
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
@@ -172,15 +158,11 @@ export class FilterService implements IFilterService {
     return false;
   }
 
-  public newPendingTransactionFilter(requestDetails: RequestDetails): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} newPendingTransactionFilter()`);
-    }
+  public newPendingTransactionFilter(): JsonRpcError {
     return predefined.UNSUPPORTED_METHOD;
   }
 
   public async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
-    this.logger.trace(`${requestDetails.formattedRequestId} getFilterLogs(${filterId})`);
     FilterService.requireFiltersEnabled();
 
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
@@ -215,9 +197,6 @@ export class FilterService implements IFilterService {
   }
 
   public async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getFilterChanges(${filterId})`);
-    }
     FilterService.requireFiltersEnabled();
 
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
