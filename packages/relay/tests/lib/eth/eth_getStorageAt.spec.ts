@@ -80,7 +80,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
         )
         .reply(200, JSON.stringify(DEFAULT_CURRENT_CONTRACT_STATE));
 
-      const result = await ethImpl.getStorageAt(CONTRACT_ADDRESS_1, '0x101', requestDetails, numberTo0x(BLOCK_NUMBER));
+      const result = await ethImpl.getStorageAt(CONTRACT_ADDRESS_1, '0x101', numberTo0x(BLOCK_NUMBER), requestDetails);
       confirmResult(result);
 
       // verify slot value
@@ -98,8 +98,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         '0x0000101',
-        requestDetails,
         numberTo0x(BLOCK_NUMBER),
+        requestDetails,
       );
       confirmResult(result);
 
@@ -118,8 +118,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         defaultDetailedContractResults.state_changes[0].slot,
-        requestDetails,
         numberTo0x(BLOCK_NUMBER),
+        requestDetails,
       );
       confirmResult(result);
 
@@ -138,8 +138,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         defaultDetailedContractResults.state_changes[0].slot,
-        requestDetails,
         BLOCK_HASH,
+        requestDetails,
       );
       confirmResult(result);
 
@@ -158,8 +158,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         DEFAULT_CURRENT_CONTRACT_STATE.state[0].slot,
-        requestDetails,
         'latest',
+        requestDetails,
       );
       confirmResult(result);
 
@@ -177,8 +177,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         DEFAULT_CURRENT_CONTRACT_STATE.state[0].slot,
-        requestDetails,
         'finalized',
+        requestDetails,
       );
       confirmResult(result);
 
@@ -196,8 +196,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         DEFAULT_CURRENT_CONTRACT_STATE.state[0].slot,
-        requestDetails,
         'safe',
+        requestDetails,
       );
       confirmResult(result);
 
@@ -217,8 +217,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         defaultDetailedContractResults.state_changes[0].slot,
-        requestDetails,
         null,
+        requestDetails,
       );
       confirmResult(result);
 
@@ -231,8 +231,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const args = [
         CONTRACT_ADDRESS_1,
         defaultDetailedContractResults.state_changes[0].slot,
-        requestDetails,
         numberTo0x(BLOCK_NUMBER),
+        requestDetails,
       ];
 
       await RelayAssertions.assertRejection(
@@ -255,8 +255,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         wrongSlot,
-        requestDetails,
         numberTo0x(BLOCK_NUMBER),
+        requestDetails,
       );
       expect(result).to.equal(EthImpl.zeroHex32Byte);
     });
@@ -272,8 +272,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         DEFAULT_OLDER_CONTRACT_STATE.state[0].slot,
-        requestDetails,
         numberTo0x(OLDER_BLOCK.number),
+        requestDetails,
       );
       expect(result).to.equal(DEFAULT_OLDER_CONTRACT_STATE.state[0].value);
     });
@@ -289,8 +289,8 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       const result = await ethImpl.getStorageAt(
         CONTRACT_ADDRESS_1,
         DEFAULT_OLDER_CONTRACT_STATE.state[0].slot,
-        requestDetails,
         numberTo0x(OLDER_BLOCK.number),
+        requestDetails,
       );
       expect(result).to.equal(ethers.ZeroHash);
     });

@@ -368,7 +368,10 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getLogs" with no filters', async function () {
-    const response = await ethImpl.getLogs(null, 'latest', 'latest', null, null, requestDetails);
+    const response = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: null },
+      requestDetails,
+    );
 
     validateResponseSchema(methodsResponseSchema.eth_getLogs, response);
   });
@@ -396,7 +399,10 @@ describe('Open RPC Specification', function () {
       mock.onGet(`contracts/${log.address}`).reply(200, JSON.stringify(defaultContract));
     }
 
-    const response = await ethImpl.getLogs(null, 'latest', 'latest', null, defaultLogTopics, requestDetails);
+    const response = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: defaultLogTopics },
+      requestDetails,
+    );
 
     validateResponseSchema(methodsResponseSchema.eth_getLogs, response);
   });

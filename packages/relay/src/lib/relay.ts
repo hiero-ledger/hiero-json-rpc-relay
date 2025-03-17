@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Net, Relay, Subs, Web3 } from '../index';
+import { Eth, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -14,6 +14,7 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { DebugImpl } from './debug';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { Poller } from './poller';
@@ -25,7 +26,7 @@ import { SubscriptionController } from './subscriptionController';
 import { RequestDetails } from './types';
 import { Web3Impl } from './web3';
 
-export class RelayImpl implements Relay {
+export class RelayImpl {
   /**
    * @private
    * @readonly
@@ -99,6 +100,11 @@ export class RelayImpl implements Relay {
   private readonly eventEmitter: EventEmitter;
 
   /**
+   * The Debug Service implementation that takes care of all filter API operations.
+   */
+  private readonly debugImpl: DebugImpl;
+
+  /**
    * Initializes the main components of the relay service, including Hedera network clients,
    * Ethereum-compatible interfaces, caching, metrics, and subscription management.
    *
@@ -143,8 +149,8 @@ export class RelayImpl implements Relay {
 
     this.clientMain = hapiService.getMainClientInstance();
 
-    this.web3Impl = new Web3Impl(this.clientMain);
-    this.netImpl = new NetImpl(this.clientMain);
+    this.web3Impl = new Web3Impl();
+    this.netImpl = new NetImpl();
 
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -172,6 +178,8 @@ export class RelayImpl implements Relay {
       register,
       this.cacheService,
     );
+
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
       logger.child({ name: 'hbar-spending-plan-config-service' }),
@@ -253,6 +261,10 @@ export class RelayImpl implements Relay {
         }
       },
     });
+  }
+
+  debug(): DebugImpl {
+    return this.debugImpl;
   }
 
   web3(): Web3 {
