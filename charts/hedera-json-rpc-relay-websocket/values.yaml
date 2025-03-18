@@ -11,29 +11,18 @@ autoscaling:
 config:
   # This value should be in decimal, not hexadecimal format. Defaulted to testnet
   CHAIN_ID: ''
-  DEV_MODE: false
 
   # Valid options are `previewnet`, `testnet`, and `mainnet` for remote options. For local use {'127.0.01:50211':'0.0.3'}. For IPs use {'$IPv4_ADDR_1:$PORT_1':'$ACCOUNT_ID_1'} form
-  HEDERA_NETWORK: ''
   LOG_LEVEL: ''
   MIRROR_NODE_RETRIES: 3
   MIRROR_NODE_RETRY_DELAY: 250
-  MIRROR_NODE_LIMIT_PARAM: 100
-  MIRROR_NODE_URL: ''
-  SUBSCRIPTIONS_ENABLED: true  # must be true for websocket
-  WEB_SOCKET_PORT: 8546
-  WEB_SOCKET_HTTP_PORT: 8547
-  WS_CONNECTION_LIMIT_PER_IP: 10
+  SUBSCRIPTIONS_ENABLED: true # must be true for websocket
   WS_CONNECTION_LIMIT: 100
-  WS_MAX_INACTIVITY_TTL: 300000
-  WS_MULTIPLE_ADDRESSES_ENABLED: false
   WS_SUBSCRIPTION_LIMIT: 100
   WS_PING_INTERVAL: 1000
   REDIS_ENABLED: false
   REDIS_URL: ''
-  REDIS_RECONNECT_DELAY_MS: 1000
   MULTI_SET: true
-  USE_ASYNC_TX_PROCESSING: true
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []
 # - secretRef:
@@ -90,7 +79,7 @@ podSecurityContext:
 ports:
   - name: websocket
     containerPort: 8546
-  - name: metrics  # port for http endpoints (metrics and health)
+  - name: metrics # port for http endpoints (metrics and health)
     containerPort: 8547
 
 replicaCount: 2
