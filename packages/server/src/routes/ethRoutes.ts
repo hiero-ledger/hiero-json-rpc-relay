@@ -528,12 +528,10 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pin
    * @returns id
    */
   app.useRpc('eth_newFilter', async (params: any) => {
-    const filter = params[0];
     return logAndHandleResponse(
       'eth_newFilter',
-      [],
-      (requestDetails) =>
-        relay.eth().newFilter(filter?.fromBlock, filter?.toBlock, requestDetails, filter?.address, filter?.topics),
+      params,
+      (requestDetails) => relay.eth().newFilter(params[0], requestDetails),
       app,
       logger,
     );

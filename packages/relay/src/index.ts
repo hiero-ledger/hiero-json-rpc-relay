@@ -118,13 +118,7 @@ export interface Eth {
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 
-  newFilter(
-    fromBlock: string,
-    toBlock: string,
-    requestDetails: RequestDetails,
-    address?: string,
-    topics?: any[],
-  ): Promise<string>;
+  newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string>;
 
   newBlockFilter(requestDetails: RequestDetails): Promise<string>;
 

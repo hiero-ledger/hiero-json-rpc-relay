@@ -768,27 +768,16 @@ export class EthImpl implements Eth {
   /**
    * Creates a new filter object based on filter options to notify when the state changes (logs).
    *
-   * @param {string} fromBlock - The starting block number or tag
-   * @param {string} toBlock - The ending block number or tag
+   * @param {INewFilterParams} params - The parameters for the new filter
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @param {string} address - The address to filter logs for
-   * @param {any[]} topics - The topics to filter logs for
    * @returns {Promise<string>} A filter ID that can be used to query for changes
    */
-  async newFilter(
-    fromBlock: string = 'latest',
-    toBlock: string = 'latest',
-    requestDetails: RequestDetails,
-    address?: string,
-    topics?: any[],
-  ): Promise<string> {
+  async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} newFilter(fromBlock=${fromBlock}, toBlock=${toBlock}, address=${address}, topics=${topics})`,
-      );
+      this.logger.trace(`${requestIdPrefix} newFilter(params=${JSON.stringify(params)})`);
     }
-    return this.filterService.newFilter(fromBlock, toBlock, requestDetails, address, topics);
+    return this.filterService.newFilter(params, requestDetails);
   }
 
   /**

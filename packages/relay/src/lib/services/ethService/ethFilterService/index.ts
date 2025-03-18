@@ -9,6 +9,7 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
+import { INewFilterParams } from '../../../types/requestParams';
 import { CacheService } from '../../cacheService/cacheService';
 import { CommonService } from '../ethCommonService';
 import { IFilterService } from './IFilterService';
@@ -94,21 +95,15 @@ export class FilterService implements IFilterService {
 
   /**
    * Creates a new filter with TYPE=log
-   * @param fromBlock
-   * @param toBlock
-   * @param address
-   * @param topics
+   * @param params
    * @param requestDetails
    */
-  async newFilter(
-    fromBlock: string = 'latest',
-    toBlock: string = 'latest',
-    requestDetails: RequestDetails,
-    address?: string,
-    topics?: any[],
-  ): Promise<string> {
+  async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     try {
       FilterService.requireFiltersEnabled();
+
+      const fromBlock = params?.fromBlock === undefined ? 'latest' : params?.fromBlock;
+      const toBlock = params?.toBlock === undefined ? 'latest' : params?.toBlock;
 
       if (!(await this.common.validateBlockRange(fromBlock, toBlock, requestDetails))) {
         throw predefined.INVALID_BLOCK_RANGE;
@@ -119,8 +114,8 @@ export class FilterService implements IFilterService {
         {
           fromBlock: fromBlock === 'latest' ? await this.common.getLatestBlockNumber(requestDetails) : fromBlock,
           toBlock,
-          address,
-          topics,
+          address: params?.address,
+          topics: params?.topics,
         },
         requestDetails,
       );
