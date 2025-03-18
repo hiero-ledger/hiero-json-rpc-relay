@@ -110,7 +110,7 @@ export class ConfigService {
   }
 
   /**
-   * Retrieves all environment variables and masked the sensitive ones.
+   * Retrieves all environment variables and masks the sensitive ones.
    *
    * @returns Dict<string>
    */
