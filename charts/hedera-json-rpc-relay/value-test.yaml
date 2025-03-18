@@ -91,7 +91,6 @@ ports:
 config:
   # This value should be in decimal, not hexadecimal format.
   CHAIN_ID: ''
-  MIRROR_NODE_URL: ''
   LOG_LEVEL: ''
   # Use config.local.HEDERA_NETWORK when running against a locally hosted hedera network
   # local:
@@ -101,42 +100,15 @@ config:
   # Use config.hosted.HEDERA_NETWORK when running against a hosted Hedera network.  Valid options are `previewnet`, `testnet`, and `mainnet`
   # hosted:
   #   HEDERA_NETWORK: ""
-  OPERATOR_ID_MAIN: ''
-  OPERATOR_KEY_MAIN: ''
-  OPERATOR_ID_ETH_SENDRAWTRANSACTION: ''
-  OPERATOR_KEY_ETH_SENDRAWTRANSACTION: ''
-  DEFAULT_RATE_LIMIT: 200
-  TIER_1_RATE_LIMIT: 100
-  TIER_2_RATE_LIMIT: 800
-  TIER_3_RATE_LIMIT: 1600
-  LIMIT_DURATION: 60000
   HBAR_RATE_LIMIT_TINYBAR: 10000000000
   HBAR_RATE_LIMIT_DURATION: 60000
   HBAR_RATE_LIMIT_BASIC: 5000000000
-  ETH_GET_LOGS_BLOCK_RANGE_LIMIT: 1000
-  RATE_LIMIT_DISABLED: false
-  DEV_MODE: false
-  GAS_PRICE_TINY_BAR_BUFFER: 10000000000
   MIRROR_NODE_RETRIES: 3
   MIRROR_NODE_RETRY_DELAY: 250
-  MIRROR_NODE_LIMIT_PARAM: 100
-  INPUT_SIZE_LIMIT: 1
-  ETH_CALL_CACHE_TTL: 200
-  CONSENSUS_MAX_EXECUTION_TIME: 15000
-  SDK_REQUEST_TIMEOUT: 10000
-  CONTRACT_QUERY_TIMEOUT_RETRIES: 3
-  SUBSCRIPTIONS_ENABLED: false
-  ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: false
-  HAPI_CLIENT_TRANSACTION_RESET: 50
-  HAPI_CLIENT_DURATION_RESET: 3600000
   HAPI_CLIENT_ERROR_RESET: [50]
   REDIS_ENABLED: false
   REDIS_URL: ''
-  REDIS_RECONNECT_DELAY_MS: 1000
-  DEBUG_API_ENABLED: false
-  FILTER_API_ENABLED: true
   MULTI_SET: true
-  GAS_PRICE_PERCENTAGE_BUFFER: 0
 
 # Enable rolling_restarts if SDK calls fail this is usually due to stale connections that get cycled on restart
 rolling_restart:
