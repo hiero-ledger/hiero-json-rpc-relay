@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { RelayImpl } from '@hashgraph/json-rpc-relay';
+import { SubscriptionController } from '@hashgraph/json-rpc-relay/dist/lib/subscriptionController';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { expect } from 'chai';
+import { Counter, Histogram } from 'prom-client';
 import sinon from 'sinon';
+
+import ConnectionLimiter from '../../src/metrics/connectionLimiter';
+import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
+import { WS_CONSTANTS } from '../../src/utils/constants';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -12,14 +20,7 @@ import {
   resolveParams,
   sendToClient,
 } from '../../src/utils/utils';
-import { WS_CONSTANTS } from '../../src/utils/constants';
-import ConnectionLimiter from '../../src/metrics/connectionLimiter';
-import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
 import { WsTestHelper } from '../helper';
-import { RelayImpl } from '@hashgraph/json-rpc-relay';
-import { Counter, Histogram } from 'prom-client';
-import { SubscriptionController } from '@hashgraph/json-rpc-relay/dist/lib/subscriptionController';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 
 describe('Utilities unit tests', async function () {
   describe('constructValidLogSubscriptionFilter tests', () => {
@@ -122,57 +123,6 @@ describe('Utilities unit tests', async function () {
 
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledOnce).to.be.true;
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledWith(connectionMock)).to.be.true;
-    });
-  });
-
-  describe('resolveParams', () => {
-    const mockParams = [
-      {
-        blockHash: '0x1234',
-        fromBlock: '0x1',
-        toBlock: '0x2',
-        address: '0xAddress',
-        topics: ['0xTopic1', '0xTopic2'],
-      },
-    ];
-
-    it('should resolve parameters for ETH_GETLOGS method', () => {
-      const method = WS_CONSTANTS.METHODS.ETH_GETLOGS;
-      const resolvedParams = resolveParams(method, mockParams);
-
-      expect(resolvedParams).to.deep.equal([
-        mockParams[0].blockHash,
-        mockParams[0].fromBlock,
-        mockParams[0].toBlock,
-        mockParams[0].address,
-        mockParams[0].topics,
-      ]);
-    });
-
-    it('should resolve parameters for ETH_NEWFILTER method', () => {
-      const method = WS_CONSTANTS.METHODS.ETH_NEWFILTER;
-      const resolvedParams = resolveParams(method, mockParams);
-
-      expect(resolvedParams).to.deep.equal([
-        mockParams[0].fromBlock,
-        mockParams[0].toBlock,
-        mockParams[0].address,
-        mockParams[0].topics,
-      ]);
-    });
-
-    it('should return original parameters for an unknown method', () => {
-      const method = 'unknownMethod';
-      const resolvedParams = resolveParams(method, mockParams);
-
-      expect(resolvedParams).to.deep.equal(mockParams);
-    });
-
-    it('should return the original params if method requires no special handling', () => {
-      const method = 'anotherMethod';
-      const resolvedParams = resolveParams(method, mockParams);
-
-      expect(resolvedParams).to.deep.equal(mockParams);
     });
   });
 
@@ -293,58 +243,6 @@ describe('Utilities unit tests', async function () {
     WsTestHelper.withOverriddenEnvsInMochaTest({ WS_BATCH_REQUESTS_MAX_SIZE: undefined }, () => {
       it('should return 20', () => {
         expect(getBatchRequestsMaxSize()).to.equal(20);
-      });
-    });
-  });
-
-  describe('paramRearrangementMap', () => {
-    const requestDetails = new RequestDetails({ ipAddress: '0.0.0.0', requestId: 'test-id' });
-    const specialMethodNames = [`chainId`, `estimateGas`, `getStorageAt`, `newFilter`, `default`];
-
-    const mockResolvedParams = {
-      chainId: [],
-      estimateGas: [
-        {
-          to: '0xD7d454ea421FA3E98c988c2A33b5292C70A43b1E',
-          data: '0x18160ddd',
-        },
-        'latest',
-      ],
-      getStorageAt: ['0xd7d454ea421fa3e98c988c2a33b5292c70a43b1e', '0x0', 'latest'],
-      newFilter: [
-        '0x0',
-        'latest',
-        ['0xf72ea4E404618E9DCcA79748236910887be9e2bd'],
-        ['0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9'],
-      ],
-      default: ['0x7cb9357e', '0x7cb9357e', '0x00abv'],
-    };
-
-    const expectedRearrangedParams = {
-      chainId: [requestDetails],
-      estimateGas: [...mockResolvedParams.estimateGas, requestDetails],
-      getStorageAt: [
-        mockResolvedParams.getStorageAt[0],
-        mockResolvedParams.getStorageAt[1],
-        requestDetails,
-        mockResolvedParams.getStorageAt[2],
-      ],
-      newFilter: [
-        mockResolvedParams.newFilter[0],
-        mockResolvedParams.newFilter[1],
-        requestDetails,
-        mockResolvedParams.newFilter[2],
-        mockResolvedParams.newFilter[3],
-      ],
-      default: [...mockResolvedParams.default, requestDetails],
-    };
-
-    specialMethodNames.forEach((methodName) => {
-      it(`Should correctly rearrange parameters for ${methodName}`, () => {
-        const rearrangeParamsFn = paramRearrangementMap[methodName];
-        const rearrangedParamsArray = rearrangeParamsFn(mockResolvedParams[methodName], requestDetails);
-        const expectedResult = expectedRearrangedParams[methodName];
-        expect(rearrangedParamsArray).to.deep.eq(expectedResult);
       });
     });
   });

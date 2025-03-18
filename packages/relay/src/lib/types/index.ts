@@ -21,6 +21,7 @@ import {
   MirrorNodeTransactionRecord,
 } from './mirrorNode';
 import { IRequestDetails, RequestDetails } from './RequestDetails';
+import { IGetLogsParams, INewFilterParams } from './requestParams';
 
 export {
   ITransfer,
@@ -28,6 +29,8 @@ export {
   INftTransfer,
   ITracerConfig,
   ITokenTransfer,
+  IGetLogsParams,
+  INewFilterParams,
   ILimitOrderParams,
   ICallTracerConfig,
   IAssessedCustomFee,

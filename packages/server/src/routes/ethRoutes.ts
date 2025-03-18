@@ -300,15 +300,10 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pin
    * @returns array of log objects
    */
   app.useRpc('eth_getLogs', async (params: any) => {
-    const filter = params[0];
-
     return logAndHandleResponse(
       'eth_getLogs',
       params,
-      (requestDetails) =>
-        relay
-          .eth()
-          .getLogs(filter.blockHash, filter.fromBlock, filter.toBlock, filter.address, filter.topics, requestDetails),
+      (requestDetails) => relay.eth().getLogs(params[0], requestDetails),
       app,
       logger,
     );

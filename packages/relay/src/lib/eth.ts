@@ -39,6 +39,7 @@ import { CommonService, FilterService } from './services/ethService';
 import HAPIService from './services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo } from './types/mirrorNode';
+import { IGetLogsParams, INewFilterParams } from './types/requestParams';
 
 const _ = require('lodash');
 const asm = require('@ethersproject/asm');
@@ -2851,24 +2852,25 @@ export class EthImpl implements Eth {
    *     - If `toBlock` does not exist, an empty array is returned.
    *     - If the timestamp range between `fromBlock` and `toBlock` exceeds 7 days, a predefined error `TIMESTAMP_RANGE_TOO_LARGE` is thrown.
    *
-   * @param {string | null} blockHash - The block hash to prioritize log retrieval.
-   * @param {string | 'latest'} fromBlock - The starting block for log retrieval.
-   * @param {string | 'latest'} toBlock - The ending block for log retrieval.
-   * @param {string | string[] | null} address - The address(es) to filter logs by.
-   * @param {any[] | null} topics - The topics to filter logs by.
-   * @param {RequestDetails} requestDetails - The details of the request.
-   * @returns {Promise<Log[]>} - A promise that resolves to an array of logs or an empty array if no logs are found.
+   * @param {IGetLogsParams} params - The parameters for the getLogs method.
+   * @param {string | null} params.blockHash - Hash of the block to get logs from. If null, logs are not filtered by block hash.
+   * @param {string | 'latest'} params.fromBlock - The block number or 'latest' to start fetching logs from.
+   * @param {string | 'latest'} params.toBlock - The block number or 'latest' to stop fetching logs at.
+   * @param {string | string[] | null} params.address - Contract address or list of addresses to filter logs by. If null, logs are not filtered by address.
+   * @param {any[] | null} params.topics - Array of topics to filter logs by. If null, logs are not filtered by topics.
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @returns {Promise<Log[]>} A promise that resolves to an array of logs or an empty array if no logs are found.
    * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
    */
-  async getLogs(
-    blockHash: string | null,
-    fromBlock: string | 'latest',
-    toBlock: string | 'latest',
-    address: string | string[] | null,
-    topics: any[] | null,
-    requestDetails: RequestDetails,
-  ): Promise<Log[]> {
-    return this.common.getLogs(blockHash, fromBlock, toBlock, address, topics, requestDetails);
+  async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
+    return this.common.getLogs(
+      params.blockHash,
+      params.fromBlock,
+      params.toBlock,
+      params.address,
+      params.topics,
+      requestDetails,
+    );
   }
 
   async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {

@@ -4,7 +4,7 @@ import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IContractCallRequest, RequestDetails } from './lib/types';
+import { IContractCallRequest, IGetLogsParams, INewFilterParams, RequestDetails } from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -65,19 +65,11 @@ export interface Eth {
 
   chainId(requestDetails: RequestDetails): string;
 
-  getLogs(
-    blockHash: string | null,
-    fromBlock: string | null,
-    toBlock: string | null,
-    address: string | string[] | null,
-    topics: any[] | null,
-    requestDetails: RequestDetails,
-  ): Promise<Log[]>;
+  getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]>;
 
   getStorageAt(
     address: string,
     slot: string,
-    requestDetails: RequestDetails,
     blockNumber: string | null,
   ): Promise<string>;
 
