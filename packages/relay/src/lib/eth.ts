@@ -2933,9 +2933,10 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
     }
 
-    let blockNumOrTag = await this.extractBlockNumberOrTag(blockHashOrBlockNumber, requestDetails);
+    const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+    const blockNumber = block.number;
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumOrTag}`;
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
     if (cachedResponse) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -2946,25 +2947,14 @@ export class EthImpl implements Eth {
       return cachedResponse;
     }
 
-    if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      blockNumOrTag = await this.common.getLatestBlockNumber(requestDetails);
-    }
-
-    if (blockNumOrTag === EthImpl.blockEarliest) {
-      blockNumOrTag = '0x0';
-    }
-
     const params: IContractResultsParams = {
-      blockNumber: Number(blockNumOrTag),
+      blockNumber: blockNumber,
     };
 
     const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
-
     if (!contractResults || contractResults.length === 0) {
       return [];
     }
-
-    const block = await this.mirrorNodeClient.getBlock(Number(blockNumOrTag), requestDetails);
 
     const blockTimestamp = block.timestamp;
     const effectiveGas = await this.getCurrentGasPriceForBlock(block.block_hash, requestDetails);
@@ -2973,7 +2963,6 @@ export class EthImpl implements Eth {
     };
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-
     contractResults.forEach((contractResult) => this.mapResultWithLogs(contractResult, logs));
 
     const filteredContractResults = contractResults.filter((contractResult) => contractResult && contractResult.logs);
