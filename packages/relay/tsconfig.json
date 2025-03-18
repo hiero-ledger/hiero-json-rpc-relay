@@ -15,7 +15,8 @@
         "noImplicitAny": false,
         "declaration": true,
         "strict": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "experimentalDecorators": true,
     },
     "include": [
         "src"

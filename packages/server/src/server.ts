@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Relay, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import fs from 'fs';
 import cors from 'koa-cors';
 import path from 'path';
@@ -13,9 +13,7 @@ import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { defineDebugRoutes } from './routes/debugRoutes';
 import { defineEthRoutes } from './routes/ethRoutes';
-import { defineNetRoutes } from './routes/netRoutes';
-import { defineOtherRoutes } from './routes/otherRoutes';
-import { defineWeb3Routes } from './routes/web3Routes';
+import { logAndHandleResponse } from './utils';
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
@@ -32,7 +30,7 @@ const mainLogger = pino({
 
 const logger = mainLogger.child({ name: 'rpc-server' });
 const register = new Registry();
-const relay: Relay = new RelayImpl(logger.child({ name: 'relay' }), register);
+const relay = new RelayImpl(logger.child({ name: 'relay' }), register);
 const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, {
   limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
 });
@@ -187,9 +185,29 @@ app.getKoaApp().use(async (ctx, next) => {
 
 defineDebugRoutes(app, relay, logger);
 defineEthRoutes(app, relay, logger);
-defineNetRoutes(app, relay, logger);
-defineWeb3Routes(app, relay, logger);
-defineOtherRoutes(app, relay, logger);
+
+for (const methodName of Object.keys(relay.methods)) {
+  logger.debug('Setting up RPC handler for method %s', methodName);
+  app.useRpc(methodName, async (params: any) => {
+    return logAndHandleResponse(
+      methodName,
+      params,
+      (requestDetails) => relay.dispatch(methodName, params, requestDetails),
+      app,
+      logger,
+    );
+  });
+}
+
+app.useRpcRegex(/^engine_.*$/, async () => {
+  return logAndHandleResponse('engine', [], () => predefined.UNSUPPORTED_METHOD, app, logger);
+});
+app.useRpcRegex(/^trace_.*$/, async () => {
+  return logAndHandleResponse('trace', [], () => predefined.NOT_YET_IMPLEMENTED, app, logger);
+});
+app.useRpcRegex(/^debug_.*$/, async () => {
+  return logAndHandleResponse('debug', [], () => predefined.NOT_YET_IMPLEMENTED, app, logger);
+});
 
 const rpcApp = app.rpcApp();
 

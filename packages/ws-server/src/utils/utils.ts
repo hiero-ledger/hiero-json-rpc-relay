@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from './constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import { Logger } from 'pino';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
 const getRequestIdIsOptional = () => {
@@ -25,7 +26,7 @@ const getRequestIdIsOptional = () => {
  */
 export const handleConnectionClose = async (
   ctx: any,
-  relay: Relay,
+  relay: RelayImpl,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
   startTime: [number, number],

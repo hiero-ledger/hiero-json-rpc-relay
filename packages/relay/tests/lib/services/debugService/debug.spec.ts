@@ -12,8 +12,8 @@ import { strip0x } from '../../../../src/formatters';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import { IOpcodesResponse } from '../../../../src/lib/clients/models/IOpcodesResponse';
 import { TracerType } from '../../../../src/lib/constants';
+import { DebugImpl } from '../../../../src/lib/debug';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
-import { DebugService } from '../../../../src/lib/services/debugService';
 import { CommonService } from '../../../../src/lib/services/ethService';
 import { RequestDetails } from '../../../../src/lib/types';
 import RelayAssertions from '../../../assertions';
@@ -27,7 +27,7 @@ const registry = new Registry();
 let restMock: typeof MockAdapter;
 let web3Mock: typeof MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
-let debugService: DebugService;
+let debugService: DebugImpl;
 let cacheService: CacheService;
 
 describe('Debug API Test Suite', async function () {
@@ -259,7 +259,7 @@ describe('Debug API Test Suite', async function () {
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
     const common = new CommonService(mirrorNodeInstance, logger, cacheService);
-    debugService = new DebugService(mirrorNodeInstance, logger, common);
+    debugService = new DebugImpl(mirrorNodeInstance, logger, common);
   });
 
   describe('debug_traceTransaction', async function () {
@@ -269,15 +269,18 @@ describe('Debug API Test Suite', async function () {
       restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
       restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
       restMock.onGet(CONTRACT_BY_ADDRESS2).reply(200, JSON.stringify(contractResultSecond));
-      restMock.onGet(`contracts/${senderAddress}`).reply(404, JSON.stringify({
-        _status: {
-          messages: [
-            {
-              message: 'Not found',
-            },
-          ],
-        },
-      }));
+      restMock.onGet(`contracts/${senderAddress}`).reply(
+        404,
+        JSON.stringify({
+          _status: {
+            messages: [
+              {
+                message: 'Not found',
+              },
+            ],
+          },
+        }),
+      );
       for (const config of opcodeLoggerConfigs) {
         const opcodeLoggerParams = getQueryParams({
           memory: !!config.enableMemory,
@@ -285,15 +288,18 @@ describe('Debug API Test Suite', async function () {
           storage: !config.disableStorage,
         });
 
-        web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES}${opcodeLoggerParams}`).reply(200, JSON.stringify({
-          ...opcodesResponse,
-          opcodes: opcodesResponse.opcodes?.map((opcode) => ({
-            ...opcode,
-            stack: config.disableStack ? [] : opcode.stack,
-            memory: config.enableMemory ? opcode.memory : [],
-            storage: config.disableStorage ? {} : opcode.storage,
-          })),
-        }));
+        web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES}${opcodeLoggerParams}`).reply(
+          200,
+          JSON.stringify({
+            ...opcodesResponse,
+            opcodes: opcodesResponse.opcodes?.map((opcode) => ({
+              ...opcode,
+              stack: config.disableStack ? [] : opcode.stack,
+              memory: config.enableMemory ? opcode.memory : [],
+              storage: config.disableStorage ? {} : opcode.storage,
+            })),
+          }),
+        );
       }
     });
 
@@ -306,7 +312,7 @@ describe('Debug API Test Suite', async function () {
       it('should throw UNSUPPORTED_METHOD', async function () {
         await RelayAssertions.assertRejection(
           predefined.UNSUPPORTED_METHOD,
-          debugService.debug_traceTransaction,
+          debugService.traceTransaction,
           true,
           debugService,
           [transactionHash, callTracer, tracerConfigFalse, requestDetails],
@@ -318,7 +324,7 @@ describe('Debug API Test Suite', async function () {
       it('should throw UNSUPPORTED_METHOD', async function () {
         await RelayAssertions.assertRejection(
           predefined.UNSUPPORTED_METHOD,
-          debugService.debug_traceTransaction,
+          debugService.traceTransaction,
           true,
           debugService,
           [transactionHash, callTracer, tracerConfigFalse, requestDetails],
@@ -328,7 +334,7 @@ describe('Debug API Test Suite', async function () {
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('should successfully debug a transaction', async function () {
-        const traceTransaction = await debugService.debug_traceTransaction(
+        const traceTransaction = await debugService.traceTransaction(
           transactionHash,
           callTracer,
           tracerConfigFalse,
@@ -362,7 +368,7 @@ describe('Debug API Test Suite', async function () {
             ],
           };
 
-          const result = await debugService.debug_traceTransaction(
+          const result = await debugService.traceTransaction(
             transactionHash,
             callTracer,
             tracerConfigFalse,
@@ -384,7 +390,7 @@ describe('Debug API Test Suite', async function () {
             output: '0x2',
             calls: undefined,
           };
-          const result = await debugService.debug_traceTransaction(
+          const result = await debugService.traceTransaction(
             transactionHash,
             callTracer,
             tracerConfigTrue,
@@ -427,12 +433,7 @@ describe('Debug API Test Suite', async function () {
                 })),
               };
 
-              const result = await debugService.debug_traceTransaction(
-                transactionHash,
-                opcodeLogger,
-                config,
-                requestDetails,
-              );
+              const result = await debugService.traceTransaction(transactionHash, opcodeLogger, config, requestDetails);
 
               expect(result).to.deep.equal(expectedResult);
             });
@@ -466,13 +467,12 @@ describe('Debug API Test Suite', async function () {
             `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
           );
 
-          await RelayAssertions.assertRejection(
-            expectedError,
-            debugService.debug_traceTransaction,
-            true,
-            debugService,
-            [nonExistentTransactionHash, callTracer, tracerConfigTrue, requestDetails],
-          );
+          await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
+            nonExistentTransactionHash,
+            callTracer,
+            tracerConfigTrue,
+            requestDetails,
+          ]);
         });
 
         it('should return empty result with invalid parameters in formatOpcodeResult', async function () {

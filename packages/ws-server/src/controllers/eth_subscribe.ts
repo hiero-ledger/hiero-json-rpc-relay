@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
-import { validateSubscribeEthLogsParams } from '../utils/validators';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { predefined, type RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { ISharedParams } from './index';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Context } from 'koa';
 import { Logger } from 'pino';
+
+import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
+import { validateSubscribeEthLogsParams } from '../utils/validators';
+import { ISharedParams } from './index';
 
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
  * @param {any} filters - The filters object specifying criteria for the subscription.
  * @param {Context} ctx - The context object containing information about the WebSocket connection.
  * @param {string} event - The event name to subscribe to (e.g., "newHeads").
- * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
+ * @param {RelayImpl} relay - The relay object used for managing WebSocket subscriptions.
  * @param {Logger} logger - The logger object used for logging subscription information.
  * @returns {string | undefined} Returns the subscription ID.
  */
@@ -27,7 +28,7 @@ const subscribeToNewHeads = (
   filters: any,
   ctx: Context,
   event: string,
-  relay: Relay,
+  relay: RelayImpl,
   logger: Logger,
 ): string | undefined => {
   const subscriptionId = relay.subs()?.subscribe(ctx.websocket, event, filters);
@@ -52,7 +53,7 @@ const handleEthSubscribeNewHeads = (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: Relay,
+  relay: RelayImpl,
   logger: Logger,
   requestDetails: RequestDetails,
 ): IJsonRpcResponse => {
@@ -87,7 +88,7 @@ const handleEthSubscribeLogs = async (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: Relay,
+  relay: RelayImpl,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
 ): Promise<IJsonRpcResponse> => {

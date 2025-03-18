@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from '../utils/constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
-import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
-import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined, type RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { paramRearrangementMap, resolveParams, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import {
   InvalidRequest,
   IPRateLimitExceeded,
   MethodNotFound,
 } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { Logger } from 'pino';
-import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
 import Koa from 'koa';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import { Logger } from 'pino';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { WS_CONSTANTS } from '../utils/constants';
+import { paramRearrangementMap, resolveParams, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 
 export type ISharedParams = {
   request: IJsonRpcRequest;
   method: string;
   params: any[];
-  relay: Relay;
+  relay: RelayImpl;
   logger: Logger;
   limiter: ConnectionLimiter;
   mirrorNodeClient: MirrorNodeClient;
@@ -110,7 +111,7 @@ const handleSendingRequestsToRelay = async ({
  */
 export const getRequestResult = async (
   ctx: Koa.Context,
-  relay: Relay,
+  relay: RelayImpl,
   logger: Logger,
   request: IJsonRpcRequest,
   limiter: ConnectionLimiter,

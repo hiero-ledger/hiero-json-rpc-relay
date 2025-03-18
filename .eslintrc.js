@@ -39,7 +39,9 @@ module.exports = {
         "@typescript-eslint/ban-types": "warn",
         "no-trailing-spaces": "error",
         "no-useless-escape": "warn",
-        "prefer-const": "error",
+        "prefer-const": ["error", {
+            'destructuring': 'all',
+        }],
         "comma-dangle": ["error", {
             "arrays": "always-multiline",
             "objects": "always-multiline",

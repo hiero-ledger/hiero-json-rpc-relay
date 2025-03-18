@@ -35,8 +35,6 @@ import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
-import { DebugService } from './services/debugService';
-import { IDebugService } from './services/debugService/IDebugService';
 import { CommonService, FilterService } from './services/ethService';
 import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
@@ -111,7 +109,6 @@ export class EthImpl implements Eth {
   static ethGetTransactionCountByNumber = 'eth_GetTransactionCountByNumber';
   static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
   static ethSendRawTransaction = 'eth_sendRawTransaction';
-  static debugTraceTransaction = 'debug_traceTransaction';
 
   // block constants
   static blockLatest = 'latest';
@@ -212,17 +209,12 @@ export class EthImpl implements Eth {
   /**
    * The Common Service implementation that contains logic shared by other services.
    */
-  private readonly common: CommonService;
+  readonly common: CommonService;
 
   /**
    * The Filter Service implementation that takes care of all filter API operations.
    */
   private readonly filterServiceImpl: FilterService;
-
-  /**
-   * The Debug Service implementation that takes care of all filter API operations.
-   */
-  private readonly debugServiceImpl: DebugService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
@@ -255,7 +247,6 @@ export class EthImpl implements Eth {
       registry,
     );
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
-    this.debugServiceImpl = new DebugService(mirrorNodeClient, logger, this.common);
     this.filterServiceImpl = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
   }
 
@@ -276,10 +267,6 @@ export class EthImpl implements Eth {
 
   filterService(): IFilterService {
     return this.filterServiceImpl;
-  }
-
-  debugService(): IDebugService {
-    return this.debugServiceImpl;
   }
 
   /**
@@ -515,7 +502,10 @@ export class EthImpl implements Eth {
   /**
    * Gets the most recent block number and timestamp.to which represents the block finality.
    */
-  async blockNumberTimestamp(caller: string, requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
+  private async blockNumberTimestamp(
+    caller: string,
+    requestDetails: RequestDetails,
+  ): Promise<LatestBlockNumberTimestamp> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
     }
@@ -701,7 +691,7 @@ export class EthImpl implements Eth {
    * @param {IContractCallRequest} transaction the transaction object
    * @param {RequestDetails} requestDetails the request details for logging and tracking
    */
-  async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
+  private async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
     if (transaction.value) {
       transaction.value = weibarHexToTinyBarInt(transaction.value);
     }
@@ -957,15 +947,6 @@ export class EthImpl implements Eth {
   }
 
   /**
-   * Checks and return correct format from input.
-   * @param input
-   * @returns
-   */
-  private static toHex32Byte(input: string): string {
-    return input.length === 66 ? input : EthImpl.emptyHex + this.prune0x(input).padStart(64, '0');
-  }
-
-  /**
    * Gets the balance of an account as of the given block from the mirror node.
    * Current implementation does not yet utilize blockNumber
    *
@@ -1090,7 +1071,7 @@ export class EthImpl implements Eth {
                   // If nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
                 }
 
-                balanceFromTxs = this.getBalanceAtBlockTimestamp(
+                balanceFromTxs = EthImpl.getBalanceAtBlockTimestamp(
                   mirrorAccount.account,
                   mirrorAccount.transactions,
                   block.timestamp.to,
@@ -2810,7 +2791,7 @@ export class EthImpl implements Eth {
    * the account and the transactions summed up     *
    * to the block number queried.                   *
    *************************************************/
-  getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
+  static getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
     return transactions
       .filter((transaction) => {
         return transaction.consensus_timestamp >= blockTimestamp;

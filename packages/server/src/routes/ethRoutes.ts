@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Relay } from '@hashgraph/json-rpc-relay';
+import { RelayImpl } from '@hashgraph/json-rpc-relay';
 import pino from 'pino';
 
 import KoaJsonRpc from '../koaJsonRpc';
 import { logAndHandleResponse } from '../utils';
 
-const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Logger) {
+const defineEthRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pino.Logger) {
   /**
    * Returns the latest block numbe
    *

@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Net, Relay, Subs, Web3 } from '../index';
+import type { Debug, Eth, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -14,6 +14,7 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { DebugImpl } from './debug';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { Poller } from './poller';
@@ -25,7 +26,7 @@ import { SubscriptionController } from './subscriptionController';
 import { RequestDetails } from './types';
 import { Web3Impl } from './web3';
 
-export class RelayImpl implements Relay {
+export class RelayImpl {
   /**
    * @private
    * @readonly
@@ -39,6 +40,11 @@ export class RelayImpl implements Relay {
    * @property {MirrorNodeClient} mirrorNodeClient - The client used to interact with the Hedera Mirror Node for retrieving historical data.
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
+
+  /**
+   * The Debug Service implementation that takes care of all filter API operations.
+   */
+  private readonly debugImpl: DebugImpl;
 
   /**
    * @private
@@ -67,6 +73,8 @@ export class RelayImpl implements Relay {
    * @property {Subs} [subImpl] - An optional implementation for handling subscription-related JSON-RPC requests.
    */
   private readonly subImpl?: Subs;
+
+  readonly methods: { [methodName: string]: { func: any; obj: any } };
 
   /**
    * @private
@@ -143,8 +151,8 @@ export class RelayImpl implements Relay {
 
     this.clientMain = hapiService.getMainClientInstance();
 
-    this.web3Impl = new Web3Impl(this.clientMain);
-    this.netImpl = new NetImpl(this.clientMain);
+    this.web3Impl = new Web3Impl();
+    this.netImpl = new NetImpl();
 
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -171,6 +179,24 @@ export class RelayImpl implements Relay {
       chainId,
       register,
       this.cacheService,
+    );
+
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, (this.ethImpl as EthImpl).common);
+
+    this.methods = Object.fromEntries(
+      ['debug', 'net', 'web3'].flatMap((namespace) => {
+        const obj = this[namespace]();
+        const descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(obj));
+        return Object.entries(descriptors)
+          .filter(([, descriptor]) => 'rpc' in descriptor.value)
+          .map(([methodName, descriptor]) => [
+            `${namespace}_${methodName}`,
+            {
+              func: descriptor.value,
+              obj,
+            },
+          ]);
+      }),
     );
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -255,6 +281,10 @@ export class RelayImpl implements Relay {
     });
   }
 
+  debug(): Debug {
+    return this.debugImpl;
+  }
+
   web3(): Web3 {
     return this.web3Impl;
   }
@@ -273,5 +303,18 @@ export class RelayImpl implements Relay {
 
   mirrorClient(): MirrorNodeClient {
     return this.mirrorNodeClient;
+  }
+
+  dispatch(methodName: string, args: unknown[] | undefined, requestDetails: RequestDetails) {
+    const method = this.methods[methodName];
+    // if (method === undefined) {
+    //   throw new JsonRpcError("Method not found", -32601);
+    // }
+    const { func, obj } = method;
+    // const params = func.params;
+
+    // Validator.validateParams(args, params);
+
+    return func.call(obj, ...(args ?? []), requestDetails);
   }
 }

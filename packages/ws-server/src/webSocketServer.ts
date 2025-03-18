@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined, Relay, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
@@ -32,7 +32,7 @@ const mainLogger = pino({
 });
 const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
-const relay: Relay = new RelayImpl(logger, register);
+const relay = new RelayImpl(logger, register);
 
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
