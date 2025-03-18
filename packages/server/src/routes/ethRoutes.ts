@@ -321,7 +321,7 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pin
     return logAndHandleResponse(
       'eth_getStorageAt',
       params,
-      (requestDetails) => relay.eth().getStorageAt(params?.[0], params?.[1], requestDetails, params?.[2]),
+      (requestDetails) => relay.eth().getStorageAt(params?.[0], params?.[1], params?.[2], requestDetails),
       app,
       logger,
     );

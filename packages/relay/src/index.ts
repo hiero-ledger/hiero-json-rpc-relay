@@ -71,6 +71,7 @@ export interface Eth {
     address: string,
     slot: string,
     blockNumber: string | null,
+    requestDetails: RequestDetails,
   ): Promise<string>;
 
   getTransactionByBlockHashAndIndex(

@@ -985,8 +985,8 @@ export class EthImpl implements Eth {
   async getStorageAt(
     address: string,
     slot: string,
+    blockNumberOrTagOrHash: string | null,
     requestDetails: RequestDetails,
-    blockNumberOrTagOrHash?: string | null,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
