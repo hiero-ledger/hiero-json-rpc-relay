@@ -2965,10 +2965,9 @@ export class EthImpl implements Eth {
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
     contractResults.forEach((contractResult) => this.mapResultWithLogs(contractResult, logs));
 
-    const filteredContractResults = contractResults.filter((contractResult) => contractResult && contractResult.logs);
     const receipts: Receipt[] = [];
 
-    for (const contractResult of filteredContractResults) {
+    for (const contractResult of contractResults) {
       const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
       const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
 
