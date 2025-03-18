@@ -16,6 +16,7 @@ import * as eth_getBlockByHash from './eth_getBlockByHash.js';
 import * as eth_getBlockByNumber from './eth_getBlockByNumber.js';
 import * as eth_getBlockTransactionCountByHash from './eth_getBlockTransactionCountByHash.js';
 import * as eth_getBlockTransactionCountByNumber from './eth_getBlockTransactionCountByNumber.js';
+import * as eth_getBlockReceipts from './eth_getBlockReceipts.js';
 import * as eth_getCode from './eth_getCode.js';
 import * as eth_getLogs from './eth_getLogs.js';
 import * as eth_getStorageAt from './eth_getStorageAt.js';
@@ -42,6 +43,7 @@ import * as eth_syncing from './eth_syncing.js';
 import * as net_listening from './net_listening.js';
 import * as net_version from './net_version.js';
 import * as web3_clientVersion from './web3_clientVersion.js';
+import * as web3_client_version from './web3_client_version.js'
 
 // add test modules here
 const tests = {
@@ -58,6 +60,7 @@ const tests = {
   eth_getBlockByNumber,
   eth_getBlockTransactionCountByHash,
   eth_getBlockTransactionCountByNumber,
+  eth_getBlockReceipts,
   eth_getCode,
   eth_getLogs,
   eth_getStorageAt,
