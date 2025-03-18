@@ -6,7 +6,7 @@ import { expect } from 'chai';
 import { withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
 import { getConsensusNodeVersion, getMirrorNodeVersion } from '../../dist/formatters';
 
-describe.only('Formatters', () => {
+describe('Formatters', () => {
   it('should be able get requestId via formatRequestIdMessage with a valid param', () => {
     const id = 'valid-id';
     const requestId = formatRequestIdMessage(id);
