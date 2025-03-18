@@ -109,6 +109,11 @@ export class ConfigService {
     return value as GetTypeOfConfigKey<K>;
   }
 
+  /**
+   * Retrieves all environment variables and masked the sensitive ones.
+   *
+   * @returns Dict<string>
+   */
   public static getAllMasked(): NodeJS.Dict<string> {
     const maskedEnvs: NodeJS.Dict<string> = {};
     for (const name in this.getInstance().envs) {
