@@ -9,7 +9,7 @@ import pino from 'pino';
 import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
-import { formatRequestIdMessage } from './formatters';
+import { formatRequestIdMessage, getConsensusNodeVersion, getMirrorNodeVersion } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { defineDebugRoutes } from './routes/debugRoutes';
 import { defineEthRoutes } from './routes/ethRoutes';
@@ -91,6 +91,44 @@ app.getKoaApp().use(async (ctx, next) => {
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/liveness') {
     ctx.status = 200;
+  } else {
+    return next();
+  }
+});
+
+/**
+ * config endpoint
+ */
+app.getKoaApp().use(async (ctx, next) => {
+  if (ctx.url === '/config') {
+    ctx.status = 200;
+    const maskedEnvs = ConfigService.getAllMasked();
+    ctx.body = JSON.stringify({
+      relay: {
+        version: ConfigService.get('npm_package_version'),
+        config: {
+          ...Object.fromEntries(
+            Object.entries(maskedEnvs).filter((it) => !it[0].startsWith('SDK_') && !it[0].startsWith('MIRROR_NODE_')),
+          ),
+        },
+      },
+      upstreamDependencies: [
+        {
+          service: 'consensusNode',
+          version: await getConsensusNodeVersion(),
+          config: {
+            ...Object.fromEntries(Object.entries(maskedEnvs).filter((it) => it[0].startsWith('SDK_'))),
+          },
+        },
+        {
+          service: 'mirrorNode',
+          version: await getMirrorNodeVersion(),
+          config: {
+            ...Object.fromEntries(Object.entries(maskedEnvs).filter((it) => it[0].startsWith('MIRROR_NODE_'))),
+          },
+        },
+      ],
+    });
   } else {
     return next();
   }

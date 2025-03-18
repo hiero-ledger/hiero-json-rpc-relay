@@ -108,4 +108,15 @@ export class ConfigService {
 
     return value as GetTypeOfConfigKey<K>;
   }
+
+  public static getAllMasked(): NodeJS.Dict<string> {
+    const maskedEnvs: NodeJS.Dict<string> = {};
+    for (const name in this.getInstance().envs) {
+      const maskedAsText = LoggerService.maskUpEnv(name, this.getInstance().envs[name]);
+      const parsedEnv = maskedAsText.split(' = ');
+      maskedEnvs[parsedEnv[0]] = parsedEnv[1];
+    }
+
+    return maskedEnvs;
+  }
 }
