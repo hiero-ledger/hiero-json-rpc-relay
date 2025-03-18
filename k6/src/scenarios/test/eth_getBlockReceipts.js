@@ -5,8 +5,6 @@ import http from 'k6/http';
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 
-const url = __ENV.RELAY_BASE_URL;
-
 const methodName = 'eth_getBlockReceipts';
 const { options, run } = new TestScenarioBuilder()
   .name(methodName)
