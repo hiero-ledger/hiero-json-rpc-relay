@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { parse } from 'yaml';
 
 /**
@@ -16,14 +16,14 @@ const formatRequestIdMessage = (requestId?: string): string => {
  */
 const getConsensusNodeVersion = async (): Promise<string> => {
   try {
-    const response = await (await fetch('https://status.hedera.com/api/v2/summary.json')).json();
-    const currentNetwork = new URL(ConfigService.get('MIRROR_NODE_URL'));
-    const targetNetwork = currentNetwork.hostname.split('.')[0].toLowerCase();
-    const networkInfo = response.components.filter(
+    const response: any = await await axios.get('https://status.hedera.com/api/v2/summary.json');
+    const currentNetwork: URL = new URL(ConfigService.get('MIRROR_NODE_URL'));
+    const targetNetwork: string = currentNetwork.hostname.split('.')[0].toLowerCase();
+    const networkInfo: any = response.data.components.filter(
       (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
     );
 
-    const networkName = networkInfo[0].name;
+    const networkName: string = networkInfo[0].name;
     return networkName.substring(networkName.indexOf('(') + 2, networkName.indexOf(')'));
   } catch (e) {
     return 'local';
@@ -35,8 +35,8 @@ const getConsensusNodeVersion = async (): Promise<string> => {
  */
 const getMirrorNodeVersion = async (): Promise<string> => {
   try {
-    const response = await fetch(ConfigService.get('MIRROR_NODE_URL') + '/api/v1/docs/openapi.yml');
-    return parse(await response.text()).info.version;
+    const response: any = await axios.get(ConfigService.get('MIRROR_NODE_URL') + '/api/v1/docs/openapi.yml');
+    return parse(response.data).info.version;
   } catch (e) {
     return 'local';
   }
