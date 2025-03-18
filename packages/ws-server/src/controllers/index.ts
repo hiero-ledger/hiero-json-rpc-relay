@@ -8,7 +8,7 @@ import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import {
   InvalidRequest,
   IPRateLimitExceeded,
@@ -59,9 +59,12 @@ const handleSendingRequestsToRelay = async ({
   try {
     const [service, methodName] = method.split('_');
 
-    // Call the relay method with the parameters.
+    const rearrangeParamsFn = paramRearrangementMap[methodName] || paramRearrangementMap['default'];
+    const rearrangedParamsArray = rearrangeParamsFn(params, requestDetails);
+
+    // Call the relay method with the rearranged parameters.
     // Method will be validated by "verifySupportedMethod" before reaching this point.
-    const txRes = await relay[service]()[methodName](...params, requestDetails);
+    const txRes = await relay[service]()[methodName](...rearrangedParamsArray);
 
     if (!txRes) {
       if (logger.isLevelEnabled('trace')) {

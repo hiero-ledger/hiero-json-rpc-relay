@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from './constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import { Logger } from 'pino';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
 const getRequestIdIsOptional = () => {
@@ -167,4 +168,20 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
   return Object.fromEntries(
     Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
   );
+};
+
+/**
+ * A mapping of parameter rearrangement functions for various methods.
+ * Each function adjusts the order of parameters to ensure that the
+ * `requestDetails` object is placed correctly based on the method's requirements.
+ */
+export const paramRearrangementMap: {
+  [key: string]: (params: any[], requestDetails: RequestDetails) => any[];
+} = {
+  // *note: some WS providers send null params for chainId method but only requestDetails is needed
+  chainId: (_: any[], requestDetails: RequestDetails) => [requestDetails],
+  // *note: since estimateGas has the second param as optional, which means it can be omitted from the client request,
+  // we need to explicitly add it to the params array to ensure the requestDetails object is placed correctly in the params array.
+  estimateGas: (params, requestDetails) => [params[0], params[1], requestDetails],
+  default: (params, requestDetails) => [...params, requestDetails],
 };

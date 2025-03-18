@@ -9,7 +9,6 @@ import sinon from 'sinon';
 
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
-import { WS_CONSTANTS } from '../../src/utils/constants';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -17,7 +16,6 @@ import {
   getWsBatchRequestsEnabled,
   handleConnectionClose,
   paramRearrangementMap,
-  resolveParams,
   sendToClient,
 } from '../../src/utils/utils';
 import { WsTestHelper } from '../helper';
@@ -243,6 +241,44 @@ describe('Utilities unit tests', async function () {
     WsTestHelper.withOverriddenEnvsInMochaTest({ WS_BATCH_REQUESTS_MAX_SIZE: undefined }, () => {
       it('should return 20', () => {
         expect(getBatchRequestsMaxSize()).to.equal(20);
+      });
+    });
+  });
+
+  describe('paramRearrangementMap', () => {
+    const requestDetails = new RequestDetails({ ipAddress: '0.0.0.0', requestId: 'test-id' });
+    const specialMethodNames = [`estimateGas`, `default`];
+
+    const mockResolvedParams = {
+      chainId: [],
+      estimateGas: [
+        {
+          to: '0xD7d454ea421FA3E98c988c2A33b5292C70A43b1E',
+          data: '0x18160ddd',
+        },
+        'latest',
+      ],
+      getStorageAt: ['0xd7d454ea421fa3e98c988c2a33b5292c70a43b1e', '0x0', 'latest'],
+      newFilter: [
+        '0x0',
+        'latest',
+        ['0xf72ea4E404618E9DCcA79748236910887be9e2bd'],
+        ['0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9'],
+      ],
+      default: ['0x7cb9357e', '0x7cb9357e', '0x00abv'],
+    };
+
+    const expectedRearrangedParams = {
+      estimateGas: [...mockResolvedParams.estimateGas, requestDetails],
+      default: [...mockResolvedParams.default, requestDetails],
+    };
+
+    specialMethodNames.forEach((methodName) => {
+      it(`Should correctly rearrange parameters for ${methodName}`, () => {
+        const rearrangeParamsFn = paramRearrangementMap[methodName];
+        const rearrangedParamsArray = rearrangeParamsFn(mockResolvedParams[methodName], requestDetails);
+        const expectedResult = expectedRearrangedParams[methodName];
+        expect(rearrangedParamsArray).to.deep.eq(expectedResult);
       });
     });
   });
