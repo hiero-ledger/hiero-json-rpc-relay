@@ -18,6 +18,7 @@ import {
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
   BLOCK_NUMBER_HEX,
+  BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
   CONTRACTS_RESULTS_BLOCK_NUMBER_URL,
   DEFAULT_BLOCK,
@@ -69,8 +70,10 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   function setupStandardResponses() {
     restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify(defaultContractResults));
-    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
+    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
   }
 
   function expectValidReceipt(receipt, contractResult) {
@@ -82,7 +85,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   describe('Success cases', () => {
     it('eth_getBlockReceipts with matching block hash', async function () {
-      // mirror node request mocks
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
@@ -109,8 +111,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('eth_getBlockReceipts with matching block tag latest', async function () {
-      const latestBlockNumStub = sinon.stub(ethImpl.common, 'getLatestBlockNumber').resolves(BLOCK_NUMBER_HEX);
-
       setupStandardResponses();
 
       const receipts = await ethImpl.getBlockReceipts('latest', requestDetails);
@@ -121,14 +121,10 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         const contractResult = results[index];
         expectValidReceipt(receipt, contractResult);
       });
-
-      latestBlockNumStub.restore();
     });
 
     it('eth_getBlockReceipts with matching block tag earliest', async function () {
       // mirror node request mocks
-      const latestBlockNumStub = sinon.stub(ethImpl.common, 'getLatestBlockNumber').resolves(BLOCK_NUMBER_HEX);
-
       setupStandardResponses();
       restMock.onGet(`blocks/0`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
@@ -140,12 +136,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         const contractResult = results[index];
         expectValidReceipt(receipt, contractResult);
       });
-
-      latestBlockNumStub.restore();
     });
 
     it('should return empty array for block with no transactions', async function () {
       restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
+      restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       expect(receipts).to.be.an('array').that.is.empty;
@@ -176,8 +171,9 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
     it('should return receipts with empty logs arrays when transactions have no matching logs', async function () {
       restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify(defaultContractResultsOnlyHash2));
-      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ logs: defaultLogs1 }));
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
@@ -188,6 +184,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   describe('Error cases', () => {
     it('should handle transactions with no contract results', async function () {
       restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
@@ -199,8 +196,8 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   describe('Cache behavior', () => {
     it('should use cached results for subsequent calls', async function () {
       const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER}`;
-
       setupStandardResponses();
+
       const specificCacheServiceSpy = sinon
         .spy(cacheService, 'getAsync')
         .withArgs(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
