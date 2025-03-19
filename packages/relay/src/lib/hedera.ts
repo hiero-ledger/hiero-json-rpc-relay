@@ -4,21 +4,16 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 
 import { Hedera } from '../index';
 import { Utils } from '../utils';
-import { MirrorNodeClient, SDKClient } from './clients';
 import constants from './constants';
 import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
 
 export class HederaImpl implements Hedera {
-  private sdkClient: SDKClient;
-  private mnClient: MirrorNodeClient;
   private cacheService: CacheService;
 
   static config = 'hedera_config';
 
-  constructor(sdkClient: SDKClient, mnClient: MirrorNodeClient, cacheService: CacheService) {
-    this.sdkClient = sdkClient;
-    this.mnClient = mnClient;
+  constructor(cacheService: CacheService) {
     this.cacheService = cacheService;
   }
 

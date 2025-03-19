@@ -181,7 +181,7 @@ export class RelayImpl implements Relay {
       this.cacheService,
     );
 
-    this.hederaImpl = new HederaImpl(hapiService.getSDKClient(), this.mirrorNodeClient, this.cacheService);
+    this.hederaImpl = new HederaImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
       logger.child({ name: 'hbar-spending-plan-config-service' }),
