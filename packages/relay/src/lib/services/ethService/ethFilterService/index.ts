@@ -102,8 +102,8 @@ export class FilterService implements IFilterService {
     try {
       FilterService.requireFiltersEnabled();
 
-      const fromBlock = params?.fromBlock === undefined ? 'latest' : params?.fromBlock;
-      const toBlock = params?.toBlock === undefined ? 'latest' : params?.toBlock;
+      const fromBlock = params?.fromBlock === undefined ? CommonService.blockLatest : params?.fromBlock;
+      const toBlock = params?.toBlock === undefined ? CommonService.blockLatest : params?.toBlock;
 
       if (!(await this.common.validateBlockRange(fromBlock, toBlock, requestDetails))) {
         throw predefined.INVALID_BLOCK_RANGE;
@@ -112,7 +112,10 @@ export class FilterService implements IFilterService {
       return await this.createFilter(
         constants.FILTER.TYPE.LOG,
         {
-          fromBlock: fromBlock === 'latest' ? await this.common.getLatestBlockNumber(requestDetails) : fromBlock,
+          fromBlock:
+            fromBlock === CommonService.blockLatest
+              ? await this.common.getLatestBlockNumber(requestDetails)
+              : fromBlock,
           toBlock,
           address: params?.address,
           topics: params?.topics,
