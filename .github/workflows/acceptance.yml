@@ -16,7 +16,7 @@ jobs:
     name: ${{ matrix.test.name }}
     strategy:
       fail-fast: false
-      max-parallel: 5
+      max-parallel: 3
       matrix:
         test:
           - { name: 'API Batch 1', testfilter: 'api_batch1' }
