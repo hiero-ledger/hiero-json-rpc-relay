@@ -10,7 +10,7 @@ on:
 
 jobs:
   branch_bump_tag:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     env:
       RELEASE_NOTES_FILENAME: release_notes
     outputs:
@@ -141,7 +141,7 @@ jobs:
 
   create_snapshot_pr:
     name: Create snapshot PR
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     needs: branch_bump_tag
     if: ${{ needs.branch_bump_tag.outputs.create_pr == 'true' }}
     env:
