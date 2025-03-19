@@ -149,7 +149,7 @@ export class RelayImpl {
 
     this.clientMain = hapiService.getMainClientInstance();
 
-    this.web3Impl = new Web3Impl(this.clientMain);
+    this.web3Impl = new Web3Impl();
     this.netImpl = new NetImpl();
 
     this.mirrorNodeClient = new MirrorNodeClient(
