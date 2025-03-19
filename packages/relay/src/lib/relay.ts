@@ -19,14 +19,13 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
-import { Poller } from './poller';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
-import { SubscriptionController } from './subscriptionController';
 import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
+
 import { Web3Impl } from './web3';
 
 export class Relay {
@@ -71,13 +70,6 @@ export class Relay {
    * @property {Eth} ethImpl - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    */
   private readonly ethImpl: Eth;
-
-  /**
-   * @private
-   * @readonly
-   * @property {Subs} [subImpl] - An optional implementation for handling subscription-related JSON-RPC requests.
-   */
-  private readonly subImpl?: Subs;
 
   /**
    * @private
@@ -214,11 +206,6 @@ export class Relay {
       ipAddressHbarSpendingPlanRepository,
     );
 
-    if (ConfigService.get('SUBSCRIPTIONS_ENABLED')) {
-      const poller = new Poller(this.ethImpl, logger.child({ name: `poller` }), register);
-      this.subImpl = new SubscriptionController(poller, logger.child({ name: `subscr-ctrl` }), register);
-    }
-
     this.initOperatorMetric(this.clientMain, this.mirrorNodeClient, logger, register);
 
     this.populatePreconfiguredSpendingPlans().then();
@@ -338,10 +325,6 @@ export class Relay {
 
   eth(): Eth {
     return this.ethImpl;
-  }
-
-  subs(): Subs | undefined {
-    return this.subImpl;
   }
 
   mirrorClient(): MirrorNodeClient {
