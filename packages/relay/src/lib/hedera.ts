@@ -8,6 +8,22 @@ import constants from './constants';
 import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
 
+interface IHederaRelayConfig {
+  version: string;
+  config: { [k: string]: any };
+}
+
+interface IHederaUpstreamDependency {
+  service: string;
+  version: string;
+  config: { [k: string]: any };
+}
+
+export interface IHederaConfig {
+  relay: IHederaRelayConfig;
+  upstreamDependencies: IHederaUpstreamDependency[];
+}
+
 export class HederaImpl implements Hedera {
   private readonly cacheService: CacheService;
 
@@ -20,10 +36,10 @@ export class HederaImpl implements Hedera {
   /**
    * Returns list of all config envs
    */
-  async config(requestDetails: RequestDetails): Promise<any> {
+  async config(requestDetails: RequestDetails): Promise<IHederaConfig> {
     const cacheKey = `${constants.CACHE_KEY.HEDERA_CONFIG}`;
 
-    let info = await this.cacheService.getAsync(cacheKey, HederaImpl.config, requestDetails);
+    let info: IHederaConfig = await this.cacheService.getAsync(cacheKey, HederaImpl.config, requestDetails);
     if (!info) {
       const maskedEnvs = ConfigService.getAllMasked();
       info = {
