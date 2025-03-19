@@ -53,8 +53,8 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   let requestId;
   let htsAddress;
   let expectedGasPrice: string;
+  let parentContract: ethers.Contract;
   let parentContractAddress: string;
-  let createChildTx: ethers.ContractTransactionResponse;
   let accounts0StartBalance: bigint;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
@@ -103,28 +103,23 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     accounts.push(...newAccounts);
     global.accounts.push(...newAccounts);
 
-    const [parentContract, tokenCreation] = await Promise.all([
-      Utils.deployContract(parentContractJson.abi, parentContractJson.bytecode, accounts[0].wallet),
-      servicesNode.createToken(1000, requestId),
-    ]);
+    parentContract = await Utils.deployContract(
+      parentContractJson.abi,
+      parentContractJson.bytecode,
+      accounts[0].wallet,
+    );
+    const tokenCreation = await servicesNode.createToken(1000, requestId);
 
     parentContractAddress = parentContract.target as string;
     tokenId = tokenCreation;
 
-    const initialFundsTx = await accounts[0].wallet.sendTransaction({
+    await accounts[0].wallet.sendTransaction({
       to: parentContractAddress,
       value: ethers.parseEther('1'),
     });
-    await relay.pollForValidTransactionReceipt(initialFundsTx.hash);
 
-    const [childTx, blockNumber, balance] = await Promise.all([
-      parentContract.createChild(1),
-      accounts[0].wallet.provider?.getBlockNumber(),
-      accounts[0].wallet.provider?.getBalance(accounts[0].address),
-    ]);
-
-    createChildTx = childTx;
-    await relay.pollForValidTransactionReceipt(createChildTx.hash);
+    const blockNumber = await accounts[0].wallet.provider?.getBlockNumber();
+    const balance = await accounts[0].wallet.provider?.getBalance(accounts[0].address);
 
     blockNumberAtStartOfTests = blockNumber as number;
     accounts0StartBalance = balance as bigint;
@@ -614,6 +609,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
+      const createChildTx = await parentContract.createChild(1);
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
         [createChildTx.hash, 0],
@@ -632,6 +628,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
+      const createChildTx = await parentContract.createChild(1);
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
         [createChildTx.blockNumber, 0],
