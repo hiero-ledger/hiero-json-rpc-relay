@@ -9,9 +9,9 @@ import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
 
 export class HederaImpl implements Hedera {
-  private cacheService: CacheService;
+  private readonly cacheService: CacheService;
 
-  static config = 'hedera_config';
+  public static readonly config = 'hedera_config';
 
   constructor(cacheService: CacheService) {
     this.cacheService = cacheService;
