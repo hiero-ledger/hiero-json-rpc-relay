@@ -22,8 +22,9 @@ import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
+import { RpcMethodRegistryService } from './services/registryService';
 import { SubscriptionController } from './subscriptionController';
-import { RequestDetails } from './types';
+import { RequestDetails, RpcImplementation, RpcMethodRegistry } from './types';
 import { Web3Impl } from './web3';
 
 export class RelayImpl {
@@ -103,6 +104,16 @@ export class RelayImpl {
    * The Debug Service implementation that takes care of all filter API operations.
    */
   private readonly debugImpl: DebugImpl;
+
+  /**
+   * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
+   * This registry is populated with methods from various service implementations (eth, net, web3, debug)
+   * that have been decorated with the @rpcMethod decorator.
+   *
+   * @public
+   * @type {Map<string, Function>} - The registry containing all available RPC methods.
+   */
+  public readonly rpcMethodRegistry: RpcMethodRegistry;
 
   /**
    * Initializes the main components of the relay service, including Hedera network clients,
@@ -196,6 +207,14 @@ export class RelayImpl {
     this.initOperatorMetric(this.clientMain, this.mirrorNodeClient, logger, register);
 
     this.populatePreconfiguredSpendingPlans().then();
+
+    // Registering RPC methods from the provided service implementations
+    this.rpcMethodRegistry = RpcMethodRegistryService.register([
+      this.debugImpl,
+      this.ethImpl,
+      this.netImpl,
+      this.web3Impl,
+    ] as RpcImplementation[]);
 
     logger.info('Relay running with chainId=%s', chainId);
   }
