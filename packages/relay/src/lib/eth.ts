@@ -60,6 +60,7 @@ interface LatestBlockNumberTimestamp {
  * of fake stuff in this class for now for the purpose of demos and POC.
  */
 export class EthImpl implements Eth {
+  static namespace = 'eth';
   static emptyHex = '0x';
   static zeroHex = '0x0';
   static oneHex = '0x1';
@@ -3089,5 +3090,14 @@ export class EthImpl implements Eth {
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
     return exchangeRateInCents;
+  }
+
+  /**
+   * Returns the namespace identifier for this implementation.
+   *
+   * @returns {string} The namespace string for the Eth implementation.
+   */
+  getNamespace(): string {
+    return EthImpl.namespace;
   }
 }
