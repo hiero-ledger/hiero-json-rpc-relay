@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { getConsensusNodeVersion, getMirrorNodeVersion } from '@hashgraph/json-rpc-server/dist/formatters';
 import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
 import pino from 'pino';
-import sinon from 'sinon';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
