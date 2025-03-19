@@ -22,8 +22,9 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { Validator } from '../../src/validator';
-import * as Constants from '../../src/validator/constants';
+import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
+
+import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
@@ -306,7 +307,7 @@ describe('RPC Server', function () {
     });
 
     BaseTest.defaultResponseChecks(res);
-    expect(res.data.result).to.be.equal('false');
+    expect(res.data.result).to.be.equal(false);
   });
 
   it('should execute "web3_sha"', async function () {
@@ -662,7 +663,7 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal('3');
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
-      expect(response.data[1].error.message).to.be.equal('Method non_existent_method not found');
+      expect(response.data[1].error.message).to.contain(`Method non_existent_method not found`);
       // verify eth_chainId result on position 2
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
@@ -690,7 +691,7 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal('3');
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
-      expect(response.data[1].error.message).to.be.equal('Method non_existent_method not found');
+      expect(response.data[1].error.message).to.contain(`Method non_existent_method not found`);
       // verify
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].error).to.be.an('Object');

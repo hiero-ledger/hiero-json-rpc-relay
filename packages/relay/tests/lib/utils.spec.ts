@@ -5,10 +5,12 @@ import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
 import pino from 'pino';
-import sinon from 'sinon';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
+import { RPC_PARAM_LAYOUT_KEY } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
+import { RPC_LAYOUT } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
+import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -183,5 +185,43 @@ describe('Utils', () => {
         });
       },
     );
+  });
+
+  describe('arrangeRpcParams', () => {
+    const requestDetails = new RequestDetails({
+      requestId: 'test-request-id',
+      ipAddress: '127.0.0.1',
+    });
+
+    it('should return only requestDetails for REQUEST_DETAILS_ONLY layout', () => {
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = RPC_LAYOUT.REQUEST_DETAILS_ONLY;
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal([requestDetails]);
+    });
+
+    it('should apply custom parameter layout function', () => {
+      const customLayout = (params) => [params[0], params[1]];
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = customLayout;
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal(['param1', 'param2', requestDetails]);
+    });
+
+    it('should use default behavior when no layout is specified', () => {
+      const mockMethod = function () {};
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal(['param1', 'param2', requestDetails]);
+    });
+
+    it('should handle empty params with default behavior', () => {
+      const mockMethod = function () {};
+
+      const result = Utils.arrangeRpcParams(mockMethod, [], requestDetails);
+      expect(result).to.deep.equal([requestDetails]);
+    });
   });
 });

@@ -9,10 +9,12 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
+import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService } from './services/ethService/ethCommonService';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
+
 /**
  * Represents a DebugService for tracing and debugging transactions.
  *
@@ -20,6 +22,7 @@ import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails }
  * @implements {Debug}
  */
 export class DebugImpl implements Debug {
+  static namespace = 'debug';
   static debugTraceTransaction = 'debug_traceTransaction';
   static zeroHex = '0x0';
 
@@ -69,6 +72,9 @@ export class DebugImpl implements Debug {
    * Trace a transaction for debugging purposes.
    *
    * @async
+   * @rpcMethod Exposed as debug_traceTransaction RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} transactionIdOrHash - The ID or hash of the transaction to be traced.
    * @param {TracerType} tracer - The type of tracer to use (either 'CallTracer' or 'OpcodeLogger').
    * @param {ITracerConfig} tracerConfig - The configuration object for the tracer.
@@ -79,6 +85,12 @@ export class DebugImpl implements Debug {
    * @example
    * const result = await traceTransaction('0x123abc', TracerType.CallTracer, {"tracerConfig": {"onlyTopCall": false}}, some request id);
    */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
+    1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
+    2: { type: ParamType.TRACER_CONFIG, required: false },
+  })
   async traceTransaction(
     transactionIdOrHash: string,
     tracer: TracerType,
@@ -333,5 +345,13 @@ export class DebugImpl implements Debug {
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
+  }
+  /**
+   * Returns the namespace identifier for this implementation.
+   *
+   * @returns {string} The namespace string for the Debug implementation.
+   */
+  getNamespace(): string {
+    return DebugImpl.namespace;
   }
 }
