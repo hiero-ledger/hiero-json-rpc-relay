@@ -15,9 +15,9 @@ import { v4 as uuid } from 'uuid';
 import { getRequestResult } from './controllers';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
-import { getSubscriptionController, initializeSubscriptionManager } from './subscriptionsManager';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
+
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
@@ -34,8 +34,6 @@ const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
 const relay = new Relay(logger, register);
 
-initializeSubscriptionManager(relay, logger, register);
-
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
 const wsMetricRegistry = new WsMetricRegistry(register);
@@ -49,8 +47,8 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   // Record the start time when the connection is established
   const startTime = process.hrtime();
-  const subscriptionController = getSubscriptionController();
-  ctx.websocket.id = subscriptionController?.generateId();
+
+  ctx.websocket.id = relay.subs()?.generateId();
   ctx.websocket.requestId = uuid();
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;
@@ -72,8 +70,7 @@ app.ws.use(async (ctx: Koa.Context) => {
     logger.info(
       `${requestDetails.formattedLogPrefix} Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`,
     );
-    const subscriptionController = getSubscriptionController();
-    await handleConnectionClose(ctx, subscriptionController, limiter, wsMetricRegistry, startTime);
+    await handleConnectionClose(ctx, relay, limiter, wsMetricRegistry, startTime);
   });
 
   // Increment limit counters

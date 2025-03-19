@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { WS_CONSTANTS } from '../utils/constants';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
+import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import {
   InvalidRequest,
   IPRateLimitExceeded,
   MethodNotFound,
 } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
-import Koa from 'koa';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { Logger } from 'pino';
-
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { WS_CONSTANTS } from '../utils/constants';
-import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
-import { handleEthSubscribe } from './eth_subscribe';
-import { handleEthUnsubscribe } from './eth_unsubscribe';
+import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import Koa from 'koa';
+import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 
 export type ISharedParams = {
   request: IJsonRpcRequest;
@@ -112,7 +110,6 @@ export const getRequestResult = async (
   requestDetails: RequestDetails,
 ): Promise<any> => {
   // Extract the method and parameters from the received request
-  // eslint-disable-next-line
   let { method, params } = request;
 
   // support go-ethereum client by turning undefined into empty array

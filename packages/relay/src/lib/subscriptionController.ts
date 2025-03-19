@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { generateRandomHex } from '@hashgraph/json-rpc-relay/dist/formatters';
 import crypto from 'crypto';
-import { Context } from 'koa';
 import LRU from 'lru-cache';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { Poller } from '../poller';
+import { generateRandomHex } from '../formatters';
+import { Subs } from '../index';
+import constants from './constants';
+import { Poller } from './poller';
 
 export interface Subscriber {
   connection: any;
@@ -18,7 +19,7 @@ export interface Subscriber {
 
 const CACHE_TTL = ConfigService.get('WS_CACHE_TTL');
 
-export class SubscriptionController {
+export class SubscriptionController implements Subs {
   private poller: Poller;
   private logger: Logger;
   private subscriptions: { [key: string]: Subscriber[] };
@@ -62,16 +63,16 @@ export class SubscriptionController {
     });
   }
 
-  private createHash(data: string) {
+  createHash(data) {
     return crypto.createHash('sha256').update(data.toString()).digest('hex');
   }
 
   // Generates a random 16 byte hex string
-  public generateId() {
+  generateId() {
     return generateRandomHex();
   }
 
-  public subscribe(connection: Context, event: string, filters?: {}) {
+  subscribe(connection, event: string, filters?: {}) {
     let tag: any = { event };
     if (filters && Object.keys(filters).length) {
       tag.filters = filters;
@@ -109,7 +110,7 @@ export class SubscriptionController {
     return subId;
   }
 
-  public unsubscribe(connection, subId?: string) {
+  unsubscribe(connection, subId?: string) {
     const { id } = connection;
 
     if (subId) {
@@ -147,7 +148,7 @@ export class SubscriptionController {
     return subCount;
   }
 
-  public notifySubscribers(tag, data) {
+  notifySubscribers(tag, data) {
     if (this.subscriptions[tag] && this.subscriptions[tag].length) {
       this.subscriptions[tag].forEach((sub) => {
         const subscriptionData = {
