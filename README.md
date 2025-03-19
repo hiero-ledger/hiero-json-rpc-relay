@@ -260,11 +260,21 @@ Please note that the `/metrics` endpoint is also a default scrape configurations
 ##### Dashboard
 [Grafana JSON Dashboards](https://github.com/hashgraph/hedera-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
 
-##### Config environment variables
+##### Hedera-specific RPC methods
 
-To provide more transparency and operational insight to the developers, the hedera-json-rpc-relay exposes all environment variables on endpoint **GET** `/config`. Such information could aid in troubleshooting and understanding the context in which the relay is running.
+- `hedera_config` - To provide more transparency and operational insight to the developers, the hedera-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
 
-Expected response on **GET** `/config`
+Body:
+```
+{
+    "method": "hedera_config",
+    "params": [],
+    "id": 1,
+    "jsonrpc": "2.0"
+}
+```
+
+Expected response:
 ```
 {
     "relay": {

@@ -18,6 +18,8 @@ export interface Relay {
 
   net(): Net;
 
+  hedera(): Hedera;
+
   eth(): Eth;
 
   subs(): Subs | undefined;
@@ -45,6 +47,10 @@ export interface Net {
   version(): string;
 
   peerCount(): JsonRpcError;
+}
+
+export interface Hedera {
+  config(requestDetails: RequestDetails): any;
 }
 
 export interface Eth {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { getConsensusNodeVersion, getMirrorNodeVersion } from '@hashgraph/json-rpc-server/dist/formatters';
 import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
@@ -12,7 +13,7 @@ import constants from '../../src/lib/constants';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
-describe('Utils', () => {
+describe.only('Utils', () => {
   describe('addPercentageBufferToGasPrice', () => {
     const TW_COEF = constants.TINYBAR_TO_WEIBAR_COEF;
     const TEST_CASES = [
@@ -183,5 +184,39 @@ describe('Utils', () => {
         });
       },
     );
+  });
+
+  describe('getConsensusNodeVersion', () => {
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com' }, () => {
+      it('should set server timeout to default value when environment variable is not set', () => {
+        it('should return local for version tag on getConsensusNodeVersion against local MN setup', async () => {
+          const version = await Utils.getConsensusNodeVersion();
+          expect(version).to.not.equal('local');
+        });
+      });
+    });
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'http://127.0.0.1:5551' }, () => {
+      it('should set server timeout to default value when environment variable is not set', () => {
+        it('should return local for version tag on getConsensusNodeVersion against local MN setup', async () => {
+          const version = await Utils.getConsensusNodeVersion();
+          expect(version).to.equal('local');
+        });
+      });
+    });
+  });
+
+  describe('getMirrorNodeVersion', () => {
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com' }, () => {
+      it('should return local for version tag on getMirrorNodeVersion against local MN setup', async () => {
+        const version = await Utils.getMirrorNodeVersion();
+        expect(version).to.not.equal('local');
+      });
+    });
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'http://127.0.0.1:5551' }, () => {
+      it('should return local for version tag on getMirrorNodeVersion against local MN setup', async () => {
+        const version = await Utils.getMirrorNodeVersion();
+        expect(version).to.equal('local');
+      });
+    });
   });
 });

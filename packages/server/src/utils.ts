@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { JsonRpcError, MirrorNodeClientError, predefined } from '@hashgraph/json-rpc-relay';
 import pino from 'pino';
 
@@ -23,6 +24,10 @@ const logAndHandleResponse = async (
   app: KoaJsonRpc,
   logger: pino.Logger,
 ) => {
+  if (ConfigService.get('DISABLED_RPC_METHODS').indexOf(methodName) > -1) {
+    return predefined.UNSUPPORTED_METHOD;
+  }
+
   const requestDetails = app.getRequestDetails();
 
   try {

@@ -165,6 +165,12 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  DISABLED_RPC_METHODS: {
+    envName: 'DISABLED_RPC_METHODS',
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
   E2E_RELAY_HOST: {
     envName: 'E2E_RELAY_HOST',
     type: 'string',

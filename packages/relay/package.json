@@ -68,7 +68,8 @@
     "lru-cache": "^7.14.0",
     "pino": "^7.11.0",
     "redis": "^4.6.7",
-    "rlp": "^3.0.0"
+    "rlp": "^3.0.0",
+    "yaml": "^2.7.0"
   },
   "nyc": {
     "check-coverage": false,
