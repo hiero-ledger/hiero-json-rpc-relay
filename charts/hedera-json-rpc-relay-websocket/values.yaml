@@ -14,12 +14,9 @@ config:
 
   # Valid options are `previewnet`, `testnet`, and `mainnet` for remote options. For local use {'127.0.01:50211':'0.0.3'}. For IPs use {'$IPv4_ADDR_1:$PORT_1':'$ACCOUNT_ID_1'} form
   LOG_LEVEL: ''
-  MIRROR_NODE_RETRIES: 3
-  MIRROR_NODE_RETRY_DELAY: 250
   SUBSCRIPTIONS_ENABLED: true # must be true for websocket
   WS_CONNECTION_LIMIT: 100
   WS_SUBSCRIPTION_LIMIT: 100
-  WS_PING_INTERVAL: 1000
   REDIS_ENABLED: false
   REDIS_URL: ''
   MULTI_SET: true
