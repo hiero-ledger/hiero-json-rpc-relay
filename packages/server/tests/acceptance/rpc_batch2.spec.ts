@@ -610,6 +610,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
       const createChildTx = await parentContract.createChild(1);
+      await relay.pollForValidTransactionReceipt(createChildTx.hash);
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
         [createChildTx.hash, 0],
@@ -629,6 +630,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
       const createChildTx = await parentContract.createChild(1);
+      await relay.pollForValidTransactionReceipt(createChildTx.hash);
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
         [createChildTx.blockNumber, 0],
