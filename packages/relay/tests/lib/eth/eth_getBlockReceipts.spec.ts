@@ -20,7 +20,7 @@ import {
   BLOCK_NUMBER_HEX,
   BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
-  CONTRACTS_RESULTS_BLOCK_NUMBER_URL,
+  CONTRACT_RESULTS_WITH_FILTER_URL_2,
   DEFAULT_BLOCK,
   DEFAULT_ETH_GET_BLOCK_BY_LOGS,
   DEFAULT_NETWORK_FEES,
@@ -69,7 +69,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   });
 
   function setupStandardResponses() {
-    restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify(defaultContractResults));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify(defaultContractResults));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
     restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
@@ -139,7 +139,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should return empty array for block with no transactions', async function () {
-      restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ results: [] }));
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
@@ -170,7 +170,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should return receipts with empty logs arrays when transactions have no matching logs', async function () {
-      restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify(defaultContractResultsOnlyHash2));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify(defaultContractResultsOnlyHash2));
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ logs: defaultLogs1 }));
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
@@ -183,7 +183,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   describe('Error cases', () => {
     it('should handle transactions with no contract results', async function () {
-      restMock.onGet(CONTRACTS_RESULTS_BLOCK_NUMBER_URL).reply(200, JSON.stringify({ results: [] }));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ results: [] }));
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
 

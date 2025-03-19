@@ -2947,23 +2947,21 @@ export class EthImpl implements Eth {
       return cachedResponse;
     }
 
-    const params: IContractResultsParams = {
-      blockNumber: blockNumber,
+    const paramTimestamp: IContractResultsParams = {
+      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
 
-    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
+    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp);
     if (!contractResults || contractResults.length === 0) {
       return [];
     }
 
-    const blockTimestamp = block.timestamp;
-    const effectiveGas = await this.getCurrentGasPriceForBlock(block.block_hash, requestDetails);
-    const paramTimestamp = {
-      timestamp: [`lte:${blockTimestamp.to}`, `gte:${blockTimestamp.from}`],
-    };
+    const effectiveGas = await this.getCurrentGasPriceForBlock(block.hash, requestDetails);
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-    contractResults.forEach((contractResult) => this.mapResultWithLogs(contractResult, logs));
+    contractResults.forEach((contractResult) => {
+      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+    });
 
     const receipts: Receipt[] = [];
 
@@ -2994,27 +2992,5 @@ export class EthImpl implements Eth {
 
     await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
     return receipts;
-  }
-
-  /**
-   * Maps the contract result with the logs
-   * @param {any} result - The contract result
-   * @param {Log[]} logs - The logs
-   */
-  private mapResultWithLogs(result, logs) {
-    const matchingLogs = logs
-      .filter((log) => log.transactionHash === result.hash)
-      .map((log) => {
-        return new Log({
-          address: log.address,
-          blockHash: toHash32(result.block_hash),
-          blockNumber: numberTo0x(result.block_number),
-          data: log.data,
-          logIndex: numberTo0x(log.logIndex),
-          removed: false,
-          topics: log.topics,
-        });
-      });
-    result.logs = matchingLogs;
   }
 }
