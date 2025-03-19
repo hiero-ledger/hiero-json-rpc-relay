@@ -22,6 +22,7 @@ import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails }
  * @implements {Debug}
  */
 export class DebugImpl implements Debug {
+  static namespace = 'debug';
   static debugTraceTransaction = 'debug_traceTransaction';
   static zeroHex = '0x0';
 
@@ -337,5 +338,13 @@ export class DebugImpl implements Debug {
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
+  }
+  /**
+   * Returns the namespace identifier for this implementation.
+   *
+   * @returns {string} The namespace string for the Debug implementation.
+   */
+  getNamespace(): string {
+    return DebugImpl.namespace;
   }
 }

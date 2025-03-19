@@ -40,10 +40,7 @@ import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
 import HAPIService from './services/hapiService/hapiService';
-import {
-  IGetLogsParams,
-  INewFilterParams,
-} from './types';
+import { IGetLogsParams, INewFilterParams } from './types';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 
@@ -62,6 +59,7 @@ interface LatestBlockNumberTimestamp {
  * of fake stuff in this class for now for the purpose of demos and POC.
  */
 export class EthImpl implements Eth {
+  static namespace = 'eth';
   static emptyHex = '0x';
   static zeroHex = '0x0';
   static oneHex = '0x1';
