@@ -14,14 +14,8 @@ config:
   CHAIN_ID: ''
   LOG_LEVEL: ''
   HBAR_RATE_LIMIT_TINYBAR: 5000000000
-  HBAR_RATE_LIMIT_DURATION: 60000
   HBAR_RATE_LIMIT_BASIC: 5000000000
   # Valid options are `previewnet`, `testnet`, and `mainnet` for remote options. For local use {"127.0.01:50211":"0.0.3"}. For IPs use {"$IPv4_ADDR_1:$PORT_1":"$ACCOUNT_ID_1"} form
-  MIRROR_NODE_RETRIES: 3
-  MIRROR_NODE_RETRY_DELAY: 250
-  TIER_2_RATE_LIMIT: 200
-  TIER_3_RATE_LIMIT: 400
-  HAPI_CLIENT_ERROR_RESET: [50]
   REDIS_ENABLED: false
   REDIS_URL: ''
   MULTI_SET: true
