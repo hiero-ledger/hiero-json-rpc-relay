@@ -20,8 +20,6 @@ export interface Relay {
 
   eth(): Eth;
 
-  subs(): Subs | undefined;
-
   mirrorClient(): MirrorNodeClient;
 }
 
