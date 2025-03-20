@@ -5,7 +5,7 @@ import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import ConnectionLimiter from '../metrics/connectionLimiter';
 import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
 import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
-import { JsonRpcError, predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
@@ -24,7 +24,7 @@ export type ISharedParams = {
   request: IJsonRpcRequest;
   method: string;
   params: any[];
-  relay: RelayImpl;
+  relay: Relay;
   logger: Logger;
   limiter: ConnectionLimiter;
   mirrorNodeClient: MirrorNodeClient;
@@ -101,7 +101,7 @@ const handleSendingRequestsToRelay = async ({
  */
 export const getRequestResult = async (
   ctx: Koa.Context,
-  relay: RelayImpl,
+  relay: Relay,
   logger: Logger,
   request: IJsonRpcRequest,
   limiter: ConnectionLimiter,

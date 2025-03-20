@@ -26,7 +26,7 @@ import { SubscriptionController } from './subscriptionController';
 import { RequestDetails } from './types';
 import { Web3Impl } from './web3';
 
-export class RelayImpl {
+export class Relay {
   /**
    * @private
    * @readonly

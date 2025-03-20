@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RelayImpl } from '@hashgraph/json-rpc-relay';
+import { Relay } from '@hashgraph/json-rpc-relay';
 import { SubscriptionController } from '@hashgraph/json-rpc-relay/dist/lib/subscriptionController';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { expect } from 'chai';
@@ -125,14 +125,14 @@ describe('Utilities unit tests', async function () {
   });
 
   describe('handleConnectionClose', () => {
-    let relayStub: sinon.SinonStubbedInstance<RelayImpl>;
+    let relayStub: sinon.SinonStubbedInstance<Relay>;
     let limiterStub: sinon.SinonStubbedInstance<ConnectionLimiter>;
     let wsMetricRegistryStub: sinon.SinonStubbedInstance<WsMetricRegistry>;
     let ctxStub: any;
     let startTime: [number, number];
 
     beforeEach(async () => {
-      relayStub = sinon.createStubInstance(RelayImpl, {
+      relayStub = sinon.createStubInstance(Relay, {
         subs: sinon.createStubInstance(SubscriptionController),
       });
       limiterStub = sinon.createStubInstance(ConnectionLimiter);

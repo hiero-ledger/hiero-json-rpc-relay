@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
@@ -27,7 +27,7 @@ const subscribeToNewHeads = (
   filters: any,
   ctx: Context,
   event: string,
-  relay: RelayImpl,
+  relay: Relay,
   logger: Logger,
 ): string | undefined => {
   const subscriptionId = relay.subs()?.subscribe(ctx.websocket, event, filters);
@@ -52,7 +52,7 @@ const handleEthSubscribeNewHeads = (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: RelayImpl,
+  relay: Relay,
   logger: Logger,
   requestDetails: RequestDetails,
 ): IJsonRpcResponse => {
@@ -87,7 +87,7 @@ const handleEthSubscribeLogs = async (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: RelayImpl,
+  relay: Relay,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
 ): Promise<IJsonRpcResponse> => {

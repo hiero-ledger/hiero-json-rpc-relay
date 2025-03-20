@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RelayImpl } from '@hashgraph/json-rpc-relay';
+import { Relay } from '@hashgraph/json-rpc-relay';
 import pino from 'pino';
 
 import KoaJsonRpc from '../koaJsonRpc';
 import { logAndHandleResponse } from '../utils';
 
-const defineWeb3Routes = function (app: KoaJsonRpc, relay: RelayImpl, logger: pino.Logger) {
+const defineWeb3Routes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Logger) {
   /**
    * Returns the current version of the chain client.
    *
