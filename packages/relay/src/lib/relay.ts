@@ -15,6 +15,7 @@ import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimi
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
+import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { AdminImpl } from './admin';
 import { NetImpl } from './net';
@@ -124,6 +125,11 @@ export class Relay {
   public readonly rpcMethodRegistry: RpcMethodRegistry;
 
   /**
+   * The RPC method dispatcher that takes care of executing the correct method based on the request.
+   */
+  private readonly rpcMethodDispatcher: RpcMethodDispatcher;
+
+  /**
    * Initializes the main components of the relay service, including Hedera network clients,
    * Ethereum-compatible interfaces, caching, metrics, and subscription management.
    *
@@ -225,7 +231,29 @@ export class Relay {
       this.web3Impl,
     ] as RpcImplementation[]);
 
+    // Initialize the RPC method dispatcher
+    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
+
     logger.info('Relay running with chainId=%s', chainId);
+  }
+
+  /**
+   * Executes an RPC method by delegating to the RPC method dispatcher
+   *
+   * This method serves as the only public API entry point for server packages (i.e. HTTP and WebSocket)
+   * to invoke RPC methods on the Relay.
+   *
+   * @param {string} rpcMethodName - The name of the RPC method to execute
+   * @param {any[]} rpcMethodParams - The params for the RPC method to execute
+   * @param {RequestDetails} requestDetails - Additional request context
+   * @returns {Promise<any>} The result of executing the RPC method
+   */
+  public async executeRpcMethod(
+    rpcMethodName: string,
+    rpcMethodParams: any,
+    requestDetails: RequestDetails,
+  ): Promise<any> {
+    return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
   }
 
   /**
