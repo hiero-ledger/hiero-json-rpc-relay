@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RPC_METHOD_KEY } from '../../decorators';
+import { RPC_METHOD_KEY, RPC_PARAM_SCHEMA_KEY } from '../../decorators';
 import { RpcImplementation, RpcMethodRegistry } from '../../types';
 
 /**
@@ -46,6 +46,13 @@ export class RpcMethodRegistryService {
             Object.defineProperty(boundMethod, 'name', {
               value: operationName,
             });
+
+            // Get validation schema if it exists
+            const validationSchema = operationFunction[RPC_PARAM_SCHEMA_KEY];
+            if (validationSchema) {
+              // Store validation schema with the method
+              boundMethod.validationSchema = validationSchema;
+            }
 
             // Register the method with proper 'this' binding and original name
             registry.set(rpcMethodName, boundMethod);
