@@ -37,9 +37,16 @@ import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
 import HAPIService from './services/hapiService/hapiService';
-import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
+import {
+  IContractCallRequest,
+  IContractCallResponse,
+  IFeeHistory,
+  IGetLogsParams,
+  INewFilterParams,
+  ITransactionReceipt,
+  RequestDetails,
+} from './types';
 import { IAccountInfo } from './types/mirrorNode';
-import { IGetLogsParams, INewFilterParams } from './types/requestParams';
 
 const _ = require('lodash');
 const asm = require('@ethersproject/asm');
