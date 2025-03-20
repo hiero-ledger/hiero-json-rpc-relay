@@ -5,10 +5,10 @@ import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
 import pino from 'pino';
-import sinon from 'sinon';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
+import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -190,17 +190,60 @@ describe('Utils', () => {
       '0x127': 'mainnet',
       '0x128': 'testnet',
       '0x129': 'previewnet',
-      '0x12a': 'local'
+      '0x12a': 'local',
     })) {
-      withOverriddenEnvsInMochaTest({
-          CHAIN_ID: chainId
-        }, () => {
+      withOverriddenEnvsInMochaTest(
+        {
+          CHAIN_ID: chainId,
+        },
+        () => {
           it(`should return ${networkName} for chain id ${chainId}`, () => {
             const networkName = Utils.getNetworkNameByChainId();
             expect(networkName).to.equal(networkName);
           });
-        }
+        },
       );
     }
+  });
+
+  describe('argsRearrangementMap', () => {
+    const requestDetails = new RequestDetails({
+      requestId: 'test-request-id',
+      ipAddress: '127.0.0.1',
+    });
+
+    const testCases = [
+      {
+        method: 'chainId',
+        params: [null],
+        expected: [requestDetails],
+        description: 'should rearrange arguments for chainId method',
+      },
+      {
+        method: 'estimateGas',
+        params: ['param1', 'param2'],
+        expected: ['param1', 'param2', requestDetails],
+        description: 'should rearrange arguments for estimateGas method',
+      },
+      {
+        method: 'default',
+        params: ['param1', 'param2'],
+        expected: ['param1', 'param2', requestDetails],
+        description: 'should use default rearrangement for unspecified methods',
+      },
+      {
+        method: 'default',
+        params: [],
+        expected: [requestDetails],
+        description: 'should handle empty params with default rearrangement',
+      },
+    ];
+
+    testCases.forEach(({ method, params, expected, description }) => {
+      it(description, () => {
+        const rearrangedArgs = Utils.argsRearrangementMap[method](params, requestDetails);
+        expect(rearrangedArgs).to.deep.equal(expected);
+      });
+    });
   });
 });

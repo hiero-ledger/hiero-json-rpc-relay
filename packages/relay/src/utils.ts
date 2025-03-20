@@ -9,6 +9,7 @@ import { Logger } from 'pino';
 
 import { hexToASCII, prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
+import { RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
@@ -160,4 +161,18 @@ export class Utils {
         return 'local';
     }
   }
+  /**
+   * A mapping of argument rearrangement functions for various methods.
+   * Each function adjusts the order of arguments based on the method's requirements.
+   */
+  public static argsRearrangementMap: {
+    [key: string]: (params: any[], requestDetails: RequestDetails) => any[];
+  } = {
+    // *note: some WS providers send null arguments for chainId method but only requestDetails is needed
+    chainId: (_: any[], requestDetails: RequestDetails) => [requestDetails],
+    // *note: since estimateGas has the second param as optional, which means it can be omitted from the client request,
+    // we need to explicitly add it to the arguments array to ensure the requestDetails object is placed correctly in the arguments array.
+    estimateGas: (params, requestDetails) => [params[0], params[1], requestDetails],
+    default: (params, requestDetails) => [...params, requestDetails],
+  };
 }
