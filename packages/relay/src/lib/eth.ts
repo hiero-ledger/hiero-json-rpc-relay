@@ -1799,7 +1799,9 @@ export class EthImpl implements Eth {
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     if (useAsyncTxProcessing) {
       this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return Utils.computeTransactionHash(transactionBuffer);
+      const hash = Utils.computeTransactionHash(transactionBuffer);
+      this.logger.warn(`${requestDetails.formattedRequestId} ========== TX HASH ======== ${hash}`);
+      return hash;
     }
 
     /**

@@ -1714,6 +1714,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const signedTx = await accounts[0].wallet.signTransaction(tx);
           const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+          if (global.logger.isLevelEnabled('trace')) {
+            global.logger.trace(`========== POLLING FOR TX ======== ${transactionHash}`);
+          }
           await relay.pollForValidTransactionReceipt(transactionHash);
 
           const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
