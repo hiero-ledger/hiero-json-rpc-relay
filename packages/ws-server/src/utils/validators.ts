@@ -3,7 +3,7 @@
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import { EthSubscribeLogsParamsObject } from '@hashgraph/json-rpc-server/dist/validator';
+import { EthSubscribeLogsParamsObject } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 
 /**

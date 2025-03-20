@@ -3,7 +3,7 @@
 import { WS_CONSTANTS } from '../utils/constants';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
+// import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
 import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
@@ -57,32 +57,36 @@ const handleSendingRequestsToRelay = async ({
     logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
-    const [service, methodName] = method.split('_');
+    // const [service, methodName] = method.split('_');
 
-    const rearrangeParamsFn = paramRearrangementMap[methodName] || paramRearrangementMap['default'];
-    const rearrangedParamsArray = rearrangeParamsFn(params, requestDetails);
+    // const rearrangeParamsFn = paramRearrangementMap[methodName] || paramRearrangementMap['default'];
+    // const rearrangedParamsArray = rearrangeParamsFn(params, requestDetails);
 
-    // Call the relay method with the rearranged parameters.
-    // Method will be validated by "verifySupportedMethod" before reaching this point.
-    const txRes = await relay[service]()[methodName](...rearrangedParamsArray);
+    // // Call the relay method with the rearranged parameters.
+    // // Method will be validated by "verifySupportedMethod" before reaching this point.
+    // const txRes = await relay[service]()[methodName](...rearrangedParamsArray);
 
-    if (!txRes) {
-      if (logger.isLevelEnabled('trace')) {
-        logger.trace(
-          `${requestDetails.formattedLogPrefix}: Fail to retrieve result for request=${JSON.stringify(
-            request,
-          )}. Result=${txRes}`,
-        );
-      }
-    }
+    // if (!txRes) {
+    //   if (logger.isLevelEnabled('trace')) {
+    //     logger.trace(
+    //       `${requestDetails.formattedLogPrefix}: Fail to retrieve result for request=${JSON.stringify(
+    //         request,
+    //       )}. Result=${txRes}`,
+    //     );
+    //   }
+    // }
+    // return jsonResp(request.id, null, txRes);
 
-    return jsonResp(request.id, null, txRes);
-  } catch (error: any) {
-    if (error instanceof JsonRpcError) {
-      throw error;
+    // call the public API entry point on the Relay package to execute the RPC method
+    const result = await relay.executeRpcMethod(request.method, request.params, requestDetails);
+
+    if (result instanceof JsonRpcError) {
+      return jsonResp(request.id, result, undefined);
     } else {
-      throw predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
+      return jsonResp(request.id, null, result);
     }
+  } catch (error: any) {
+    throw predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
   }
 };
 
@@ -119,7 +123,7 @@ export const getRequestResult = async (
   wsMetricRegistry.getCounter('methodsCounter').labels(method).inc();
   wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, method).inc();
 
-  // validate request's jsonrpc object
+  // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger, requestDetails)) {
     return jsonResp(request.id || null, new InvalidRequest(), undefined);
   }
@@ -136,29 +140,29 @@ export const getRequestResult = async (
   }
 
   // Validate request's params
-  try {
-    const methodValidations = Validator.METHODS[method];
+  // try {
+  //   const methodValidations = Validator.METHODS[method];
 
-    if (methodValidations) {
-      Validator.validateParams(params, methodValidations);
-    }
-  } catch (error: any) {
-    logger.warn(
-      error,
-      `${requestDetails.formattedLogPrefix} Error in parameter validation. Method: ${method}, params: ${JSON.stringify(
-        params,
-      )}.`,
-    );
+  //   if (methodValidations) {
+  //     Validator.validateParams(params, methodValidations);
+  //   }
+  // } catch (error: any) {
+  //   logger.warn(
+  //     error,
+  //     `${requestDetails.formattedLogPrefix} Error in parameter validation. Method: ${method}, params: ${JSON.stringify(
+  //       params,
+  //     )}.`,
+  //   );
 
-    let jsonRpcError: JsonRpcError;
-    if (error instanceof JsonRpcError) {
-      jsonRpcError = error;
-    } else {
-      jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
-    }
+  //   let jsonRpcError: JsonRpcError;
+  //   if (error instanceof JsonRpcError) {
+  //     jsonRpcError = error;
+  //   } else {
+  //     jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
+  //   }
 
-    return jsonResp(request.id, jsonRpcError, undefined);
-  }
+  //   return jsonResp(request.id, jsonRpcError, undefined);
+  // }
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method
   let response: IJsonRpcResponse;

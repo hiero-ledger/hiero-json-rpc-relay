@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { RelayImpl } from '@hashgraph/json-rpc-relay/dist';
 import { IRequestDetails, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import parse from 'co-body';
 import Koa from 'koa';
@@ -18,7 +19,7 @@ import {
   InvalidRequest,
   IPRateLimitExceeded,
   JsonRpcError as JsonRpcErrorServer,
-  MethodNotFound,
+  // MethodNotFound,
   ParseError,
 } from './lib/RpcError';
 import jsonResp from './lib/RpcResponse';
@@ -30,7 +31,6 @@ import {
   getRequestIdIsOptional,
   hasOwnProperty,
 } from './lib/utils';
-
 const INVALID_REQUEST = 'INVALID REQUEST';
 const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
@@ -38,8 +38,8 @@ const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 
 export default class KoaJsonRpc {
-  private readonly registry: { [key: string]: (params?: any) => Promise<any> };
-  private readonly registryTotal: { [key: string]: number };
+  // private readonly registry: { [key: string]: (params?: any) => Promise<any> };
+  // private readonly registryTotal: { [key: string]: number };
   private readonly methodConfig: IMethodRateLimitConfiguration;
   private readonly duration: number = getLimitDuration();
   private readonly defaultRateLimit: number = getDefaultRateLimit();
@@ -51,17 +51,18 @@ export default class KoaJsonRpc {
   private readonly requestIdIsOptional: boolean = getRequestIdIsOptional(); // default to false
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
   private readonly methodResponseHistogram: Histogram;
+  private readonly relay: RelayImpl;
 
   private requestId: string;
   private requestIpAddress: string;
   private connectionId?: string;
 
-  constructor(logger: Logger, register: Registry, opts?: { limit: string | null }) {
+  constructor(logger: Logger, register: Registry, relay: RelayImpl, opts?: { limit: string | null }) {
     this.koaApp = new Koa();
     this.requestId = '';
     this.requestIpAddress = '';
-    this.registry = Object.create(null);
-    this.registryTotal = Object.create(null);
+    // this.registry = Object.create(null);
+    // this.registryTotal = Object.create(null);
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.logger = logger;
@@ -76,6 +77,7 @@ export default class KoaJsonRpc {
       registers: [this.metricsRegistry],
       buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000, 40000, 50000, 60000], // ms (milliseconds)
     });
+    this.relay = relay;
   }
 
   // useRpc(name: string, func: (params?: any) => Promise<any>): void {
@@ -195,8 +197,8 @@ export default class KoaJsonRpc {
       // return jsonResp(request.id, new MethodNotFound(methodName), undefined);
       // }
 
-      let methodHandler = this.registry[methodName];
-      let methodTotalLimit = this.registryTotal[methodName];
+      // let methodHandler = this.registry[methodName];
+      // let methodTotalLimit = this.registryTotal[methodName];
 
       // check for regex patterns if not found ---- Done with the new Relay RPC dispatcher
       // if (!methodHandler) {
