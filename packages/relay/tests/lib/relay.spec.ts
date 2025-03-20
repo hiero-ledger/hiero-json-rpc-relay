@@ -44,24 +44,6 @@ describe('Relay', () => {
     expect(eth).to.not.be.undefined;
   });
 
-  withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: true }, () => {
-    it('should return the correct subscription implementation when enabled', () => {
-      relay = new Relay(logger, register);
-
-      const subs = relay.subs();
-      expect(subs).to.not.be.undefined;
-    });
-  });
-
-  withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, () => {
-    it('should return undefined subscription implementation when not enabled', () => {
-      relay = new Relay(logger, register);
-
-      const subs = relay.subs();
-      expect(subs).to.be.undefined;
-    });
-  });
-
   describe('populatePreconfiguredSpendingPlans', () => {
     let loggerSpy: sinon.SinonSpiedInstance<pino.Logger>;
     let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;

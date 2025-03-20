@@ -124,6 +124,7 @@ export class Poller {
   }
 
   add(tag: string, callback: Function) {
+    console.log('eth ----->', this.eth);
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       this.polls.push({
