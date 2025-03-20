@@ -71,7 +71,7 @@ export class SubscriptionController {
     return generateRandomHex();
   }
 
-  public subscribe(connection: Context, event: string, filters?: {}) {
+  public subscribe(connection, event: string, filters?: {}) {
     let tag: any = { event };
     if (filters && Object.keys(filters).length) {
       tag.filters = filters;
