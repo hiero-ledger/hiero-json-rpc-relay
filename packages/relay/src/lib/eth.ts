@@ -31,7 +31,7 @@ import { IReceiptRootHash, ReceiptsRootUtils } from '../receiptsRootUtils';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { rpcMethod } from './decorators';
+import { rpcMethod, rpcParamSchema } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
@@ -40,9 +40,20 @@ import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
 import HAPIService from './services/hapiService/hapiService';
-import { IGetLogsParams, INewFilterParams } from './types';
-import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
+import {
+  IContractCallRequest,
+  IContractCallResponse,
+  IFeeHistory,
+  IGetLogsParams,
+  INewFilterParams,
+  ITransactionReceipt,
+  RequestDetails,
+} from './types';
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
+import { ParamType } from './types/validation';
+
+const _ = require('lodash');
+const asm = require('@ethersproject/asm');
 
 interface LatestBlockNumberTimestamp {
   blockNumber: string | null;
@@ -272,6 +283,7 @@ export class EthImpl implements Eth {
    * with the behavior of Infura.
    *
    * @rpcMethod Exposed as eth_accounts RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {never[]} An empty array.
    */
@@ -291,6 +303,8 @@ export class EthImpl implements Eth {
    * Retrieves the fee history for a specified block range.
    *
    * @rpcMethod Exposed as eth_feeHistory RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {number} blockCount - The number of blocks to include in the fee history.
    * @param {string} newestBlock - The block number or tag of the newest block to include in the fee history.
    * @param {Array<number> | null} rewardPercentiles - An array of percentiles for reward calculation or null if not required.
@@ -298,6 +312,11 @@ export class EthImpl implements Eth {
    * @returns {Promise<IFeeHistory | JsonRpcError>} A promise that resolves to the fee history or a JsonRpcError if an error occurs.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.HEX, required: true },
+    1: { type: ParamType.BLOCK_NUMBER, required: true },
+    2: { type: ParamType.ARRAY, required: false },
+  })
   async feeHistory(
     blockCount: number,
     newestBlock: string,
@@ -504,6 +523,7 @@ export class EthImpl implements Eth {
    * Gets the most recent block number.
    *
    * @rpcMethod Exposed as eth_blockNumber RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string>} A promise that resolves to the most recent block number in hexadecimal format.
    */
@@ -546,6 +566,7 @@ export class EthImpl implements Eth {
    * `CHAIN_ID`.
    *
    * @rpcMethod Exposed as eth_chainId RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {string} The chain ID as a string.
    */
@@ -561,13 +582,18 @@ export class EthImpl implements Eth {
    * Estimates the amount of gas required to execute a contract call.
    *
    * @rpcMethod Exposed as eth_estimateGas RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} _blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
    */
   @rpcMethod
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  @rpcParamSchema({
+    0: { type: ParamType.TRANSACTION, required: true },
+    1: { type: ParamType.BLOCK_NUMBER, required: false },
+  })
   async estimateGas(
     transaction: IContractCallRequest,
     _blockParam: string | null,
@@ -760,6 +786,7 @@ export class EthImpl implements Eth {
    * Retrieves the current network gas price in weibars.
    *
    * @rpcMethod Exposed as eth_gasPrice RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string>} The current gas price in weibars as a hexadecimal string.
    * @throws Will throw an error if unable to retrieve the gas price.
@@ -798,6 +825,7 @@ export class EthImpl implements Eth {
    * Gets whether this "Ethereum client" is a miner. We don't mine, so this always returns false.
    *
    * @rpcMethod Exposed as eth_mining RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<boolean>} Always returns false.
    */
@@ -812,12 +840,18 @@ export class EthImpl implements Eth {
   /**
    * Creates a new filter object based on filter options to notify when the state changes (logs).
    *
+   * @todo fix param schema
    * @rpcMethod Exposed as eth_newFilter RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {INewFilterParams} params - The parameters for the new filter
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} A filter ID that can be used to query for changes
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.FILTER, required: true },
+  })
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -830,11 +864,16 @@ export class EthImpl implements Eth {
    * Returns an array of all logs matching the filter with the given ID.
    *
    * @rpcMethod Exposed as eth_getFilterLogs RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} filterId - The filter ID
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<Log[]>} Array of log objects matching the filter criteria
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.HEX, required: true },
+  })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getFilterLogs(${filterId})`);
@@ -846,11 +885,16 @@ export class EthImpl implements Eth {
    * Polling method for a filter, which returns an array of events that occurred since the last poll.
    *
    * @rpcMethod Exposed as eth_getFilterChanges RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} filterId - The filter ID
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string[] | Log[]>} Array of new logs or block hashes depending on the filter type
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.HEX, required: true },
+  })
   async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getFilterChanges(${filterId})`);
@@ -862,6 +906,7 @@ export class EthImpl implements Eth {
    * Creates a filter in the node to notify when a new block arrives.
    *
    * @rpcMethod Exposed as eth_newBlockFilter RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} A filter ID that can be used to check for new blocks
    */
@@ -877,11 +922,16 @@ export class EthImpl implements Eth {
    * Uninstalls a filter with the given ID.
    *
    * @rpcMethod Exposed as eth_uninstallFilter RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} filterId - The filter ID to uninstall
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<boolean>} True if the filter was successfully uninstalled, false otherwise
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.HEX, required: true },
+  })
   async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} uninstallFilter(${filterId})`);
@@ -894,6 +944,7 @@ export class EthImpl implements Eth {
    * This method is not supported and returns an error.
    *
    * @rpcMethod Exposed as eth_newPendingTransactionFilter RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<JsonRpcError>} An error indicating the method is not supported
    */
@@ -931,6 +982,7 @@ export class EthImpl implements Eth {
    * Always returns null. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleByBlockHashAndIndex RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
@@ -946,6 +998,7 @@ export class EthImpl implements Eth {
    * Always returns null. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleByBlockNumberAndIndex RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
@@ -961,6 +1014,7 @@ export class EthImpl implements Eth {
    * Always returns '0x0'. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleCountByBlockHash RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} Always returns '0x0'
    */
@@ -976,6 +1030,7 @@ export class EthImpl implements Eth {
    * Always returns '0x0'. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleCountByBlockNumber RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} Always returns '0x0'
    */
@@ -1002,6 +1057,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_getWork RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1017,6 +1073,7 @@ export class EthImpl implements Eth {
    * Unsupported methods always return UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_submitHashrate RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1032,6 +1089,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_signTransaction RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1047,6 +1105,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_sign RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1062,6 +1121,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_sendTransaction RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1077,6 +1137,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_protocolVersion RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1092,6 +1153,7 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_coinbase RPC endpoint
+   *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
@@ -1107,6 +1169,8 @@ export class EthImpl implements Eth {
    * Gets the value from a storage position at the given Ethereum address.
    *
    * @rpcMethod Exposed as eth_getStorageAt RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} address - The Ethereum address to get the storage value from
    * @param {string} slot - The storage slot to get the value from
    * @param {string | null} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
@@ -1114,6 +1178,11 @@ export class EthImpl implements Eth {
    * @returns {Promise<string>} A promise that resolves to the storage value as a hexadecimal string
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.ADDRESS, required: true },
+    1: { type: ParamType.HEX64, required: true },
+    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
+  })
   async getStorageAt(
     address: string,
     slot: string,
@@ -1169,12 +1238,18 @@ export class EthImpl implements Eth {
    * Current implementation does not yet utilize blockNumber
    *
    * @rpcMethod Exposed as eth_getBalance RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} account The account to get the balance from
    * @param {string | null} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the balance of the account in hexadecimal format.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.ADDRESS, required: true },
+    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
   async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
@@ -1353,6 +1428,8 @@ export class EthImpl implements Eth {
    * Retrieves the smart contract code for the contract at the specified Ethereum address.
    *
    * @rpcMethod Exposed as the eth_getCode RPC endpoint.
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} address - The Ethereum address of the contract.
    * @param {string | null} blockNumber - The block number from which to retrieve the contract code.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
@@ -1360,6 +1437,10 @@ export class EthImpl implements Eth {
    * @throws {Error} Throws an error if the block number is invalid or if there is an issue retrieving the contract code.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.ADDRESS, required: true },
+    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
   async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (!EthImpl.isBlockParamValid(blockNumber)) {
@@ -1477,12 +1558,18 @@ export class EthImpl implements Eth {
    * Retrieves the block associated with the specified hash.
    *
    * @rpcMethod Exposed as eth_getBlockByHash RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} hash - The block hash to retrieve.
    * @param {boolean} showDetails - Indicates whether to include detailed information about the block.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking purposes.
    * @returns {Promise<Block | null>} A promise that resolves to the block object or null if the block is not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_HASH, required: true },
+    1: { type: ParamType.BOOLEAN, required: true },
+  })
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     this.logger.trace(`${requestIdPrefix} getBlockByHash(hash=${hash}, showDetails=${showDetails})`);
@@ -1503,12 +1590,18 @@ export class EthImpl implements Eth {
    * Retrieves the block associated with the specified block number or tag.
    *
    * @rpcMethod Exposed as eth_getBlockByNumber RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} blockNumOrTag - The block number or tag. Possible values include 'earliest', 'pending', 'latest', or a hexadecimal block number. This parameter cannot be null.
    * @param {boolean} showDetails - Indicates whether to include detailed information about the block.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking purposes.
    * @returns {Promise<Block | null>} A promise that resolves to the block object or null if the block is not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    1: { type: ParamType.BOOLEAN, required: true },
+  })
   async getBlockByNumber(
     blockNumOrTag: string,
     showDetails: boolean,
@@ -1539,11 +1632,16 @@ export class EthImpl implements Eth {
    * Retrieves the number of transactions in a block by its block hash.
    *
    * @rpcMethod Exposed as eth_getBlockTransactionCountByHash RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} hash - The block hash.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking purposes.
    * @returns {Promise<string | null>} A promise that resolves to the number of transactions in the block as a hexadecimal string, or null if the block is not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_HASH, required: true },
+  })
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     this.logger.trace(`${requestIdPrefix} getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
@@ -1578,11 +1676,16 @@ export class EthImpl implements Eth {
    * Retrieves the number of transactions in a block by its block number.
    *
    * @rpcMethod Exposed as eth_getBlockTransactionCountByNumber RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} blockNumOrTag - The block number or tag. Possible values are 'earliest', 'pending', 'latest', or a hexadecimal block number.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking purposes.
    * @returns {Promise<string | null>} A promise that resolves to the number of transactions in the block as a hexadecimal string, or null if the block is not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+  })
   async getBlockTransactionCountByNumber(
     blockNumOrTag: string,
     requestDetails: RequestDetails,
@@ -1628,12 +1731,18 @@ export class EthImpl implements Eth {
    * Retrieves a transaction from a block by its block hash and transaction index.
    *
    * @rpcMethod Exposed as eth_getTransactionByBlockHashAndIndex RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} blockHash - The hash of the block containing the transaction.
    * @param {string} transactionIndex - The index of the transaction within the block.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<Transaction | null>} A promise that resolves to the transaction object if found, or null if not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_HASH, required: true },
+    1: { type: ParamType.HEX, required: true },
+  })
   async getTransactionByBlockHashAndIndex(
     blockHash: string,
     transactionIndex: string,
@@ -1664,12 +1773,18 @@ export class EthImpl implements Eth {
    * Gets the transaction in a block by its block hash and transactions index.
    *
    * @rpcMethod Exposed as eth_getTransactionByBlockNumberAndIndex RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} blockNumOrTag - The block number or tag to retrieve the transaction from. Possible values are 'earliest', 'pending', 'latest', or a hexadecimal block hash.
    * @param {string} transactionIndex - The index of the transaction within the block.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking purposes.
    * @returns {Promise<Transaction | null>} A promise that resolves to the transaction object if found, or null if not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    1: { type: ParamType.HEX, required: true },
+  })
   async getTransactionByBlockNumberAndIndex(
     blockNumOrTag: string,
     transactionIndex: string,
@@ -1704,12 +1819,18 @@ export class EthImpl implements Eth {
    * Queries mirror node for best effort and falls back to consensus node for contracts until HIP 729 is implemented.
    *
    * @rpcMethod Exposed as the eth_getTransactionCount RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} address - The account address for which to retrieve the transaction count.
    * @param {string | null} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction count in hexadecimal format or a JsonRpcError.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.ADDRESS, required: true },
+    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
   async getTransactionCount(
     address: string,
     blockNumOrTag: string | null,
@@ -2009,11 +2130,16 @@ export class EthImpl implements Eth {
    * Submits a transaction to the network for execution.
    *
    * @rpcMethod Exposed as eth_sendRawTransaction RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} transaction - The raw transaction to submit.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.HEX, required: true },
+  })
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
     const transactionBuffer = Buffer.from(EthImpl.prune0x(transaction), 'hex');
 
@@ -2049,12 +2175,18 @@ export class EthImpl implements Eth {
    * Execute a free contract call query.
    *
    * @rpcMethod Exposed as eth_call RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {IContractCallRequest} call - The contract call request data.
    * @param {string | object | null} blockParam - Either a string (blockNumber or blockTag) or an object (blockHash or blockNumber).
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the result of the contract call or a JsonRpcError if an error occurs.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.TRANSACTION, required: true },
+    1: { type: ParamType.BLOCK_PARAMS, required: true },
+  })
   async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
@@ -2416,11 +2548,16 @@ export class EthImpl implements Eth {
    * Gets a transaction by the provided hash
    *
    * @rpcMethod Exposed as eth_getTransactionByHash RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} hash - The hash of the transaction to retrieve.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<Transaction | null>} A promise that resolves to the transaction object if found, or null if not found.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.TRANSACTION_HASH, required: true },
+  })
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -2468,10 +2605,15 @@ export class EthImpl implements Eth {
    * Gets a receipt for a transaction that has already executed.
    *
    * @rpcMethod Exposed as eth_getTransactionReceipt RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string} hash - The hash of the transaction.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking purposes.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.TRANSACTION_HASH, required: true },
+  })
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -3014,12 +3156,17 @@ export class EthImpl implements Eth {
    *     - If the timestamp range between `fromBlock` and `toBlock` exceeds 7 days, a predefined error `TIMESTAMP_RANGE_TOO_LARGE` is thrown.
    *
    * @rpcMethod Exposed as eth_getLogs RPC endpoint
+   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {IGetLogsParams} params - The parameters for the getLogs method.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<Log[]>} A promise that resolves to an array of logs or an empty array if no logs are found.
    * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
    */
   @rpcMethod
+  @rpcParamSchema({
+    0: { type: ParamType.FILTER, required: true },
+  })
   async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
     return this.common.getLogs(
       params.blockHash,
