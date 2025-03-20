@@ -4,7 +4,18 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
+import {
+  isHex,
+  nanOrNumberInt64To0x,
+  nanOrNumberTo0x,
+  nullableNumberTo0x,
+  numberTo0x,
+  parseNumericEnvVar,
+  prepend0x,
+  stripLeadingZeroForSignatures,
+  tinybarsToWeibars,
+  toHash32,
+} from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -445,4 +456,65 @@ export class CommonService implements ICommonService {
 
     return this.getLogsWithParams(address, params, requestDetails);
   }
+
+  async resolveEvmAddress(
+    address: string,
+    requestDetails: RequestDetails,
+    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
+  ): Promise<string> {
+    if (!address) return address;
+
+    const entity = await this.mirrorNodeClient.resolveEntityType(
+      address,
+      EthImpl.ethGetCode,
+      requestDetails,
+      searchableTypes,
+      0,
+    );
+    let resolvedAddress = address;
+    if (
+      entity &&
+      (entity.type === constants.TYPE_CONTRACT || entity.type === constants.TYPE_ACCOUNT) &&
+      entity.entity?.evm_address
+    ) {
+      resolvedAddress = entity.entity.evm_address;
+    }
+
+    return resolvedAddress;
+  }
+
+  public formatContractResult = (cr: any) => {
+    if (cr === null) {
+      return null;
+    }
+
+    const gasPrice =
+      cr.gas_price === null || cr.gas_price === '0x'
+        ? '0x0'
+        : isHex(cr.gas_price)
+        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : nanOrNumberTo0x(cr.gas_price);
+
+    const commonFields = {
+      blockHash: toHash32(cr.block_hash),
+      blockNumber: nullableNumberTo0x(cr.block_number),
+      from: cr.from.substring(0, 42),
+      gas: nanOrNumberTo0x(cr.gas_used),
+      gasPrice,
+      hash: cr.hash.substring(0, 66),
+      input: cr.function_parameters,
+      nonce: nanOrNumberTo0x(cr.nonce),
+      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
+      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
+      to: cr.to?.substring(0, 42),
+      transactionIndex: nullableNumberTo0x(cr.transaction_index),
+      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
+      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
+      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
+      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
+      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
+      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
+      chainId: cr.chain_id === '0x' ? undefined : cr.chain_id,
+    };
+  };
 }
