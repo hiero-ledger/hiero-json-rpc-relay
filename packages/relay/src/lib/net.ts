@@ -19,6 +19,7 @@ export class NetImpl implements Net {
    * We always return true for this.
    *
    * @rpcMethod Exposed as net_listening RPC endpoint
+   *
    * @returns {boolean} Always returns true to indicate the client is listening.
    */
   @rpcMethod
@@ -30,6 +31,7 @@ export class NetImpl implements Net {
    * Returns the current chain ID.
    *
    * @rpcMethod Exposed as net_version RPC endpoint
+   *
    * @returns {string} The chain ID configured for this relay.
    */
   @rpcMethod
@@ -41,6 +43,7 @@ export class NetImpl implements Net {
    * Returns the number of peers currently connected to the client.
    *
    * @rpcMethod Exposed as net_peerCount RPC endpoint
+   *
    * @returns {JsonRpcError} Always returns UNSUPPORTED_METHOD error as this method is not supported.
    */
   @rpcMethod
