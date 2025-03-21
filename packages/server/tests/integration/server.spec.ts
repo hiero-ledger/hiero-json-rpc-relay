@@ -6,6 +6,7 @@ import { ConfigServiceTestHelper } from '../../../config-service/tests/configSer
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -21,7 +22,7 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { TracerType, Validator } from '../../src/validator';
+import { Validator } from '../../src/validator';
 import * as Constants from '../../src/validator/constants';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
