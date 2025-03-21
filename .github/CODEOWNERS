@@ -2,21 +2,21 @@
 ##### Global Protection Rule ######
 ###################################
 # NOTE: This rule is overriden by the more specific rules below. This is the catch-all rule for all files not covered by the more specific rules below
-*                                               @hiero-ledger/hiero-json-rpc-relay-maintainers
+*                                               @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
 
 #########################
 ##### Hedera Relay ######
 #########################
-/packages/relay/                                @hiero-ledger/hiero-json-rpc-relay-committers
-/packages/server/                               @Nana-EC @hiero-ledger/hiero-json-rpc-relay-committers
-/packages/ws-server/                            @georgi-l95 @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-committers
+/packages/relay/                                @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
+/packages/server/                               @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
+/packages/ws-server/                            @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
 
 ###############################
 ##### Tools and Examples ######
 ###############################
-/dapp-example/                                  @georgi-l95 @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-committers
-/k6/                                            @hiero-ledger/hiero-json-rpc-relay-committers
-/tools/                                         @georgi-l95 @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-committers
+/dapp-example/                                  @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
+/k6/                                            @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
+/tools/                                         @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
 
 ########################
 #####  Core Files  ######
@@ -25,16 +25,16 @@
 # NOTE: Must be placed last to ensure enforcement over all other rules
 
 # Protection Rules for Github Configuration Files and Actions Workflows
-/.github/                                       @hiero-ledger/github-maintainers @hiero-ledger/github-committers @hiero-ledger/hiero-json-rpc-relay-maintainers
+/.github/                                       @hiero-ledger/github-maintainers @hiero-ledger/github-committers
 /.github/workflows/                             @hiero-ledger/github-maintainers @hiero-ledger/github-committers @hiero-ledger/hiero-json-rpc-relay-maintainers
 
 # Self-protection for root CODEOWNERS files (this file should not exist and should definitely require approval)
 /CODEOWNERS                                     @hiero-ledger/github-maintainers
 
 # Protect the repository root files
-/README.md                                      @Nana-EC @hiero-ledger/github-maintainers @hiero-ledger/github-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
-**/LICENSE                                      @hiero-ledger/github-maintainers @hiero-ledger/hiero-json-rpc-relay-maintainers
+/README.md                                      @hiero-ledger/github-maintainers @hiero-ledger/github-committers @hiero-ledger/hiero-json-rpc-relay-committers @hiero-ledger/hiero-json-rpc-relay-maintainers 
+**/LICENSE                                      @hiero-ledger/github-maintainers @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/tsc 
 
 # Git Ignore definitions
-**/.gitignore                                   @Nana-EC @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/github-maintainers @hiero-ledger/github-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
-**/.gitignore.*                                 @Nana-EC @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/github-maintainers @hiero-ledger/github-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
+**/.gitignore                                   @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/github-maintainers @hiero-ledger/github-committers @hiero-ledger/hiero-json-rpc-relay-committers
+**/.gitignore.*                                 @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/github-maintainers @hiero-ledger/github-committers @hiero-ledger/hiero-json-rpc-relay-committers
