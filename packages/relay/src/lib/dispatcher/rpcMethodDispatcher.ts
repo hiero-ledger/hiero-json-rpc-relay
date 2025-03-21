@@ -8,6 +8,7 @@ import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { OperationHandler, RequestDetails, RpcMethodRegistry } from '../types';
+import { Validator } from '../validators';
 
 export class RpcMethodDispatcher {
   /**
@@ -58,8 +59,7 @@ export class RpcMethodDispatcher {
     rpcMethodParams: any[],
     requestDetails: RequestDetails,
   ): OperationHandler {
-    /////////////////////////////// Validate method existance ///////////////////////////////
-    // Look up operation handler in registry
+    // Validate RPC method existence
     const operationHandler = this.methodRegistry.get(rpcMethodName);
 
     if (!operationHandler) {
@@ -71,7 +71,18 @@ export class RpcMethodDispatcher {
       throw predefined.UNSUPPORTED_METHOD;
     }
 
-    /////////////////////////////// Validate method arguments ///////////////////////////////
+    // Validate RPC method parameters
+    const methodValidations = Validator.METHODS[rpcMethodName];
+    if (methodValidations) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${
+            requestDetails.formattedRequestId
+          } Validating method parameters for ${rpcMethodName}, params: ${JSON.stringify(rpcMethodParams)}`,
+        );
+      }
+      Validator.validateParams(rpcMethodParams, methodValidations);
+    }
 
     return operationHandler;
   }
