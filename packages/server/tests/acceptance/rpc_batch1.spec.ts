@@ -21,7 +21,7 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
-import { BLOCK_PARAMS_ERROR } from '../../src/validator/constants';
+import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../src/validator/constants';
 import basicContract from '../../tests/contracts/Basic.json';
 import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
@@ -812,7 +812,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should throw error on "eth_getBlockReceipts" with invalid parameter passed', async function () {
-        const error = predefined.INVALID_PARAMETER(0, BLOCK_PARAMS_ERROR);
+        const error = predefined.INVALID_PARAMETER(
+          0,
+          `The value passed is not valid: 0x. ${BLOCK_NUMBER_ERROR} OR Expected ${HASH_ERROR} of a block`,
+        );
         Assertions.assertPredefinedRpcError(error, relay.call, true, relay, [
           RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
           ['0x', requestIdPrefix],
