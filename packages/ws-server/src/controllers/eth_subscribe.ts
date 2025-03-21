@@ -11,7 +11,7 @@ import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
-import { getSubscriptionController } from '../subscriptionsManager';
+import { getSubscriptionController } from '../service/subscriptionsManager';
 import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
 import { ISharedParams } from './index';

@@ -8,7 +8,7 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { Poller } from '../../src/poller';
+import { Poller } from '../../src/service/poller';
 
 const logger = pino({ level: 'trace' });
 

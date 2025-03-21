@@ -15,7 +15,7 @@ import { v4 as uuid } from 'uuid';
 import { getRequestResult } from './controllers';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
-import { getSubscriptionController, initializeSubscriptionManager } from './subscriptionsManager';
+import { getSubscriptionController, initializeSubscriptionManager } from './service/subscriptionsManager';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 const mainLogger = pino({

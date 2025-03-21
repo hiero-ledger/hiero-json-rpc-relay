@@ -2,7 +2,7 @@
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
-import { getSubscriptionController } from '../subscriptionsManager';
+import { getSubscriptionController } from '../service/subscriptionsManager';
 import { ISharedParams } from '.';
 
 /**
