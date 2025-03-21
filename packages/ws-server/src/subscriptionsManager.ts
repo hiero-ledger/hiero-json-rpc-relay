@@ -11,17 +11,19 @@ let subscriptionController: SubscriptionController | undefined = undefined;
 
 /**
  * Initializes the Poller and SubscriptionController.
+ * @param relay - The relay instance.
+ * @param logger - The logger instance.
+ * @param register - The registry instance.
  */
 export function initializeSubscriptionManager(relay: Relay, logger: Logger, register: Registry) {
   if (ConfigService.get('SUBSCRIPTIONS_ENABLED')) {
     const poller = new Poller(relay, logger.child({ name: 'poller' }), register);
     subscriptionController = new SubscriptionController(poller, logger.child({ name: 'subscr-ctrl' }), register);
-    poller.start();
   }
 }
 
 /**
- * Returns the SubscriptionController instance.
+ * @returns The SubscriptionController instance.
  */
 export function getSubscriptionController(): SubscriptionController | undefined {
   return subscriptionController;
