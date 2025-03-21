@@ -9,14 +9,14 @@
 #########################
 /packages/relay/                                @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
 /packages/server/                               @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
-/packages/ws-server/                            @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
+/packages/ws-server/                            @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers 
 
 ###############################
 ##### Tools and Examples ######
 ###############################
-/dapp-example/                                  @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
+/dapp-example/                                  @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
 /k6/                                            @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
-/tools/                                         @Ivo-Yankov @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
+/tools/                                         @hiero-ledger/hiero-json-rpc-relay-maintainers @hiero-ledger/hiero-json-rpc-relay-committers
 
 ########################
 #####  Core Files  ######
