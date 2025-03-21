@@ -69,7 +69,8 @@ export class RpcMethodDispatcher {
           `${requestDetails.formattedRequestId} RPC method not found in registry: rpcMethodName=${rpcMethodName}`,
         );
       }
-      throw predefined.UNSUPPORTED_METHOD;
+
+      throw this.throwUnregisteredRpcMethods(rpcMethodName);
     }
 
     // Validate RPC method parameters
@@ -130,5 +131,20 @@ export class RpcMethodDispatcher {
     );
 
     return predefined.INTERNAL_ERROR(error.message.toString());
+  }
+
+  private throwUnregisteredRpcMethods(methodName: string): never {
+    // Methods from the 'engine_' namespace are intentionally unsupported
+    if (/^engine_.*/.test(methodName)) {
+      throw predefined.UNSUPPORTED_METHOD;
+    }
+
+    // Methods from 'trace_' or 'debug_' namespaces are planned but not implemented yet
+    if (/^(?:trace_|debug_).*/.test(methodName)) {
+      throw predefined.NOT_YET_IMPLEMENTED;
+    }
+
+    // Default response for truly unknown methods
+    throw predefined.METHOD_NOT_FOUND(methodName);
   }
 }
