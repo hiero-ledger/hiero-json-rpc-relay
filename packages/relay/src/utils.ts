@@ -3,7 +3,6 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { AccountId, PrivateKey } from '@hashgraph/sdk';
 import { Operator } from '@hashgraph/sdk/lib/client/Client';
-import axios from 'axios';
 import crypto from 'crypto';
 import createHash from 'keccak';
 import { Logger } from 'pino';

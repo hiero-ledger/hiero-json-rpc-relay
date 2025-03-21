@@ -5,6 +5,7 @@ import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
 import pino from 'pino';
+import sinon from 'sinon';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
