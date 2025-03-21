@@ -8,10 +8,10 @@ import { Registry } from 'prom-client';
 import { Counter, Histogram } from 'prom-client';
 import sinon from 'sinon';
 
-import { SubscriptionController } from '../../src/controllers/subscriptionController';
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
-import { getSubscriptionController, initializeSubscriptionManager } from '../../src/subscriptionsManager';
+import { SubscriptionController } from '../../src/service/subscriptionController';
+import { getSubscriptionController, initializeSubscriptionManager } from '../../src/service/subscriptionsManager';
 import { WS_CONSTANTS } from '../../src/utils/constants';
 import {
   constructValidLogSubscriptionFilter,
