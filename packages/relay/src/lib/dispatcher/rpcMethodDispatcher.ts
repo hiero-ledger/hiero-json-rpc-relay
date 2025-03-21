@@ -68,7 +68,8 @@ export class RpcMethodDispatcher {
           `${requestDetails.formattedRequestId} RPC method not found in registry: rpcMethodName=${rpcMethodName}`,
         );
       }
-      throw predefined.UNSUPPORTED_METHOD;
+
+      throw this.throwUnregisteredRpcMethods(rpcMethodName);
     }
 
     // Validate RPC method parameters
@@ -102,7 +103,14 @@ export class RpcMethodDispatcher {
   private postHandleRpcMethod(error: any, rpcMethodName: string, requestDetails: RequestDetails): any {
     // Return JsonRpcError instances
     if (error instanceof JsonRpcError) {
-      return error;
+      return new JsonRpcError(
+        {
+          code: error.code,
+          message: error.message,
+          data: error.data,
+        },
+        requestDetails.requestId,
+      );
     }
 
     if (error instanceof MirrorNodeClientError) {
@@ -120,5 +128,20 @@ export class RpcMethodDispatcher {
       `${requestDetails.formattedRequestId} Error executing method: rpcMethodName=${rpcMethodName}, error=${error.message}`,
     );
     throw predefined.INTERNAL_ERROR;
+  }
+
+  private throwUnregisteredRpcMethods(methodName: string): never {
+    // Methods from the 'engine_' namespace are intentionally unsupported
+    if (/^engine_.*/.test(methodName)) {
+      throw predefined.UNSUPPORTED_METHOD;
+    }
+
+    // Methods from 'trace_' or 'debug_' namespaces are planned but not implemented yet
+    if (/^(?:trace_|debug_).*/.test(methodName)) {
+      throw predefined.NOT_YET_IMPLEMENTED;
+    }
+
+    // Default response for truly unknown methods
+    throw predefined.METHOD_NOT_FOUND(methodName);
   }
 }
