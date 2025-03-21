@@ -165,6 +165,12 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  DISABLE_HEDERA_NAMESPACE: {
+    envName: 'DISABLE_HEDERA_NAMESPACE',
+    type: 'boolean',
+    required: false,
+    defaultValue: [],
+  },
   E2E_RELAY_HOST: {
     envName: 'E2E_RELAY_HOST',
     type: 'string',

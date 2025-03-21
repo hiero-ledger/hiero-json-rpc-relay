@@ -13,6 +13,7 @@ import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { defineDebugRoutes } from './routes/debugRoutes';
 import { defineEthRoutes } from './routes/ethRoutes';
+import { defineHederaRoutes } from './routes/hederaRoutes';
 import { defineNetRoutes } from './routes/netRoutes';
 import { defineOtherRoutes } from './routes/otherRoutes';
 import { defineWeb3Routes } from './routes/web3Routes';
@@ -188,6 +189,7 @@ app.getKoaApp().use(async (ctx, next) => {
 defineDebugRoutes(app, relay, logger);
 defineEthRoutes(app, relay, logger);
 defineNetRoutes(app, relay, logger);
+defineHederaRoutes(app, relay, logger);
 defineWeb3Routes(app, relay, logger);
 defineOtherRoutes(app, relay, logger);
 
