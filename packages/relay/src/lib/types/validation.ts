@@ -74,3 +74,41 @@ export interface ITypeValidator {
  * Registry of validation schemas for RPC methods
  */
 export type ValidationSchemaRegistry = Map<string, Record<number, IParamValidation>>;
+
+export type IMethodValidation = {
+  [index: number]: IMethodParamSchema;
+};
+
+export type IMethodParamSchema = {
+  type: string;
+  required?: boolean;
+};
+
+export type IObjectSchema = {
+  name: string;
+  properties: {
+    [key: string]: IObjectParamSchema;
+  };
+  failOnEmpty?: boolean;
+  failOnUnexpectedParams?: boolean;
+  deleteUnknownProperties?: boolean;
+};
+
+export type IObjectParamSchema = {
+  type: string;
+  nullable: boolean;
+  required?: boolean;
+};
+
+export interface IObjectValidation<T extends object = any> {
+  get object(): T;
+  validate(): boolean;
+  name(): string;
+  checkForUnexpectedParams(): void;
+  deleteUnknownProperties(): void;
+}
+
+export type ITypeValidation = {
+  test: (param: any) => boolean;
+  error: string;
+};
