@@ -2854,11 +2854,6 @@ export class EthImpl implements Eth {
    *     - If the timestamp range between `fromBlock` and `toBlock` exceeds 7 days, a predefined error `TIMESTAMP_RANGE_TOO_LARGE` is thrown.
    *
    * @param {IGetLogsParams} params - The parameters for the getLogs method.
-   * @param {string | null} params.blockHash - Hash of the block to get logs from. If null, logs are not filtered by block hash.
-   * @param {string | 'latest'} params.fromBlock - The block number or 'latest' to start fetching logs from.
-   * @param {string | 'latest'} params.toBlock - The block number or 'latest' to stop fetching logs at.
-   * @param {string | string[] | null} params.address - Contract address or list of addresses to filter logs by. If null, logs are not filtered by address.
-   * @param {any[] | null} params.topics - Array of topics to filter logs by. If null, logs are not filtered by topics.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<Log[]>} A promise that resolves to an array of logs or an empty array if no logs are found.
    * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
