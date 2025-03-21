@@ -8,8 +8,8 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { SubscriptionController } from '../../src/controllers/subscriptionController';
-import { Poller } from '../../src/poller';
+import { Poller } from '../../src/service/poller';
+import { SubscriptionController } from '../../src/service/subscriptionController';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
