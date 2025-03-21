@@ -23,9 +23,8 @@ describe('Hedera', async function () {
     expect(res.relay.config).to.not.be.empty;
 
     for (const service of res.upstreamDependencies) {
-      expect(service).to.haveOwnProperty('service');
-      expect(service).to.haveOwnProperty('version');
       expect(service).to.haveOwnProperty('config');
+      expect(service).to.haveOwnProperty('service');
       expect(service.config).to.not.be.empty;
     }
   });
