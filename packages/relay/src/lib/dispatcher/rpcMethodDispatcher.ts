@@ -11,9 +11,19 @@ import { SDKClientError } from '../errors/SDKClientError';
 import { OperationHandler, RequestDetails, RpcMethodRegistry } from '../types';
 import { Validator } from '../validators';
 
+/**
+ * Dispatches JSON-RPC method calls to their appropriate handlers
+ *
+ * This class is responsible for:
+ * - Validating incoming RPC method requests
+ * - Routing requests to the correct operation handler
+ * - Processing method parameters
+ * - Handling errors that occur during method execution
+ * - Returning properly formatted responses
+ */
 export class RpcMethodDispatcher {
   /**
-   * Creates a new MethodDispatcher
+   * Creates a new RpcMethodDispatcher
    *
    * @param methodRegistry - Map of RPC method names to their implementations
    * @param logger - Logger for recording execution information
@@ -44,17 +54,26 @@ export class RpcMethodDispatcher {
       const operationHandler = this.validateRpcMethod(rpcMethodName, rpcMethodParams, requestDetails);
 
       /////////////////////////////// Execution Phase ///////////////////////////////
-      const result = await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
-
-      return result;
+      return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
     } catch (error: any) {
-      // **reminder: all handleRpcMethod() should either return a valid result or throw an error, now returning error**
-
       /////////////////////////////// Error Handling Phase ///////////////////////////////
       return this.handleRpcMethodError(error, rpcMethodName, requestDetails);
     }
   }
 
+  /**
+   * Validates that the requested RPC method exists and its parameters are valid
+   *
+   * This method performs two key validation steps:
+   * 1. Checks if the method exists in the registry
+   * 2. Validates the method parameters against any defined schemas
+   *
+   * @param rpcMethodName - The name of the RPC method to validate
+   * @param rpcMethodParams - The parameters to validate against the method's schema
+   * @param requestDetails - Details about the request for logging purposes
+   * @returns The operation handler for the requested method
+   * @throws {JsonRpcError} If the method doesn't exist or parameters are invalid
+   */
   private validateRpcMethod(
     rpcMethodName: string,
     rpcMethodParams: any[],
@@ -90,6 +109,18 @@ export class RpcMethodDispatcher {
     return operationHandler;
   }
 
+  /**
+   * Processes an RPC method by executing its operation handler with the provided parameters
+   *
+   * This method:
+   * 1. Rearranges the arguments as needed for the specific operation handler
+   * 2. Executes the handler with the prepared arguments
+   *
+   * @param operationHandler - The function that implements the RPC method
+   * @param rpcMethodParams - The parameters passed to the RPC method
+   * @param requestDetails - Additional context about the request
+   * @returns Promise resolving to the result of the operation handler
+   */
   private processRpcMethod(
     operationHandler: OperationHandler,
     rpcMethodParams: any[],
@@ -99,11 +130,36 @@ export class RpcMethodDispatcher {
     const rearrangeArgsFn = Utils.argsRearrangementMap[operationHandler.name] || Utils.argsRearrangementMap['default'];
     const rearrangedArgsArray = rearrangeArgsFn(rpcMethodParams, requestDetails);
 
-    return operationHandler(...rearrangedArgsArray);
+    const result = operationHandler(...rearrangedArgsArray);
+
+    // Note: This rethrows the JsonRpcError so it can be handled during the error-handling phase.
+    // Note: This is a temporary workaround to avoid introducing new logic. However, in follow-up updates,
+    //       all operation handlers should directly throw JSON RPC errors and return only valid results,
+    //       ensuring proper error handling in the centralized handleRpcMethodError component.
+    if (result instanceof JsonRpcError) {
+      throw result;
+    }
+
+    return result;
   }
 
+  /**
+   * Handles errors that occur during RPC method execution
+   *
+   * This method processes different types of errors and converts them to
+   * appropriate JSON-RPC error responses:
+   * - JsonRpcError instances are passed through with the request ID
+   * - MirrorNodeClientError and SDKClientError are handled specifically
+   * - Unexpected errors are logged and converted to internal error responses
+   *
+   * @param error - The error that occurred during method execution
+   * @param rpcMethodName - The name of the RPC method that failed
+   * @param requestDetails - Details about the request for error context
+   * @returns A properly formatted JSON-RPC error response
+   * @throws {JsonRpcError} For unexpected errors
+   */
   private handleRpcMethodError(error: any, rpcMethodName: string, requestDetails: RequestDetails): any {
-    // Return JsonRpcError instances
+    // Return JsonRpcError instances - always include requestId to help with tracing and debugging
     if (error instanceof JsonRpcError) {
       return new JsonRpcError(
         {
@@ -133,13 +189,24 @@ export class RpcMethodDispatcher {
     return predefined.INTERNAL_ERROR(error.message.toString());
   }
 
+  /**
+   * Determines the appropriate error to throw for unregistered RPC methods
+   *
+   * This method categorizes unregistered methods into different types:
+   * - Engine namespace methods (intentionally unsupported)
+   * - Trace/debug namespace methods (planned but not implemented)
+   * - Truly unknown methods
+   *
+   * @param methodName - The name of the unregistered RPC method
+   * @throws {JsonRpcError} With the appropriate error code and message for the method type
+   */
   private throwUnregisteredRpcMethods(methodName: string): never {
     // Methods from the 'engine_' namespace are intentionally unsupported
     if (/^engine_.*/.test(methodName)) {
       throw predefined.UNSUPPORTED_METHOD;
     }
 
-    // Methods from 'trace_' or 'debug_' namespaces are planned but not implemented yet
+    // Methods from 'trace_' or 'debug_' (other than 'debug_traceTransaction') namespaces are not yet implemented
     if (/^(?:trace_|debug_).*/.test(methodName)) {
       throw predefined.NOT_YET_IMPLEMENTED;
     }
