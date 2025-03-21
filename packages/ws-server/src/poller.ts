@@ -51,6 +51,9 @@ export class Poller {
     });
   }
 
+  /**
+   * Polls the Ethereum blockchain for new events and calls the callback function for each event.
+   */
   public poll() {
     this.polls.forEach(async (poll) => {
       try {
@@ -105,6 +108,9 @@ export class Poller {
     });
   }
 
+  /**
+   * Starts the polling process.
+   */
   public start() {
     this.logger.info(`${LOGGER_PREFIX} Starting polling with interval=${this.pollingInterval}`);
     this.interval = setInterval(async () => {
@@ -115,6 +121,9 @@ export class Poller {
     }, this.pollingInterval);
   }
 
+  /**
+   * Stops the polling process.
+   */
   public stop() {
     this.logger.info(`${LOGGER_PREFIX} Stopping polling`);
     if (this.isPolling()) {
@@ -123,6 +132,11 @@ export class Poller {
     }
   }
 
+  /**
+   * Adds a new poll to the polling list.
+   * @param tag - The tag to add.
+   * @param callback - The callback function to call when the poll is triggered.
+   */
   public add(tag: string, callback: Function) {
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
@@ -142,6 +156,10 @@ export class Poller {
     }
   }
 
+  /**
+   * Removes a poll from the polling list.
+   * @param tag - The tag to remove.
+   */
   public remove(tag: string) {
     this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
     const pollsAtStart = this.polls.length;
@@ -162,11 +180,20 @@ export class Poller {
     }
   }
 
+  /**
+   * Checks if a poll exists in the polling list.
+   * @param tag - The tag to check.
+   * @returns True if the poll exists, false otherwise.
+   */
   public hasPoll(tag): boolean {
     // Return boolean true if the polls array contains this tag
     return !!this.polls.filter((p) => p.tag === tag).length;
   }
 
+  /**
+   * Checks if the polling process is active.
+   * @returns True if the polling process is active, false otherwise.
+   */
   public isPolling() {
     return !!this.interval;
   }
