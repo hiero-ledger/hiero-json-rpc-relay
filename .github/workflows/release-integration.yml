@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner
