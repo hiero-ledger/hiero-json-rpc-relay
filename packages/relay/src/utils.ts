@@ -7,7 +7,6 @@ import axios from 'axios';
 import crypto from 'crypto';
 import createHash from 'keccak';
 import { Logger } from 'pino';
-import { parse } from 'yaml';
 
 import { hexToASCII, prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
@@ -148,36 +147,5 @@ export class Utils {
       privateKey: Utils.createPrivateKeyBasedOnFormat(operatorKey),
       accountId: AccountId.fromString(operatorId.trim()),
     };
-  }
-
-  /**
-   * Get the consensus node version
-   */
-  public static async getConsensusNodeVersion(): Promise<string> {
-    try {
-      const response: any = await axios.get('https://status.hedera.com/api/v2/summary.json');
-      const currentNetwork: URL = new URL(ConfigService.get('MIRROR_NODE_URL'));
-      const targetNetwork: string = currentNetwork.hostname.split('.')[0].toLowerCase();
-      const networkInfo: any = response.data.components.filter(
-        (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
-      );
-
-      const networkName: string = networkInfo[0].name;
-      return networkName.substring(networkName.indexOf('(') + 2, networkName.indexOf(')'));
-    } catch (e) {
-      return 'local';
-    }
-  }
-
-  /**
-   * Get the mirror node version
-   */
-  public static async getMirrorNodeVersion(): Promise<string> {
-    try {
-      const response: any = await axios.get(ConfigService.get('MIRROR_NODE_URL') + '/api/v1/docs/openapi.yml');
-      return parse(response.data).info.version;
-    } catch (e) {
-      return 'local';
-    }
   }
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import axios from 'axios';
 
 import { Hedera } from '../index';
-import { Utils } from '../utils';
 import constants from './constants';
 import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
@@ -15,7 +15,7 @@ interface IHederaRelayConfig {
 
 interface IHederaUpstreamDependency {
   service: string;
-  version: string;
+  version?: string;
   config: { [k: string]: any };
 }
 
@@ -31,6 +31,25 @@ export class HederaImpl implements Hedera {
 
   constructor(cacheService: CacheService) {
     this.cacheService = cacheService;
+  }
+
+  /**
+   * Get the consensus node version
+   */
+  private async getConsensusNodeVersion(): Promise<string> {
+    try {
+      const response: any = await axios.get('https://status.hedera.com/api/v2/summary.json');
+      const currentNetwork: URL = new URL(ConfigService.get('MIRROR_NODE_URL'));
+      const targetNetwork: string = currentNetwork.hostname.split('.')[0].toLowerCase();
+      const networkInfo: any = response.data.components.filter(
+        (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
+      );
+
+      const networkName: string = networkInfo[0].name;
+      return networkName.substring(networkName.indexOf('(') + 2, networkName.indexOf(')'));
+    } catch (e) {
+      return 'local';
+    }
   }
 
   /**
@@ -54,14 +73,13 @@ export class HederaImpl implements Hedera {
         upstreamDependencies: [
           {
             service: 'consensusNode',
-            version: await Utils.getConsensusNodeVersion(),
+            version: await this.getConsensusNodeVersion(),
             config: {
               ...Object.fromEntries(Object.entries(maskedEnvs).filter((it) => it[0].startsWith('SDK_'))),
             },
           },
           {
             service: 'mirrorNode',
-            version: await Utils.getMirrorNodeVersion(),
             config: {
               ...Object.fromEntries(Object.entries(maskedEnvs).filter((it) => it[0].startsWith('MIRROR_NODE_'))),
             },

@@ -165,9 +165,9 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  DISABLED_RPC_METHODS: {
-    envName: 'DISABLED_RPC_METHODS',
-    type: 'strArray',
+  DISABLE_HEDERA_NAMESPACE: {
+    envName: 'DISABLE_HEDERA_NAMESPACE',
+    type: 'boolean',
     required: false,
     defaultValue: [],
   },

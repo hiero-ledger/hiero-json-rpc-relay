@@ -183,38 +183,4 @@ describe('Utils', () => {
       },
     );
   });
-
-  describe('getConsensusNodeVersion', () => {
-    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com' }, () => {
-      it('should set server timeout to default value when environment variable is not set', () => {
-        it('should return local for version tag on getConsensusNodeVersion against local MN setup', async () => {
-          const version = await Utils.getConsensusNodeVersion();
-          expect(version).to.not.equal('local');
-        });
-      });
-    });
-    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'http://127.0.0.1:5551' }, () => {
-      it('should set server timeout to default value when environment variable is not set', () => {
-        it('should return local for version tag on getConsensusNodeVersion against local MN setup', async () => {
-          const version = await Utils.getConsensusNodeVersion();
-          expect(version).to.equal('local');
-        });
-      });
-    });
-  });
-
-  describe('getMirrorNodeVersion', () => {
-    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com' }, () => {
-      it('should return local for version tag on getMirrorNodeVersion against local MN setup', async () => {
-        const version = await Utils.getMirrorNodeVersion();
-        expect(version).to.not.equal('local');
-      });
-    });
-    withOverriddenEnvsInMochaTest({ MIRROR_NODE_URL: 'http://127.0.0.1:5551' }, () => {
-      it('should return local for version tag on getMirrorNodeVersion against local MN setup', async () => {
-        const version = await Utils.getMirrorNodeVersion();
-        expect(version).to.equal('local');
-      });
-    });
-  });
 });
