@@ -105,7 +105,7 @@ export class Poller {
     });
   }
 
-  start() {
+  public start() {
     this.logger.info(`${LOGGER_PREFIX} Starting polling with interval=${this.pollingInterval}`);
     this.interval = setInterval(async () => {
       this.latestBlock = await this.eth.blockNumber(
@@ -115,7 +115,7 @@ export class Poller {
     }, this.pollingInterval);
   }
 
-  stop() {
+  public stop() {
     this.logger.info(`${LOGGER_PREFIX} Stopping polling`);
     if (this.isPolling()) {
       clearInterval(this.interval as NodeJS.Timeout);
@@ -123,8 +123,7 @@ export class Poller {
     }
   }
 
-  add(tag: string, callback: Function) {
-    console.log('eth ----->', this.eth);
+  public add(tag: string, callback: Function) {
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       this.polls.push({
@@ -143,7 +142,7 @@ export class Poller {
     }
   }
 
-  remove(tag: string) {
+  public remove(tag: string) {
     this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
     const pollsAtStart = this.polls.length;
     this.polls = this.polls.filter((p) => p.tag !== tag);
@@ -163,12 +162,12 @@ export class Poller {
     }
   }
 
-  hasPoll(tag): boolean {
+  public hasPoll(tag): boolean {
     // Return boolean true if the polls array contains this tag
     return !!this.polls.filter((p) => p.tag === tag).length;
   }
 
-  isPolling() {
+  public isPolling() {
     return !!this.interval;
   }
 }
