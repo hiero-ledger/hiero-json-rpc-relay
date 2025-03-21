@@ -296,7 +296,6 @@ Expected response:
         },
         {
             "service": "mirrorNode",
-            "version": "0.125.0",
             "config": {
                 "MIRROR_NODE_AGENT_CACHEABLE_DNS": "true",
                 "MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX": "200",
