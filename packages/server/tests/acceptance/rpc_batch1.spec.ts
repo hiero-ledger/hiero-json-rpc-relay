@@ -59,7 +59,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const requestId = 'rpc_batch1Test';
   const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
-  const requestDetails = JSON.stringify(new RequestDetails({ requestId: 'rpc_batch1Test', ipAddress: '0.0.0.0' }));
+  const requestDetails = new RequestDetails({ requestId: 'rpc_batch1Test', ipAddress: '0.0.0.0' });
   const INCORRECT_CHAIN_ID = 999;
   const GAS_PRICE_TOO_LOW = '0x1';
   const GAS_PRICE_REF = '0x123456';
@@ -85,8 +85,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     };
   };
 
-  async function getGasWithDeviation(relay: RelayClient, requestDetails: string, gasPriceDeviation: number) {
-    const gasPrice = await relay.gasPrice(requestDetails);
+  async function getGasWithDeviation(relay: RelayClient, requestDetails: RequestDetails, gasPriceDeviation: number) {
+    const gasPrice = await relay.gasPrice(requestDetails.requestId);
     const gasPriceWithDeviation = gasPrice * (1 + gasPriceDeviation);
     return gasPriceWithDeviation;
   }
@@ -1145,7 +1145,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@release-light, @release should execute "eth_sendRawTransaction" for legacy EIP 155 transactions', async function () {
-        const receiverInitialBalance = await relay.getBalance(parentContractAddress, 'latest', requestDetails);
+        const receiverInitialBalance = await relay.getBalance(
+          parentContractAddress,
+          'latest',
+          requestDetails.requestId,
+        );
         const gasPriceWithDeviation = await getGasWithDeviation(relay, requestDetails, gasPriceDeviation);
         const transaction = {
           ...default155TransactionData,
