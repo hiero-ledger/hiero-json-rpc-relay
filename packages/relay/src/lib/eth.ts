@@ -2923,7 +2923,7 @@ export class EthImpl implements Eth {
 
   /**
    * Gets all transaction receipts for a block by block hash or block number.
-   * @param {string | object} blockParam The block hash, block number, or block tag
+   * @param {string } blockHashOrBlockNumber The block hash, block number, or block tag
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
@@ -2969,6 +2969,7 @@ export class EthImpl implements Eth {
       const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
       const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
 
+      const contractAddress = this.getContractAddressFromReceipt(contractResult);
       const receipt = {
         blockHash: toHash32(contractResult.block_hash),
         blockNumber: numberTo0x(contractResult.block_number),
@@ -2976,7 +2977,7 @@ export class EthImpl implements Eth {
         to: to,
         cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
-        contractAddress: contractResult.to,
+        contractAddress: contractAddress,
         logs: contractResult.logs,
         logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
