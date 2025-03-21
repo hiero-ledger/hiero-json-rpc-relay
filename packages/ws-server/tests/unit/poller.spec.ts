@@ -215,7 +215,6 @@ describe('Polling', async function () {
       };
 
       await poll();
-      console.log(loggerSpy.getCall(1).args);
       expect(loggerSpy.getCall(1).args[0]).to.equal(SINGLE_LINE);
       loggerSpy.restore();
     });
