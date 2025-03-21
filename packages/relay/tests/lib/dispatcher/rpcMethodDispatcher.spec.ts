@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+import pino from 'pino';
+import sinon from 'sinon';
+
+import { RPC_PARAM_SCHEMA_KEY } from '../../../src/lib/decorators';
+import { RpcMethodDispatcher } from '../../../src/lib/dispatcher/rpcMethodDispatcher';
+import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
+import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
+import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
+import { RequestDetails, RpcMethodRegistry } from '../../../src/lib/types';
+import { Validator } from '../../../src/lib/validators';
+import { Utils } from '../../../src/utils';
+
+chai.use(chaiAsPromised);
+
+describe('RpcMethodDispatcher', () => {
+  // Test fixtures
+  const TEST_METHOD_NAME = 'test_method';
+  const TEST_PARAMS = ['param1', 'param2'];
+  const TEST_RESULT = { success: true };
+  const TEST_REQUEST_ID = '123456';
+  const TEST_REQUEST_DETAILS: RequestDetails = {
+    requestId: TEST_REQUEST_ID,
+    formattedRequestId: `[Request ID: ${TEST_REQUEST_ID}]`,
+    ipAddress: '127.0.0.1',
+    formattedConnectionId: 'connection-123',
+    formattedLogPrefix: 'test',
+  };
+  const logger = pino({ level: 'silent' });
+
+  // Mocks and stubs
+  let methodRegistry: RpcMethodRegistry;
+  let operationHandler: sinon.SinonStub;
+  let validateParamsStub: sinon.SinonStub;
+
+  // System under test
+  let dispatcher: RpcMethodDispatcher;
+
+  beforeEach(() => {
+    // Set up registry mock
+    methodRegistry = new Map();
+    operationHandler = sinon.stub().resolves(TEST_RESULT);
+    methodRegistry.set(TEST_METHOD_NAME, operationHandler);
+
+    // Set up Validator mock
+    validateParamsStub = sinon.stub(Validator, 'validateParams');
+
+    // Set up args rearrangement mock
+    const defaultRearrange = sinon.stub().returns(TEST_PARAMS);
+    const handlerSpecificRearrange = sinon.stub().returns(TEST_PARAMS);
+
+    sinon.stub(Utils, 'argsRearrangementMap').value({
+      testHandler: handlerSpecificRearrange,
+      default: defaultRearrange,
+    });
+
+    // Create the system under test
+    dispatcher = new RpcMethodDispatcher(methodRegistry, logger);
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  describe('dispatch()', () => {
+    it('should execute the complete dispatch flow and return result', async () => {
+      // Spy on private methods to verify they are called
+      const validateSpy = sinon.spy(dispatcher as any, 'validateRpcMethod');
+      const processSpy = sinon.spy(dispatcher as any, 'processRpcMethod');
+
+      const result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      // Verify the dispatch flow
+      expect(validateSpy.calledOnce).to.be.true;
+      expect(validateSpy.calledWith(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS)).to.be.true;
+
+      expect(processSpy.calledOnce).to.be.true;
+      expect(processSpy.calledWith(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS)).to.be.true;
+
+      // Verify the final result
+      expect(result).to.equal(TEST_RESULT);
+    });
+
+    it('should handle and format errors from any phase of dispatch', async () => {
+      // Make validation throw an error
+      const testError = new JsonRpcError({ code: -32000, message: 'Validation error' });
+      sinon.stub(dispatcher as any, 'validateRpcMethod').throws(testError);
+
+      // Spy on error handler to verify it's called
+      const errorHandlerSpy = sinon.spy(dispatcher as any, 'handleRpcMethodError');
+
+      const result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      // Verify error handling flow
+      expect(errorHandlerSpy.calledOnce).to.be.true;
+      expect(errorHandlerSpy.calledWith(testError, TEST_METHOD_NAME, TEST_REQUEST_DETAILS)).to.be.true;
+
+      // Verify the error result
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(-32000);
+      expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Validation error`);
+    });
+  });
+
+  describe('validateRpcMethod()', () => {
+    it('should return the operation handler when method is registered', () => {
+      const result = (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(result).to.equal(operationHandler);
+    });
+
+    it('should validate parameters when schema exists', () => {
+      // Set up validation schema
+      const validationSchema = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+
+      (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(validateParamsStub.calledOnce).to.be.true;
+      expect(validateParamsStub.calledWith(TEST_PARAMS, validationSchema)).to.be.true;
+    });
+
+    it('should skip validation when no schema exists', () => {
+      // Ensure there's no validation schema
+      delete operationHandler[RPC_PARAM_SCHEMA_KEY];
+
+      (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(validateParamsStub.called).to.be.false;
+    });
+
+    it('should throw and call throwUnregisteredRpcMethods for unknown methods', () => {
+      // Spy on throwUnregisteredRpcMethods to verify it's called
+      const throwUnregisteredSpy = sinon.spy(dispatcher as any, 'throwUnregisteredRpcMethods');
+
+      try {
+        (dispatcher as any).validateRpcMethod('unknown_method', TEST_PARAMS, TEST_REQUEST_DETAILS);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(throwUnregisteredSpy.calledOnce).to.be.true;
+        expect(throwUnregisteredSpy.calledWith('unknown_method')).to.be.true;
+      }
+    });
+  });
+
+  describe('processRpcMethod()', () => {
+    it('should invoke handler with rearranged arguments', async () => {
+      const result = await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(result).to.equal(TEST_RESULT);
+      expect(operationHandler.calledOnce).to.be.true;
+      expect(operationHandler.calledWith(...TEST_PARAMS)).to.be.true;
+    });
+
+    it('should use handler-specific argument rearrangement when available', async () => {
+      // Create fresh stubs with tracking
+      const handlerSpecificRearrange = sinon.stub().returns(['rearranged1', 'rearranged2']);
+      const defaultRearrange = sinon.stub().returns(TEST_PARAMS);
+
+      // Replace the stubs in the Utils argsRearrangementMap
+      (Utils.argsRearrangementMap as any).functionStub = handlerSpecificRearrange;
+      (Utils.argsRearrangementMap as any).default = defaultRearrange;
+
+      await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(handlerSpecificRearrange.calledOnce).to.be.true;
+      expect(defaultRearrange.called).to.be.false;
+      expect(operationHandler.calledWith('rearranged1', 'rearranged2')).to.be.true;
+    });
+
+    it('should use default argument rearrangement when handler-specific is not available', async () => {
+      // Create fresh stubs with tracking
+      const defaultRearrange = sinon.stub().returns(['default1', 'default2']);
+
+      // Remove handler-specific and set default
+      delete (Utils.argsRearrangementMap as any).testHandler;
+      (Utils.argsRearrangementMap as any).default = defaultRearrange;
+
+      await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
+
+      expect(defaultRearrange.calledOnce).to.be.true;
+      expect(operationHandler.calledWith('default1', 'default2')).to.be.true;
+    });
+
+    it('should throw if handler returns a JsonRpcError', async () => {
+      const jsonRpcError = new JsonRpcError({ code: -32000, message: 'Handler error' });
+      operationHandler.returns(jsonRpcError);
+
+      try {
+        await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).to.equal(jsonRpcError);
+      }
+    });
+  });
+
+  describe('handleRpcMethodError()', () => {
+    it('should return JsonRpcError with request ID when error is JsonRpcError', () => {
+      const error = new JsonRpcError({ code: -32000, message: 'Test error' });
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(-32000);
+      expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Test error`);
+    });
+
+    it('should return MirrorNodeClientError as-is', () => {
+      const error = new MirrorNodeClientError('Mirror node error', 500);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.equal(error);
+    });
+
+    it('should return SDKClientError as-is', () => {
+      const error = new SDKClientError('SDK error');
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.equal(error);
+    });
+
+    it('should return INTERNAL_ERROR for other error types', () => {
+      const error = new Error('Unexpected error');
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.deep.equal(predefined.INTERNAL_ERROR('Unexpected error'));
+    });
+  });
+
+  describe('throwUnregisteredRpcMethods()', () => {
+    const testCases = [
+      {
+        method: 'engine_getPayload',
+        expected: predefined.UNSUPPORTED_METHOD,
+        description: 'engine_ namespace methods',
+      },
+      {
+        method: 'engine_newPayloadV1',
+        expected: predefined.UNSUPPORTED_METHOD,
+        description: 'engine_ namespace methods',
+      },
+      { method: 'trace_call', expected: predefined.NOT_YET_IMPLEMENTED, description: 'trace_ namespace methods' },
+      {
+        method: 'trace_rawTransaction',
+        expected: predefined.NOT_YET_IMPLEMENTED,
+        description: 'trace_ namespace methods',
+      },
+      {
+        method: 'debug_traceTransaction',
+        expected: predefined.NOT_YET_IMPLEMENTED,
+        description: 'debug_ namespace methods',
+      },
+      { method: 'debug_traceCall', expected: predefined.NOT_YET_IMPLEMENTED, description: 'debug_ namespace methods' },
+    ];
+
+    testCases.forEach(({ method, expected, description }) => {
+      it(`should throw ${expected.message} for ${description} (${method})`, () => {
+        try {
+          (dispatcher as any).throwUnregisteredRpcMethods(method);
+          expect.fail('Should have thrown an error');
+        } catch (error) {
+          expect(error).to.deep.equal(expected);
+        }
+      });
+    });
+
+    it('should throw METHOD_NOT_FOUND with method name for unknown methods', () => {
+      const unknownMethod = 'unknown_method';
+
+      try {
+        (dispatcher as any).throwUnregisteredRpcMethods(unknownMethod);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(predefined.METHOD_NOT_FOUND(unknownMethod).code);
+        expect(error.message).to.include(unknownMethod);
+      }
+    });
+  });
+
+  describe('End-to-end dispatch tests', () => {
+    it('should handle registered methods with and without parameter validation', async () => {
+      // Test with no schema
+      let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      expect(result).to.equal(TEST_RESULT);
+      expect(validateParamsStub.called).to.be.false;
+
+      // Test with schema
+      validateParamsStub.reset();
+      const validationSchema = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+
+      result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      expect(result).to.equal(TEST_RESULT);
+      expect(validateParamsStub.calledOnce).to.be.true;
+    });
+
+    it('should handle unregistered methods with appropriate error responses', async () => {
+      // Engine namespace
+      const engineResult = await dispatcher.dispatch('engine_test', [], TEST_REQUEST_DETAILS);
+      expect(engineResult).to.be.instanceOf(JsonRpcError);
+      expect(engineResult.code).to.equal(predefined.UNSUPPORTED_METHOD.code);
+
+      // Debug namespace
+      const debugResult = await dispatcher.dispatch('debug_test', [], TEST_REQUEST_DETAILS);
+      expect(debugResult).to.be.instanceOf(JsonRpcError);
+      expect(debugResult.code).to.equal(predefined.NOT_YET_IMPLEMENTED.code);
+
+      // Unknown method
+      const unknownResult = await dispatcher.dispatch('unknown_test', [], TEST_REQUEST_DETAILS);
+      expect(unknownResult).to.be.instanceOf(JsonRpcError);
+      expect(unknownResult.code).to.equal(predefined.METHOD_NOT_FOUND('unknown_test').code);
+    });
+
+    it('should handle and properly format errors from different phases', async () => {
+      //   Validation error
+      validateParamsStub.throws(predefined.INVALID_PARAMETERS);
+      const validationSchema = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+
+      let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.INVALID_PARAMETERS.code);
+
+      // Execution error
+      validateParamsStub.reset();
+      delete operationHandler[RPC_PARAM_SCHEMA_KEY];
+      operationHandler.rejects(new Error('Execution failed'));
+
+      result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      expect(result).to.deep.equal(predefined.INTERNAL_ERROR('Execution failed'));
+    });
+  });
+});
