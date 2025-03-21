@@ -16,6 +16,7 @@ import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { EthImpl } from '../eth';
+import { IBlockMirrorNode } from '../services/blockService/IBlockService';
 import { CacheService } from '../services/cacheService/cacheService';
 import {
   IContractCallRequest,
@@ -587,7 +588,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails) {
+  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<IBlockMirrorNode> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
     const cachedResponse: any = await this.cacheService.getAsync(
       cachedLabel,

@@ -6,7 +6,7 @@ import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
-import { Transaction, Transaction1559, Transaction2930 } from './lib/model';
+import { TransactionFactory } from './lib/services/factories/transactionFactory';
 
 const EMPTY_HEX = '0x';
 
@@ -168,31 +168,11 @@ const formatContractResult = (cr: any) => {
     chainId: cr.chain_id === EMPTY_HEX ? undefined : cr.chain_id,
   };
 
-  switch (cr.type) {
-    case 0:
-      return new Transaction(commonFields); // eip 155 fields
-    case 1:
-      return new Transaction2930({
-        ...commonFields,
-        accessList: [],
-      }); // eip 2930 fields
-    case 2:
-      return new Transaction1559({
-        ...commonFields,
-        accessList: [],
-        maxPriorityFeePerGas:
-          cr.max_priority_fee_per_gas === null || cr.max_priority_fee_per_gas === '0x'
-            ? '0x0'
-            : prepend0x(trimPrecedingZeros(cr.max_priority_fee_per_gas)),
-        maxFeePerGas:
-          cr.max_fee_per_gas === null || cr.max_fee_per_gas === '0x'
-            ? '0x0'
-            : prepend0x(trimPrecedingZeros(cr.max_fee_per_gas)),
-      }); // eip 1559 fields
-    case null:
-      return new Transaction(commonFields); //hapi
-  }
-  return null;
+  return TransactionFactory.createTransactionByType(cr.type, {
+    ...commonFields,
+    maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
+    maxFeePerGas: cr.max_fee_per_gas,
+  });
 };
 
 /**

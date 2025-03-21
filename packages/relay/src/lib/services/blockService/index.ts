@@ -4,17 +4,20 @@ import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { nanOrNumberTo0x } from '../../../formatters';
+import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
 import { Utils } from '../../../utils';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
 import constants from '../../constants';
 import { predefined } from '../../errors/JsonRpcError';
 import { EthImpl } from '../../eth';
-import { Block, Log, Transaction1559 } from '../../model';
+import { Block, Log, Transaction } from '../../model';
 import { RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
 import { CommonService } from '../ethService/ethCommonService';
 import { BlockFactory } from '../factories/blockFactory';
-import { IBlockService } from './IBlockService';
+import { TransactionFactory } from '../factories/transactionFactory';
+import { IBlockMirrorNode, IBlockService } from './IBlockService';
+
 export class BlockService implements IBlockService {
   private readonly common: CommonService;
 
@@ -33,8 +36,29 @@ export class BlockService implements IBlockService {
     this.cacheService = cacheService;
   }
 
-  public async getBlockByNumber(blockNumber: number): Promise<Block> {
-    const block = await this.mirrorNodeClient.getBlock(blockNumber, {} as RequestDetails);
+  public async getBlockByNumber(
+    blockNumber: string,
+    showDetails: boolean,
+    requestDetails: RequestDetails,
+  ): Promise<Block> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    this.logger.trace(`${requestIdPrefix} getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_BY_NUMBER}_${blockNumber}_${showDetails}`;
+    let block = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockByNumber, requestDetails);
+    if (!block) {
+      block = await this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
+        throw this.common.genericErrorHandler(
+          e,
+          `${requestIdPrefix} Failed to retrieve block for blockNumber ${blockNumber}`,
+        );
+      });
+
+      if (!this.common.blockTagIsLatestOrPending(blockNumber)) {
+        await this.cacheService.set(cacheKey, block, EthImpl.ethGetBlockByNumber, requestDetails);
+      }
+    }
+
     return block;
   }
 
@@ -76,7 +100,11 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrNumber, true);
+    const blockResponse: IBlockMirrorNode = await this.common.getHistoricalBlockResponse(
+      requestDetails,
+      blockHashOrNumber,
+      true,
+    );
 
     if (blockResponse == null) return null;
     const timestampRange = blockResponse.timestamp;
@@ -87,7 +115,6 @@ export class BlockService implements IBlockService {
       [requestDetails, { timestamp: timestampRangeParams }, undefined],
       requestDetails,
     );
-    const gasUsed = blockResponse.gas_used;
     const params = { timestamp: timestampRangeParams };
 
     // get contract results logs using block timestamp range
@@ -105,7 +132,7 @@ export class BlockService implements IBlockService {
     }
 
     // prepare transactionArray
-    let transactionArray: any[] = [];
+    let txArray: any[] = [];
     for (const contractResult of contractResults) {
       // there are several hedera-specific validations that occur right before entering the evm
       // if a transaction has reverted there, we should not include that tx in the block response
@@ -124,25 +151,27 @@ export class BlockService implements IBlockService {
       contractResult.to = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
 
       //contractResult.chain_id = contractResult.chain_id //|| this.chain;
-      transactionArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
+      txArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
     }
 
-    transactionArray = this.populateSyntheticTransactions(showDetails, logs, transactionArray, requestDetails);
-    transactionArray = showDetails ? transactionArray : _.uniq(transactionArray);
+    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
+    txArray = showDetails ? txArray : _.uniq(txArray);
 
+    const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
+      txArray.map((tx) => (showDetails ? tx.hash : tx)),
+      contractResults,
+      logs,
+    );
+
+    const gasPrice = '0x0';
     try {
-      const block = await BlockFactory.createBlock({
+      return await BlockFactory.createBlock({
         blockResponse,
-        contractResults,
-        logs,
-        showDetails,
-        gasUsed,
-        transactionArray,
-        timestamp,
+        receipts,
+        txArray,
+        gasPrice,
       });
-
-      return block;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error creating Block: ${error.message}`);
       return null;
     }
@@ -160,7 +189,27 @@ export class BlockService implements IBlockService {
         (log) => !transactionsArray.some((transaction) => transaction.hash === log.transactionHash),
       );
       filteredLogs.forEach((log) => {
-        const transaction: Transaction1559 = this.createTransactionFromLog(log);
+        const transaction: Transaction = TransactionFactory.createTransactionByType(2, {
+          accessList: undefined, // we don't support access lists for now
+          blockHash: log.blockHash,
+          blockNumber: log.blockNumber,
+          chainId: '0x12', //this.chain,
+          from: log.address,
+          gas: EthImpl.defaultTxGas,
+          gasPrice: EthImpl.invalidEVMInstruction,
+          hash: log.transactionHash,
+          input: EthImpl.zeroHex8Byte,
+          maxPriorityFeePerGas: EthImpl.zeroHex,
+          maxFeePerGas: EthImpl.zeroHex,
+          nonce: nanOrNumberTo0x(0),
+          r: EthImpl.zeroHex,
+          s: EthImpl.zeroHex,
+          to: log.address,
+          transactionIndex: log.transactionIndex,
+          type: EthImpl.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+          v: EthImpl.zeroHex,
+          value: EthImpl.oneTwoThreeFourHex,
+        });
         transactionsArray.push(transaction);
       });
     } else {
@@ -177,30 +226,5 @@ export class BlockService implements IBlockService {
     }
 
     return transactionsArray;
-  }
-
-  //create transaction factory instead
-  private createTransactionFromLog(log: Log): Transaction1559 {
-    return new Transaction1559({
-      accessList: undefined, // we don't support access lists for now
-      blockHash: log.blockHash,
-      blockNumber: log.blockNumber,
-      chainId: '0x12', //this.chain,
-      from: log.address,
-      gas: EthImpl.defaultTxGas,
-      gasPrice: EthImpl.invalidEVMInstruction,
-      hash: log.transactionHash,
-      input: EthImpl.zeroHex8Byte,
-      maxPriorityFeePerGas: EthImpl.zeroHex,
-      maxFeePerGas: EthImpl.zeroHex,
-      nonce: nanOrNumberTo0x(0),
-      r: EthImpl.zeroHex,
-      s: EthImpl.zeroHex,
-      to: log.address,
-      transactionIndex: log.transactionIndex,
-      type: EthImpl.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-      v: EthImpl.zeroHex,
-      value: EthImpl.oneTwoThreeFourHex,
-    });
   }
 }
