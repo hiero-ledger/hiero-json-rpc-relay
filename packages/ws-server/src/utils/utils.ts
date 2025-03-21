@@ -7,9 +7,9 @@ import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import { Logger } from 'pino';
 
-import { SubscriptionController } from '../controllers/subscriptionController';
 import ConnectionLimiter from '../metrics/connectionLimiter';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { SubscriptionController } from '../service/subscriptionController';
 import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
