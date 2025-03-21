@@ -52,6 +52,7 @@ jobs:
             echo "OPERATOR_ID_MAIN=${{ inputs.operator_id }}" >> $GITHUB_ENV
           fi
           echo "USE_ASYNC_TX_PROCESSING=false" >> $GITHUB_ENV
+          echo "HBAR_RATE_LIMIT_TINYBAR=5000000000000" >> $GITHUB_ENV
       - name: Harden Runner
         uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142 # v2.7.0
         with:
