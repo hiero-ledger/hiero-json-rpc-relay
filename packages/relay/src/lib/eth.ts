@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId, Hbar, PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers';
+import _ from 'lodash';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
@@ -32,7 +34,7 @@ import constants from './constants';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
-import { Block, Log, Transaction, Transaction1559 } from './model';
+import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
 import { DebugService } from './services/debugService';
@@ -41,10 +43,7 @@ import { CommonService, FilterService } from './services/ethService';
 import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
-import { IAccountInfo } from './types/mirrorNode';
-
-const _ = require('lodash');
-const asm = require('@ethersproject/asm');
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 
 interface LatestBlockNumberTimestamp {
   blockNumber: string | null;
@@ -102,6 +101,7 @@ export class EthImpl implements Eth {
   static ethFeeHistory = 'eth_feeHistory';
   static ethGasPrice = 'eth_gasPrice';
   static ethGetBalance = 'eth_getBalance';
+  static ethGetBlockReceipts = 'eth_getBlockReceipts';
   static ethGetBlockByHash = 'eth_GetBlockByHash';
   static ethGetBlockByNumber = 'eth_GetBlockByNumber';
   static ethGetCode = 'eth_getCode';
@@ -443,7 +443,7 @@ export class EthImpl implements Eth {
     }
 
     // get latest block fee
-    let nextBaseFeePerGas: string = _.last(feeHistory.baseFeePerGas);
+    let nextBaseFeePerGas: string | undefined = _.last(feeHistory.baseFeePerGas);
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
@@ -1204,7 +1204,7 @@ export class EthImpl implements Eth {
         } else if (result?.type === constants.TYPE_CONTRACT) {
           if (result?.entity.runtime_bytecode !== EthImpl.emptyHex) {
             const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = asm.disassemble(result?.entity.runtime_bytecode);
+            const opcodes = disassemble(result?.entity.runtime_bytecode);
             const hasProhibitedOpcode =
               opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
             if (!hasProhibitedOpcode) {
@@ -2848,5 +2848,79 @@ export class EthImpl implements Eth {
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
     return exchangeRateInCents;
+  }
+
+  /**
+   * Gets all transaction receipts for a block by block hash or block number.
+   * @param {string } blockHashOrBlockNumber The block hash, block number, or block tag
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
+   */
+  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
+    }
+
+    const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+    const blockNumber = block.number;
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
+        );
+      }
+      return cachedResponse;
+    }
+
+    const paramTimestamp: IContractResultsParams = {
+      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
+    };
+
+    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp);
+    if (!contractResults || contractResults.length === 0) {
+      return [];
+    }
+
+    const effectiveGas = await this.getCurrentGasPriceForBlock(block.hash, requestDetails);
+
+    const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
+    contractResults.forEach((contractResult) => {
+      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+    });
+
+    const receipts: Receipt[] = [];
+
+    for (const contractResult of contractResults) {
+      const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
+      const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
+
+      const contractAddress = this.getContractAddressFromReceipt(contractResult);
+      const receipt = {
+        blockHash: toHash32(contractResult.block_hash),
+        blockNumber: numberTo0x(contractResult.block_number),
+        from: from,
+        to: to,
+        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
+        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
+        contractAddress: contractAddress,
+        logs: contractResult.logs,
+        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        transactionHash: toHash32(contractResult.hash),
+        transactionIndex: numberTo0x(contractResult.transaction_index),
+        effectiveGasPrice: effectiveGas,
+        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
+        status: contractResult.status,
+        type: nullableNumberTo0x(contractResult.type),
+      };
+
+      receipts.push(receipt);
+    }
+
+    await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
+    return receipts;
   }
 }

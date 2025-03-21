@@ -278,6 +278,22 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
   });
 
   /**
+   * Returns the transaction receipts for the block matching the given block hash/block number/tag.
+   *
+   * @param blockParam
+   * @returns []
+   */
+  app.useRpc('eth_getBlockReceipts', async (params: any) => {
+    return logAndHandleResponse(
+      'eth_getBlockReceipts',
+      params,
+      (requestDetails) => relay.eth().getBlockReceipts(params?.[0], requestDetails),
+      app,
+      logger,
+    );
+  });
+
+  /**
    * Returns the number of transactions for the block matching the given block number.
    *
    * @param hex
