@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { generateRandomHex } from '@hashgraph/json-rpc-relay/dist/formatters';
 import crypto from 'crypto';
 import LRU from 'lru-cache';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { generateRandomHex } from '../formatters';
-import { Subs } from '../index';
-import constants from './constants';
 import { Poller } from './poller';
 
 export interface Subscriber {
@@ -19,7 +17,7 @@ export interface Subscriber {
 
 const CACHE_TTL = ConfigService.get('WS_CACHE_TTL');
 
-export class SubscriptionController implements Subs {
+export class SubscriptionController {
   private poller: Poller;
   private logger: Logger;
   private subscriptions: { [key: string]: Subscriber[] };
@@ -63,16 +61,16 @@ export class SubscriptionController implements Subs {
     });
   }
 
-  createHash(data) {
+  private createHash(data: string) {
     return crypto.createHash('sha256').update(data.toString()).digest('hex');
   }
 
   // Generates a random 16 byte hex string
-  generateId() {
+  public generateId() {
     return generateRandomHex();
   }
 
-  subscribe(connection, event: string, filters?: {}) {
+  public subscribe(connection, event: string, filters?: {}) {
     let tag: any = { event };
     if (filters && Object.keys(filters).length) {
       tag.filters = filters;
@@ -110,7 +108,7 @@ export class SubscriptionController implements Subs {
     return subId;
   }
 
-  unsubscribe(connection, subId?: string) {
+  public unsubscribe(connection, subId?: string) {
     const { id } = connection;
 
     if (subId) {
@@ -148,7 +146,7 @@ export class SubscriptionController implements Subs {
     return subCount;
   }
 
-  notifySubscribers(tag, data) {
+  public notifySubscribers(tag, data) {
     if (this.subscriptions[tag] && this.subscriptions[tag].length) {
       this.subscriptions[tag].forEach((sub) => {
         const subscriptionData = {

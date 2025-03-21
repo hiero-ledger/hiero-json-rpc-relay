@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import pino from 'pino';
-import { SubscriptionController } from '../../src/lib/subscriptionController';
-import { expect } from 'chai';
-import { Poller } from '../../src/lib/poller';
-import { EthImpl } from '../../src/lib/eth';
-import sinon from 'sinon';
-import { Registry } from 'prom-client';
+import { Relay, RelayImpl } from '@hashgraph/json-rpc-relay';
+import { overrideEnvsInMochaDescribe } from '@hashgraph/json-rpc-relay/tests/helpers';
 import ConnectionLimiter from '@hashgraph/json-rpc-ws-server/src/metrics/connectionLimiter';
-import { overrideEnvsInMochaDescribe } from '../helpers';
+import { expect } from 'chai';
+import pino from 'pino';
+import { Registry } from 'prom-client';
+import sinon from 'sinon';
+
+import { Poller } from '../../src/service/poller';
+import { SubscriptionController } from '../../src/service/subscriptionController';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
 const limiter = new ConnectionLimiter(logger, register);
-let ethImpl: EthImpl;
+let relay: Relay;
 let poller: Poller;
 
 class MockWsConnection {
@@ -37,9 +38,9 @@ describe('subscriptionController', async function () {
 
   this.beforeAll(() => {
     // @ts-ignore
-    ethImpl = sinon.createStubInstance(EthImpl);
+    relay = sinon.createStubInstance(RelayImpl);
     const registry = new Registry();
-    poller = new Poller(ethImpl, logger, registry);
+    poller = new Poller(relay, logger, registry);
 
     subscriptionController = new SubscriptionController(poller, logger, registry);
   });
@@ -249,7 +250,7 @@ describe('subscriptionController', async function () {
 
     before(() => {
       const registry = new Registry();
-      poller = new Poller(ethImpl, logger, registry);
+      poller = new Poller(relay, logger, registry);
       subscriptionController = new SubscriptionController(poller, logger, registry);
     });
 
