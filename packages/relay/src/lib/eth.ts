@@ -319,7 +319,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.BLOCK_NUMBER, required: true },
     2: { type: ParamType.ARRAY, required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[2], params[1]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   async feeHistory(
     blockCount: number,
     newestBlock: string,
@@ -1225,7 +1225,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.HEX64, required: true },
     2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[2], params[1]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   async getStorageAt(
     address: string,
     slot: string,

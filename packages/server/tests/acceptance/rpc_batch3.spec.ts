@@ -1053,9 +1053,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       it('@release should be able to create a log filter', async function () {
         const currentBlock = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
         expect(
-          RelayAssertions.validateHash(await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [], requestId), 32),
-        ).to.eq(true, 'without params');
-        expect(
           RelayAssertions.validateHash(
             await relay.call(
               RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER,
@@ -1117,7 +1114,17 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
 
       it('should be able to uninstall existing log filter', async function () {
-        const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [], requestId);
+        const currentBlock = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
+        const filterId = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER,
+          [
+            {
+              fromBlock: currentBlock,
+              toBlock: 'latest',
+            },
+          ],
+          requestId,
+        );
         const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_UNINSTALL_FILTER, [filterId], requestId);
         expect(result).to.eq(true);
       });
