@@ -9,6 +9,7 @@ import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 // Helper functions/constants from local resources
 import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
+import { TYPES } from '@hashgraph/json-rpc-relay/src/lib/validators';
 import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
 import { ContractId } from '@hashgraph/sdk';
 import Axios from 'axios';
@@ -18,7 +19,6 @@ import { BaseContract, ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
-import { TYPES } from '../../src/validator';
 import RelayCall from '../../tests/helpers/constants';
 import Helper from '../../tests/helpers/constants';
 import Address from '../../tests/helpers/constants';
