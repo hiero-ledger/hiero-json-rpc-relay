@@ -4,7 +4,7 @@ import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 import { Web3 } from '../index';
-import { rpcMethod, rpcParamSchema } from './decorators';
+import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { ParamType } from './types';
 
 export class Web3Impl implements Web3 {
@@ -28,13 +28,13 @@ export class Web3Impl implements Web3 {
    * Computes the SHA3 (Keccak-256) hash of the given input.
    *
    * @rpcMethod Exposed as web3_sha3 RPC endpoint
-   * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} input - The input string to hash.
    * @returns {string} The SHA3 hash of the input.
    */
   @rpcMethod
-  @rpcParamSchema({
+  @rpcParamValidationRules({
     0: { type: ParamType.HEX, required: true },
   })
   sha3(input: string): string {
