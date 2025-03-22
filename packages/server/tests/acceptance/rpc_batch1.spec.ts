@@ -1425,7 +1425,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           nonce: await relay.getAccountNonce(accounts[2].address, requestId),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
-          gasLimit: Constants.MAX_GAS_PER_SEC,
+          gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
           data: '0x' + '00'.repeat(40000),
         };
 
@@ -1441,7 +1441,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF) / BigInt(100_000_000);
         expect(Number(diffInHbars)).to.be.greaterThan(2);
         expect(Number(diffInHbars)).to.be.lessThan(
-          (gasPrice * Constants.MAX_GAS_PER_SEC) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000,
+          (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000,
         );
       });
 
@@ -1454,7 +1454,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             nonce: await relay.getAccountNonce(accounts[2].address, requestId),
             maxPriorityFeePerGas: gasPrice,
             maxFeePerGas: gasPrice,
-            gasLimit: Constants.MAX_GAS_PER_SEC,
+            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
             data: '0x' + '00'.repeat(60000),
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -1492,7 +1492,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           };
 
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
-          const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_GAS_PER_SEC);
+          const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
             signedTx,
@@ -1511,7 +1511,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           };
 
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
-          const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_GAS_PER_SEC);
+          const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
             signedTx,
@@ -1528,7 +1528,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             gasLimit: gasLimit,
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
-          const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_GAS_PER_SEC);
+          const error = predefined.GAS_LIMIT_TOO_LOW(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
             signedTx,
@@ -1545,7 +1545,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             gasLimit: gasLimit,
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
-          const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_GAS_PER_SEC);
+          const error = predefined.GAS_LIMIT_TOO_HIGH(gasLimit, Constants.MAX_TRANSACTION_FEE_THRESHOLD);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
             signedTx,

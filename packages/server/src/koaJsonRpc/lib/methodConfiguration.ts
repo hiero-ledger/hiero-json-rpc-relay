@@ -154,9 +154,6 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   eth_newFilter: {
     total: tier2rateLimit,
   },
-  web3_client_version: {
-    total: tier3rateLimit,
-  },
   eth_uninstallFilter: {
     total: tier2rateLimit,
   },

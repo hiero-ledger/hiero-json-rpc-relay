@@ -2,9 +2,10 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+
+import { overrideEnvsInMochaDescribe } from '../../../../relay/tests/helpers';
 import { GlobalConfig } from '../../../dist/services/globalConfig';
 import { ValidationService } from '../../../dist/services/validationService';
-import { overrideEnvsInMochaDescribe } from '../../../../relay/tests/helpers';
 
 chai.use(chaiAsPromised);
 
@@ -36,6 +37,60 @@ describe('ValidationService tests', async function () {
         }),
       ).to.throw('SERVER_PORT must be a valid number.');
       GlobalConfig.ENTRIES.SERVER_PORT.required = false;
+    });
+
+    it('should validate string array type', async () => {
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          BATCH_REQUESTS_DISALLOWED_METHODS: 'not-an-array',
+        }),
+      ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON string.');
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
+    });
+
+    it('should validate number array type', async () => {
+      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          HAPI_CLIENT_ERROR_RESET: 'not-an-array',
+        }),
+      ).to.throw('Configuration error: HAPI_CLIENT_ERROR_RESET must be a valid JSON string.');
+    });
+
+    it('should correctly detect if a string is valid JSON but not a valid JSON array', async () => {
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          BATCH_REQUESTS_DISALLOWED_METHODS: '{"foo": "bar"}',
+        }),
+      ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON array.');
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
+    });
+
+    it('should validate string array content', async () => {
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          BATCH_REQUESTS_DISALLOWED_METHODS: '["test", 123]',
+        }),
+      ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must contain only strings.');
+      GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = false;
+    });
+
+    it('should validate number array content', async () => {
+      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          HAPI_CLIENT_ERROR_RESET: '["method1", 456]',
+        }),
+      ).to.throw('Configuration error: HAPI_CLIENT_ERROR_RESET must contain only numbers.');
+      GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.required = false;
     });
   });
 
@@ -103,6 +158,44 @@ describe('ValidationService tests', async function () {
 
       expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_ENABLED.envName]).to.be.true;
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_ENABLED.type).to.equal('boolean');
+    });
+
+    it('should cast string array type', async () => {
+      const castedEnvs = ValidationService.typeCasting({
+        [GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]: '["method1", "method2"]',
+      });
+
+      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]).to.deep.equal([
+        'method1',
+        'method2',
+      ]);
+      expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.type).to.equal('strArray');
+    });
+
+    it('should cast number array type', async () => {
+      const castedEnvs = ValidationService.typeCasting({
+        [GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.envName]: '[21, 50]',
+      });
+
+      expect(castedEnvs[GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.envName]).to.deep.equal([21, 50]);
+      expect(GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.type).to.equal('numArray');
+    });
+
+    it('should handle empty arrays', async () => {
+      const castedEnvs = ValidationService.typeCasting({
+        [GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.envName]: '[]',
+      });
+
+      expect(castedEnvs[GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.envName]).to.deep.equal([]);
+      expect(GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.type).to.equal('numArray');
+    });
+
+    it('should use default value for missing array', async () => {
+      const castedEnvs = ValidationService.typeCasting({});
+
+      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]).to.deep.equal(
+        GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.defaultValue,
+      );
     });
   });
 });

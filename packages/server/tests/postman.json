@@ -1085,6 +1085,240 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "engine_getPayloadV1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"engine_getPayloadV1\",\n    \"params\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "engine_anyMethod",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"engine_anyMethod\",\n    \"params\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "trace_block",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"trace_block\",\n    \"params\": [\"latest\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "trace_anyMethod",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"trace_anyMethod\",\n    \"params\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "debug_traceBlockByHash",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"debug_traceBlockByHash\",\n    \"params\": [\"latest\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "debug_anyMethod",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"debug_anyMethod\",\n    \"params\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
     }
   ],
   "event": [

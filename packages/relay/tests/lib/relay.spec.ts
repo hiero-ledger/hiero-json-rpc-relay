@@ -7,18 +7,18 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { RelayImpl } from '../../src';
+import { Relay } from '../../src';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
 
-describe('RelayImpl', () => {
+describe('Relay', () => {
   const logger = pino({ level: 'silent' });
   const register = new Registry();
-  let relay: RelayImpl;
+  let relay: Relay;
 
   beforeEach(() => {
-    relay = new RelayImpl(logger, register);
+    relay = new Relay(logger, register);
   });
 
   afterEach(() => {
@@ -26,7 +26,7 @@ describe('RelayImpl', () => {
   });
 
   it('should initialize correctly with valid parameters', () => {
-    expect(relay).to.be.an.instanceof(RelayImpl);
+    expect(relay).to.be.an.instanceof(Relay);
   });
 
   it('should return the correct web3 implementation', () => {
@@ -46,7 +46,7 @@ describe('RelayImpl', () => {
 
   withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: true }, () => {
     it('should return the correct subscription implementation when enabled', () => {
-      relay = new RelayImpl(logger, register);
+      relay = new Relay(logger, register);
 
       const subs = relay.subs();
       expect(subs).to.not.be.undefined;
@@ -55,7 +55,7 @@ describe('RelayImpl', () => {
 
   withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, () => {
     it('should return undefined subscription implementation when not enabled', () => {
-      relay = new RelayImpl(logger, register);
+      relay = new Relay(logger, register);
 
       const subs = relay.subs();
       expect(subs).to.be.undefined;
@@ -68,7 +68,7 @@ describe('RelayImpl', () => {
 
     beforeEach(() => {
       loggerSpy = sinon.spy(logger);
-      populatePreconfiguredSpendingPlansSpy = sinon.spy(RelayImpl.prototype, <any>'populatePreconfiguredSpendingPlans');
+      populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     });
 
     afterEach(() => {
@@ -79,7 +79,7 @@ describe('RelayImpl', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: 'spendingPlansConfig.example.json' });
 
       it('should populate preconfigured spending plans successfully', async () => {
-        expect((relay = new RelayImpl(logger, register))).to.not.throw;
+        expect((relay = new Relay(logger, register))).to.not.throw;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -92,7 +92,7 @@ describe('RelayImpl', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: nonExistingFile });
 
       it('should not throw an error', async () => {
-        expect((relay = new RelayImpl(logger, register))).to.not.throw;
+        expect((relay = new Relay(logger, register))).to.not.throw;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -108,7 +108,7 @@ describe('RelayImpl', () => {
       });
 
       it('should log a warning', async () => {
-        expect((relay = new RelayImpl(logger, register))).to.not.throw;
+        expect((relay = new Relay(logger, register))).to.not.throw;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).not.to.be.rejected;

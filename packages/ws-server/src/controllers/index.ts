@@ -8,7 +8,7 @@ import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { paramRearrangementMap, resolveParams, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import {
   InvalidRequest,
   IPRateLimitExceeded,
@@ -57,23 +57,14 @@ const handleSendingRequestsToRelay = async ({
     logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
-    const resolvedParams = resolveParams(method, params);
     const [service, methodName] = method.split('_');
 
     const rearrangeParamsFn = paramRearrangementMap[methodName] || paramRearrangementMap['default'];
-    const rearrangedParamsArray = rearrangeParamsFn(resolvedParams, requestDetails);
+    const rearrangedParamsArray = rearrangeParamsFn(params, requestDetails);
 
-    // Call the relay method with the resolved parameters.
+    // Call the relay method with the rearranged parameters.
     // Method will be validated by "verifySupportedMethod" before reaching this point.
-    let txRes: any;
-    if (method === WS_CONSTANTS.METHODS.ETH_NEWFILTER) {
-      txRes = await relay
-        .eth()
-        .filterService()
-        [methodName](...rearrangedParamsArray);
-    } else {
-      txRes = await relay[service]()[methodName](...rearrangedParamsArray);
-    }
+    const txRes = await relay[service]()[methodName](...rearrangedParamsArray);
 
     if (!txRes) {
       if (logger.isLevelEnabled('trace')) {

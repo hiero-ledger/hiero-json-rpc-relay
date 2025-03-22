@@ -87,6 +87,17 @@ export default class KoaJsonRpc {
     }
   }
 
+  /**
+   * Register a regex pattern for RPC method names
+   * @param pattern - Regex pattern to match method names
+   * @param func - Function to handle the request
+   */
+  useRpcRegex(pattern: RegExp, func: (params?: any) => Promise<any>): void {
+    this.registry[pattern.toString()] = func;
+    // Use default rate limit for regex patterns
+    this.registryTotal[pattern.toString()] = this.defaultRateLimit;
+  }
+
   rpcApp(): (ctx: Koa.Context, _next: Koa.Next) => Promise<void> {
     return async (ctx: Koa.Context, _next: Koa.Next) => {
       this.updateRequestDetails({ requestId: ctx.state.reqId, ipAddress: ctx.request.ip });
@@ -156,7 +167,7 @@ export default class KoaJsonRpc {
 
     // we do the requests in parallel to save time, but we need to keep track of the order of the responses (since the id might be optional)
     const promises: Promise<any>[] = body.map(async (item: any) => {
-      if (JSON.parse(ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS')).includes(item.method)) {
+      if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
         return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
       }
       const startTime = Date.now();
@@ -189,14 +200,25 @@ export default class KoaJsonRpc {
         return jsonResp(request.id, new MethodNotFound(methodName), undefined);
       }
 
+      let methodHandler = this.registry[methodName];
+      let methodTotalLimit = this.registryTotal[methodName];
+
+      // check for regex patterns if not found
+      if (!methodHandler) {
+        const regexMatch = this.findRegexMatch(methodName);
+        if (regexMatch) {
+          methodHandler = this.registry[regexMatch];
+          methodTotalLimit = this.registryTotal[regexMatch];
+        }
+      }
+
       // check rate limit for method and ip
-      const methodTotalLimit = this.registryTotal[methodName];
       if (this.rateLimit.shouldRateLimit(ip, methodName, methodTotalLimit, this.requestId)) {
         return jsonResp(request.id, new IPRateLimitExceeded(methodName), undefined);
       }
 
       // execute the method and return the result
-      const result = await this.registry[methodName](request.params);
+      const result = await methodHandler(request.params);
 
       if (result instanceof JsonRpcError) {
         return jsonResp(request.id, result, undefined);
@@ -232,8 +254,37 @@ export default class KoaJsonRpc {
       return true;
     }
 
+    // check for regex pattern matches
+    if (this.findRegexMatch(methodName)) {
+      return true;
+    }
+
     this.logger.warn(`${this.getFormattedLogPrefix()} Method not found: ${methodName}`);
     return false;
+  }
+
+  /**
+   * Find a matching regex pattern in the registry for the given method name
+   * @param methodName - The method name to match against regex patterns
+   * @returns The matching regex key or null if no match is found
+   */
+  private findRegexMatch(methodName: string): string | null {
+    for (const key of Object.keys(this.registry)) {
+      if (key.startsWith('/') && key.endsWith('/')) {
+        try {
+          const patternStr = key.substring(1, key.lastIndexOf('/'));
+          const flags = key.substring(key.lastIndexOf('/') + 1);
+          const regex = new RegExp(patternStr, flags);
+
+          if (regex.test(methodName)) {
+            return key;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+    return null;
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {

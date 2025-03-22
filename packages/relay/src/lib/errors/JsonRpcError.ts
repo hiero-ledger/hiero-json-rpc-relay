@@ -148,6 +148,10 @@ export const predefined = {
     code: -32601,
     message: 'Unsupported JSON-RPC method',
   }),
+  NOT_YET_IMPLEMENTED: new JsonRpcError({
+    code: -32601,
+    message: 'Not yet implemented',
+  }),
   UNSUPPORTED_TRANSACTION_TYPE: new JsonRpcError({
     code: -32611,
     message: 'Unsupported transaction type',

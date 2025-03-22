@@ -779,7 +779,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       let initialEthCallSelectorsAlwaysToConsensus: any, hrc719Contract: ethers.Contract;
 
       before(async () => {
-        initialEthCallSelectorsAlwaysToConsensus = JSON.parse(ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS'));
+        initialEthCallSelectorsAlwaysToConsensus = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
 
         hrc719Contract = await Utils.deployContract(
           HRC719ContractJson.abi,
@@ -796,7 +796,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       });
 
       it('should NOT allow eth_call to process IHRC719.isAssociated() method', async () => {
-        const selectorsList = JSON.parse(ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS'));
+        const selectorsList = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
         expect(selectorsList.length).to.eq(0);
 
         // If the selector for `isAssociated` is not included in `ETH_CALL_CONSENSUS_SELECTORS`, the request will fail with a `CALL_EXCEPTION` error code.
@@ -813,7 +813,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         );
 
         // Add the selector for isAssociated to ETH_CALL_CONSENSUS_SELECTORS to ensure isAssociated() passes
-        ConfigServiceTestHelper.dynamicOverride('ETH_CALL_CONSENSUS_SELECTORS', JSON.stringify([isAssociatedSelector]));
+        ConfigServiceTestHelper.dynamicOverride('ETH_CALL_CONSENSUS_SELECTORS', [isAssociatedSelector]);
         const isAssociatedResult = await hrc719Contract.isAssociated(tokenAddress);
         expect(isAssociatedResult).to.be.false; // associate status of the token with the caller
       });
@@ -2037,7 +2037,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     overrideEnvsInMochaDescribe({ BATCH_REQUESTS_ENABLED: true });
 
     it('@release Should return errors for blacklisted methods', async function () {
-      const disallowedMethods = JSON.parse(ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS'));
+      const disallowedMethods = ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS');
       const payload: any[] = [];
       for (let index = 0; index < disallowedMethods.length; index++) {
         payload.push({

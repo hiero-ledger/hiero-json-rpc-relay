@@ -100,8 +100,8 @@ export class EvmAddressHbarSpendingPlanRepository {
     if (!addressPlan) {
       throw new EvmAddressHbarSpendingPlanNotFoundError(evmAddress);
     }
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
         `${requestDetails.formattedRequestId} Retrieved link between EVM address ${evmAddress} and HbarSpendingPlan with ID ${addressPlan.planId}`,
       );
     }
@@ -119,8 +119,8 @@ export class EvmAddressHbarSpendingPlanRepository {
   async save(addressPlan: IEvmAddressHbarSpendingPlan, requestDetails: RequestDetails, ttl: number): Promise<void> {
     const key = this.getKey(addressPlan.evmAddress);
     await this.cache.set(key, addressPlan, 'save', requestDetails, ttl);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
         `${requestDetails.formattedRequestId} Linked EVM address ${addressPlan.evmAddress} to HbarSpendingPlan with ID ${addressPlan.planId}`,
       );
     }

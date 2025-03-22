@@ -81,7 +81,7 @@ describe('@web-socket-batch-request Batch Requests', async function () {
     });
 
     it('@release Should return errors for blacklisted methods', async function () {
-      const disallowedMethods = JSON.parse(ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS'));
+      const disallowedMethods = ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS');
       const requests: any[] = [];
       for (let index = 0; index < disallowedMethods.length; index++) {
         requests.push({

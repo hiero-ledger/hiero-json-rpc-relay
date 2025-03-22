@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-import EventEmitter from 'events';
-import constants from '../../constants';
-import { Histogram, Registry } from 'prom-client';
-import { HbarLimitService } from '../hbarLimitService';
-import { MirrorNodeClient, SDKClient } from '../../clients';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import EventEmitter from 'events';
+import { Logger } from 'pino';
+import { Histogram, Registry } from 'prom-client';
+
+import { MirrorNodeClient, SDKClient } from '../../clients';
+import constants from '../../constants';
 import {
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
   RequestDetails,
 } from '../../types';
+import { HbarLimitService } from '../hbarLimitService';
 
 export default class MetricService {
   /**
@@ -200,8 +201,8 @@ export default class MetricService {
     requestDetails,
     originalCallerAddress,
   }: IExecuteQueryEventPayload): Promise<void> => {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
         `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}, cost=${cost} tinybars`,
       );
     }

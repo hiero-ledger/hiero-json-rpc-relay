@@ -185,7 +185,7 @@ export default class HAPIService {
     const currentDateNow = Date.now();
     this.initialTransactionCount = ConfigService.get('HAPI_CLIENT_TRANSACTION_RESET');
     this.initialResetDuration = ConfigService.get('HAPI_CLIENT_DURATION_RESET');
-    this.initialErrorCodes = JSON.parse(ConfigService.get('HAPI_CLIENT_ERROR_RESET'));
+    this.initialErrorCodes = ConfigService.get('HAPI_CLIENT_ERROR_RESET');
 
     this.transactionCount = this.initialTransactionCount;
     this.resetDuration = currentDateNow + this.initialResetDuration;

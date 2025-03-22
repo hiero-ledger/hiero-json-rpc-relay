@@ -229,8 +229,8 @@ describe('Precheck', async function () {
           const signed = await signTransaction(tx);
           const parsedTx = ethers.Transaction.from(signed);
           const message =
-            gasLimit > constants.MAX_GAS_PER_SEC
-              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${constants.MAX_GAS_PER_SEC}'`
+            gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD
+              ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${constants.MAX_TRANSACTION_FEE_THRESHOLD}'`
               : `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required `;
           try {
             await precheck.gasLimit(parsedTx, requestDetails);

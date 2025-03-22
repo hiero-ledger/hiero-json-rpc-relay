@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner

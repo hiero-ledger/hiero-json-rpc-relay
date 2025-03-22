@@ -15,7 +15,3 @@ export const TRANSACTION_ID_ERROR = `Expected a transaction ID string in the for
 export const TRANSACTION_ID_REGEX = /^(\d)\.(\d)\.(\d{1,10})-(\d{1,19})-(\d{1,9})$/;
 export const TOPIC_HASH_ERROR = `Expected ${HASH_ERROR} of a topic`;
 export const INVALID_BLOCK_HASH_TAG_NUMBER = 'The value passed is not a valid blockHash/blockNumber/blockTag value:';
-export enum TracerType {
-  CallTracer = 'callTracer',
-  OpcodeLogger = 'opcodeLogger',
-}

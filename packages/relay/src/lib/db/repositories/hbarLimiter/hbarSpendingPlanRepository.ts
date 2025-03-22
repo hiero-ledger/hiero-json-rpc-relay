@@ -2,14 +2,15 @@
 
 import { randomBytes, uuidV4 } from 'ethers';
 import { Logger } from 'pino';
-import { IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
+
 import { CacheService } from '../../../services/cacheService/cacheService';
+import { RequestDetails } from '../../../types';
+import { HbarSpendingPlan } from '../../entities/hbarLimiter/hbarSpendingPlan';
+import { HbarSpendingRecord } from '../../entities/hbarLimiter/hbarSpendingRecord';
 import { HbarSpendingPlanNotActiveError, HbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
 import { IDetailedHbarSpendingPlan, IHbarSpendingPlan } from '../../types/hbarLimiter/hbarSpendingPlan';
-import { HbarSpendingRecord } from '../../entities/hbarLimiter/hbarSpendingRecord';
+import { IHbarSpendingRecord } from '../../types/hbarLimiter/hbarSpendingRecord';
 import { SubscriptionTier } from '../../types/hbarLimiter/subscriptionTier';
-import { HbarSpendingPlan } from '../../entities/hbarLimiter/hbarSpendingPlan';
-import { RequestDetails } from '../../../types';
 
 export class HbarSpendingPlanRepository {
   public static readonly collectionKey = 'hbarSpendingPlan';
@@ -43,8 +44,8 @@ export class HbarSpendingPlanRepository {
     if (!plan) {
       throw new HbarSpendingPlanNotFoundError(id);
     }
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} Retrieved subscription with ID ${id}`);
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`${requestDetails.formattedRequestId} Retrieved subscription with ID ${id}`);
     }
     return {
       ...plan,
@@ -89,8 +90,8 @@ export class HbarSpendingPlanRepository {
       spendingHistory: [],
       amountSpent: 0,
     };
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} Creating HbarSpendingPlan with ID ${plan.id}...`);
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`${requestDetails.formattedRequestId} Creating HbarSpendingPlan with ID ${plan.id}...`);
     }
     const key = this.getKey(plan.id);
     await this.cache.set(key, plan, 'create', requestDetails, ttl);
@@ -172,8 +173,8 @@ export class HbarSpendingPlanRepository {
   async getAmountSpent(id: string, requestDetails: RequestDetails): Promise<number> {
     await this.checkExistsAndActive(id, requestDetails);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
         `${requestDetails.formattedRequestId} Retrieving amountSpent for HbarSpendingPlan with ID ${id}...`,
       );
     }
@@ -223,8 +224,8 @@ export class HbarSpendingPlanRepository {
       }
       await this.cache.set(key, amount, 'addToAmountSpent', requestDetails, ttl);
     } else {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
           `${requestDetails.formattedRequestId} Adding ${amount} to amountSpent for HbarSpendingPlan with ID ${id}...`,
         );
       }

@@ -4,8 +4,9 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
-import { predefined, RelayImpl } from '@hashgraph/json-rpc-relay';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -21,7 +22,7 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { TracerType, Validator } from '../../src/validator';
+import { Validator } from '../../src/validator';
 import * as Constants from '../../src/validator/constants';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
@@ -36,7 +37,7 @@ describe('RPC Server', function () {
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   before(function () {
-    populatePreconfiguredSpendingPlansSpy = sinon.spy(RelayImpl.prototype, <any>'populatePreconfiguredSpendingPlans');
+    populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     app = require('../../src/server').default;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
@@ -126,7 +127,7 @@ describe('RPC Server', function () {
       const testServer2 = app2.listen(port);
 
       try {
-        const testClient2 = BaseTest.createTestClient(port);
+        const testClient2 = BaseTest.createTestClient(Number(port));
         const response = await testClient2.post('/', {
           jsonrpc: '2.0',
           method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
@@ -483,6 +484,70 @@ describe('RPC Server', function () {
 
     BaseTest.defaultResponseChecks(res);
     expect(res.data.result).to.be.equal('0x0');
+  });
+
+  // Test all engine methods
+  const engineMethods = [...RelayCalls.ETH_ENDPOINTS.ENGINE, 'engine_anyMethod'];
+
+  engineMethods.forEach((method) => {
+    const methodName = method === 'engine_anyMethod' ? 'any engine_* method' : `"${method}"`;
+
+    it(`should execute ${methodName} and return UNSUPPORTED_METHOD`, async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: method,
+          params: [null],
+        });
+
+        Assertions.expectedError();
+      } catch (error: any) {
+        BaseTest.unsupportedJsonRpcMethodChecks(error.response);
+      }
+    });
+  });
+
+  const traceMethods = [...RelayCalls.ETH_ENDPOINTS.TRACE, 'trace_anyMethod'];
+
+  traceMethods.forEach((method) => {
+    const methodName = method === 'trace_anyMethod' ? 'any trace_* method' : `"${method}"`;
+
+    it(`should execute ${methodName} and return NOT_YET_IMPLEMENTED`, async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: method,
+          params: ['latest'],
+        });
+
+        Assertions.expectedError();
+      } catch (error: any) {
+        BaseTest.notYetImplementedErrorCheck(error.response);
+      }
+    });
+  });
+
+  const debugMethods = [...RelayCalls.ETH_ENDPOINTS.DEBUG, 'debug_anyMethod'];
+
+  debugMethods.forEach((method) => {
+    const methodName = method === 'debug_anyMethod' ? 'any debug_* method' : `"${method}"`;
+
+    it(`should execute ${methodName} and return UNSUPPORTED_METHOD`, async function () {
+      try {
+        await testClient.post('/', {
+          id: '2',
+          jsonrpc: '2.0',
+          method: method,
+          params: ['latest'],
+        });
+
+        Assertions.expectedError();
+      } catch (error: any) {
+        BaseTest.notYetImplementedErrorCheck(error.response);
+      }
+    });
   });
 
   describe('batchRequest Test Cases', async function () {
@@ -2795,6 +2860,12 @@ class BaseTest {
     expect(response.status).to.eq(400);
     expect(response.statusText).to.eq('Bad Request');
     this.errorResponseChecks(response, -32601, 'Unsupported JSON-RPC method');
+  }
+
+  static notYetImplementedErrorCheck(response: any) {
+    expect(response.status).to.eq(400);
+    expect(response.statusText).to.eq('Bad Request');
+    this.errorResponseChecks(response, -32601, 'Not yet implemented');
   }
 
   static batchDisabledErrorCheck(response: any) {

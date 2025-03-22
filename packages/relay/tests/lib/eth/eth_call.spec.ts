@@ -1,11 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ContractFunctionResult } from '@hashgraph/sdk';
 import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { Counter } from 'prom-client';
 import sinon from 'sinon';
 
-import { EthImpl } from '../../../src/lib/eth';
 import { SDKClient } from '../../../src/lib/clients';
+import constants from '../../../src/lib/constants';
+import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
+import { EthImpl } from '../../../src/lib/eth';
+import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
+import {
+  defaultCallData,
+  defaultContractResults,
+  defaultErrorMessageHex,
+  defaultErrorMessageText,
+  ethCallFailing,
+  mockData,
+  overrideEnvsInMochaDescribe,
+  withOverriddenEnvsInMochaTest,
+} from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   CONTRACT_ADDRESS_1,
@@ -24,23 +40,7 @@ import {
   ONE_TINYBAR_IN_WEI_HEX,
   WRONG_CONTRACT_ADDRESS,
 } from './eth-config';
-import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
-import RelayAssertions from '../../assertions';
-import constants from '../../../src/lib/constants';
-import {
-  defaultCallData,
-  defaultContractResults,
-  defaultErrorMessageHex,
-  defaultErrorMessageText,
-  ethCallFailing,
-  mockData,
-  overrideEnvsInMochaDescribe,
-  withOverriddenEnvsInMochaTest,
-} from '../../helpers';
 import { generateEthTestEnv } from './eth-helpers';
-import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
-import { ContractFunctionResult } from '@hashgraph/sdk';
-import { Counter } from 'prom-client';
 
 use(chaiAsPromised);
 
@@ -49,7 +49,7 @@ let getSdkClientStub: sinon.SinonStub;
 
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
-  let { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
 
   const ETH_CALL_REQ_ARGS = {
     from: ACCOUNT_ADDRESS_1,
@@ -69,10 +69,13 @@ describe('@ethCall Eth Call spec', async function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
-    restMock.onGet(`accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({
-      account: '0.0.1723',
-      evm_address: ACCOUNT_ADDRESS_1,
-    }));
+    restMock.onGet(`accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`).reply(
+      200,
+      JSON.stringify({
+        account: '0.0.1723',
+        evm_address: ACCOUNT_ADDRESS_1,
+      }),
+    );
   });
 
   this.afterEach(() => {
@@ -120,10 +123,13 @@ describe('@ethCall Eth Call spec', async function () {
       it('should execute "eth_call" against mirror node with a false ETH_CALL_DEFAULT_TO_CONSENSUS_NODE', async function () {
         web3Mock.onPost('contracts/call').reply(200);
         restMock.onGet(`contracts/${defaultCallData.from}`).reply(404);
-        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({
-          account: '0.0.1723',
-          evm_address: defaultCallData.from,
-        }));
+        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(
+          200,
+          JSON.stringify({
+            account: '0.0.1723',
+            evm_address: defaultCallData.from,
+          }),
+        );
         restMock.onGet(`contracts/${defaultCallData.to}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
 
         await ethImpl.call(
@@ -141,10 +147,13 @@ describe('@ethCall Eth Call spec', async function () {
       it('should execute "eth_call" against mirror node with an undefined ETH_CALL_DEFAULT_TO_CONSENSUS_NODE', async function () {
         web3Mock.onPost('contracts/call').reply(200);
         restMock.onGet(`contracts/${defaultCallData.from}`).reply(404);
-        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({
-          account: '0.0.1723',
-          evm_address: defaultCallData.from,
-        }));
+        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(
+          200,
+          JSON.stringify({
+            account: '0.0.1723',
+            evm_address: defaultCallData.from,
+          }),
+        );
         restMock.onGet(`contracts/${defaultCallData.to}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
 
         await ethImpl.call(
@@ -161,10 +170,13 @@ describe('@ethCall Eth Call spec', async function () {
     withOverriddenEnvsInMochaTest({ ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: true }, () => {
       it('should execute "eth_call" against consensus node with a ETH_CALL_DEFAULT_TO_CONSENSUS_NODE set to true', async function () {
         restMock.onGet(`contracts/${defaultCallData.from}`).reply(404);
-        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({
-          account: '0.0.1723',
-          evm_address: defaultCallData.from,
-        }));
+        restMock.onGet(`accounts/${defaultCallData.from}${NO_TRANSACTIONS}`).reply(
+          200,
+          JSON.stringify({
+            account: '0.0.1723',
+            evm_address: defaultCallData.from,
+          }),
+        );
         restMock.onGet(`contracts/${defaultCallData.to}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
 
         await ethImpl.call(
@@ -816,10 +828,13 @@ describe('@ethCall Eth Call spec', async function () {
     const operatorEvmAddress = ACCOUNT_ADDRESS_1;
 
     beforeEach(() => {
-      restMock.onGet(`accounts/${operatorId!.toString()}?transactions=false`).reply(200, JSON.stringify({
-        account: operatorId!.toString(),
-        evm_address: operatorEvmAddress,
-      }));
+      restMock.onGet(`accounts/${operatorId!.toString()}?transactions=false`).reply(
+        200,
+        JSON.stringify({
+          account: operatorId!.toString(),
+          evm_address: operatorEvmAddress,
+        }),
+      );
     });
 
     it('should format transaction value to tiny bar integer', async () => {
@@ -933,7 +948,7 @@ describe('@ethCall Eth Call spec', async function () {
 
     overrideEnvsInMochaDescribe({
       ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: false,
-      ETH_CALL_CONSENSUS_SELECTORS: JSON.stringify([REDIRECTED_SELECTOR.slice(2)]),
+      ETH_CALL_CONSENSUS_SELECTORS: [REDIRECTED_SELECTOR.slice(2)],
     });
 
     beforeEach(() => {

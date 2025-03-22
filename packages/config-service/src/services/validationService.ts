@@ -11,12 +11,37 @@ export class ValidationService {
     // validate mandatory fields and their types
     Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
       if (entryInfo.required) {
-        if (!envs.hasOwnProperty(entryName)) {
+        if (!Object.prototype.hasOwnProperty.call(envs, entryName)) {
           throw new Error(`Configuration error: ${entryName} is a mandatory configuration for relay operation.`);
         }
 
         if (entryInfo.type === 'number' && isNaN(Number(envs[entryName]))) {
           throw new Error(`Configuration error: ${entryName} must be a valid number.`);
+        }
+
+        if ((entryInfo.type === 'strArray' || entryInfo.type === 'numArray') && envs[entryName]) {
+          try {
+            const parsed = JSON.parse(envs[entryName] as string);
+
+            if (!Array.isArray(parsed)) {
+              throw new Error(`Configuration error: ${entryName} must be a valid JSON array.`);
+            }
+
+            const isCorrectType =
+              entryInfo.type === 'numArray'
+                ? parsed.every((item) => typeof item === 'number')
+                : parsed.every((item) => typeof item === 'string');
+
+            if (!isCorrectType) {
+              const expectedType = entryInfo.type === 'numArray' ? 'numbers' : 'strings';
+              throw new Error(`Configuration error: ${entryName} must contain only ${expectedType}.`);
+            }
+          } catch (e) {
+            if (e instanceof SyntaxError) {
+              throw new Error(`Configuration error: ${entryName} must be a valid JSON string.`);
+            }
+            throw e;
+          }
         }
       }
     });
@@ -28,7 +53,8 @@ export class ValidationService {
    * - If the env var is missing but has a default value, use the default
    * - For 'number' type, converts to Number
    * - For 'boolean' type, converts 'true' string to true boolean
-   * - For 'string' and 'array' types, keeps as string
+   * - For 'numArray' or 'strArray' types, parses JSON string to array
+   * - For 'string' type, keeps as string
    *
    * @param envs - Dictionary of environment variables and their string values
    * @returns Dictionary with environment variables cast to their proper types
@@ -37,7 +63,7 @@ export class ValidationService {
     const typeCastedEnvs: NodeJS.Dict<any> = {};
 
     Object.entries(GlobalConfig.ENTRIES).forEach(([entryName, entryInfo]) => {
-      if (!envs.hasOwnProperty(entryName)) {
+      if (!Object.prototype.hasOwnProperty.call(envs, entryName)) {
         if (entryInfo.defaultValue != null) {
           typeCastedEnvs[entryName] = entryInfo.defaultValue;
         }
@@ -51,8 +77,12 @@ export class ValidationService {
         case 'boolean':
           typeCastedEnvs[entryName] = envs[entryName] === 'true';
           break;
+        case 'numArray':
+        case 'strArray':
+          typeCastedEnvs[entryName] = JSON.parse(envs[entryName] || '[]');
+          break;
         default:
-          // handle "string" and stringified array type
+          // handle "string" type
           typeCastedEnvs[entryName] = envs[entryName];
       }
     });

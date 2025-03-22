@@ -1,29 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { MirrorNodeClient } from './lib/clients';
+import { TracerType } from './lib/constants';
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IDebugService } from './lib/services/debugService/IDebugService';
-import { IFilterService } from './lib/services/ethService/ethFilterService/IFilterService';
-import { IContractCallRequest, RequestDetails } from './lib/types';
+import { IContractCallRequest, IGetLogsParams, INewFilterParams, ITracerConfig, RequestDetails } from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
-export { RelayImpl } from './lib/relay';
-
-export interface Relay {
-  web3(): Web3;
-
-  net(): Net;
-
-  eth(): Eth;
-
-  subs(): Subs | undefined;
-
-  mirrorClient(): MirrorNodeClient;
-}
+export { Relay } from './lib/relay';
 
 export interface Subs {
   generateId(): string;
@@ -31,6 +17,15 @@ export interface Subs {
   subscribe(connection, event: string, filters?: {}): string;
 
   unsubscribe(connection, subscriptionId?: string): number;
+}
+
+export interface Debug {
+  traceTransaction: (
+    transactionIdOrHash: string,
+    tracer: TracerType,
+    tracerConfig: ITracerConfig,
+    requestDetails: RequestDetails,
+  ) => Promise<any>;
 }
 
 export interface Web3 {
@@ -76,20 +71,13 @@ export interface Eth {
 
   chainId(requestDetails: RequestDetails): string;
 
-  getLogs(
-    blockHash: string | null,
-    fromBlock: string | null,
-    toBlock: string | null,
-    address: string | string[] | null,
-    topics: any[] | null,
-    requestDetails: RequestDetails,
-  ): Promise<Log[]>;
+  getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]>;
 
   getStorageAt(
     address: string,
     slot: string,
-    requestDetails: RequestDetails,
     blockNumber: string | null,
+    requestDetails: RequestDetails,
   ): Promise<string>;
 
   getTransactionByBlockHashAndIndex(
@@ -137,6 +125,18 @@ export interface Eth {
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 
+  newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string>;
+
+  newBlockFilter(requestDetails: RequestDetails): Promise<string>;
+
+  getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]>;
+
+  getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]>;
+
+  newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError>;
+
+  uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean>;
+
   protocolVersion(requestDetails: RequestDetails): JsonRpcError;
 
   sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
@@ -154,8 +154,4 @@ export interface Eth {
   syncing(requestDetails: RequestDetails): Promise<boolean>;
 
   accounts(requestDetails: RequestDetails): Array<any>;
-
-  filterService(): IFilterService;
-
-  debugService(): IDebugService;
 }

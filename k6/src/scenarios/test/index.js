@@ -42,7 +42,6 @@ import * as eth_syncing from './eth_syncing.js';
 import * as net_listening from './net_listening.js';
 import * as net_version from './net_version.js';
 import * as web3_clientVersion from './web3_clientVersion.js';
-import * as web3_client_version from './web3_client_version.js';
 
 // add test modules here
 const tests = {
@@ -85,7 +84,6 @@ const tests = {
   net_listening,
   net_version,
   web3_clientVersion,
-  web3_client_version,
 };
 
 const { funcs, options, scenarioDurationGauge } = getSequentialTestScenarios(tests);

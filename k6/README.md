@@ -155,7 +155,6 @@ Creating smartContractParams.json file...
            * eth_syncing: 1 looping VUs for 1s (exec: run, startTime: 3m44s, gracefulStop: 5s)
            * net_listening: 1 looping VUs for 1s (exec: run, startTime: 3m56s, gracefulStop: 5s)
            * web3_clientVersion: 1 looping VUs for 1s (exec: run, startTime: 4m2s, gracefulStop: 5s)
-           * web3_client_version: 1 looping VUs for 1s (exec: run, startTime: 4m8s, gracefulStop: 5s)
 
 
 running (4m10.1s), 0/1 VUs, 200 complete and 1 interrupted iterations
@@ -197,7 +196,6 @@ eth_submitWork                 ✓ [======================================] 1 VU
 eth_syncing                    ✓ [======================================] 1 VUs  1s
 net_listening                  ✓ [======================================] 1 VUs  1s
 web3_clientVersion             ✓ [======================================] 1 VUs  1s
-web3_client_version            ✓ [======================================] 1 VUs  1s
      ✓ eth_accounts
      ✓ eth_blockNumber
      ✓ eth_call
@@ -236,7 +234,6 @@ web3_client_version            ✓ [======================================] 1 VU
      ✓ eth_syncing
      ✓ net_listening
      ✓ web3_clientVersion
-     ✓ web3_client_version
 
      █ setup
 
@@ -279,7 +276,6 @@ web3_client_version            ✓ [======================================] 1 VU
      ✓ { scenario:eth_syncing }......................................................: 100.00% ✓ 5        ✗ 0
      ✓ { scenario:net_listening }....................................................: 100.00% ✓ 5        ✗ 0
      ✓ { scenario:web3_clientVersion }...............................................: 100.00% ✓ 5        ✗ 0
-     ✓ { scenario:web3_client_version }..............................................: 100.00% ✓ 5        ✗ 0
      data_received...................................................................: 1.1 MB  4.3 kB/s
      data_sent.......................................................................: 146 kB  583 B/s
      http_req_blocked................................................................: avg=105.8ms  min=85.84ms  med=98.87ms  max=402.15ms p(90)=112.67ms p(95)=132.4ms
@@ -324,7 +320,6 @@ web3_client_version            ✓ [======================================] 1 VU
      ✓ { scenario:eth_syncing,expected_response:true }...............................: avg=103.75ms min=89.58ms  med=91.57ms  max=131.56ms p(90)=125.43ms p(95)=128.49ms
      ✓ { scenario:net_listening,expected_response:true }.............................: avg=104.59ms min=95.49ms  med=101.45ms max=121.25ms p(90)=114.19ms p(95)=117.72ms
      ✓ { scenario:web3_clientVersion,expected_response:true }........................: avg=101.97ms min=95.56ms  med=102.11ms max=106.25ms p(90)=105.89ms p(95)=106.07ms
-     ✓ { scenario:web3_client_version,expected_response:true }.......................: avg=107.86ms min=97.12ms  med=101.59ms max=126.45ms p(90)=121.1ms  p(95)=123.77ms
      http_req_failed.................................................................: 17.15%  ✓ 35       ✗ 169
      http_req_receiving..............................................................: avg=273.53µs min=117µs    med=177µs    max=5.59ms   p(90)=280.7µs  p(95)=326.09µs
      http_req_sending................................................................: avg=165.58µs min=59µs     med=142µs    max=2.98ms   p(90)=239.8µs  p(95)=290.85µs
@@ -369,7 +364,6 @@ web3_client_version            ✓ [======================================] 1 VU
      ✓ { scenario:eth_syncing }......................................................: 5       0.019994/s
      ✓ { scenario:net_listening }....................................................: 5       0.019994/s
      ✓ { scenario:web3_clientVersion }...............................................: 5       0.019994/s
-     ✓ { scenario:web3_client_version }..............................................: 5       0.019994/s
      iteration_duration..............................................................: avg=292.99ms min=180.91ms med=224.03ms max=2.73s    p(90)=346.76ms p(95)=376.77ms
      iterations......................................................................: 200     0.799753/s
      scenario_duration...............................................................: 1035    min=181    max=5464
@@ -411,7 +405,6 @@ web3_client_version            ✓ [======================================] 1 VU
      ✓ { scenario:eth_syncing }......................................................: 1001    min=181    max=1001
      ✓ { scenario:net_listening }....................................................: 1015    min=193    max=1015
      ✓ { scenario:web3_clientVersion }...............................................: 1118    min=315    max=1118
-     ✓ { scenario:web3_client_version }..............................................: 1035    min=195    max=1035
      vus.............................................................................: 1       min=0      max=1
      vus_max.........................................................................: 1       min=1      max=1   %
 
@@ -466,7 +459,6 @@ Timestamp: 2023-02-24T22:17:04.051Z
 | eth_syncing                             | 1   | 6    | 100.00 | 5.04      | 5.04           | 99.14                  | 99.96       | 90.02    | 109.07   | 105.16     | 107.12     |         |
 | net_listening                           | 1   | 5    | 100.00 | 4.80      | 4.80           | 106.01                 | 104.28      | 94.85    | 122.19   | 117.98     | 120.09     |         |
 | web3_clientVersion                      | 1   | 6    | 100.00 | 5.09      | 5.09           | 100.09                 | 101.36      | 91.31    | 105.01   | 104.75     | 104.88     |         |
-| web3_client_version                     | 1   | 5    | 100.00 | 5.00      | 5.00           | 104.68                 | 100.93      | 96.54    | 118.14   | 115.36     | 116.75     |         |
 
 ### Single Test
 

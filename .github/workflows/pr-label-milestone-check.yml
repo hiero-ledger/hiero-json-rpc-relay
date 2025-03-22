@@ -6,7 +6,7 @@ on:
 
 jobs:
   check_pr:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner

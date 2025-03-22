@@ -426,7 +426,7 @@ export class SDKClient {
     const networkGasPriceInTinyBars = weibarHexToTinyBarInt(networkGasPriceInWeiBars);
 
     ethereumTransaction.setMaxTransactionFee(
-      Hbar.fromTinybars(Math.floor(networkGasPriceInTinyBars * constants.MAX_GAS_PER_SEC)),
+      Hbar.fromTinybars(Math.floor(networkGasPriceInTinyBars * constants.MAX_TRANSACTION_FEE_THRESHOLD)),
     );
 
     return {
@@ -1026,8 +1026,8 @@ export class SDKClient {
     let transactionFee: number = 0;
     let txRecordChargeAmount: number = 0;
     try {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
           `${requestDetails.formattedRequestId} Get transaction record via consensus node: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}`,
         );
       }

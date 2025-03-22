@@ -11,7 +11,7 @@ import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
 import { Histogram, Registry } from 'prom-client';
 
-import { formatRequestIdMessage, formatTransactionId, parseNumericEnvVar } from '../../formatters';
+import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
@@ -156,7 +156,7 @@ export class MirrorNodeClient {
     const mirrorNodeRetriesDevMode = ConfigService.get('MIRROR_NODE_RETRIES_DEVMODE');
     const mirrorNodeRetryDelay = this.MIRROR_NODE_RETRY_DELAY;
     const mirrorNodeRetryDelayDevMode = ConfigService.get('MIRROR_NODE_RETRY_DELAY_DEVMODE');
-    const mirrorNodeRetryErrorCodes = JSON.parse(ConfigService.get('MIRROR_NODE_RETRY_CODES')); // we are in the process of deprecating this feature by default will be true, unless explicitly set to false.
+    const mirrorNodeRetryErrorCodes = ConfigService.get('MIRROR_NODE_RETRY_CODES'); // we are in the process of deprecating this feature by default will be true, unless explicitly set to false.
     const useCacheableDnsLookup: boolean = ConfigService.get('MIRROR_NODE_AGENT_CACHEABLE_DNS');
 
     const httpAgent = new http.Agent({
@@ -272,7 +272,7 @@ export class MirrorNodeClient {
     this.cacheService = cacheService;
 
     // set  up eth call  accepted error codes.
-    const parsedAcceptedError = JSON.parse(ConfigService.get('ETH_CALL_ACCEPTED_ERRORS'));
+    const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
     if (parsedAcceptedError.length != 0) {
       MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.set(
         MirrorNodeClient.CONTRACT_CALL_ENDPOINT,
@@ -1448,8 +1448,8 @@ export class MirrorNodeClient {
         break;
       }
 
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
           `${requestDetails?.formattedRequestId} Repeating request ${methodName} with args ${JSON.stringify(
             args,
           )} retry count ${i} of ${repeatCount}. Waiting ${this.MIRROR_NODE_RETRY_DELAY} ms before repeating request`,
@@ -1482,17 +1482,17 @@ export class MirrorNodeClient {
   ): Promise<ITransactionRecordMetric> {
     const formattedRequestId = requestDetails.formattedRequestId;
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
         `${formattedRequestId} Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}`,
       );
     }
 
     // Create a modified copy of requestDetails
-    const modifiedRequestDetails = {
-      ...requestDetails,
+    const modifiedRequestDetails = new RequestDetails({
+      requestId: requestDetails.requestId,
       ipAddress: constants.MASKED_IP_ADDRESS,
-    };
+    });
 
     const transactionRecords = await this.repeatedRequest(
       this.getTransactionById.name,

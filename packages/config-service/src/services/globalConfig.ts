@@ -11,12 +11,14 @@
 type ExtractTypeStringFromKey<K extends string> = K extends keyof typeof _CONFIG ? (typeof _CONFIG)[K]['type'] : never;
 
 /**
- * Maps string representations of types (`'string'`, `'boolean'`, `'number'`) to their actual TypeScript types.
+ * Maps string representations of types (`'string'`, `'boolean'`, `'number'`, `'strArray'`, `'numArray'`) to their actual TypeScript types.
  *
  * Example:
  * - `'string'` → string
  * - `'boolean'` → boolean
  * - `'number'` → number
+ * - `'strArray'` → string[]
+ * - `'numArray'` → number[]
  */
 type StringTypeToActualType<Tstr extends string> = Tstr extends 'string'
   ? string
@@ -24,6 +26,10 @@ type StringTypeToActualType<Tstr extends string> = Tstr extends 'string'
   ? boolean
   : Tstr extends 'number'
   ? number
+  : Tstr extends 'strArray'
+  ? string[]
+  : Tstr extends 'numArray'
+  ? number[]
   : never;
 
 /**
@@ -62,9 +68,9 @@ export type GetTypeOfConfigKey<K extends string> = CanBeUndefined<K> extends tru
  */
 export interface ConfigProperty {
   envName: string; // Environment variable name
-  type: 'string' | 'number' | 'boolean'; // Data type of the configuration property
+  type: 'string' | 'number' | 'boolean' | 'strArray' | 'numArray'; // Updated types
   required: boolean; // Whether the property is required
-  defaultValue: string | number | boolean | null; // Default value (if any)
+  defaultValue: string | number | boolean | readonly string[] | readonly number[] | null; // Default value (if any)
 }
 
 /**
@@ -75,17 +81,17 @@ export interface ConfigProperty {
 const _CONFIG = {
   BATCH_REQUESTS_DISALLOWED_METHODS: {
     envName: 'BATCH_REQUESTS_DISALLOWED_METHODS',
-    type: 'string',
+    type: 'strArray',
     required: false,
-    defaultValue: `[
-      "debug_traceTransaction",
-      "eth_newFilter",
-      "eth_uninstallFilter",
-      "eth_getFilterChanges",
-      "eth_getFilterLogs",
-      "eth_newBlockFilter",
-      "eth_newPendingTransactionFilter"
-    ]`,
+    defaultValue: [
+      'debug_traceTransaction',
+      'eth_newFilter',
+      'eth_uninstallFilter',
+      'eth_getFilterChanges',
+      'eth_getFilterLogs',
+      'eth_newBlockFilter',
+      'eth_newPendingTransactionFilter',
+    ],
   },
   BATCH_REQUESTS_ENABLED: {
     envName: 'BATCH_REQUESTS_ENABLED',
@@ -185,9 +191,9 @@ const _CONFIG = {
   },
   ETH_CALL_ACCEPTED_ERRORS: {
     envName: 'ETH_CALL_ACCEPTED_ERRORS',
-    type: 'string',
+    type: 'numArray',
     required: false,
-    defaultValue: '[]',
+    defaultValue: [],
   },
   ETH_CALL_CACHE_TTL: {
     envName: 'ETH_CALL_CACHE_TTL',
@@ -197,9 +203,9 @@ const _CONFIG = {
   },
   ETH_CALL_CONSENSUS_SELECTORS: {
     envName: 'ETH_CALL_CONSENSUS_SELECTORS',
-    type: 'string',
+    type: 'strArray',
     required: false,
-    defaultValue: '[]',
+    defaultValue: [],
   },
   ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: {
     envName: 'ETH_CALL_DEFAULT_TO_CONSENSUS_NODE',
@@ -245,9 +251,9 @@ const _CONFIG = {
   },
   HEDERA_SPECIFIC_REVERT_STATUSES: {
     envName: 'HEDERA_SPECIFIC_REVERT_STATUSES',
-    type: 'string',
+    type: 'strArray',
     required: false,
-    defaultValue: '["WRONG_NONCE", "INVALID_ACCOUNT_ID"]',
+    defaultValue: ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'],
   },
   FEE_HISTORY_MAX_RESULTS: {
     envName: 'FEE_HISTORY_MAX_RESULTS',
@@ -329,9 +335,9 @@ const _CONFIG = {
   },
   HAPI_CLIENT_ERROR_RESET: {
     envName: 'HAPI_CLIENT_ERROR_RESET',
-    type: 'string',
+    type: 'numArray',
     required: false,
-    defaultValue: '[21, 50]',
+    defaultValue: [21, 50],
   },
   HAPI_CLIENT_TRANSACTION_RESET: {
     envName: 'HAPI_CLIENT_TRANSACTION_RESET',
@@ -417,6 +423,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  MAX_TRANSACTION_FEE_THRESHOLD: {
+    envName: 'MAX_TRANSACTION_FEE_THRESHOLD',
+    type: 'number',
+    required: false,
+    defaultValue: 15_000_000,
+  },
   MEMWATCH_ENABLED: {
     envName: 'MEMWATCH_ENABLED',
     type: 'boolean',
@@ -497,9 +509,9 @@ const _CONFIG = {
   },
   MIRROR_NODE_RETRY_CODES: {
     envName: 'MIRROR_NODE_RETRY_CODES',
-    type: 'string',
+    type: 'strArray',
     required: false,
-    defaultValue: '[]',
+    defaultValue: [],
   },
   MIRROR_NODE_RETRY_DELAY: {
     envName: 'MIRROR_NODE_RETRY_DELAY',

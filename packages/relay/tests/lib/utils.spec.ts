@@ -65,7 +65,7 @@ describe('Utils', () => {
       ).to.be.false;
     });
 
-    JSON.parse(ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES')).forEach((status) => {
+    ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES').forEach((status) => {
       it(`should exclude transaction with result ${status}`, () => {
         expect(Utils.isRevertedDueToHederaSpecificValidation({ result: status, error_message: null })).to.be.true;
       });

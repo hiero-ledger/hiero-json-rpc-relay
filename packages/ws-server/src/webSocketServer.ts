@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined, Relay, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
@@ -32,7 +32,7 @@ const mainLogger = pino({
 });
 const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
-const relay: Relay = new RelayImpl(logger, register);
+const relay = new Relay(logger, register);
 
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
@@ -137,7 +137,7 @@ app.ws.use(async (ctx: Koa.Context) => {
 
       // process requests
       const requestPromises = request.map((item: any) => {
-        if (JSON.parse(ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS')).includes(item.method)) {
+        if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
           return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
         }
         return getRequestResult(ctx, relay, logger, item, limiter, mirrorNodeClient, wsMetricRegistry, requestDetails);

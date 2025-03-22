@@ -2,7 +2,6 @@
 
 //Relay Calls
 const ETH_ENDPOINTS = {
-  WEB3_CLIENT_VERSION: 'web3_client_version',
   WEB3_CLIENTVERSION: 'web3_clientVersion',
   WEB3_SHA3: 'web3_sha3',
   ETH_CALL: 'eth_call',
@@ -54,6 +53,9 @@ const ETH_ENDPOINTS = {
   ETH_UNINSTALL_FILTER: 'eth_uninstallFilter',
   ETH_GET_FILTER_CHANGES: 'eth_getFilterChanges',
   DEBUG_TRACE_TRANSACTION: 'debug_traceTransaction',
+  ENGINE: ['engine_getPayloadV1', 'engine_newPayloadV1', 'engine_forkchoiceUpdatedV1', 'engine_exchangeCapabilities'],
+  TRACE: ['trace_block', 'trace_transaction', 'trace_call', 'trace_callMany'],
+  DEBUG: ['debug_traceBlockByHash', 'debug_traceBlockByNumber', 'debug_traceCall'],
 };
 
 //Events
