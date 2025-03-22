@@ -2,3 +2,4 @@
 
 export * from './rpcMethod.decorator';
 export * from './rpcParamSchema.decorator';
+export * from './rpcParamLayoutConfig.decorator';

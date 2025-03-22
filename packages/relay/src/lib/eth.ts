@@ -31,7 +31,7 @@ import { IReceiptRootHash, ReceiptsRootUtils } from '../receiptsRootUtils';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { rpcMethod, rpcParamSchema } from './decorators';
+import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamSchema } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
@@ -283,11 +283,13 @@ export class EthImpl implements Eth {
    * with the behavior of Infura.
    *
    * @rpcMethod Exposed as eth_accounts RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {never[]} An empty array.
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   accounts(requestDetails: RequestDetails): never[] {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} accounts()`);
@@ -523,11 +525,13 @@ export class EthImpl implements Eth {
    * Gets the most recent block number.
    *
    * @rpcMethod Exposed as eth_blockNumber RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string>} A promise that resolves to the most recent block number in hexadecimal format.
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
@@ -566,11 +570,13 @@ export class EthImpl implements Eth {
    * `CHAIN_ID`.
    *
    * @rpcMethod Exposed as eth_chainId RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {string} The chain ID as a string.
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   chainId(requestDetails: RequestDetails): string {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} chainId()`);
@@ -583,6 +589,7 @@ export class EthImpl implements Eth {
    *
    * @rpcMethod Exposed as eth_estimateGas RPC endpoint
    * @rpcParamSchema Applies JSON-RPC parameter validation according to the API specification
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} _blockParam - Optional block parameter to specify the block to estimate gas for.
@@ -594,6 +601,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.TRANSACTION, required: true },
     1: { type: ParamType.BLOCK_NUMBER, required: false },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async estimateGas(
     transaction: IContractCallRequest,
     _blockParam: string | null,
@@ -786,12 +794,14 @@ export class EthImpl implements Eth {
    * Retrieves the current network gas price in weibars.
    *
    * @rpcMethod Exposed as eth_gasPrice RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string>} The current gas price in weibars as a hexadecimal string.
    * @throws Will throw an error if unable to retrieve the gas price.
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async gasPrice(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} eth_gasPrice`);
@@ -825,11 +835,13 @@ export class EthImpl implements Eth {
    * Gets whether this "Ethereum client" is a miner. We don't mine, so this always returns false.
    *
    * @rpcMethod Exposed as eth_mining RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<boolean>} Always returns false.
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async mining(requestDetails: RequestDetails): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} mining()`);
@@ -906,11 +918,13 @@ export class EthImpl implements Eth {
    * Creates a filter in the node to notify when a new block arrives.
    *
    * @rpcMethod Exposed as eth_newBlockFilter RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} A filter ID that can be used to check for new blocks
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} newBlockFilter()`);
@@ -944,11 +958,13 @@ export class EthImpl implements Eth {
    * This method is not supported and returns an error.
    *
    * @rpcMethod Exposed as eth_newPendingTransactionFilter RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<JsonRpcError>} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} newPendingTransactionFilter()`);
@@ -960,6 +976,7 @@ export class EthImpl implements Eth {
    * TODO Needs docs, or be removed?
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async submitWork(requestDetails: RequestDetails): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} submitWork()`);
@@ -971,6 +988,7 @@ export class EthImpl implements Eth {
    * TODO Needs docs, or be removed?
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async syncing(requestDetails: RequestDetails): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} syncing()`);
@@ -982,11 +1000,13 @@ export class EthImpl implements Eth {
    * Always returns null. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleByBlockHashAndIndex RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockHashAndIndex()`);
@@ -998,11 +1018,13 @@ export class EthImpl implements Eth {
    * Always returns null. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleByBlockNumberAndIndex RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockNumberAndIndex()`);
@@ -1014,11 +1036,13 @@ export class EthImpl implements Eth {
    * Always returns '0x0'. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleCountByBlockHash RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} Always returns '0x0'
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockHash()`);
@@ -1030,11 +1054,13 @@ export class EthImpl implements Eth {
    * Always returns '0x0'. There are no uncles in Hedera.
    *
    * @rpcMethod Exposed as eth_getUncleCountByBlockNumber RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<string>} Always returns '0x0'
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockNumber()`);
@@ -1046,6 +1072,7 @@ export class EthImpl implements Eth {
    * TODO Needs docs, or be removed?
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async hashrate(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} hashrate()`);
@@ -1057,11 +1084,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_getWork RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   getWork(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getWork()`);
@@ -1073,11 +1102,13 @@ export class EthImpl implements Eth {
    * Unsupported methods always return UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_submitHashrate RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   submitHashrate(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} submitHashrate()`);
@@ -1089,11 +1120,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_signTransaction RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   signTransaction(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} signTransaction()`);
@@ -1105,11 +1138,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_sign RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sign(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} sign()`);
@@ -1121,11 +1156,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_sendTransaction RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sendTransaction(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} sendTransaction()`);
@@ -1137,11 +1174,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_protocolVersion RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   protocolVersion(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} protocolVersion()`);
@@ -1153,11 +1192,13 @@ export class EthImpl implements Eth {
    * Always returns UNSUPPORTED_METHOD error.
    *
    * @rpcMethod Exposed as eth_coinbase RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   coinbase(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} coinbase()`);
@@ -3183,11 +3224,13 @@ export class EthImpl implements Eth {
    * Since Hedera does not have this concept, this method will return a static response.
    *
    * @rpcMethod Exposed as eth_maxPriorityFeePerGas RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @returns {Promise<string>} A promise that resolves to "0x0".
    */
   @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
