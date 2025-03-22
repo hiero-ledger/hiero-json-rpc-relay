@@ -2,7 +2,7 @@
 
 # Hedera JSON RPC Relay
 
-[![Build](https://github.com/hashgraph/hedera-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hashgraph/hedera-json-rpc-relay/actions)
+[![Build](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/image-build.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/image-build.yml)
 [![Latest Version](https://img.shields.io/github/v/tag/hashgraph/hedera-json-rpc-relay?sort=semver&label=version)](README.md)
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
 [![RPC API Methods](https://img.shields.io/badge/websocket-docs-green.svg)](docs/live-events-api.md)
@@ -84,7 +84,7 @@ The following table highlights some initial configuration values to consider
 | ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CHAIN_ID`        | `0x12a` | The network chain id. Local and previewnet envs should use `0x12a` (298). Previewnet, Testnet and Mainnet should use `0x129` (297), `0x128` (296) and `0x127` (295) respectively                                                                                                                                            |
 | `HEDERA_NETWORK`  | ``      | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`                                                                                                                                                                            |
-| `MIRROR_NODE_URL` | ``      | The Mirror Node API endpoint. Official endpoints are Previewnet (https://docs.hedera.com/hedera/core-concepts/mirror-nodes/hedera-mirror-node#previewnet), Testnet (https://docs.hedera.com/hedera/core-concepts/mirror-nodes/hedera-mirror-node#testnet), Mainnet (https://docs.hedera.com/hedera/core-concepts/mirror-nodes/hedera-mirror-node#mainnet). See [Mirror Node REST API](https://docs.hedera.com/hedera/sdks-and-apis/rest-api) |
+| `MIRROR_NODE_URL` | ``      | The Mirror Node API endpoint. Official endpoints are Previewnet (https://previewnet.mirrornode.hedera.com), Testnet (https://testnet.mirrornode.hedera.com), Mainnet (https://mainnet-public.mirrornode.hedera.com). See [Mirror Node REST API](https://docs.hedera.com/hedera/sdks-and-apis/rest-api) |
 
 #### Run
 
