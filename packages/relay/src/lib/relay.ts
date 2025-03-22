@@ -15,6 +15,7 @@ import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimi
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
+import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { Poller } from './poller';
@@ -22,8 +23,9 @@ import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
+import { RpcMethodRegistryService } from './services/registryService';
 import { SubscriptionController } from './subscriptionController';
-import { RequestDetails } from './types';
+import { RequestDetails, RpcImplementation, RpcMethodRegistry } from './types';
 import { Web3Impl } from './web3';
 
 export class Relay {
@@ -103,6 +105,21 @@ export class Relay {
    * The Debug Service implementation that takes care of all filter API operations.
    */
   private readonly debugImpl: DebugImpl;
+
+  /**
+   * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
+   * This registry is populated with methods from various service implementations (eth, net, web3, debug)
+   * that have been decorated with the @rpcMethod decorator.
+   *
+   * @public
+   * @type {Map<string, Function>} - The registry containing all available RPC methods.
+   */
+  public readonly rpcMethodRegistry: RpcMethodRegistry;
+
+  /**
+   * The RPC method dispatcher that takes care of executing the correct method based on the request.
+   */
+  private readonly rpcMethodDispatcher: RpcMethodDispatcher;
 
   /**
    * Initializes the main components of the relay service, including Hedera network clients,
@@ -197,7 +214,37 @@ export class Relay {
 
     this.populatePreconfiguredSpendingPlans().then();
 
+    // Registering RPC methods from the provided service implementations
+    this.rpcMethodRegistry = RpcMethodRegistryService.register([
+      this.debugImpl,
+      this.ethImpl,
+      this.netImpl,
+      this.web3Impl,
+    ] as RpcImplementation[]);
+
+    // Initialize the RPC method dispatcher
+    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
+
     logger.info('Relay running with chainId=%s', chainId);
+  }
+
+  /**
+   * Executes an RPC method by delegating to the RPC method dispatcher
+   *
+   * This method serves as the only public API entry point for server packages (i.e. HTTP and WebSocket)
+   * to invoke RPC methods on the Relay.
+   *
+   * @param {string} rpcMethodName - The name of the RPC method to execute
+   * @param {any[]} rpcMethodParams - The params for the RPC method to execute
+   * @param {RequestDetails} requestDetails - Additional request context
+   * @returns {Promise<any>} The result of executing the RPC method
+   */
+  public async executeRpcMethod(
+    rpcMethodName: string,
+    rpcMethodParams: any,
+    requestDetails: RequestDetails,
+  ): Promise<any> {
+    return this.rpcMethodDispatcher.dispatch(rpcMethodName, rpcMethodParams, requestDetails);
   }
 
   /**

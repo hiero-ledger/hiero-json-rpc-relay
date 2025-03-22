@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Validator } from '.';
-import { predefined } from '@hashgraph/json-rpc-relay/dist';
-import { IObjectSchema, IObjectValidation } from '../types/validator';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfigWrapper } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { predefined } from '../errors/JsonRpcError';
+import {
+  ICallTracerConfig,
+  IObjectSchema,
+  IObjectValidation,
+  IOpcodeLoggerConfig,
+  ITracerConfigWrapper,
+} from '../types';
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   blockHashObject: {

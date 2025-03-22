@@ -2,14 +2,7 @@
 
 import * as Constants from './constants';
 import { CallTracerConfig, OpcodeLoggerConfig, TracerConfigWrapper, Validator } from '.';
-import { ITypeValidation } from '../types/validator';
-import {
-  ICallTracerConfig,
-  IOpcodeLoggerConfig,
-  ITracerConfig,
-  ITracerConfigWrapper,
-} from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper, ITypeValidation } from '../types';
 
 export const TYPES: { [key: string]: ITypeValidation } = {
   address: {
@@ -110,9 +103,9 @@ export const TYPES: { [key: string]: ITypeValidation } = {
     error: Constants.TRANSACTION_ID_ERROR,
   },
   tracerType: {
-    test: (param: any): param is TracerType =>
+    test: (param: any): param is Constants.TracerType =>
       typeof param === 'string' &&
-      Object.values(TracerType)
+      Object.values(Constants.TracerType)
         .map((tracerType) => tracerType.toString())
         .includes(param),
     error: 'Expected TracerType',
