@@ -117,13 +117,13 @@ describe('RpcMethodDispatcher', () => {
 
     it('should validate parameters when schema exists', () => {
       // Set up validation schema
-      const validationSchema = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+      const validationRules = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
 
       (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
       expect(validateParamsStub.calledOnce).to.be.true;
-      expect(validateParamsStub.calledWith(TEST_PARAMS, validationSchema)).to.be.true;
+      expect(validateParamsStub.calledWith(TEST_PARAMS, validationRules)).to.be.true;
     });
 
     it('should skip validation when no schema exists', () => {
@@ -331,8 +331,8 @@ describe('RpcMethodDispatcher', () => {
 
       // Test with schema
       validateParamsStub.reset();
-      const validationSchema = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+      const validationRules = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.equal(TEST_RESULT);
@@ -359,8 +359,8 @@ describe('RpcMethodDispatcher', () => {
     it('should handle and properly format errors from different phases', async () => {
       //   Validation error
       validateParamsStub.throws(predefined.INVALID_PARAMETERS);
-      const validationSchema = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+      const validationRules = { 0: { type: 'string', required: true } };
+      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
 
       let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.be.instanceOf(JsonRpcError);

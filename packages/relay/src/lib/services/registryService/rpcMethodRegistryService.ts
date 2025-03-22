@@ -47,14 +47,14 @@ export class RpcMethodRegistryService {
               value: operationName,
             });
 
-            // Get validation schema if it exists
-            const validationSchema = operationFunction[RPC_PARAM_SCHEMA_KEY];
-            if (validationSchema) {
-              // Store validation schema with the method
-              boundMethod[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+            // Get validation rules if exists
+            const validationRules = operationFunction[RPC_PARAM_SCHEMA_KEY];
+            if (validationRules) {
+              // Store validation rules with the method
+              boundMethod[RPC_PARAM_SCHEMA_KEY] = validationRules;
             }
 
-            // Get parameter layout if it exists
+            // Get parameter layout if exists
             const parameterLayout = operationFunction[RPC_PARAM_LAYOUT_KEY];
             if (parameterLayout) {
               // Store parameter layout with the method

@@ -13,7 +13,7 @@ export const RPC_PARAM_SCHEMA_KEY = 'hedera-rpc-param-schema';
  * @example
  * ```typescript
  * @rpcMethod
- * @rpcParamSchema({
+ * @rpcParamValidationRules({
  *   0: { type: 'address', required: true },
  *   1: { type: 'blockNumber', required: true }
  * })
@@ -22,13 +22,13 @@ export const RPC_PARAM_SCHEMA_KEY = 'hedera-rpc-param-schema';
  * }
  * ```
  *
- * @param validationSchema - Schema defining validation rules for method parameters
+ * @param validationRules - Validation rules for method parameters
  * @returns Method decorator function
  */
-export function rpcParamSchema(validationSchema: Record<number, IParamValidation>) {
+export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
   return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    // Store validation schema directly on the function as a property
-    descriptor.value[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+    // Store validation rules directly on the function as a property
+    descriptor.value[RPC_PARAM_SCHEMA_KEY] = validationRules;
     return descriptor;
   };
 }

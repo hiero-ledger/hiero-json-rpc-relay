@@ -4,11 +4,14 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
-import { RPC_PARAM_SCHEMA_KEY, rpcParamSchema } from '../../../src/lib/decorators/rpcParamSchema.decorator';
+import {
+  RPC_PARAM_SCHEMA_KEY,
+  rpcParamValidationRules,
+} from '../../../src/lib/decorators/rpcParamValidationRules.decorator';
 import { IParamValidation, ParamType } from '../../../src/lib/types';
 import * as validatorUtils from '../../../src/lib/validators/utils';
 
-describe('rpcParamSchema decorator', () => {
+describe('rpcParamValidationRules decorator', () => {
   // Reset sinon after each test
   afterEach(() => {
     sinon.restore();
@@ -17,7 +20,7 @@ describe('rpcParamSchema decorator', () => {
   describe('Decorator application', () => {
     class TestClass {
       // @ts-ignore
-      @rpcParamSchema({
+      @rpcParamValidationRules({
         0: { type: ParamType.ADDRESS, required: true },
         1: { type: ParamType.BLOCK_NUMBER, required: false },
       })
@@ -26,7 +29,7 @@ describe('rpcParamSchema decorator', () => {
       }
 
       // @ts-ignore
-      @rpcParamSchema({
+      @rpcParamValidationRules({
         0: { type: ParamType.TRANSACTION_HASH, required: true },
         1: { type: ParamType.BOOLEAN, required: false, errorMessage: 'Custom error message' },
       })
@@ -81,7 +84,7 @@ describe('rpcParamSchema decorator', () => {
     it('should allow schema retrieval for validation', () => {
       class TestValidationClass {
         // @ts-ignore
-        @rpcParamSchema({
+        @rpcParamValidationRules({
           0: { type: ParamType.ADDRESS, required: true },
           1: { type: ParamType.BLOCK_NUMBER, required: false },
         })
@@ -123,7 +126,7 @@ describe('rpcParamSchema decorator', () => {
 
       class TestTypeClass {
         // @ts-ignore
-        @rpcParamSchema(schema)
+        @rpcParamValidationRules(schema)
         testMethod() {
           return 'test';
         }
@@ -144,7 +147,7 @@ describe('rpcParamSchema decorator', () => {
 
       class TestCustomTypeClass {
         // @ts-ignore
-        @rpcParamSchema({
+        @rpcParamValidationRules({
           0: { type: customType, required: true },
         })
         testMethod() {
@@ -170,7 +173,7 @@ describe('rpcParamSchema decorator', () => {
         // @ts-ignore
         @mockDecorator
         // @ts-ignore
-        @rpcParamSchema({
+        @rpcParamValidationRules({
           0: { type: ParamType.ADDRESS, required: true },
         })
         testMethod(address: string) {
