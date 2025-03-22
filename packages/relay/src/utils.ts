@@ -9,6 +9,7 @@ import { Logger } from 'pino';
 
 import { hexToASCII, prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
+import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
 import { RequestDetails } from './lib/types';
 
 export class Utils {
@@ -162,17 +163,27 @@ export class Utils {
     }
   }
   /**
-   * A mapping of argument rearrangement functions for various methods.
-   * Each function adjusts the order of arguments based on the method's requirements.
+   * Arranges parameters for an RPC method based on its layout configuration
+   *
+   * @param method - The RPC method handler
+   * @param rpcParams - Parameters from the RPC request
+   * @param requestDetails - Request context information
+   * @returns Array of parameters arranged for the method
    */
-  public static argsRearrangementMap: {
-    [key: string]: (params: any[], requestDetails: RequestDetails) => any[];
-  } = {
-    // *note: some WS providers send null arguments for chainId method but only requestDetails is needed
-    chainId: (_: any[], requestDetails: RequestDetails) => [requestDetails],
-    // *note: since estimateGas has the second param as optional, which means it can be omitted from the client request,
-    // we need to explicitly add it to the arguments array to ensure the requestDetails object is placed correctly in the arguments array.
-    estimateGas: (params, requestDetails) => [params[0], params[1], requestDetails],
-    default: (params, requestDetails) => [...params, requestDetails],
-  };
+  public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
+    const layout = method[RPC_PARAM_LAYOUT_KEY];
+
+    // Method only needs requestDetails
+    if (layout === RPC_LAYOUT.REQUEST_DETAILS_ONLY) {
+      return [requestDetails];
+    }
+
+    // Method has custom parameter rearrangement
+    if (typeof layout === 'function') {
+      return [...layout(rpcParams), requestDetails];
+    }
+
+    // No configuration, use default behavior
+    return [...rpcParams, requestDetails];
+  }
 }

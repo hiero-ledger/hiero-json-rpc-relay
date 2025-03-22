@@ -126,11 +126,9 @@ export class RpcMethodDispatcher {
     rpcMethodParams: any[],
     requestDetails: RequestDetails,
   ): Promise<any> {
-    // Rearrange arguments based on the method handler and their rpcMethodParams
-    const rearrangeArgsFn = Utils.argsRearrangementMap[operationHandler.name] || Utils.argsRearrangementMap['default'];
-    const rearrangedArgsArray = rearrangeArgsFn(rpcMethodParams, requestDetails);
+    const rearramgedRpcParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
-    const result = operationHandler(...rearrangedArgsArray);
+    const result = operationHandler(...rearramgedRpcParams);
 
     // Note: This rethrows the JsonRpcError so it can be handled during the error-handling phase.
     // Note: This is a temporary workaround to avoid introducing new logic. However, in follow-up updates,
