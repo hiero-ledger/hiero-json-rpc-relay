@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { IRequestDetails, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import parse from 'co-body';
 import Koa from 'koa';
@@ -51,12 +51,12 @@ export default class KoaJsonRpc {
   private readonly requestIdIsOptional: boolean = getRequestIdIsOptional(); // default to false
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
   private readonly methodResponseHistogram: Histogram;
-
+  private readonly relay: Relay;
   private requestId: string;
   private requestIpAddress: string;
   private connectionId?: string;
 
-  constructor(logger: Logger, register: Registry, opts?: { limit: string | null }) {
+  constructor(logger: Logger, register: Registry, relay: Relay, opts?: { limit: string | null }) {
     this.koaApp = new Koa();
     this.requestId = '';
     this.requestIpAddress = '';
@@ -67,6 +67,8 @@ export default class KoaJsonRpc {
     this.logger = logger;
     this.rateLimit = new RateLimit(logger.child({ name: 'ip-rate-limit' }), register, this.duration);
     this.metricsRegistry = register;
+    this.relay = relay;
+
     // clear and create metric in registry
     this.metricsRegistry.removeSingleMetric(METRIC_HISTOGRAM_NAME);
     this.methodResponseHistogram = new Histogram({
@@ -217,8 +219,8 @@ export default class KoaJsonRpc {
         return jsonResp(request.id, new IPRateLimitExceeded(methodName), undefined);
       }
 
-      // execute the method and return the result
-      const result = await methodHandler(request.params);
+      // call the public API entry point on the Relay package to execute the RPC method
+      const result = await this.relay.executeRpcMethod(request.method, request.params, this.getRequestDetails());
 
       if (result instanceof JsonRpcError) {
         return jsonResp(request.id, result, undefined);
