@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RPC_METHOD_KEY, RPC_PARAM_SCHEMA_KEY } from '../../decorators';
+import { RPC_METHOD_KEY, RPC_PARAM_LAYOUT_KEY, RPC_PARAM_SCHEMA_KEY } from '../../decorators';
 import { RpcImplementation, RpcMethodRegistry } from '../../types';
 
 /**
@@ -52,6 +52,13 @@ export class RpcMethodRegistryService {
             if (validationSchema) {
               // Store validation schema with the method
               boundMethod[RPC_PARAM_SCHEMA_KEY] = validationSchema;
+            }
+
+            // Get parameter layout if it exists
+            const parameterLayout = operationFunction[RPC_PARAM_LAYOUT_KEY];
+            if (parameterLayout) {
+              // Store parameter layout with the method
+              boundMethod[RPC_PARAM_LAYOUT_KEY] = parameterLayout;
             }
 
             // Register the method with proper 'this' binding and original name
