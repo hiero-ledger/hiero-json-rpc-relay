@@ -209,28 +209,66 @@ describe('RpcMethodDispatcher', () => {
       expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Test error`);
     });
 
-    it('should return MirrorNodeClientError as-is', () => {
-      const error = new MirrorNodeClientError('Mirror node error', 500);
+    it('should return non time out MirrorNodeClientError as INTERNAL_ERROR', () => {
+      const error = new MirrorNodeClientError(new Error('Mirror node error'), 500);
 
       const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      const expected = new JsonRpcError(
+        {
+          code: predefined.INTERNAL_ERROR(error.message).code,
+          message: predefined.INTERNAL_ERROR(error.message).message,
+          data: error.data,
+        },
+        TEST_REQUEST_DETAILS.requestId,
+      );
 
-      expect(result).to.equal(error);
+      expect(result).to.deep.equal(expected);
     });
 
-    it('should return SDKClientError as-is', () => {
-      const error = new SDKClientError('SDK error');
+    it('should return time out MirrorNodeClientError as REQUEST_TIMEOUT', () => {
+      const error = new MirrorNodeClientError(new Error('Mirror node time out error'), 504);
 
       const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      const expected = new JsonRpcError(
+        {
+          code: predefined.REQUEST_TIMEOUT.code,
+          message: predefined.REQUEST_TIMEOUT.message,
+          data: error.data,
+        },
+        TEST_REQUEST_DETAILS.requestId,
+      );
 
-      expect(result).to.equal(error);
+      expect(result).to.deep.equal(expected);
+    });
+
+    it('should return non time out SDKClientError as INTERNAL_ERROR', () => {
+      const error = new SDKClientError(new Error('SDK error'), 'SDK error');
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      const expected = new JsonRpcError(
+        {
+          code: predefined.INTERNAL_ERROR(error.message).code,
+          message: predefined.INTERNAL_ERROR(error.message).message,
+        },
+        TEST_REQUEST_DETAILS.requestId,
+      );
+
+      expect(result).to.deep.equal(expected);
     });
 
     it('should return INTERNAL_ERROR for other error types', () => {
       const error = new Error('Unexpected error');
 
       const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      const expected = new JsonRpcError(
+        {
+          code: predefined.INTERNAL_ERROR('Unexpected error').code,
+          message: predefined.INTERNAL_ERROR('Unexpected error').message,
+        },
+        TEST_REQUEST_DETAILS.requestId,
+      );
 
-      expect(result).to.deep.equal(predefined.INTERNAL_ERROR('Unexpected error'));
+      expect(result).to.deep.equal(expected);
     });
   });
 
@@ -334,7 +372,15 @@ describe('RpcMethodDispatcher', () => {
       operationHandler.rejects(new Error('Execution failed'));
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
-      expect(result).to.deep.equal(predefined.INTERNAL_ERROR('Execution failed'));
+      const expected = new JsonRpcError(
+        {
+          code: predefined.INTERNAL_ERROR('Execution failed').code,
+          message: predefined.INTERNAL_ERROR('Execution failed').message,
+        },
+        TEST_REQUEST_DETAILS.requestId,
+      );
+
+      expect(result).to.deep.equal(expected);
     });
   });
 });
