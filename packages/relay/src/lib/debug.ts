@@ -88,8 +88,8 @@ export class DebugImpl implements Debug {
   @rpcMethod
   @rpcParamSchema({
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.COMBINED_TRACER_TYPE, required: true },
-    2: { type: ParamType.TRACER_CONFIG, required: true },
+    1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
+    2: { type: ParamType.TRACER_CONFIG, required: false },
   })
   async traceTransaction(
     transactionIdOrHash: string,
