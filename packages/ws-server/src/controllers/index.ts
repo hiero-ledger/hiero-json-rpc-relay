@@ -3,7 +3,6 @@
 import { WS_CONSTANTS } from '../utils/constants';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
 import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
@@ -58,9 +57,6 @@ const handleSendingRequestsToRelay = async ({
     logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
-    // Call the relay method with the rearranged parameters.
-    // Method will be validated by "verifySupportedMethod" before reaching this point.
-
     // call the public API entry point on the Relay package to execute the RPC method
     const result = await relay.executeRpcMethod(method, params, requestDetails);
 
@@ -107,7 +103,7 @@ export const getRequestResult = async (
   wsMetricRegistry.getCounter('methodsCounter').labels(method).inc();
   wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, method).inc();
 
-  // validate request's jsonrpc object
+  // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger, requestDetails)) {
     return jsonResp(request.id || null, new InvalidRequest(), undefined);
   }
@@ -121,31 +117,6 @@ export const getRequestResult = async (
   // verify rate limit for method method based on IP
   if (limiter.shouldRateLimitOnMethod(ctx.ip, request.method, ctx.websocket.requestId)) {
     return jsonResp(null, new IPRateLimitExceeded(request.method), undefined);
-  }
-
-  // Validate request's params
-  try {
-    const methodValidations = Validator.METHODS[method];
-
-    if (methodValidations) {
-      Validator.validateParams(params, methodValidations);
-    }
-  } catch (error: any) {
-    logger.warn(
-      error,
-      `${requestDetails.formattedLogPrefix} Error in parameter validation. Method: ${method}, params: ${JSON.stringify(
-        params,
-      )}.`,
-    );
-
-    let jsonRpcError: JsonRpcError;
-    if (error instanceof JsonRpcError) {
-      jsonRpcError = error;
-    } else {
-      jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
-    }
-
-    return jsonResp(request.id, jsonRpcError, undefined);
   }
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method

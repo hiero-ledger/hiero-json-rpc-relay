@@ -3,7 +3,7 @@
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import { EthSubscribeLogsParamsObject } from '@hashgraph/json-rpc-server/dist/validator';
+import { EthSubscribeLogsParamsObject } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 
 /**
@@ -49,6 +49,7 @@ export const validateSubscribeEthLogsParams = async (
 ) => {
   // validate address exists and is correct length and type
   // validate topics if exists and is array and each one is correct length and type
+  // @todo: move EthSubscribeLogsParamsObject to ws-server package
   const ethSubscribeLogsParams = new EthSubscribeLogsParamsObject(filters);
   ethSubscribeLogsParams.validate();
 
