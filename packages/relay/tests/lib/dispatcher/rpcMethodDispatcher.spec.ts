@@ -20,6 +20,8 @@ describe('RpcMethodDispatcher', () => {
   // Test fixtures
   const TEST_METHOD_NAME = 'test_method';
   const TEST_PARAMS = ['param1', 'param2'];
+  const TEST_PARAMS_REARRANGED = ['rearranged1', 'rearranged2'];
+  const TEST_PARAMS_REARRANGED_DEFAULT = ['default1', 'default2'];
   const TEST_RESULT = { success: true };
   const TEST_REQUEST_ID = '123456';
   const TEST_REQUEST_DETAILS: RequestDetails = {
@@ -35,6 +37,7 @@ describe('RpcMethodDispatcher', () => {
   let methodRegistry: RpcMethodRegistry;
   let operationHandler: sinon.SinonStub;
   let validateParamsStub: sinon.SinonStub;
+  let arrangeRpcParamsStub: sinon.SinonStub;
 
   // System under test
   let dispatcher: RpcMethodDispatcher;
@@ -49,12 +52,12 @@ describe('RpcMethodDispatcher', () => {
     validateParamsStub = sinon.stub(Validator, 'validateParams');
 
     // Set up args rearrangement mock
-    const defaultRearrange = sinon.stub().returns(TEST_PARAMS);
-    const handlerSpecificRearrange = sinon.stub().returns(TEST_PARAMS);
-
-    sinon.stub(Utils, 'argsRearrangementMap').value({
-      testHandler: handlerSpecificRearrange,
-      default: defaultRearrange,
+    arrangeRpcParamsStub = sinon.stub(Utils, 'arrangeRpcParams');
+    arrangeRpcParamsStub.callsFake((method, params, requestDetails) => {
+      if (method.name === 'functionStub') {
+        return TEST_PARAMS_REARRANGED;
+      }
+      return TEST_PARAMS_REARRANGED_DEFAULT;
     });
 
     // Create the system under test
@@ -152,37 +155,34 @@ describe('RpcMethodDispatcher', () => {
 
       expect(result).to.equal(TEST_RESULT);
       expect(operationHandler.calledOnce).to.be.true;
-      expect(operationHandler.calledWith(...TEST_PARAMS)).to.be.true;
+      expect(operationHandler.calledWith(...TEST_PARAMS_REARRANGED)).to.be.true;
     });
 
     it('should use handler-specific argument rearrangement when available', async () => {
-      // Create fresh stubs with tracking
-      const handlerSpecificRearrange = sinon.stub().returns(['rearranged1', 'rearranged2']);
-      const defaultRearrange = sinon.stub().returns(TEST_PARAMS);
+      // Set the name property on the handler for the stub to match
+      Object.defineProperty(operationHandler, 'name', { value: 'functionStub' });
 
-      // Replace the stubs in the Utils argsRearrangementMap
-      (Utils.argsRearrangementMap as any).functionStub = handlerSpecificRearrange;
-      (Utils.argsRearrangementMap as any).default = defaultRearrange;
+      // Configure the stub to return specific values for this test
+      arrangeRpcParamsStub
+        .withArgs(sinon.match.same(operationHandler), TEST_PARAMS, TEST_REQUEST_DETAILS)
+        .returns(TEST_PARAMS_REARRANGED);
 
       await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
-      expect(handlerSpecificRearrange.calledOnce).to.be.true;
-      expect(defaultRearrange.called).to.be.false;
-      expect(operationHandler.calledWith('rearranged1', 'rearranged2')).to.be.true;
+      expect(arrangeRpcParamsStub.calledOnce).to.be.true;
+      expect(operationHandler.calledWith(...TEST_PARAMS_REARRANGED)).to.be.true;
     });
 
     it('should use default argument rearrangement when handler-specific is not available', async () => {
-      // Create fresh stubs with tracking
-      const defaultRearrange = sinon.stub().returns(['default1', 'default2']);
-
-      // Remove handler-specific and set default
-      delete (Utils.argsRearrangementMap as any).testHandler;
-      (Utils.argsRearrangementMap as any).default = defaultRearrange;
+      // Configure the stub to return specific values for this test
+      arrangeRpcParamsStub
+        .withArgs(sinon.match.same(operationHandler), TEST_PARAMS, TEST_REQUEST_DETAILS)
+        .returns(TEST_PARAMS_REARRANGED_DEFAULT);
 
       await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
-      expect(defaultRearrange.calledOnce).to.be.true;
-      expect(operationHandler.calledWith('default1', 'default2')).to.be.true;
+      expect(arrangeRpcParamsStub.calledOnce).to.be.true;
+      expect(operationHandler.calledWith(...TEST_PARAMS_REARRANGED_DEFAULT)).to.be.true;
     });
 
     it('should throw if handler returns a JsonRpcError', async () => {
