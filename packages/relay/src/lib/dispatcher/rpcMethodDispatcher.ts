@@ -126,11 +126,12 @@ export class RpcMethodDispatcher {
     rpcMethodParams: any[],
     requestDetails: RequestDetails,
   ): Promise<any> {
+    // Rearrange the parameters as needed for the specific operation handler
     const rearramgedRpcParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
+    // Execute the operation handler with the rearranged parameters
     const result = operationHandler(...rearramgedRpcParams);
 
-    // Note: This rethrows the JsonRpcError so it can be handled during the error-handling phase.
     // Note: This is a temporary workaround to avoid introducing new logic. However, in follow-up updates,
     //       all operation handlers should directly throw JSON RPC errors and return only valid results,
     //       ensuring proper error handling in the centralized handleRpcMethodError component.
@@ -145,46 +146,42 @@ export class RpcMethodDispatcher {
    * Handles errors that occur during RPC method execution
    *
    * This method processes different types of errors and converts them to
-   * appropriate JSON-RPC error responses:
-   * - JsonRpcError instances are passed through with the request ID
-   * - MirrorNodeClientError and SDKClientError are handled specifically
-   * - Unexpected errors are logged and converted to internal error responses
+   * appropriate JSON-RPC error responses. It handles:
+   * - JsonRpcError instances are returned as-is with the request ID attached
+   * - MirrorNodeClientError instances are converted to appropriate JsonRpcError types
+   *   (currently only timeout errors are specifically handled)
+   * - All other errors are converted to generic INTERNAL_ERROR responses
+   *
+   * All errors are logged with request context for traceability.
    *
    * @param error - The error that occurred during method execution
    * @param rpcMethodName - The name of the RPC method that failed
-   * @param requestDetails - Details about the request for error context
-   * @returns A properly formatted JSON-RPC error response
-   * @throws {JsonRpcError} For unexpected errors
+   * @param requestDetails - Details about the request for logging and context
+   * @returns A JsonRpcError instance with appropriate error code, message and request ID
    */
-  private handleRpcMethodError(error: any, rpcMethodName: string, requestDetails: RequestDetails): any {
-    // Return JsonRpcError instances - always include requestId to help with tracing and debugging
-    if (error instanceof JsonRpcError) {
-      return new JsonRpcError(
-        {
-          code: error.code,
-          message: error.message,
-          data: error.data,
-        },
-        requestDetails.requestId,
-      );
-    }
-
-    if (error instanceof MirrorNodeClientError) {
-      // TODO: handle MirrorNodeClientError by mapping to the correct JsonRpcError
-      return error;
-    }
-
-    if (error instanceof SDKClientError) {
-      // TODO: handle SDKClientError by mapping to the correct JsonRpcError
-      return error;
-    }
-
-    // handle unexpected errors
+  private handleRpcMethodError(error: any, rpcMethodName: string, requestDetails: RequestDetails): JsonRpcError {
+    const errorMessage = error?.message?.toString() || 'Unknown error';
     this.logger.error(
-      `${requestDetails.formattedRequestId} Error executing method: rpcMethodName=${rpcMethodName}, error=${error.message}`,
+      `${requestDetails.formattedRequestId} Error executing method: rpcMethodName=${rpcMethodName}, error=${errorMessage}`,
     );
 
-    return predefined.INTERNAL_ERROR(error.message.toString());
+    // If error is already a JsonRpcError, use it directly
+    if (error instanceof JsonRpcError) {
+      return this.createJsonRpcError(error, requestDetails.requestId);
+    }
+
+    // @TODO: handle MirrorNodeClientError by mapping to the correct JsonRpcError
+    if (error instanceof MirrorNodeClientError && error.isTimeout()) {
+      return this.createJsonRpcError(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+    }
+
+    // @TODO: handle SDKClientError by mapping to the correct JsonRpcError
+    if (error instanceof SDKClientError && error.isGrpcTimeout()) {
+      return this.createJsonRpcError(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+    }
+
+    // Default to internal error for all other error types
+    return this.createJsonRpcError(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
   }
 
   /**
@@ -211,5 +208,19 @@ export class RpcMethodDispatcher {
 
     // Default response for truly unknown methods
     throw predefined.METHOD_NOT_FOUND(methodName);
+  }
+
+  /**
+   * Creates a new JsonRpcError with the request ID attached to assist with tracing and debugging
+   */
+  private createJsonRpcError(error: JsonRpcError, requestId: string): JsonRpcError {
+    return new JsonRpcError(
+      {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      },
+      requestId,
+    );
   }
 }
