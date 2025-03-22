@@ -8,8 +8,9 @@ import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import {
+  InternalError,
   InvalidRequest,
   IPRateLimitExceeded,
   MethodNotFound,
@@ -57,32 +58,19 @@ const handleSendingRequestsToRelay = async ({
     logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
-    const [service, methodName] = method.split('_');
-
-    const rearrangeParamsFn = paramRearrangementMap[methodName] || paramRearrangementMap['default'];
-    const rearrangedParamsArray = rearrangeParamsFn(params, requestDetails);
-
     // Call the relay method with the rearranged parameters.
     // Method will be validated by "verifySupportedMethod" before reaching this point.
-    const txRes = await relay[service]()[methodName](...rearrangedParamsArray);
 
-    if (!txRes) {
-      if (logger.isLevelEnabled('trace')) {
-        logger.trace(
-          `${requestDetails.formattedLogPrefix}: Fail to retrieve result for request=${JSON.stringify(
-            request,
-          )}. Result=${txRes}`,
-        );
-      }
-    }
+    // call the public API entry point on the Relay package to execute the RPC method
+    const result = await relay.executeRpcMethod(method, params, requestDetails);
 
-    return jsonResp(request.id, null, txRes);
-  } catch (error: any) {
-    if (error instanceof JsonRpcError) {
-      throw error;
+    if (result instanceof JsonRpcError) {
+      return jsonResp(request.id, result, undefined);
     } else {
-      throw predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
+      return jsonResp(request.id, null, result);
     }
+  } catch (error: any) {
+    return jsonResp(request.id, new InternalError(error.message), undefined);
   }
 };
 

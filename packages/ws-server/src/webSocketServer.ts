@@ -185,7 +185,7 @@ app.ws.use(async (ctx: Koa.Context) => {
   }
 });
 
-const koaJsonRpc = new KoaJsonRpc(logger, register);
+const koaJsonRpc = new KoaJsonRpc(logger, register, relay);
 const httpApp = koaJsonRpc.getKoaApp();
 collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 
