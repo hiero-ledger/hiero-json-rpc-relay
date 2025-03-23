@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
 import sinon from 'sinon';
 
-import { RPC_PARAM_SCHEMA_KEY } from '../../../src/lib/decorators';
+import { RPC_PARAM_VALIDATION_RULES_KEY } from '../../../src/lib/decorators';
 import { RpcMethodDispatcher } from '../../../src/lib/dispatcher/rpcMethodDispatcher';
 import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
@@ -118,7 +118,7 @@ describe('RpcMethodDispatcher', () => {
     it('should validate parameters when schema exists', () => {
       // Set up validation schema
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
+      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
@@ -128,7 +128,7 @@ describe('RpcMethodDispatcher', () => {
 
     it('should skip validation when no schema exists', () => {
       // Ensure there's no validation schema
-      delete operationHandler[RPC_PARAM_SCHEMA_KEY];
+      delete operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
 
       (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
@@ -332,7 +332,7 @@ describe('RpcMethodDispatcher', () => {
       // Test with schema
       validateParamsStub.reset();
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
+      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.equal(TEST_RESULT);
@@ -360,7 +360,7 @@ describe('RpcMethodDispatcher', () => {
       //   Validation error
       validateParamsStub.throws(predefined.INVALID_PARAMETERS);
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_SCHEMA_KEY] = validationRules;
+      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.be.instanceOf(JsonRpcError);
@@ -368,7 +368,7 @@ describe('RpcMethodDispatcher', () => {
 
       // Execution error
       validateParamsStub.reset();
-      delete operationHandler[RPC_PARAM_SCHEMA_KEY];
+      delete operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
       operationHandler.rejects(new Error('Execution failed'));
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);

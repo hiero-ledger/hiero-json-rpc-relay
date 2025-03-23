@@ -3,7 +3,7 @@
 import { Logger } from 'pino';
 
 import { Utils } from '../../utils';
-import { RPC_PARAM_SCHEMA_KEY } from '../decorators';
+import { RPC_PARAM_VALIDATION_RULES_KEY } from '../decorators';
 import { JsonRpcError } from '../errors/JsonRpcError';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
@@ -93,7 +93,7 @@ export class RpcMethodDispatcher {
     }
 
     // Validate RPC method parameters
-    const methodParamSchemas = operationHandler[RPC_PARAM_SCHEMA_KEY];
+    const methodParamSchemas = operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
 
     if (methodParamSchemas) {
       if (this.logger.isLevelEnabled('debug')) {

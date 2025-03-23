@@ -5,7 +5,7 @@ import { IParamValidation } from '../types';
 /**
  * This key is attached to method functions to store their validation rules.
  */
-export const RPC_PARAM_SCHEMA_KEY = 'hedera-rpc-param-schema';
+export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules';
 
 /**
  * Decorator that defines a schema for validating RPC method parameters
@@ -28,7 +28,7 @@ export const RPC_PARAM_SCHEMA_KEY = 'hedera-rpc-param-schema';
 export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
   return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
     // Store validation rules directly on the function as a property
-    descriptor.value[RPC_PARAM_SCHEMA_KEY] = validationRules;
+    descriptor.value[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
     return descriptor;
   };
 }

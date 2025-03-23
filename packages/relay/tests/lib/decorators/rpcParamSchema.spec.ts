@@ -5,7 +5,7 @@ import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
 import {
-  RPC_PARAM_SCHEMA_KEY,
+  RPC_PARAM_VALIDATION_RULES_KEY,
   rpcParamValidationRules,
 } from '../../../src/lib/decorators/rpcParamValidationRules.decorator';
 import { IParamValidation, ParamType } from '../../../src/lib/types';
@@ -48,20 +48,20 @@ describe('rpcParamValidationRules decorator', () => {
       testInstance = new TestClass();
     });
 
-    it('should add RPC_PARAM_SCHEMA_KEY to decorated methods', () => {
-      const addressSchema = testInstance.addressAndBlockMethod[RPC_PARAM_SCHEMA_KEY];
+    it('should add RPC_PARAM_VALIDATION_RULES_KEY to decorated methods', () => {
+      const addressSchema = testInstance.addressAndBlockMethod[RPC_PARAM_VALIDATION_RULES_KEY];
       expect(addressSchema).to.be.an('object');
       expect(addressSchema[0].type).to.equal(ParamType.ADDRESS);
       expect(addressSchema[0].required).to.be.true;
       expect(addressSchema[1].type).to.equal(ParamType.BLOCK_NUMBER);
       expect(addressSchema[1].required).to.be.false;
 
-      const customSchema = testInstance.customErrorMethod[RPC_PARAM_SCHEMA_KEY];
+      const customSchema = testInstance.customErrorMethod[RPC_PARAM_VALIDATION_RULES_KEY];
       expect(customSchema).to.be.an('object');
       expect(customSchema[0].type).to.equal(ParamType.TRANSACTION_HASH);
       expect(customSchema[1].errorMessage).to.equal('Custom error message');
 
-      expect(testInstance.regularMethod[RPC_PARAM_SCHEMA_KEY]).to.be.undefined;
+      expect(testInstance.regularMethod[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.undefined;
     });
 
     it('should maintain method functionality after decoration', () => {
@@ -94,7 +94,7 @@ describe('rpcParamValidationRules decorator', () => {
       }
 
       const instance = new TestValidationClass();
-      const schema = instance.testMethod[RPC_PARAM_SCHEMA_KEY];
+      const schema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
 
       // Verify schema structure
       expect(schema).to.be.an('object');
@@ -133,7 +133,7 @@ describe('rpcParamValidationRules decorator', () => {
       }
 
       const instance = new TestTypeClass();
-      const appliedSchema = instance.testMethod[RPC_PARAM_SCHEMA_KEY];
+      const appliedSchema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
 
       // Verify all schema properties were correctly applied
       expect(appliedSchema[0].type).to.equal(ParamType.ADDRESS);
@@ -156,7 +156,7 @@ describe('rpcParamValidationRules decorator', () => {
       }
 
       const instance = new TestCustomTypeClass();
-      const schema = instance.testMethod[RPC_PARAM_SCHEMA_KEY];
+      const schema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
 
       expect(schema[0].type).to.equal(customType);
     });
@@ -184,7 +184,7 @@ describe('rpcParamValidationRules decorator', () => {
       const instance = new TestMultiDecoratorClass();
 
       // Both decorators should have applied their metadata
-      expect(instance.testMethod[RPC_PARAM_SCHEMA_KEY]).to.be.an('object');
+      expect(instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.an('object');
       expect(instance.testMethod['MOCK_KEY']).to.equal('mock-value');
 
       // Method should still work

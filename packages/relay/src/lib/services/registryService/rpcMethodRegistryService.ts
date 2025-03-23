@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RPC_METHOD_KEY, RPC_PARAM_LAYOUT_KEY, RPC_PARAM_SCHEMA_KEY } from '../../decorators';
+import { RPC_METHOD_KEY, RPC_PARAM_LAYOUT_KEY, RPC_PARAM_VALIDATION_RULES_KEY } from '../../decorators';
 import { RpcImplementation, RpcMethodRegistry } from '../../types';
 
 /**
@@ -48,10 +48,10 @@ export class RpcMethodRegistryService {
             });
 
             // Get validation rules if exists
-            const validationRules = operationFunction[RPC_PARAM_SCHEMA_KEY];
+            const validationRules = operationFunction[RPC_PARAM_VALIDATION_RULES_KEY];
             if (validationRules) {
               // Store validation rules with the method
-              boundMethod[RPC_PARAM_SCHEMA_KEY] = validationRules;
+              boundMethod[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
             }
 
             // Get parameter layout if exists
