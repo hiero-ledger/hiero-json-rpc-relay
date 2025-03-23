@@ -36,8 +36,10 @@ export class RpcMethodDispatcher {
   /**
    * Dispatches an RPC method call to the appropriate operation handler
    *
-   * This is the core method that routes requests to the appropriate operation handler
-   * on the correct namespace based on the RPC method name.
+   * This is the core method that handles the complete lifecycle of an RPC request:
+   * 1. Pre-execution: Validates the method exists and its parameters
+   * 2. Execution: Processes the method with the appropriate handler
+   * 3. Error handling: Catches and formats any errors that occur
    *
    * @param rpcMethodName - The name of the RPC method to execute (e.g., "eth_blockNumber")
    * @param rpcMethodParams - The parameters of the RPC method to execute
