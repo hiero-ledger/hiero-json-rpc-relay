@@ -123,7 +123,7 @@ export class RpcMethodDispatcher {
    * @param requestDetails - Additional context about the request
    * @returns Promise resolving to the result of the operation handler
    */
-  private processRpcMethod(
+  private async processRpcMethod(
     operationHandler: OperationHandler,
     rpcMethodParams: any[],
     requestDetails: RequestDetails,
@@ -132,7 +132,7 @@ export class RpcMethodDispatcher {
     const rearramgedRpcParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
     // Execute the operation handler with the rearranged parameters
-    const result = operationHandler(...rearramgedRpcParams);
+    const result = await operationHandler(...rearramgedRpcParams);
 
     // Note: This is a temporary workaround to avoid introducing new logic. However, in follow-up updates,
     //       all operation handlers should directly throw JSON RPC errors and return only valid results,
