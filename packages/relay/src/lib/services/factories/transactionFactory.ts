@@ -3,6 +3,7 @@
 import { prepend0x, trimPrecedingZeros } from '../../../formatters';
 import { Transaction, Transaction1559, Transaction2930 } from '../../model';
 
+// TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
   static createTransactionByType(type: number, fields: any): Transaction | Transaction2930 | Transaction1559 {
     switch (type) {
