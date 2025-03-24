@@ -185,16 +185,12 @@ describe('RpcMethodDispatcher', () => {
       expect(operationHandler.calledWith(...TEST_PARAMS_REARRANGED_DEFAULT)).to.be.true;
     });
 
-    it('should throw if handler returns a JsonRpcError', async () => {
+    it('should directly return JsonRpcError if the handler returns a JsonRpcError', async () => {
       const jsonRpcError = new JsonRpcError({ code: -32000, message: 'Handler error' });
       operationHandler.returns(jsonRpcError);
 
-      try {
-        await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error).to.equal(jsonRpcError);
-      }
+      const result = await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      expect(result).to.equal(jsonRpcError);
     });
   });
 

@@ -132,16 +132,7 @@ export class RpcMethodDispatcher {
     const rearramgedRpcParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
     // Execute the operation handler with the rearranged parameters
-    const result = await operationHandler(...rearramgedRpcParams);
-
-    // Note: This is a temporary workaround to avoid introducing new logic. However, in follow-up updates,
-    //       all operation handlers should directly throw JSON RPC errors and return only valid results,
-    //       ensuring proper error handling in the centralized handleRpcMethodError component.
-    if (result instanceof JsonRpcError) {
-      throw result;
-    }
-
-    return result;
+    return await operationHandler(...rearramgedRpcParams);
   }
 
   /**
