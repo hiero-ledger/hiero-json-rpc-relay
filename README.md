@@ -2,7 +2,7 @@
 
 # Hedera JSON RPC Relay
 
-[![Build](https://github.com/hashgraph/hedera-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hashgraph/hedera-json-rpc-relay/actions)
+[![Build Image Test](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/image-build.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/image-build.yml)
 [![Latest Version](https://img.shields.io/github/v/tag/hashgraph/hedera-json-rpc-relay?sort=semver&label=version)](README.md)
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
 [![RPC API Methods](https://img.shields.io/badge/websocket-docs-green.svg)](docs/live-events-api.md)
