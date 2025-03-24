@@ -165,8 +165,8 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  DISABLE_HEDERA_NAMESPACE: {
-    envName: 'DISABLE_HEDERA_NAMESPACE',
+  DISABLE_ADMIN_NAMESPACE: {
+    envName: 'DISABLE_ADMIN_NAMESPACE',
     type: 'boolean',
     required: false,
     defaultValue: [],

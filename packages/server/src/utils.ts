@@ -24,7 +24,7 @@ const logAndHandleResponse = async (
   app: KoaJsonRpc,
   logger: pino.Logger,
 ) => {
-  if (methodName.startsWith('hedera_') && ConfigService.get('DISABLE_HEDERA_NAMESPACE')) {
+  if (methodName.startsWith('hedera_') && ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
     return predefined.UNSUPPORTED_METHOD;
   }
 
