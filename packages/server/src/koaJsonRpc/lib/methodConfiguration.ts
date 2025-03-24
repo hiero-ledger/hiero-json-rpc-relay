@@ -31,7 +31,7 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   net_peerCount: {
     total: tier3rateLimit,
   },
-  hedera_config: {
+  ADMIN_CONFIG: {
     total: tier3rateLimit,
   },
   eth_blockNumber: {

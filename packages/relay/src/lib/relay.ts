@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Hedera, Net, Relay, Subs, Web3 } from '../index';
+import { Eth, Admin, Net, Relay, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -15,7 +15,7 @@ import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimi
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from './eth';
-import { HederaImpl } from './hedera';
+import { AdminImpl } from './admin';
 import { NetImpl } from './net';
 import { Poller } from './poller';
 import { CacheService } from './services/cacheService/cacheService';
@@ -58,9 +58,9 @@ export class RelayImpl implements Relay {
   /**
    * @private
    * @readonly
-   * @property {Hedera} hederaImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
+   * @property {Hedera} adminImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
    */
-  private readonly hederaImpl: Hedera;
+  private readonly adminImpl: Admin;
 
   /**
    * @private
@@ -181,7 +181,7 @@ export class RelayImpl implements Relay {
       this.cacheService,
     );
 
-    this.hederaImpl = new HederaImpl(this.cacheService);
+    this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
       logger.child({ name: 'hbar-spending-plan-config-service' }),
@@ -273,8 +273,8 @@ export class RelayImpl implements Relay {
     return this.netImpl;
   }
 
-  hedera(): Hedera {
-    return this.hederaImpl;
+  admin(): Admin {
+    return this.adminImpl;
   }
 
   eth(): Eth {

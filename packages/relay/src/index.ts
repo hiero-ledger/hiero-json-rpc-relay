@@ -18,7 +18,7 @@ export interface Relay {
 
   net(): Net;
 
-  hedera(): Hedera;
+  admin(): Admin;
 
   eth(): Eth;
 
@@ -49,7 +49,7 @@ export interface Net {
   peerCount(): JsonRpcError;
 }
 
-export interface Hedera {
+export interface Admin {
   config(requestDetails: RequestDetails): any;
 }
 

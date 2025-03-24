@@ -3,31 +3,31 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import axios from 'axios';
 
-import { Hedera } from '../index';
+import { Admin } from '../index';
 import constants from './constants';
 import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
 
-interface IHederaRelayConfig {
+interface IAdminRelayConfig {
   version: string;
   config: { [k: string]: any };
 }
 
-interface IHederaUpstreamDependency {
+interface IAdminUpstreamDependency {
   service: string;
   version?: string;
   config: { [k: string]: any };
 }
 
-export interface IHederaConfig {
-  relay: IHederaRelayConfig;
-  upstreamDependencies: IHederaUpstreamDependency[];
+export interface IAdminConfig {
+  relay: IAdminRelayConfig;
+  upstreamDependencies: IAdminUpstreamDependency[];
 }
 
-export class HederaImpl implements Hedera {
+export class AdminImpl implements Admin {
   private readonly cacheService: CacheService;
 
-  public static readonly config = 'hedera_config';
+  public static readonly config = 'admin_config';
 
   constructor(cacheService: CacheService) {
     this.cacheService = cacheService;
@@ -55,10 +55,10 @@ export class HederaImpl implements Hedera {
   /**
    * Returns list of all config envs
    */
-  async config(requestDetails: RequestDetails): Promise<IHederaConfig> {
-    const cacheKey = `${constants.CACHE_KEY.HEDERA_CONFIG}`;
+  async config(requestDetails: RequestDetails): Promise<IAdminConfig> {
+    const cacheKey = `${constants.CACHE_KEY.ADMIN_CONFIG}`;
 
-    let info: IHederaConfig = await this.cacheService.getAsync(cacheKey, HederaImpl.config, requestDetails);
+    let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config, requestDetails);
     if (!info) {
       const maskedEnvs = ConfigService.getAllMasked();
       info = {
@@ -87,7 +87,7 @@ export class HederaImpl implements Hedera {
         ],
       };
 
-      await this.cacheService.set(cacheKey, info, HederaImpl.config, requestDetails);
+      await this.cacheService.set(cacheKey, info, AdminImpl.config, requestDetails);
     }
 
     return info;

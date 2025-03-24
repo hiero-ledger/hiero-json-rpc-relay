@@ -12,9 +12,9 @@ let Relay;
 
 const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
 describe('Hedera', async function () {
-  it('should execute "hedera_config"', async () => {
+  it('should execute admin.config', async () => {
     Relay = new RelayImpl(logger, new Registry());
-    const res = await Relay.hedera().config(requestDetails);
+    const res = await Relay.admin().config(requestDetails);
     expect(res).to.haveOwnProperty('relay');
     expect(res).to.haveOwnProperty('upstreamDependencies');
 
