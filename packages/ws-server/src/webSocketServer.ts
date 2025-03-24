@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import { Relay, RelayImpl } from '@hashgraph/json-rpc-relay';
+import { Relay } from '@hashgraph/json-rpc-relay';
 import { overrideEnvsInMochaDescribe } from '@hashgraph/json-rpc-relay/tests/helpers';
 import ConnectionLimiter from '@hashgraph/json-rpc-ws-server/src/metrics/connectionLimiter';
 import { expect } from 'chai';
@@ -38,7 +37,7 @@ describe('subscriptionController', async function () {
 
   this.beforeAll(() => {
     // @ts-ignore
-    relay = sinon.createStubInstance(RelayImpl);
+    relay = sinon.createStubInstance(Relay);
     const registry = new Registry();
     poller = new Poller(relay, logger, registry);
 

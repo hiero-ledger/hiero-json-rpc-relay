@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { RelayImpl } from '@hashgraph/json-rpc-relay';
+import { Relay } from '@hashgraph/json-rpc-relay';
 import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { expect } from 'chai';
 import pino from 'pino';
@@ -134,13 +134,13 @@ describe('Polling', async function () {
   const tag =
     '{"event":"logs","filters":{"address":"0x23f5e49569A835d7bf9AefD30e4f60CdD570f225","topics":["0xc8b501cbd8e69c98c535894661d25839eb035b096adfde2bba416f04cc7ce987"]}}';
 
-  let relayImplStub: sinon.SinonStubbedInstance<RelayImpl>;
+  let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
   let poller: Poller;
   let sandbox: sinon.SinonSandbox;
 
   this.beforeEach(() => {
-    relayImplStub = sinon.createStubInstance(RelayImpl);
+    relayImplStub = sinon.createStubInstance(Relay);
     ethImplStub = sinon.createStubInstance(EthImpl);
     relayImplStub.eth.returns(ethImplStub);
     ethImplStub.blockNumber.resolves('0x1b177b');
