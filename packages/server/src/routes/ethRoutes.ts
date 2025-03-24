@@ -30,11 +30,6 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    * @returns hex
    */
   app.useRpc('eth_estimateGas', async (params: any) => {
-    // HotFix for Metamask sending `0x` on data param
-    if (params?.[0]?.data === '0x') {
-      delete params[0].data;
-    }
-
     return logAndHandleResponse(
       'eth_estimateGas',
       params,
@@ -300,15 +295,10 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    * @returns array of log objects
    */
   app.useRpc('eth_getLogs', async (params: any) => {
-    const filter = params[0];
-
     return logAndHandleResponse(
       'eth_getLogs',
       params,
-      (requestDetails) =>
-        relay
-          .eth()
-          .getLogs(filter.blockHash, filter.fromBlock, filter.toBlock, filter.address, filter.topics, requestDetails),
+      (requestDetails) => relay.eth().getLogs(params[0], requestDetails),
       app,
       logger,
     );
@@ -326,7 +316,7 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
     return logAndHandleResponse(
       'eth_getStorageAt',
       params,
-      (requestDetails) => relay.eth().getStorageAt(params?.[0], params?.[1], requestDetails, params?.[2]),
+      (requestDetails) => relay.eth().getStorageAt(params?.[0], params?.[1], params?.[2], requestDetails),
       app,
       logger,
     );
@@ -533,15 +523,10 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    * @returns id
    */
   app.useRpc('eth_newFilter', async (params: any) => {
-    const filter = params[0];
     return logAndHandleResponse(
       'eth_newFilter',
-      [],
-      (requestDetails) =>
-        relay
-          .eth()
-          .filterService()
-          .newFilter(filter?.fromBlock, filter?.toBlock, requestDetails, filter?.address, filter?.topics),
+      params,
+      (requestDetails) => relay.eth().newFilter(params[0], requestDetails),
       app,
       logger,
     );
@@ -554,14 +539,11 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    * @returns array of log objects
    */
   app.useRpc('eth_getFilterLogs', async (params: any) => {
+    const filterId = params[0];
     return logAndHandleResponse(
       'eth_getFilterLogs',
       params,
-      (requestDetails) =>
-        relay
-          .eth()
-          .filterService()
-          .getFilterLogs(params?.[0], requestDetails),
+      (requestDetails) => relay.eth().getFilterLogs(filterId, requestDetails),
       app,
       logger,
     );
@@ -578,7 +560,7 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
     return logAndHandleResponse(
       'eth_getFilterChanges',
       [],
-      (requestDetails) => relay.eth().filterService().getFilterChanges(filterId, requestDetails),
+      (requestDetails) => relay.eth().getFilterChanges(filterId, requestDetails),
       app,
       logger,
     );
@@ -589,11 +571,11 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    *
    * @returns filter id
    */
-  app.useRpc('eth_newBlockFilter', async (params: any) => {
+  app.useRpc('eth_newBlockFilter', async () => {
     return logAndHandleResponse(
       'eth_newBlockFilter',
       [],
-      (requestDetails) => relay.eth().filterService().newBlockFilter(requestDetails),
+      (requestDetails) => relay.eth().newBlockFilter(requestDetails),
       app,
       logger,
     );
@@ -606,14 +588,11 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
    * @returns boolean
    */
   app.useRpc('eth_uninstallFilter', async (params: any) => {
+    const filterId = params[0];
     return logAndHandleResponse(
       'eth_uninstallFilter',
       params,
-      (requestDetails) =>
-        relay
-          .eth()
-          .filterService()
-          .uninstallFilter(params?.[0], requestDetails),
+      (requestDetails) => relay.eth().uninstallFilter(filterId, requestDetails),
       app,
       logger,
     );
@@ -626,7 +605,7 @@ const defineEthRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
     return logAndHandleResponse(
       'eth_newPendingTransactionFilter',
       [],
-      (requestDetails) => relay.eth().filterService().newPendingTransactionFilter(requestDetails),
+      (requestDetails) => relay.eth().newPendingTransactionFilter(requestDetails),
       app,
       logger,
     );

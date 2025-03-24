@@ -3,26 +3,28 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 
-import { decodeErrorMessage, mapKeysAndValues, numberTo0x, strip0x } from '../../../formatters';
-import type { MirrorNodeClient } from '../../clients';
-import { IOpcode } from '../../clients/models/IOpcode';
-import { IOpcodesResponse } from '../../clients/models/IOpcodesResponse';
-import constants, { CallType, TracerType } from '../../constants';
-import { predefined } from '../../errors/JsonRpcError';
-import { EthImpl } from '../../eth';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from '../../types';
-import type { CommonService } from '../ethService';
-import type { IDebugService } from './IDebugService';
-
+import { decodeErrorMessage, mapKeysAndValues, numberTo0x, strip0x } from '../formatters';
+import { type Debug } from '../index';
+import { MirrorNodeClient } from './clients';
+import { IOpcode } from './clients/models/IOpcode';
+import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
+import constants, { CallType, TracerType } from './constants';
+import { predefined } from './errors/JsonRpcError';
+import { CacheService } from './services/cacheService/cacheService';
+import { CommonService } from './services/ethService/ethCommonService';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
 /**
- * Represents a DebugService for tracing and debugging transactions and debugging
+ * Represents a DebugService for tracing and debugging transactions.
  *
  * @class
- * @implements {IDebugService}
+ * @implements {Debug}
  */
-export class DebugService implements IDebugService {
+export class DebugImpl implements Debug {
+  static debugTraceTransaction = 'debug_traceTransaction';
+  static zeroHex = '0x0';
+
   /**
-   * The interface through which we interact with the mirror node
+   * The interface through which we interact with the mirror node.
    * @private
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
@@ -40,16 +42,16 @@ export class DebugService implements IDebugService {
   private readonly common: CommonService;
 
   /**
-   * Creates an instance of DebugService.
+   * Creates an instance of DebugImpl.
    *
    * @constructor
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
-   * @param {CommonService} common - The common service containing useful functions.
+   * @param {CacheService} cacheService - Service for managing cached data.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, common: CommonService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService) {
     this.logger = logger;
-    this.common = common;
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
   }
 
@@ -57,8 +59,6 @@ export class DebugService implements IDebugService {
    * Checks if the Debug API is enabled
    * @public
    */
-  public static readonly isDebugAPIEnabled = ConfigService.get('DEBUG_API_ENABLED');
-
   static requireDebugAPIEnabled(): void {
     if (!ConfigService.get('DEBUG_API_ENABLED')) {
       throw predefined.UNSUPPORTED_METHOD;
@@ -77,19 +77,19 @@ export class DebugService implements IDebugService {
    * @returns {Promise<any>} A Promise that resolves to the result of the trace operation.
    *
    * @example
-   * const result = await debug_traceTransaction('0x123abc', TracerType.CallTracer, {"tracerConfig": {"onlyTopCall": false}}, some request id);
+   * const result = await traceTransaction('0x123abc', TracerType.CallTracer, {"tracerConfig": {"onlyTopCall": false}}, some request id);
    */
-  async debug_traceTransaction(
+  async traceTransaction(
     transactionIdOrHash: string,
     tracer: TracerType,
     tracerConfig: ITracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} debug_traceTransaction(${transactionIdOrHash})`);
+      this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
     try {
-      DebugService.requireDebugAPIEnabled();
+      DebugImpl.requireDebugAPIEnabled();
       if (tracer === TracerType.CallTracer) {
         return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
       } else if (tracer === TracerType.OpcodeLogger) {
@@ -200,7 +200,7 @@ export class DebugService implements IDebugService {
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
-      EthImpl.debugTraceTransaction,
+      DebugImpl.debugTraceTransaction,
       requestDetails,
       types,
     );
@@ -310,7 +310,7 @@ export class DebugService implements IDebugService {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const value = amount === 0 ? EthImpl.zeroHex : numberTo0x(amount);
+      const value = amount === 0 ? DebugImpl.zeroHex : numberTo0x(amount);
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {

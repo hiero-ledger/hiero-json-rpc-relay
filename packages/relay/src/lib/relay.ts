@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Admin, Net, Relay, Subs, Web3 } from '../index';
+import { Eth, Admin, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -14,6 +14,7 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { DebugImpl } from './debug';
 import { EthImpl } from './eth';
 import { AdminImpl } from './admin';
 import { NetImpl } from './net';
@@ -26,7 +27,7 @@ import { SubscriptionController } from './subscriptionController';
 import { RequestDetails } from './types';
 import { Web3Impl } from './web3';
 
-export class RelayImpl implements Relay {
+export class Relay {
   /**
    * @private
    * @readonly
@@ -58,7 +59,7 @@ export class RelayImpl implements Relay {
   /**
    * @private
    * @readonly
-   * @property {Hedera} adminImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
+   * @property {Admin} adminImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
    */
   private readonly adminImpl: Admin;
 
@@ -107,6 +108,11 @@ export class RelayImpl implements Relay {
   private readonly eventEmitter: EventEmitter;
 
   /**
+   * The Debug Service implementation that takes care of all filter API operations.
+   */
+  private readonly debugImpl: DebugImpl;
+
+  /**
    * Initializes the main components of the relay service, including Hedera network clients,
    * Ethereum-compatible interfaces, caching, metrics, and subscription management.
    *
@@ -151,8 +157,8 @@ export class RelayImpl implements Relay {
 
     this.clientMain = hapiService.getMainClientInstance();
 
-    this.web3Impl = new Web3Impl(this.clientMain);
-    this.netImpl = new NetImpl(this.clientMain);
+    this.web3Impl = new Web3Impl();
+    this.netImpl = new NetImpl();
 
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -181,6 +187,7 @@ export class RelayImpl implements Relay {
       this.cacheService,
     );
 
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
     this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -263,6 +270,10 @@ export class RelayImpl implements Relay {
         }
       },
     });
+  }
+
+  debug(): DebugImpl {
+    return this.debugImpl;
   }
 
   web3(): Web3 {

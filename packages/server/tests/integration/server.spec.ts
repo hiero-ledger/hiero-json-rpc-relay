@@ -4,8 +4,9 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
-import { predefined, RelayImpl } from '@hashgraph/json-rpc-relay';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -21,7 +22,7 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { TracerType, Validator } from '../../src/validator';
+import { Validator } from '../../src/validator';
 import * as Constants from '../../src/validator/constants';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
@@ -36,7 +37,7 @@ describe('RPC Server', function () {
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   before(function () {
-    populatePreconfiguredSpendingPlansSpy = sinon.spy(RelayImpl.prototype, <any>'populatePreconfiguredSpendingPlans');
+    populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     app = require('../../src/server').default;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
@@ -126,7 +127,7 @@ describe('RPC Server', function () {
       const testServer2 = app2.listen(port);
 
       try {
-        const testClient2 = BaseTest.createTestClient(port);
+        const testClient2 = BaseTest.createTestClient(Number(port));
         const response = await testClient2.post('/', {
           jsonrpc: '2.0',
           method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,

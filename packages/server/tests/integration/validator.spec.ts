@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
-import { OBJECTS_VALIDATIONS, TracerType, TransactionObject, Validator } from '../../src/validator';
+
+import { OBJECTS_VALIDATIONS, TransactionObject, Validator } from '../../src/validator';
 import * as Constants from '../../src/validator/constants';
 
 describe('Validator', async () => {

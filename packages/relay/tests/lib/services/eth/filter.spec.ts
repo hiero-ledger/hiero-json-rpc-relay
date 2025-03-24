@@ -130,7 +130,7 @@ describe('Filter API Test Suite', async function () {
 
       beforeEach(async () => {
         restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ ...defaultBlock }] }));
-        filterId = await filterService.newFilter(undefined, undefined, requestDetails);
+        filterId = await filterService.newFilter({ fromBlock: undefined, toBlock: undefined }, requestDetails);
       });
 
       it(`should call newFilter`, async function () {
@@ -212,29 +212,47 @@ describe('Filter API Test Suite', async function () {
 
     it('Returns a valid filterId', async function () {
       expect(
-        RelayAssertions.validateHash(await filterService.newFilter(undefined, undefined, requestDetails), 32),
+        RelayAssertions.validateHash(
+          await filterService.newFilter({ fromBlock: undefined, toBlock: undefined }, requestDetails),
+          32,
+        ),
       ).to.eq(true, 'with default param values');
       expect(
-        RelayAssertions.validateHash(await filterService.newFilter(numberHex, undefined, requestDetails), 32),
+        RelayAssertions.validateHash(
+          await filterService.newFilter({ fromBlock: numberHex, toBlock: undefined }, requestDetails),
+          32,
+        ),
       ).to.eq(true, 'with fromBlock');
       expect(
-        RelayAssertions.validateHash(await filterService.newFilter(numberHex, 'latest', requestDetails), 32),
+        RelayAssertions.validateHash(
+          await filterService.newFilter({ fromBlock: numberHex, toBlock: 'latest' }, requestDetails),
+          32,
+        ),
       ).to.eq(true, 'with fromBlock, toBlock');
       expect(
         RelayAssertions.validateHash(
-          await filterService.newFilter(numberHex, 'latest', requestDetails, defaultEvmAddress),
+          await filterService.newFilter(
+            { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress },
+            requestDetails,
+          ),
           32,
         ),
       ).to.eq(true, 'with fromBlock, toBlock, address');
       expect(
         RelayAssertions.validateHash(
-          await filterService.newFilter(numberHex, 'latest', requestDetails, defaultEvmAddress, defaultLogTopics),
+          await filterService.newFilter(
+            { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress, topics: defaultLogTopics },
+            requestDetails,
+          ),
           32,
         ),
       ).to.eq(true, 'with fromBlock, toBlock, address, topics');
       expect(
         RelayAssertions.validateHash(
-          await filterService.newFilter(numberHex, 'latest', requestDetails, defaultEvmAddress, defaultLogTopics),
+          await filterService.newFilter(
+            { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress, topics: defaultLogTopics },
+            requestDetails,
+          ),
           32,
         ),
       ).to.eq(true, 'with all parameters');
@@ -242,11 +260,8 @@ describe('Filter API Test Suite', async function () {
 
     it('Creates a filter with type=log', async function () {
       const filterId = await filterService.newFilter(
-        numberHex,
-        'latest',
+        { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress, topics: defaultLogTopics },
         requestDetails,
-        defaultEvmAddress,
-        defaultLogTopics,
       );
       await validateFilterCache(filterId, constants.FILTER.TYPE.LOG, {
         fromBlock: numberHex,
@@ -263,14 +278,14 @@ describe('Filter API Test Suite', async function () {
         filterService.newFilter,
         true,
         filterService,
-        [blockNumberHexes[1500], blockNumberHexes[1400], requestDetails],
+        [{ fromBlock: blockNumberHexes[1500], toBlock: blockNumberHexes[1400] }, requestDetails],
       );
       await RelayAssertions.assertRejection(
         predefined.INVALID_BLOCK_RANGE,
         filterService.newFilter,
         true,
         filterService,
-        ['latest', blockNumberHexes[1400], requestDetails],
+        [{ fromBlock: 'latest', toBlock: blockNumberHexes[1400] }, requestDetails],
       );
 
       // reject when no fromBlock is provided
@@ -279,19 +294,22 @@ describe('Filter API Test Suite', async function () {
         filterService.newFilter,
         true,
         filterService,
-        [null, blockNumberHexes[1400], requestDetails],
+        [{ fromBlock: null, toBlock: blockNumberHexes[1400] }, requestDetails],
       );
 
       // block range is valid
       expect(
         RelayAssertions.validateHash(
-          await filterService.newFilter(blockNumberHexes[1400], blockNumberHexes[1500], requestDetails),
+          await filterService.newFilter(
+            { fromBlock: blockNumberHexes[1400], toBlock: blockNumberHexes[1500] },
+            requestDetails,
+          ),
           32,
         ),
       ).to.eq(true);
       expect(
         RelayAssertions.validateHash(
-          await filterService.newFilter(blockNumberHexes[1400], 'latest', requestDetails),
+          await filterService.newFilter({ fromBlock: blockNumberHexes[1400], toBlock: 'latest' }, requestDetails),
           32,
         ),
       ).to.eq(true);
@@ -392,7 +410,7 @@ describe('Filter API Test Suite', async function () {
         )
         .reply(200, JSON.stringify(filteredLogs));
 
-      const filterId = await filterService.newFilter('0x1', undefined, requestDetails);
+      const filterId = await filterService.newFilter({ fromBlock: '0x1' }, requestDetails);
 
       const logs = await filterService.getFilterLogs(filterId, requestDetails);
 
@@ -419,7 +437,7 @@ describe('Filter API Test Suite', async function () {
         )
         .reply(200, JSON.stringify(filteredLogs));
 
-      const filterId = await filterService.newFilter(undefined, '0x3', requestDetails);
+      const filterId = await filterService.newFilter({ toBlock: '0x3' }, requestDetails);
 
       const logs = await filterService.getFilterLogs(filterId, requestDetails);
 
@@ -442,7 +460,7 @@ describe('Filter API Test Suite', async function () {
         )
         .reply(200, JSON.stringify(filteredLogs));
 
-      const filterId = await filterService.newFilter(undefined, undefined, requestDetails, defaultEvmAddress);
+      const filterId = await filterService.newFilter({ address: defaultEvmAddress }, requestDetails);
 
       const logs = await filterService.getFilterLogs(filterId, requestDetails);
 
@@ -470,7 +488,7 @@ describe('Filter API Test Suite', async function () {
         )
         .reply(200, JSON.stringify(filteredLogs));
 
-      const filterId = await filterService.newFilter(undefined, undefined, requestDetails, undefined, customTopic);
+      const filterId = await filterService.newFilter({ topics: customTopic }, requestDetails);
 
       const logs = await filterService.getFilterLogs(filterId, requestDetails);
 
@@ -501,14 +519,19 @@ describe('Filter API Test Suite', async function () {
     });
 
     it('should return the hashes of latest blocks', async function () {
-      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number + 4 }] }));
-      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(200, JSON.stringify({
-        blocks: [
-          { ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' },
-          { ...defaultBlock, number: defaultBlock.number + 2, hash: '0x2' },
-          { ...defaultBlock, number: defaultBlock.number + 3, hash: '0x3' },
-        ],
-      }));
+      restMock
+        .onGet(LATEST_BLOCK_QUERY)
+        .reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number + 4 }] }));
+      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(
+        200,
+        JSON.stringify({
+          blocks: [
+            { ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' },
+            { ...defaultBlock, number: defaultBlock.number + 2, hash: '0x2' },
+            { ...defaultBlock, number: defaultBlock.number + 3, hash: '0x3' },
+          ],
+        }),
+      );
       restMock
         .onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number + 3}&order=asc`)
         .reply(200, JSON.stringify({ blocks: [] }));
@@ -536,10 +559,15 @@ describe('Filter API Test Suite', async function () {
     });
 
     it('should return no blocks if the second request is for the same block', async function () {
-      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number + 3 }] }));
-      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(200, JSON.stringify({
-        blocks: [{ ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' }],
-      }));
+      restMock
+        .onGet(LATEST_BLOCK_QUERY)
+        .reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number + 3 }] }));
+      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(
+        200,
+        JSON.stringify({
+          blocks: [{ ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' }],
+        }),
+      );
 
       restMock
         .onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number + 1}&order=asc`)
@@ -583,7 +611,7 @@ describe('Filter API Test Suite', async function () {
         .reply(200, JSON.stringify(filteredLogs));
       restMock.onGet('blocks/1').reply(200, JSON.stringify({ ...defaultBlock, block_number: 1 }));
 
-      const filterId = await filterService.newFilter('0x1', undefined, requestDetails);
+      const filterId = await filterService.newFilter({ fromBlock: '0x1' }, requestDetails);
 
       const logs = await filterService.getFilterChanges(filterId, requestDetails);
       expect(logs).to.not.be.empty;
@@ -599,16 +627,21 @@ describe('Filter API Test Suite', async function () {
         .reply(200, JSON.stringify([]));
       restMock.onGet('blocks/1').reply(200, JSON.stringify({ ...defaultBlock, block_number: 1 }));
 
-      const filterId = await filterService.newFilter('0x1', undefined, requestDetails);
+      const filterId = await filterService.newFilter({ fromBlock: '0x1' }, requestDetails);
       const logs = await filterService.getFilterChanges(filterId, requestDetails);
       expect(logs).to.be.empty;
     });
 
     it('should return an empty set if there are no block hashes (e.g. 2 requests within 2 seconds)', async function () {
-      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number }] }));
-      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(200, JSON.stringify({
-        blocks: [],
-      }));
+      restMock
+        .onGet(LATEST_BLOCK_QUERY)
+        .reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: defaultBlock.number }] }));
+      restMock.onGet(`${BLOCK_BY_NUMBER_QUERY}?block.number=gt:${defaultBlock.number}&order=asc`).reply(
+        200,
+        JSON.stringify({
+          blocks: [],
+        }),
+      );
 
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
       await cacheService.set(

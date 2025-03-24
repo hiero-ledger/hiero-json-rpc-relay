@@ -17,7 +17,7 @@ permissions:
 jobs:
   setup-local-hedera:
     name: Postman Endpoint Tests
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     permissions:
       contents: write
       actions: read
