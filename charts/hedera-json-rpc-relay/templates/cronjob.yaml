@@ -50,6 +50,6 @@ spec:
               command: 
                 - /bin/sh
                 - -c
-                - wget https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/charts/hedera-json-rpc-relay/postman.json ; newman run postman.json --env-var baseUrl=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}                     
+                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/postman.json ; newman run postman.json --env-var baseUrl=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}                     
 {{- end }}
             

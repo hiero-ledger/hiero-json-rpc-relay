@@ -79,7 +79,7 @@ global:
 image:
   pullPolicy: IfNotPresent
   registry: ghcr.io
-  repository: hashgraph/hedera-json-rpc-relay
+  repository: hiero-ledger/hiero-json-rpc-relay
   # Overrides the image tag whose default is the chart appVersion.
   tag: ''
 

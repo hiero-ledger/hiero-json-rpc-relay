@@ -3,7 +3,7 @@
 replicaCount: 2
 
 image:
-  repository: ghcr.io/hashgraph/hedera-json-rpc-relay
+  repository: ghcr.io/hiero-ledger/hiero-json-rpc-relay
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ''
