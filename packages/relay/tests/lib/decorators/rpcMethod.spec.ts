@@ -102,49 +102,6 @@ describe('rpcMethod decorator integration', () => {
     });
   });
 
-  //   describe('Decorator behavior', () => {
-  //     // A test class to test the decorator directly
-  //     class TestRpcClass {
-  //       static namespace = 'test';
-
-  //       constructor() {
-  //         // Apply decorator manually to avoid TypeScript errors
-  //         const descriptor = Object.getOwnPropertyDescriptor(TestRpcClass.prototype, 'decoratedMethod');
-  //         if (descriptor) {
-  //           rpcMethod(TestRpcClass.prototype, 'decoratedMethod', descriptor);
-  //         }
-  //       }
-
-  //       decoratedMethod() {
-  //         return 'decorated-result';
-  //       }
-
-  //       nonDecoratedMethod() {
-  //         return 'non-decorated-result';
-  //       }
-
-  //       getNamespace() {
-  //         return TestRpcClass.namespace;
-  //       }
-  //     }
-
-  //     let testInstance: TestRpcClass;
-
-  //     beforeEach(() => {
-  //       testInstance = new TestRpcClass();
-  //     });
-
-  //     it('should add RPC_METHOD_KEY to decorated methods only', () => {
-  //       expect(testInstance.decoratedMethod[RPC_METHOD_KEY]).to.equal(true);
-  //       expect(testInstance.nonDecoratedMethod[RPC_METHOD_KEY]).to.be.undefined;
-  //     });
-
-  //     it('should maintain method functionality', () => {
-  //       expect(testInstance.decoratedMethod()).to.equal('decorated-result');
-  //       expect(testInstance.nonDecoratedMethod()).to.equal('non-decorated-result');
-  //     });
-  //   });
-
   describe('Decorator behavior', () => {
     // A test class that uses the actual decorator syntax
     class TestRpcClass {
