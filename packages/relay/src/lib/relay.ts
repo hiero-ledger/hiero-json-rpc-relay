@@ -15,6 +15,7 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { RelayGlobalErrorHandler } from './errors/RelayGlobalErrorHandler';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { Poller } from './poller';
@@ -100,6 +101,18 @@ export class RelayImpl implements Relay {
   private readonly eventEmitter: EventEmitter;
 
   /**
+   * An instance of RelayGlobalErrorHandler used for centralized error handling across the application.
+   *
+   * This handler maps domain-specific errors to standardized JsonRpcError objects and ensures
+   * consistent logging and context for all errors that occur within the relay service.
+   *
+   * @private
+   * @readonly
+   * @type {RelayGlobalErrorHandler}
+   */
+  private readonly relayGlobalErrorHandler: RelayGlobalErrorHandler;
+
+  /**
    * Initializes the main components of the relay service, including Hedera network clients,
    * Ethereum-compatible interfaces, caching, metrics, and subscription management.
    *
@@ -111,6 +124,9 @@ export class RelayImpl implements Relay {
     register: Registry,
   ) {
     logger.info('Configurations successfully loaded');
+
+    // Initialize the RelayGlobalErrorHandler
+    this.relayGlobalErrorHandler = new RelayGlobalErrorHandler(logger.child({ name: 'error-mapper-service' }));
 
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
@@ -144,8 +160,9 @@ export class RelayImpl implements Relay {
 
     this.clientMain = hapiService.getMainClientInstance();
 
-    this.web3Impl = new Web3Impl(this.clientMain);
-    this.netImpl = new NetImpl(this.clientMain);
+    this.web3Impl = this.wrapImplServiceWithErrorMapping(new Web3Impl(this.clientMain), Web3Impl.name);
+    // this.web3Impl = new Web3Impl(this.clientMain);
+    this.netImpl = this.wrapImplServiceWithErrorMapping(new NetImpl(this.clientMain), NetImpl.name);
 
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -165,13 +182,16 @@ export class RelayImpl implements Relay {
       hbarLimitService,
     );
 
-    this.ethImpl = new EthImpl(
-      hapiService,
-      this.mirrorNodeClient,
-      logger.child({ name: 'relay-eth' }),
-      chainId,
-      register,
-      this.cacheService,
+    this.ethImpl = this.wrapImplServiceWithErrorMapping(
+      new EthImpl(
+        hapiService,
+        this.mirrorNodeClient,
+        logger.child({ name: 'relay-eth' }),
+        chainId,
+        register,
+        this.cacheService,
+      ),
+      EthImpl.name,
     );
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -191,6 +211,54 @@ export class RelayImpl implements Relay {
     this.populatePreconfiguredSpendingPlans().then();
 
     logger.info('Relay running with chainId=%s', chainId);
+  }
+
+  /**
+   * Creates a proxy around an implementation service class that serves as an error handling boundary.
+   *
+   * This method establishes a clear boundary layer for error handling at the interface between
+   * packages. It uses JavaScript's Proxy to intercept all method calls on the implementation
+   * service class, ensuring that:
+   *
+   * 1. All errors crossing package boundaries are properly transformed into JsonRpcError objects
+   * 2. The original method's synchronous or asynchronous behavior is preserved
+   * 3. Error handling is consistent across all service methods
+   * 4. Implementation details of errors are abstracted away from dependent packages
+   *
+   * By applying this at package boundaries, we create a clean separation of concerns where
+   * internal errors are properly mapped before propagating to external consumers.
+   *
+   * @param service - The service instance to wrap with error handling
+   * @param serviceName - The name of the service (used for logging context)
+   * @returns A proxied version of the service with error handling for all methods
+   */
+  private wrapImplServiceWithErrorMapping<T extends object>(service: T, serviceName: string): T {
+    const handler = {
+      get: (target: any, prop: string) => {
+        const originalMethod = target[prop];
+
+        // Only process actual methods (not constructor or properties)
+        if (typeof originalMethod === 'function' && prop !== 'constructor') {
+          // Determine if this is an async method by checking if it returns a Promise
+          const isAsync =
+            originalMethod.constructor.name === 'AsyncFunction' ||
+            originalMethod.toString().includes('return __awaiter(') || // For transpiled async functions
+            originalMethod.toString().includes('return new Promise'); // For explicit Promise returns
+
+          return this.relayGlobalErrorHandler.createErrorHandlingProxy(
+            originalMethod.bind(target),
+            `${serviceName}.${prop}`,
+            isAsync,
+          );
+        }
+
+        // Return non-function properties as-is
+        return originalMethod;
+      },
+    };
+
+    // Return a proxy that wraps methods appropriately
+    return new Proxy(service, handler) as T;
   }
 
   /**
