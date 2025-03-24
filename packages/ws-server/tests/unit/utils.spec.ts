@@ -2,6 +2,7 @@
 
 import { Relay } from '@hashgraph/json-rpc-relay';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
@@ -141,9 +142,8 @@ describe('Utilities unit tests', async function () {
     let unsubscribeSpy: sinon.SinonSpy;
 
     beforeEach(async () => {
-      relayStub = sinon.createStubInstance(Relay, {
-        subs: sinon.createStubInstance(SubscriptionController),
-      });
+      relayStub = sinon.createStubInstance(Relay);
+      relayStub.eth.returns(sinon.createStubInstance(EthImpl));
       limiterStub = sinon.createStubInstance(ConnectionLimiter);
       wsMetricRegistryStub = sinon.createStubInstance(WsMetricRegistry);
       wsMetricRegistryStub.getCounter.returns(sinon.createStubInstance(Counter));
