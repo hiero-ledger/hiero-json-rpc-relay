@@ -19,7 +19,7 @@ import { Logger } from 'pino';
 import ConnectionLimiter from '../metrics/connectionLimiter';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import { WS_CONSTANTS } from '../utils/constants';
-import { paramRearrangementMap, resolveParams, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './eth_subscribe';
 import { handleEthUnsubscribe } from './eth_unsubscribe';
 
