@@ -24,7 +24,7 @@ import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
-import { RpcMethodRegistryService } from './services/registryService';
+import { registerRpcMethods } from './services/registryService';
 import { SubscriptionController } from './subscriptionController';
 import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
 import { Web3Impl } from './web3';
@@ -230,7 +230,7 @@ export class Relay {
     }));
 
     // Registering RPC methods from the provided service implementations
-    this.rpcMethodRegistry = RpcMethodRegistryService.register(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
+    this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
 
     // Initialize the RPC method dispatcher
     this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);

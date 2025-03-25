@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { rpcMethod } from '../../../../src/lib/decorators';
-import { RpcMethodRegistryService } from '../../../../src/lib/services/registryService';
+import { registerRpcMethods } from '../../../../src/lib/services/registryService';
 import { RpcMethodRegistry, RpcNamespaceRegistry, RpcServiceImpl } from '../../../../src/lib/types';
 chai.use(chaiAsPromised);
 
@@ -113,7 +113,7 @@ describe('RpcMethodRegistryService', () => {
 
   describe('register', () => {
     it('should register decorated methods from all rpcNamespaceRegistry', () => {
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
+      registry = registerRpcMethods(rpcNamespaceRegistry);
 
       // Should have the correct number of methods
       expect(registry.size).to.equal(4);
@@ -126,19 +126,19 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should not register methods without the RPC_METHOD_KEY', () => {
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
+      registry = registerRpcMethods(rpcNamespaceRegistry);
 
       // Should not include non-decorated methods
       expect(registry.has('web3_nonRpcMethod')).to.be.false;
     });
 
     it('should return an empty map when no implementations are provided', () => {
-      registry = RpcMethodRegistryService.register([]);
+      registry = registerRpcMethods([]);
       expect(registry.size).to.equal(0);
     });
 
     it('should correctly bind methods to their implementation instances', async () => {
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
+      registry = registerRpcMethods(rpcNamespaceRegistry);
 
       // Get the methods from the registry
       const methods = {
@@ -164,7 +164,7 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should register multiple methods from the same implementation', () => {
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry.filter(({ namespace }) => namespace === 'net'));
+      registry = registerRpcMethods(rpcNamespaceRegistry.filter(({ namespace }) => namespace === 'net'));
 
       expect(registry.size).to.equal(2);
       expect(registry.has('net_listening')).to.be.true;
@@ -177,7 +177,7 @@ describe('RpcMethodRegistryService', () => {
       // Add a property using private access pattern
       (netWithState as any).chainId = '456';
 
-      registry = RpcMethodRegistryService.register([
+      registry = registerRpcMethods([
         {
           namespace: 'net',
           serviceImpl: netWithState as unknown as RpcServiceImpl,
@@ -190,7 +190,7 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should preserve the original method name after binding', () => {
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
+      registry = registerRpcMethods(rpcNamespaceRegistry);
 
       // Get the methods from the registry
       const clientVersionMethod = registry.get('web3_clientVersion');
@@ -221,7 +221,7 @@ describe('RpcMethodRegistryService', () => {
       expect(boundMethod.name.includes('bound')).to.be.true;
 
       // Our registry should preserve the original name
-      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
+      registry = registerRpcMethods(rpcNamespaceRegistry);
       const registeredMethod = registry.get('web3_clientVersion');
       expect(registeredMethod!.name).to.equal('clientVersion');
     });
