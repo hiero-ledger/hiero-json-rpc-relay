@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { JsonRpcError, MirrorNodeClientError, predefined } from '@hashgraph/json-rpc-relay';
 import pino from 'pino';
 
@@ -24,10 +23,6 @@ const logAndHandleResponse = async (
   app: KoaJsonRpc,
   logger: pino.Logger,
 ) => {
-  if (methodName.startsWith('hedera_') && ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
   const requestDetails = app.getRequestDetails();
 
   try {

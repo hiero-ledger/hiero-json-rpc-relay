@@ -7,6 +7,7 @@ import { Admin } from '../index';
 import constants from './constants';
 import { CacheService } from './services/cacheService/cacheService';
 import { RequestDetails } from './types';
+import { Utils } from '../utils';
 
 interface IAdminRelayConfig {
   version: string;
@@ -38,9 +39,8 @@ export class AdminImpl implements Admin {
    */
   private async getConsensusNodeVersion(): Promise<string> {
     try {
+      const targetNetwork: string = Utils.getNetworkNameByChainId();
       const response: any = await axios.get('https://status.hedera.com/api/v2/summary.json');
-      const currentNetwork: URL = new URL(ConfigService.get('MIRROR_NODE_URL'));
-      const targetNetwork: string = currentNetwork.hostname.split('.')[0].toLowerCase();
       const networkInfo: any = response.data.components.filter(
         (it) => it.name.endsWith(' | Network Uptime') && it.name.toLowerCase().indexOf(targetNetwork) > -1,
       );
@@ -55,7 +55,7 @@ export class AdminImpl implements Admin {
   /**
    * Returns list of all config envs
    */
-  async config(requestDetails: RequestDetails): Promise<IAdminConfig> {
+  public async config(requestDetails: RequestDetails): Promise<IAdminConfig> {
     const cacheKey = `${constants.CACHE_KEY.ADMIN_CONFIG}`;
 
     let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config, requestDetails);

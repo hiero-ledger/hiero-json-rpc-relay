@@ -169,7 +169,7 @@ const _CONFIG = {
     envName: 'DISABLE_ADMIN_NAMESPACE',
     type: 'boolean',
     required: false,
-    defaultValue: [],
+    defaultValue: false,
   },
   E2E_RELAY_HOST: {
     envName: 'E2E_RELAY_HOST',

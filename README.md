@@ -262,7 +262,7 @@ Please note that the `/metrics` endpoint is also a default scrape configurations
 
 ##### Admin-specific RPC methods
 
-- GET `/config` - To provide more transparency and operational insight to the developers, the hedera-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
+- GET `/config` - To provide more transparency and operational insight to the developers, the hiero-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
 
 Expected response:
 ```

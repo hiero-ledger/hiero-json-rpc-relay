@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatRequestIdMessage } from '@hashgraph/json-rpc-relay/dist/formatters';
+import { formatRequestIdMessage } from '@hashgraph/json-rpc-server/dist/formatters';
 import { expect } from 'chai';
 
 describe('Formatters', () => {

@@ -16,6 +16,7 @@ import { defineEthRoutes } from './routes/ethRoutes';
 import { defineNetRoutes } from './routes/netRoutes';
 import { defineOtherRoutes } from './routes/otherRoutes';
 import { defineWeb3Routes } from './routes/web3Routes';
+import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
@@ -101,6 +102,9 @@ app.getKoaApp().use(async (ctx, next) => {
  */
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/config') {
+    if (ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
+      return new MethodNotFound('config');
+    }
     ctx.status = 200;
     ctx.body = JSON.stringify(await relay.admin().config(app.getRequestDetails()));
   } else {
