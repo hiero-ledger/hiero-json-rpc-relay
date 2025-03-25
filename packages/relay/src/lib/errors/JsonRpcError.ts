@@ -230,6 +230,13 @@ export const predefined = {
       code: -32000,
       message: `Exceeded max transactions that can be returned in a block: ${count}`,
     }),
+  MIRROR_NODE_UPSTREAM_FAIL: (errCode: number, errMessage: string) => {
+    return new JsonRpcError({
+      code: -32020,
+      message: `Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`,
+      data: errCode.toString(), // Preserving the Mirror Node HTTP status for potential exposure/debugging
+    });
+  },
   UNKNOWN_BLOCK: (msg?: string | null) =>
     new JsonRpcError({
       code: -39012,
