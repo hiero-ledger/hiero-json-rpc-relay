@@ -127,7 +127,7 @@ config:
 
   # ========== DEVELOPMENT & TESTING ==========
   # DEV_MODE:
-  LOG_LEVEL: ''
+  # LOG_LEVEL: 'trace'
 
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []

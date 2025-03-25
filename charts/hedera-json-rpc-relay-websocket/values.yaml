@@ -70,7 +70,7 @@ config:
   # CLIENT_TRANSPORT_SECURITY:
   # USE_ASYNC_TX_PROCESSING:
   # DEV_MODE:
-  LOG_LEVEL: ''
+  # LOG_LEVEL: 'trace'
 
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []
