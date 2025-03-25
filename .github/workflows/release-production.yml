@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   docker-image-publish:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner
@@ -54,7 +54,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ github.repository }}:${{env.TAG}}
 
   npm-package-artifact:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner
@@ -90,7 +90,7 @@ jobs:
           if-no-files-found: error
 
   helm-chart-release:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     permissions:
       contents: write
     steps:

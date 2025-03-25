@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Client } from '@hashgraph/sdk';
 
 import { JsonRpcError, Net, predefined } from '../index';
 
 export class NetImpl implements Net {
-  private client: Client;
   private readonly chainId: string;
 
-  constructor(client: Client) {
-    this.client = client;
-
+  constructor() {
     this.chainId = parseInt(ConfigService.get('CHAIN_ID'), 16).toString();
   }
 

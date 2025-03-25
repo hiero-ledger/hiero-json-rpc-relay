@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from './constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import { Logger } from 'pino';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
 const getRequestIdIsOptional = () => {
@@ -104,23 +105,6 @@ export const validateJsonRpcRequest = (
 };
 
 /**
- * Resolves parameters based on the provided method.
- * @param {string} method - The method associated with the parameters.
- * @param {any} params - The parameters to resolve.
- * @returns {any[]} Resolved parameters.
- */
-export const resolveParams = (method: string, params: any): any[] => {
-  switch (method) {
-    case WS_CONSTANTS.METHODS.ETH_GETLOGS:
-      return [params[0].blockHash, params[0].fromBlock, params[0].toBlock, params[0].address, params[0].topics];
-    case WS_CONSTANTS.METHODS.ETH_NEWFILTER:
-      return [params[0].fromBlock, params[0].toBlock, params[0].address, params[0].topics];
-    default:
-      return params;
-  }
-};
-
-/**
  * Determines whether multiple addresses are enabled for WebSocket connections.
  * @returns {boolean} Returns true if multiple addresses are enabled, otherwise returns false.
  */
@@ -194,9 +178,10 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
 export const paramRearrangementMap: {
   [key: string]: (params: any[], requestDetails: RequestDetails) => any[];
 } = {
+  // *note: some WS providers send null params for chainId method but only requestDetails is needed
   chainId: (_: any[], requestDetails: RequestDetails) => [requestDetails],
+  // *note: since estimateGas has the second param as optional, which means it can be omitted from the client request,
+  // we need to explicitly add it to the params array to ensure the requestDetails object is placed correctly in the params array.
   estimateGas: (params, requestDetails) => [params[0], params[1], requestDetails],
-  getStorageAt: (params, requestDetails) => [params[0], params[1], requestDetails, params[2]],
-  newFilter: (params, requestDetails) => [params[0], params[1], requestDetails, params[2], params[3]],
   default: (params, requestDetails) => [...params, requestDetails],
 };

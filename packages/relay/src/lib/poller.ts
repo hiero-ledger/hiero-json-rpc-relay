@@ -64,11 +64,13 @@ export class Poller {
 
         if (event === 'logs') {
           data = await this.eth.getLogs(
-            null,
-            poll.lastPolled || this.latestBlock || 'latest',
-            'latest',
-            filters?.address || null,
-            filters?.topics || null,
+            {
+              blockHash: null,
+              fromBlock: poll.lastPolled || this.latestBlock || 'latest',
+              toBlock: 'latest',
+              address: filters?.address || null,
+              topics: filters?.topics || null,
+            },
             new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
           );
 

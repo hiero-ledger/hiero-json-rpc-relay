@@ -16,7 +16,7 @@ permissions:
     
 jobs:
   subgraph-workflow:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     permissions:
       contents: write
     defaults:

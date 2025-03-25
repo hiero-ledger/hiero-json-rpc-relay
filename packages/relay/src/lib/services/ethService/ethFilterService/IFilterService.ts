@@ -3,15 +3,9 @@
 import { JsonRpcError } from '../../../errors/JsonRpcError';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
-
+import { INewFilterParams } from '../../../types/requestParams';
 export interface IFilterService {
-  newFilter(
-    fromBlock: string,
-    toBlock: string,
-    requestDetails: RequestDetails,
-    address?: string,
-    topics?: any[],
-  ): Promise<string | JsonRpcError>;
+  newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 
   newBlockFilter(requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 

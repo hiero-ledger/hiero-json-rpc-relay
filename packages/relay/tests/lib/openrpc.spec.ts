@@ -15,7 +15,7 @@ import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import openRpcSchema from '../../../../docs/openrpc.json';
-import { RelayImpl } from '../../src';
+import { Relay } from '../../src';
 import { numberTo0x } from '../../src/formatters';
 import { SDKClient } from '../../src/lib/clients';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -61,7 +61,7 @@ import { CONTRACT_RESULT_MOCK, NOT_FOUND_RES } from './eth/eth-config';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
-const Relay = new RelayImpl(logger, registry);
+const relay = new Relay(logger, registry);
 
 let mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
@@ -368,7 +368,10 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getLogs" with no filters', async function () {
-    const response = await ethImpl.getLogs(null, 'latest', 'latest', null, null, requestDetails);
+    const response = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: null },
+      requestDetails,
+    );
 
     validateResponseSchema(methodsResponseSchema.eth_getLogs, response);
   });
@@ -396,7 +399,10 @@ describe('Open RPC Specification', function () {
       mock.onGet(`contracts/${log.address}`).reply(200, JSON.stringify(defaultContract));
     }
 
-    const response = await ethImpl.getLogs(null, 'latest', 'latest', null, defaultLogTopics, requestDetails);
+    const response = await ethImpl.getLogs(
+      { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: defaultLogTopics },
+      requestDetails,
+    );
 
     validateResponseSchema(methodsResponseSchema.eth_getLogs, response);
   });
@@ -543,31 +549,31 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "net_listening"', function () {
-    const response = Relay.net().listening();
+    const response = relay.net().listening();
 
     validateResponseSchema(methodsResponseSchema.net_listening, response);
   });
 
   it('should execute "net_version"', function () {
-    const response = Relay.net().version();
+    const response = relay.net().version();
 
     validateResponseSchema(methodsResponseSchema.net_version, response);
   });
 
   it('should execute "net_peerCount"', function () {
-    const response = Relay.net().peerCount();
+    const response = relay.net().peerCount();
 
     validateResponseSchema(methodsResponseSchema.net_peerCount, response);
   });
 
   it('should execute "web3_clientVersion"', function () {
-    const response = Relay.web3().clientVersion();
+    const response = relay.web3().clientVersion();
 
     validateResponseSchema(methodsResponseSchema.web3_clientVersion, response);
   });
 
   it('should execute "web3_sha3"', function () {
-    const response = Relay.web3().sha3('0x5644');
+    const response = relay.web3().sha3('0x5644');
 
     validateResponseSchema(methodsResponseSchema.web3_sha3, response);
   });

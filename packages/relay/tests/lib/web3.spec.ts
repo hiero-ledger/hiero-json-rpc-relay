@@ -5,29 +5,29 @@ import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
 
-import { RelayImpl } from '../../src';
+import { Relay } from '../../src';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
-const Relay = new RelayImpl(logger, new Registry());
+const relay = new Relay(logger, new Registry());
 
 describe('Web3', function () {
   withOverriddenEnvsInMochaTest({ npm_package_version: '1.0.0' }, () => {
     it('should return "relay/1.0.0"', async function () {
-      const clientVersion = Relay.web3().clientVersion();
+      const clientVersion = relay.web3().clientVersion();
       expect(clientVersion).to.be.equal('relay/' + ConfigService.get('npm_package_version'));
     });
   });
 
   withOverriddenEnvsInMochaTest({ npm_package_version: undefined }, () => {
     it('should throw an error if npm_package_version is undefined', () => {
-      expect(() => Relay.web3().clientVersion()).to.throw(
+      expect(() => relay.web3().clientVersion()).to.throw(
         'Configuration error: npm_package_version is a mandatory configuration for relay operation.',
       );
     });
   });
 
   it('should return sha3 of the input', () => {
-    expect(Relay.web3().sha3('0x5644')).to.equal('0xf956fddff3899ff3cf7ac1773fdbf443ffbfb625c1a673abdba8947251f81bae');
+    expect(relay.web3().sha3('0x5644')).to.equal('0xf956fddff3899ff3cf7ac1773fdbf443ffbfb625c1a673abdba8947251f81bae');
   });
 });

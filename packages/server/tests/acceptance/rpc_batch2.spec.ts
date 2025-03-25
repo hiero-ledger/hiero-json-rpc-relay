@@ -39,7 +39,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     servicesNode,
     mirrorNode,
     relay,
-    logger,
     initialBalance,
   }: {
     servicesNode: ServicesClient;
@@ -54,10 +53,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   let requestId;
   let htsAddress;
   let expectedGasPrice: string;
-  let basicContract: ethers.Contract;
-  let basicContractAddress: string;
   let parentContractAddress: string;
-  let parentContractLongZeroAddress: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let accounts0StartBalance: bigint;
 
@@ -96,62 +92,57 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     const initialAccount: AliasAccount = global.accounts[0];
 
-    const neededAccounts: number = 4;
-    accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialBalance,
-        requestId,
-      )),
+    const neededAccounts = 4;
+    const newAccounts = await Utils.createMultipleAliasAccounts(
+      mirrorNode,
+      initialAccount,
+      neededAccounts,
+      initialBalance,
+      requestId,
     );
-    global.accounts.push(...accounts);
+    accounts.push(...newAccounts);
+    global.accounts.push(...newAccounts);
 
-    const parentContract = await Utils.deployContract(
-      parentContractJson.abi,
-      parentContractJson.bytecode,
-      accounts[0].wallet,
-    );
+    const [parentContract, tokenCreation] = await Promise.all([
+      Utils.deployContract(parentContractJson.abi, parentContractJson.bytecode, accounts[0].wallet),
+      servicesNode.createToken(1000, requestId),
+    ]);
+
     parentContractAddress = parentContract.target as string;
-    if (global.logger.isLevelEnabled('trace')) {
-      global.logger.trace(`${requestIdPrefix} Deploy parent contract on address ${parentContractAddress}`);
-    }
+    tokenId = tokenCreation;
 
-    const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`, requestId);
-    const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
-    parentContractLongZeroAddress = `0x${parentContractId.toSolidityAddress()}`;
-
-    const response = await accounts[0].wallet.sendTransaction({
+    const initialFundsTx = await accounts[0].wallet.sendTransaction({
       to: parentContractAddress,
       value: ethers.parseEther('1'),
     });
-    await relay.pollForValidTransactionReceipt(response.hash);
+    await relay.pollForValidTransactionReceipt(initialFundsTx.hash);
 
-    // @ts-ignore
-    createChildTx = await parentContract.createChild(1);
+    const [childTx, blockNumber, balance] = await Promise.all([
+      parentContract.createChild(1),
+      accounts[0].wallet.provider?.getBlockNumber(),
+      accounts[0].wallet.provider?.getBalance(accounts[0].address),
+    ]);
+
+    createChildTx = childTx;
     await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
-    if (global.logger.isLevelEnabled('trace')) {
-      global.logger.trace(
-        `${requestIdPrefix} Contract call createChild on parentContract results in tx hash: ${createChildTx.hash}`,
-      );
-    }
+    blockNumberAtStartOfTests = blockNumber as number;
+    accounts0StartBalance = balance as bigint;
 
-    tokenId = await servicesNode.createToken(1000, requestId);
     htsAddress = Utils.idToEvmAddress(tokenId.toString());
+    await Promise.all([
+      accounts[0].client.associateToken(tokenId, requestId),
+      accounts[1].client.associateToken(tokenId, requestId),
+    ]);
 
-    logger.info('Associate and transfer tokens');
-    await accounts[0].client.associateToken(tokenId, requestId);
-    await accounts[1].client.associateToken(tokenId, requestId);
-    await servicesNode.transferToken(tokenId, accounts[0].accountId, 10, requestId);
-    await servicesNode.transferToken(tokenId, accounts[1].accountId, 10, requestId);
+    await Promise.all([
+      servicesNode.transferToken(tokenId, accounts[0].accountId, 10, requestId),
+      servicesNode.transferToken(tokenId, accounts[1].accountId, 10, requestId),
+    ]);
 
-    blockNumberAtStartOfTests = (await accounts[0].wallet.provider?.getBlockNumber()) as number;
-    accounts0StartBalance = (await accounts[0].wallet.provider?.getBalance(accounts[0].address)) as bigint;
-
-    basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
-    basicContractAddress = basicContract.target as string;
+    if (global.logger.isLevelEnabled('trace')) {
+      global.logger.trace(`${requestIdPrefix} Setup completed`);
+    }
   });
 
   this.beforeEach(async () => {
@@ -159,6 +150,14 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   });
 
   describe('eth_estimateGas', async function () {
+    let basicContract: ethers.Contract;
+    let basicContractAddress: string;
+
+    before(async function () {
+      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
+      basicContractAddress = basicContract.target as string;
+    });
+
     it('@release-light, @release should execute "eth_estimateGas"', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [{}], requestId);
       expect(res).to.contain('0x');
@@ -733,6 +732,8 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     let NftHTSTokenContractAddress: string;
     let redirectBytecode: string;
     let blockBeforeContractCreation: number;
+    let basicContract: ethers.Contract;
+    let basicContractAddress: string;
 
     async function createNftHTSToken(account) {
       const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
@@ -751,6 +752,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     }
 
     before(async () => {
+      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
+      basicContractAddress = basicContract.target as string;
+
       blockBeforeContractCreation = (await mirrorNode.get(`/blocks?limit=1&order=desc`, requestId)).blocks[0].number;
 
       mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, accounts[3].wallet);
@@ -1233,6 +1237,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     // Should be revised or deleted https://github.com/hashgraph/hedera-json-rpc-relay/pull/1726/files#r1320363677
     xit('from/to Addresses in transaction to a contract (deployed through HAPI tx) are in evm and long-zero format', async function () {
+      const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`, requestId);
+      const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);
+      const parentContractLongZeroAddress = `0x${parentContractId.toSolidityAddress()}`;
+
       const tx = await accounts[0].wallet.sendTransaction({
         to: parentContractLongZeroAddress,
         value: ethers.parseEther('1'),
