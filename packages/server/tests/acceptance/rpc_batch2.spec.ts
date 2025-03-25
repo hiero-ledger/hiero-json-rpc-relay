@@ -601,7 +601,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should execute "net_listening"', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.NET_LISTENING, [], requestId);
-      expect(res).to.be.equal('false');
+      expect(res).to.be.equal(true);
     });
 
     it('should execute "net_version"', async function () {

@@ -306,7 +306,7 @@ describe('RPC Server', function () {
     });
 
     BaseTest.defaultResponseChecks(res);
-    expect(res.data.result).to.be.equal('false');
+    expect(res.data.result).to.be.equal(true);
   });
 
   it('should execute "web3_sha"', async function () {

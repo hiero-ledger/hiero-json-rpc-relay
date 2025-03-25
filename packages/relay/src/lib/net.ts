@@ -15,7 +15,7 @@ export class NetImpl implements Net {
    * We always return true for this.
    */
   listening(): boolean {
-    return false;
+    return true;
   }
 
   /**

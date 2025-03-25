@@ -15,7 +15,7 @@ describe('Net', async function () {
   it('should execute "net_listening"', function () {
     relay = new Relay(logger, new Registry());
     const result = relay.net().listening();
-    expect(result).to.eq(false);
+    expect(result).to.eq(true);
   });
 
   it('should execute "net_version"', function () {
