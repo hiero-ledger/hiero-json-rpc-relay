@@ -359,7 +359,7 @@ export class MirrorNodeClient {
       const ms = Date.now() - start;
       const effectiveStatusCode =
         error.response?.status ||
-        MirrorNodeClientError.ErrorCodes[error.code] ||
+        MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode;
       this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);
 
@@ -1503,7 +1503,10 @@ export class MirrorNodeClient {
 
     if (!transactionRecords) {
       const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}.`;
-      throw new MirrorNodeClientError({ message: notFoundMessage }, MirrorNodeClientError.statusCodes.NOT_FOUND);
+      throw new MirrorNodeClientError(
+        { message: notFoundMessage },
+        MirrorNodeClientError.HttpStatusResponses.NOT_FOUND.statusCode,
+      );
     }
 
     const transactionRecord: IMirrorNodeTransactionRecord = transactionRecords.transactions.find(
