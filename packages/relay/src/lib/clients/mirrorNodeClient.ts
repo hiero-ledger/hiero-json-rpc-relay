@@ -9,7 +9,7 @@ import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
-import { Histogram, Registry } from 'prom-client';
+import { Counter, Histogram, Registry } from 'prom-client';
 
 import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
@@ -128,6 +128,12 @@ export class MirrorNodeClient {
    * @private
    */
   private readonly mirrorResponseHistogram: Histogram;
+
+  /**
+   * The counter used for tracking error codes returned by the mirror node.
+   * @private
+   */
+  private readonly mirrorErrorCodeCounter: Counter;
 
   /**
    * The cache service used for caching responses.
@@ -266,6 +272,15 @@ export class MirrorNodeClient {
       buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000], // ms (milliseconds)
     });
 
+    // Initialize the error counter
+    this.register.removeSingleMetric('rpc_relay_mirror_node_http_error_code_count');
+    this.mirrorErrorCodeCounter = new Counter({
+      name: 'rpc_relay_mirror_node_http_error_code_count',
+      help: 'Count of errors returned from Mirror Node by HTTP status code and error type',
+      labelNames: ['method', 'statusCode'],
+      registers: [register],
+    });
+
     this.logger.info(
       `Mirror Node client successfully configured to REST url: ${this.restUrl} and Web3 url: ${this.web3Url} `,
     );
@@ -357,11 +372,15 @@ export class MirrorNodeClient {
       return response.data;
     } catch (error: any) {
       const ms = Date.now() - start;
+
+      // Calculate effective status code
       const effectiveStatusCode =
         error.response?.status ||
         MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode;
+      // Record metrics
       this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);
+      this.mirrorErrorCodeCounter.labels(pathLabel, effectiveStatusCode.toString()).inc();
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
