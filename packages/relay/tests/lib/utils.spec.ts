@@ -12,7 +12,7 @@ import constants from '../../src/lib/constants';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
-describe.only('Utils', () => {
+describe('Utils', () => {
   describe('addPercentageBufferToGasPrice', () => {
     const TW_COEF = constants.TINYBAR_TO_WEIBAR_COEF;
     const TEST_CASES = [
