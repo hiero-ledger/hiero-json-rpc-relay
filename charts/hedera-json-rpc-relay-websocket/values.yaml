@@ -20,7 +20,7 @@ config:
   MIRROR_NODE_RETRY_DELAY: 250
   MIRROR_NODE_LIMIT_PARAM: 100
   MIRROR_NODE_URL: ''
-  SUBSCRIPTIONS_ENABLED: true  # must be true for websocket
+  SUBSCRIPTIONS_ENABLED: true # must be true for websocket
   WEB_SOCKET_PORT: 8546
   WEB_SOCKET_HTTP_PORT: 8547
   WS_CONNECTION_LIMIT_PER_IP: 10
@@ -34,6 +34,13 @@ config:
   REDIS_RECONNECT_DELAY_MS: 1000
   MULTI_SET: true
   USE_ASYNC_TX_PROCESSING: true
+
+# Redis integration - these settings override any manually configured Redis settings
+# when Redis is enabled via the parent chart
+redis:
+  # When true, automatically sets REDIS_ENABLED=true and
+  # REDIS_URL=redis://<release-name>-redis-master:6379
+  autoconfig: true
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []
 # - secretRef:
@@ -90,7 +97,7 @@ podSecurityContext:
 ports:
   - name: websocket
     containerPort: 8546
-  - name: metrics  # port for http endpoints (metrics and health)
+  - name: metrics # port for http endpoints (metrics and health)
     containerPort: 8547
 
 replicaCount: 2

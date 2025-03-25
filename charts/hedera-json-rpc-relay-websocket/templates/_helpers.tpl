@@ -71,3 +71,22 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Update Redis configuration based on parent chart Redis status
+*/}}
+{{- define "json-rpc-relay-ws.redis-config" -}}
+{{- $redisEnabled := false -}}
+{{- $redisUrl := "" -}}
+
+{{/* Check if Redis is enabled in parent chart */}}
+{{- if and .Values.redis.autoconfig ((.Values.global).redis).enabled -}}
+  {{- $redisEnabled = true -}}
+  {{- $redisUrl = printf "redis://%s-redis-master:6379" .Release.Name -}}
+{{- end -}}
+
+{{- if $redisEnabled -}}
+REDIS_ENABLED: "true"
+REDIS_URL: {{ $redisUrl | quote }}
+{{- end -}}
+{{- end -}}
