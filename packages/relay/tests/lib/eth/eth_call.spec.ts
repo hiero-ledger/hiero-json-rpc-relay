@@ -9,6 +9,7 @@ import sinon from 'sinon';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
+import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
@@ -584,7 +585,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it('eth_call with all fields but mirrorNode throws 429', async function () {
+    it('eth_call with all fields but mirrorNode throws 429 hence rejected with MirrorNodeClientError', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -593,9 +594,14 @@ describe('@ethCall Eth Call spec', async function () {
         gas: MAX_GAS_LIMIT,
       };
       await mockContractCall({ ...callData, block: 'latest' }, false, 429, mockData.tooManyRequests, requestDetails);
-      const result = await ethImpl.call(callData, 'latest', requestDetails);
-      expect(result).to.be.not.null;
-      expect((result as JsonRpcError).code).to.eq(-32605);
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.statusCode).to.equal(429);
+          expect(error.message).to.equal('Too Many Requests');
+          expect(error.isRateLimit()).to.be.true;
+          return true;
+        });
     });
 
     it('eth_call with all fields but mirrorNode throws 400', async function () {
@@ -976,6 +982,7 @@ describe('@ethCall Eth Call spec', async function () {
     });
 
     it('eth_call with non-matched selector redirects to consensus', async function () {
+      web3Mock.onPost('contracts/call').reply(200);
       await ethImpl.call(
         {
           to: ACCOUNT_ADDRESS_1,

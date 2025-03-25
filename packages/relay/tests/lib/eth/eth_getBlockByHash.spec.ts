@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
-import { predefined } from '../../../src';
+import { MirrorNodeClientError, predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
@@ -113,9 +113,12 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
 
   it('eth_getBlockByHash with match and duplicated transactions', async function () {
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({
-      results: [...defaultContractResults.results, ...defaultContractResults.results],
-    }));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+      200,
+      JSON.stringify({
+        results: [...defaultContractResults.results, ...defaultContractResults.results],
+      }),
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 
@@ -132,10 +135,13 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
 
   it('eth_getBlockByHash with match and valid logsBloom field', async function () {
     // mirror node request mocks
-    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify({
-      ...DEFAULT_BLOCK,
-      logs_bloom: blockLogsBloom,
-    }));
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(
+      200,
+      JSON.stringify({
+        ...DEFAULT_BLOCK,
+        logs_bloom: blockLogsBloom,
+      }),
+    );
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
@@ -288,11 +294,15 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
       )
       .abortRequest();
-    await RelayAssertions.assertRejection(predefined.INTERNAL_ERROR(), ethImpl.getBlockByHash, false, ethImpl, [
-      BLOCK_HASH,
-      false,
-      requestDetails,
-    ]);
+
+    await expect(ethImpl.getBlockByHash(BLOCK_HASH, true, requestDetails))
+      .to.be.rejectedWith(MirrorNodeClientError)
+      .and.eventually.satisfy((error: MirrorNodeClientError) => {
+        expect(error.statusCode).to.equal(504);
+        expect(error.message).to.equal('Request aborted');
+        expect(error.isTimeout()).to.be.true;
+        return true;
+      });
   });
 
   it('eth_getBlockByHash with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
@@ -322,13 +332,16 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     it(`eth_getBlockByHash should skip wrong nonce transactions when showDetails = ${showDetails}`, async () => {
       // mirror node request mocks
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
-      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({
-        results: [
-          ...defaultContractResults.results,
-          { ...defaultContractResults.results[1], result: 'WRONG_NONCE' },
-          { ...defaultContractResults.results[1], error_message: prepend0x(ASCIIToHex('WRONG_NONCE')) },
-        ],
-      }));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+        200,
+        JSON.stringify({
+          results: [
+            ...defaultContractResults.results,
+            { ...defaultContractResults.results[1], result: 'WRONG_NONCE' },
+            { ...defaultContractResults.results[1], error_message: prepend0x(ASCIIToHex('WRONG_NONCE')) },
+          ],
+        }),
+      );
       restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 
       const result = await ethImpl.getBlockByHash(BLOCK_HASH, showDetails, requestDetails);

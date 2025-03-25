@@ -324,11 +324,8 @@ export class CommonService implements ICommonService {
       this.logger.error(error);
     }
 
-    if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      throw predefined.REQUEST_TIMEOUT;
-    }
-
-    if (error instanceof JsonRpcError) {
+    // preserve the original error and throw to the upper layer
+    if (error instanceof JsonRpcError || error instanceof SDKClientError || error instanceof MirrorNodeClientError) {
       throw error;
     }
     throw predefined.INTERNAL_ERROR(error.message.toString());
