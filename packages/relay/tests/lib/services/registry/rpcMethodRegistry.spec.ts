@@ -6,7 +6,7 @@ import sinon from 'sinon';
 
 import { rpcMethod } from '../../../../src/lib/decorators';
 import { RpcMethodRegistryService } from '../../../../src/lib/services/registryService';
-import { RpcImplementation, RpcMethodRegistry } from '../../../../src/lib/types';
+import { RpcMethodRegistry, RpcNamespaceRegistry, RpcServiceImpl } from '../../../../src/lib/types';
 chai.use(chaiAsPromised);
 
 /**
@@ -84,7 +84,7 @@ describe('RpcMethodRegistryService', () => {
   let mockDebug: MockDebugImpl;
 
   // Test helpers
-  let implementations: RpcImplementation[];
+  let rpcNamespaceRegistry: RpcNamespaceRegistry[];
   let registry: RpcMethodRegistry;
 
   beforeEach(() => {
@@ -93,11 +93,17 @@ describe('RpcMethodRegistryService', () => {
     mockNet = new MockNetImpl();
     mockDebug = new MockDebugImpl();
 
-    // Cast our mock implementations to the RpcImplementation type
-    implementations = [
-      mockWeb3 as unknown as RpcImplementation,
-      mockNet as unknown as RpcImplementation,
-      mockDebug as unknown as RpcImplementation,
+    // Cast our mock rpcNamespaceRegistry to the RpcImplementation type
+    rpcNamespaceRegistry = [
+      {
+        namespace: 'web3',
+        serviceImpl: mockWeb3 as unknown as RpcServiceImpl,
+      },
+      {
+        namespace: 'net',
+        serviceImpl: mockNet as unknown as RpcServiceImpl,
+      },
+      { namespace: 'debug', serviceImpl: mockDebug as unknown as RpcServiceImpl },
     ];
   });
 
@@ -106,8 +112,8 @@ describe('RpcMethodRegistryService', () => {
   });
 
   describe('register', () => {
-    it('should register decorated methods from all implementations', () => {
-      registry = RpcMethodRegistryService.register(implementations);
+    it('should register decorated methods from all rpcNamespaceRegistry', () => {
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
 
       // Should have the correct number of methods
       expect(registry.size).to.equal(4);
@@ -120,32 +126,10 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should not register methods without the RPC_METHOD_KEY', () => {
-      registry = RpcMethodRegistryService.register(implementations);
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
 
       // Should not include non-decorated methods
       expect(registry.has('web3_nonRpcMethod')).to.be.false;
-    });
-
-    it('should use the namespace from getNamespace() method', () => {
-      // Override the getNamespace method to return custom namespaces
-      const namespaceStubs = {
-        web3: sinon.stub(mockWeb3, 'getNamespace').returns('custom_web3'),
-        net: sinon.stub(mockNet, 'getNamespace').returns('custom_net'),
-        debug: sinon.stub(mockDebug, 'getNamespace').returns('custom_debug'),
-      };
-
-      registry = RpcMethodRegistryService.register(implementations);
-
-      // Verify custom namespaces are used
-      expect(registry.has('custom_web3_clientVersion')).to.be.true;
-      expect(registry.has('custom_net_listening')).to.be.true;
-      expect(registry.has('custom_net_version')).to.be.true;
-      expect(registry.has('custom_debug_traceTransaction')).to.be.true;
-
-      // Verify stubs were called
-      Object.values(namespaceStubs).forEach((stub) => {
-        expect(stub.calledOnce).to.be.true;
-      });
     });
 
     it('should return an empty map when no implementations are provided', () => {
@@ -154,7 +138,7 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should correctly bind methods to their implementation instances', async () => {
-      registry = RpcMethodRegistryService.register(implementations);
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
 
       // Get the methods from the registry
       const methods = {
@@ -179,24 +163,8 @@ describe('RpcMethodRegistryService', () => {
       expect(traceResult).to.deep.equal({ transaction: '0x123' });
     });
 
-    it('should call getNamespace() on each implementation', () => {
-      // Create spies for getNamespace methods
-      const namespaceSpies = {
-        web3: sinon.spy(mockWeb3, 'getNamespace'),
-        net: sinon.spy(mockNet, 'getNamespace'),
-        debug: sinon.spy(mockDebug, 'getNamespace'),
-      };
-
-      registry = RpcMethodRegistryService.register(implementations);
-
-      // Verify getNamespace was called for each implementation
-      Object.values(namespaceSpies).forEach((spy) => {
-        expect(spy.calledOnce).to.be.true;
-      });
-    });
-
     it('should register multiple methods from the same implementation', () => {
-      registry = RpcMethodRegistryService.register([mockNet as unknown as RpcImplementation]);
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry.filter(({ namespace }) => namespace === 'net'));
 
       expect(registry.size).to.equal(2);
       expect(registry.has('net_listening')).to.be.true;
@@ -209,7 +177,12 @@ describe('RpcMethodRegistryService', () => {
       // Add a property using private access pattern
       (netWithState as any).chainId = '456';
 
-      registry = RpcMethodRegistryService.register([netWithState as unknown as RpcImplementation]);
+      registry = RpcMethodRegistryService.register([
+        {
+          namespace: 'net',
+          serviceImpl: netWithState as unknown as RpcServiceImpl,
+        },
+      ]);
 
       // The version method should access the instance property
       const versionMethod = registry.get('net_version');
@@ -217,7 +190,7 @@ describe('RpcMethodRegistryService', () => {
     });
 
     it('should preserve the original method name after binding', () => {
-      registry = RpcMethodRegistryService.register(implementations);
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
 
       // Get the methods from the registry
       const clientVersionMethod = registry.get('web3_clientVersion');
@@ -248,7 +221,7 @@ describe('RpcMethodRegistryService', () => {
       expect(boundMethod.name.includes('bound')).to.be.true;
 
       // Our registry should preserve the original name
-      registry = RpcMethodRegistryService.register(implementations);
+      registry = RpcMethodRegistryService.register(rpcNamespaceRegistry);
       const registeredMethod = registry.get('web3_clientVersion');
       expect(registeredMethod!.name).to.equal('clientVersion');
     });

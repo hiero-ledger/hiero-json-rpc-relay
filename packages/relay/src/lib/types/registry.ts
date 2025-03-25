@@ -8,7 +8,20 @@ import { Web3Impl } from '../web3';
 /**
  * Type for supported service implementations that contain RPC methods
  */
-export type RpcImplementation = EthImpl | NetImpl | Web3Impl | DebugImpl;
+export type RpcServiceImpl = EthImpl | NetImpl | Web3Impl | DebugImpl;
+
+/**
+ * Type for supported namespaces
+ */
+export type RpcNamespace = 'eth' | 'net' | 'web3' | 'debug';
+
+/**
+ * Type for the registry mapping of namespaces to their service implementations
+ */
+export type RpcNamespaceRegistry = {
+  namespace: RpcNamespace;
+  serviceImpl: RpcServiceImpl;
+};
 
 /**
  * Represents a method handler function registered for remote invocation

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { RPC_METHOD_KEY, RPC_PARAM_LAYOUT_KEY, RPC_PARAM_VALIDATION_RULES_KEY } from '../../decorators';
-import { RpcImplementation, RpcMethodRegistry } from '../../types';
+import { RpcMethodRegistry, RpcNamespaceRegistry } from '../../types';
 
 /**
  * This class maintains a registry of methods that have been marked as
@@ -15,24 +15,21 @@ export class RpcMethodRegistryService {
    * @rpcMethod and registers them in a map using the convention namespace_operationName
    * (e.g., eth_blockNumber). The namespace is derived from the implementation class name.
    *
-   * @param {RpcImplementation[]} implementations - Array of implementation instances containing RPC methods to register
+   * @param {RpcNamespaceRegistry[]} rpcNamespaceRegistry - Array of namespace registry objects containing the namespace and service implementation
    * @returns {RpcMethodRegistry} A map of RPC method names to their bound function implementations
    */
-  public static register(implementations: RpcImplementation[]): RpcMethodRegistry {
+  public static register(rpcNamespaceRegistry: RpcNamespaceRegistry[]): RpcMethodRegistry {
     const registry: RpcMethodRegistry = new Map();
 
-    implementations.forEach((implementationInstance) => {
-      // Get the namespace from the implementation instance
-      const namespace = implementationInstance.getNamespace();
-
+    rpcNamespaceRegistry.forEach(({ namespace, serviceImpl }) => {
       // Get the prototype to access the methods defined on the class
-      const prototype = Object.getPrototypeOf(implementationInstance);
+      const prototype = Object.getPrototypeOf(serviceImpl);
 
       // Find all method names on the prototype, excluding constructor
       Object.getOwnPropertyNames(prototype)
         .filter((operationName) => operationName !== 'constructor' && typeof prototype[operationName] === 'function')
         .forEach((operationName) => {
-          const operationFunction = implementationInstance[operationName];
+          const operationFunction = serviceImpl[operationName];
 
           // Only register methods that have been decorated with @rpcMethod (i.e. RPC_METHOD_KEY is true)
           if (operationFunction && operationFunction[RPC_METHOD_KEY] === true) {
@@ -40,7 +37,7 @@ export class RpcMethodRegistryService {
             const rpcMethodName = `${namespace}_${operationName}`;
 
             // Bind the method to the implementation instance to preserve the 'this' context
-            const boundMethod = operationFunction.bind(implementationInstance);
+            const boundMethod = operationFunction.bind(serviceImpl);
 
             // Preserve the original operation name by redefining the name property as after binding the name value is modified
             Object.defineProperty(boundMethod, 'name', {

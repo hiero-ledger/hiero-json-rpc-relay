@@ -26,7 +26,7 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { RpcMethodRegistryService } from './services/registryService';
 import { SubscriptionController } from './subscriptionController';
-import { RequestDetails, RpcImplementation, RpcMethodRegistry } from './types';
+import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
 import { Web3Impl } from './web3';
 
 export class Relay {
@@ -223,13 +223,14 @@ export class Relay {
 
     this.populatePreconfiguredSpendingPlans().then();
 
+    // Create a registry of all service implementations
+    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug'].map((namespace) => ({
+      namespace,
+      serviceImpl: this[namespace](),
+    }));
+
     // Registering RPC methods from the provided service implementations
-    this.rpcMethodRegistry = RpcMethodRegistryService.register([
-      this.debugImpl,
-      this.ethImpl,
-      this.netImpl,
-      this.web3Impl,
-    ] as RpcImplementation[]);
+    this.rpcMethodRegistry = RpcMethodRegistryService.register(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
 
     // Initialize the RPC method dispatcher
     this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
