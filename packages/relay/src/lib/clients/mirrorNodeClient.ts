@@ -95,8 +95,6 @@ export class MirrorNodeClient {
     DESC: 'desc',
   };
 
-  private static readonly unknownServerErrorHttpStatusCode = 567;
-
   // The following constants are used in requests objects
   private static readonly X_API_KEY = 'x-api-key';
   private static readonly FORWARD_SLASH = '/';
@@ -375,9 +373,8 @@ export class MirrorNodeClient {
 
       // Calculate effective status code
       const effectiveStatusCode =
-        error.response?.status ||
-        MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode ||
-        MirrorNodeClient.unknownServerErrorHttpStatusCode;
+        error.response?.status || MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode || 500; // Use standard 500 as fallback
+
       // Record metrics
       this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);
       this.mirrorErrorCodeCounter.labels(pathLabel, effectiveStatusCode.toString()).inc();
@@ -385,10 +382,9 @@ export class MirrorNodeClient {
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
 
-      this.handleError(error, path, pathLabel, effectiveStatusCode, method, requestDetails);
+      // either return null for accepted error codes or throw a MirrorNodeClientError
+      return this.handleError(error, path, pathLabel, effectiveStatusCode, method, requestDetails);
     }
-
-    return null;
   }
 
   async get<T = any>(
@@ -452,6 +448,7 @@ export class MirrorNodeClient {
       );
     }
 
+    // throw all errors that are not accepted
     throw mirrorError;
   }
 
