@@ -6,8 +6,6 @@ import { JsonRpcError, Net, predefined } from '../index';
 import { rpcMethod } from './decorators';
 
 export class NetImpl implements Net {
-  static namespace = 'net';
-
   private readonly chainId: string;
 
   constructor() {
@@ -49,14 +47,5 @@ export class NetImpl implements Net {
   @rpcMethod
   peerCount(): JsonRpcError {
     return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Returns the namespace identifier for this implementation.
-   *
-   * @returns {string} The namespace string for the Net implementation.
-   */
-  getNamespace(): string {
-    return NetImpl.namespace;
   }
 }

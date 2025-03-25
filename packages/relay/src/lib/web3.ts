@@ -8,8 +8,6 @@ import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { ParamType } from './types';
 
 export class Web3Impl implements Web3 {
-  static namespace = 'web3';
-
   constructor() {}
 
   /**
@@ -39,14 +37,5 @@ export class Web3Impl implements Web3 {
   })
   sha3(input: string): string {
     return keccak256(input);
-  }
-
-  /**
-   * Returns the namespace identifier for this implementation.
-   *
-   * @returns {string} The namespace string for the Web3 implementation.
-   */
-  getNamespace(): string {
-    return Web3Impl.namespace;
   }
 }

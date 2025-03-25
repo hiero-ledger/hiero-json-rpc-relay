@@ -52,9 +52,6 @@ import {
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 import { ParamType } from './types/validation';
 
-const _ = require('lodash');
-const asm = require('@ethersproject/asm');
-
 interface LatestBlockNumberTimestamp {
   blockNumber: string | null;
   timeStampTo: string;
@@ -70,7 +67,6 @@ interface LatestBlockNumberTimestamp {
  * of fake stuff in this class for now for the purpose of demos and POC.
  */
 export class EthImpl implements Eth {
-  static namespace = 'eth';
   static emptyHex = '0x';
   static zeroHex = '0x0';
   static oneHex = '0x1';

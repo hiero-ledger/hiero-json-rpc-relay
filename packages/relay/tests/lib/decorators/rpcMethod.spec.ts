@@ -62,18 +62,11 @@ describe('rpcMethod decorator integration', () => {
       expect(peerCountMethod[RPC_METHOD_KEY]).to.equal(true);
     });
 
-    it('should not decorate getNamespace method', () => {
-      const getNamespaceMethod = netImpl.getNamespace;
-
-      expect(getNamespaceMethod[RPC_METHOD_KEY]).to.be.undefined;
-    });
-
     it('should keep methods functional after decoration', () => {
       // Verify methods still work as expected
       expect(netImpl.version()).to.equal('291'); // Decimal representation of 0x123
       expect(netImpl.listening()).to.equal(false);
       expect(netImpl.peerCount()).to.have.property('code');
-      expect(netImpl.getNamespace()).to.equal('net');
     });
   });
 
