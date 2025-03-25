@@ -20,7 +20,7 @@ config:
   MIRROR_NODE_RETRY_DELAY: 250
   MIRROR_NODE_LIMIT_PARAM: 100
   MIRROR_NODE_URL: ''
-  SUBSCRIPTIONS_ENABLED: true # must be true for websocket
+  SUBSCRIPTIONS_ENABLED: true  # must be true for websocket
   WEB_SOCKET_PORT: 8546
   WEB_SOCKET_HTTP_PORT: 8547
   WS_CONNECTION_LIMIT_PER_IP: 10
@@ -90,7 +90,7 @@ podSecurityContext:
 ports:
   - name: websocket
     containerPort: 8546
-  - name: metrics # port for http endpoints (metrics and health)
+  - name: metrics  # port for http endpoints (metrics and health)
     containerPort: 8547
 
 replicaCount: 2
