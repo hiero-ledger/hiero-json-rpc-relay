@@ -10,8 +10,8 @@ import { RequestDetails } from '../../src/lib/types';
 const logger = pino({ level: 'silent' });
 let relay;
 
-const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
-describe('Hedera', async function () {
+const requestDetails = new RequestDetails({ requestId: 'admin', ipAddress: '0.0.0.0' });
+describe('Admin', async function () {
   it('should execute admin.config', async () => {
     relay = new Relay(logger, new Registry());
     const res = await relay.admin().config(requestDetails);

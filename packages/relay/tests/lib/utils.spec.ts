@@ -12,7 +12,7 @@ import constants from '../../src/lib/constants';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
-describe('Utils', () => {
+describe.only('Utils', () => {
   describe('addPercentageBufferToGasPrice', () => {
     const TW_COEF = constants.TINYBAR_TO_WEIBAR_COEF;
     const TEST_CASES = [
@@ -183,5 +183,24 @@ describe('Utils', () => {
         });
       },
     );
+  });
+
+  describe('getNetworkNameByChainId', () => {
+    for (const [chainId, networkName] of Object.entries({
+      '0x127': 'mainnet',
+      '0x128': 'testnet',
+      '0x129': 'previewnet',
+      '0x12a': 'local'
+    })) {
+      withOverriddenEnvsInMochaTest({
+          CHAIN_ID: chainId
+        }, () => {
+          it(`should return ${networkName} for chain id ${chainId}`, () => {
+            const networkName = Utils.getNetworkNameByChainId();
+            expect(networkName).to.equal(networkName);
+          });
+        }
+      );
+    }
   });
 });
