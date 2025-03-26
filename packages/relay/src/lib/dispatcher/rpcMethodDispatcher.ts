@@ -53,7 +53,7 @@ export class RpcMethodDispatcher {
   ): Promise<any | JsonRpcError> {
     try {
       /////////////////////////////// Pre-execution Phase ///////////////////////////////
-      const operationHandler = this.validateRpcMethod(rpcMethodName, rpcMethodParams, requestDetails);
+      const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams, requestDetails);
 
       /////////////////////////////// Execution Phase ///////////////////////////////
       return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
@@ -64,7 +64,7 @@ export class RpcMethodDispatcher {
   }
 
   /**
-   * Validates that the requested RPC method exists and its parameters are valid
+   * Prechecks that the requested RPC method exists and its parameters are valid
    *
    * This method performs two key validation steps:
    * 1. Checks if the method exists in the registry
@@ -76,7 +76,7 @@ export class RpcMethodDispatcher {
    * @returns The operation handler for the requested method
    * @throws {JsonRpcError} If the method doesn't exist or parameters are invalid
    */
-  private validateRpcMethod(
+  private precheckRpcMethod(
     rpcMethodName: string,
     rpcMethodParams: any[],
     requestDetails: RequestDetails,

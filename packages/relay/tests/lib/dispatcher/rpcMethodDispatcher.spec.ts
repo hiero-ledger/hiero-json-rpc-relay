@@ -71,7 +71,7 @@ describe('RpcMethodDispatcher', () => {
   describe('dispatch()', () => {
     it('should execute the complete dispatch flow and return result', async () => {
       // Spy on private methods to verify they are called
-      const validateSpy = sinon.spy(dispatcher as any, 'validateRpcMethod');
+      const validateSpy = sinon.spy(dispatcher as any, 'precheckRpcMethod');
       const processSpy = sinon.spy(dispatcher as any, 'processRpcMethod');
 
       const result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
@@ -90,7 +90,7 @@ describe('RpcMethodDispatcher', () => {
     it('should handle and format errors from any phase of dispatch', async () => {
       // Make validation throw an error
       const testError = new JsonRpcError({ code: -32000, message: 'Validation error' });
-      sinon.stub(dispatcher as any, 'validateRpcMethod').throws(testError);
+      sinon.stub(dispatcher as any, 'precheckRpcMethod').throws(testError);
 
       // Spy on error handler to verify it's called
       const errorHandlerSpy = sinon.spy(dispatcher as any, 'handleRpcMethodError');
@@ -108,9 +108,9 @@ describe('RpcMethodDispatcher', () => {
     });
   });
 
-  describe('validateRpcMethod()', () => {
+  describe('precheckRpcMethod()', () => {
     it('should return the operation handler when method is registered', () => {
-      const result = (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      const result = (dispatcher as any).precheckRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
       expect(result).to.equal(operationHandler);
     });
@@ -120,7 +120,7 @@ describe('RpcMethodDispatcher', () => {
       const validationRules = { 0: { type: 'string', required: true } };
       operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
-      (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      (dispatcher as any).precheckRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
       expect(validateParamsStub.calledOnce).to.be.true;
       expect(validateParamsStub.calledWith(TEST_PARAMS, validationRules)).to.be.true;
@@ -130,7 +130,7 @@ describe('RpcMethodDispatcher', () => {
       // Ensure there's no validation schema
       delete operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
 
-      (dispatcher as any).validateRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
+      (dispatcher as any).precheckRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
       expect(validateParamsStub.called).to.be.false;
     });
@@ -140,7 +140,7 @@ describe('RpcMethodDispatcher', () => {
       const throwUnregisteredSpy = sinon.spy(dispatcher as any, 'throwUnregisteredRpcMethods');
 
       try {
-        (dispatcher as any).validateRpcMethod('unknown_method', TEST_PARAMS, TEST_REQUEST_DETAILS);
+        (dispatcher as any).precheckRpcMethod('unknown_method', TEST_PARAMS, TEST_REQUEST_DETAILS);
         expect.fail('Should have thrown an error');
       } catch (error) {
         expect(throwUnregisteredSpy.calledOnce).to.be.true;
