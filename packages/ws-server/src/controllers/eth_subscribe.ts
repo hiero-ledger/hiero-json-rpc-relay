@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
-import { validateSubscribeEthLogsParams } from '../utils/validators';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { ISharedParams } from './index';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
+import { SubscriptionController } from '../service/subscriptionController';
+import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
+import { validateSubscribeEthLogsParams } from '../utils/validators';
+import { ISharedParams } from './index';
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
  * @param {any} filters - The filters object specifying criteria for the subscription.
@@ -27,12 +28,12 @@ const subscribeToNewHeads = (
   filters: any,
   ctx: Context,
   event: string,
-  relay: Relay,
   logger: Logger,
+  subscriptionController: SubscriptionController,
 ): string | undefined => {
-  const subscriptionId = relay.subs()?.subscribe(ctx.websocket, event, filters);
-  logger.info(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
-  return subscriptionId;
+  const id = subscriptionController?.subscribe(ctx.websocket, event, filters);
+  logger.info(`Subscribed to newHeads, subscriptionId: ${id}`);
+  return id;
 };
 
 /**
@@ -55,6 +56,7 @@ const handleEthSubscribeNewHeads = (
   relay: Relay,
   logger: Logger,
   requestDetails: RequestDetails,
+  subscriptionController: SubscriptionController,
 ): IJsonRpcResponse => {
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
@@ -65,7 +67,7 @@ const handleEthSubscribeNewHeads = (
     throw predefined.UNSUPPORTED_METHOD;
   }
 
-  const subscriptionId = subscribeToNewHeads(filters, ctx, event, relay, logger);
+  const subscriptionId = subscribeToNewHeads(filters, ctx, event, logger, subscriptionController);
   return jsonResp(request.id, null, subscriptionId);
 };
 
@@ -90,6 +92,7 @@ const handleEthSubscribeLogs = async (
   relay: Relay,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
+  subscriptionController: SubscriptionController,
 ): Promise<IJsonRpcResponse> => {
   const validFiltersObject = constructValidLogSubscriptionFilter(filters);
 
@@ -101,8 +104,7 @@ const handleEthSubscribeLogs = async (
   ) {
     throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
   }
-
-  const subscriptionId = relay.subs()?.subscribe(ctx.websocket, event, validFiltersObject);
+  const subscriptionId = subscriptionController?.subscribe(ctx.websocket, event, validFiltersObject);
   return jsonResp(request.id, null, subscriptionId);
 };
 
@@ -122,13 +124,14 @@ const handleEthSubscribeLogs = async (
  */
 export const handleEthSubscribe = async ({
   ctx,
-  params,
-  request,
-  relay,
-  mirrorNodeClient,
   limiter,
   logger,
+  mirrorNodeClient,
+  params,
+  relay,
+  request,
   requestDetails,
+  subscriptionController,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
   const event = params[0];
   const filters = params[1];
@@ -136,11 +139,29 @@ export const handleEthSubscribe = async ({
 
   switch (event) {
     case constants.SUBSCRIBE_EVENTS.LOGS:
-      response = await handleEthSubscribeLogs(filters, request, ctx, event, relay, mirrorNodeClient, requestDetails);
+      response = await handleEthSubscribeLogs(
+        filters,
+        request,
+        ctx,
+        event,
+        relay,
+        mirrorNodeClient,
+        requestDetails,
+        subscriptionController,
+      );
       break;
 
     case constants.SUBSCRIBE_EVENTS.NEW_HEADS:
-      response = handleEthSubscribeNewHeads(filters, request, ctx, event, relay, logger, requestDetails);
+      response = handleEthSubscribeNewHeads(
+        filters,
+        request,
+        ctx,
+        event,
+        relay,
+        logger,
+        requestDetails,
+        subscriptionController,
+      );
       break;
 
     default:
@@ -150,22 +171,4 @@ export const handleEthSubscribe = async ({
   limiter.incrementSubs(ctx);
 
   return response;
-};
-
-/**
- * Handles unsubscription requests for on-chain events.
- * Unsubscribes the WebSocket from the specified subscription ID and returns the response.
- * @param {object} args - An object containing the function parameters as properties.
- * @param {Context} args.ctx - The context object containing information about the WebSocket connection.
- * @param {any[]} args.params - The parameters of the unsubscription request.
- * @param {IJsonRpcRequest} args.request - The request object received from the client.
- * @param {Relay} args.relay - The relay object used for managing WebSocket subscriptions.
- * @param {ConnectionLimiter} args.limiter - The limiter object used for rate limiting WebSocket connections.
- * @returns {IJsonRpcResponse} Returns the response to the unsubscription request.
- */
-export const handleEthUnsubscribe = ({ ctx, params, request, relay, limiter }: ISharedParams): IJsonRpcResponse => {
-  const subId = params[0];
-  const unsubbedCount = relay.subs()?.unsubscribe(ctx.websocket, subId);
-  limiter.decrementSubs(ctx, unsubbedCount);
-  return jsonResp(request.id, null, unsubbedCount !== 0);
 };

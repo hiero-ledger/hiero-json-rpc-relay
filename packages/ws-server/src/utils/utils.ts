@@ -9,6 +9,7 @@ import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { SubscriptionController } from '../service/subscriptionController';
 import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
@@ -26,13 +27,13 @@ const getRequestIdIsOptional = () => {
  */
 export const handleConnectionClose = async (
   ctx: any,
-  relay: Relay,
+  subscriptionController: SubscriptionController | undefined,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
   startTime: [number, number],
 ) => {
   // unsubcribe subscriptions
-  relay.subs()?.unsubscribe(ctx.websocket);
+  subscriptionController?.unsubscribe(ctx.websocket);
 
   // update limiter counters
   limiter.decrementCounters(ctx);

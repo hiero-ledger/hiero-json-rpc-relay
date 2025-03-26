@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Relay } from '@hashgraph/json-rpc-relay';
-import { SubscriptionController } from '@hashgraph/json-rpc-relay/dist/lib/subscriptionController';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { expect } from 'chai';
+import pino from 'pino';
+import { Registry } from 'prom-client';
 import { Counter, Histogram } from 'prom-client';
 import sinon from 'sinon';
 
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
+import { SubscriptionController } from '../../src/service/subscriptionController';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -19,6 +22,9 @@ import {
   sendToClient,
 } from '../../src/utils/utils';
 import { WsTestHelper } from '../helper';
+
+const registry = new Registry();
+const logger = pino({ level: 'silent' });
 
 describe('Utilities unit tests', async function () {
   describe('constructValidLogSubscriptionFilter tests', () => {
@@ -130,11 +136,12 @@ describe('Utilities unit tests', async function () {
     let wsMetricRegistryStub: sinon.SinonStubbedInstance<WsMetricRegistry>;
     let ctxStub: any;
     let startTime: [number, number];
+    let subscriptionController: SubscriptionController | undefined;
+    let unsubscribeSpy: sinon.SinonSpy;
 
     beforeEach(async () => {
-      relayStub = sinon.createStubInstance(Relay, {
-        subs: sinon.createStubInstance(SubscriptionController),
-      });
+      relayStub = sinon.createStubInstance(Relay);
+      relayStub.eth.returns(sinon.createStubInstance(EthImpl));
       limiterStub = sinon.createStubInstance(ConnectionLimiter);
       wsMetricRegistryStub = sinon.createStubInstance(WsMetricRegistry);
       wsMetricRegistryStub.getCounter.returns(sinon.createStubInstance(Counter));
@@ -155,12 +162,16 @@ describe('Utilities unit tests', async function () {
 
       startTime = process.hrtime();
 
-      await handleConnectionClose(ctxStub, relayStub, limiterStub, wsMetricRegistryStub, startTime);
+      subscriptionController = new SubscriptionController(relayStub, logger, registry);
+
+      expect(subscriptionController).to.not.be.undefined;
+      unsubscribeSpy = sinon.spy(subscriptionController, 'unsubscribe');
+
+      await handleConnectionClose(ctxStub, subscriptionController, limiterStub, wsMetricRegistryStub, startTime);
     });
 
     it('should unsubscribe subscriptions', async () => {
-      const unsubscribeSpy = relayStub.subs()?.unsubscribe as sinon.SinonSpy;
-      expect(unsubscribeSpy.calledWith(ctxStub.websocket)).to.be.true;
+      expect(unsubscribeSpy.calledOnceWith(ctxStub.websocket)).to.be.true;
     });
 
     it('should decrement the limiter counters', async () => {

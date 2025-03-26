@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import pino from 'pino';
-import { SubscriptionController } from '../../src/lib/subscriptionController';
-import { expect } from 'chai';
-import { Poller } from '../../src/lib/poller';
-import { EthImpl } from '../../src/lib/eth';
-import sinon from 'sinon';
-import { Registry } from 'prom-client';
+import { Relay } from '@hashgraph/json-rpc-relay';
+import { overrideEnvsInMochaDescribe } from '@hashgraph/json-rpc-relay/tests/helpers';
 import ConnectionLimiter from '@hashgraph/json-rpc-ws-server/src/metrics/connectionLimiter';
-import { overrideEnvsInMochaDescribe } from '../helpers';
+import { expect } from 'chai';
+import pino from 'pino';
+import { Registry } from 'prom-client';
+import sinon from 'sinon';
+
+import { SubscriptionController } from '../../src/service/subscriptionController';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
 const limiter = new ConnectionLimiter(logger, register);
-let ethImpl: EthImpl;
-let poller: Poller;
+let relay: Relay;
 
 class MockWsConnection {
   id: string;
@@ -34,14 +32,12 @@ describe('subscriptionController', async function () {
   this.timeout(20000);
   let subscriptionController: SubscriptionController;
   let sandbox;
-
   this.beforeAll(() => {
     // @ts-ignore
-    ethImpl = sinon.createStubInstance(EthImpl);
+    relay = sinon.createStubInstance(Relay);
     const registry = new Registry();
-    poller = new Poller(ethImpl, logger, registry);
 
-    subscriptionController = new SubscriptionController(poller, logger, registry);
+    subscriptionController = new SubscriptionController(relay, logger, registry);
   });
 
   this.beforeEach(() => {
@@ -79,7 +75,7 @@ describe('subscriptionController', async function () {
   it('when subscribing should return subId and poller should add(tag)', async function () {
     const connectionId = '1';
     const wsConnection = new MockWsConnection(connectionId);
-    const spy = sandbox.spy(poller, 'add');
+    const spy = sandbox.spy(subscriptionController.poller, 'add');
 
     const subId = subscriptionController.subscribe(wsConnection, 'logs');
 
@@ -249,8 +245,7 @@ describe('subscriptionController', async function () {
 
     before(() => {
       const registry = new Registry();
-      poller = new Poller(ethImpl, logger, registry);
-      subscriptionController = new SubscriptionController(poller, logger, registry);
+      subscriptionController = new SubscriptionController(relay, logger, registry);
     });
 
     it('Subscribing to the same event and filters should return different subscription id', async function () {
