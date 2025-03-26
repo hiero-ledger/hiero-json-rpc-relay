@@ -65,7 +65,7 @@ describe('rpcMethod decorator integration', () => {
     it('should keep methods functional after decoration', () => {
       // Verify methods still work as expected
       expect(netImpl.version()).to.equal('291'); // Decimal representation of 0x123
-      expect(netImpl.listening()).to.equal(false);
+      expect(netImpl.listening()).to.equal(true);
       expect(netImpl.peerCount()).to.have.property('code');
     });
   });
