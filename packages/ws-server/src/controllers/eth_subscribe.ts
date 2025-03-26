@@ -11,7 +11,7 @@ import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
-import { getSubscriptionController } from '../service/subscriptionsManager';
+import { SubscriptionController } from '../service/subscriptionController';
 import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
 import { ISharedParams } from './index';
@@ -24,9 +24,13 @@ import { ISharedParams } from './index';
  * @param {Logger} logger - The logger object used for logging subscription information.
  * @returns {string | undefined} Returns the subscription ID.
  */
-const subscribeToNewHeads = (filters: any, ctx: Context, event: string, logger: Logger): string | undefined => {
-  const subscriptionController = getSubscriptionController();
-
+const subscribeToNewHeads = (
+  filters: any,
+  ctx: Context,
+  event: string,
+  logger: Logger,
+  subscriptionController: SubscriptionController,
+): string | undefined => {
   const id = subscriptionController?.subscribe(ctx.websocket, event, filters);
   logger.info(`Subscribed to newHeads, subscriptionId: ${id}`);
   return id;
@@ -52,6 +56,7 @@ const handleEthSubscribeNewHeads = (
   relay: Relay,
   logger: Logger,
   requestDetails: RequestDetails,
+  subscriptionController: SubscriptionController,
 ): IJsonRpcResponse => {
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
@@ -62,7 +67,7 @@ const handleEthSubscribeNewHeads = (
     throw predefined.UNSUPPORTED_METHOD;
   }
 
-  const subscriptionId = subscribeToNewHeads(filters, ctx, event, logger);
+  const subscriptionId = subscribeToNewHeads(filters, ctx, event, logger, subscriptionController);
   return jsonResp(request.id, null, subscriptionId);
 };
 
@@ -87,6 +92,7 @@ const handleEthSubscribeLogs = async (
   relay: Relay,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
+  subscriptionController: SubscriptionController,
 ): Promise<IJsonRpcResponse> => {
   const validFiltersObject = constructValidLogSubscriptionFilter(filters);
 
@@ -98,7 +104,6 @@ const handleEthSubscribeLogs = async (
   ) {
     throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
   }
-  const subscriptionController = getSubscriptionController();
   const subscriptionId = subscriptionController?.subscribe(ctx.websocket, event, validFiltersObject);
   return jsonResp(request.id, null, subscriptionId);
 };
@@ -119,13 +124,14 @@ const handleEthSubscribeLogs = async (
  */
 export const handleEthSubscribe = async ({
   ctx,
-  params,
-  request,
-  relay,
-  mirrorNodeClient,
   limiter,
   logger,
+  mirrorNodeClient,
+  params,
+  relay,
+  request,
   requestDetails,
+  subscriptionController,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
   const event = params[0];
   const filters = params[1];
@@ -133,11 +139,29 @@ export const handleEthSubscribe = async ({
 
   switch (event) {
     case constants.SUBSCRIBE_EVENTS.LOGS:
-      response = await handleEthSubscribeLogs(filters, request, ctx, event, relay, mirrorNodeClient, requestDetails);
+      response = await handleEthSubscribeLogs(
+        filters,
+        request,
+        ctx,
+        event,
+        relay,
+        mirrorNodeClient,
+        requestDetails,
+        subscriptionController,
+      );
       break;
 
     case constants.SUBSCRIBE_EVENTS.NEW_HEADS:
-      response = handleEthSubscribeNewHeads(filters, request, ctx, event, relay, logger, requestDetails);
+      response = handleEthSubscribeNewHeads(
+        filters,
+        request,
+        ctx,
+        event,
+        relay,
+        logger,
+        requestDetails,
+        subscriptionController,
+      );
       break;
 
     default:

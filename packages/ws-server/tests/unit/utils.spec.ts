@@ -12,8 +12,6 @@ import sinon from 'sinon';
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
 import { SubscriptionController } from '../../src/service/subscriptionController';
-import { getSubscriptionController, initializeSubscriptionManager } from '../../src/service/subscriptionsManager';
-import { WS_CONSTANTS } from '../../src/utils/constants';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -163,8 +161,7 @@ describe('Utilities unit tests', async function () {
 
       startTime = process.hrtime();
 
-      initializeSubscriptionManager(relayStub, logger, registry);
-      subscriptionController = getSubscriptionController();
+      subscriptionController = new SubscriptionController(relayStub, logger, registry);
 
       expect(subscriptionController).to.not.be.undefined;
       unsubscribeSpy = sinon.spy(subscriptionController, 'unsubscribe');

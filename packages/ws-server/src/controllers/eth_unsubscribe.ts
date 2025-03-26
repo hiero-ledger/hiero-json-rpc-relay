@@ -2,7 +2,6 @@
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
-import { getSubscriptionController } from '../service/subscriptionsManager';
 import { ISharedParams } from '.';
 
 /**
@@ -16,10 +15,15 @@ import { ISharedParams } from '.';
  * @param {ConnectionLimiter} args.limiter - The limiter object used for rate limiting WebSocket connections.
  * @returns {IJsonRpcResponse} Returns the response to the unsubscription request.
  */
-export const handleEthUnsubscribe = ({ ctx, params, request, limiter }: ISharedParams): IJsonRpcResponse => {
-  const subscriptionsController = getSubscriptionController();
+export const handleEthUnsubscribe = ({
+  ctx,
+  params,
+  request,
+  limiter,
+  subscriptionController,
+}: ISharedParams): IJsonRpcResponse => {
   const subId = params[0];
-  const unsubbedCount = subscriptionsController?.unsubscribe(ctx.websocket, subId);
+  const unsubbedCount = subscriptionController?.unsubscribe(ctx.websocket, subId);
   limiter.decrementSubs(ctx, unsubbedCount);
   return jsonResp(request.id, null, unsubbedCount !== 0);
 };
