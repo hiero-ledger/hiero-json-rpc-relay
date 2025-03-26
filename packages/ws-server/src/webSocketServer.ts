@@ -16,7 +16,7 @@ import { v4 as uuid } from 'uuid';
 import { getRequestResult } from './controllers';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
-import { getSubscriptionController, initializeSubscriptionManager } from './service/subscriptionsManager';
+import { SubscriptionController } from './service/subscriptionController';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 const mainLogger = pino({
@@ -35,7 +35,7 @@ const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
 const relay = new Relay(logger, register);
 
-initializeSubscriptionManager(relay, logger, register);
+const subscriptionController = new SubscriptionController(relay, logger, register);
 
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
@@ -50,7 +50,6 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   // Record the start time when the connection is established
   const startTime = process.hrtime();
-  const subscriptionController = getSubscriptionController();
   ctx.websocket.id = subscriptionController?.generateId();
   ctx.websocket.requestId = uuid();
   ctx.websocket.limiter = limiter;
@@ -73,7 +72,6 @@ app.ws.use(async (ctx: Koa.Context) => {
     logger.info(
       `${requestDetails.formattedLogPrefix} Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`,
     );
-    const subscriptionController = getSubscriptionController();
     await handleConnectionClose(ctx, subscriptionController, limiter, wsMetricRegistry, startTime);
   });
 
@@ -144,7 +142,17 @@ app.ws.use(async (ctx: Koa.Context) => {
         if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
           return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
         }
-        return getRequestResult(ctx, relay, logger, item, limiter, mirrorNodeClient, wsMetricRegistry, requestDetails);
+        return getRequestResult(
+          ctx,
+          limiter,
+          logger,
+          mirrorNodeClient,
+          relay,
+          item,
+          requestDetails,
+          subscriptionController,
+          wsMetricRegistry,
+        );
       });
 
       // resolve all promises
@@ -160,13 +168,14 @@ app.ws.use(async (ctx: Koa.Context) => {
       // process requests
       const response = await getRequestResult(
         ctx,
-        relay,
-        logger,
-        request,
         limiter,
+        logger,
         mirrorNodeClient,
-        wsMetricRegistry,
+        relay,
+        request,
         requestDetails,
+        subscriptionController,
+        wsMetricRegistry,
       );
 
       // send to client

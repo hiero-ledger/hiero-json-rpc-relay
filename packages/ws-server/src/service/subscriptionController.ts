@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { generateRandomHex } from '@hashgraph/json-rpc-relay/dist/formatters';
+import { Relay } from '@hashgraph/json-rpc-relay/dist/lib/relay';
 import crypto from 'crypto';
 import LRU from 'lru-cache';
 import { Logger } from 'pino';
@@ -25,9 +26,9 @@ export class SubscriptionController {
   private activeSubscriptionHistogram: Histogram;
   private resultsSentToSubscribersCounter: Counter;
 
-  constructor(poller: Poller, logger: Logger, register: Registry) {
-    this.poller = poller;
-    this.logger = logger;
+  constructor(relay: Relay, logger: Logger, register: Registry) {
+    this.poller = new Poller(relay, logger.child({ name: 'poller' }), register);
+    this.logger = logger.child({ name: 'subscr-ctrl' });
     this.subscriptions = {};
 
     this.cache = new LRU({ max: ConfigService.get('CACHE_MAX'), ttl: CACHE_TTL });
@@ -119,6 +120,8 @@ export class SubscriptionController {
 
     let subCount = 0;
     for (const [tag, subs] of Object.entries(this.subscriptions)) {
+      this.logger.info(tag);
+      this.logger.info(subs);
       this.subscriptions[tag] = subs.filter((sub) => {
         const match = sub.connection.id === id && (!subId || subId === sub.subscriptionId);
         if (match) {
