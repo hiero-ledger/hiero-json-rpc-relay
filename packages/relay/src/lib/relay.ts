@@ -6,8 +6,9 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Admin, Net, Subs, Web3 } from '../index';
+import { Admin, Eth, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
+import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
 import constants from './constants';
@@ -17,14 +18,13 @@ import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimit
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
-import { AdminImpl } from './admin';
 import { NetImpl } from './net';
 import { Poller } from './poller';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
-import { registerRpcMethods } from './services/registryService';
+import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { SubscriptionController } from './subscriptionController';
 import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
 import { Web3Impl } from './web3';

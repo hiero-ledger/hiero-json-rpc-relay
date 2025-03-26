@@ -5,7 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { rpcMethod } from '../../../../src/lib/decorators';
-import { registerRpcMethods } from '../../../../src/lib/services/registryService';
+import { registerRpcMethods } from '../../../../src/lib/services/registryService/rpcMethodRegistryService';
 import { RpcMethodRegistry, RpcNamespaceRegistry, RpcServiceImpl } from '../../../../src/lib/types';
 chai.use(chaiAsPromised);
 
