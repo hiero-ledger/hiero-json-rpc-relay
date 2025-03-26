@@ -25,6 +25,7 @@ import { EthImpl } from '../../../eth';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
+import HapiService from '../../hapiService/hapiService';
 import { ICommonService } from './ICommonService';
 import { Utils } from '../../../../utils';
 import { Hbar } from '@hashgraph/sdk';
@@ -615,7 +616,7 @@ export class CommonService implements ICommonService {
       let gasPrice: number | undefined = await this.cacheService.getAsync(
         constants.CACHE_KEY.GAS_PRICE,
         EthImpl.ethGasPrice,
-        requestDetails
+        requestDetails,
       );
 
       if (!gasPrice) {

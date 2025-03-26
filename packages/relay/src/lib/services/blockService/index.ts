@@ -3,7 +3,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { nanOrNumberTo0x } from '../../../formatters';
+import { nanOrNumberTo0x, numberTo0x } from '../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
 import { Utils } from '../../../utils';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
@@ -19,19 +19,28 @@ import { TransactionFactory } from '../factories/transactionFactory';
 import { IBlockMirrorNode, IBlockService } from './IBlockService';
 
 export class BlockService implements IBlockService {
-  private readonly common: CommonService;
+  private readonly cacheService: CacheService;
 
-  private readonly mirrorNodeClient: MirrorNodeClient;
+  private readonly chain: string;
+
+  private readonly common: CommonService;
 
   private readonly logger: Logger;
 
-  private readonly cacheService: CacheService;
+  private readonly mirrorNodeClient: MirrorNodeClient;
 
   static ethGetBlockByHash = 'eth_GetBlockByHash';
 
-  constructor(mirrorNodeClient: MirrorNodeClient, common: CommonService, logger: Logger, cacheService: CacheService) {
-    this.mirrorNodeClient = mirrorNodeClient;
+  constructor(
+    cacheService: CacheService,
+    chain: string,
+    common: CommonService,
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+  ) {
     this.common = common;
+    this.chain = chain;
+    this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
   }
@@ -121,7 +130,6 @@ export class BlockService implements IBlockService {
     const logs = await this.common.getLogsWithParams(null, params, requestDetails);
 
     if (contractResults == null && logs.length == 0) {
-      // contract result not found
       return null;
     }
 
@@ -145,13 +153,18 @@ export class BlockService implements IBlockService {
         continue;
       }
       // make this promise.all ??
-      contractResult.from = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
-        constants.TYPE_ACCOUNT,
+      [contractResult.from, contractResult.to] = await Promise.all([
+        this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+        this.common.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
-      contractResult.to = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
 
+<<<<<<< HEAD
       //contractResult.chain_id = contractResult.chain_id //|| this.chain;
       txArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
+=======
+      contractResult.chain_id = contractResult.chain_id || this.chain;
+      txArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
+>>>>>>> 50100693 (moves block methods to block service)
     }
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
@@ -163,7 +176,8 @@ export class BlockService implements IBlockService {
       logs,
     );
 
-    const gasPrice = '0x0';
+    const gasPrice = await this.common.gasPrice(requestDetails);
+
     try {
       return await BlockFactory.createBlock({
         blockResponse,
@@ -177,6 +191,135 @@ export class BlockService implements IBlockService {
     }
   }
 
+  /**
+   * Gets the number of transaction in a block by its block hash.
+   *
+   * @param {string} hash The block hash
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    this.logger.trace(`${requestIdPrefix} getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_HASH}_${hash}`;
+    const cachedResponse = await this.cacheService.getAsync(
+      cacheKey,
+      EthImpl.ethGetTransactionCountByHash,
+      requestDetails,
+    );
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} getBlockTransactionCountByHash returned cached response: ${cachedResponse}`,
+        );
+      }
+      return cachedResponse;
+    }
+
+    const transactionCount = await this.mirrorNodeClient
+      .getBlock(hash, requestDetails)
+      .then((block) => this.getTransactionCountFromBlockResponse(block))
+      .catch((e: any) => {
+        throw this.common.genericErrorHandler(e, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
+      });
+
+    await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByHash, requestDetails);
+    return transactionCount;
+  }
+
+  /**
+   * Gets the number of transaction in a block by its block number.
+   * @param {string} blockNumOrTag Possible values are earliest/pending/latest or hex
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   */
+  async getBlockTransactionCountByNumber(
+    blockNumOrTag: string,
+    requestDetails: RequestDetails,
+  ): Promise<string | null> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${requestIdPrefix} getBlockTransactionCountByNumber(blockNum=${blockNumOrTag}, showDetails=%o)`,
+      );
+    }
+    const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_NUMBER}_${blockNum}`;
+    const cachedResponse = await this.cacheService.getAsync(
+      cacheKey,
+      EthImpl.ethGetTransactionCountByNumber,
+      requestDetails,
+    );
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} getBlockTransactionCountByNumber returned cached response: ${cachedResponse}`,
+        );
+      }
+      return cachedResponse;
+    }
+
+    const transactionCount = await this.mirrorNodeClient
+      .getBlock(blockNum, requestDetails)
+      .then((block) => this.getTransactionCountFromBlockResponse(block))
+      .catch((e: any) => {
+        throw this.common.genericErrorHandler(
+          e,
+          `${requestIdPrefix} Failed to retrieve block for blockNum ${blockNum}`,
+        );
+      });
+
+    await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByNumber, requestDetails);
+    return transactionCount;
+  }
+
+  /**
+   * Always returns null. There are no uncles in Hedera.
+   */
+  async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockHashAndIndex()`);
+    }
+    return null;
+  }
+
+  /**
+   * Always returns null. There are no uncles in Hedera.
+   */
+  async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockNumberAndIndex()`);
+    }
+    return null;
+  }
+
+  /**
+   * Always returns '0x0'. There are no uncles in Hedera.
+   */
+  async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockHash()`);
+    }
+    return EthImpl.zeroHex;
+  }
+
+  /**
+   * Always returns '0x0'. There are no uncles in Hedera.
+   */
+  async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockNumber()`);
+    }
+    return EthImpl.zeroHex;
+  }
+
+  /**
+   * Populates the synthetic transactions for the block.
+   * @param showDetails Whether to show transaction details
+   * @param logs[] The logs to populate the synthetic transactions from
+   * @param transactionsArray The array of transactions to populate
+   * @param requestDetails The request details for logging and tracking
+   */
   private populateSyntheticTransactions(
     showDetails: boolean,
     logs: Log[],
@@ -193,7 +336,7 @@ export class BlockService implements IBlockService {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
           blockNumber: log.blockNumber,
-          chainId: '0x12', //this.chain,
+          chainId: '0x12a', //this.chain,
           from: log.address,
           gas: EthImpl.defaultTxGas,
           gasPrice: EthImpl.invalidEVMInstruction,
@@ -226,5 +369,14 @@ export class BlockService implements IBlockService {
     }
 
     return transactionsArray;
+  }
+
+  private getTransactionCountFromBlockResponse(block: any): null | string {
+    if (block === null || block.count === undefined) {
+      // block not found
+      return null;
+    }
+
+    return numberTo0x(block.count);
   }
 }

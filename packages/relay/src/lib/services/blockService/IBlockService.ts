@@ -11,6 +11,12 @@ export interface IBlockService {
     requestDetails: RequestDetails,
   ) => Promise<Block | null>;
   getBlockByHash: (hash: string, showDetails: boolean, requestDetails: RequestDetails) => Promise<Block | null>;
+  getBlockTransactionCountByHash: (hash: string, requestDetails: RequestDetails) => Promise<string | null>;
+  getBlockTransactionCountByNumber: (blockNum: string, requestDetails: RequestDetails) => Promise<string | null>;
+  getUncleByBlockHashAndIndex: (requestDetails: RequestDetails) => Promise<null>;
+  getUncleByBlockNumberAndIndex: (requestDetails: RequestDetails) => Promise<null>;
+  getUncleCountByBlockHash: (requestDetails: RequestDetails) => Promise<string>;
+  getUncleCountByBlockNumber: (requestDetails: RequestDetails) => Promise<string>;
 }
 
 export interface IBlockMirrorNode {
