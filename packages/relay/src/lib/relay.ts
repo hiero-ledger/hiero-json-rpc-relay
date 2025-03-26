@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Eth, Net, Subs, Web3 } from '../index';
+import { Eth, Admin, Net, Subs, Web3 } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
@@ -16,6 +16,7 @@ import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSp
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
 import { EthImpl } from './eth';
+import { AdminImpl } from './admin';
 import { NetImpl } from './net';
 import { Poller } from './poller';
 import { CacheService } from './services/cacheService/cacheService';
@@ -54,6 +55,13 @@ export class Relay {
    * @property {Net} netImpl - The Net implementation used for handling network-related Ethereum JSON-RPC requests.
    */
   private readonly netImpl: Net;
+
+  /**
+   * @private
+   * @readonly
+   * @property {Admin} adminImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
+   */
+  private readonly adminImpl: Admin;
 
   /**
    * @private
@@ -180,6 +188,7 @@ export class Relay {
     );
 
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
+    this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
       logger.child({ name: 'hbar-spending-plan-config-service' }),
@@ -273,6 +282,10 @@ export class Relay {
 
   net(): Net {
     return this.netImpl;
+  }
+
+  admin(): Admin {
+    return this.adminImpl;
   }
 
   eth(): Eth {

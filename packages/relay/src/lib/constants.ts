@@ -5,6 +5,7 @@ import { BigNumber } from 'bignumber.js';
 
 enum CACHE_KEY {
   ACCOUNT = 'account',
+  ADMIN_CONFIG = 'ADMIN_CONFIG',
   ETH_BLOCK_NUMBER = 'eth_block_number',
   ETH_CALL = 'eth_call',
   ETH_GET_BALANCE = 'eth_get_balance',

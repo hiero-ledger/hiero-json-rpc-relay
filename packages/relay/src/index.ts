@@ -42,6 +42,10 @@ export interface Net {
   peerCount(): JsonRpcError;
 }
 
+export interface Admin {
+  config(requestDetails: RequestDetails): any;
+}
+
 export interface Eth {
   blockNumber(requestDetails: RequestDetails): Promise<string>;
 
