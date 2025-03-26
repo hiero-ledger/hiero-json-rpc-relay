@@ -84,6 +84,8 @@ abstract contract HTSConnector is OFTCore, KeyHelper, HederaTokenService {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        require(_amountLD <= uint64(type(int64).max), "HTSConnector: amount exceeds int64 safe range");
+
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
 
         int256 transferResponse = HederaTokenService.transferToken(htsTokenAddress, _from, address(this), int64(uint64(_amountLD)));
@@ -105,6 +107,8 @@ abstract contract HTSConnector is OFTCore, KeyHelper, HederaTokenService {
         uint256 _amountLD,
         uint32 /*_srcEid*/
     ) internal virtual override returns (uint256) {
+        require(_amountLD <= uint64(type(int64).max), "HTSConnector: amount exceeds int64 safe range");
+
         (int256 response, ,) = HederaTokenService.mintToken(htsTokenAddress, int64(uint64(_amountLD)), new bytes[](0));
         require(response == HederaTokenService.SUCCESS_CODE, "HTS: Mint failed");
 
