@@ -7,14 +7,12 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { Poller } from '../../src/service/poller';
 import { SubscriptionController } from '../../src/service/subscriptionController';
 
 const logger = pino({ level: 'trace' });
 const register = new Registry();
 const limiter = new ConnectionLimiter(logger, register);
 let relay: Relay;
-let poller: Poller;
 
 class MockWsConnection {
   id: string;
@@ -34,14 +32,12 @@ describe('subscriptionController', async function () {
   this.timeout(20000);
   let subscriptionController: SubscriptionController;
   let sandbox;
-
   this.beforeAll(() => {
     // @ts-ignore
     relay = sinon.createStubInstance(Relay);
     const registry = new Registry();
-    poller = new Poller(relay, logger, registry);
 
-    subscriptionController = new SubscriptionController(poller, logger, registry);
+    subscriptionController = new SubscriptionController(relay, logger, registry);
   });
 
   this.beforeEach(() => {
@@ -79,7 +75,7 @@ describe('subscriptionController', async function () {
   it('when subscribing should return subId and poller should add(tag)', async function () {
     const connectionId = '1';
     const wsConnection = new MockWsConnection(connectionId);
-    const spy = sandbox.spy(poller, 'add');
+    const spy = sandbox.spy(subscriptionController.poller, 'add');
 
     const subId = subscriptionController.subscribe(wsConnection, 'logs');
 
@@ -249,8 +245,7 @@ describe('subscriptionController', async function () {
 
     before(() => {
       const registry = new Registry();
-      poller = new Poller(relay, logger, registry);
-      subscriptionController = new SubscriptionController(poller, logger, registry);
+      subscriptionController = new SubscriptionController(relay, logger, registry);
     });
 
     it('Subscribing to the same event and filters should return different subscription id', async function () {
