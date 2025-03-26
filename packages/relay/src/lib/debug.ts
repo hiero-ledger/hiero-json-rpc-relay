@@ -12,6 +12,7 @@ import constants, { CallType, TracerType } from './constants';
 import { predefined } from './errors/JsonRpcError';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService } from './services/ethService/ethCommonService';
+import HapiService from './services/hapiService/hapiService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
 import HAPIService from './services/hapiService/hapiService';
 /**

@@ -25,6 +25,7 @@ import { EthImpl } from '../../../eth';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
+import HapiService from '../../hapiService/hapiService';
 import { ICommonService } from './ICommonService';
 import { Utils } from '../../../../utils';
 import { Hbar } from '@hashgraph/sdk';
@@ -65,6 +66,7 @@ export class CommonService implements ICommonService {
    */
   private readonly cacheService: CacheService;
 
+
   public static readonly blockLatest = 'latest';
   public static readonly blockEarliest = 'earliest';
   public static readonly blockPending = 'pending';
@@ -83,6 +85,11 @@ export class CommonService implements ICommonService {
   private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT'
+  );
+
+  private readonly ethGasPRiceCacheTtlMs = parseNumericEnvVar(
+    'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
+    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT',
   );
 
   // Maximum allowed timestamp range for mirror node requests' timestamp parameter is 7 days (604800 seconds)
@@ -596,7 +603,7 @@ export class CommonService implements ICommonService {
       let gasPrice: number | undefined = await this.cacheService.getAsync(
         constants.CACHE_KEY.GAS_PRICE,
         EthImpl.ethGasPrice,
-        requestDetails
+        requestDetails,
       );
 
       if (!gasPrice) {
