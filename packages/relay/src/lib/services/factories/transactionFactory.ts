@@ -5,7 +5,7 @@ import { Transaction, Transaction1559, Transaction2930 } from '../../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  static createTransactionByType(type: number, fields: any): Transaction | Transaction2930 | Transaction1559 {
+  static createTransactionByType(type: number, fields: any): Transaction | Transaction2930 | Transaction1559 | null {
     switch (type) {
       case 0:
         return new Transaction(fields); // eip 155 fields
@@ -27,8 +27,10 @@ export class TransactionFactory {
               ? '0x0'
               : prepend0x(trimPrecedingZeros(fields.maxFeePerGas)),
         }); // eip 1559 fields
-      default:
+      case null:
         return new Transaction(fields); //hapi
     }
+
+    return null;
   }
 }

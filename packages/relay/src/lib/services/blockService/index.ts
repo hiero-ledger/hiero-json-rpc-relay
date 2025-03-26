@@ -189,7 +189,7 @@ export class BlockService implements IBlockService {
         (log) => !transactionsArray.some((transaction) => transaction.hash === log.transactionHash),
       );
       filteredLogs.forEach((log) => {
-        const transaction: Transaction = TransactionFactory.createTransactionByType(2, {
+        const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
           blockNumber: log.blockNumber,

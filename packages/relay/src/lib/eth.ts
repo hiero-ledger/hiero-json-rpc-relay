@@ -44,6 +44,7 @@ import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionR
 import { IAccountInfo } from './types/mirrorNode';
 import { FeeService } from './services/feeService';
 import { IFeeService } from './services/feeService/IFeeService';
+import { ICommonService } from './services/ethService/ethCommonService/ICommonService';
 
 const _ = require('lodash');
 const asm = require('@ethersproject/asm');
@@ -263,6 +264,10 @@ export class EthImpl implements Eth {
       labelNames: labelNames,
       registers: [register],
     });
+  }
+
+  commonService(): ICommonService {
+    return this.common;
   }
 
   filterService(): IFilterService {
