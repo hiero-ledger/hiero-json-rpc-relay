@@ -232,7 +232,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     registry: Registry,
-    cacheService: CacheService
+    cacheService: CacheService,
   ) {
     this.chain = chain;
     this.logger = logger;
