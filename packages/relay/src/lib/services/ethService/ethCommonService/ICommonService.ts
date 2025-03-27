@@ -44,4 +44,10 @@ export interface ICommonService {
     topics: any[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]>;
+
+  getFeeWeibars(callerName: string, requestDetails: RequestDetails, timestamp?: string): Promise<number>;
+
+  gasPrice(requestDetails: RequestDetails): Promise<string>;
+
+  translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number>;
 }

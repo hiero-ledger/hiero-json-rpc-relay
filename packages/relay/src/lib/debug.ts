@@ -13,6 +13,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService } from './services/ethService/ethCommonService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
+import HAPIService from './services/hapiService/hapiService';
 /**
  * Represents a DebugService for tracing and debugging transactions.
  *
@@ -48,10 +49,11 @@ export class DebugImpl implements Debug {
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
    * @param {CacheService} cacheService - Service for managing cached data.
+   * @param {HAPIService} hapiService - Hapi service for making SDK calls.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, hapiService: HAPIService) {
     this.logger = logger;
-    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.mirrorNodeClient = mirrorNodeClient;
   }
 
