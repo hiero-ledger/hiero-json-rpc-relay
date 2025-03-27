@@ -37,14 +37,11 @@ import { Precheck } from './precheck';
 import { BlockService } from './services/blockService';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
+import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
-import {
-  IGetLogsParams,
-  INewFilterParams,
-} from './types';
+import { IGetLogsParams, INewFilterParams } from './types';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
-import { FeeService } from './services/feeService';
 const _ = require('lodash');
 
 interface LatestBlockNumberTimestamp {
@@ -141,8 +138,7 @@ export class EthImpl implements Eth {
     'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT',
   );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
-  private readonly contractCallGasLimit = parseNumericEnvVar('CONTRACT_CALL_GAS_LIMIT', 'CONTRACT_CALL_GAS_LIMIT');
-  private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
+
   private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
     'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
     'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
