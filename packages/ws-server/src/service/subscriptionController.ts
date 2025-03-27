@@ -28,7 +28,7 @@ export class SubscriptionController {
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
     this.poller = new Poller(relay, logger.child({ name: 'poller' }), register);
-    this.logger = logger.child({ name: 'subscr-ctrl' });
+    this.logger = logger;
     this.subscriptions = {};
 
     this.cache = new LRU({ max: ConfigService.get('CACHE_MAX'), ttl: CACHE_TTL });
