@@ -8,32 +8,70 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# For reference see .env.ws.example
 config:
-  # This value should be in decimal, not hexadecimal format. Defaulted to testnet
+  # ========== REQUIRED CONFIGURATION ==========
+  # Network Configuration
   CHAIN_ID: ''
-  DEV_MODE: false
-
-  # Valid options are `previewnet`, `testnet`, and `mainnet` for remote options. For local use {'127.0.01:50211':'0.0.3'}. For IPs use {'$IPv4_ADDR_1:$PORT_1':'$ACCOUNT_ID_1'} form
   HEDERA_NETWORK: ''
-  LOG_LEVEL: ''
-  MIRROR_NODE_RETRIES: 3
-  MIRROR_NODE_RETRY_DELAY: 250
-  MIRROR_NODE_LIMIT_PARAM: 100
   MIRROR_NODE_URL: ''
-  SUBSCRIPTIONS_ENABLED: true  # must be true for websocket
-  WEB_SOCKET_PORT: 8546
-  WEB_SOCKET_HTTP_PORT: 8547
-  WS_CONNECTION_LIMIT_PER_IP: 10
-  WS_CONNECTION_LIMIT: 100
-  WS_MAX_INACTIVITY_TTL: 300000
-  WS_MULTIPLE_ADDRESSES_ENABLED: false
-  WS_SUBSCRIPTION_LIMIT: 100
-  WS_PING_INTERVAL: 1000
+
+  # Operator Account (Required for transaction execution)
+  # OPERATOR_ID_MAIN:
+  # OPERATOR_KEY_MAIN:
+  # OPERATOR_KEY_FORMAT:
+
+  # WebSocket Configuration
+  SUBSCRIPTIONS_ENABLED: true
+
+  # ========== WEBSOCKET SERVER SETTINGS ==========
+  # WEB_SOCKET_PORT:
+  # WEB_SOCKET_HTTP_PORT:
+  # WS_CONNECTION_LIMIT:
+  # WS_CONNECTION_LIMIT_PER_IP:
+  # WS_MAX_INACTIVITY_TTL:
+  # WS_PING_INTERVAL:
+
+  # ========== SUBSCRIPTION CONFIGURATION ==========
+  # WS_SUBSCRIPTION_LIMIT:
+  # WS_MULTIPLE_ADDRESSES_ENABLED:
+  # WS_NEW_HEADS_ENABLED:
+  # WS_SAME_SUB_FOR_SAME_EVENT:
+  # WS_POLLING_INTERVAL:
+  # WS_RELAY_URL:
+
+  # ========== CACHE & BATCH CONFIGURATION ==========
+  # WS_CACHE_TTL:
+  # WS_BATCH_REQUESTS_ENABLED:
+  # WS_BATCH_REQUESTS_MAX_SIZE:
+
+  # ========== MIRROR NODE CONFIGURATION ==========
+  # MIRROR_NODE_RETRIES:
+  # MIRROR_NODE_RETRY_DELAY:
+  # MIRROR_NODE_TIMEOUT:
+  # MIRROR_NODE_LIMIT_PARAM:
+  # MIRROR_NODE_URL_HEADER_X_API_KEY:
+  # MIRROR_NODE_URL_WEB3:
+  # MIRROR_NODE_AGENT_CACHEABLE_DNS:
+
+  # ========== ETH CALL CONFIGURATION ==========
+  # ETH_CALL_DEFAULT_TO_CONSENSUS_NODE:
+  # CONSENSUS_MAX_EXECUTION_TIME:
+  # SDK_REQUEST_TIMEOUT:
+  # CONTRACT_QUERY_TIMEOUT_RETRIES:
+
+  # ========== REDIS CONFIGURATION ==========
   REDIS_ENABLED: false
-  REDIS_URL: ''
-  REDIS_RECONNECT_DELAY_MS: 1000
-  MULTI_SET: true
-  USE_ASYNC_TX_PROCESSING: true
+  # REDIS_URL:
+  # REDIS_RECONNECT_DELAY_MS:
+  # MULTI_SET:
+
+  # ========== OTHER SETTINGS ==========
+  # CLIENT_TRANSPORT_SECURITY:
+  # USE_ASYNC_TX_PROCESSING:
+  # DEV_MODE:
+  # LOG_LEVEL: 'trace'
+
 # -- Extra environment variables from existing secrets or configmaps
 extraEnvFrom: []
 # - secretRef:
@@ -47,7 +85,7 @@ global:
 image:
   pullPolicy: IfNotPresent
   registry: ghcr.io
-  repository: hashgraph/hedera-json-rpc-relay
+  repository: hiero-ledger/hiero-json-rpc-relay
   # Overrides the image tag whose default is the chart appVersion.
   tag: ''
 
@@ -90,7 +128,7 @@ podSecurityContext:
 ports:
   - name: websocket
     containerPort: 8546
-  - name: metrics  # port for http endpoints (metrics and health)
+  - name: metrics # port for http endpoints (metrics and health)
     containerPort: 8547
 
 replicaCount: 2

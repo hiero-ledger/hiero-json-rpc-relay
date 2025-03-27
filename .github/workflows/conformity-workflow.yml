@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   clone-and-build-execution-apis:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
 
     steps:
       - name: Harden Runner
@@ -47,7 +47,7 @@ jobs:
           path: ./execution-apis/openrpc.json
 
   build-and-test:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     needs: clone-and-build-execution-apis
 
     steps:

@@ -3,6 +3,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
+import { LoggerService } from '../../../dist/services/loggerService';
 import { ConfigService } from '../../../src/services';
 import { type ConfigKey, GlobalConfig } from '../../../src/services/globalConfig';
 
@@ -104,6 +105,17 @@ describe('ConfigService tests', async function () {
       process.env = originalEnv;
       // @ts-ignore - accessing private property for testing
       delete ConfigService.instance;
+    }
+  });
+
+  it('should be able to execute getAllMasked', async () => {
+    const envs = ConfigService.getAllMasked();
+    expect(envs).to.not.be.empty;
+
+    for (const sensitiveField of LoggerService.SENSITIVE_FIELDS) {
+      if (envs[sensitiveField]) {
+        expect(envs[sensitiveField]).to.equal('**********');
+      }
     }
   });
 });

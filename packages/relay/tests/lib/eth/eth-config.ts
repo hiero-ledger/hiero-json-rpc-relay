@@ -676,12 +676,15 @@ export const DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED = {
 
 // URLS:
 export const CONTRACT_RESULTS_WITH_FILTER_URL = `contracts/results?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
+export const CONTRACT_RESULTS_WITH_FILTER_URL_2 = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`;
 export const CONTRACTS_LOGS_WITH_FILTER = `contracts/${CONTRACT_ADDRESS_1}/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
 export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL = `contracts/results/logs?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&limit=100&order=asc`;
 export const BLOCKS_LIMIT_ORDER_URL = 'blocks?limit=1&order=desc';
 export const CONTRACTS_RESULTS_NEXT_URL = `contracts/results?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`; // just flip the timestamp parameters for simplicity
 export const ACCOUNT_WITHOUT_TRANSACTIONS = `accounts/${LONG_ZERO_ADDRESS}?transactions=false`;
 export const contractByEvmAddress = (evmAddress: string) => `contracts/${evmAddress}`;
+export const CONTRACTS_RESULTS_BLOCK_NUMBER_URL = `contracts/results?block.number=${DEFAULT_BLOCK.number}&limit=100&order=asc`;
+export const CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2 = `contracts/results/logs?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}&timestamp=gte:${DEFAULT_BLOCK.timestamp.from}&limit=100&order=asc`;
 
 export const MOCK_ACCOUNT_WITHOUT_TRANSACTIONS = {
   account: '0.0.1367',

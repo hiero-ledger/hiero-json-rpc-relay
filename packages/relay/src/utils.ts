@@ -147,4 +147,17 @@ export class Utils {
       accountId: AccountId.fromString(operatorId.trim()),
     };
   }
+
+  public static getNetworkNameByChainId(): string {
+    switch (ConfigService.get('CHAIN_ID')) {
+      case '0x127':
+        return 'mainnet';
+      case '0x128':
+        return 'testnet';
+      case '0x129':
+        return 'previewnet';
+      default:
+        return 'local';
+    }
+  }
 }

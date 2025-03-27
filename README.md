@@ -260,6 +260,43 @@ Please note that the `/metrics` endpoint is also a default scrape configurations
 ##### Dashboard
 [Grafana JSON Dashboards](https://github.com/hashgraph/hedera-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
 
+##### Admin-specific RPC methods
+
+- GET `/config` - To provide more transparency and operational insight to the developers, the hiero-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
+
+Expected response:
+```
+{
+    "relay": {
+        "version": "0.67.0-SNAPSHOT",
+        "config": {
+            "CHAIN_ID": "0x128",
+            "CLIENT_TRANSPORT_SECURITY": "false",
+            "CONSENSUS_MAX_EXECUTION_TIME": "15000",
+            ...
+        }
+    },
+    "upstreamDependencies": [
+        {
+            "service": "consensusNode",
+            "version": "0.59.3",
+            "config": {
+                "SDK_REQUEST_TIMEOUT": "10000"
+            }
+        },
+        {
+            "service": "mirrorNode",
+            "config": {
+                "MIRROR_NODE_AGENT_CACHEABLE_DNS": "true",
+                "MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX": "200",
+                "MIRROR_NODE_CONTRACT_RESULTS_PG_MAX": "25",
+                ...
+            }
+        }
+    ]
+}
+```
+
 ## Support
 
 If you have a question on how to use the product, please see our

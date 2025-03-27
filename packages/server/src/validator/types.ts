@@ -9,6 +9,7 @@ import {
   ITracerConfig,
   ITracerConfigWrapper,
 } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 export const TYPES: { [key: string]: ITypeValidation } = {
   address: {
@@ -109,9 +110,9 @@ export const TYPES: { [key: string]: ITypeValidation } = {
     error: Constants.TRANSACTION_ID_ERROR,
   },
   tracerType: {
-    test: (param: any): param is Constants.TracerType =>
+    test: (param: any): param is TracerType =>
       typeof param === 'string' &&
-      Object.values(Constants.TracerType)
+      Object.values(TracerType)
         .map((tracerType) => tracerType.toString())
         .includes(param),
     error: 'Expected TracerType',
