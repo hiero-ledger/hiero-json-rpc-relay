@@ -2,10 +2,9 @@
 
 import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { FileId, Hbar, PrecheckStatusError } from '@hashgraph/sdk';
+import { FileId, PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers';
-import _ from 'lodash';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
@@ -46,11 +45,7 @@ import {
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
 import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 import { FeeService } from './services/feeService';
-import { IFeeService } from './services/feeService/IFeeService';
-import { ICommonService } from './services/ethService/ethCommonService/ICommonService';
-
 const _ = require('lodash');
-const asm = require('@ethersproject/asm');
 
 interface LatestBlockNumberTimestamp {
   blockNumber: string | null;
@@ -243,7 +238,7 @@ export class EthImpl implements Eth {
       ['method', 'function', 'from', 'to'],
       registry,
     );
-    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeServiceImpl = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
   }
