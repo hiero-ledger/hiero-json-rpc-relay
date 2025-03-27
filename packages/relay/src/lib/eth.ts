@@ -3287,10 +3287,18 @@ export class EthImpl implements Eth {
 
   /**
    * Gets all transaction receipts for a block by block hash or block number.
+   *
+   * @rpcMethod Exposed as eth_getBlockReceipts RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
    * @param {string } blockHashOrBlockNumber The block hash, block number, or block tag
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
   public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
