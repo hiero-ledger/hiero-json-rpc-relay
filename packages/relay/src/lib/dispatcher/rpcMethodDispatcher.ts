@@ -129,10 +129,10 @@ export class RpcMethodDispatcher {
     requestDetails: RequestDetails,
   ): Promise<any> {
     // Rearrange the parameters as needed for the specific operation handler
-    const rearramgedRpcParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
+    const rearrangedParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
     // Execute the operation handler with the rearranged parameters
-    return await operationHandler(...rearramgedRpcParams);
+    return await operationHandler(...rearrangedParams);
   }
 
   /**
