@@ -15,3 +15,17 @@ relay:
 
 ws:
   enabled: false
+
+redis:
+  enabled: false
+  # Redis Helm chart configuration
+  # See https://github.com/bitnami/charts/tree/main/bitnami/redis for full options
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+  replica:
+    replicaCount: 0

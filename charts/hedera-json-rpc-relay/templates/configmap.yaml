@@ -13,4 +13,5 @@ data:
       {{ $key }}: {{ if typeIs "float64" $value }}{{ $value | int64 | quote }}{{ else }}{{ $value | quote }}{{ end }}
     {{- end }}
   {{- end }}
+  {{- include "json-rpc-relay.redis-config" . | nindent 2 }}
 
