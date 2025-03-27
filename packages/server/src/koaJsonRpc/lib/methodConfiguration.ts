@@ -31,6 +31,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   net_peerCount: {
     total: tier3rateLimit,
   },
+  ADMIN_CONFIG: {
+    total: tier3rateLimit,
+  },
   eth_blockNumber: {
     total: tier2rateLimit,
   },
@@ -53,6 +56,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
     total: tier2rateLimit,
   },
   eth_getBlockByNumber: {
+    total: tier2rateLimit,
+  },
+  eth_getBlockReceipts: {
     total: tier2rateLimit,
   },
   eth_getBlockTransactionCountByHash: {

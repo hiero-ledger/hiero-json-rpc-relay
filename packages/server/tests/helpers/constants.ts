@@ -38,6 +38,7 @@ const ETH_ENDPOINTS = {
   ETH_GET_BLOCK_BY_NUMBER: 'eth_getBlockByNumber',
   ETH_GET_BLOCK_TRANSACTION_COUNT_BY_NUMBER: 'eth_getBlockTransactionCountByNumber',
   ETH_GET_BLOCK_TRANSACTION_COUNT_BY_HASH: 'eth_getBlockTransactionCountByHash',
+  ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',
   ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX: 'eth_getTransactionByBlockHashAndIndex',
   ETH_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX: 'eth_getTransactionByBlockNumberAndIndex',
   ETH_GET_TRANSACTION_COUNT: 'eth_getTransactionCount',

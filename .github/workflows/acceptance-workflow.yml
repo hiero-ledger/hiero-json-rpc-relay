@@ -40,7 +40,7 @@ on:
 
 jobs:
   acceptance-workflow:
-    runs-on: smart-contracts-linux-large
+    runs-on: hiero-smart-contracts-linux-large
     timeout-minutes: 50
     permissions:
       contents: read

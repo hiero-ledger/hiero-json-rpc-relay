@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId, Hbar, PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Transaction as EthersTransaction } from 'ethers';
+import _ from 'lodash';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
@@ -32,16 +34,17 @@ import constants from './constants';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
-import { Block, Log, Transaction, Transaction1559 } from './model';
+import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { CacheService } from './services/cacheService/cacheService';
-import { DebugService } from './services/debugService';
-import { IDebugService } from './services/debugService/IDebugService';
 import { CommonService, FilterService } from './services/ethService';
-import { IFilterService } from './services/ethService/ethFilterService/IFilterService';
 import HAPIService from './services/hapiService/hapiService';
+import {
+  IGetLogsParams,
+  INewFilterParams,
+} from './types';
 import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
-import { IAccountInfo } from './types/mirrorNode';
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 import { FeeService } from './services/feeService';
 import { IFeeService } from './services/feeService/IFeeService';
 import { ICommonService } from './services/ethService/ethCommonService/ICommonService';
@@ -105,6 +108,7 @@ export class EthImpl implements Eth {
   static ethFeeHistory = 'eth_feeHistory';
   static ethGasPrice = 'eth_gasPrice';
   static ethGetBalance = 'eth_getBalance';
+  static ethGetBlockReceipts = 'eth_getBlockReceipts';
   static ethGetBlockByHash = 'eth_GetBlockByHash';
   static ethGetBlockByNumber = 'eth_GetBlockByNumber';
   static ethGetCode = 'eth_getCode';
@@ -114,7 +118,6 @@ export class EthImpl implements Eth {
   static ethGetTransactionCountByNumber = 'eth_GetTransactionCountByNumber';
   static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
   static ethSendRawTransaction = 'eth_sendRawTransaction';
-  static debugTraceTransaction = 'debug_traceTransaction';
 
   // block constants
   static blockLatest = 'latest';
@@ -203,12 +206,7 @@ export class EthImpl implements Eth {
   /**
    * The Filter Service implementation that takes care of all filter API operations.
    */
-  private readonly filterServiceImpl: FilterService;
-
-  /**
-   * The Debug Service implementation that takes care of all filter API operations.
-   */
-  private readonly debugServiceImpl: DebugService;
+  private readonly filterService: FilterService;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -245,9 +243,8 @@ export class EthImpl implements Eth {
       ['method', 'function', 'from', 'to'],
       registry,
     );
-    this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
-    this.debugServiceImpl = new DebugService(mirrorNodeClient, logger, this.common);
-    this.filterServiceImpl = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
+    this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeServiceImpl = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
   }
 
@@ -264,22 +261,6 @@ export class EthImpl implements Eth {
       labelNames: labelNames,
       registers: [register],
     });
-  }
-
-  commonService(): ICommonService {
-    return this.common;
-  }
-
-  filterService(): IFilterService {
-    return this.filterServiceImpl;
-  }
-
-  debugService(): IDebugService {
-    return this.debugServiceImpl;
-  }
-
-  feeService(): IFeeService {
-    return this.feeServiceImpl;
   }
 
   /**
@@ -361,9 +342,14 @@ export class EthImpl implements Eth {
     _blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
+    // Removing empty '0x' data parameter sent by Metamask
+    if (transaction.data === '0x') {
+      delete transaction.data;
+    }
+
     const requestIdPrefix = requestDetails.formattedRequestId;
-    const callData = transaction.data ? transaction.data : transaction.input;
-    const callDataSize = callData ? callData.length : 0;
+    const callData = transaction.data || transaction.input;
+    const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
       this.ethExecutionsCounter
@@ -561,6 +547,90 @@ export class EthImpl implements Eth {
   }
 
   /**
+   * Creates a new filter object based on filter options to notify when the state changes (logs).
+   *
+   * @param {INewFilterParams} params - The parameters for the new filter
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<string>} A filter ID that can be used to query for changes
+   */
+  async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestIdPrefix} newFilter(params=${JSON.stringify(params)})`);
+    }
+    return this.filterService.newFilter(params, requestDetails);
+  }
+
+  /**
+   * Returns an array of all logs matching the filter with the given ID.
+   *
+   * @param {string} filterId - The filter ID
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<Log[]>} Array of log objects matching the filter criteria
+   */
+  async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getFilterLogs(${filterId})`);
+    }
+    return this.filterService.getFilterLogs(filterId, requestDetails);
+  }
+
+  /**
+   * Polling method for a filter, which returns an array of events that occurred since the last poll.
+   *
+   * @param {string} filterId - The filter ID
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<string[] | Log[]>} Array of new logs or block hashes depending on the filter type
+   */
+  async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getFilterChanges(${filterId})`);
+    }
+    return this.filterService.getFilterChanges(filterId, requestDetails);
+  }
+
+  /**
+   * Creates a filter in the node to notify when a new block arrives.
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<string>} A filter ID that can be used to check for new blocks
+   */
+  async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} newBlockFilter()`);
+    }
+    return this.filterService.newBlockFilter(requestDetails);
+  }
+
+  /**
+   * Uninstalls a filter with the given ID.
+   *
+   * @param {string} filterId - The filter ID to uninstall
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<boolean>} True if the filter was successfully uninstalled, false otherwise
+   */
+  async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} uninstallFilter(${filterId})`);
+    }
+    return this.filterService.uninstallFilter(filterId, requestDetails);
+  }
+
+  /**
+   * Creates a filter in the node to notify when new pending transactions arrive.
+   * This method is not supported and returns an error.
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {Promise<JsonRpcError>} An error indicating the method is not supported
+   */
+  async newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} newPendingTransactionFilter()`);
+    }
+    return this.filterService.newPendingTransactionFilter();
+  }
+
+  /**
    * TODO Needs docs, or be removed?
    */
   async submitWork(requestDetails: RequestDetails): Promise<boolean> {
@@ -696,8 +766,8 @@ export class EthImpl implements Eth {
   async getStorageAt(
     address: string,
     slot: string,
+    blockNumberOrTagOrHash: string | null,
     requestDetails: RequestDetails,
-    blockNumberOrTagOrHash?: string | null,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -973,7 +1043,7 @@ export class EthImpl implements Eth {
         } else if (result?.type === constants.TYPE_CONTRACT) {
           if (result?.entity.runtime_bytecode !== EthImpl.emptyHex) {
             const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = asm.disassemble(result?.entity.runtime_bytecode);
+            const opcodes = disassemble(result?.entity.runtime_bytecode);
             const hasProhibitedOpcode =
               opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
             if (!hasProhibitedOpcode) {
@@ -2525,24 +2595,20 @@ export class EthImpl implements Eth {
    *     - If `toBlock` does not exist, an empty array is returned.
    *     - If the timestamp range between `fromBlock` and `toBlock` exceeds 7 days, a predefined error `TIMESTAMP_RANGE_TOO_LARGE` is thrown.
    *
-   * @param {string | null} blockHash - The block hash to prioritize log retrieval.
-   * @param {string | 'latest'} fromBlock - The starting block for log retrieval.
-   * @param {string | 'latest'} toBlock - The ending block for log retrieval.
-   * @param {string | string[] | null} address - The address(es) to filter logs by.
-   * @param {any[] | null} topics - The topics to filter logs by.
-   * @param {RequestDetails} requestDetails - The details of the request.
-   * @returns {Promise<Log[]>} - A promise that resolves to an array of logs or an empty array if no logs are found.
+   * @param {IGetLogsParams} params - The parameters for the getLogs method.
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @returns {Promise<Log[]>} A promise that resolves to an array of logs or an empty array if no logs are found.
    * @throws {Error} Throws specific errors like `MISSING_FROM_BLOCK_PARAM` or `TIMESTAMP_RANGE_TOO_LARGE` when applicable.
    */
-  async getLogs(
-    blockHash: string | null,
-    fromBlock: string | 'latest',
-    toBlock: string | 'latest',
-    address: string | string[] | null,
-    topics: any[] | null,
-    requestDetails: RequestDetails,
-  ): Promise<Log[]> {
-    return this.common.getLogs(blockHash, fromBlock, toBlock, address, topics, requestDetails);
+  async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
+    return this.common.getLogs(
+      params.blockHash,
+      params.fromBlock,
+      params.toBlock,
+      params.address,
+      params.topics,
+      requestDetails,
+    );
   }
 
   async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
@@ -2599,5 +2665,79 @@ export class EthImpl implements Eth {
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
     return exchangeRateInCents;
+  }
+
+  /**
+   * Gets all transaction receipts for a block by block hash or block number.
+   * @param {string } blockHashOrBlockNumber The block hash, block number, or block tag
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
+   */
+  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
+    }
+
+    const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+    const blockNumber = block.number;
+
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
+        );
+      }
+      return cachedResponse;
+    }
+
+    const paramTimestamp: IContractResultsParams = {
+      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
+    };
+
+    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp);
+    if (!contractResults || contractResults.length === 0) {
+      return [];
+    }
+
+    const effectiveGas = await this.getCurrentGasPriceForBlock(block.hash, requestDetails);
+
+    const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
+    contractResults.forEach((contractResult) => {
+      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+    });
+
+    const receipts: Receipt[] = [];
+
+    for (const contractResult of contractResults) {
+      const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
+      const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
+
+      const contractAddress = this.getContractAddressFromReceipt(contractResult);
+      const receipt = {
+        blockHash: toHash32(contractResult.block_hash),
+        blockNumber: numberTo0x(contractResult.block_number),
+        from: from,
+        to: to,
+        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
+        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
+        contractAddress: contractAddress,
+        logs: contractResult.logs,
+        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        transactionHash: toHash32(contractResult.hash),
+        transactionIndex: numberTo0x(contractResult.transaction_index),
+        effectiveGasPrice: effectiveGas,
+        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
+        status: contractResult.status,
+        type: nullableNumberTo0x(contractResult.type),
+      };
+
+      receipts.push(receipt);
+    }
+
+    await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
+    return receipts;
   }
 }

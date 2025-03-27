@@ -10,10 +10,10 @@ const defineNetRoutes = function (app: KoaJsonRpc, relay: Relay, logger: pino.Lo
   /**
    * Returns true if client is actively listening for network connections.
    *
-   * @returns false
+   * @returns boolean
    */
   app.useRpc('net_listening', async () => {
-    return logAndHandleResponse('net_listening', [], () => '' + relay.net().listening(), app, logger);
+    return logAndHandleResponse('net_listening', [], () => relay.net().listening(), app, logger);
   });
 
   /**

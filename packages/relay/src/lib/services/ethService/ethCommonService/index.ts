@@ -14,7 +14,7 @@ import {
   prepend0x,
   stripLeadingZeroForSignatures,
   tinybarsToWeibars,
-  toHash32
+  toHash32,
 } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
@@ -256,7 +256,7 @@ export class CommonService implements ICommonService {
   public async getHistoricalBlockResponse(
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
-    returnLatest?: boolean
+    returnLatest: boolean = true,
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
