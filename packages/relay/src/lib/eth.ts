@@ -37,19 +37,12 @@ import { Precheck } from './precheck';
 import { BlockService } from './services/blockService';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
-import HAPIService from './services/hapiService/hapiService';
-import {
-  IContractCallRequest,
-  IContractCallResponse,
-  IFeeHistory,
-  IGetLogsParams,
-  INewFilterParams,
-  ITransactionReceipt,
-  RequestDetails,
-} from './types';
-import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 import { FeeService } from './services/feeService';
 import { AccountService } from './services/accountService';
+import HAPIService from './services/hapiService/hapiService';
+import { IGetLogsParams, INewFilterParams } from './types';
+import { IContractCallRequest, IContractCallResponse, IFeeHistory, ITransactionReceipt, RequestDetails } from './types';
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 const _ = require('lodash');
 import { ParamType } from './types/validation';
 import { IAccountService } from './services/accountService/IAccountService';

@@ -1,21 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Hbar } from '@hashgraph/sdk';
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import {
-  isHex,
-  nanOrNumberInt64To0x,
-  nanOrNumberTo0x,
-  nullableNumberTo0x,
-  numberTo0x,
-  parseNumericEnvVar,
-  prepend0x,
-  stripLeadingZeroForSignatures,
-  tinybarsToWeibars,
-  toHash32,
-} from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
+import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -25,12 +16,9 @@ import { EthImpl } from '../../../eth';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
-import HapiService from '../../hapiService/hapiService';
-import { ICommonService } from './ICommonService';
-import { Utils } from '../../../../utils';
-import { Hbar } from '@hashgraph/sdk';
 import HAPIService from '../../hapiService/hapiService';
 import { TransactionFactory } from '../../factories/transactionFactory';
+import { ICommonService } from './ICommonService';
 
 /**
  * Create a new Common Service implementation.
@@ -90,7 +78,7 @@ export class CommonService implements ICommonService {
    */
   private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT'
+    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
   );
   private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
@@ -106,7 +94,12 @@ export class CommonService implements ICommonService {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, hapiService: HAPIService) {
+  constructor(
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+    cacheService: CacheService,
+    hapiService: HAPIService,
+  ) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
@@ -132,7 +125,7 @@ export class CommonService implements ICommonService {
     fromBlock: string,
     toBlock: string,
     requestDetails: RequestDetails,
-    address?: string | string[] | null
+    address?: string | string[] | null,
   ) {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = CommonService.blockLatest;
@@ -190,7 +183,7 @@ export class CommonService implements ICommonService {
           prepend0x(fromBlockNum.toString(16)),
           fromBlockResponse.timestamp.from,
           prepend0x(toBlockNum.toString(16)),
-          toBlockResponse.timestamp.to
+          toBlockResponse.timestamp.to,
         );
       }
 
@@ -275,7 +268,7 @@ export class CommonService implements ICommonService {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=${returnLatest}, blockNumberOrTagOrHash=${blockNumberOrTagOrHash}`
+          `${requestDetails.formattedRequestId} Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=${returnLatest}, blockNumberOrTagOrHash=${blockNumberOrTagOrHash}`,
         );
       }
       return null;
@@ -284,7 +277,7 @@ export class CommonService implements ICommonService {
     if (blockNumberOrTagOrHash === EthImpl.emptyHex) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`
+          `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
         );
       }
       return null;
@@ -324,15 +317,15 @@ export class CommonService implements ICommonService {
     const blockNumberCached = await this.cacheService.getAsync(
       cacheKey,
       CommonService.latestBlockNumber,
-      requestDetails
+      requestDetails,
     );
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
           `${requestDetails.formattedRequestId} returning cached value ${cacheKey}:${JSON.stringify(
-            blockNumberCached
-          )}`
+            blockNumberCached,
+          )}`,
         );
       }
       return blockNumberCached;
@@ -348,7 +341,7 @@ export class CommonService implements ICommonService {
         currentBlock,
         CommonService.latestBlockNumber,
         requestDetails,
-        this.ethBlockNumberCacheTtlMs
+        this.ethBlockNumberCacheTtlMs,
       );
 
       return currentBlock;
@@ -377,7 +370,7 @@ export class CommonService implements ICommonService {
   public async validateBlockHashAndAddTimestampToParams(
     params: any,
     blockHash: string,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ) {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
@@ -410,7 +403,7 @@ export class CommonService implements ICommonService {
   public async getLogsByAddress(address: string | string[], params: any, requestDetails: RequestDetails) {
     const addresses = Array.isArray(address) ? address : [address];
     const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined)
+      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined),
     );
 
     const logResults = await Promise.all(logPromises);
@@ -425,7 +418,7 @@ export class CommonService implements ICommonService {
   public async getLogsWithParams(
     address: string | string[] | null,
     params: any,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<Log[]> {
     const EMPTY_RESPONSE = [];
 
@@ -452,8 +445,8 @@ export class CommonService implements ICommonService {
           removed: false,
           topics: log.topics,
           transactionHash: toHash32(log.transaction_hash),
-          transactionIndex: numberTo0x(log.transaction_index)
-        })
+          transactionIndex: numberTo0x(log.transaction_index),
+        }),
       );
     }
 
@@ -466,7 +459,7 @@ export class CommonService implements ICommonService {
     toBlock: string | 'latest',
     address: string | string[] | null,
     topics: any[] | null,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<Log[]> {
     const EMPTY_RESPONSE = [];
     const params: any = {};
@@ -489,7 +482,7 @@ export class CommonService implements ICommonService {
   async resolveEvmAddress(
     address: string,
     requestDetails: RequestDetails,
-    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT]
+    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
   ): Promise<string> {
     if (!address) return address;
 
@@ -498,7 +491,7 @@ export class CommonService implements ICommonService {
       EthImpl.ethGetCode,
       requestDetails,
       searchableTypes,
-      0
+      0,
     );
     let resolvedAddress = address;
     if (
@@ -511,47 +504,6 @@ export class CommonService implements ICommonService {
 
     return resolvedAddress;
   }
-
-  public static formatContractResult = (cr: any) => {
-    if (cr === null) {
-      return null;
-    }
-
-    const gasPrice =
-      cr.gas_price === null || cr.gas_price === '0x'
-        ? '0x0'
-        : isHex(cr.gas_price)
-        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-        : nanOrNumberTo0x(cr.gas_price);
-
-    const commonFields = {
-      blockHash: toHash32(cr.block_hash),
-      blockNumber: nullableNumberTo0x(cr.block_number),
-      from: cr.from.substring(0, 42),
-      gas: nanOrNumberTo0x(cr.gas_used),
-      gasPrice,
-      hash: cr.hash.substring(0, 66),
-      input: cr.function_parameters,
-      nonce: nanOrNumberTo0x(cr.nonce),
-      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
-      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
-      to: cr.to?.substring(0, 42),
-      transactionIndex: nullableNumberTo0x(cr.transaction_index),
-      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
-      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
-      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
-      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
-      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
-      chainId: cr.chain_id === '0x' ? undefined : cr.chain_id
-    };
-
-    return TransactionFactory.createTransactionByType(cr.type, {
-      ...commonFields,
-      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-      maxFeePerGas: cr.max_fee_per_gas
-    });
-  };
 
   /**
    * Returns the current network fee in denominated in weibars.
@@ -568,23 +520,23 @@ export class CommonService implements ICommonService {
     } catch (e: any) {
       this.logger.warn(
         e,
-        `${requestDetails.formattedRequestId} Mirror Node threw an error while retrieving fees. Fallback to consensus node.`
+        `${requestDetails.formattedRequestId} Mirror Node threw an error while retrieving fees. Fallback to consensus node.`,
       );
     }
 
     if (_.isNil(networkFees)) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Mirror Node returned no network fees. Fallback to consensus node.`
+          `${requestDetails.formattedRequestId} Mirror Node returned no network fees. Fallback to consensus node.`,
         );
       }
       networkFees = {
         fees: [
           {
             gas: await this.hapiService.getSDKClient().getTinyBarGasFee(callerName, requestDetails),
-            transaction_type: EthImpl.ethTxType
-          }
-        ]
+            transaction_type: EthImpl.ethTxType,
+          },
+        ],
       };
     }
 
@@ -627,7 +579,7 @@ export class CommonService implements ICommonService {
           gasPrice,
           EthImpl.ethGasPrice,
           requestDetails,
-          this.ethGasPriceCacheTtlMs
+          this.ethGasPriceCacheTtlMs,
         );
       }
 

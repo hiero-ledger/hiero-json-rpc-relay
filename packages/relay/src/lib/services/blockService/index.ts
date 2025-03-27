@@ -3,7 +3,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { nanOrNumberTo0x, numberTo0x } from '../../../formatters';
+import { formatContractResult, nanOrNumberTo0x, numberTo0x } from '../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
 import { Utils } from '../../../utils';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
@@ -28,6 +28,8 @@ export class BlockService implements IBlockService {
   private readonly logger: Logger;
 
   private readonly mirrorNodeClient: MirrorNodeClient;
+
+  private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
 
   static ethGetBlockByHash = 'eth_GetBlockByHash';
 
@@ -133,9 +135,7 @@ export class BlockService implements IBlockService {
       return null;
     }
 
-    // The consensus timestamp of the block, with the nanoseconds part omitted.
-    const timestamp = timestampRange.from.substring(0, timestampRange.from.indexOf('.'));
-    if (showDetails && contractResults.length >= ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE')) {
+    if (showDetails && contractResults.length >= this.ethGetTransactionCountMaxBlockRange) {
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
@@ -158,13 +158,9 @@ export class BlockService implements IBlockService {
         this.common.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
 
-<<<<<<< HEAD
-      //contractResult.chain_id = contractResult.chain_id //|| this.chain;
-      txArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
-=======
+
       contractResult.chain_id = contractResult.chain_id || this.chain;
       txArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
->>>>>>> 50100693 (moves block methods to block service)
     }
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
