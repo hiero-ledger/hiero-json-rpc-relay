@@ -206,7 +206,7 @@ export class EthImpl implements Eth {
   /**
    * The Fee Service implementation that takes care of all fee API operations.
    */
-  private readonly feeServiceImpl: FeeService;
+  private readonly feeService: FeeService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
@@ -240,7 +240,7 @@ export class EthImpl implements Eth {
     );
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
-    this.feeServiceImpl = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
+    this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
   }
 
   private shouldUseCacheForBalance(tag: string | null): boolean {
@@ -278,7 +278,7 @@ export class EthImpl implements Eth {
     rewardPercentiles: Array<number> | null,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory | JsonRpcError> {
-    return this.feeServiceImpl.feeHistory(blockCount, newestBlock, rewardPercentiles, requestDetails);
+    return this.feeService.feeHistory(blockCount, newestBlock, rewardPercentiles, requestDetails);
   }
 
   /**
