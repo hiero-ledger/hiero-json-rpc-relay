@@ -195,7 +195,7 @@ export class Relay {
       this.cacheService,
     );
 
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService, hapiService);
     this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
