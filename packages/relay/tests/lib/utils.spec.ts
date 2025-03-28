@@ -7,7 +7,7 @@ import createHash from 'keccak';
 import pino from 'pino';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
-import constants from '../../src/lib/constants';
+import constants, { TracerType } from '../../src/lib/constants';
 import { RPC_PARAM_LAYOUT_KEY } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
 import { RPC_LAYOUT } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
 import { RequestDetails } from '../../src/lib/types';
@@ -243,6 +243,78 @@ describe('Utils', () => {
 
       const result = Utils.arrangeRpcParams(mockMethod, [], requestDetails);
       expect(result).to.deep.equal([requestDetails]);
+    });
+
+    describe('special case for traceTransaction', () => {
+      const traceTransactionMethod = function traceTransaction() {};
+      const transactionHash = '0x123456789abcdef';
+      const tracerConfig = { enableMemory: true };
+
+      // Define test cases as [testName, params, expectedTracer, expectedConfig]
+      const testCases = [
+        ['should handle traceTransaction with only transaction hash', [], TracerType.OpcodeLogger, {}],
+        [
+          'should handle traceTransaction with tracer type as second parameter',
+          [TracerType.CallTracer],
+          TracerType.CallTracer,
+          {},
+        ],
+        [
+          'should handle traceTransaction with tracer type and config',
+          [TracerType.CallTracer, tracerConfig],
+          TracerType.CallTracer,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with tracerConfig as second parameter',
+          [tracerConfig],
+          TracerType.OpcodeLogger,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with tracerConfigWrapper as second parameter',
+          [
+            {
+              tracer: TracerType.CallTracer,
+              tracerConfig: tracerConfig,
+            },
+          ],
+          TracerType.CallTracer,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with partial tracerConfigWrapper (only tracer)',
+          [
+            {
+              tracer: TracerType.CallTracer,
+            },
+          ],
+          TracerType.CallTracer,
+          {},
+        ],
+        [
+          'should handle traceTransaction with partial tracerConfigWrapper (only tracerConfig)',
+          [
+            {
+              tracerConfig,
+            },
+          ],
+          TracerType.OpcodeLogger,
+          tracerConfig,
+        ],
+      ];
+
+      // Loop through test cases and create tests
+      testCases.forEach(([testName, params, expectedTracer, expectedConfig]) => {
+        it(testName as string, () => {
+          const result = Utils.arrangeRpcParams(
+            traceTransactionMethod,
+            [transactionHash, ...(params as any[])],
+            requestDetails,
+          );
+          expect(result).to.deep.equal([transactionHash, expectedTracer, expectedConfig, requestDetails]);
+        });
+      });
     });
   });
 });
