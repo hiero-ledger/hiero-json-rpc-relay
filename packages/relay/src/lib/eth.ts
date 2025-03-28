@@ -326,10 +326,18 @@ export class EthImpl implements Eth {
     const maxResults = ConfigService.get('TEST')
       ? constants.DEFAULT_FEE_HISTORY_MAX_RESULTS
       : Number(ConfigService.get('FEE_HISTORY_MAX_RESULTS'));
+    const maxRewardPercentilesSize = constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE;
 
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
         `${requestIdPrefix} feeHistory(blockCount=${blockCount}, newestBlock=${newestBlock}, rewardPercentiles=${rewardPercentiles})`,
+      );
+    }
+
+    if (rewardPercentiles && rewardPercentiles.length > maxRewardPercentilesSize) {
+      throw predefined.INVALID_PARAMETER(
+        2,
+        `Reward percentiles size ${rewardPercentiles.length} is greater than the maximum allowed size ${maxRewardPercentilesSize}`,
       );
     }
 

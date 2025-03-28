@@ -1176,8 +1176,33 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res.oldestBlock).to.exist;
       expect(Number(res.oldestBlock)).to.be.gt(0);
     });
-  });
 
+    it('should call eth_feeHistory with valid rewardPercentiles whose size is less than 100', async function () {
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY, ['0x1', 'latest', [25, 75]], requestId);
+      expect(res.reward).to.exist.to.be.an('Array');
+      expect(res.reward.length).to.be.gt(0);
+    });
+
+    it('should fail to call eth_feeHistory with invalid rewardPercentiles whose size is greater than 100', async function () {
+      const invalidSize = 101;
+      const args = [
+        RelayCalls.ETH_ENDPOINTS.ETH_FEE_HISTORY,
+        ['0x1', 'latest', Array.from({ length: invalidSize }, (_, i) => i)],
+        requestId,
+      ];
+
+      await Assertions.assertPredefinedRpcError(
+        predefined.INVALID_PARAMETER(
+          2,
+          `Reward percentiles size ${invalidSize} is greater than the maximum allowed size ${constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE}`,
+        ),
+        relay.call,
+        true,
+        relay,
+        args,
+      );
+    });
+  });
   describe('Formats of addresses in Transaction and Receipt results', () => {
     const getTxData = async (hash) => {
       const txByHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash], requestId);
