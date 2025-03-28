@@ -132,7 +132,16 @@ export class RpcMethodDispatcher {
     const rearrangedParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
     // Execute the operation handler with the rearranged parameters
-    return await operationHandler(...rearrangedParams);
+    const result = await operationHandler(...rearrangedParams);
+
+    // *Note: In some cases, the operation handler may return an exception instead of throwing.
+    // To ensure proper and centralized error handling in the dispatcher, preserve and rethrow the error,
+    // regardless of whether the operation handler returns or throws it.
+    if (result instanceof JsonRpcError || result instanceof SDKClientError || result instanceof MirrorNodeClientError) {
+      throw result;
+    }
+
+    return result;
   }
 
   /**
