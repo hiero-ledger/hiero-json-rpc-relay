@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { JsonRpcError, predefined } from '../../../src';
 import { AbiCoder, keccak256 } from 'ethers';
+
+import { JsonRpcError, predefined } from '../../../src';
 
 describe('Errors', () => {
   describe('JsonRpcError', () => {
@@ -110,6 +111,26 @@ describe('Errors', () => {
       it('Returns default message when neither errorMessage nor data is provided', () => {
         const error = predefined.CONTRACT_REVERT();
         expect(error.message).to.eq('execution reverted');
+      });
+    });
+
+    describe('predefined.MIRROR_NODE_UPSTREAM_FAIL', () => {
+      it('Constructs correctly with error code and message', () => {
+        const errCode = 500;
+        const errMessage = 'Internal Server Error';
+        const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
+        expect(error.code).to.eq(-32020);
+        expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
+        expect(error.data).to.eq(errCode.toString());
+      });
+
+      it('Constructs correctly with different error code and message', () => {
+        const errCode = 404;
+        const errMessage = 'Not Found';
+        const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
+        expect(error.code).to.eq(-32020);
+        expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
+        expect(error.data).to.eq(errCode.toString());
       });
     });
   });
