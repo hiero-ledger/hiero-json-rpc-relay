@@ -37,6 +37,7 @@ import { Precheck } from './precheck';
 import { BlockService } from './services/blockService';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
+import { BlockFactory } from './services/factories/blockFactory';
 import { FeeService } from './services/feeService';
 import { AccountService } from './services/accountService';
 import HAPIService from './services/hapiService/hapiService';
@@ -2200,8 +2201,7 @@ export class EthImpl implements Eth {
 
   private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
     const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
-    const timestampDecimal = parseInt(block.timestamp.from.split('.')[0], 16);
-    const timestampDecimalString = timestampDecimal > 0 ? timestampDecimal.toString() : '';
+    const timestampDecimalString = block ? block.timestamp.from.split('.')[0] : '';
     const gasPriceForTimestamp = await this.common.getFeeWeibars(
       EthImpl.ethGetTransactionReceipt,
       requestDetails,
