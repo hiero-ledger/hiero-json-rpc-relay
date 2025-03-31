@@ -212,15 +212,15 @@ export class BlockService implements IBlockService {
       return cachedResponse;
     }
 
-    const transactionCount = await this.mirrorNodeClient
-      .getBlock(hash, requestDetails)
-      .then((block) => this.getTransactionCountFromBlockResponse(block))
-      .catch((e: any) => {
-        throw this.common.genericErrorHandler(e, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
-      });
+    try {
+      const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
+      const transactionCount = this.getTransactionCountFromBlockResponse(block);
+      await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByHash, requestDetails);
 
-    await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByHash, requestDetails);
-    return transactionCount;
+      return transactionCount;
+    } catch (error: any) {
+      throw this.common.genericErrorHandler(error, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
+    }
   }
 
   /**
@@ -255,18 +255,17 @@ export class BlockService implements IBlockService {
       return cachedResponse;
     }
 
-    const transactionCount = await this.mirrorNodeClient
-      .getBlock(blockNum, requestDetails)
-      .then((block) => this.getTransactionCountFromBlockResponse(block))
-      .catch((e: any) => {
-        throw this.common.genericErrorHandler(
-          e,
-          `${requestIdPrefix} Failed to retrieve block for blockNum ${blockNum}`,
-        );
-      });
-
-    await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByNumber, requestDetails);
-    return transactionCount;
+    try {
+      const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
+      const transactionCount = this.getTransactionCountFromBlockResponse(block);
+      await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByNumber, requestDetails);
+      return transactionCount;
+    } catch (error: any) {
+      throw this.common.genericErrorHandler(
+        error,
+        `${requestIdPrefix} Failed to retrieve block for blockNum ${blockNum}`,
+      );
+    }
   }
 
   /**
