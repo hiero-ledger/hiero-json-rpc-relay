@@ -19,18 +19,44 @@ import { TransactionFactory } from '../factories/transactionFactory';
 import { IBlockMirrorNode, IBlockService } from './IBlockService';
 
 export class BlockService implements IBlockService {
+  /**
+   * The cache service used for caching all responses.
+   * @private
+   */
   private readonly cacheService: CacheService;
 
+  /**
+   * The chain id.
+   * @private
+   */
   private readonly chain: string;
 
+  /**
+   * The common service used for all common methods.
+   * @private
+   */
   private readonly common: CommonService;
 
-  private readonly logger: Logger;
-
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
+  /**
+   * The maximum block range for the transaction count.
+   */
   private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
 
+  /**
+   * The logger used for logging all output from this class.
+   * @private
+   */
+  private readonly logger: Logger;
+
+  /**
+   * The interface through which we interact with the mirror node
+   * @private
+   */
+  private readonly mirrorNodeClient: MirrorNodeClient;
+
+  /**
+   * The static method for the eth_getBlockByHash RPC call.
+   */
   static ethGetBlockByHash = 'eth_GetBlockByHash';
 
   constructor(
@@ -79,6 +105,7 @@ export class BlockService implements IBlockService {
    * @param {string} hash the block hash
    * @param {boolean} showDetails whether to show the details of the block
    * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<Block | null>} The block
    */
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -105,6 +132,7 @@ export class BlockService implements IBlockService {
    * @param {string} blockHashOrNumber The block hash or block number
    * @param {boolean} showDetails Whether to show transaction details
    * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<Block | null>} The block
    */
   private async getBlock(
     blockHashOrNumber: string,
@@ -192,6 +220,7 @@ export class BlockService implements IBlockService {
    *
    * @param {string} hash The block hash
    * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<string | null>} The transaction count
    */
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
