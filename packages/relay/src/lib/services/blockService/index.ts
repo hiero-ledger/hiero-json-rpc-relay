@@ -139,7 +139,7 @@ export class BlockService implements IBlockService {
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
-    let txArray: any[] = [];
+    let txArray: Transaction[] | string[] = [];
 
     for (const contractResult of contractResults) {
       // there are several hedera-specific validations that occur right before entering the evm
@@ -164,7 +164,7 @@ export class BlockService implements IBlockService {
     }
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
-    txArray = showDetails ? txArray : _.uniq(txArray);
+    txArray = showDetails ? (txArray as Transaction[]) : _.uniq(txArray as string[]);
 
     const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
       txArray.map((tx) => (showDetails ? tx.hash : tx)),
@@ -227,6 +227,7 @@ export class BlockService implements IBlockService {
    * Gets the number of transaction in a block by its block number.
    * @param {string} blockNumOrTag Possible values are earliest/pending/latest or hex
    * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<string | null>} The transaction count
    */
   async getBlockTransactionCountByNumber(
     blockNumOrTag: string,
@@ -270,6 +271,8 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns null. There are no uncles in Hedera.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<null>} null
    */
   async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -280,6 +283,8 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns null. There are no uncles in Hedera.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<null>} null
    */
   async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -290,6 +295,8 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<string>} '0x0'
    */
   async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -300,6 +307,8 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<string>} '0x0'
    */
   async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -314,24 +323,25 @@ export class BlockService implements IBlockService {
    * @param logs[] The logs to populate the synthetic transactions from
    * @param transactionsArray The array of transactions to populate
    * @param requestDetails The request details for logging and tracking
+   * @returns {Array<Transaction | string>} The populated transactions
    */
   private populateSyntheticTransactions(
     showDetails: boolean,
     logs: Log[],
-    transactionsArray: Array<any>,
+    transactionsArray: Transaction[] | string[],
     requestDetails: RequestDetails,
-  ): Array<any> {
+  ): Transaction[] | string[] {
     let filteredLogs: Log[];
     if (showDetails) {
       filteredLogs = logs.filter(
-        (log) => !transactionsArray.some((transaction) => transaction.hash === log.transactionHash),
+        (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
       );
       filteredLogs.forEach((log) => {
         const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
           blockNumber: log.blockNumber,
-          chainId: '0x12a', //this.chain,
+          chainId: this.chain,
           from: log.address,
           gas: EthImpl.defaultTxGas,
           gasPrice: EthImpl.invalidEVMInstruction,
@@ -348,12 +358,15 @@ export class BlockService implements IBlockService {
           v: EthImpl.zeroHex,
           value: EthImpl.oneTwoThreeFourHex,
         });
-        transactionsArray.push(transaction);
+
+        if (transaction !== null) {
+          (transactionsArray as Transaction[]).push(transaction);
+        }
       });
     } else {
-      filteredLogs = logs.filter((log) => !transactionsArray.includes(log.transactionHash));
+      filteredLogs = logs.filter((log) => !(transactionsArray as string[]).includes(log.transactionHash));
       filteredLogs.forEach((log) => {
-        transactionsArray.push(log.transactionHash);
+        (transactionsArray as string[]).push(log.transactionHash);
       });
     }
 
@@ -366,6 +379,11 @@ export class BlockService implements IBlockService {
     return transactionsArray;
   }
 
+  /**
+   * Gets the transaction count from the block response.
+   * @param block The block response
+   * @returns The transaction count
+   */
   private getTransactionCountFromBlockResponse(block: any): null | string {
     if (block === null || block.count === undefined) {
       // block not found
