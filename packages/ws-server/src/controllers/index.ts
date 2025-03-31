@@ -99,7 +99,7 @@ export const getRequestResult = async (
   wsMetricRegistry: WsMetricRegistry,
 ): Promise<any> => {
   // Extract the method and parameters from the received request
-  // eslint-disable-next-line
+  // eslint-disable-next-line prefer-const
   let { method, params } = request;
 
   // support go-ethereum client by turning undefined into empty array
