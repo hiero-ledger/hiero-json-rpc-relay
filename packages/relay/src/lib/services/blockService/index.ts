@@ -120,16 +120,16 @@ export class BlockService implements IBlockService {
     if (blockResponse == null) return null;
     const timestampRange = blockResponse.timestamp;
     const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
-
-    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResults.name,
-      [requestDetails, { timestamp: timestampRangeParams }, undefined],
-      requestDetails,
-    );
     const params = { timestamp: timestampRangeParams };
 
-    // get contract results logs using block timestamp range
-    const logs = await this.common.getLogsWithParams(null, params, requestDetails);
+    const [contractResults, logs] = await Promise.all([
+      this.mirrorNodeClient.getContractResultWithRetry(
+        this.mirrorNodeClient.getContractResults.name,
+        [requestDetails, { timestamp: timestampRangeParams }, undefined],
+        requestDetails,
+      ),
+      this.common.getLogsWithParams(null, params, requestDetails),
+    ]);
 
     if (contractResults == null && logs.length == 0) {
       return null;
@@ -139,8 +139,8 @@ export class BlockService implements IBlockService {
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
-    // prepare transactionArray
     let txArray: any[] = [];
+
     for (const contractResult of contractResults) {
       // there are several hedera-specific validations that occur right before entering the evm
       // if a transaction has reverted there, we should not include that tx in the block response
@@ -152,7 +152,7 @@ export class BlockService implements IBlockService {
         }
         continue;
       }
-      // make this promise.all ??
+
       [contractResult.from, contractResult.to] = await Promise.all([
         this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
         this.common.resolveEvmAddress(contractResult.to, requestDetails),
