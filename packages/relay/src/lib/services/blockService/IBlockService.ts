@@ -29,3 +29,8 @@ export interface IBlockMirrorNode {
   size: number;
   timestamp: ITimestamp;
 }
+
+export interface LatestBlockNumberTimestamp {
+  blockNumber: string | null;
+  timeStampTo: string;
+}
