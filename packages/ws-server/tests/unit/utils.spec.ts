@@ -11,7 +11,7 @@ import sinon from 'sinon';
 
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
-import { SubscriptionController } from '../../src/service/subscriptionController';
+import { SubscriptionService } from '../../src/service/subscriptionService';
 import {
   constructValidLogSubscriptionFilter,
   getBatchRequestsMaxSize,
@@ -135,7 +135,7 @@ describe('Utilities unit tests', async function () {
     let wsMetricRegistryStub: sinon.SinonStubbedInstance<WsMetricRegistry>;
     let ctxStub: any;
     let startTime: [number, number];
-    let subscriptionController: SubscriptionController | undefined;
+    let subscriptionService: SubscriptionService | undefined;
     let unsubscribeSpy: sinon.SinonSpy;
 
     beforeEach(async () => {
@@ -161,12 +161,12 @@ describe('Utilities unit tests', async function () {
 
       startTime = process.hrtime();
 
-      subscriptionController = new SubscriptionController(relayStub, logger, registry);
+      subscriptionService = new SubscriptionService(relayStub, logger, registry);
 
-      expect(subscriptionController).to.not.be.undefined;
-      unsubscribeSpy = sinon.spy(subscriptionController, 'unsubscribe');
+      expect(subscriptionService).to.not.be.undefined;
+      unsubscribeSpy = sinon.spy(subscriptionService, 'unsubscribe');
 
-      await handleConnectionClose(ctxStub, subscriptionController, limiterStub, wsMetricRegistryStub, startTime);
+      await handleConnectionClose(ctxStub, subscriptionService, limiterStub, wsMetricRegistryStub, startTime);
     });
 
     it('should unsubscribe subscriptions', async () => {
