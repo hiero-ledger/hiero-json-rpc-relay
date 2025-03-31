@@ -10,7 +10,6 @@ import { Counter, Registry } from 'prom-client';
 
 import {
   ASCIIToHex,
-  formatContractResult,
   formatTransactionIdWithoutQueryParams,
   getFunctionSelector,
   isHex,
@@ -1761,7 +1760,7 @@ export class EthImpl implements Eth {
       constants.TYPE_ACCOUNT,
     ]);
 
-    return formatContractResult({ ...contractResults[0], from: resolvedFromAddress, to: resolvedToAddress });
+    return CommonService.formatContractResult({ ...contractResults[0], from: resolvedFromAddress, to: resolvedToAddress });
   }
 
   // according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
@@ -2054,7 +2053,7 @@ export class EthImpl implements Eth {
     const toAddress = await this.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
-    return formatContractResult({
+    return CommonService.formatContractResult({
       ...contractResult,
       from: fromAddress,
       to: toAddress,
@@ -2379,7 +2378,7 @@ export class EthImpl implements Eth {
       contractResult.to = await this.resolveEvmAddress(contractResult.to, requestDetails);
       contractResult.chain_id = contractResult.chain_id || this.chain;
 
-      transactionArray.push(showDetails ? formatContractResult(contractResult) : contractResult.hash);
+      transactionArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
     }
 
     transactionArray = this.populateSyntheticTransactions(showDetails, logs, transactionArray, requestDetails);
