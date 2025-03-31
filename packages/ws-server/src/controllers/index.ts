@@ -12,7 +12,6 @@ import {
   MethodNotFound,
 } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { Validator } from '@hashgraph/json-rpc-server/dist/validator';
 import Koa from 'koa';
 import { Logger } from 'pino';
 
@@ -20,7 +19,7 @@ import ConnectionLimiter from '../metrics/connectionLimiter';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import { SubscriptionController } from '../service/subscriptionController';
 import { WS_CONSTANTS } from '../utils/constants';
-import { paramRearrangementMap, validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './eth_subscribe';
 import { handleEthUnsubscribe } from './eth_unsubscribe';
 
