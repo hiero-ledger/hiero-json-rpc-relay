@@ -8,7 +8,7 @@ import LRU from 'lru-cache';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { Poller } from './poller';
+import { PollerService } from './pollerService';
 
 export interface Subscriber {
   connection: any;
@@ -18,8 +18,8 @@ export interface Subscriber {
 
 const CACHE_TTL = ConfigService.get('WS_CACHE_TTL');
 
-export class SubscriptionController {
-  private poller: Poller;
+export class SubscriptionService {
+  private pollerService: PollerService;
   private logger: Logger;
   private subscriptions: { [key: string]: Subscriber[] };
   private cache;
@@ -27,7 +27,7 @@ export class SubscriptionController {
   private resultsSentToSubscribersCounter: Counter;
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
-    this.poller = new Poller(relay, logger.child({ name: 'poller' }), register);
+    this.pollerService = new PollerService(relay, logger.child({ name: 'poller' }), register);
     this.logger = logger;
     this.subscriptions = {};
 
@@ -104,7 +104,7 @@ export class SubscriptionController {
       endTimer: this.activeSubscriptionHistogram.startTimer(), // observes the time in seconds
     });
 
-    this.poller.add(tag, this.notifySubscribers.bind(this, tag));
+    this.pollerService.add(tag, this.notifySubscribers.bind(this, tag));
 
     return subId;
   }
@@ -142,7 +142,7 @@ export class SubscriptionController {
           this.logger.debug(`No subscribers for ${tag}. Removing from list.`);
         }
         delete this.subscriptions[tag];
-        this.poller.remove(tag);
+        this.pollerService.remove(tag);
       }
     }
 

@@ -16,7 +16,7 @@ import { v4 as uuid } from 'uuid';
 import { getRequestResult } from './controllers';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
-import { SubscriptionController } from './service/subscriptionController';
+import { SubscriptionService } from './service/subscriptionService';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 const mainLogger = pino({
@@ -35,7 +35,7 @@ const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
 const relay = new Relay(logger, register);
 
-const subscriptionController = new SubscriptionController(relay, logger, register);
+const subscriptionService = new SubscriptionService(relay, logger, register);
 
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
@@ -50,7 +50,7 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   // Record the start time when the connection is established
   const startTime = process.hrtime();
-  ctx.websocket.id = subscriptionController?.generateId();
+  ctx.websocket.id = subscriptionService?.generateId();
   ctx.websocket.requestId = uuid();
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;
@@ -72,7 +72,7 @@ app.ws.use(async (ctx: Koa.Context) => {
     logger.info(
       `${requestDetails.formattedLogPrefix} Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`,
     );
-    await handleConnectionClose(ctx, subscriptionController, limiter, wsMetricRegistry, startTime);
+    await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
   });
 
   // Increment limit counters
@@ -150,7 +150,7 @@ app.ws.use(async (ctx: Koa.Context) => {
           relay,
           item,
           requestDetails,
-          subscriptionController,
+          subscriptionService,
           wsMetricRegistry,
         );
       });
@@ -174,7 +174,7 @@ app.ws.use(async (ctx: Koa.Context) => {
         relay,
         request,
         requestDetails,
-        subscriptionController,
+        subscriptionService,
         wsMetricRegistry,
       );
 

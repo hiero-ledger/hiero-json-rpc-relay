@@ -17,7 +17,7 @@ import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';
 import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { SubscriptionController } from '../service/subscriptionController';
+import { SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from '../utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
 import { handleEthSubscribe } from './eth_subscribe';
@@ -33,7 +33,7 @@ export type ISharedParams = {
   mirrorNodeClient: MirrorNodeClient;
   ctx: Koa.Context;
   requestDetails: RequestDetails;
-  subscriptionController: SubscriptionController;
+  subscriptionService: SubscriptionService;
 };
 
 /**
@@ -95,7 +95,7 @@ export const getRequestResult = async (
   relay: Relay,
   request: IJsonRpcRequest,
   requestDetails: RequestDetails,
-  subscriptionController: SubscriptionController,
+  subscriptionService: SubscriptionService,
   wsMetricRegistry: WsMetricRegistry,
 ): Promise<any> => {
   // Extract the method and parameters from the received request
@@ -143,7 +143,7 @@ export const getRequestResult = async (
       limiter,
       mirrorNodeClient,
       requestDetails,
-      subscriptionController,
+      subscriptionService,
     };
 
     switch (method) {

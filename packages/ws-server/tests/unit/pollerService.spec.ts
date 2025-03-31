@@ -8,7 +8,7 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { Poller } from '../../src/service/poller';
+import { PollerService } from '../../src/service/pollerService';
 
 const logger = pino({ level: 'trace' });
 
@@ -136,7 +136,7 @@ describe('Polling', async function () {
 
   let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
-  let poller: Poller;
+  let poller: PollerService;
   let sandbox: sinon.SinonSandbox;
 
   this.beforeEach(() => {
@@ -147,7 +147,7 @@ describe('Polling', async function () {
     ethImplStub.getLogs.resolves(JSON.parse(logs));
 
     const registry = new Registry();
-    poller = new Poller(relayImplStub, logger, registry);
+    poller = new PollerService(relayImplStub, logger, registry);
     sandbox = sinon.createSandbox();
   });
 

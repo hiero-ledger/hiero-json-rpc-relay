@@ -14,7 +14,7 @@ export interface Poll {
 
 const LOGGER_PREFIX = 'Poller:';
 
-export class Poller {
+export class PollerService {
   private readonly eth: Eth;
   private readonly logger: Logger;
   private polls: Poll[];
