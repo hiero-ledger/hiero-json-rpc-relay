@@ -151,7 +151,7 @@ export class BlockService implements IBlockService {
       contractResult.to = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
 
       //contractResult.chain_id = contractResult.chain_id //|| this.chain;
-      txArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
+      txArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
     }
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);

@@ -11,11 +11,6 @@ import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
-import { defineDebugRoutes } from './routes/debugRoutes';
-import { defineEthRoutes } from './routes/ethRoutes';
-import { defineNetRoutes } from './routes/netRoutes';
-import { defineOtherRoutes } from './routes/otherRoutes';
-import { defineWeb3Routes } from './routes/web3Routes';
 import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
 
 const mainLogger = pino({
@@ -34,7 +29,7 @@ const mainLogger = pino({
 const logger = mainLogger.child({ name: 'rpc-server' });
 const register = new Registry();
 const relay: Relay = new Relay(logger.child({ name: 'relay' }), register);
-const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, {
+const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
   limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
 });
 
@@ -200,12 +195,6 @@ app.getKoaApp().use(async (ctx, next) => {
 
   return next();
 });
-
-defineDebugRoutes(app, relay, logger);
-defineEthRoutes(app, relay, logger);
-defineNetRoutes(app, relay, logger);
-defineWeb3Routes(app, relay, logger);
-defineOtherRoutes(app, relay, logger);
 
 const rpcApp = app.rpcApp();
 

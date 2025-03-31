@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { expect, use } from 'chai';
-import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
+import sinon from 'sinon';
 
-import constants from '../../../src/lib/constants';
+import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
+import constants from '../../../src/lib/constants';
+import { RequestDetails } from '../../../src/lib/types';
+import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BASE_FEE_PER_GAS_HEX,
   BLOCK_NUMBER_2,
@@ -16,11 +20,7 @@ import {
   GAS_USED_RATIO,
   NOT_FOUND_RES,
 } from './eth-config';
-import { numberTo0x } from '../../../src/formatters';
 import { generateEthTestEnv } from './eth-helpers';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
-import { RequestDetails } from '../../../src/lib/types';
-
 use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
@@ -28,7 +28,7 @@ let getSdkClientStub: sinon.SinonStub;
 
 describe('@ethFeeHistory using MirrorNode', async function () {
   this.timeout(10000);
-  let { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_feeHistoryTest', ipAddress: '0.0.0.0' });
 
@@ -65,14 +65,18 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
       restMock.onGet(`blocks/${previousBlock.number}`).reply(200, JSON.stringify(previousBlock));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
-      restMock.onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`).reply(200, JSON.stringify(previousFees));
+      restMock
+        .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
+        .reply(200, JSON.stringify(previousFees));
       restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(200, JSON.stringify(latestFees));
     });
 
     it('eth_feeHistory', async function () {
       const updatedFees = previousFees;
       previousFees.fees[2].gas += 1;
-      restMock.onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`).reply(200, JSON.stringify(updatedFees));
+      restMock
+        .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
+        .reply(200, JSON.stringify(updatedFees));
       const feeHistory = await ethImpl.feeHistory(2, 'latest', [25, 75], requestDetails);
 
       expect(feeHistory).to.exist;
@@ -131,7 +135,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     const maxResultsCap = Number(constants.DEFAULT_FEE_HISTORY_MAX_RESULTS);
 
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [{ ...DEFAULT_BLOCK, number: 10 }] }));
-    restMock.onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`).reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     Array.from(Array(11).keys()).map((blockNumber) =>
       restMock.onGet(`blocks/${blockNumber}`).reply(200, JSON.stringify({ ...DEFAULT_BLOCK, number: blockNumber })),
     );
@@ -181,7 +187,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       sdkClientStub.getTinyBarGasFee.resolves(fauxGasTinyBars);
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
-      restMock.onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+      restMock
+        .onGet(`network/fees?timestamp=lte:${latestBlock.timestamp.to}`)
+        .reply(404, JSON.stringify(NOT_FOUND_RES));
       restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     });
 
@@ -314,6 +322,31 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       checkCommonFeeHistoryFields(feeHistoryUsingCache);
       expect(feeHistoryUsingCache['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
       expect(feeHistoryUsingCache['baseFeePerGas'].length).to.eq(countBlocks + 1);
+    });
+  });
+
+  describe('eth_feeHistory with rewardPercentiles', function () {
+    it('should execute eth_feeHistory with valid rewardPercentiles whose size is less than 100', async function () {
+      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+      expect(feeHistory).to.exist;
+    });
+
+    it('should throw INVALID_PARAMETER when rewardPercentiles size is greater than 100', async function () {
+      const invalidSize = 101;
+
+      const jsonRpcError = predefined.INVALID_PARAMETER(
+        2,
+        `Reward percentiles size ${invalidSize} is greater than the maximum allowed size ${constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE}`,
+      );
+
+      await expect(
+        ethImpl.feeHistory(
+          1,
+          'latest',
+          Array.from({ length: invalidSize }, (_, i) => i),
+          requestDetails,
+        ),
+      ).to.eventually.rejectedWith(jsonRpcError.message);
     });
   });
 });

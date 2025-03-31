@@ -8,6 +8,7 @@ import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '@hashgraph/json-rpc-relay/src/lib/validators';
 import {
   AccountCreateTransaction,
   ContractFunctionParameters,
@@ -21,7 +22,6 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
-import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../src/validator/constants';
 import basicContract from '../../tests/contracts/Basic.json';
 import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
