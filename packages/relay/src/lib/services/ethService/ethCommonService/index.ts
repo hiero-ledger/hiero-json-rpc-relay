@@ -29,6 +29,7 @@ import { ICommonService } from './ICommonService';
 import { Utils } from '../../../../utils';
 import { Hbar } from '@hashgraph/sdk';
 import HAPIService from '../../hapiService/hapiService';
+import { TransactionFactory } from '../../factories/transactionFactory';
 
 /**
  * Create a new Common Service implementation.
@@ -495,7 +496,7 @@ export class CommonService implements ICommonService {
     return resolvedAddress;
   }
 
-  public formatContractResult = (cr: any) => {
+  public static formatContractResult = (cr: any) => {
     if (cr === null) {
       return null;
     }
@@ -528,6 +529,12 @@ export class CommonService implements ICommonService {
       //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
       chainId: cr.chain_id === '0x' ? undefined : cr.chain_id
     };
+
+    return TransactionFactory.createTransactionByType(cr.type, {
+      ...commonFields,
+      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
+      maxFeePerGas: cr.max_fee_per_gas,
+    });
   };
 
   /**
