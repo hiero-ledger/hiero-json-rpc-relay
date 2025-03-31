@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { IMethodValidation } from '../types/validation';
 import { validateParam } from './utils';
-
-import { IMethodValidation } from '../types/validator';
 
 export function validateParams(params: any[], indexes: IMethodValidation) {
   for (const index of Object.keys(indexes)) {
@@ -17,5 +16,4 @@ export * from './constants';
 export * from './types';
 export * from './objectTypes';
 export * from './utils';
-export * from './methods';
 export * as Validator from '.';

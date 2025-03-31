@@ -628,7 +628,7 @@
               "pm.test(\"Success\", () => {",
               "    var response = pm.response.json();",
               "    pm.expect(response.error.code).to.equal(-32601);",
-              "    pm.expect(response.error.message).to.equal(\"Method unsupported_function not found\");",
+              "    pm.expect(response.error.message).to.match(/\\[Request ID: [0-9a-fA-F-]{36}\\] Method unsupported_function not found/);",
               "    pm.expect(response.id).to.equal(\"test_id\");",
               "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
               "});",

@@ -1,10 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
-
-import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
 
-import { OBJECTS_VALIDATIONS, TransactionObject, Validator } from '../../src/validator';
-import * as Constants from '../../src/validator/constants';
+import * as Constants from '../../../src/lib/validators/constants';
+import { OBJECTS_VALIDATIONS, TracerType, TransactionObject, Validator } from '../../../src/lib/validators';
 
 describe('Validator', async () => {
   function expectInvalidParam(index: number | string, message: string, paramValue?: string) {

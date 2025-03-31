@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Validator } from '.';
-import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
-import { IMethodParamSchema, IObjectSchema, ITypeValidation } from '../types/validator';
+import { IMethodParamSchema, IObjectSchema, ITypeValidation } from '../types';
+import { JsonRpcError, predefined } from '../errors/JsonRpcError';
 
 export function validateParam(index: number | string, param: any, validation: IMethodParamSchema): void {
   const paramType = getParamType(validation.type);

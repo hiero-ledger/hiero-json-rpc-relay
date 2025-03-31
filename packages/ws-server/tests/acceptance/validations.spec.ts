@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import WebSocket from 'ws';
-import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
-import { WsTestConstant, WsTestHelper } from '../helper';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { InvalidRequest, MethodNotFound } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
+import { expect } from 'chai';
+import { ethers, WebSocketProvider } from 'ethers';
+import WebSocket from 'ws';
+
+import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@release @web-socket-batch-1 JSON-RPC requests validation', async function () {
   const BLOCK_NUMBER_METHOD_NAME = 'eth_blockNumber';
@@ -107,7 +108,9 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
       const response = await WsTestHelper.sendRequestToStandardWebSocket('eth_sendRawTransaction', undefined);
       const expectedResult = predefined.MISSING_REQUIRED_PARAMETER(0);
       delete expectedResult.data;
-      expect(response.error).to.deep.eq(expectedResult);
+      expect(response.error).to.exist;
+      expect(response.error.message).to.contain(expectedResult.message);
+      expect(response.error.code).to.eq(expectedResult.code);
     });
   });
 });
