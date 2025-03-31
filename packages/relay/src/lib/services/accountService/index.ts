@@ -59,8 +59,7 @@ export class AccountService implements IAccountService {
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
 
   /**
-   * Constructor
-   *
+   * @constructor
    * @param mirrorNodeClient
    * @param common
    * @param logger
