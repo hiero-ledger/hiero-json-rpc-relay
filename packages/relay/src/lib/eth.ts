@@ -1274,11 +1274,21 @@ export class EthImpl implements Eth {
   }
 
   /**
-   * Gets the block by its block number.
-   * @param {string} blockNumOrTag Possible values are earliest/pending/latest or hex, and can't be null (validator check).
-   * @param {boolean} showDetails whether to show the details of the block
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * Retrieves the block associated with the specified block number or tag.
+   *
+   * @rpcMethod Exposed as eth_getBlockByNumber RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNumOrTag - The block number or tag. Possible values include 'earliest', 'pending', 'latest', or a hexadecimal block number. This parameter cannot be null.
+   * @param {boolean} showDetails - Indicates whether to include detailed information about the block.
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking purposes.
+   * @returns {Promise<Block | null>} A promise that resolves to the block object or null if the block is not found.
    */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    1: { type: ParamType.BOOLEAN, required: true },
+  })
   async getBlockByNumber(
     blockNumOrTag: string,
     showDetails: boolean,
@@ -1724,7 +1734,11 @@ export class EthImpl implements Eth {
       constants.TYPE_ACCOUNT,
     ]);
 
-    return CommonService.formatContractResult({ ...contractResults[0], from: resolvedFromAddress, to: resolvedToAddress });
+    return CommonService.formatContractResult({
+      ...contractResults[0],
+      from: resolvedFromAddress,
+      to: resolvedToAddress,
+    });
   }
 
   // according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)

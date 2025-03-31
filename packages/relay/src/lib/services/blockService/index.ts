@@ -3,7 +3,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { formatContractResult, nanOrNumberTo0x, numberTo0x } from '../../../formatters';
+import { nanOrNumberTo0x, numberTo0x } from '../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
 import { Utils } from '../../../utils';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
@@ -186,9 +186,8 @@ export class BlockService implements IBlockService {
         this.common.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
 
-
       contractResult.chain_id = contractResult.chain_id || this.chain;
-      txArray.push(showDetails ? this.common.formatContractResult(contractResult) : contractResult.hash);
+      txArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
     }
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
