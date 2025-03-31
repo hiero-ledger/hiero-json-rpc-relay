@@ -14,8 +14,6 @@ import { predefined } from './errors/JsonRpcError';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService } from './services/ethService/ethCommonService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
-
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, RequestDetails } from './types';
 import HAPIService from './services/hapiService/hapiService';
 
 /**
