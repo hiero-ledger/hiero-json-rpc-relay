@@ -59,6 +59,7 @@ export class BlockService implements IBlockService {
    */
   static ethGetBlockByHash = 'eth_GetBlockByHash';
 
+  /** Constructor */
   constructor(
     cacheService: CacheService,
     chain: string,
