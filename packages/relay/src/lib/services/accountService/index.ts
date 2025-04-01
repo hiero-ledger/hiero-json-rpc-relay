@@ -80,7 +80,7 @@ export class AccountService implements IAccountService {
    * @param {string | null} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
-  async getBalance(
+  public async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
     requestDetails: RequestDetails
@@ -351,11 +351,13 @@ export class AccountService implements IAccountService {
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
   }
 
-  /**************************************************
-   * Returns the difference between the balance of  *
-   * the account and the transactions summed up     *
-   * to the block number queried.                   *
-   *************************************************/
+  /**
+   * Returns the difference between the balance of the account and the transactions summed up to the block number queried.
+   * @param account
+   * @param transactions
+   * @param blockTimestamp
+   * @private
+   */
   private getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
     return transactions
       .filter((transaction) => {
@@ -374,6 +376,13 @@ export class AccountService implements IAccountService {
       }, 0);
   }
 
+  /**
+   * Get nonce for historical block
+   * @param address
+   * @param blockNumOrHash
+   * @param requestDetails
+   * @private
+   */
   private async getAccountNonceForHistoricBlock(
     address: string,
     blockNumOrHash: number | string,
@@ -403,7 +412,7 @@ export class AccountService implements IAccountService {
     }
 
     // if valid block number, get block timestamp
-    return await this.getAcccountNonceFromContractResult(address, blockNum, requestDetails);
+    return await this.getAccountNonceFromContractResult(address, blockNum, requestDetails);
   }
 
   private async getAccountLatestEthereumNonce(address: string, requestDetails: RequestDetails): Promise<string> {
@@ -425,7 +434,7 @@ export class AccountService implements IAccountService {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<string>} The number of transactions sent from the address
    */
-  private async getAcccountNonceFromContractResult(
+  private async getAccountNonceFromContractResult(
     address: string,
     blockNumOrHash: string | number,
     requestDetails: RequestDetails
@@ -477,6 +486,11 @@ export class AccountService implements IAccountService {
     return numberTo0x(transactionResult.nonce + 1); // nonce is 0 indexed
   }
 
+  /**
+   * Get nonce for earliest block
+   * @param requestDetails
+   * @private
+   */
   private async getAccountNonceForEarliestBlock(requestDetails: RequestDetails): Promise<string> {
     const block = await this.mirrorNodeClient.getEarliestBlock(requestDetails);
     if (block == null) {
