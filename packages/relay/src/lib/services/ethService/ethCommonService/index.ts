@@ -66,17 +66,27 @@ export class CommonService implements ICommonService {
    */
   private readonly cacheService: CacheService;
 
-  public static readonly blockLatest = 'latest';
+  /**
+   * public constants
+   */
   public static readonly blockEarliest = 'earliest';
+  public static readonly blockFinalized = 'finalized';
+  public static readonly blockHashLength = 66;
+  public static readonly blockLatest = 'latest';
   public static readonly blockPending = 'pending';
   public static readonly blockSafe = 'safe';
-  public static readonly blockFinalized = 'finalized';
+  public static readonly ethGetBalance = 'eth_getBalance';
+  public static readonly ethGetTransactionCount = 'eth_getTransactionCount';
+  public static readonly emptyHex = '0x';
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
-
-  // function callerNames
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
+  public static readonly oneHex = '0x1';
+  public static readonly zeroHex = '0x0';
 
-  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
+  /**
+   * private constants
+   * @private
+   */
   private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT'
@@ -85,11 +95,13 @@ export class CommonService implements ICommonService {
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT'
   );
-
-  // Maximum allowed timestamp range for mirror node requests' timestamp parameter is 7 days (604800 seconds)
+  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
 
-  private getLogsBlockRangeLimit() {
+  /**
+   * @private
+   */
+  private static getLogsBlockRangeLimit() {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
@@ -185,7 +197,7 @@ export class CommonService implements ICommonService {
         throw predefined.INVALID_BLOCK_RANGE;
       }
 
-      const blockRangeLimit = this.getLogsBlockRangeLimit();
+      const blockRangeLimit = CommonService.getLogsBlockRangeLimit();
       // Increasing it to more then one address may degrade mirror node performance
       // when addresses contains many log events.
       const isSingleAddress = Array.isArray(address)
@@ -257,7 +269,7 @@ export class CommonService implements ICommonService {
   public async getHistoricalBlockResponse(
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
-    returnLatest: boolean = true,
+    returnLatest: boolean = true
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -536,7 +548,7 @@ export class CommonService implements ICommonService {
     return TransactionFactory.createTransactionByType(cr.type, {
       ...commonFields,
       maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-      maxFeePerGas: cr.max_fee_per_gas,
+      maxFeePerGas: cr.max_fee_per_gas
     });
   };
 

@@ -117,7 +117,7 @@ export class AccountService implements IAccountService {
     // check cache first
     // create a key for the cache
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_BALANCE}-${account}-${blockNumberOrTagOrHash}`;
-    let cachedBalance = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
+    let cachedBalance = await this.cacheService.getAsync(cacheKey, CommonService.ethGetBalance, requestDetails);
     if (cachedBalance && AccountService.shouldUseCacheForBalance(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(cachedBalance)}`);
@@ -164,7 +164,7 @@ export class AccountService implements IAccountService {
             )}(${blockNumberOrTagOrHash}), returning 0x0 balance`
           );
         }
-        return EthImpl.zeroHex;
+        return CommonService.zeroHex;
       }
 
       // save in cache the current balance for the account and blockNumberOrTag
@@ -175,7 +175,7 @@ export class AccountService implements IAccountService {
       await this.cacheService.set(
         cacheKey,
         cachedBalance,
-        EthImpl.ethGetBalance,
+        CommonService.ethGetBalance,
         requestDetails,
         this.ethGetBalanceCacheTtlMs
       );
@@ -199,7 +199,7 @@ export class AccountService implements IAccountService {
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-    const blockNumberCached = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
+    const blockNumberCached = await this.cacheService.getAsync(cacheKey, CommonService.ethGetBalance, requestDetails);
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
@@ -209,7 +209,7 @@ export class AccountService implements IAccountService {
       }
       latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
     } else {
-      latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
+      latestBlock = await this.blockNumberTimestamp(CommonService.ethGetBalance, requestDetails);
     }
 
     if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length > 32) {
@@ -221,13 +221,13 @@ export class AccountService implements IAccountService {
 
     const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
     if (blockDiff <= latestBlockTolerance) {
-      blockNumberOrTagOrHash = EthImpl.blockLatest;
+      blockNumberOrTagOrHash = CommonService.blockLatest;
     }
 
     // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
     // This should rarely happen.
-    if (blockNumberOrTagOrHash !== EthImpl.blockLatest && latestBlock.timeStampTo === '0') {
-      latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
+    if (blockNumberOrTagOrHash !== CommonService.blockLatest && latestBlock.timeStampTo === '0') {
+      latestBlock = await this.blockNumberTimestamp(CommonService.ethGetBalance, requestDetails);
     }
 
     return { latestBlock, blockNumberOrTagOrHash };
@@ -335,7 +335,7 @@ export class AccountService implements IAccountService {
 
     // cache considerations for high load
     const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
-    let nonceCount = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetTransactionCount, requestDetails);
+    let nonceCount = await this.cacheService.getAsync(cacheKey, CommonService.ethGetTransactionCount, requestDetails);
     if (nonceCount) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
@@ -347,15 +347,15 @@ export class AccountService implements IAccountService {
     if (blockNumOrTag) {
       if (blockNum === 0 || blockNum === 1) {
         // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
-        return EthImpl.zeroHex;
+        return CommonService.zeroHex;
       } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
         // if latest or pending, get latest ethereumNonce from mirror node account API
         nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      } else if (blockNumOrTag === EthImpl.blockEarliest) {
+      } else if (blockNumOrTag === CommonService.blockEarliest) {
         nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
-      } else if (!isNaN(blockNum) && blockNumOrTag.length != EthImpl.blockHashLength && blockNum > 0) {
+      } else if (!isNaN(blockNum) && blockNumOrTag.length != CommonService.blockHashLength && blockNum > 0) {
         nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-      } else if (blockNumOrTag.length == EthImpl.blockHashLength && blockNumOrTag.startsWith(EthImpl.emptyHex)) {
+      } else if (blockNumOrTag.length == CommonService.blockHashLength && blockNumOrTag.startsWith(CommonService.emptyHex)) {
         nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
       } else {
         // return a '-39001: Unknown block' error per api-spec
@@ -367,10 +367,10 @@ export class AccountService implements IAccountService {
     }
 
     const cacheTtl =
-      blockNumOrTag === EthImpl.blockEarliest || !isNaN(blockNum)
+      blockNumOrTag === CommonService.blockEarliest || !isNaN(blockNum)
         ? constants.CACHE_TTL.ONE_DAY
         : this.ethGetTransactionCountCacheTtl; // cache historical values longer as they don't change
-    await this.cacheService.set(cacheKey, nonceCount, EthImpl.ethGetTransactionCount, requestDetails, cacheTtl);
+    await this.cacheService.set(cacheKey, nonceCount, CommonService.ethGetTransactionCount, requestDetails, cacheTtl);
 
     return nonceCount;
   }
@@ -478,10 +478,10 @@ export class AccountService implements IAccountService {
     const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
     if (accountData) {
       // with HIP 729 ethereum_nonce should always be 0+ and null. Historical contracts may have a null value as the nonce was not tracked, return default EVM compliant 0x1 in this case
-      return accountData.ethereum_nonce !== null ? numberTo0x(accountData.ethereum_nonce) : EthImpl.oneHex;
+      return accountData.ethereum_nonce !== null ? numberTo0x(accountData.ethereum_nonce) : CommonService.oneHex;
     }
 
-    return EthImpl.zeroHex;
+    return CommonService.zeroHex;
   }
 
   /**
@@ -513,13 +513,13 @@ export class AccountService implements IAccountService {
       2
     );
     if (ethereumTransactions == null || ethereumTransactions.transactions.length === 0) {
-      return EthImpl.zeroHex;
+      return CommonService.zeroHex;
     }
 
     // if only 1 transaction is returned when asking for 2, then the account has only sent 1 transaction
     // minor optimization to save a call to getContractResult as many accounts serve a single use
     if (ethereumTransactions.transactions.length === 1) {
-      return EthImpl.oneHex;
+      return CommonService.oneHex;
     }
 
     // get the transaction result for the latest transaction
@@ -558,7 +558,7 @@ export class AccountService implements IAccountService {
 
     if (block.number <= 1) {
       // if the earliest block is the genesis block or 1 , then the nonce is 0 as only system accounts are present
-      return EthImpl.zeroHex;
+      return CommonService.zeroHex;
     }
 
     // note the mirror node may be a partial one, in which case there may be a valid block with number greater 1.
