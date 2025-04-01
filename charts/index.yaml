@@ -2,6 +2,45 @@ apiVersion: v1
 entries:
   hedera-json-rpc:
   - apiVersion: v2
+    appVersion: 0.67.1-rc1
+    created: "2025-04-01T15:50:42.06899941Z"
+    dependencies:
+    - alias: relay
+      condition: relay.enabled
+      name: hedera-json-rpc-relay
+      repository: file://../hedera-json-rpc-relay
+      version: '>=0.24.0-0'
+    - alias: ws
+      condition: ws.enabled
+      name: hedera-json-rpc-relay-websocket
+      repository: file://../hedera-json-rpc-relay-websocket
+      version: '>=0.24.0-0'
+    description: Umbrella Helm chart deployment of the hiero-ledger/hiero-json-rpc
+      products
+    digest: 57b51dd7a69ee9e07438c25a4cdd29f9003f8e95bd1fd949ff7565a10836d582
+    home: https://github.com/hiero-ledger/hiero-json-rpc-relay
+    icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
+    keywords:
+    - blockchain
+    - dlt
+    - hedera
+    - hashgraph
+    - smart
+    - contracts
+    - evm
+    - json
+    - rpc
+    maintainers:
+    - email: engsmartcontracts@hedera.com
+      name: Hedera Smart Contracts Team
+    name: hedera-json-rpc
+    sources:
+    - https://github.com/hiero-ledger/hiero-json-rpc-relay
+    type: application
+    urls:
+    - https://hiero-ledger.github.io/hiero-json-rpc-relay/charts/hedera-json-rpc-0.67.1-rc1.tgz
+    version: 0.67.1-rc1
+  - apiVersion: v2
     appVersion: 0.67.0-rc1
     created: "2025-03-27T18:47:19.981080734Z"
     dependencies:
@@ -4298,6 +4337,34 @@ entries:
     version: v0.27.1
   hedera-json-rpc-relay:
   - apiVersion: v2
+    appVersion: 0.67.1-rc1
+    created: "2025-04-01T15:50:42.070753281Z"
+    description: Helm chart deployment of the hiero-ledger/hiero-json-rpc-relay
+    digest: 14b3fa20264b46943cd4c83a2b74f3ab894c72da88c608449bedf48007038501
+    home: https://github.com/hiero-ledger/hiero-json-rpc-relay
+    icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
+    keywords:
+    - blockchain
+    - dlt
+    - hedera
+    - hashgraph
+    - smart
+    - contracts
+    - evm
+    - relay
+    - json
+    - rpc
+    maintainers:
+    - email: engsmartcontracts@hedera.com
+      name: Hedera Smart Contracts Team
+    name: hedera-json-rpc-relay
+    sources:
+    - https://github.com/hiero-ledger/hiero-json-rpc-relay
+    type: application
+    urls:
+    - https://hiero-ledger.github.io/hiero-json-rpc-relay/charts/hedera-json-rpc-relay-0.67.1-rc1.tgz
+    version: 0.67.1-rc1
+  - apiVersion: v2
     appVersion: 0.67.0-rc1
     created: "2025-03-27T18:47:19.981946773Z"
     description: Helm chart deployment of the hiero-ledger/hiero-json-rpc-relay
@@ -7613,6 +7680,36 @@ entries:
     - hedera-json-rpc-relay-0.17.1.tgz
     version: 0.17.1
   hedera-json-rpc-relay-websocket:
+  - apiVersion: v2
+    appVersion: 0.67.1-rc1
+    created: "2025-04-01T15:50:42.071464246Z"
+    description: Helm chart deployment of the hiero-ledger/hiero-json-rpc-relay web
+      socket server
+    digest: bf8da2086299301bc3d7143d3c596b8974ed69e1367e8ece12fa2a919cb2df32
+    home: https://github.com/hiero-ledger/hiero-json-rpc-relay
+    icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
+    keywords:
+    - blockchain
+    - dlt
+    - hedera
+    - hashgraph
+    - smart
+    - contracts
+    - evm
+    - relay
+    - json
+    - rpc
+    - websocket
+    maintainers:
+    - email: engsmartcontracts@hedera.com
+      name: Hedera Smart Contracts Team
+    name: hedera-json-rpc-relay-websocket
+    sources:
+    - https://github.com/hiero-ledger/hiero-json-rpc-relay
+    type: application
+    urls:
+    - https://hiero-ledger.github.io/hiero-json-rpc-relay/charts/hedera-json-rpc-relay-websocket-0.67.1-rc1.tgz
+    version: 0.67.1-rc1
   - apiVersion: v2
     appVersion: 0.67.0-rc1
     created: "2025-03-27T18:47:19.982612823Z"
@@ -11064,4 +11161,4 @@ entries:
     urls:
     - json-rpc-relay-websocket-0.26.0-SNAPSHOT.tgz
     version: 0.26.0-SNAPSHOT
-generated: "2025-03-27T18:47:19.977811634Z"
+generated: "2025-04-01T15:50:42.064504631Z"
