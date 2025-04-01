@@ -233,7 +233,7 @@ export class EthImpl implements Eth {
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
-    this.accountService = new AccountService(mirrorNodeClient, this.common, logger, cacheService);
+    this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
   }
 
   private initCounter(metricCounterName: string, labelNames: string[], register: Registry): Counter {

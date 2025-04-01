@@ -14,6 +14,13 @@ import { EthImpl } from '../../eth';
 
 export class AccountService implements IAccountService {
   /**
+   * The service used for caching items from requests.
+   *
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * The Common Service implementation that contains logic shared by other services.
    *
    * @private
@@ -21,11 +28,28 @@ export class AccountService implements IAccountService {
   private readonly common: CommonService;
 
   /**
-   * The interface through which we interact with the mirror node.
-   *
    * @private
    */
-  private readonly mirrorNodeClient: MirrorNodeClient;
+  private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
+    'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
+    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT'
+  );
+
+  /**
+   * @private
+   */
+  private readonly ethGetBalanceCacheTtlMs = parseNumericEnvVar(
+    'ETH_GET_BALANCE_CACHE_TTL_MS',
+    'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT'
+  );
+
+  /**
+   * @private
+   */
+  private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
+    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
+    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL'
+  );
 
   /**
    * The logger used for logging all output from this class.
@@ -35,41 +59,29 @@ export class AccountService implements IAccountService {
   private readonly logger: Logger;
 
   /**
-   * The service used for caching items from requests.
-   *
    * @private
    */
-  private readonly cacheService: CacheService;
-
-  private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
-    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
-    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL'
-  );
-
-  private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT'
-  );
-
-  private readonly ethGetBalanceCacheTtlMs = parseNumericEnvVar(
-    'ETH_GET_BALANCE_CACHE_TTL_MS',
-    'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT'
-  );
-
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
 
   /**
+   * The interface through which we interact with the mirror node.
+   *
+   * @private
+   */
+  private readonly mirrorNodeClient: MirrorNodeClient;
+
+  /**
    * @constructor
-   * @param mirrorNodeClient
+   * @param cacheService
    * @param common
    * @param logger
-   * @param cacheService
+   * @param mirrorNodeClient
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, common: CommonService, logger: Logger, cacheService: CacheService) {
-    this.mirrorNodeClient = mirrorNodeClient;
+  constructor(cacheService: CacheService, common: CommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
+    this.cacheService = cacheService;
     this.common = common;
     this.logger = logger;
-    this.cacheService = cacheService;
+    this.mirrorNodeClient = mirrorNodeClient;
   }
 
   /**
@@ -86,7 +98,6 @@ export class AccountService implements IAccountService {
     requestDetails: RequestDetails
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
-    const latestBlockTolerance = 1;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
         `${requestIdPrefix} getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`
@@ -97,38 +108,10 @@ export class AccountService implements IAccountService {
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
     // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
     if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      let blockHashNumber, isHash;
-      const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-      const blockNumberCached = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
-
-      if (blockNumberCached) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(
-            `${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`
-          );
-        }
-        latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
-      } else {
-        latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
-      }
-
-      if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length > 32) {
-        isHash = true;
-        blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
-      }
-
-      const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
-
-      const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
-      if (blockDiff <= latestBlockTolerance) {
-        blockNumberOrTagOrHash = EthImpl.blockLatest;
-      }
-
-      // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
-      // This should rarely happen.
-      if (blockNumberOrTagOrHash !== EthImpl.blockLatest && latestBlock.timeStampTo === '0') {
-        latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
-      }
+      ({
+        latestBlock,
+        blockNumberOrTagOrHash
+      } = await this.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails));
     }
 
     // check cache first
@@ -152,61 +135,13 @@ export class AccountService implements IAccountService {
         const block = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
         if (block) {
           blockNumber = block.number;
-
           // A blockNumberOrTag has been provided. If it is `latest` or `pending` retrieve the balance from /accounts/{account.id}
           // If the parsed blockNumber is the same as the one from the latest block retrieve the balance from /accounts/{account.id}
           if (latestBlock && block.number !== latestBlock.blockNumber) {
-            const latestTimestamp = Number(latestBlock.timeStampTo.split('.')[0]);
-            const blockTimestamp = Number(block.timestamp.from.split('.')[0]);
-            const timeDiff = latestTimestamp - blockTimestamp;
-            // The block is NOT from the last 15 minutes, use /balances rest API
-            if (timeDiff > constants.BALANCES_UPDATE_INTERVAL) {
-              const balance = await this.mirrorNodeClient.getBalanceAtTimestamp(
-                account,
-                requestDetails,
-                block.timestamp.from
-              );
-              balanceFound = true;
-              if (balance?.balances?.length) {
-                weibars = BigInt(balance.balances[0].balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-              }
-            }
-            // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
-            else {
-              let currentBalance = 0;
-              let balanceFromTxs = 0;
-              mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
-              if (mirrorAccount) {
-                if (mirrorAccount.balance) {
-                  currentBalance = mirrorAccount.balance.balance;
-                }
-
-                // The balance in the account is real time, so we simply subtract the transactions to the block.timestamp.to to get a block relevant balance.
-                // needs to be updated below.
-                const nextPage: string = mirrorAccount.links.next;
-
-                if (nextPage) {
-                  // If we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
-                  const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
-                  const nextPageTimeMarker = nextPageParams.get('timestamp');
-                  // If nextPageTimeMarker is greater than the block.timestamp.to, then we need to paginate to get the transactions for the block.timestamp.to
-                  if (nextPageTimeMarker && nextPageTimeMarker?.split(':')[1] >= block.timestamp.to) {
-                    const pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails);
-                    mirrorAccount.transactions = mirrorAccount.transactions.concat(pagedTransactions);
-                  }
-                  // If nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
-                }
-
-                balanceFromTxs = this.getBalanceAtBlockTimestamp(
-                  mirrorAccount.account,
-                  mirrorAccount.transactions,
-                  block.timestamp.to
-                );
-
-                balanceFound = true;
-                weibars = BigInt(currentBalance - balanceFromTxs) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-              }
-            }
+            ({
+              balanceFound,
+              weibars
+            } = await this.getBalanceAtBlockNumber(account, block, latestBlock, requestDetails));
           }
         }
       }
@@ -252,6 +187,130 @@ export class AccountService implements IAccountService {
         `${requestIdPrefix} Error raised during getBalance for account ${account}`
       );
     }
+  }
+
+  /**
+   * @param blockNumberOrTagOrHash
+   * @param requestDetails
+   * @private
+   */
+  private async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string | null, requestDetails: RequestDetails) {
+    let latestBlock: LatestBlockNumberTimestamp;
+    const latestBlockTolerance = 1;
+    let blockHashNumber, isHash;
+    const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
+    const blockNumberCached = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
+
+    if (blockNumberCached) {
+      if (this.logger.isLevelEnabled('trace')) {
+        this.logger.trace(
+          `${requestDetails.requestId} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`
+        );
+      }
+      latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
+    } else {
+      latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
+    }
+
+    if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length > 32) {
+      isHash = true;
+      blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
+    }
+
+    const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
+
+    const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
+    if (blockDiff <= latestBlockTolerance) {
+      blockNumberOrTagOrHash = EthImpl.blockLatest;
+    }
+
+    // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
+    // This should rarely happen.
+    if (blockNumberOrTagOrHash !== EthImpl.blockLatest && latestBlock.timeStampTo === '0') {
+      latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
+    }
+
+    return { latestBlock, blockNumberOrTagOrHash };
+  }
+
+  /**
+   * @param nextPage
+   * @param block
+   * @param requestDetails
+   * @private
+   */
+  private async getPagedTransactions(nextPage: string, block, requestDetails: RequestDetails) {
+    let pagedTransactions = [];
+    // if we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
+    const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
+    const nextPageTimeMarker = nextPageParams.get('timestamp');
+    // if nextPageTimeMarker is greater than the block.timestamp.to, then we need to paginate to get the transactions for the block.timestamp.to
+    if (nextPageTimeMarker && nextPageTimeMarker?.split(':')[1] >= block.timestamp.to) {
+      pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails);
+    }
+    // if nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
+
+    return pagedTransactions;
+  }
+
+  /**
+   * @param account
+   * @param block
+   * @param latestBlock
+   * @param requestDetails
+   * @private
+   */
+  private async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+    let balanceFound = false;
+    let weibars = BigInt(0);
+    let mirrorAccount;
+
+    const latestTimestamp = Number(latestBlock.timeStampTo.split('.')[0]);
+    const blockTimestamp = Number(block.timestamp.from.split('.')[0]);
+    const timeDiff = latestTimestamp - blockTimestamp;
+    // The block is NOT from the last 15 minutes, use /balances rest API
+    if (timeDiff > constants.BALANCES_UPDATE_INTERVAL) {
+      const balance = await this.mirrorNodeClient.getBalanceAtTimestamp(
+        account,
+        requestDetails,
+        block.timestamp.from
+      );
+      balanceFound = true;
+      if (balance?.balances?.length) {
+        weibars = BigInt(balance.balances[0].balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      }
+    }
+    // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
+    else {
+      let currentBalance = 0;
+      let balanceFromTxs = 0;
+      mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
+      if (mirrorAccount) {
+        if (mirrorAccount.balance) {
+          currentBalance = mirrorAccount.balance.balance;
+        }
+
+        // The balance in the account is real time, so we simply subtract the transactions to the block.timestamp.to to get a block relevant balance.
+        // needs to be updated below.
+        const nextPage: string = mirrorAccount.links.next;
+        if (nextPage) {
+          mirrorAccount.transactions = mirrorAccount.transactions.concat(
+            await this.getPagedTransactions(nextPage, block, requestDetails)
+          );
+        }
+
+        balanceFromTxs = this.getBalanceAtBlockTimestamp(
+          mirrorAccount.account,
+          mirrorAccount.transactions,
+          block.timestamp.to
+        );
+
+        balanceFound = true;
+        weibars = BigInt(currentBalance - balanceFromTxs) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      }
+    }
+
+    return { balanceFound, weibars };
   }
 
   /**
