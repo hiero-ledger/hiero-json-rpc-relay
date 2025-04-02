@@ -2,7 +2,7 @@ version: "3.7"
 services:
   relay:
     container_name: hedera-json-rpc-relay
-    image: "ghcr.io/hashgraph/hedera-json-rpc-relay:main"
+    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:main"
     restart: "unless-stopped"
     ports:
       - 7546:7546
@@ -16,7 +16,7 @@ services:
 
   relay-ws:
     container_name: hedera-json-rpc-relay-ws
-    image: "ghcr.io/hashgraph/hedera-json-rpc-relay:main"
+    image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:main"
     command: start:ws
     environment:
       HEALTHCHECK_PORT: 8547

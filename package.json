@@ -75,7 +75,7 @@
     "clean": "npx lerna run clean",
     "compile": "npx lerna run compile",
     "dev": "npm run build && tsc --watch",
-    "deploy:docker": "docker push ghcr.io/hashgraph/${npm_package_name}:latest",
+    "deploy:docker": "docker push ghcr.io/hiero-ledger/${npm_package_name}:latest",
     "format": "npx lerna run format",
     "lint": "npx lerna run lint",
     "start": "npx lerna exec --scope @hashgraph/json-rpc-server -- npm run start",
