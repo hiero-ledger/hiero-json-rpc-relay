@@ -7,6 +7,9 @@ export class MirrorNodeClientError extends Error {
   public data?: string;
   public detail?: string;
 
+  /**
+   * Standard HTTP status responses used by the Mirror Node
+   */
   static HttpStatusResponses = {
     BAD_GATEWAY: {
       statusCode: 502,
@@ -46,6 +49,9 @@ export class MirrorNodeClientError extends Error {
     },
   };
 
+  /**
+   * Common error messages used by the Mirror Node
+   */
   static messages = {
     INVALID_HEX: 'data field invalid hexadecimal string',
     CONTRACT_REVERT_EXECUTED: Status.ContractRevertExecuted.toString(),
@@ -68,54 +74,119 @@ export class MirrorNodeClientError extends Error {
     Object.setPrototypeOf(this, MirrorNodeClientError.prototype);
   }
 
+  /**
+   * Checks if the error is due to a contract revert
+   *
+   * @returns True if the error is a contract revert
+   */
   public isContractReverted(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.CONTRACT_REVERT_EXECUTED.statusCode;
   }
 
-  public isContractRevertOpcodeExecuted() {
+  /**
+   * Checks if the error is due to a contract revert opcode execution
+   *
+   * @returns True if the error is from a contract revert opcode
+   */
+  public isContractRevertOpcodeExecuted(): boolean {
     return this.message === MirrorNodeClientError.messages.CONTRACT_REVERT_EXECUTED;
   }
 
+  /**
+   * Checks if the error is a not found error
+   *
+   * @returns True if the resource was not found
+   */
   public isNotFound(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.NOT_FOUND.statusCode;
   }
 
+  /**
+   * Checks if the response is empty (no content)
+   *
+   * @returns True if the response is empty
+   */
   public isEmpty(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.NO_CONTENT.statusCode;
   }
 
+  /**
+   * Checks if the error is due to rate limiting
+   *
+   * @returns True if the error is due to rate limiting
+   */
   public isRateLimit(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.TOO_MANY_REQUESTS.statusCode;
   }
 
+  /**
+   * Checks if the error is due to an unsupported system contract operation
+   *
+   * @returns True if the operation is not supported for system contracts
+   */
   public isNotSupportedSystemContractOperaton(): boolean {
     return this.message === 'Precompile not supported';
   }
 
-  public isFailInvalid() {
+  /**
+   * Checks if the error is a FAIL_INVALID error
+   *
+   * @returns True if the error is FAIL_INVALID
+   */
+  public isFailInvalid(): boolean {
     return this.message === 'FAIL_INVALID';
   }
 
-  public isInvalidTransaction() {
+  /**
+   * Checks if the error is an INVALID_TRANSACTION error
+   *
+   * @returns True if the transaction is invalid
+   */
+  public isInvalidTransaction(): boolean {
     return this.message === 'INVALID_TRANSACTION';
   }
 
-  public isInternalServerError() {
+  /**
+   * Checks if the error is an internal server error
+   *
+   * @returns True if the error is an internal server error
+   */
+  public isInternalServerError(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.INTERNAL_SERVER_ERROR.statusCode;
   }
 
+  /**
+   * Checks if the error is due to an unsupported operation
+   *
+   * @returns True if the operation is not supported
+   */
   public isNotSupported(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.NOT_SUPPORTED.statusCode;
   }
 
-  public isBadGateway() {
+  /**
+   * Checks if the error is a bad gateway error
+   *
+   * @returns True if the error is a bad gateway error
+   */
+  public isBadGateway(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.BAD_GATEWAY.statusCode;
   }
 
-  public isServiceUnavailable() {
+  /**
+   * Checks if the error is a service unavailable error
+   *
+   * @returns True if the service is unavailable
+   */
+  public isServiceUnavailable(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.SERVICE_UNAVAILABLE.statusCode;
   }
 
+  /**
+   * Checks if the error is due to a timeout
+   *
+   * @returns True if the error is due to a timeout
+   */
   public isTimeout(): boolean {
     return this.statusCode === MirrorNodeClientError.HttpStatusResponses.ECONNABORTED.statusCode;
   }
