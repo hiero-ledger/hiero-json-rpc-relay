@@ -5,12 +5,11 @@ import { RequestDetails } from '../../types';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import constants from '../../constants';
 import { numberTo0x, parseNumericEnvVar } from '../../../formatters';
-import { LatestBlockNumberTimestamp } from '../blockService/IBlockService';
 import { CommonService } from '../ethService';
 import { MirrorNodeClient } from '../../clients';
 import { Logger } from 'pino';
 import { CacheService } from '../cacheService/cacheService';
-import { EthImpl } from '../../eth';
+import { LatestBlockNumberTimestamp } from '../ethService/ethCommonService/ITimestamp';
 
 export class AccountService implements IAccountService {
   /**

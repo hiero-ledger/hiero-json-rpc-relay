@@ -52,6 +52,7 @@ import { FeeService } from './services/feeService';
 import { AccountService } from './services/accountService';
 const _ = require('lodash');
 import { ParamType } from './types/validation';
+import { IAccountService } from './services/accountService/IAccountService';
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -198,7 +199,7 @@ export class EthImpl implements Eth {
   /**
    * The Account Service implementation that takes care of all account API operations.
    */
-  private readonly accountService: AccountService;
+  private readonly accountService: IAccountService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
