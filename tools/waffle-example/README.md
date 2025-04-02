@@ -47,9 +47,9 @@ npm install --save-dev ethereum-waffle
 
 Waffle utilizes `ethers.js` to communicate with the JSON-RPC API.
 
-A sample usage is documented in this [example](https://github.com/hashgraph/hedera-json-rpc-relay/tree/main/tools/hardhat-example).
+A sample usage is documented in this [example](https://github.com/hiero-ledger/hiero-json-rpc-relay/tree/main/tools/hardhat-example).
 
-Both [contract deployment](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/tools/hardhat-example/scripts/deployContract.js) and [calls](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/tools/hardhat-example/scripts/contractCall.js) are performed using `ethers.js` in the same way Waffle does.
+Both [contract deployment](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/tools/hardhat-example/scripts/deployContract.js) and [calls](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/tools/hardhat-example/scripts/contractCall.js) are performed using `ethers.js` in the same way Waffle does.
 
 The [Chai matchers](https://ethereum-waffle.readthedocs.io/en/latest/matchers.html) provided by Waffle are not dependent on any specific network. They can be used to easily detect common scenarios in Smart Contract testing, such as whether an event was emitted by the Smart Contract or if an operation was reverted.
 

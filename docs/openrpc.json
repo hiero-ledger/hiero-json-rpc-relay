@@ -9,49 +9,49 @@
     {
       "name": "Mainnet",
       "url": "https://mainnet.hashio.io/api",
-      "description": "Hedera Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "Testnet",
       "url": "https://testnet.hashio.io/api",
-      "description": "Hedera Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "Previewnet",
       "url": "https://previewnet.hashio.io/api",
-      "description": "Hedera Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "localhost",
       "url": "http://localhost:7546",
-      "description": "Run your own instance of [`hedera-json-rpc-relay`](https://github.com/hashgraph/hedera-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+      "description": "Run your own instance of [`hedera-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
     },
     {
       "name": "WS Mainnet",
       "url": "wss://mainnet.hashio.io/ws",
-      "description": "Hedera Web Socket Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Web Socket Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "WS Testnet",
       "url": "wss://testnet.hashio.io/ws",
-      "description": "Hedera Web Socket Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Web Socket Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "WS Previewnet",
       "url": "wss://previewnet.hashio.io/ws",
-      "description": "Hedera Web Socket Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hashgraph/hedera-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Web Socket Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "WS localhost",
       "url": "ws://localhost:8546",
-      "description": "Run your own instance of Web Socket [`hedera-json-rpc-relay`](https://github.com/hashgraph/hedera-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+      "description": "Run your own instance of Web Socket [`hedera-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
     }
   ],
   "methods": [
     {
       "name": "eth_accounts",
       "summary": "Returns a list of addresses owned by client.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Accounts",
@@ -66,7 +66,7 @@
     {
       "name": "eth_blockNumber",
       "summary": "Returns the number of most recent block.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "Block number",
@@ -78,7 +78,7 @@
     {
       "name": "eth_call",
       "summary": "Executes a new message call immediately without creating a transaction on the block chain. ",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction",
@@ -105,7 +105,7 @@
     {
       "name": "eth_chainId",
       "summary": "Returns the chain ID of the current network.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "Chain ID",
@@ -125,7 +125,7 @@
     {
       "name": "eth_estimateGas",
       "summary": "Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction",
@@ -152,7 +152,7 @@
     {
       "name": "eth_feeHistory",
       "summary": "Returns transaction base fee per gas and effective priority fee per gas for the requested/supported block range.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "blockCount",
@@ -240,7 +240,7 @@
     {
       "name": "eth_gasPrice",
       "summary": "Returns the current price per gas in weibars.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "Gas price",
@@ -253,7 +253,7 @@
     {
       "name": "eth_getBalance",
       "summary": "Returns the balance of the account of given address.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Address",
@@ -281,7 +281,7 @@
     {
       "name": "eth_getBlockByHash",
       "summary": "Returns information about a block by hash.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Block hash",
@@ -309,7 +309,7 @@
     {
       "name": "eth_getBlockByNumber",
       "summary": "Returns information about a block by number.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Block",
@@ -337,7 +337,7 @@
     {
       "name": "eth_getBlockTransactionCountByHash",
       "summary": "Returns the number of transactions in a block from a block matching the given block hash.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Block hash",
@@ -356,7 +356,7 @@
     {
       "name": "eth_getBlockTransactionCountByNumber",
       "summary": "Returns the number of transactions in a block matching the given block number.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Block",
@@ -375,7 +375,7 @@
     {
       "name": "eth_getCode",
       "summary": "Returns code at a given address.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Address",
@@ -402,7 +402,7 @@
     {
       "name": "eth_getLogs",
       "summary": "Returns an array of all logs matching a given filter object.",
-      "description": "The block range filter, _i.e._, `fromBlock` and `toBlock` arguments, cannot be larger than `ETH_GET_LOGS_BLOCK_RANGE_LIMIT` (defaults to `1000`). However, when `address` represents a single address, either a `string` or an array with a single element, this restriction is lifted. In any case, if the `topics` param is present the block range must be within ~`302,400` blocks, the equivalent to 7 days.\n\nWhen the logs for an individual address exceeds `MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX * MIRROR_NODE_LIMIT_PARAM` (defaults to `20k`) an error `-32011` _Mirror Node pagination count range too large_ is returned. These settings are the Mirror Node page limit (defaults to `200`) and Mirror Node entries per page (defaults to `100`) respectively. ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "The block range filter, _i.e._, `fromBlock` and `toBlock` arguments, cannot be larger than `ETH_GET_LOGS_BLOCK_RANGE_LIMIT` (defaults to `1000`). However, when `address` represents a single address, either a `string` or an array with a single element, this restriction is lifted. In any case, if the `topics` param is present the block range must be within ~`302,400` blocks, the equivalent to 7 days.\n\nWhen the logs for an individual address exceeds `MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX * MIRROR_NODE_LIMIT_PARAM` (defaults to `20k`) an error `-32011` _Mirror Node pagination count range too large_ is returned. These settings are the Mirror Node page limit (defaults to `200`) and Mirror Node entries per page (defaults to `100`) respectively. ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Filter",
@@ -421,7 +421,7 @@
     {
       "name": "eth_getStorageAt",
       "summary": "Returns the value from a storage position at a given address and block. The optional block param may be latest or a valid tag of a historical block.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Address",
@@ -455,7 +455,7 @@
     {
       "name": "eth_getTransactionByBlockHashAndIndex",
       "summary": "Returns information about a transaction by block hash and transaction index position.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Block hash",
@@ -482,7 +482,7 @@
     {
       "name": "eth_getTransactionByBlockNumberAndIndex",
       "summary": "Returns information about a transaction by block number and transaction index position.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Block",
@@ -509,7 +509,7 @@
     {
       "name": "eth_getTransactionByHash",
       "summary": "Returns the information about a transaction requested by transaction hash.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction hash",
@@ -529,7 +529,7 @@
     {
       "name": "eth_getTransactionCount",
       "summary": "Returns the number of transactions sent from an address.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Address",
@@ -557,7 +557,7 @@
     {
       "name": "eth_getTransactionReceipt",
       "summary": "Returns the receipt of a transaction by transaction hash.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction hash",
@@ -576,7 +576,7 @@
     {
       "name": "eth_getUncleByBlockHashAndIndex",
       "summary": "Returns information about a uncle of a block by hash and uncle index position.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "eth_getUncleByBlockHashAndIndex result",
@@ -589,7 +589,7 @@
     {
       "name": "eth_getUncleByBlockNumberAndIndex",
       "summary": "Returns information about a uncle of a block by number and uncle index position.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "eth_getUncleByBlockNumberAndIndex result",
@@ -602,7 +602,7 @@
     {
       "name": "eth_getUncleCountByBlockHash",
       "summary": "Returns the number of uncles in a block from a block matching the given block hash.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "eth_getUncleCountByBlockHash result",
@@ -617,7 +617,7 @@
     {
       "name": "eth_getUncleCountByBlockNumber",
       "summary": "Returns the number of transactions in a block matching the given block number.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "eth_getUncleCountByBlockNumber result",
@@ -640,7 +640,7 @@
     {
       "name": "eth_hashrate",
       "summary": "Returns the number of hashes per second that the node is mining with. Always returns 0x0.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Mining status",
@@ -654,7 +654,7 @@
     {
       "name": "eth_maxPriorityFeePerGas",
       "summary": "Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or 'tip', to get a transaction included in the current block.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "eth_maxPriorityFeePerGas result",
@@ -669,7 +669,7 @@
     {
       "name": "eth_mining",
       "summary": "Returns whether the client is a miner. We don't mine, so this always returns false.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Mining status",
@@ -682,7 +682,7 @@
     {
       "name": "eth_newBlockFilter",
       "summary": "Creates a filter object, to notify of newly created blocks.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Filter ID",
@@ -699,7 +699,7 @@
     {
       "name": "eth_newFilter",
       "summary": "Creates a filter object, based on filter options, to notify when the state changes (logs).",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "LogFilter",
@@ -723,7 +723,7 @@
     {
       "name": "eth_uninstallFilter",
       "summary": "Uninstalls a filter with given id.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "FilterID",
@@ -760,7 +760,7 @@
     {
       "name": "eth_getFilterLogs",
       "summary": "Returns an array of all logs matching filter with given id.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Filter ID",
@@ -784,7 +784,7 @@
     {
       "name": "eth_getFilterChanges",
       "summary": "Gets the latest results since the last request for a provided filter according to its type.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "Filter ID",

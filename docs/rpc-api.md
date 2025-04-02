@@ -115,4 +115,4 @@ Details for the Real-Time Events API can be found [here](./live-events-api.md)
 ### Open RPC Spec
 
 The detailed schema specifications of the current methods offerred by the JSON RPC relay is captured in our
-[Open RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false)
+[Open RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false)
