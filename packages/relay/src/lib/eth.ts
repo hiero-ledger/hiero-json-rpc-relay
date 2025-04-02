@@ -34,9 +34,8 @@ import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
-import { BlockService } from './services';
+import { BlockService, CommonService, FilterService, IBlockService, ICommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { CommonService, FilterService } from './services/ethService';
 import { FeeService } from './services/feeService';
 import { AccountService } from './services/accountService';
 import HAPIService from './services/hapiService/hapiService';
@@ -177,13 +176,17 @@ export class EthImpl implements Eth {
   /**
    * The Common Service implementation that contains logic shared by other services.
    */
-  private readonly common: CommonService;
+  private readonly common: ICommonService;
 
   /**
    * The Filter Service implementation that takes care of all filter API operations.
    */
   private readonly filterService: FilterService;
-  private readonly blockService: BlockService;
+
+  /**
+   * The Block Service implementation that takes care of all block API operations.
+   */
+  private readonly blockService: IBlockService;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -2101,7 +2104,10 @@ export class EthImpl implements Eth {
         return null;
       }
 
-      const gasPriceForTimestamp = await this.getCurrentGasPriceForBlock(syntheticLogs[0].blockHash, requestDetails);
+      const gasPriceForTimestamp = await this.common.getCurrentGasPriceForBlock(
+        syntheticLogs[0].blockHash,
+        requestDetails,
+      );
       const receipt: ITransactionReceipt = {
         blockHash: syntheticLogs[0].blockHash,
         blockNumber: syntheticLogs[0].blockNumber,
@@ -2133,7 +2139,7 @@ export class EthImpl implements Eth {
       );
       return receipt;
     } else {
-      const effectiveGas = await this.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
+      const effectiveGas = await this.common.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
       // support stricter go-eth client which requires the transaction hash property on logs
       const logs = receiptResponse.logs.map((log) => {
         return new Log({
@@ -2149,7 +2155,7 @@ export class EthImpl implements Eth {
         });
       });
 
-      const contractAddress = this.getContractAddressFromReceipt(receiptResponse);
+      const contractAddress = this.common.getContractAddressFromReceipt(receiptResponse);
       const receipt: ITransactionReceipt = {
         blockHash: toHash32(receiptResponse.block_hash),
         blockNumber: numberTo0x(receiptResponse.block_number),
@@ -2187,41 +2193,6 @@ export class EthImpl implements Eth {
       );
       return receipt;
     }
-  }
-
-  /**
-   * This method retrieves the contract address from the receipt response.
-   * If the contract creation is via a system contract, it handles the system contract creation.
-   * If not, it returns the address from the receipt response.
-   *
-   * @param {any} receiptResponse - The receipt response object.
-   * @returns {string} The contract address.
-   */
-  private getContractAddressFromReceipt(receiptResponse: any): string {
-    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
-      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-    );
-
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
-    }
-
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
-  }
-
-  private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
-    const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
-    const timestampDecimalString = block ? block.timestamp.from.split('.')[0] : '';
-    const gasPriceForTimestamp = await this.common.getFeeWeibars(
-      EthImpl.ethGetTransactionReceipt,
-      requestDetails,
-      timestampDecimalString,
-    );
-
-    return numberTo0x(gasPriceForTimestamp);
   }
 
   private static redirectBytecodeAddressReplace(address: string): string {
@@ -2416,70 +2387,6 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
-    }
-
-    const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
-    const blockNumber = block.number;
-
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
-        );
-      }
-      return cachedResponse;
-    }
-
-    const paramTimestamp: IContractResultsParams = {
-      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
-    };
-
-    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp);
-    if (!contractResults || contractResults.length === 0) {
-      return [];
-    }
-
-    const effectiveGas = await this.getCurrentGasPriceForBlock(block.hash, requestDetails);
-
-    const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-    contractResults.forEach((contractResult) => {
-      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
-    });
-
-    const receipts: Receipt[] = [];
-
-    for (const contractResult of contractResults) {
-      const from = await this.resolveEvmAddress(contractResult.from, requestDetails);
-      const to = await this.resolveEvmAddress(contractResult.to, requestDetails);
-
-      const contractAddress = this.getContractAddressFromReceipt(contractResult);
-      const receipt = {
-        blockHash: toHash32(contractResult.block_hash),
-        blockNumber: numberTo0x(contractResult.block_number),
-        from: from,
-        to: to,
-        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
-        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
-        contractAddress: contractAddress,
-        logs: contractResult.logs,
-        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
-        transactionHash: toHash32(contractResult.hash),
-        transactionIndex: numberTo0x(contractResult.transaction_index),
-        effectiveGasPrice: effectiveGas,
-        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
-        status: contractResult.status,
-        type: nullableNumberTo0x(contractResult.type),
-      };
-
-      receipts.push(receipt);
-    }
-
-    await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
-    return receipts;
+    return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
   }
 }

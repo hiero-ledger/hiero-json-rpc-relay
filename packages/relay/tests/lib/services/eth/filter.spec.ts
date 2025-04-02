@@ -10,8 +10,8 @@ import { v4 as uuid } from 'uuid';
 import { predefined } from '../../../../src';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
+import { CommonService, FilterService } from '../../../../src/lib/services';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
-import { CommonService, FilterService } from '../../../../src/lib/services/ethService';
 import { RequestDetails } from '../../../../src/lib/types';
 import RelayAssertions from '../../../assertions';
 import {
