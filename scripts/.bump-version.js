@@ -49,7 +49,7 @@ replace({
 if (!isSnapshot) {
   // bump docker-compose.yml version
   // looking for: image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.20.0-SNAPSHOT", image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.20.0-rc1", image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:0.20.0", image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:main"
-  const dockerComposeRegex = 'image: "ghcr.io\\/hashgraph\\/hedera-json-rpc-relay:(main|\\d+\\.\\d+\\.\\d+(-\\w+)?)"';
+  const dockerComposeRegex = 'image: "ghcr.io\\/hiero-ledger\\/hiero-json-rpc-relay:(main|\\d+\\.\\d+\\.\\d+(-\\w+)?)"';
   replace({
     regex: dockerComposeRegex,
     replacement: `image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:${newVersion}"`,
@@ -63,7 +63,7 @@ if (!isSnapshot) {
   // also update README.md using replace
   //looking for: "/hiero-ledger/hiero-json-rpc-relay/main/docs/openrpc.json", "/hiero-ledger/hiero-json-rpc-relay/release/0.20/docs/openrpc.json"
   const readmeRegex =
-    "(\\/hashgraph\\/hedera-json-rpc-relay\\/){1}(main|(release\\/\\d+.\\d+)){1}(\\/docs\\/openrpc.json){1}";
+    "(\\/hiero-ledger\\/hiero-json-rpc-relay\\/){1}(main|(release\\/\\d+.\\d+)){1}(\\/docs\\/openrpc.json){1}";
   replace({
     regex: readmeRegex,
     replacement: `/hiero-ledger/hiero-json-rpc-relay/release/${majorMinorVersion}/docs/openrpc.json`,

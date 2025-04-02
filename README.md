@@ -7,7 +7,7 @@
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
 [![RPC API Methods](https://img.shields.io/badge/websocket-docs-green.svg)](docs/live-events-api.md)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://hedera.com/discord)
-[![Made With](https://img.shields.io/badge/made_with-typescript-blue)](https://github.com/hashgraph/hederajson-rpc-relay/)
+[![Made With](https://img.shields.io/badge/made_with-typescript-blue)](https://github.com/hiero-ledger/hiero-json-rpc-relay/)
 [![License](https://img.shields.io/badge/license-apache2-blue.svg)](LICENSE)
 
 </div>

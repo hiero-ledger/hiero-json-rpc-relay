@@ -24,7 +24,7 @@
     {
       "name": "localhost",
       "url": "http://localhost:7546",
-      "description": "Run your own instance of [`hedera-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+      "description": "Run your own instance of [`hiero-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
     },
     {
       "name": "WS Mainnet",
@@ -44,7 +44,7 @@
     {
       "name": "WS localhost",
       "url": "ws://localhost:8546",
-      "description": "Run your own instance of Web Socket [`hedera-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+      "description": "Run your own instance of Web Socket [`hiero-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
     }
   ],
   "methods": [
@@ -832,7 +832,7 @@
     {
       "name": "eth_sendRawTransaction",
       "summary": "Submits a raw transaction.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction",
@@ -884,7 +884,7 @@
     {
       "name": "eth_submitWork",
       "summary": "Used for submitting a proof-of-work solution.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "PoW solution",
@@ -898,7 +898,7 @@
     {
       "name": "eth_syncing",
       "summary": "Returns syncing status.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Syncing status",
@@ -912,7 +912,7 @@
     {
       "name": "net_listening",
       "summary": "Returns true if client is actively listening for network connections.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "Listening status.",
@@ -926,7 +926,7 @@
     {
       "name": "net_version",
       "summary": "Returns the current chain id.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
         "name": "The current chain id.",
@@ -946,7 +946,7 @@
     {
       "name": "web3_clientVersion",
       "summary": "Returns the current client version.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "The current client version.",
@@ -959,7 +959,7 @@
     {
       "name": "web3_sha3",
       "summary": "Returns sha3 of the input.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
         "name": "The sha3 result.",
@@ -971,7 +971,7 @@
     {
       "name": "eth_subscribe",
       "summary": "Creates a new subscription for desired events. Sends data as soon as it occurs.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "subscription_type",
@@ -1024,7 +1024,7 @@
     {
       "name": "eth_unsubscribe",
       "summary": "Cancels a subscription.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "subscription_id",
@@ -1046,7 +1046,7 @@
     {
       "name": "debug_traceTransaction",
       "summary": "Attempts to run the transaction in the exact same manner as it was executed on the network.",
-      "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png)",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
           "name": "transactionHash",

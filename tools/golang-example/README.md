@@ -56,7 +56,7 @@ git clone https://github.com/hiero-ledger/hiero-json-rpc-relay.git
 2. Once you've cloned the repository, open your IDE terminal and navigate to the root directory of the project:
 
 ```shell
-cd hedera-json-rpc-relay/tools/golang-example
+cd hiero-json-rpc-relay/tools/golang-example
 ```
 
 3. Run the following command to install all the necessary dependencies:
