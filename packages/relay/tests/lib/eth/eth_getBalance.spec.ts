@@ -686,7 +686,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     });
   });
 
-  describe('Calculate balance at block timestamp', async function () {
+  describe('Calculate balance at block timestamp via getBalanceAtBlockTimestamp', async function () {
     const timestamp1 = 1651550386;
 
     it('Given a blockNumber, return the account balance at that blocknumber, with transactions that debit the account balance', async () => {
@@ -695,7 +695,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl.getBalanceAtBlockTimestamp(
+      const resultingUpdate = ethImpl.accountService.getBalanceAtBlockTimestamp(
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -710,7 +710,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl.getBalanceAtBlockTimestamp(
+      const resultingUpdate = ethImpl.accountService.getBalanceAtBlockTimestamp(
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -725,7 +725,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         buildCryptoTransferTransaction(CONTRACT_ID_1, '0.0.98', 50, { timestamp: `${timestamp1}.060890954` }),
       ];
 
-      const resultingUpdate = ethImpl.getBalanceAtBlockTimestamp(
+      const resultingUpdate = ethImpl.accountService.getBalanceAtBlockTimestamp(
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
@@ -741,7 +741,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         buildCryptoTransferTransaction('0.0.98', CONTRACT_ID_1, 20, { timestamp: `${timestamp1}.060890955` }),
       ];
 
-      const resultingUpdate = ethImpl.getBalanceAtBlockTimestamp(
+      const resultingUpdate = ethImpl.accountService.getBalanceAtBlockTimestamp(
         CONTRACT_ID_1,
         transactionsInBlockTimestamp,
         Number(`${timestamp1}.060890950`),
