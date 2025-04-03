@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IFeeService } from '../feeService/IFeeService';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import _ from 'lodash';
+import { Logger } from 'pino';
+
+import { numberTo0x } from '../../../formatters';
+import { MirrorNodeClient } from '../../clients';
 import constants from '../../constants';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import { IFeeHistory, RequestDetails } from '../../types';
-import { CommonService } from '../ethService';
-import { MirrorNodeClient } from '../../clients';
-import { Logger } from 'pino';
-import { CacheService } from '../cacheService/cacheService';
 import { EthImpl } from '../../eth';
-import { numberTo0x } from '../../../formatters';
-import _ from 'lodash';
+import { IFeeHistory, RequestDetails } from '../../types';
+import { CacheService } from '../cacheService/cacheService';
+import { CommonService } from '../ethService';
+import { IFeeService } from '../feeService/IFeeService';
 
 export class FeeService implements IFeeService {
   /**
@@ -65,7 +66,12 @@ export class FeeService implements IFeeService {
    * @param rewardPercentiles
    * @param requestDetails
    */
-  public async feeHistory(blockCount: number, newestBlock: string, rewardPercentiles: Array<number> | null, requestDetails: RequestDetails): Promise<IFeeHistory | JsonRpcError> {
+  public async feeHistory(
+    blockCount: number,
+    newestBlock: string,
+    rewardPercentiles: Array<number> | null,
+    requestDetails: RequestDetails,
+  ): Promise<IFeeHistory | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     const maxResults = ConfigService.get('TEST')
       ? constants.DEFAULT_FEE_HISTORY_MAX_RESULTS
@@ -113,7 +119,7 @@ export class FeeService implements IFeeService {
       } else {
         // once we finish testing and refining Fixed Fee method, we can remove this else block to clean up code
         const cacheKey = `${constants.CACHE_KEY.FEE_HISTORY}_${blockCount}_${newestBlock}_${rewardPercentiles?.join(
-          ''
+          '',
         )}`;
         const cachedFeeHistory = await this.cacheService.getAsync(cacheKey, EthImpl.ethFeeHistory, requestDetails);
 
@@ -125,7 +131,7 @@ export class FeeService implements IFeeService {
             newestBlockNumber,
             latestBlockNumber,
             rewardPercentiles,
-            requestDetails
+            requestDetails,
           );
         }
         if (newestBlock != EthImpl.blockLatest && newestBlock != EthImpl.blockPending) {
@@ -134,7 +140,7 @@ export class FeeService implements IFeeService {
             feeHistory,
             EthImpl.ethFeeHistory,
             requestDetails,
-            parseInt(constants.ETH_FEE_HISTORY_TTL)
+            parseInt(constants.ETH_FEE_HISTORY_TTL),
           );
         }
       }
@@ -166,13 +172,18 @@ export class FeeService implements IFeeService {
    * @param fee
    * @private
    */
-  private static getRepeatedFeeHistory(blockCount: number, oldestBlockNumber: number, rewardPercentiles: Array<number> | null, fee: string): IFeeHistory {
+  private static getRepeatedFeeHistory(
+    blockCount: number,
+    oldestBlockNumber: number,
+    rewardPercentiles: Array<number> | null,
+    fee: string,
+  ): IFeeHistory {
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
 
     const feeHistory: IFeeHistory = {
       baseFeePerGas: Array(blockCount).fill(fee),
       gasUsedRatio: Array(blockCount).fill(EthImpl.defaultGasUsedRatio),
-      oldestBlock: numberTo0x(oldestBlockNumber)
+      oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
     // next fee. Due to high block production rate and low fee change rate we add the next fee
@@ -194,14 +205,20 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    * @private
    */
-  private async getFeeHistory(blockCount: number, newestBlockNumber: number, latestBlockNumber: number, rewardPercentiles: Array<number> | null, requestDetails: RequestDetails): Promise<IFeeHistory> {
+  private async getFeeHistory(
+    blockCount: number,
+    newestBlockNumber: number,
+    latestBlockNumber: number,
+    rewardPercentiles: Array<number> | null,
+    requestDetails: RequestDetails,
+  ): Promise<IFeeHistory> {
     // include the newest block number in the total block count
     const oldestBlockNumber = Math.max(0, newestBlockNumber - blockCount + 1);
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
     const feeHistory: IFeeHistory = {
       baseFeePerGas: [] as string[],
       gasUsedRatio: [] as number[],
-      oldestBlock: numberTo0x(oldestBlockNumber)
+      oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
     // get fees from oldest to newest blocks
@@ -245,7 +262,7 @@ export class FeeService implements IFeeService {
     } catch (error) {
       this.logger.warn(
         error,
-        `${requestDetails.formattedRequestId} Fee history cannot retrieve block or fee. Returning ${fee} fee for block ${blockNumber}`
+        `${requestDetails.formattedRequestId} Fee history cannot retrieve block or fee. Returning ${fee} fee for block ${blockNumber}`,
       );
     }
 

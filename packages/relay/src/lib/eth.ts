@@ -60,13 +60,11 @@ import { ParamType } from './types/validation';
  * of fake stuff in this class for now for the purpose of demos and POC.
  */
 export class EthImpl implements Eth {
-  static emptyHex = '0x';
   static zeroHex = '0x0';
   static oneHex = '0x1';
   static twoHex = '0x2';
   static oneTwoThreeFourHex = '0x1234';
   static zeroHex8Byte = '0x0000000000000000';
-  static zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
   static emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
   static zeroAddressHex = '0x0000000000000000000000000000000000000000';
   static emptyBloom =
@@ -87,13 +85,10 @@ export class EthImpl implements Eth {
     reward: [],
     oldestBlock: EthImpl.zeroHex,
   };
-  static iHTSAddress = '0x0000000000000000000000000000000000000167';
-  static invalidEVMInstruction = '0xfe';
   static blockHashLength = 66;
 
   // endpoint callerNames
   static ethBlockByNumber = 'eth_blockNumber';
-  static ethCall = 'eth_call';
   static ethEstimateGas = 'eth_estimateGas';
   static ethFeeHistory = 'eth_feeHistory';
   static ethGasPrice = 'eth_gasPrice';
@@ -101,7 +96,6 @@ export class EthImpl implements Eth {
   static ethGetBlockReceipts = 'eth_getBlockReceipts';
   static ethGetBlockByHash = 'eth_GetBlockByHash';
   static ethGetBlockByNumber = 'eth_GetBlockByNumber';
-  static ethGetCode = 'eth_getCode';
   static ethGetTransactionByHash = 'eth_GetTransactionByHash';
   static ethGetTransactionCount = 'eth_getTransactionCount';
   static ethGetTransactionCountByHash = 'eth_GetTransactionCountByHash';
@@ -115,9 +109,6 @@ export class EthImpl implements Eth {
   static blockPending = 'pending';
   static blockSafe = 'safe';
   static blockFinalized = 'finalized';
-
-  // static response constants
-  static accounts = [];
 
   /**
    * Overrideable options used when initializing.
@@ -900,7 +891,7 @@ export class EthImpl implements Eth {
       );
     }
 
-    let result = EthImpl.zeroHex32Byte; // if contract or slot not found then return 32 byte 0
+    let result = CommonService.zeroHex32Byte; // if contract or slot not found then return 32 byte 0
 
     const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
     // To save a request to the mirror node for `latest` and `pending` blocks, we directly return null from `getHistoricalBlockResponse`
@@ -1582,7 +1573,7 @@ export class EthImpl implements Eth {
 
     this.ethExecutionsCounter
       .labels(
-        EthImpl.ethCall,
+        CommonService.ethCall,
         callData?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) ?? '',
         call.from || '',
         call.to || '',
@@ -1645,7 +1636,7 @@ export class EthImpl implements Eth {
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
-      EthImpl.ethGetCode,
+      CommonService.ethGetCode,
       requestDetails,
       searchableTypes,
       0,
@@ -1833,7 +1824,7 @@ export class EthImpl implements Eth {
         gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
         contractAddress: contractAddress,
         logs: logs,
-        logsBloom: receiptResponse.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : receiptResponse.bloom,
+        logsBloom: receiptResponse.bloom === CommonService.emptyHex ? EthImpl.emptyBloom : receiptResponse.bloom,
         transactionHash: toHash32(receiptResponse.hash),
         transactionIndex: numberTo0x(receiptResponse.transaction_index),
         effectiveGasPrice: effectiveGas,
@@ -1900,7 +1891,7 @@ export class EthImpl implements Eth {
   }
 
   private static prune0x(input: string): string {
-    return input.startsWith(EthImpl.emptyHex) ? input.substring(2) : input;
+    return input.startsWith(CommonService.emptyHex) ? input.substring(2) : input;
   }
 
   populateSyntheticTransactions(
@@ -2010,13 +2001,13 @@ export class EthImpl implements Eth {
     return new Block({
       baseFeePerGas: await this.gasPrice(requestDetails),
       difficulty: EthImpl.zeroHex,
-      extraData: EthImpl.emptyHex,
+      extraData: CommonService.emptyHex,
       gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
       gasUsed: numberTo0x(gasUsed),
       hash: blockHash,
-      logsBloom: blockResponse.logs_bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : blockResponse.logs_bloom,
+      logsBloom: blockResponse.logs_bloom === CommonService.emptyHex ? EthImpl.emptyBloom : blockResponse.logs_bloom,
       miner: EthImpl.zeroAddressHex,
-      mixHash: EthImpl.zeroHex32Byte,
+      mixHash: CommonService.zeroHex32Byte,
       nonce: EthImpl.zeroHex8Byte,
       number: numberTo0x(blockResponse.number),
       parentHash: blockResponse.previous_hash.substring(0, 66),
@@ -2040,7 +2031,7 @@ export class EthImpl implements Eth {
       chainId: this.chain,
       from: log.address,
       gas: EthImpl.defaultTxGas,
-      gasPrice: EthImpl.invalidEVMInstruction,
+      gasPrice: constants.INVALID_EVM_INSTRUCTION,
       hash: log.transactionHash,
       input: EthImpl.zeroHex8Byte,
       maxPriorityFeePerGas: EthImpl.zeroHex,
@@ -2214,7 +2205,7 @@ export class EthImpl implements Eth {
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
         contractAddress: contractAddress,
         logs: contractResult.logs,
-        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        logsBloom: contractResult.bloom === CommonService.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
         transactionIndex: numberTo0x(contractResult.transaction_index),
         effectiveGasPrice: effectiveGas,

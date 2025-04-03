@@ -76,13 +76,16 @@ export class CommonService implements ICommonService {
   public static readonly blockLatest = 'latest';
   public static readonly blockPending = 'pending';
   public static readonly blockSafe = 'safe';
+  public static readonly ethCall = 'eth_call';
   public static readonly ethGetBalance = 'eth_getBalance';
+  public static readonly ethGetCode = 'eth_getCode';
   public static readonly ethGetTransactionCount = 'eth_getTransactionCount';
   public static readonly emptyHex = '0x';
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
   public static readonly oneHex = '0x1';
   public static readonly zeroHex = '0x0';
+  public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
   /**
    * private constants
@@ -275,7 +278,7 @@ export class CommonService implements ICommonService {
   public async getHistoricalBlockResponse(
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
-    returnLatest: boolean = true
+    returnLatest: boolean = true,
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -286,7 +289,7 @@ export class CommonService implements ICommonService {
       return null;
     }
 
-    if (blockNumberOrTagOrHash === EthImpl.emptyHex) {
+    if (blockNumberOrTagOrHash === CommonService.emptyHex) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
@@ -500,7 +503,7 @@ export class CommonService implements ICommonService {
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
-      EthImpl.ethGetCode,
+      CommonService.ethGetCode,
       requestDetails,
       searchableTypes,
       0,
@@ -554,7 +557,7 @@ export class CommonService implements ICommonService {
     return TransactionFactory.createTransactionByType(cr.type, {
       ...commonFields,
       maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-      maxFeePerGas: cr.max_fee_per_gas
+      maxFeePerGas: cr.max_fee_per_gas,
     });
   };
 

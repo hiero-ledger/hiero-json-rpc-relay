@@ -196,7 +196,7 @@ export class BlockService implements IBlockService {
           chainId: '0x12', //this.chain,
           from: log.address,
           gas: EthImpl.defaultTxGas,
-          gasPrice: EthImpl.invalidEVMInstruction,
+          gasPrice: constants.INVALID_EVM_INSTRUCTION,
           hash: log.transactionHash,
           input: EthImpl.zeroHex8Byte,
           maxPriorityFeePerGas: EthImpl.zeroHex,

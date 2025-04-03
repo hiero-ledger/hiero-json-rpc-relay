@@ -6,6 +6,7 @@ import constants from '../../constants';
 import { EthImpl } from '../../eth';
 import { Block } from '../../model';
 import { IBlockMirrorNode } from '../blockService/IBlockService';
+import { CommonService } from '../ethService';
 
 interface BlockFactoryParams {
   blockResponse: IBlockMirrorNode;
@@ -25,13 +26,13 @@ export class BlockFactory {
     return new Block({
       baseFeePerGas: gasPrice,
       difficulty: EthImpl.zeroHex,
-      extraData: EthImpl.emptyHex,
+      extraData: CommonService.emptyHex,
       gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
       gasUsed: numberTo0x(blockResponse.gas_used),
       hash: blockHash,
-      logsBloom: blockResponse.logs_bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : blockResponse.logs_bloom,
+      logsBloom: blockResponse.logs_bloom === CommonService.emptyHex ? EthImpl.emptyBloom : blockResponse.logs_bloom,
       miner: EthImpl.zeroAddressHex,
-      mixHash: EthImpl.zeroHex32Byte,
+      mixHash: CommonService.zeroHex32Byte,
       nonce: EthImpl.zeroHex8Byte,
       number: numberTo0x(blockResponse.number),
       parentHash: blockResponse.previous_hash.substring(0, 66),

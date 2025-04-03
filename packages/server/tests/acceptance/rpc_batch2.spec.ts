@@ -5,6 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services/ethService';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -787,7 +788,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [NftHTSTokenContractAddress, earlierBlock],
         requestId,
       );
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('@release should return empty bytecode for contract when a block earlier than the contract creation is passed', async function () {
@@ -797,7 +798,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [mainContractAddress, earlierBlock],
         requestId,
       );
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('@release should execute "eth_getCode" for contract evm_address', async function () {
@@ -816,19 +817,19 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [Address.NON_EXISTING_ADDRESS, 'latest'],
         requestId,
       );
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(CommonService.emptyHex);
     });
 
     it('should return 0x0 for account evm_address on eth_getCode', async function () {
       const evmAddress = Utils.idToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [evmAddress, 'latest'], requestId);
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(CommonService.emptyHex);
     });
 
     it('should return 0x0 for account alias on eth_getCode', async function () {
       const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest'], requestId);
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(CommonService.emptyHex);
     });
 
     // Issue # 2619 https://github.com/hashgraph/hedera-json-rpc-relay/issues/2619

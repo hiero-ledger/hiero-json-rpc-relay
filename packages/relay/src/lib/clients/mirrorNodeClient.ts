@@ -15,9 +15,9 @@ import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { EthImpl } from '../eth';
 import { IBlockMirrorNode } from '../services/blockService/IBlockService';
 import { CacheService } from '../services/cacheService/cacheService';
+import { CommonService } from '../services/ethService';
 import {
   IContractCallRequest,
   IContractCallResponse,
@@ -723,7 +723,7 @@ export class MirrorNodeClient {
       response != undefined &&
       response.transaction_index != undefined &&
       response.block_number != undefined &&
-      response.block_hash != EthImpl.emptyHex &&
+      response.block_hash != CommonService.emptyHex &&
       response.result === 'SUCCESS'
     ) {
       await this.cacheService.set(
@@ -780,7 +780,7 @@ export class MirrorNodeClient {
             contractObject &&
             (contractObject.transaction_index == null ||
               contractObject.block_number == null ||
-              contractObject.block_hash == EthImpl.emptyHex)
+              contractObject.block_hash == CommonService.emptyHex)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {
@@ -967,7 +967,7 @@ export class MirrorNodeClient {
             (log.transaction_index == null ||
               log.block_number == null ||
               log.index == null ||
-              log.block_hash === EthImpl.emptyHex)
+              log.block_hash === CommonService.emptyHex)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {

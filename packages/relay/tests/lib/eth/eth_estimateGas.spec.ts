@@ -40,7 +40,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     mirrorNodeInstance,
     logger,
     registry,
-    contractService,
+    commonService,
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
@@ -53,7 +53,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     requestDetails: RequestDetails,
   ) {
     const formattedData = { ...callData, estimate };
-    await contractService.contractCallFormat(formattedData, requestDetails);
+    await commonService.contractCallFormat(formattedData, requestDetails);
     return web3Mock.onPost('contracts/call', formattedData).reply(statusCode, JSON.stringify(result));
   }
 
@@ -549,7 +549,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await contractService.contractCallFormat(transaction, requestDetails);
+    await commonService.contractCallFormat(transaction, requestDetails);
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
@@ -567,7 +567,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await contractService.contractCallFormat(transaction, requestDetails);
+    await commonService.contractCallFormat(transaction, requestDetails);
     expect(transaction.data).to.eq(inputValue);
     expect(transaction.data).to.not.eq(dataValue);
     expect(transaction.input).to.be.undefined;
