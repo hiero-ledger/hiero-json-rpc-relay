@@ -2,7 +2,6 @@
 
 import { Block, Receipt } from '../../model';
 import { RequestDetails } from '../../types';
-import { ITimestamp } from '../ethService/ethCommonService/ITimestamp';
 
 export interface IBlockService {
   getBlockByNumber: (
@@ -18,17 +17,4 @@ export interface IBlockService {
   getUncleByBlockNumberAndIndex: (requestDetails: RequestDetails) => Promise<null>;
   getUncleCountByBlockHash: (requestDetails: RequestDetails) => Promise<string>;
   getUncleCountByBlockNumber: (requestDetails: RequestDetails) => Promise<string>;
-}
-
-export interface IBlockMirrorNode {
-  count: number;
-  gas_used: number;
-  hapi_version: string;
-  hash: string;
-  logs_bloom: string;
-  name: string;
-  number: number;
-  previous_hash: string;
-  size: number;
-  timestamp: ITimestamp;
 }

@@ -12,12 +12,12 @@ import { predefined } from '../../errors/JsonRpcError';
 import { EthImpl } from '../../eth';
 import { Block, Log, Receipt, Transaction } from '../../model';
 import { IContractResultsParams, RequestDetails } from '../../types';
+import { IMirrorNodeBlock } from '../../types/IMirrorNodeBlock';
 import { CacheService } from '../cacheService/cacheService';
 import { CommonService } from '../ethService/ethCommonService/CommonService';
 import { BlockFactory } from '../factories/blockFactory';
 import { TransactionFactory } from '../factories/transactionFactory';
 import { IBlockService, ICommonService } from '../index';
-import { IBlockMirrorNode } from './IBlockService';
 
 export class BlockService implements IBlockService {
   /**
@@ -364,7 +364,7 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const blockResponse: IBlockMirrorNode = await this.common.getHistoricalBlockResponse(
+    const blockResponse: IMirrorNodeBlock = await this.common.getHistoricalBlockResponse(
       requestDetails,
       blockHashOrNumber,
       true,
@@ -427,7 +427,7 @@ export class BlockService implements IBlockService {
    * @param block The block response
    * @returns The transaction count
    */
-  private getTransactionCountFromBlockResponse(block: IBlockMirrorNode): null | string {
+  private getTransactionCountFromBlockResponse(block: IMirrorNodeBlock): null | string {
     if (block === null || block.count === undefined) {
       // block not found
       return null;
