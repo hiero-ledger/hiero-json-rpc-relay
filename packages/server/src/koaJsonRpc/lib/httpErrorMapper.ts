@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { JsonRpcError } from '@hashgraph/json-rpc-relay/dist';
+
+import { JsonRpcError as JsonRpcErrorServer } from './RpcError';
+
 // Define constants for frequently used values
 const HTTP_STATUS = {
   OK: 200,
@@ -40,26 +44,24 @@ const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
  * @returns HTTP status code and status error description
  */
 export function translateRpcErrorToHttpStatus(
-  errorCode: number,
-  errorMessage: string,
+  jsonRpcError: JsonRpcError | JsonRpcErrorServer,
   requestIdPrefix: string,
-  errorData?: string,
 ): { statusCode: number; statusErrorMessage: string } {
   // Clean the error message by removing request ID prefix
-  const statusErrorMessage = errorMessage.replace(`${requestIdPrefix} `, '');
+  const statusErrorMessage = jsonRpcError.message.replace(`${requestIdPrefix} `, '');
 
   // Handle Mirror Node errors (-32020)
   // Note: -32020 corresponds to predefined.MIRROR_NODE_UPSTREAM_FAILURE,
-  // where `errorData` represents the HTTP status code returned from the Mirror Node upstream server.
-  if (errorCode === -32020 && errorData) {
+  // where `jsonRpcError.data` represents the HTTP status code returned from the Mirror Node upstream server.
+  if (jsonRpcError.code === -32020 && jsonRpcError.data) {
     return {
-      statusCode: MIRROR_NODE_ERROR_MAP[errorData] || HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      statusCode: MIRROR_NODE_ERROR_MAP[jsonRpcError.data] || HTTP_STATUS.INTERNAL_SERVER_ERROR,
       statusErrorMessage,
     };
   }
 
   // Look up the status code from the map, default to BAD_REQUEST
-  const statusCode = ERROR_CODE_MAP[errorCode] || HTTP_STATUS.BAD_REQUEST;
+  const statusCode = ERROR_CODE_MAP[jsonRpcError.code] || HTTP_STATUS.BAD_REQUEST;
 
   return { statusCode, statusErrorMessage };
 }

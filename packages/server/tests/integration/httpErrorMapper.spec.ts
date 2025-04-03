@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { JsonRpcError } from '@hashgraph/json-rpc-relay';
 import { expect } from 'chai';
 
 import { translateRpcErrorToHttpStatus } from '../../src/koaJsonRpc/lib/httpErrorMapper';
 
 describe('translateRpcErrorToHttpStatus', () => {
-  const requestIdPrefix = 'req-123';
+  const requestId = 'req-123';
+  const requestIdPrefix = `[Request ID: ${requestId}]`;
 
   // Helper function to test error code mappings
   const testErrorCodeMapping = (errorCode, errorMessage, expectedStatusCode, errorData: any = undefined) => {
-    const result = translateRpcErrorToHttpStatus(errorCode, errorMessage, requestIdPrefix, errorData);
+    const result = translateRpcErrorToHttpStatus(
+      new JsonRpcError({ code: errorCode, message: errorMessage, data: errorData }, requestId),
+      requestIdPrefix,
+    );
+
     expect(result.statusCode).to.equal(expectedStatusCode);
     return result;
   };
 
   it('should remove request ID prefix from error message', () => {
-    const result = translateRpcErrorToHttpStatus(-32600, `${requestIdPrefix} Invalid request`, requestIdPrefix);
+    const result = translateRpcErrorToHttpStatus(
+      new JsonRpcError({ code: -32600, message: `Invalid request` }, requestId),
+      requestIdPrefix,
+    );
     expect(result.statusErrorMessage).to.equal('Invalid request');
   });
 
