@@ -9,7 +9,7 @@ import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
 import { LatestBlockNumberTimestamp } from '../ethService/ethCommonService/ITimestamp';
-import { CommonService } from '../index';
+import { CommonService, ICommonService } from '../index';
 import { IAccountService } from './IAccountService';
 
 export class AccountService implements IAccountService {
@@ -25,7 +25,7 @@ export class AccountService implements IAccountService {
    *
    * @private
    */
-  private readonly common: CommonService;
+  private readonly common: ICommonService;
 
   /**
    * @private
@@ -77,7 +77,7 @@ export class AccountService implements IAccountService {
    * @param logger
    * @param mirrorNodeClient
    */
-  constructor(cacheService: CacheService, common: CommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
+  constructor(cacheService: CacheService, common: ICommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
     this.cacheService = cacheService;
     this.common = common;
     this.logger = logger;
