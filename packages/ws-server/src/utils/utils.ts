@@ -161,6 +161,14 @@ const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger, requestDe
 };
 
 /**
+ * Checks if subscriptions are enabled.
+ * @returns {boolean} A boolean indicating whether subscriptions are enabled.
+ */
+export const areSubscriptionsEnabled = (): boolean => {
+  return ConfigService.get('SUBSCRIPTIONS_ENABLED');
+};
+
+/**
  * Constructs a valid log subscription filter from the provided filters, retaining only the 'address' and 'topics' fields while discarding any unexpected parameters.
  * @param {any} filters - The filters to construct the subscription filter from.
  * @returns {Object} A valid log subscription filter object.
