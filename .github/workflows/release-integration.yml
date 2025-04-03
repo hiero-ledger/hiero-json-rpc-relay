@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  OWNER: hashgraph
+  # OWNER: hashgraph
   REGISTRY: ghcr.io
 
 permissions:

@@ -5,7 +5,7 @@ on:
     tags: [ v* ]
 
 env:
-  OWNER: hashgraph
+  # OWNER: hashgraph
   PACKAGE_NAME: hedera-json-rpc-relay
   REGISTRY: ghcr.io
 

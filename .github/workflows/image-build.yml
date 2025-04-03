@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main, release/**]
 
-env:
-  OWNER: hashgraph
+# env:
+  # OWNER: hashgraph
 
 permissions:
   contents: read
