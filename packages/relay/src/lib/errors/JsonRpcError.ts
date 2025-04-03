@@ -282,6 +282,10 @@ export const predefined = {
       code: -32206,
       message: `Batch request amount ${amount} exceeds max ${max}`,
     }),
+  WS_SUBSCRIPTIONS_DISABLED: new JsonRpcError({
+    code: -32207,
+    message: 'WS Subscriptions are disabled',
+  }),
   INVALID_ARGUMENTS: (message: string) =>
     new JsonRpcError({
       code: -32000,
