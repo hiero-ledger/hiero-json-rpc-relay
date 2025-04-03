@@ -95,6 +95,8 @@ export class MirrorNodeClient {
     DESC: 'desc',
   };
 
+  private static readonly unknownServerErrorHttpStatusCode = 567;
+
   // The following constants are used in requests objects
   private static readonly X_API_KEY = 'x-api-key';
   private static readonly FORWARD_SLASH = '/';
@@ -373,7 +375,9 @@ export class MirrorNodeClient {
 
       // Calculate effective status code
       const effectiveStatusCode =
-        error.response?.status || MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode || 500; // Use standard 500 as fallback
+        error.response?.status ||
+        MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode ||
+        MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
       this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);

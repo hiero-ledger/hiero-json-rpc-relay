@@ -57,7 +57,7 @@ describe('translateRpcErrorToHttpStatus', () => {
       { status: '502', message: 'Bad Gateway', expectedStatus: 500 },
       { status: '503', message: 'Service Unavailable', expectedStatus: 500 },
       { status: '504', message: 'Gateway Timeout', expectedStatus: 500 },
-      { status: '418', message: 'Unknown Mirror Node error', expectedStatus: 500 },
+      { status: '567', message: 'Unknown Mirror Node error', expectedStatus: 500 },
     ];
 
     mirrorNodeErrorMappings.forEach(({ status, message, expectedStatus }) => {

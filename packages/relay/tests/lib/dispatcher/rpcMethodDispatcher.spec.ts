@@ -309,7 +309,8 @@ describe('RpcMethodDispatcher', () => {
     });
 
     it('should return default error for unrecognized mirror node errors', () => {
-      const error = new MirrorNodeClientError(new Error('Unknown error'), 418);
+      const error = new MirrorNodeClientError(new Error('Unknown error'), 567);
+
       // Make sure all check methods return false
       sinon.stub(error, 'isRateLimit').returns(false);
       sinon.stub(error, 'isInternalServerError').returns(false);
@@ -322,7 +323,7 @@ describe('RpcMethodDispatcher', () => {
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
-      expect(result.message).to.include('Mirror node upstream failure');
+      expect(result.message).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).message);
     });
 
     it('should handle mirror node errors with no message', () => {
