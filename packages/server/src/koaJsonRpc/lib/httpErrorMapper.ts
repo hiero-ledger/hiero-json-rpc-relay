@@ -20,10 +20,12 @@ const ERROR_CODE_MAP: Record<number, number> = {
 };
 
 // Map Mirror Node error data to HTTP status codes
+// - 404 from the Mirror Node maps to HTTP 400
 // - 429 from the Mirror Node maps to HTTP 429
 // - 501 from the Mirror Node maps to HTTP 501
 // - Any other error data from the Mirror Node will be mapped to HTTP 500 by default
 const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
+  '404': HTTP_STATUS.BAD_REQUEST,
   '429': HTTP_STATUS.TOO_MANY_REQUESTS,
   '501': HTTP_STATUS.NOT_IMPLEMENTED,
 };

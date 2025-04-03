@@ -41,6 +41,7 @@ describe('translateRpcErrorToHttpStatus', () => {
     const mirrorNodeErrorCode = -32020;
 
     const mirrorNodeErrorMappings = [
+      { status: '404', message: 'Method Not Found', expectedStatus: 400 },
       { status: '429', message: 'Mirror Node rate limit exceeded', expectedStatus: 429 },
       { status: '500', message: 'Internal Server Error', expectedStatus: 500 },
       { status: '501', message: 'Not implemented', expectedStatus: 501 },
