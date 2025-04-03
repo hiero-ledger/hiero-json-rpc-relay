@@ -47,7 +47,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 
-describe.only('@ethCall Eth Call spec', async function () {
+describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, contractService, commonService } =
     generateEthTestEnv();
