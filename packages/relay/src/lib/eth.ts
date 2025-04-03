@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { FileId, PrecheckStatusError } from '@hashgraph/sdk';
-import crypto from 'crypto';
+import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
@@ -11,9 +9,7 @@ import { Counter, Registry } from 'prom-client';
 import {
   ASCIIToHex,
   formatTransactionIdWithoutQueryParams,
-  getFunctionSelector,
   isHex,
-  isValidEthereumAddress,
   nanOrNumberTo0x,
   nullableNumberTo0x,
   numberTo0x,
@@ -21,7 +17,6 @@ import {
   prepend0x,
   toHash32,
   trimPrecedingZeros,
-  weibarHexToTinyBarInt,
 } from '../formatters';
 import { Eth } from '../index';
 import { LogsBloomUtils } from '../logsBloomUtils';
@@ -35,8 +30,10 @@ import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
+import { ContractService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
+import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
 import {
   IContractCallRequest,
@@ -47,8 +44,7 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
-import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
-import { FeeService } from './services/feeService';
+import { IContractResultsParams } from './types/mirrorNode';
 const _ = require('lodash');
 import { ParamType } from './types/validation';
 
@@ -94,9 +90,6 @@ export class EthImpl implements Eth {
     reward: [],
     oldestBlock: EthImpl.zeroHex,
   };
-  static redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-  static redirectBytecodePostfix =
-    '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
   static iHTSAddress = '0x0000000000000000000000000000000000000167';
   static invalidEVMInstruction = '0xfe';
   static blockHashLength = 66;
@@ -136,7 +129,6 @@ export class EthImpl implements Eth {
    */
   private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
   private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-  private readonly ethCallCacheTtl = parseNumericEnvVar('ETH_CALL_CACHE_TTL', 'ETH_CALL_CACHE_TTL_DEFAULT');
   private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
@@ -146,7 +138,6 @@ export class EthImpl implements Eth {
     'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT',
   );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
-  private readonly contractCallGasLimit = parseNumericEnvVar('CONTRACT_CALL_GAS_LIMIT', 'CONTRACT_CALL_GAS_LIMIT');
   private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
   private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
     'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
@@ -214,6 +205,11 @@ export class EthImpl implements Eth {
   private readonly feeService: FeeService;
 
   /**
+   * The ContractService implementation that takes care of all contract related operations.
+   */
+  private readonly contractService: ContractService;
+
+  /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
    * using Hedera Hashgraph as the underlying network.
    *
@@ -246,6 +242,7 @@ export class EthImpl implements Eth {
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
+    this.contractService = new ContractService(mirrorNodeClient, this.common, logger, cacheService, hapiService);
   }
 
   private shouldUseCacheForBalance(tag: string | null): boolean {
@@ -276,10 +273,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   accounts(requestDetails: RequestDetails): never[] {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} accounts()`);
-    }
-    return EthImpl.accounts;
+    return this.contractService.accounts(requestDetails);
   }
 
   /**
@@ -454,7 +448,7 @@ export class EthImpl implements Eth {
     transaction: IContractCallRequest,
     requestDetails: RequestDetails,
   ): Promise<IContractCallResponse | null> {
-    await this.contractCallFormat(transaction, requestDetails);
+    await this.common.contractCallFormat(transaction, requestDetails);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }
@@ -489,7 +483,7 @@ export class EthImpl implements Eth {
         );
       }
       // when account exists return default base gas
-      if (await this.getAccount(transaction.to!, requestDetails)) {
+      if (await this.common.getAccount(transaction.to!, requestDetails)) {
         this.logger.warn(`${requestIdPrefix} Returning predefined gas for simple transfer: ${EthImpl.gasTxBaseCost}`);
         return EthImpl.gasTxBaseCost;
       }
@@ -518,64 +512,6 @@ export class EthImpl implements Eth {
     } else {
       this.logger.warn(`${requestIdPrefix} Returning predefined gas for unknown transaction: ${this.defaultGas}`);
       return this.defaultGas;
-    }
-  }
-
-  /**
-   * Tries to get the account with the given address from the cache,
-   * if not found, it fetches it from the mirror node.
-   *
-   * @param {string} address the address of the account
-   * @param {RequestDetails} requestDetails the request details for logging and tracking
-   * @returns {Promise<IAccountInfo | null>} the account (if such exists for the given address)
-   */
-  private async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
-    const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
-    let account = await this.cacheService.getAsync(key, EthImpl.ethEstimateGas, requestDetails);
-    if (!account) {
-      account = await this.mirrorNodeClient.getAccount(address, requestDetails);
-      await this.cacheService.set(key, account, EthImpl.ethEstimateGas, requestDetails);
-    }
-    return account;
-  }
-
-  /**
-   * Perform value format precheck before making contract call towards the mirror node
-   * @param {IContractCallRequest} transaction the transaction object
-   * @param {RequestDetails} requestDetails the request details for logging and tracking
-   */
-  async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
-    if (transaction.value) {
-      transaction.value = weibarHexToTinyBarInt(transaction.value);
-    }
-    if (transaction.gasPrice) {
-      transaction.gasPrice = parseInt(transaction.gasPrice.toString());
-    } else {
-      transaction.gasPrice = await this.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
-    }
-    if (transaction.gas) {
-      transaction.gas = parseInt(transaction.gas.toString());
-    }
-    if (!transaction.from && transaction.value && (transaction.value as number) > 0) {
-      if (ConfigService.get('OPERATOR_KEY_FORMAT') === 'HEX_ECDSA') {
-        transaction.from = this.hapiService.getMainClientInstance().operatorPublicKey?.toEvmAddress();
-      } else {
-        const operatorId = this.hapiService.getMainClientInstance().operatorAccountId!.toString();
-        const operatorAccount = await this.getAccount(operatorId, requestDetails);
-        transaction.from = operatorAccount?.evm_address;
-      }
-    }
-
-    // Support either data or input. https://ethereum.github.io/execution-apis/api-documentation/ lists input but many EVM tools still use data.
-    // We chose in the mirror node to use data field as the correct one, however for us to be able to support all tools,
-    // we have to modify transaction object, so that it complies with the mirror node.
-    // That means that, if input field is passed, but data is not, we have to copy value of input to the data to comply with mirror node.
-    // The second scenario occurs when both the data and input fields are present but hold different values.
-    // In this case, the value in the input field should be the one used for consensus based on this resource https://github.com/ethereum/execution-apis/blob/main/tests/eth_call/call-contract.io
-    // Eventually, for optimization purposes, we can rid of the input property or replace it with empty string.
-    if ((transaction.input && transaction.data === undefined) || (transaction.input && transaction.data)) {
-      transaction.data = transaction.input;
-      delete transaction.input;
     }
   }
 
@@ -1240,116 +1176,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (!EthImpl.isBlockParamValid(blockNumber)) {
-      throw predefined.UNKNOWN_BLOCK(
-        `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
-      );
-    }
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getCode(address=${address}, blockNumber=${blockNumber})`);
-    }
-
-    // check for static precompile cases first before consulting nodes
-    // this also account for environments where system entities were not yet exposed to the mirror node
-    if (address === EthImpl.iHTSAddress) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestIdPrefix} HTS precompile case, return ${EthImpl.invalidEVMInstruction} for byte code`,
-        );
-      }
-      return EthImpl.invalidEVMInstruction;
-    }
-
-    const cachedLabel = `getCode.${address}.${blockNumber}`;
-    const cachedResponse: string | undefined = await this.cacheService.getAsync(
-      cachedLabel,
-      EthImpl.ethGetCode,
-      requestDetails,
-    );
-    if (cachedResponse != undefined) {
-      return cachedResponse;
-    }
-
-    try {
-      const result = await this.mirrorNodeClient.resolveEntityType(address, EthImpl.ethGetCode, requestDetails, [
-        constants.TYPE_CONTRACT,
-        constants.TYPE_TOKEN,
-      ]);
-      if (result) {
-        const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
-        if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
-          return EthImpl.emptyHex;
-        }
-        if (result?.type === constants.TYPE_TOKEN) {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
-          }
-          return EthImpl.redirectBytecodeAddressReplace(address);
-        } else if (result?.type === constants.TYPE_CONTRACT) {
-          if (result?.entity.runtime_bytecode !== EthImpl.emptyHex) {
-            const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = disassemble(result?.entity.runtime_bytecode);
-            const hasProhibitedOpcode =
-              opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
-            if (!hasProhibitedOpcode) {
-              await this.cacheService.set(
-                cachedLabel,
-                result?.entity.runtime_bytecode,
-                EthImpl.ethGetCode,
-                requestDetails,
-              );
-              return result?.entity.runtime_bytecode;
-            }
-          }
-        }
-      }
-
-      const bytecode = await this.hapiService
-        .getSDKClient()
-        .getContractByteCode(0, 0, address, EthImpl.ethGetCode, requestDetails);
-      return prepend0x(Buffer.from(bytecode).toString('hex'));
-    } catch (e: any) {
-      if (e instanceof SDKClientError) {
-        // handle INVALID_CONTRACT_ID or CONTRACT_DELETED
-        if (e.isInvalidContractId() || e.isContractDeleted()) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.statusCode}`,
-            );
-          }
-          return EthImpl.emptyHex;
-        }
-
-        this.hapiService.decrementErrorCounter(e.statusCode);
-        this.logger.error(
-          e,
-          `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.statusCode}`,
-        );
-      } else if (e instanceof PrecheckStatusError) {
-        if (
-          e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.INVALID_CONTRACT_ID ||
-          e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.CONTRACT_DELETED
-        ) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.message}`,
-            );
-          }
-          return EthImpl.emptyHex;
-        }
-
-        this.hapiService.decrementErrorCounter(e.status._code);
-        this.logger.error(
-          e,
-          `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.status._code}`,
-        );
-      } else {
-        this.logger.error(e, `${requestIdPrefix} Error raised during getCode for address ${address}`);
-      }
-
-      throw e;
-    }
+    return this.contractService.getCode(address, blockNumber, requestDetails);
   }
 
   /**
@@ -1992,11 +1819,8 @@ export class EthImpl implements Eth {
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     const callData = call.data ? call.data : call.input;
-    // log request
-    this.logger.info(
-      `${requestIdPrefix} call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
-    );
-    // log call data size
+
+    // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
@@ -2011,47 +1835,7 @@ export class EthImpl implements Eth {
       )
       .inc();
 
-    const blockNumberOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
-    await this.performCallChecks(call);
-
-    // Get a reasonable value for "gas" if it is not specified.
-    const gas = this.getCappedBlockGasLimit(call.gas?.toString(), requestDetails);
-
-    await this.contractCallFormat(call, requestDetails);
-
-    const selector = getFunctionSelector(call.data!);
-
-    // When eth_call is invoked with a selector listed in specialSelectors, it will be routed through the consensus node, regardless of ETH_CALL_DEFAULT_TO_CONSENSUS_NODE.
-    // note: this feature is a workaround for when a feature is supported by consensus node but not yet by mirror node.
-    // Follow this ticket https://github.com/hashgraph/hedera-json-rpc-relay/issues/2984 to revisit and remove special selectors.
-    const specialSelectors = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-    const shouldForceToConsensus = selector !== '' && specialSelectors.includes(selector);
-
-    // ETH_CALL_DEFAULT_TO_CONSENSUS_NODE = false enables the use of Mirror node
-    const shouldDefaultToConsensus = ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE');
-
-    let result: string | JsonRpcError = '';
-    try {
-      if (shouldForceToConsensus || shouldDefaultToConsensus) {
-        result = await this.callConsensusNode(call, gas, requestDetails);
-      } else {
-        //temporary workaround until precompiles are implemented in Mirror node evm module
-        // Execute the call and get the response
-        result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
-      }
-
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`${requestIdPrefix} eth_call response: ${JSON.stringify(result)}`);
-      }
-
-      return result;
-    } catch (e: any) {
-      this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
-      if (e instanceof JsonRpcError) {
-        return e;
-      }
-      return predefined.INTERNAL_ERROR(e.message.toString());
-    }
+    return this.contractService.call(call, blockParam, requestDetails);
   }
 
   /**
@@ -2091,229 +1875,11 @@ export class EthImpl implements Eth {
       constants.TYPE_ACCOUNT,
     ]);
 
-    return CommonService.formatContractResult({ ...contractResults[0], from: resolvedFromAddress, to: resolvedToAddress });
-  }
-
-  // according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
-  private async extractBlockNumberOrTag(
-    blockParam: string | object | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
-    if (!blockParam) {
-      return null;
-    }
-
-    // is an object
-    if (typeof blockParam === 'object') {
-      // object has property blockNumber, example: { "blockNumber": "0x0" }
-      if (blockParam['blockNumber'] != null) {
-        return blockParam['blockNumber'];
-      }
-
-      if (blockParam['blockHash'] != null) {
-        return await this.getBlockNumberFromHash(blockParam['blockHash'], requestDetails);
-      }
-
-      // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
-      throw predefined.INVALID_ARGUMENTS('neither block nor hash specified');
-    }
-
-    // if blockParam is a string, could be a blockNumber or blockTag or blockHash
-    if (blockParam.length > 0) {
-      // if string is a blockHash, we return its corresponding blockNumber
-      if (EthImpl.isBlockHash(blockParam)) {
-        return await this.getBlockNumberFromHash(blockParam, requestDetails);
-      } else {
-        return blockParam;
-      }
-    }
-
-    return null;
-  }
-
-  private async getBlockNumberFromHash(blockHash: string, requestDetails: RequestDetails): Promise<string> {
-    const block = await this.getBlockByHash(blockHash, false, requestDetails);
-    if (block != null) {
-      return block.number;
-    } else {
-      throw predefined.RESOURCE_NOT_FOUND(`Block Hash: '${blockHash}'`);
-    }
-  }
-
-  async callMirrorNode(
-    call: IContractCallRequest,
-    gas: number | null,
-    value: number | string | null | undefined,
-    block: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    let callData: IContractCallRequest = {};
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
-          call.to,
-          gas,
-          call.data,
-          call.from,
-          block,
-        );
-      }
-      callData = {
-        ...call,
-        ...(gas !== null ? { gas } : {}), // Add gas only if it's not null
-        ...(value !== null ? { value } : {}),
-        estimate: false,
-        ...(block !== null ? { block } : {}),
-      };
-
-      const contractCallResponse = await this.mirrorNodeClient.postContractCall(callData, requestDetails);
-      return contractCallResponse?.result ? prepend0x(contractCallResponse.result) : EthImpl.emptyHex;
-    } catch (e: any) {
-      if (e instanceof JsonRpcError) {
-        return e;
-      }
-
-      if (e instanceof MirrorNodeClientError) {
-        // Handles mirror node error for missing contract
-        if (e.isFailInvalid() || e.isInvalidTransaction()) {
-          return EthImpl.emptyHex;
-        }
-
-        if (e.isRateLimit()) {
-          return predefined.IP_RATE_LIMIT_EXCEEDED(e.data || `Rate limit exceeded on ${EthImpl.ethCall}`);
-        }
-
-        if (e.isContractReverted()) {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `${requestIdPrefix} mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
-            );
-          }
-          return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
-        }
-
-        // Temporary workaround until mirror node web3 module implements the support of precompiles
-        // If mirror node throws, rerun eth_call and force it to go through the Consensus network
-        if (e.isNotSupported() || e.isNotSupportedSystemContractOperaton()) {
-          const errorTypeMessage =
-            e.isNotSupported() || e.isNotSupportedSystemContractOperaton() ? 'Unsupported' : 'Unhandled';
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `${requestIdPrefix} ${errorTypeMessage} mirror node eth_call request, retrying with consensus node. details: ${JSON.stringify(
-                callData,
-              )} with error: "${e.message}"`,
-            );
-          }
-          return await this.callConsensusNode(call, gas, requestDetails);
-        }
-      }
-
-      this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
-
-      return predefined.INTERNAL_ERROR(e.message.toString());
-    }
-  }
-
-  /**
-   * Execute a contract call query to the consensus node
-   *
-   * @param call The contract call request data
-   * @param {number | null} gas The gas to pass for the call
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   */
-  async callConsensusNode(
-    call: any,
-    gas: number | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    // Execute the call and get the response
-    if (!gas) {
-      gas = Number.parseInt(this.defaultGas);
-    }
-
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" using consensus-node.`,
-        call.to,
-        gas,
-        call.data,
-        call.from,
-      );
-    }
-
-    // If "From" is distinct from blank, we check is a valid account
-    if (call.from) {
-      if (!isValidEthereumAddress(call.from)) {
-        throw predefined.NON_EXISTING_ACCOUNT(call.from);
-      }
-    }
-
-    // Check "To" is a valid Contract or HTS Address
-    if (!isValidEthereumAddress(call.to)) {
-      throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
-    }
-
-    try {
-      let data = call.data;
-      if (data) {
-        data = crypto.createHash('sha1').update(call.data).digest('hex'); // NOSONAR
-      }
-
-      const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
-      const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethCall, requestDetails);
-
-      if (cachedResponse != undefined) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`${requestIdPrefix} eth_call returned cached response: ${cachedResponse}`);
-        }
-        return cachedResponse;
-      }
-
-      const contractCallResponse = await this.hapiService
-        .getSDKClient()
-        .submitContractCallQueryWithRetry(call.to, call.data, gas, call.from, EthImpl.ethCall, requestDetails);
-      if (contractCallResponse) {
-        const formattedCallReponse = prepend0x(Buffer.from(contractCallResponse.asBytes()).toString('hex'));
-
-        await this.cacheService.set(
-          cacheKey,
-          formattedCallReponse,
-          EthImpl.ethCall,
-          requestDetails,
-          this.ethCallCacheTtl,
-        );
-        return formattedCallReponse;
-      }
-
-      return predefined.INTERNAL_ERROR(
-        `Invalid contractCallResponse from consensus-node: ${JSON.stringify(contractCallResponse)}`,
-      );
-    } catch (e: any) {
-      this.logger.error(e, `${requestIdPrefix} Failed to successfully submit contractCallQuery`);
-      if (e instanceof JsonRpcError) {
-        return e;
-      }
-
-      if (e instanceof SDKClientError) {
-        this.hapiService.decrementErrorCounter(e.statusCode);
-      }
-      return predefined.INTERNAL_ERROR(e.message.toString());
-    }
-  }
-
-  /**
-   * Perform necessary checks for the passed call object
-   *
-   * @param call
-   */
-  async performCallChecks(call: any): Promise<void> {
-    // after this PR https://github.com/hashgraph/hedera-mirror-node/pull/8100 in mirror-node, call.to is allowed to be empty or null
-    if (call.to && !isValidEthereumAddress(call.to)) {
-      throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
-    }
+    return CommonService.formatContractResult({
+      ...contractResults[0],
+      from: resolvedFromAddress,
+      to: resolvedToAddress,
+    });
   }
 
   async resolveEvmAddress(
@@ -2566,7 +2132,7 @@ export class EthImpl implements Eth {
     return prepend0x(tokenAddress);
   }
 
-  private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
+  async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
     const block = await this.getBlockByHash(blockHash, false, requestDetails);
     const timestampDecimal = parseInt(block ? block.timestamp : '0', 16);
     const timestampDecimalString = timestampDecimal > 0 ? timestampDecimal.toString() : '';
@@ -2579,58 +2145,8 @@ export class EthImpl implements Eth {
     return numberTo0x(gasPriceForTimestamp);
   }
 
-  private static redirectBytecodeAddressReplace(address: string): string {
-    return `${this.redirectBytecodePrefix}${address.slice(2)}${this.redirectBytecodePostfix}`;
-  }
-
   private static prune0x(input: string): string {
     return input.startsWith(EthImpl.emptyHex) ? input.substring(2) : input;
-  }
-
-  private static isBlockTagEarliest = (tag: string): boolean => {
-    return tag === EthImpl.blockEarliest;
-  };
-
-  private static isBlockTagFinalized = (tag: string): boolean => {
-    return (
-      tag === EthImpl.blockFinalized ||
-      tag === EthImpl.blockLatest ||
-      tag === EthImpl.blockPending ||
-      tag === EthImpl.blockSafe
-    );
-  };
-
-  private static isBlockNumValid = (num: string) => {
-    return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
-  };
-
-  private static isBlockParamValid = (tag: string | null) => {
-    return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
-  };
-
-  private static isBlockHash = (blockHash): boolean => {
-    return new RegExp(constants.BLOCK_HASH_REGEX + '{64}$').test(blockHash);
-  };
-
-  private getCappedBlockGasLimit(gasString: string | undefined, requestDetails: RequestDetails): number | null {
-    if (!gasString) {
-      // Return null and don't include in the mirror node call, as mirror is doing this estimation on the go.
-      return null;
-    }
-
-    // Gas limit for `eth_call` is 50_000_000, but the current Hedera network limit is 15_000_000
-    // With values over the gas limit, the call will fail with BUSY error so we cap it at 15_000_000
-    const gas = Number.parseInt(gasString);
-    if (gas > constants.MAX_GAS_PER_SEC) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestDetails.formattedRequestId} eth_call gas amount (${gas}) exceeds network limit, capping gas to ${constants.MAX_GAS_PER_SEC}`,
-        );
-      }
-      return constants.MAX_GAS_PER_SEC;
-    }
-
-    return gas;
   }
 
   populateSyntheticTransactions(
@@ -2948,14 +2464,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.FILTER, required: true },
   })
   async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
-    return this.common.getLogs(
-      params.blockHash,
-      params.fromBlock,
-      params.toBlock,
-      params.address,
-      params.topics,
-      requestDetails,
-    );
+    return this.contractService.getLogs(params, requestDetails);
   }
 
   /**
