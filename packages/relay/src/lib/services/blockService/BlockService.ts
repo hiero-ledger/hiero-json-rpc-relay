@@ -68,11 +68,11 @@ export class BlockService implements IBlockService {
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
   ) {
-    this.common = common;
+    this.cacheService = cacheService;
     this.chain = chain;
+    this.common = common;
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
-    this.cacheService = cacheService;
   }
 
   /**
