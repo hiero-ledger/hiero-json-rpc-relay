@@ -11,8 +11,8 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { CommonService } from './services/ethService/ethCommonService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
 
 import HAPIService from './services/hapiService/hapiService';
@@ -53,7 +53,12 @@ export class DebugImpl implements Debug {
    * @param {CacheService} cacheService - Service for managing cached data.
    * @param {HAPIService} hapiService - Hapi service for making SDK calls.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, hapiService: HAPIService) {
+  constructor(
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+    cacheService: CacheService,
+    hapiService: HAPIService,
+  ) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.mirrorNodeClient = mirrorNodeClient;

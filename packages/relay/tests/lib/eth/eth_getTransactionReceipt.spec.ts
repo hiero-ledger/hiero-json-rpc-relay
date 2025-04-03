@@ -116,7 +116,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   const stubBlockAndFeesFunc = (sandbox: sinon.SinonSandbox) => {
     const gasPrice = 12500000000000000000;
-    sandbox.stub(ethImpl, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sandbox.stub(ethImpl.common, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     sandbox.stub(ethImpl, <any>'getBlockByHash').resolves(DEFAULT_BLOCK);
     sandbox.stub(ethImpl.common, <any>'getFeeWeibars').resolves(gasPrice);
   };

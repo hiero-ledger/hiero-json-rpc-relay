@@ -5,10 +5,10 @@ import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils'
 import constants from '../../constants';
 import { EthImpl } from '../../eth';
 import { Block } from '../../model';
-import { IBlockMirrorNode } from '../blockService/IBlockService';
+import { IMirrorNodeBlock } from '../../types/IMirrorNodeBlock';
 
 interface BlockFactoryParams {
-  blockResponse: IBlockMirrorNode;
+  blockResponse: IMirrorNodeBlock;
   receipts: IReceiptRootHash[];
   txArray: any[];
   gasPrice: string;

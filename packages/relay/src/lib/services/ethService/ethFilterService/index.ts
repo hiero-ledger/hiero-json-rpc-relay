@@ -11,7 +11,7 @@ import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { INewFilterParams } from '../../../types/requestParams';
 import { CacheService } from '../../cacheService/cacheService';
-import { CommonService } from '../ethCommonService';
+import { CommonService, ICommonService } from '../../index';
 import { IFilterService } from './IFilterService';
 
 /**
@@ -41,15 +41,19 @@ export class FilterService implements IFilterService {
    * @private
    */
   private readonly cacheService: CacheService;
+
+  /**
+   * The Common Service implementation that contains logic shared by other services.
+   */
+  private readonly common: ICommonService;
+
   public readonly ethNewFilter = 'eth_newFilter';
   public readonly ethUninstallFilter = 'eth_uninstallFilter';
   public readonly ethGetFilterLogs = 'eth_getFilterLogs';
   public readonly ethGetFilterChanges = 'eth_getFilterChanges';
-
-  private readonly common: CommonService;
   private readonly supportedTypes: string[];
 
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, common: CommonService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, common: ICommonService) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
