@@ -44,14 +44,12 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
-import { IContractResultsParams } from './types/mirrorNode';
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
+import { FeeService } from './services/feeService';
+import { AccountService } from './services/accountService';
 const _ = require('lodash');
 import { ParamType } from './types/validation';
-
-interface LatestBlockNumberTimestamp {
-  blockNumber: string | null;
-  timeStampTo: string;
-}
+import { IAccountService } from './services/accountService/IAccountService';
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -129,20 +127,8 @@ export class EthImpl implements Eth {
    */
   private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
   private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-  private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
-  );
-  private readonly ethGetBalanceCacheTtlMs = parseNumericEnvVar(
-    'ETH_GET_BALANCE_CACHE_TTL_MS',
-    'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT',
-  );
-  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
+  private readonly ethCallCacheTtl = parseNumericEnvVar('ETH_CALL_CACHE_TTL', 'ETH_CALL_CACHE_TTL_DEFAULT');
   private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
-  private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
-    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
-    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
-  );
   private readonly estimateGasThrows = ConfigService.get('ESTIMATE_GAS_THROWS');
 
   /**
@@ -210,6 +196,11 @@ export class EthImpl implements Eth {
   private readonly contractService: ContractService;
 
   /**
+   * The Account Service implementation that takes care of all account API operations.
+   */
+  private readonly accountService: IAccountService;
+
+  /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
    * using Hedera Hashgraph as the underlying network.
    *
@@ -243,11 +234,7 @@ export class EthImpl implements Eth {
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
     this.contractService = new ContractService(mirrorNodeClient, this.common, logger, cacheService, hapiService);
-  }
-
-  private shouldUseCacheForBalance(tag: string | null): boolean {
-    // should only cache balance when is Not latest or pending and is not in dev mode
-    return !CommonService.blockTagIsLatestOrPendingStrict(tag) && !CommonService.isDevMode;
+    this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
   }
 
   private initCounter(metricCounterName: string, labelNames: string[], register: Registry): Counter {
@@ -320,31 +307,6 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
     }
     return await this.common.getLatestBlockNumber(requestDetails);
-  }
-
-  /**
-   * Gets the most recent block number and timestamp.to which represents the block finality.
-   */
-  async blockNumberTimestamp(caller: string, requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
-    }
-
-    const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-
-    const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
-    const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      const currentBlock = numberTo0x(blocks[0].number);
-      const timestamp = blocks[0].timestamp.to;
-      const blockTimeStamp: LatestBlockNumberTimestamp = { blockNumber: currentBlock, timeStampTo: timestamp };
-      // save the latest block number in cache
-      await this.cacheService.set(cacheKey, currentBlock, caller, requestDetails, this.ethBlockNumberCacheTtlMs);
-
-      return blockTimeStamp;
-    }
-
-    throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
   }
 
   /**
@@ -987,175 +949,9 @@ export class EthImpl implements Eth {
   async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
-    requestDetails: RequestDetails,
+    requestDetails: RequestDetails
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    const latestBlockTolerance = 1;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`,
-      );
-    }
-
-    let latestBlock: LatestBlockNumberTimestamp | null | undefined;
-    // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
-    // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
-    if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      let blockHashNumber, isHash;
-      const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-      const blockNumberCached = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
-
-      if (blockNumberCached) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(
-            `${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`,
-          );
-        }
-        latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
-      } else {
-        latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
-      }
-
-      if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length > 32) {
-        isHash = true;
-        blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
-      }
-
-      const currentBlockNumber = isHash ? Number(blockHashNumber.number) : Number(blockNumberOrTagOrHash);
-
-      const blockDiff = Number(latestBlock.blockNumber) - currentBlockNumber;
-      if (blockDiff <= latestBlockTolerance) {
-        blockNumberOrTagOrHash = EthImpl.blockLatest;
-      }
-
-      // If ever we get the latest block from cache, and blockNumberOrTag is not latest, then we need to get the block timestamp
-      // This should rarely happen.
-      if (blockNumberOrTagOrHash !== EthImpl.blockLatest && latestBlock.timeStampTo === '0') {
-        latestBlock = await this.blockNumberTimestamp(EthImpl.ethGetBalance, requestDetails);
-      }
-    }
-
-    // check cache first
-    // create a key for the cache
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BALANCE}-${account}-${blockNumberOrTagOrHash}`;
-    let cachedBalance = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBalance, requestDetails);
-    if (cachedBalance && this.shouldUseCacheForBalance(blockNumberOrTagOrHash)) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(cachedBalance)}`);
-      }
-      return cachedBalance;
-    }
-
-    let blockNumber = null;
-    let balanceFound = false;
-    let weibars = BigInt(0);
-    let mirrorAccount;
-
-    try {
-      if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-        const block = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
-        if (block) {
-          blockNumber = block.number;
-
-          // A blockNumberOrTag has been provided. If it is `latest` or `pending` retrieve the balance from /accounts/{account.id}
-          // If the parsed blockNumber is the same as the one from the latest block retrieve the balance from /accounts/{account.id}
-          if (latestBlock && block.number !== latestBlock.blockNumber) {
-            const latestTimestamp = Number(latestBlock.timeStampTo.split('.')[0]);
-            const blockTimestamp = Number(block.timestamp.from.split('.')[0]);
-            const timeDiff = latestTimestamp - blockTimestamp;
-            // The block is NOT from the last 15 minutes, use /balances rest API
-            if (timeDiff > constants.BALANCES_UPDATE_INTERVAL) {
-              const balance = await this.mirrorNodeClient.getBalanceAtTimestamp(
-                account,
-                requestDetails,
-                block.timestamp.from,
-              );
-              balanceFound = true;
-              if (balance?.balances?.length) {
-                weibars = BigInt(balance.balances[0].balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-              }
-            }
-            // The block is from the last 15 minutes, therefore the historical balance hasn't been imported in the Mirror Node yet
-            else {
-              let currentBalance = 0;
-              let balanceFromTxs = 0;
-              mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
-              if (mirrorAccount) {
-                if (mirrorAccount.balance) {
-                  currentBalance = mirrorAccount.balance.balance;
-                }
-
-                // The balance in the account is real time, so we simply subtract the transactions to the block.timestamp.to to get a block relevant balance.
-                // needs to be updated below.
-                const nextPage: string = mirrorAccount.links.next;
-
-                if (nextPage) {
-                  // If we have a pagination link that falls within the block.timestamp.to, we need to paginate to get the transactions for the block.timestamp.to
-                  const nextPageParams = new URLSearchParams(nextPage.split('?')[1]);
-                  const nextPageTimeMarker = nextPageParams.get('timestamp');
-                  // If nextPageTimeMarker is greater than the block.timestamp.to, then we need to paginate to get the transactions for the block.timestamp.to
-                  if (nextPageTimeMarker && nextPageTimeMarker?.split(':')[1] >= block.timestamp.to) {
-                    const pagedTransactions = await this.mirrorNodeClient.getAccountPaginated(nextPage, requestDetails);
-                    mirrorAccount.transactions = mirrorAccount.transactions.concat(pagedTransactions);
-                  }
-                  // If nextPageTimeMarker is less than the block.timestamp.to, then just run the getBalanceAtBlockTimestamp function in this case as well.
-                }
-
-                balanceFromTxs = this.getBalanceAtBlockTimestamp(
-                  mirrorAccount.account,
-                  mirrorAccount.transactions,
-                  block.timestamp.to,
-                );
-
-                balanceFound = true;
-                weibars = BigInt(currentBalance - balanceFromTxs) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-              }
-            }
-          }
-        }
-      }
-
-      if (!balanceFound && !mirrorAccount) {
-        // If no balance and no account, then we need to make a request to the mirror node for the account.
-        mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
-        // Test if exists here
-        if (mirrorAccount !== null && mirrorAccount !== undefined) {
-          balanceFound = true;
-          weibars = BigInt(mirrorAccount.balance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-        }
-      }
-
-      if (!balanceFound) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `${requestIdPrefix} Unable to find account ${account} in block ${JSON.stringify(
-              blockNumber,
-            )}(${blockNumberOrTagOrHash}), returning 0x0 balance`,
-          );
-        }
-        return EthImpl.zeroHex;
-      }
-
-      // save in cache the current balance for the account and blockNumberOrTag
-      cachedBalance = numberTo0x(weibars);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} Value cached balance ${cachedBalance}`);
-      }
-      await this.cacheService.set(
-        cacheKey,
-        cachedBalance,
-        EthImpl.ethGetBalance,
-        requestDetails,
-        this.ethGetBalanceCacheTtlMs,
-      );
-
-      return cachedBalance;
-    } catch (error: any) {
-      throw this.common.genericErrorHandler(
-        error,
-        `${requestIdPrefix} Error raised during getBalance for account ${account}`,
-      );
-    }
+    return this.accountService.getBalance(account, blockNumberOrTagOrHash, requestDetails);
   }
 
   /**
@@ -1461,51 +1257,7 @@ export class EthImpl implements Eth {
     blockNumOrTag: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
-    }
-
-    // cache considerations for high load
-    const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
-    let nonceCount = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetTransactionCount, requestDetails);
-    if (nonceCount) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
-      }
-      return nonceCount;
-    }
-
-    const blockNum = Number(blockNumOrTag);
-    if (blockNumOrTag) {
-      if (blockNum === 0 || blockNum === 1) {
-        // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
-        return EthImpl.zeroHex;
-      } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-        // if latest or pending, get latest ethereumNonce from mirror node account API
-        nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      } else if (blockNumOrTag === EthImpl.blockEarliest) {
-        nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
-      } else if (!isNaN(blockNum) && blockNumOrTag.length != EthImpl.blockHashLength && blockNum > 0) {
-        nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-      } else if (blockNumOrTag.length == EthImpl.blockHashLength && blockNumOrTag.startsWith(EthImpl.emptyHex)) {
-        nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
-      } else {
-        // return a '-39001: Unknown block' error per api-spec
-        throw predefined.UNKNOWN_BLOCK();
-      }
-    } else {
-      // if no block consideration, get latest ethereumNonce from mirror node if account or from consensus node is contract until HIP 729 is implemented
-      nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
-    }
-
-    const cacheTtl =
-      blockNumOrTag === EthImpl.blockEarliest || !isNaN(blockNum)
-        ? constants.CACHE_TTL.ONE_DAY
-        : this.ethGetTransactionCountCacheTtl; // cache historical values longer as they don't change
-    await this.cacheService.set(cacheKey, nonceCount, EthImpl.ethGetTransactionCount, requestDetails, cacheTtl);
-
-    return nonceCount;
+    return this.accountService.getTransactionCount(address, blockNumOrTag, requestDetails);
   }
 
   async parseRawTxAndPrecheck(
@@ -2311,124 +2063,6 @@ export class EthImpl implements Eth {
     return numberTo0x(block.count);
   }
 
-  private async getAccountLatestEthereumNonce(address: string, requestDetails: RequestDetails): Promise<string> {
-    const accountData = await this.mirrorNodeClient.getAccount(address, requestDetails);
-    if (accountData) {
-      // with HIP 729 ethereum_nonce should always be 0+ and null. Historical contracts may have a null value as the nonce was not tracked, return default EVM compliant 0x1 in this case
-      return accountData.ethereum_nonce !== null ? numberTo0x(accountData.ethereum_nonce) : EthImpl.oneHex;
-    }
-
-    return EthImpl.zeroHex;
-  }
-
-  /**
-   * Returns the number of transactions sent from an address by searching for the ethereum transaction involving the address
-   * Remove when https://github.com/hashgraph/hedera-mirror-node/issues/5862 is implemented
-   *
-   * @param {string} address The account address
-   * @param {string | number} blockNumOrHash The block number or hash
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} The number of transactions sent from the address
-   */
-  private async getAcccountNonceFromContractResult(
-    address: string,
-    blockNumOrHash: string | number,
-    requestDetails: RequestDetails,
-  ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    // get block timestamp for blockNum
-    const block = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails); // consider caching error responses
-    if (block == null) {
-      throw predefined.UNKNOWN_BLOCK();
-    }
-
-    // get the latest 2 ethereum transactions for the account
-    const ethereumTransactions = await this.mirrorNodeClient.getAccountLatestEthereumTransactionsByTimestamp(
-      address,
-      block.timestamp.to,
-      requestDetails,
-      2,
-    );
-    if (ethereumTransactions == null || ethereumTransactions.transactions.length === 0) {
-      return EthImpl.zeroHex;
-    }
-
-    // if only 1 transaction is returned when asking for 2, then the account has only sent 1 transaction
-    // minor optimization to save a call to getContractResult as many accounts serve a single use
-    if (ethereumTransactions.transactions.length === 1) {
-      return EthImpl.oneHex;
-    }
-
-    // get the transaction result for the latest transaction
-    const transactionResult = await this.mirrorNodeClient.getContractResult(
-      ethereumTransactions.transactions[0].transaction_id,
-      requestDetails,
-    );
-    if (transactionResult == null) {
-      throw predefined.RESOURCE_NOT_FOUND(
-        `Failed to retrieve contract results for transaction ${ethereumTransactions.transactions[0].transaction_id}`,
-      );
-    }
-
-    const accountResult = await this.mirrorNodeClient.getAccount(transactionResult.from, requestDetails);
-
-    if (accountResult.evm_address !== address.toLowerCase()) {
-      this.logger.warn(
-        `${requestIdPrefix} eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`,
-      );
-      return await this.getAccountLatestEthereumNonce(address, requestDetails);
-    }
-
-    return numberTo0x(transactionResult.nonce + 1); // nonce is 0 indexed
-  }
-
-  private async getAccountNonceForEarliestBlock(requestDetails: RequestDetails): Promise<string> {
-    const block = await this.mirrorNodeClient.getEarliestBlock(requestDetails);
-    if (block == null) {
-      throw predefined.INTERNAL_ERROR('No network blocks found');
-    }
-
-    if (block.number <= 1) {
-      // if the earliest block is the genesis block or 1 , then the nonce is 0 as only system accounts are present
-      return EthImpl.zeroHex;
-    }
-
-    // note the mirror node may be a partial one, in which case there may be a valid block with number greater 1.
-    throw predefined.INTERNAL_ERROR(`Partial mirror node encountered, earliest block number is ${block.number}`);
-  }
-
-  private async getAccountNonceForHistoricBlock(
-    address: string,
-    blockNumOrHash: number | string,
-    requestDetails: RequestDetails,
-  ): Promise<string> {
-    let getBlock;
-    const isParamBlockNum = typeof blockNumOrHash === 'number';
-
-    if (isParamBlockNum && (blockNumOrHash as number) < 0) {
-      throw predefined.UNKNOWN_BLOCK();
-    }
-
-    if (!isParamBlockNum) {
-      getBlock = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails);
-    }
-
-    const blockNum = isParamBlockNum ? blockNumOrHash : getBlock.number;
-
-    // check if on latest block, if so get latest ethereumNonce from mirror node account API
-    const blockResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails); // consider caching error responses
-    if (blockResponse == null || blockResponse.blocks.length === 0) {
-      throw predefined.UNKNOWN_BLOCK();
-    }
-
-    if (blockResponse.blocks[0].number - blockNum <= this.maxBlockRange) {
-      return this.getAccountLatestEthereumNonce(address, requestDetails);
-    }
-
-    // if valid block number, get block timestamp
-    return await this.getAcccountNonceFromContractResult(address, blockNum, requestDetails);
-  }
-
   /**
    * Retrieves logs based on the provided parameters.
    *
@@ -2488,29 +2122,6 @@ export class EthImpl implements Eth {
 
   static isArrayNonEmpty(input: any): boolean {
     return Array.isArray(input) && input.length > 0;
-  }
-
-  /**************************************************
-   * Returns the difference between the balance of  *
-   * the account and the transactions summed up     *
-   * to the block number queried.                   *
-   *************************************************/
-  getBalanceAtBlockTimestamp(account: string, transactions: any[], blockTimestamp: number) {
-    return transactions
-      .filter((transaction) => {
-        return transaction.consensus_timestamp >= blockTimestamp;
-      })
-      .flatMap((transaction) => {
-        return transaction.transfers.filter((transfer) => {
-          return transfer.account === account && !transfer.is_approval;
-        });
-      })
-      .map((transfer) => {
-        return transfer.amount;
-      })
-      .reduce((total, amount) => {
-        return total + amount;
-      }, 0);
   }
 
   /**
