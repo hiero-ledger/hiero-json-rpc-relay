@@ -64,7 +64,7 @@ app.getKoaApp().use(async (ctx, next) => {
     // log call type, method, status code and latency
     logger.info(
       `${formatRequestIdMessage(ctx.state.reqId)} [${ctx.method}]: ${ctx.state.methodName} ${
-        ctx.state.status
+        ctx.state.status || ctx.status
       } ${ms} ms`,
     );
     methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
