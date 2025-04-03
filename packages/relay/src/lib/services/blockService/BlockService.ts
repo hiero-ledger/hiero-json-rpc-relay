@@ -60,6 +60,11 @@ export class BlockService implements IBlockService {
    */
   static ethGetBlockByHash = 'eth_GetBlockByHash';
 
+  /**
+   * The static method for the eth_getBlockByNumber RPC call.
+   */
+  static ethGetBlockByNumber = 'eth_GetBlockByNumber';
+
   /** Constructor */
   constructor(
     cacheService: CacheService,
@@ -120,7 +125,7 @@ export class BlockService implements IBlockService {
     this.logger.trace(`${requestIdPrefix} getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
 
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_BY_NUMBER}_${blockNumber}_${showDetails}`;
-    let block = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockByNumber, requestDetails);
+    let block = await this.cacheService.getAsync(cacheKey, BlockService.ethGetBlockByNumber, requestDetails);
     if (!block) {
       block = await this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
         throw this.common.genericErrorHandler(
@@ -130,7 +135,7 @@ export class BlockService implements IBlockService {
       });
 
       if (!this.common.blockTagIsLatestOrPending(blockNumber)) {
-        await this.cacheService.set(cacheKey, block, EthImpl.ethGetBlockByNumber, requestDetails);
+        await this.cacheService.set(cacheKey, block, BlockService.ethGetBlockByNumber, requestDetails);
       }
     }
 
