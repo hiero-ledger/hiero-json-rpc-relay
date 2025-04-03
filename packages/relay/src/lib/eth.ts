@@ -31,6 +31,7 @@ import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { ContractService } from './services';
+import { AccountService } from './services/accountService';
 import { CacheService } from './services/cacheService/cacheService';
 import { CommonService, FilterService } from './services/ethService';
 import { FeeService } from './services/feeService';
@@ -44,12 +45,10 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
-import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
-import { FeeService } from './services/feeService';
-import { AccountService } from './services/accountService';
+import { IContractResultsParams } from './types/mirrorNode';
 const _ = require('lodash');
-import { ParamType } from './types/validation';
 import { IAccountService } from './services/accountService/IAccountService';
+import { ParamType } from './types/validation';
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -949,7 +948,7 @@ export class EthImpl implements Eth {
   async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<string> {
     return this.accountService.getBalance(account, blockNumberOrTagOrHash, requestDetails);
   }
