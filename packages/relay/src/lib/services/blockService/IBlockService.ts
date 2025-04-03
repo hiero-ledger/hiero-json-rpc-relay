@@ -2,6 +2,7 @@
 
 import { Block } from '../../model';
 import { RequestDetails } from '../../types';
+import { ITimestamp } from '../ethService/ethCommonService/ITimestamp';
 
 export interface IBlockService {
   getBlockByNumber: (
@@ -10,11 +11,6 @@ export interface IBlockService {
     requestDetails: RequestDetails,
   ) => Promise<Block | null>;
   getBlockByHash: (hash: string, showDetails: boolean, requestDetails: RequestDetails) => Promise<Block | null>;
-}
-
-export interface ITimestamp {
-  from: string;
-  to: string;
 }
 
 export interface IBlockMirrorNode {
