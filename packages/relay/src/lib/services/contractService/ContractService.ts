@@ -128,16 +128,7 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
-    const callData = call.data ? call.data : call.input;
-    // log request
-    this.logger.info(
-      `${requestIdPrefix} call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
-    );
-    // log call data size
-    const callDataSize = callData ? callData.length : 0;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
-    }
+
     const blockNumberOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
     await this.performCallChecks(call);
     // Get a reasonable value for "gas" if it is not specified.

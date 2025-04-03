@@ -1570,7 +1570,10 @@ export class EthImpl implements Eth {
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     const callData = call.data ? call.data : call.input;
-
+    // log request
+    this.logger.info(
+      `${requestIdPrefix} call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
+    );
     // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
     if (this.logger.isLevelEnabled('trace')) {
