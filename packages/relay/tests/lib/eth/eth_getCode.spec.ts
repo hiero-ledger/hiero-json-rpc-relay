@@ -10,7 +10,7 @@ import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
 import { ContractService } from '../../../src/lib/services';
-import { CommonService } from '../../../src/lib/services/ethService';
+import { CommonService } from '../../../src/lib/services';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {

@@ -6,6 +6,7 @@ import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
+import { Transaction } from './lib/model';
 import { TransactionFactory } from './lib/services/factories/transactionFactory';
 
 const EMPTY_HEX = '0x';

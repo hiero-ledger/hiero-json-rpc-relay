@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IAccountService } from './IAccountService';
-import { RequestDetails } from '../../types';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import constants from '../../constants';
-import { numberTo0x, parseNumericEnvVar } from '../../../formatters';
-import { CommonService } from '../ethService';
-import { MirrorNodeClient } from '../../clients';
 import { Logger } from 'pino';
+
+import { numberTo0x, parseNumericEnvVar } from '../../../formatters';
+import { MirrorNodeClient } from '../../clients';
+import constants from '../../constants';
+import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
+import { RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
 import { LatestBlockNumberTimestamp } from '../ethService/ethCommonService/ITimestamp';
+import { CommonService, ICommonService } from '../index';
+import { IAccountService } from './IAccountService';
 
 export class AccountService implements IAccountService {
   /**
@@ -24,14 +25,14 @@ export class AccountService implements IAccountService {
    *
    * @private
    */
-  private readonly common: CommonService;
+  private readonly common: ICommonService;
 
   /**
    * @private
    */
   private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT'
+    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
   );
 
   /**
@@ -39,7 +40,7 @@ export class AccountService implements IAccountService {
    */
   private readonly ethGetBalanceCacheTtlMs = parseNumericEnvVar(
     'ETH_GET_BALANCE_CACHE_TTL_MS',
-    'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT'
+    'ETH_GET_BALANCE_CACHE_TTL_MS_DEFAULT',
   );
 
   /**
@@ -47,7 +48,7 @@ export class AccountService implements IAccountService {
    */
   private readonly ethGetTransactionCountCacheTtl = parseNumericEnvVar(
     'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
-    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL'
+    'ETH_GET_TRANSACTION_COUNT_CACHE_TTL',
   );
 
   /**
@@ -76,7 +77,7 @@ export class AccountService implements IAccountService {
    * @param logger
    * @param mirrorNodeClient
    */
-  constructor(cacheService: CacheService, common: CommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
+  constructor(cacheService: CacheService, common: ICommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
     this.cacheService = cacheService;
     this.common = common;
     this.logger = logger;
@@ -94,12 +95,12 @@ export class AccountService implements IAccountService {
   public async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
-        `${requestIdPrefix} getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`
+        `${requestIdPrefix} getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`,
       );
     }
 
@@ -107,10 +108,10 @@ export class AccountService implements IAccountService {
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
     // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
     if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      ({
-        latestBlock,
-        blockNumberOrTagOrHash
-      } = await this.extractBlockNumberAndTimestamp(blockNumberOrTagOrHash, requestDetails));
+      ({ latestBlock, blockNumberOrTagOrHash } = await this.extractBlockNumberAndTimestamp(
+        blockNumberOrTagOrHash,
+        requestDetails,
+      ));
     }
 
     // check cache first
@@ -137,10 +138,12 @@ export class AccountService implements IAccountService {
           // A blockNumberOrTag has been provided. If it is `latest` or `pending` retrieve the balance from /accounts/{account.id}
           // If the parsed blockNumber is the same as the one from the latest block retrieve the balance from /accounts/{account.id}
           if (latestBlock && block.number !== latestBlock.blockNumber) {
-            ({
-              balanceFound,
-              weibars
-            } = await this.getBalanceAtBlockNumber(account, block, latestBlock, requestDetails));
+            ({ balanceFound, weibars } = await this.getBalanceAtBlockNumber(
+              account,
+              block,
+              latestBlock,
+              requestDetails,
+            ));
           }
         }
       }
@@ -159,8 +162,8 @@ export class AccountService implements IAccountService {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
             `${requestIdPrefix} Unable to find account ${account} in block ${JSON.stringify(
-              blockNumber
-            )}(${blockNumberOrTagOrHash}), returning 0x0 balance`
+              blockNumber,
+            )}(${blockNumberOrTagOrHash}), returning 0x0 balance`,
           );
         }
         return CommonService.zeroHex;
@@ -176,14 +179,14 @@ export class AccountService implements IAccountService {
         cachedBalance,
         CommonService.ethGetBalance,
         requestDetails,
-        this.ethGetBalanceCacheTtlMs
+        this.ethGetBalanceCacheTtlMs,
       );
 
       return cachedBalance;
     } catch (error: any) {
       throw this.common.genericErrorHandler(
         error,
-        `${requestIdPrefix} Error raised during getBalance for account ${account}`
+        `${requestIdPrefix} Error raised during getBalance for account ${account}`,
       );
     }
   }
@@ -203,7 +206,7 @@ export class AccountService implements IAccountService {
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.requestId} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`
+          `${requestDetails.requestId} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`,
         );
       }
       latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
@@ -269,11 +272,7 @@ export class AccountService implements IAccountService {
     const timeDiff = latestTimestamp - blockTimestamp;
     // The block is NOT from the last 15 minutes, use /balances rest API
     if (timeDiff > constants.BALANCES_UPDATE_INTERVAL) {
-      const balance = await this.mirrorNodeClient.getBalanceAtTimestamp(
-        account,
-        requestDetails,
-        block.timestamp.from
-      );
+      const balance = await this.mirrorNodeClient.getBalanceAtTimestamp(account, requestDetails, block.timestamp.from);
       balanceFound = true;
       if (balance?.balances?.length) {
         weibars = BigInt(balance.balances[0].balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
@@ -294,14 +293,14 @@ export class AccountService implements IAccountService {
         const nextPage: string = mirrorAccount.links.next;
         if (nextPage) {
           mirrorAccount.transactions = mirrorAccount.transactions.concat(
-            await this.getPagedTransactions(nextPage, block, requestDetails)
+            await this.getPagedTransactions(nextPage, block, requestDetails),
           );
         }
 
         balanceFromTxs = this.getBalanceAtBlockTimestamp(
           mirrorAccount.account,
           mirrorAccount.transactions,
-          block.timestamp.to
+          block.timestamp.to,
         );
 
         balanceFound = true;
@@ -325,7 +324,7 @@ export class AccountService implements IAccountService {
   public async getTransactionCount(
     address: string,
     blockNumOrTag: string | null,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -354,7 +353,10 @@ export class AccountService implements IAccountService {
         nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
       } else if (!isNaN(blockNum) && blockNumOrTag.length != CommonService.blockHashLength && blockNum > 0) {
         nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-      } else if (blockNumOrTag.length == CommonService.blockHashLength && blockNumOrTag.startsWith(CommonService.emptyHex)) {
+      } else if (
+        blockNumOrTag.length == CommonService.blockHashLength &&
+        blockNumOrTag.startsWith(CommonService.emptyHex)
+      ) {
         nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
       } else {
         // return a '-39001: Unknown block' error per api-spec
@@ -387,7 +389,10 @@ export class AccountService implements IAccountService {
   /**
    * Gets the most recent block number and timestamp.to which represents the block finality.
    */
-  private async blockNumberTimestamp(caller: string, requestDetails: RequestDetails): Promise<LatestBlockNumberTimestamp> {
+  private async blockNumberTimestamp(
+    caller: string,
+    requestDetails: RequestDetails,
+  ): Promise<LatestBlockNumberTimestamp> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
     }
@@ -444,7 +449,7 @@ export class AccountService implements IAccountService {
   private async getAccountNonceForHistoricBlock(
     address: string,
     blockNumOrHash: number | string,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<string> {
     let getBlock;
     const isParamBlockNum = typeof blockNumOrHash === 'number';
@@ -495,7 +500,7 @@ export class AccountService implements IAccountService {
   private async getAccountNonceFromContractResult(
     address: string,
     blockNumOrHash: string | number,
-    requestDetails: RequestDetails
+    requestDetails: RequestDetails,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     // get block timestamp for blockNum
@@ -509,7 +514,7 @@ export class AccountService implements IAccountService {
       address,
       block.timestamp.to,
       requestDetails,
-      2
+      2,
     );
     if (ethereumTransactions == null || ethereumTransactions.transactions.length === 0) {
       return CommonService.zeroHex;
@@ -524,11 +529,11 @@ export class AccountService implements IAccountService {
     // get the transaction result for the latest transaction
     const transactionResult = await this.mirrorNodeClient.getContractResult(
       ethereumTransactions.transactions[0].transaction_id,
-      requestDetails
+      requestDetails,
     );
     if (transactionResult == null) {
       throw predefined.RESOURCE_NOT_FOUND(
-        `Failed to retrieve contract results for transaction ${ethereumTransactions.transactions[0].transaction_id}`
+        `Failed to retrieve contract results for transaction ${ethereumTransactions.transactions[0].transaction_id}`,
       );
     }
 
@@ -536,7 +541,7 @@ export class AccountService implements IAccountService {
 
     if (accountResult.evm_address !== address.toLowerCase()) {
       this.logger.warn(
-        `${requestIdPrefix} eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`
+        `${requestIdPrefix} eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`,
       );
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     }

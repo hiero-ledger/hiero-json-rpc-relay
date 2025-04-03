@@ -14,8 +14,8 @@ import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hba
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../../src/lib/eth';
 import { ContractService } from '../../../src/lib/services';
+import { CommonService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
-import { CommonService } from '../../../src/lib/services/ethService/ethCommonService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 

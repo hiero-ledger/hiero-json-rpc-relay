@@ -8,7 +8,7 @@ import { numberTo0x } from '../src/formatters';
 import constants from '../src/lib/constants';
 import { EthImpl } from '../src/lib/eth';
 import { Block, Transaction } from '../src/lib/model';
-import { CommonService } from '../src/lib/services/ethService';
+import { CommonService } from '../src/lib/services';
 import { BASE_FEE_PER_GAS_DEFAULT } from './lib/eth/eth-config';
 
 chai.use(chaiAsPromised);

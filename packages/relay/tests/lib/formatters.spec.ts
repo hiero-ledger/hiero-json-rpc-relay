@@ -31,8 +31,8 @@ import {
   weibarHexToTinyBarInt,
 } from '../../src/formatters';
 import constants from '../../src/lib/constants';
+import { CommonService } from '../../src/lib/services';
 import { overrideEnvsInMochaDescribe } from '../helpers';
-import { CommonService } from '../../dist/lib/services/ethService';
 
 describe('Formatters', () => {
   describe('formatRequestIdMessage', () => {

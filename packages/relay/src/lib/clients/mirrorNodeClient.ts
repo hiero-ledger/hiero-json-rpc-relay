@@ -15,15 +15,15 @@ import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { IBlockMirrorNode } from '../services/blockService/IBlockService';
+import { CommonService } from '../services';
 import { CacheService } from '../services/cacheService/cacheService';
-import { CommonService } from '../services/ethService';
 import {
   IContractCallRequest,
   IContractCallResponse,
   IContractLogsResultsParams,
   IContractResultsParams,
   ILimitOrderParams,
+  IMirrorNodeBlock,
   IMirrorNodeTransactionRecord,
   ITransactionRecordMetric,
   MirrorNodeTransactionRecord,
@@ -588,7 +588,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<IBlockMirrorNode> {
+  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<IMirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
     const cachedResponse: any = await this.cacheService.getAsync(
       cachedLabel,
