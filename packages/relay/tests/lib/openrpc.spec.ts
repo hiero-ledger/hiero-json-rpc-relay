@@ -446,7 +446,7 @@ describe('Open RPC Specification', function () {
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
 
-    sinon.stub(ethImpl, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sinon.stub(ethImpl.common, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     const response = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_getTransactionReceipt, response);

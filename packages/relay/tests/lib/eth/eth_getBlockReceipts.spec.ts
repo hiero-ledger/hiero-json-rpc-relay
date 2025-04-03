@@ -53,7 +53,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    currentGasPriceStub = sinon.stub(ethImpl, 'getCurrentGasPriceForBlock').resolves('0x25');
+    currentGasPriceStub = sinon.stub(ethImpl.common, 'getCurrentGasPriceForBlock').resolves('0x25');
     extractBlockNumberOrTagStub = sinon.stub(ethImpl, 'extractBlockNumberOrTag').resolves(BLOCK_NUMBER);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
