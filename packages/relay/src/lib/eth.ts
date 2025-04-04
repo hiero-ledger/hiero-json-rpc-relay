@@ -115,7 +115,6 @@ export class EthImpl implements Eth {
    */
   private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
   private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-  private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
   private readonly estimateGasThrows = ConfigService.get('ESTIMATE_GAS_THROWS');
 
   /**
