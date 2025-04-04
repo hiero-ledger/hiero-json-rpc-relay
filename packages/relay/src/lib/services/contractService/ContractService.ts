@@ -112,11 +112,11 @@ export class ContractService implements IContractService {
    * @param {MirrorNodeClient} mirrorNodeClient - The mirror node client
    */
   constructor(
-    mirrorNodeClient: MirrorNodeClient,
-    common: CommonService,
-    logger: Logger,
     cacheService: CacheService,
+    common: ICommonService,
     hapiService: HAPIService,
+    logger: Logger,
+    mirrorNodeClient: MirrorNodeClient,
   ) {
     this.cacheService = cacheService;
     this.common = common;
