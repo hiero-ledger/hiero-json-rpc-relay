@@ -36,7 +36,7 @@
     },
     "net_listening": {
       "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"net_listening\",\"params\":[]}",
-      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"false\"}"
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":true}"
     },
     "net_version": {
       "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"net_version\",\"params\":[]}",

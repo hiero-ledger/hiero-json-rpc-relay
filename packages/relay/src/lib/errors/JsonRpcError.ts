@@ -148,6 +148,11 @@ export const predefined = {
     code: -32601,
     message: 'Unsupported JSON-RPC method',
   }),
+  METHOD_NOT_FOUND: (methodName: string) =>
+    new JsonRpcError({
+      code: -32601,
+      message: `Method ${methodName} not found`,
+    }),
   NOT_YET_IMPLEMENTED: new JsonRpcError({
     code: -32601,
     message: 'Not yet implemented',

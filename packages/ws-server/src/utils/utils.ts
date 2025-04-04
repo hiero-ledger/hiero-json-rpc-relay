@@ -104,23 +104,6 @@ export const validateJsonRpcRequest = (
 };
 
 /**
- * Resolves parameters based on the provided method.
- * @param {string} method - The method associated with the parameters.
- * @param {any} params - The parameters to resolve.
- * @returns {any[]} Resolved parameters.
- */
-export const resolveParams = (method: string, params: any): any[] => {
-  switch (method) {
-    case WS_CONSTANTS.METHODS.ETH_GETLOGS:
-      return [params[0].blockHash, params[0].fromBlock, params[0].toBlock, params[0].address, params[0].topics];
-    case WS_CONSTANTS.METHODS.ETH_NEWFILTER:
-      return [params[0].fromBlock, params[0].toBlock, params[0].address, params[0].topics];
-    default:
-      return params;
-  }
-};
-
-/**
  * Determines whether multiple addresses are enabled for WebSocket connections.
  * @returns {boolean} Returns true if multiple addresses are enabled, otherwise returns false.
  */
@@ -184,19 +167,4 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
   return Object.fromEntries(
     Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
   );
-};
-
-/**
- * A mapping of parameter rearrangement functions for various methods.
- * Each function adjusts the order of parameters to ensure that the
- * `requestDetails` object is placed correctly based on the method's requirements.
- */
-export const paramRearrangementMap: {
-  [key: string]: (params: any[], requestDetails: RequestDetails) => any[];
-} = {
-  chainId: (_: any[], requestDetails: RequestDetails) => [requestDetails],
-  estimateGas: (params, requestDetails) => [params[0], params[1], requestDetails],
-  getStorageAt: (params, requestDetails) => [params[0], params[1], requestDetails, params[2]],
-  newFilter: (params, requestDetails) => [params[0], params[1], requestDetails, params[2], params[3]],
-  default: (params, requestDetails) => [...params, requestDetails],
 };

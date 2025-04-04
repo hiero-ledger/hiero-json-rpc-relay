@@ -2,6 +2,8 @@
 
 The WHBAR contract for Wrapped HBAR to help transactions that use native token payments.
 
+*Note: Always use the `deposit()` function to wrap HBAR. HBAR sent directly to the contract (via non-contract functions e.g via `CryptoTransfer` ) will be permanently locked in the contract due to Hedera’s `CryptoTransfer` mechanics.*
+
 ##### Properties:
 - name - ```string``` "Wrapped HBAR"
 - symbol - ```string``` "WHBAR"decimals

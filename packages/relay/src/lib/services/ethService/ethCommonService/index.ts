@@ -230,7 +230,7 @@ export class CommonService implements ICommonService {
   public async getHistoricalBlockResponse(
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
-    returnLatest?: boolean,
+    returnLatest: boolean = true,
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {

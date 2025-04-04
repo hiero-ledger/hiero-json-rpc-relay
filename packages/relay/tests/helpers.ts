@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import crypto from 'crypto';
-import { expect } from 'chai';
-import { ethers } from 'ethers';
-import { v4 as uuid } from 'uuid';
-import constants from '../src/lib/constants';
-import { Hbar, HbarUnit } from '@hashgraph/sdk';
-import { formatRequestIdMessage, numberTo0x, toHash32 } from '../src/formatters';
-import { RedisInMemoryServer } from './redisInMemoryServer';
-import { Logger } from 'pino';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
 import { ConfigKey } from '@hashgraph/json-rpc-config-service/dist/services/globalConfig';
+import { Hbar, HbarUnit } from '@hashgraph/sdk';
+import { expect } from 'chai';
+import crypto from 'crypto';
+import { ethers } from 'ethers';
+import { Logger } from 'pino';
+import { v4 as uuid } from 'uuid';
+
+import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
+import { formatRequestIdMessage, numberTo0x, toHash32 } from '../src/formatters';
+import constants from '../src/lib/constants';
+import { RedisInMemoryServer } from './redisInMemoryServer';
 
 // Randomly generated key
 const defaultPrivateKey = '8841e004c6f47af679c91d9282adc62aeb9fabd19cdff6a9da5a358d0613c30a';
@@ -488,6 +489,47 @@ export const defaultContractResults = {
   },
 };
 
+export const defaultContractResultsOnlyHash2 = {
+  results: [
+    {
+      amount: 1,
+      bloom:
+        '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      call_result:
+        '0x6080604052600436106100385760003560e01c80632b6adf431461003c5780633d99e80d1461010f5780634bfdab701461015257610038565b5b5b005b61010d600480360360408110156100535760006000fd5b81019080803563ffffffff169060200190929190803590602001906401000000008111156100815760006000fd5b8201836020820111156100945760006000fd5b803590602001918460018302840111640100000000831117156100b75760006000fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600081840152601f19601f8201169050808301925050505050505090909192909091929050505061018a565b005b34801561011c5760006000fd5b50610150600480360360208110156101345760006000fd5b81019080803563ffffffff169060200190929190505050610292565b005b34801561015f5760006000fd5b506101686102b7565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b60008263ffffffff166effffffffffffffffffffffffffffff1690508073ffffffffffffffffffffffffffffffffffffffff166108fc60019081150290604051600060405180830381858888f193505050501580156101ee573d600060003e3d6000fd5b507f930f628a0950173c55b8f7d31636aa82e481f09d70191adc38b8c8cd186a0ad7826040518080602001828103825283818151815260200191508051906020019080838360005b838110156102525780820151818401525b602081019050610236565b50505050905090810190601f16801561027f5780820380516001836020036101000a031916815260200191505b509250505060405180910390a1505b5050565b80600060006101000a81548163ffffffff021916908363ffffffff1602179055505b50565b6000600060009054906101000a900463ffffffff1690506102d3565b9056fea265627a7a723158201b51cf608b8b7e2c5d36bd8733f2213b669e5d1cfa53b67f52a7e878d1d7bb0164736f6c634300050b0032',
+      contract_id: '0.0.1375',
+      created_contract_ids: ['0.0.1375'],
+      error_message: null,
+      from: LONG_ZERO_ADDRESS,
+      function_parameters: '0x',
+      gas_limit: maxGasLimit,
+      gas_used: gasUsed1,
+      hash: contractHash2,
+      timestamp: `${contractTimestamp1}`,
+      to: `${contractAddress1}`,
+      block_gas_used: 400000,
+      block_hash: `${blockHash}`,
+      block_number: `${blockNumber}`,
+      chain_id: '0x12a',
+      failed_initcode: null,
+      gas_price: '0x4a817c80',
+      max_fee_per_gas: '0x59',
+      max_priority_fee_per_gas: '0x33',
+      nonce: 5,
+      r: '0xb5c21ab4dfd336e30ac2106cad4aa8888b1873a99bce35d50f64d2ec2cc5f6d9',
+      result: 'SUCCESS',
+      s: '0x1092806a99727a20c31836959133301b65a2bfa980f9795522d21a254e629110',
+      status: '0x1',
+      transaction_index: 1,
+      type: 2,
+      v: 1,
+    },
+  ],
+  links: {
+    next: null,
+  },
+};
+
 export const defaultEvmAddress = '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69';
 export const defaultFromLongZeroAddress = '0x0000000000000000000000000000000000001f41';
 
@@ -911,7 +953,7 @@ export const stopRedisInMemoryServer = async (redisInMemoryServer: RedisInMemory
  * });
  */
 export const overrideEnvsInMochaDescribe = (envs: NodeJS.Dict<any>) => {
-  let envsToReset: NodeJS.Dict<any> = {};
+  const envsToReset: NodeJS.Dict<any> = {};
 
   const overrideEnv = (key: string, value: any) => {
     if (value === undefined) {

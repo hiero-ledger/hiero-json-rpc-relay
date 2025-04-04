@@ -38,6 +38,7 @@ const ETH_ENDPOINTS = {
   ETH_GET_BLOCK_BY_NUMBER: 'eth_getBlockByNumber',
   ETH_GET_BLOCK_TRANSACTION_COUNT_BY_NUMBER: 'eth_getBlockTransactionCountByNumber',
   ETH_GET_BLOCK_TRANSACTION_COUNT_BY_HASH: 'eth_getBlockTransactionCountByHash',
+  ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',
   ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX: 'eth_getTransactionByBlockHashAndIndex',
   ETH_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX: 'eth_getTransactionByBlockNumberAndIndex',
   ETH_GET_TRANSACTION_COUNT: 'eth_getTransactionCount',
@@ -161,6 +162,7 @@ const EMPTY_HEX = '0x';
 const TINYBAR_TO_WEIBAR_COEF = 10_000_000_000;
 
 const CALL_EXCEPTION = 'CALL_EXCEPTION';
+const FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE = 100;
 
 export default {
   ETH_ENDPOINTS,
@@ -179,4 +181,5 @@ export default {
   ACTUAL_GAS_USED,
   TINYBAR_TO_WEIBAR_COEF,
   METRICS,
+  FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE,
 };

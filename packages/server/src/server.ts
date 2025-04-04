@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Relay, RelayImpl } from '@hashgraph/json-rpc-relay/dist';
+import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import fs from 'fs';
 import cors from 'koa-cors';
 import path from 'path';
@@ -11,11 +11,7 @@ import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
-import { defineDebugRoutes } from './routes/debugRoutes';
-import { defineEthRoutes } from './routes/ethRoutes';
-import { defineNetRoutes } from './routes/netRoutes';
-import { defineOtherRoutes } from './routes/otherRoutes';
-import { defineWeb3Routes } from './routes/web3Routes';
+import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
@@ -32,8 +28,8 @@ const mainLogger = pino({
 
 const logger = mainLogger.child({ name: 'rpc-server' });
 const register = new Registry();
-const relay: Relay = new RelayImpl(logger.child({ name: 'relay' }), register);
-const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, {
+const relay: Relay = new Relay(logger.child({ name: 'relay' }), register);
+const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
   limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
 });
 
@@ -91,6 +87,21 @@ app.getKoaApp().use(async (ctx, next) => {
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/liveness') {
     ctx.status = 200;
+  } else {
+    return next();
+  }
+});
+
+/**
+ * config endpoint
+ */
+app.getKoaApp().use(async (ctx, next) => {
+  if (ctx.url === '/config') {
+    if (ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
+      return new MethodNotFound('config');
+    }
+    ctx.status = 200;
+    ctx.body = JSON.stringify(await relay.admin().config(app.getRequestDetails()));
   } else {
     return next();
   }
@@ -184,12 +195,6 @@ app.getKoaApp().use(async (ctx, next) => {
 
   return next();
 });
-
-defineDebugRoutes(app, relay, logger);
-defineEthRoutes(app, relay, logger);
-defineNetRoutes(app, relay, logger);
-defineWeb3Routes(app, relay, logger);
-defineOtherRoutes(app, relay, logger);
 
 const rpcApp = app.rpcApp();
 

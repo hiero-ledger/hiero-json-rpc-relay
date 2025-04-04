@@ -4,8 +4,11 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
-import { predefined, RelayImpl } from '@hashgraph/json-rpc-relay';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
+import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -21,8 +24,6 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { TracerType, Validator } from '../../src/validator';
-import * as Constants from '../../src/validator/constants';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
@@ -36,7 +37,7 @@ describe('RPC Server', function () {
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   before(function () {
-    populatePreconfiguredSpendingPlansSpy = sinon.spy(RelayImpl.prototype, <any>'populatePreconfiguredSpendingPlans');
+    populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     app = require('../../src/server').default;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
@@ -126,7 +127,7 @@ describe('RPC Server', function () {
       const testServer2 = app2.listen(port);
 
       try {
-        const testClient2 = BaseTest.createTestClient(port);
+        const testClient2 = BaseTest.createTestClient(Number(port));
         const response = await testClient2.post('/', {
           jsonrpc: '2.0',
           method: RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID,
@@ -305,7 +306,7 @@ describe('RPC Server', function () {
     });
 
     BaseTest.defaultResponseChecks(res);
-    expect(res.data.result).to.be.equal('false');
+    expect(res.data.result).to.be.equal(true);
   });
 
   it('should execute "web3_sha"', async function () {
@@ -661,7 +662,9 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal('3');
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
-      expect(response.data[1].error.message).to.be.equal('Method non_existent_method not found');
+      expect(response.data[1].error.message).to.match(
+        /[Request ID: [0-9a-fA-F-]{36}\] Method non_existent_method not found/,
+      );
       // verify eth_chainId result on position 2
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].result).to.be.equal(ConfigService.get('CHAIN_ID'));
@@ -689,7 +692,9 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal('3');
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
-      expect(response.data[1].error.message).to.be.equal('Method non_existent_method not found');
+      expect(response.data[1].error.message).to.match(
+        /[Request ID: [0-9a-fA-F-]{36}\] Method non_existent_method not found/,
+      );
       // verify
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].error).to.be.an('Object');

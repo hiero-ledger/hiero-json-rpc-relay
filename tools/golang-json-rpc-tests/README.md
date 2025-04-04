@@ -1,7 +1,7 @@
 # Hedera JSON RPC - Golang Tests Project
 
 This project offers boilerplate code for using golang client methods on Hedera JSON RPC API.
-It can be configured to communicate with both community-hosted and local ([Hedera Local Node](https://github.com/hashgraph/hedera-local-node)) instances of the [Hedera JSON RPC Relay](https://github.com/hashgraph/hedera-json-rpc-relay).
+It can be configured to communicate with both community-hosted and local ([Hedera Local Node](https://github.com/hashgraph/hedera-local-node)) instances of the [Hedera JSON RPC Relay](https://github.com/hiero-ledger/hiero-json-rpc-relay).
 
 ## Requirements
 Install go: https://go.dev/doc/install
@@ -11,13 +11,13 @@ Install go: https://go.dev/doc/install
 1. Clone this repo to your local machine:
 
 ```shell
-git clone https://github.com/hashgraph/hedera-json-rpc-relay.git
+git clone https://github.com/hiero-ledger/hiero-json-rpc-relay.git
 ```
 
 2. Once you've cloned the repository, open your IDE terminal and navigate to the root directory of the project:
 
 ```shell
-cd hedera-json-rpc-relay/tools/golang-json-rpc-tests
+cd hiero-json-rpc-relay/tools/golang-json-rpc-tests
 ```
 
 3. Run the following command to install all the necessary dependencies:
@@ -74,4 +74,4 @@ To generate the `input.bin` file, the following steps were performed:
    Since the constructor of `SampleContract` requires an `initialValue` parameter, this value needs to be appended to the compiled bytecode. The constructor parameter is encoded and added to the end of the bytecode.
 
 # Known Issues
- - Go Ethereum Client Incompatibility with Hedera JSON RPC Relay [#2500](https://github.com/hashgraph/hedera-json-rpc-relay/issues/2500), [#2600](https://github.com/hashgraph/hedera-json-rpc-relay/issues/2600)
+ - Go Ethereum Client Incompatibility with Hedera JSON RPC Relay [#2500](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2500), [#2600](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2600)

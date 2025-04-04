@@ -5,10 +5,12 @@ import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import createHash from 'keccak';
 import pino from 'pino';
-import sinon from 'sinon';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
-import constants from '../../src/lib/constants';
+import constants, { TracerType } from '../../src/lib/constants';
+import { RPC_PARAM_LAYOUT_KEY } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
+import { RPC_LAYOUT } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
+import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -183,5 +185,136 @@ describe('Utils', () => {
         });
       },
     );
+  });
+
+  describe('getNetworkNameByChainId', () => {
+    for (const [chainId, networkName] of Object.entries({
+      '0x127': 'mainnet',
+      '0x128': 'testnet',
+      '0x129': 'previewnet',
+      '0x12a': 'local',
+    })) {
+      withOverriddenEnvsInMochaTest(
+        {
+          CHAIN_ID: chainId,
+        },
+        () => {
+          it(`should return ${networkName} for chain id ${chainId}`, () => {
+            const networkName = Utils.getNetworkNameByChainId();
+            expect(networkName).to.equal(networkName);
+          });
+        },
+      );
+    }
+  });
+
+  describe('arrangeRpcParams', () => {
+    const requestDetails = new RequestDetails({
+      requestId: 'test-request-id',
+      ipAddress: '127.0.0.1',
+    });
+
+    it('should return only requestDetails for REQUEST_DETAILS_ONLY layout', () => {
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = RPC_LAYOUT.REQUEST_DETAILS_ONLY;
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal([requestDetails]);
+    });
+
+    it('should apply custom parameter layout function', () => {
+      const customLayout = (params) => [params[0], params[1]];
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = customLayout;
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal(['param1', 'param2', requestDetails]);
+    });
+
+    it('should use default behavior when no layout is specified', () => {
+      const mockMethod = function () {};
+
+      const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
+      expect(result).to.deep.equal(['param1', 'param2', requestDetails]);
+    });
+
+    it('should handle empty params with default behavior', () => {
+      const mockMethod = function () {};
+
+      const result = Utils.arrangeRpcParams(mockMethod, [], requestDetails);
+      expect(result).to.deep.equal([requestDetails]);
+    });
+
+    describe('special case for traceTransaction', () => {
+      const traceTransactionMethod = function traceTransaction() {};
+      const transactionHash = '0x123456789abcdef';
+      const tracerConfig = { enableMemory: true };
+
+      // Define test cases as [testName, params, expectedTracer, expectedConfig]
+      const testCases = [
+        ['should handle traceTransaction with only transaction hash', [], TracerType.OpcodeLogger, {}],
+        [
+          'should handle traceTransaction with tracer type as second parameter',
+          [TracerType.CallTracer],
+          TracerType.CallTracer,
+          {},
+        ],
+        [
+          'should handle traceTransaction with tracer type and config',
+          [TracerType.CallTracer, tracerConfig],
+          TracerType.CallTracer,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with tracerConfig as second parameter',
+          [tracerConfig],
+          TracerType.OpcodeLogger,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with tracerConfigWrapper as second parameter',
+          [
+            {
+              tracer: TracerType.CallTracer,
+              tracerConfig: tracerConfig,
+            },
+          ],
+          TracerType.CallTracer,
+          tracerConfig,
+        ],
+        [
+          'should handle traceTransaction with partial tracerConfigWrapper (only tracer)',
+          [
+            {
+              tracer: TracerType.CallTracer,
+            },
+          ],
+          TracerType.CallTracer,
+          {},
+        ],
+        [
+          'should handle traceTransaction with partial tracerConfigWrapper (only tracerConfig)',
+          [
+            {
+              tracerConfig,
+            },
+          ],
+          TracerType.OpcodeLogger,
+          tracerConfig,
+        ],
+      ];
+
+      // Loop through test cases and create tests
+      testCases.forEach(([testName, params, expectedTracer, expectedConfig]) => {
+        it(testName as string, () => {
+          const result = Utils.arrangeRpcParams(
+            traceTransactionMethod,
+            [transactionHash, ...(params as any[])],
+            requestDetails,
+          );
+          expect(result).to.deep.equal([transactionHash, expectedTracer, expectedConfig, requestDetails]);
+        });
+      });
+    });
   });
 });

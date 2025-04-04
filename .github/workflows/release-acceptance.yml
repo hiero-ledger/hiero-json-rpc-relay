@@ -18,7 +18,7 @@ permissions:
   
 jobs:
   release-acceptance-test:
-    runs-on: smart-contracts-linux-medium
+    runs-on: hiero-smart-contracts-linux-medium
     permissions:
       contents: read
       actions: read
