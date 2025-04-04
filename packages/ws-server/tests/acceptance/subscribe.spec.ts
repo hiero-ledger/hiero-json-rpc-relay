@@ -330,32 +330,12 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     if (global.relayIsLocal) {
       WsTestHelper.withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, () => {
         it('Rejects subscription requests when SUBSCRIPTIONS_ENABLED is false', async function () {
-          const webSocket = new WebSocket(WS_RELAY_URL);
-          let response;
-
-          webSocket.on('message', function incoming(data) {
-            response = JSON.parse(data);
-          });
-
-          webSocket.on('open', function open() {
-            webSocket.send(
-              '{"jsonrpc":"2.0","method":"eth_subscribe","params":["logs", {"address":"' +
-                logContractSigner.target +
-                '"}],"id":1}',
-            );
-          });
-
-          // Wait for the response
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const response = await wsProvider.send('eth_subscribe', ['logs', { address: logContractSigner.target }]);
 
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
           expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
-
-          // Clean up
-          webSocket.close();
-          await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for the connection to be closed
         });
       });
     }
