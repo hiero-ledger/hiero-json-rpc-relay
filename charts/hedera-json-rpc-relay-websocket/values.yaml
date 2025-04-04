@@ -135,7 +135,8 @@ podSecurityContext:
 ports:
   - name: websocket
     containerPort: 8546
-  - name: metrics # port for http endpoints (metrics and health)
+  # metrics port for http endpoints (metrics and health)
+  - name: metrics
     containerPort: 8547
 
 replicaCount: 2
