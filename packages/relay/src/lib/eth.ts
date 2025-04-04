@@ -2296,6 +2296,12 @@ export class EthImpl implements Eth {
       return result;
     } catch (e: any) {
       this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
+
+      // Preserve and re-throw MirrorNodeClientError to the upper layer
+      if (e instanceof MirrorNodeClientError) {
+        throw e;
+      }
+
       if (e instanceof JsonRpcError) {
         return e;
       }
@@ -2430,10 +2436,6 @@ export class EthImpl implements Eth {
           return EthImpl.emptyHex;
         }
 
-        if (e.isRateLimit()) {
-          return predefined.IP_RATE_LIMIT_EXCEEDED(e.data || `Rate limit exceeded on ${EthImpl.ethCall}`);
-        }
-
         if (e.isContractReverted()) {
           if (this.logger.isLevelEnabled('trace')) {
             this.logger.trace(
@@ -2457,9 +2459,10 @@ export class EthImpl implements Eth {
           }
           return await this.callConsensusNode(call, gas, requestDetails);
         }
-      }
 
-      this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
+        // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
+        throw e;
+      }
 
       return predefined.INTERNAL_ERROR(e.message.toString());
     }

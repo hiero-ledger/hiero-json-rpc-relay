@@ -1511,7 +1511,7 @@ describe('MirrorNodeClient', async function () {
         const notFoundMessage = `No transaction record retrieved: transactionId=${mockedTransactionId}, txConstructorName=${mockedConstructorName}, callerName=${mockedCallerName}.`;
         const expectedError = new MirrorNodeClientError(
           { message: notFoundMessage },
-          MirrorNodeClientError.statusCodes.NOT_FOUND,
+          MirrorNodeClientError.HttpStatusResponses.NOT_FOUND.statusCode,
         );
 
         expect(error).to.deep.eq(expectedError);
