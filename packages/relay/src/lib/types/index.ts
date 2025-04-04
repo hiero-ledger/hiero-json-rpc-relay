@@ -2,6 +2,7 @@
 
 export * from './events';
 export * from './IFeeHistory';
+export * from './IMirrorNodeBlock';
 export * from './ITracerConfig';
 export * from './ITracerConfigWrapper';
 export * from './ITransactionReceipt';
