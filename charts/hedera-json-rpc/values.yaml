@@ -20,6 +20,7 @@ redis:
   enabled: false
   # Redis Helm chart configuration
   # See https://github.com/bitnami/charts/tree/main/bitnami/redis for full options
+  # For external Redis cluster or custom DNS configuration, see https://github.com/bitnami/charts/tree/main/bitnami/redis#bootstrapping-with-an-external-cluster
   architecture: standalone
   auth:
     enabled: false
