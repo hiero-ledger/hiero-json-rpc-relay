@@ -69,11 +69,11 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
   const contractService = new ContractService(
-    mirrorNodeInstance,
-    commonService,
-    logger,
     cacheService,
+    commonService,
     hapiServiceInstance,
+    logger,
+    mirrorNodeInstance,
   );
 
   // @ts-ignore

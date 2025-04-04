@@ -31,7 +31,9 @@ import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { BlockService, CommonService, ContractService, FilterService, IBlockService } from './services';
 import { AccountService } from './services/accountService';
+import { IAccountService } from './services/accountService/IAccountService';
 import { CacheService } from './services/cacheService/cacheService';
+import { IContractService } from './services/contractService/IContractService';
 import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
 import {
@@ -43,9 +45,8 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
-const _ = require('lodash');
-import { IAccountService } from './services/accountService/IAccountService';
 import { ParamType } from './types/validation';
+const _ = require('lodash');
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -184,7 +185,7 @@ export class EthImpl implements Eth {
   /**
    * The ContractService implementation that takes care of all contract related operations.
    */
-  private readonly contractService: ContractService;
+  private readonly contractService: IContractService;
 
   /**
    * The Account Service implementation that takes care of all account API operations.
@@ -224,7 +225,7 @@ export class EthImpl implements Eth {
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
-    this.contractService = new ContractService(mirrorNodeClient, this.common, logger, cacheService, hapiService);
+    this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
   }
@@ -251,7 +252,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  accounts(requestDetails: RequestDetails): never[] {
+  public accounts(requestDetails: RequestDetails): never[] {
     return this.contractService.accounts(requestDetails);
   }
 
@@ -951,7 +952,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
-  async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
+  public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
     return this.contractService.getCode(address, blockNumber, requestDetails);
   }
 
@@ -1454,7 +1455,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.TRANSACTION, required: true },
     1: { type: ParamType.BLOCK_PARAMS, required: true },
   })
-  async call(
+  public async call(
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
@@ -1828,7 +1829,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.FILTER, required: true },
   })
-  async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
+  public async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
     return this.contractService.getLogs(params, requestDetails);
   }
 
