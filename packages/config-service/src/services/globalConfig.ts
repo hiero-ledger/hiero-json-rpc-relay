@@ -730,6 +730,12 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  USE_MIRROR_NODE_MODULARIZED_SERVICES: {
+    envName: 'USE_MIRROR_NODE_MODULARIZED_SERVICES',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   WEB_SOCKET_HTTP_PORT: {
     envName: 'WEB_SOCKET_HTTP_PORT',
     type: 'number',
