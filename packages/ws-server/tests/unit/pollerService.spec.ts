@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Relay } from '@hashgraph/json-rpc-relay';
+import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { EthImpl } from '../../src/lib/eth';
-import { Poller } from '../../src/lib/poller';
+import { PollerService } from '../../src/service/pollerService';
 
 const logger = pino({ level: 'trace' });
 
@@ -133,17 +134,20 @@ describe('Polling', async function () {
   const tag =
     '{"event":"logs","filters":{"address":"0x23f5e49569A835d7bf9AefD30e4f60CdD570f225","topics":["0xc8b501cbd8e69c98c535894661d25839eb035b096adfde2bba416f04cc7ce987"]}}';
 
+  let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
-  let poller: Poller;
+  let poller: PollerService;
   let sandbox: sinon.SinonSandbox;
 
   this.beforeEach(() => {
+    relayImplStub = sinon.createStubInstance(Relay);
     ethImplStub = sinon.createStubInstance(EthImpl);
+    relayImplStub.eth.returns(ethImplStub);
     ethImplStub.blockNumber.resolves('0x1b177b');
     ethImplStub.getLogs.resolves(JSON.parse(logs));
 
     const registry = new Registry();
-    poller = new Poller(ethImplStub, logger, registry);
+    poller = new PollerService(relayImplStub, logger, registry);
     sandbox = sinon.createSandbox();
   });
 
@@ -170,10 +174,9 @@ describe('Polling', async function () {
         ),
       ).to.equal(true);
       expect(
-        loggerSpy.calledWith(
-          `Poller: Starting polling with interval=${ConfigService.get('WS_POLLING_INTERVAL')}`,
-        ),
+        loggerSpy.calledWith(`Poller: Starting polling with interval=${ConfigService.get('WS_POLLING_INTERVAL')}`),
       ).to.equal(true);
+      loggerSpy.restore();
     });
 
     it('should stop polling', () => {
@@ -188,6 +191,7 @@ describe('Polling', async function () {
       ).to.equal(true);
       expect(loggerSpy.calledWith('Poller: No active polls.')).to.equal(true);
       expect(loggerSpy.calledWith('Poller: Stopping polling')).to.equal(true);
+      loggerSpy.restore();
     });
 
     it('should poll single line of log data', async () => {
@@ -212,6 +216,7 @@ describe('Polling', async function () {
 
       await poll();
       expect(loggerSpy.getCall(1).args[0]).to.equal(SINGLE_LINE);
+      loggerSpy.restore();
     });
 
     it('should poll an array of log data', async () => {
@@ -236,6 +241,7 @@ describe('Polling', async function () {
 
       await poll();
       expect(loggerSpy.getCall(1).args[0]).to.equal(ARRAY_OF_LOGS);
+      loggerSpy.restore();
     });
   });
 });

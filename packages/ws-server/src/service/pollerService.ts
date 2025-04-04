@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import { Eth } from '../index';
-import { Logger } from 'pino';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Eth, Relay } from '@hashgraph/json-rpc-relay';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { Utils } from '@hashgraph/json-rpc-relay/dist/utils';
+import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { RequestDetails } from './types';
-import { Utils } from '../utils';
 
 export interface Poll {
   tag: string;
@@ -15,7 +14,7 @@ export interface Poll {
 
 const LOGGER_PREFIX = 'Poller:';
 
-export class Poller {
+export class PollerService {
   private readonly eth: Eth;
   private readonly logger: Logger;
   private polls: Poll[];
@@ -28,8 +27,8 @@ export class Poller {
 
   private NEW_HEADS_EVENT = 'newHeads';
 
-  constructor(eth: Eth, logger: Logger, register: Registry) {
-    this.eth = eth;
+  constructor(relay: Relay, logger: Logger, register: Registry) {
+    this.eth = relay.eth();
     this.logger = logger;
     this.polls = [];
     this.pollingInterval = ConfigService.get('WS_POLLING_INTERVAL');
@@ -52,6 +51,9 @@ export class Poller {
     });
   }
 
+  /**
+   * Polls the Ethereum blockchain for new events and calls the callback function for each event.
+   */
   public poll() {
     this.polls.forEach(async (poll) => {
       try {
@@ -108,7 +110,10 @@ export class Poller {
     });
   }
 
-  start() {
+  /**
+   * Starts the polling process.
+   */
+  public start() {
     this.logger.info(`${LOGGER_PREFIX} Starting polling with interval=${this.pollingInterval}`);
     this.interval = setInterval(async () => {
       this.latestBlock = await this.eth.blockNumber(
@@ -118,7 +123,10 @@ export class Poller {
     }, this.pollingInterval);
   }
 
-  stop() {
+  /**
+   * Stops the polling process.
+   */
+  public stop() {
     this.logger.info(`${LOGGER_PREFIX} Stopping polling`);
     if (this.isPolling()) {
       clearInterval(this.interval as NodeJS.Timeout);
@@ -126,7 +134,12 @@ export class Poller {
     }
   }
 
-  add(tag: string, callback: Function) {
+  /**
+   * Adds a new poll to the polling list.
+   * @param tag - The tag to add.
+   * @param callback - The callback function to call when the poll is triggered.
+   */
+  public add(tag: string, callback: Function) {
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       this.polls.push({
@@ -145,7 +158,11 @@ export class Poller {
     }
   }
 
-  remove(tag: string) {
+  /**
+   * Removes a poll from the polling list.
+   * @param tag - The tag to remove.
+   */
+  public remove(tag: string) {
     this.logger.info(`${LOGGER_PREFIX} Tag ${tag} removed from polling list`);
     const pollsAtStart = this.polls.length;
     this.polls = this.polls.filter((p) => p.tag !== tag);
@@ -165,12 +182,21 @@ export class Poller {
     }
   }
 
-  hasPoll(tag): boolean {
+  /**
+   * Checks if a poll exists in the polling list.
+   * @param tag - The tag to check.
+   * @returns True if the poll exists, false otherwise.
+   */
+  public hasPoll(tag): boolean {
     // Return boolean true if the polls array contains this tag
     return !!this.polls.filter((p) => p.tag === tag).length;
   }
 
-  isPolling() {
+  /**
+   * Checks if the polling process is active.
+   * @returns True if the polling process is active, false otherwise.
+   */
+  public isPolling() {
     return !!this.interval;
   }
 }

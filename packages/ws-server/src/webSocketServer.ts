@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
@@ -15,9 +16,15 @@ import { v4 as uuid } from 'uuid';
 import { getRequestResult } from './controllers';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
+import { SubscriptionService } from './service/subscriptionService';
 import { WS_CONSTANTS } from './utils/constants';
-import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
-
+import {
+  areSubscriptionsEnabled,
+  getBatchRequestsMaxSize,
+  getWsBatchRequestsEnabled,
+  handleConnectionClose,
+  sendToClient,
+} from './utils/utils';
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
@@ -34,6 +41,8 @@ const register = new Registry();
 const logger = mainLogger.child({ name: 'rpc-ws-server' });
 const relay = new Relay(logger, register);
 
+const subscriptionService = new SubscriptionService(relay, logger, register);
+
 const mirrorNodeClient = relay.mirrorClient();
 const limiter = new ConnectionLimiter(logger, register);
 const wsMetricRegistry = new WsMetricRegistry(register);
@@ -47,8 +56,7 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   // Record the start time when the connection is established
   const startTime = process.hrtime();
-
-  ctx.websocket.id = relay.subs()?.generateId();
+  ctx.websocket.id = subscriptionService?.generateId();
   ctx.websocket.requestId = uuid();
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;
@@ -70,7 +78,7 @@ app.ws.use(async (ctx: Koa.Context) => {
     logger.info(
       `${requestDetails.formattedLogPrefix} Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`,
     );
-    await handleConnectionClose(ctx, relay, limiter, wsMetricRegistry, startTime);
+    await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
   });
 
   // Increment limit counters
@@ -89,7 +97,6 @@ app.ws.use(async (ctx: Koa.Context) => {
 
     // Reset the TTL timer for inactivity upon receiving a message from the client
     limiter.resetInactivityTTLTimer(ctx.websocket);
-
     // parse the received message from the client into a JSON object
     let request: IJsonRpcRequest | IJsonRpcRequest[];
     try {
@@ -102,6 +109,7 @@ app.ws.use(async (ctx: Koa.Context) => {
       ctx.websocket.send(JSON.stringify(new JsonRpcError(predefined.INVALID_REQUEST, undefined)));
       return;
     }
+    console.log('Request', request);
 
     // check if request is a batch request (array) or a signle request (JSON)
     if (Array.isArray(request)) {
@@ -140,7 +148,17 @@ app.ws.use(async (ctx: Koa.Context) => {
         if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
           return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
         }
-        return getRequestResult(ctx, relay, logger, item, limiter, mirrorNodeClient, wsMetricRegistry, requestDetails);
+        return getRequestResult(
+          ctx,
+          limiter,
+          logger,
+          mirrorNodeClient,
+          relay,
+          item,
+          requestDetails,
+          subscriptionService,
+          wsMetricRegistry,
+        );
       });
 
       // resolve all promises
@@ -152,17 +170,26 @@ app.ws.use(async (ctx: Koa.Context) => {
       if (logger.isLevelEnabled('trace')) {
         logger.trace(`${requestDetails.formattedLogPrefix}: Receive single request=${JSON.stringify(request)}`);
       }
+      console.log('Are subscriptions enabled', areSubscriptionsEnabled());
+      if (request.method === 'eth_subscribe' && !areSubscriptionsEnabled()) {
+        console.log('in the if');
+        const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
+        logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
+        ctx.websocket.send(JSON.stringify([jsonResp(null, wsSubscriptionsDisabledError, undefined)]));
+        return;
+      }
 
       // process requests
       const response = await getRequestResult(
         ctx,
-        relay,
-        logger,
-        request,
         limiter,
+        logger,
         mirrorNodeClient,
-        wsMetricRegistry,
+        relay,
+        request,
         requestDetails,
+        subscriptionService,
+        wsMetricRegistry,
       );
 
       // send to client
