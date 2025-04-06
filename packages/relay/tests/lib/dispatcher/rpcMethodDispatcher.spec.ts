@@ -237,100 +237,98 @@ describe('RpcMethodDispatcher', () => {
     });
   });
 
-  describe('mapMirrorNodeError()', () => {
-    const testCases = [
-      {
-        name: 'rate limit error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Rate limit exceeded'), 429);
-          sinon.stub(error, 'isRateLimit').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.TOO_MANY_REQUESTS,
-      },
-      {
-        name: 'internal server error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Internal server error'), 500);
-          sinon.stub(error, 'isInternalServerError').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.INTERNAL_SERVER_ERROR,
-      },
-      {
-        name: 'not supported error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Not supported'), 501);
-          sinon.stub(error, 'isNotSupported').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.NOT_SUPPORTED,
-      },
-      {
-        name: 'bad gateway error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Bad gateway'), 502);
-          sinon.stub(error, 'isBadGateway').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.BAD_GATEWAY,
-      },
-      {
-        name: 'service unavailable error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Service unavailable'), 503);
-          sinon.stub(error, 'isServiceUnavailable').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.SERVICE_UNAVAILABLE,
-      },
-      {
-        name: 'timeout error',
-        errorFactory: () => {
-          const error = new MirrorNodeClientError(new Error('Connection aborted'), -1);
-          sinon.stub(error, 'isTimeout').returns(true);
-          return error;
-        },
-        expectedResponse: MirrorNodeClientError.HttpStatusResponses.ECONNABORTED,
-      },
-    ];
+  describe('handleRpcMethodError() with MirrorNodeClientError', () => {
+    it('should handle rate limit (429) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Rate limit exceeded'),
+        MirrorNodeClientError.statusCodes.TOO_MANY_REQUESTS,
+      );
+      sinon.stub(error, 'isRateLimit').returns(true);
 
-    testCases.forEach(({ name, errorFactory, expectedResponse }) => {
-      it(`should correctly map ${name} to appropriate JsonRpcError`, () => {
-        const error = errorFactory();
-        const result = (dispatcher as any).mapMirrorNodeError(error);
-
-        expect(result).to.be.instanceOf(JsonRpcError);
-        expect(result.code).to.equal(
-          predefined.MIRROR_NODE_UPSTREAM_FAIL(expectedResponse.statusCode, expectedResponse.message).code,
-        );
-        expect(result.message).to.include(expectedResponse.message);
-      });
-    });
-
-    it('should return default error for unrecognized mirror node errors', () => {
-      const error = new MirrorNodeClientError(new Error('Unknown error'), 567);
-
-      // Make sure all check methods return false
-      sinon.stub(error, 'isRateLimit').returns(false);
-      sinon.stub(error, 'isInternalServerError').returns(false);
-      sinon.stub(error, 'isNotSupported').returns(false);
-      sinon.stub(error, 'isBadGateway').returns(false);
-      sinon.stub(error, 'isServiceUnavailable').returns(false);
-      sinon.stub(error, 'isTimeout').returns(false);
-
-      const result = (dispatcher as any).mapMirrorNodeError(error);
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
-      expect(result.message).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).message);
+      expect(result.message).to.include('Rate limit exceeded');
+    });
+
+    it('should handle timeout (504) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Connection aborted'),
+        MirrorNodeClientError.ErrorCodes.ECONNABORTED,
+      );
+      sinon.stub(error, 'isTimeout').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Connection aborted');
+    });
+
+    it('should handle not supported (501) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Not supported'),
+        MirrorNodeClientError.ErrorCodes.NOT_SUPPORTED,
+      );
+      sinon.stub(error, 'isNotSupported').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Not supported');
+    });
+
+    it('should handle not found (404) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Resource not found'),
+        MirrorNodeClientError.statusCodes.NOT_FOUND,
+      );
+      sinon.stub(error, 'isNotFound').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Resource not found');
+    });
+
+    it('should handle internal server error (500) correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Internal server error'), 500);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Internal server error');
+    });
+
+    it('should handle bad gateway (502) errors correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Bad gateway'), 502);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Bad gateway');
+    });
+
+    it('should handle service unavailable (503) errors correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Service unavailable'), 503);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Service unavailable');
     });
 
     it('should handle mirror node errors with no message', () => {
       const error = new MirrorNodeClientError(new Error(), 400);
       error.message = ''; // Explicitly set empty message
 
-      const result = (dispatcher as any).mapMirrorNodeError(error);
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.message).to.include('Mirror node upstream failure');

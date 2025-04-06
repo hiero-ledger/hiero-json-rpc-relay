@@ -179,8 +179,10 @@ export class RpcMethodDispatcher {
 
     // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
     if (error instanceof MirrorNodeClientError) {
-      const mappedError = this.mapMirrorNodeError(error);
-      return this.createJsonRpcError(mappedError, requestDetails.requestId);
+      return this.createJsonRpcError(
+        predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure'),
+        requestDetails.requestId,
+      );
     }
 
     // Default to internal error for all other error types
@@ -225,36 +227,5 @@ export class RpcMethodDispatcher {
       },
       requestId,
     );
-  }
-
-  /**
-   * Maps a MirrorNodeClientError to a standardized JsonRpcError.
-   *
-   *
-   * @param error - The MirrorNodeClientError instance to map to a JsonRpcError.
-   * @returns A JsonRpcError representing the mapped Mirror Node error, including
-   *          the appropriate error code and message.
-   */
-  private mapMirrorNodeError(error: MirrorNodeClientError): JsonRpcError {
-    // Map of error check methods to their corresponding responses
-    const errorTypeToResponse = {
-      isRateLimit: MirrorNodeClientError.HttpStatusResponses.TOO_MANY_REQUESTS,
-      isInternalServerError: MirrorNodeClientError.HttpStatusResponses.INTERNAL_SERVER_ERROR,
-      isNotSupported: MirrorNodeClientError.HttpStatusResponses.NOT_SUPPORTED,
-      isBadGateway: MirrorNodeClientError.HttpStatusResponses.BAD_GATEWAY,
-      isServiceUnavailable: MirrorNodeClientError.HttpStatusResponses.SERVICE_UNAVAILABLE,
-      isTimeout: MirrorNodeClientError.HttpStatusResponses.ECONNABORTED,
-    };
-
-    // Check each error type method
-    for (const [checkMethod, response] of Object.entries(errorTypeToResponse)) {
-      // Dynamically call the error type check method (e.g., error.isRateLimit(), error.isTimeout(), etc.)
-      if (error[checkMethod]?.()) {
-        return predefined.MIRROR_NODE_UPSTREAM_FAIL(response.statusCode, response.message);
-      }
-    }
-
-    // Default case
-    return predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure');
   }
 }

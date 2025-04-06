@@ -376,7 +376,7 @@ export class MirrorNodeClient {
       // Calculate effective status code
       const effectiveStatusCode =
         error.response?.status ||
-        MirrorNodeClientError.HttpStatusResponses[error.code]?.statusCode ||
+        MirrorNodeClientError.ErrorCodes[error.code] ||
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
@@ -1523,10 +1523,7 @@ export class MirrorNodeClient {
 
     if (!transactionRecords) {
       const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}.`;
-      throw new MirrorNodeClientError(
-        { message: notFoundMessage },
-        MirrorNodeClientError.HttpStatusResponses.NOT_FOUND.statusCode,
-      );
+      throw new MirrorNodeClientError({ message: notFoundMessage }, MirrorNodeClientError.statusCodes.NOT_FOUND);
     }
 
     const transactionRecord: IMirrorNodeTransactionRecord = transactionRecords.transactions.find(
