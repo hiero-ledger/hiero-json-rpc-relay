@@ -23,11 +23,11 @@ const ERROR_CODE_MAP: Record<number, number> = {
   [-32605]: HTTP_STATUS.TOO_MANY_REQUESTS, // Rate limit exceeded
 };
 
-// Map Mirror Node error data to HTTP status codes
-// - 404 from the Mirror Node maps to HTTP 400
-// - 429 from the Mirror Node maps to HTTP 429
-// - 501 from the Mirror Node maps to HTTP 501
-// - Any other error data from the Mirror Node will be mapped to HTTP 500 by default
+// Map Mirror Node error codes to Relay HTTP status codes
+// - MN 404 -> Relay HTTP 400
+// - MN 429 -> Relay HTTP 429
+// - MN 501 -> Relay HTTP 501
+// - Any other error codes from the Mirror Node will be mapped to Relay HTTP 500 by default
 const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
   '404': HTTP_STATUS.BAD_REQUEST,
   '429': HTTP_STATUS.TOO_MANY_REQUESTS,
@@ -43,25 +43,20 @@ const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
  * @param errorData - Optional error data
  * @returns HTTP status code and status error description
  */
-export function translateRpcErrorToHttpStatus(
-  jsonRpcError: JsonRpcError | JsonRpcErrorServer,
-  requestIdPrefix: string,
-): { statusCode: number; statusErrorMessage: string } {
-  // Clean the error message by removing request ID prefix
-  const statusErrorMessage = jsonRpcError.message.replace(`${requestIdPrefix} `, '');
+export function translateRpcErrorToHttpStatus(jsonRpcError: JsonRpcError | JsonRpcErrorServer): {
+  statusErrorCode: number;
+  statusErrorMessage: string;
+} {
+  // look up status code and define error message
+  let statusErrorCode = ERROR_CODE_MAP[jsonRpcError.code] || HTTP_STATUS.BAD_REQUEST;
+  const statusErrorMessage = jsonRpcError.message;
 
   // Handle Mirror Node errors (-32020)
   // Note: -32020 corresponds to predefined.MIRROR_NODE_UPSTREAM_FAILURE,
-  // where `jsonRpcError.data` represents the HTTP status code returned from the Mirror Node upstream server.
+  // where `jsonRpcError.data` represents the actual HTTP status code returned from the Mirror Node upstream server.
   if (jsonRpcError.code === -32020 && jsonRpcError.data) {
-    return {
-      statusCode: MIRROR_NODE_ERROR_MAP[jsonRpcError.data] || HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      statusErrorMessage,
-    };
+    statusErrorCode = MIRROR_NODE_ERROR_MAP[jsonRpcError.data] || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   }
 
-  // Look up the status code from the map, default to BAD_REQUEST
-  const statusCode = ERROR_CODE_MAP[jsonRpcError.code] || HTTP_STATUS.BAD_REQUEST;
-
-  return { statusCode, statusErrorMessage };
+  return { statusErrorCode, statusErrorMessage };
 }

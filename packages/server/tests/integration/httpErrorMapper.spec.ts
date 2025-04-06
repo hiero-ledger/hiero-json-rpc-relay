@@ -13,20 +13,11 @@ describe('translateRpcErrorToHttpStatus', () => {
   const testErrorCodeMapping = (errorCode, errorMessage, expectedStatusCode, errorData: any = undefined) => {
     const result = translateRpcErrorToHttpStatus(
       new JsonRpcError({ code: errorCode, message: errorMessage, data: errorData }, requestId),
-      requestIdPrefix,
     );
 
-    expect(result.statusCode).to.equal(expectedStatusCode);
+    expect(result.statusErrorCode).to.equal(expectedStatusCode);
     return result;
   };
-
-  it('should remove request ID prefix from error message', () => {
-    const result = translateRpcErrorToHttpStatus(
-      new JsonRpcError({ code: -32600, message: `Invalid request` }, requestId),
-      requestIdPrefix,
-    );
-    expect(result.statusErrorMessage).to.equal('Invalid request');
-  });
 
   describe('Standard JSON-RPC error codes', () => {
     const errorCodeMappings = [
@@ -63,7 +54,7 @@ describe('translateRpcErrorToHttpStatus', () => {
     mirrorNodeErrorMappings.forEach(({ status, message, expectedStatus }) => {
       it(`should map Mirror Node ${status} error to HTTP ${expectedStatus}`, () => {
         const result = testErrorCodeMapping(mirrorNodeErrorCode, message, expectedStatus, status);
-        expect(result.statusErrorMessage).to.equal(message);
+        expect(result.statusErrorMessage).to.equal(`${requestIdPrefix} ${message}`);
       });
     });
 
@@ -73,7 +64,7 @@ describe('translateRpcErrorToHttpStatus', () => {
         'Mirror Node error without data',
         400, // Default behavior when no error data
       );
-      expect(result.statusErrorMessage).to.equal('Mirror Node error without data');
+      expect(result.statusErrorMessage).to.equal(`${requestIdPrefix} Mirror Node error without data`);
     });
   });
 });

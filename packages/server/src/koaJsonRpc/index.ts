@@ -110,13 +110,10 @@ export default class KoaJsonRpc {
 
     const errorOrResult = response.error || response.result;
     if (errorOrResult instanceof JsonRpcError || errorOrResult instanceof JsonRpcErrorServer) {
-      const httpStatusCodeAndMessage = translateRpcErrorToHttpStatus(
-        errorOrResult,
-        this.getRequestDetails().formattedRequestId,
-      );
+      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(errorOrResult);
 
-      ctx.status = httpStatusCodeAndMessage.statusCode;
-      ctx.state.status = `${ctx.status} (${httpStatusCodeAndMessage.statusErrorMessage})`;
+      ctx.status = statusErrorCode;
+      ctx.state.status = `${ctx.status} (${statusErrorMessage})`;
     }
   }
 
