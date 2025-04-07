@@ -90,6 +90,8 @@ export class CommonService implements ICommonService {
   public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
   public static readonly twoHex = '0x2';
   public static readonly zeroHex8Byte = '0x0000000000000000';
+  public static readonly zeroAddressHex = '0x0000000000000000000000000000000000000000';
+  public static readonly emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
 
   /**
    * private constants

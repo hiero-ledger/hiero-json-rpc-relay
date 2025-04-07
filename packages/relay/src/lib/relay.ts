@@ -202,7 +202,6 @@ export class Relay {
       chainId,
       register,
       this.cacheService,
-      this.metricService,
       this.eventEmitter,
     );
 

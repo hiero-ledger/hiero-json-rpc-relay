@@ -19,6 +19,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   this.timeout(10000);
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
+  const emptyBloom = '0x' + '0'.repeat(512);
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionReceiptTest', ipAddress: '0.0.0.0' });
 
@@ -248,7 +249,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt).to.exist;
     if (receipt == null) return;
 
-    expect(receipt.logsBloom).to.eq(EthImpl.emptyBloom);
+    expect(receipt.logsBloom).to.eq(emptyBloom);
   });
 
   it('Adds a revertReason field for receipts with errorMessage', async function () {

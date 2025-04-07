@@ -4,6 +4,7 @@ import { fail } from 'assert';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -72,7 +73,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 let ethImplLowTransactionCount: EthImpl;
-
+let eventEmitter: EventEmitter;
 describe('@ethGetBlockByNumber using MirrorNode', async function () {
   this.timeout(10000);
   const {
@@ -132,6 +133,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       '0x12a',
       registry,
       cacheService,
+      eventEmitter,
     );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
@@ -171,9 +173,12 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     await cacheService.clear(requestDetails);
     // Third call should return new number using mirror node
     const newBlockNumber = 7;
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({
-      blocks: [{ ...DEFAULT_BLOCK, number: newBlockNumber }],
-    }));
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(
+      200,
+      JSON.stringify({
+        blocks: [{ ...DEFAULT_BLOCK, number: newBlockNumber }],
+      }),
+    );
     const blockNumber3 = await ethImpl.blockNumber(requestDetails);
     expect(numberTo0x(newBlockNumber)).to.be.eq(blockNumber3);
   });
@@ -193,7 +198,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     try {
       await ethImpl.blockNumber(requestDetails);
-    } catch (error) {}
+    } catch (error) {
+      // eslint-disable-next-line no-empty
+    }
     const blockNumber = await ethImpl.blockNumber(requestDetails);
 
     expect(blockNumber).to.be.eq(blockNumber);
@@ -237,9 +244,12 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     });
 
     it('eth_getBlockByNumber with match and duplicated transactions', async function () {
-      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({
-        results: [...defaultContractResults.results, ...defaultContractResults.results],
-      }));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+        200,
+        JSON.stringify({
+          results: [...defaultContractResults.results, ...defaultContractResults.results],
+        }),
+      );
 
       const res = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
       RelayAssertions.assertBlock(res, {
@@ -253,10 +263,13 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     });
 
     it('eth_getBlockByNumber with match and valid logsBloom field', async function () {
-      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify({
-        ...DEFAULT_BLOCK,
-        logs_bloom: blockLogsBloom,
-      }));
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(
+        200,
+        JSON.stringify({
+          ...DEFAULT_BLOCK,
+          logs_bloom: blockLogsBloom,
+        }),
+      );
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
 
       const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
@@ -557,21 +570,24 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         // mirror node request mocks
         restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
         restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
-        restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({
-          results: [
-            ...defaultContractResults.results,
-            {
-              ...defaultContractResults.results[0],
-              result: status,
-              hash: '0xf84b9a38205131431901ca6a945046369f5be81bb579167458d4992427d03bb1',
-            },
-            {
-              ...defaultContractResults.results[0],
-              error_message: prepend0x(ASCIIToHex(status)),
-              hash: '0x9c8d9d99e033c56bec1669a0ea68887b7df69ec1bac55899150b6ed5bc3f4b79',
-            },
-          ],
-        }));
+        restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+          200,
+          JSON.stringify({
+            results: [
+              ...defaultContractResults.results,
+              {
+                ...defaultContractResults.results[0],
+                result: status,
+                hash: '0xf84b9a38205131431901ca6a945046369f5be81bb579167458d4992427d03bb1',
+              },
+              {
+                ...defaultContractResults.results[0],
+                error_message: prepend0x(ASCIIToHex(status)),
+                hash: '0x9c8d9d99e033c56bec1669a0ea68887b7df69ec1bac55899150b6ed5bc3f4b79',
+              },
+            ],
+          }),
+        );
         restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 
         const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), showDetails, requestDetails);

@@ -104,10 +104,18 @@ export class TransactionReceiptFactory {
    * @returns Contract address or null
    */
   private static getContractAddressFromReceipt(receiptResponse: any): string {
-    if (receiptResponse && receiptResponse.created_contract_ids && receiptResponse.created_contract_ids.length > 0) {
-      return receiptResponse.created_contract_ids[0];
+    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
+      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
+    );
+
+    if (!isCreationViaSystemContract) {
+      return receiptResponse.address;
     }
-    return this.ZERO_ADDRESS_HEX;
+
+    // Handle system contract creation
+    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
+    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
+    return prepend0x(tokenAddress);
   }
 }
 

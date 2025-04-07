@@ -185,7 +185,6 @@ export class EthImpl implements Eth {
     chain: string,
     registry: Registry,
     cacheService: CacheService,
-    metricService: MetricService,
     eventEmitter: EventEmitter,
   ) {
     this.chain = chain;
