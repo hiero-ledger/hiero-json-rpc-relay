@@ -104,5 +104,8 @@ jobs:
           echo "SUBSCRIPTIONS_ENABLED=true" >> .env
           echo "TEST_WS_SERVER=true" >> .env
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run conformity tests
         run: npm run acceptancetest:rpc_api_schema_conformity
