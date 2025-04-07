@@ -154,65 +154,45 @@ describe('MirrorNodeClient', async function () {
   });
 
   describe('Is-Modularized', () => {
-    it('should include Is-Modularized header in GET requests', async () => {
-      let requestConfig: AxiosRequestConfig | undefined;
+    it('should NOT include Is-Modularized header when not set', async () => {
+      const mirrorNodeInstanceOverridden = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: `mirror-node` }),
+        registry,
+        cacheService,
+      );
+      const axiosHeaders = mirrorNodeInstanceOverridden.getMirrorNodeRestInstance().defaults.headers.common;
 
-      mock.onGet('accounts').reply((config) => {
-        requestConfig = config;
-        return [200, JSON.stringify({ accounts: [] })];
-      });
-
-      await mirrorNodeInstance.get('accounts', 'accounts', requestDetails);
-
-      expect(requestConfig).to.exist;
-      expect(requestConfig!.headers).to.exist;
+      expect(axiosHeaders).not.has.property('Is-Modularized');
     });
 
-    it('should include Is-Modularized header in POST requests', async () => {
-      let requestConfig: AxiosRequestConfig | undefined;
-      const mockResult = {
-        result: '0x3234333230',
-      };
-      mock.onPost('contracts/call', { foo: 'bar' }).reply((config) => {
-        requestConfig = config;
-        return [200, JSON.stringify(mockResult)];
+    withOverriddenEnvsInMochaTest({ USE_MIRROR_NODE_MODULARIZED_SERVICES: false }, () => {
+      it('should set the Is-Modularized header to false when the routing preference is explicitly set to false', async () => {
+        const mirrorNodeInstanceOverridden = new MirrorNodeClient(
+          ConfigService.get('MIRROR_NODE_URL'),
+          logger.child({ name: `mirror-node` }),
+          registry,
+          cacheService,
+        );
+        const axiosHeaders = mirrorNodeInstanceOverridden.getMirrorNodeRestInstance().defaults.headers.common;
+
+        expect(axiosHeaders).has.property('Is-Modularized');
+        expect(axiosHeaders['Is-Modularized']).to.equal('false');
       });
-
-      await mirrorNodeInstance.post('contracts/call', { foo: 'bar' }, 'contracts/call', requestDetails);
-
-      expect(requestConfig).to.exist;
-      expect(requestConfig!.headers).to.exist;
-    });
-
-    it('should set the Is-Modularized header to false by default', async () => {
-      let requestConfig: AxiosRequestConfig | undefined;
-
-      mock.onGet('accounts').reply((config) => {
-        requestConfig = config;
-        return [200, JSON.stringify({ accounts: [] })];
-      });
-
-      await mirrorNodeInstance.get('accounts', 'accounts', requestDetails);
-
-      expect(requestConfig).to.exist;
-      expect(requestConfig!.headers).to.exist;
-      expect(requestConfig!.headers!['Is-Modularized']).to.equal('false');
     });
 
     withOverriddenEnvsInMochaTest({ USE_MIRROR_NODE_MODULARIZED_SERVICES: true }, () => {
-      it('should set the Is-Modularized header to true', async () => {
-        let requestConfig: AxiosRequestConfig | undefined;
+      it('should set the Is-Modularized header to true when the routing preference is explicitly set to true', async () => {
+        const mirrorNodeInstanceOverridden = new MirrorNodeClient(
+          ConfigService.get('MIRROR_NODE_URL'),
+          logger.child({ name: `mirror-node` }),
+          registry,
+          cacheService,
+        );
+        const axiosHeaders = mirrorNodeInstanceOverridden.getMirrorNodeRestInstance().defaults.headers.common;
 
-        mock.onGet('accounts').reply((config) => {
-          requestConfig = config;
-          return [200, JSON.stringify({ accounts: [] })];
-        });
-
-        await mirrorNodeInstance.get('accounts', 'accounts', requestDetails);
-
-        expect(requestConfig).to.exist;
-        expect(requestConfig!.headers).to.exist;
-        expect(requestConfig!.headers!['Is-Modularized']).to.equal('true');
+        expect(axiosHeaders).has.property('Is-Modularized');
+        expect(axiosHeaders['Is-Modularized']).to.equal('true');
       });
     });
   });
