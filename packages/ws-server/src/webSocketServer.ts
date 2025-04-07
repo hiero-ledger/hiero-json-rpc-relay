@@ -109,7 +109,6 @@ app.ws.use(async (ctx: Koa.Context) => {
       ctx.websocket.send(JSON.stringify(new JsonRpcError(predefined.INVALID_REQUEST, undefined)));
       return;
     }
-    console.log('Request', request);
 
     // check if request is a batch request (array) or a signle request (JSON)
     if (Array.isArray(request)) {
@@ -170,12 +169,11 @@ app.ws.use(async (ctx: Koa.Context) => {
       if (logger.isLevelEnabled('trace')) {
         logger.trace(`${requestDetails.formattedLogPrefix}: Receive single request=${JSON.stringify(request)}`);
       }
-      console.log('Are subscriptions enabled', areSubscriptionsEnabled());
+
       if (request.method === 'eth_subscribe' && !areSubscriptionsEnabled()) {
-        console.log('in the if');
         const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
         logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
-        ctx.websocket.send(JSON.stringify([jsonResp(null, wsSubscriptionsDisabledError, undefined)]));
+        ctx.websocket.send(JSON.stringify(jsonResp(null, wsSubscriptionsDisabledError, undefined)));
         return;
       }
 

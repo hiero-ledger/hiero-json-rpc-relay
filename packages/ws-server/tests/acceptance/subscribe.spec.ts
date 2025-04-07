@@ -330,7 +330,11 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     if (global.relayIsLocal) {
       WsTestHelper.withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, () => {
         it('Rejects subscription requests when SUBSCRIPTIONS_ENABLED is false', async function () {
-          const response = await wsProvider.send('eth_subscribe', ['logs', { address: logContractSigner.target }]);
+          const response = await WsTestHelper.sendRequestToStandardWebSocket(
+            'eth_subscribe',
+            ['logs', { address: logContractSigner.target }],
+            3000, // 3 second timeout
+          );
 
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
