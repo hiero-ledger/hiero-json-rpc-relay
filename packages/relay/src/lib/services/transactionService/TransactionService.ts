@@ -18,6 +18,7 @@ import { Log, Transaction, Transaction1559 } from '../../model';
 import { Precheck } from '../../precheck';
 import { ITransactionReceipt, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
+import { TransactionFactory } from '../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
@@ -84,10 +85,9 @@ export class TransactionService implements ITransactionService {
    */
   private readonly chain: string;
 
-  private static ethGetTransactionByHash = 'eth_GetTransactionByHash';
   private static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
   private static ethSendRawTransaction = 'eth_sendRawTransaction';
-  static ethGasPrice: string;
+  private static ethGasPrice: string;
 
   constructor(
     cacheService: CacheService,
@@ -459,12 +459,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Gets the contract address from a receipt response
-   * @param receiptResponse The receipt response
-   * @private
-   */
-
-  /**
    * Gets the current gas price for a block
    * @param blockHash The block hash
    * @param requestDetails The request details for logging and tracking
@@ -480,8 +474,8 @@ export class TransactionService implements ITransactionService {
     }
   }
 
-  private createTransactionFromLog(log: Log): Transaction1559 {
-    return new Transaction1559({
+  private createTransactionFromLog(log: Log): Transaction1559 | null {
+    const transaction = TransactionFactory.createTransactionByType(2, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
@@ -500,8 +494,9 @@ export class TransactionService implements ITransactionService {
       transactionIndex: log.transactionIndex,
       type: CommonService.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: CommonService.zeroHex,
-      value: CommonService.oneTwoThreeFourHex,
-    });
+    }) as Transaction1559;
+
+    return transaction;
   }
 
   /**
@@ -521,67 +516,22 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    let fileId: FileId | null = null;
-    let txSubmitted = false;
-    let submittedTransactionId: string = '';
     let sendRawTransactionError: any;
 
     const requestIdPrefix = requestDetails.formattedRequestId;
     const originalCallerAddress = parsedTx.from?.toString() || '';
     const toAddress = parsedTx.to?.toString() || '';
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: TransactionService.ethSendRawTransaction,
-      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-      from: originalCallerAddress,
-      to: toAddress,
-      requestDetails: requestDetails,
-    });
+    this.emitEthExecutionEvent(parsedTx, originalCallerAddress, toAddress, requestDetails);
 
-    try {
-      const sendRawTransactionResult = await this.hapiService
-        .getSDKClient()
-        .submitEthereumTransaction(
-          transactionBuffer,
-          TransactionService.ethSendRawTransaction,
-          requestDetails,
-          originalCallerAddress,
-          networkGasPriceInWeiBars,
-          await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        );
+    const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
+      transactionBuffer,
+      originalCallerAddress,
+      networkGasPriceInWeiBars,
+      requestDetails,
+    );
 
-      txSubmitted = true;
-      fileId = sendRawTransactionResult.fileId;
-      submittedTransactionId = sendRawTransactionResult.txResponse.transactionId?.toString();
-      if (!constants.TRANSACTION_ID_REGEX.test(submittedTransactionId)) {
-        throw predefined.INTERNAL_ERROR(
-          `Transaction successfully submitted but returned invalid transactionID: transactionId==${submittedTransactionId}`,
-        );
-      }
-    } catch (e: any) {
-      if (e instanceof SDKClientError && (e.isConnectionDropped() || e.isTimeoutExceeded())) {
-        submittedTransactionId = e.transactionId || '';
-      }
-
-      sendRawTransactionError = e;
-    } finally {
-      /**
-       *  For transactions of type CONTRACT_CREATE, if the contract's bytecode (calldata) exceeds 5120 bytes, HFS is employed to temporarily store the bytecode on the network.
-       *  After transaction execution, whether successful or not, any entity associated with the 'fileId' should be removed from the Hedera network.
-       */
-      if (fileId) {
-        this.hapiService
-          .getSDKClient()
-          .deleteFile(
-            fileId,
-            requestDetails,
-            TransactionService.ethSendRawTransaction,
-            fileId.toString(),
-            originalCallerAddress,
-          )
-          .then();
-      }
-    }
+    sendRawTransactionError = error;
 
     // After the try-catch process above, the `submittedTransactionId` is potentially valid in only two scenarios:
     //   - The transaction was successfully submitted and fully processed by CN and MN.
@@ -776,5 +726,78 @@ export class TransactionService implements ITransactionService {
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
     return exchangeRateInCents;
+  }
+
+  private emitEthExecutionEvent(parsedTx, originalCallerAddress, toAddress, requestDetails) {
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      method: TransactionService.ethSendRawTransaction,
+      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
+      from: originalCallerAddress,
+      to: toAddress,
+      requestDetails: requestDetails,
+    });
+  }
+
+  private async submitTransaction(
+    transactionBuffer: Buffer,
+    originalCallerAddress: string,
+    networkGasPriceInWeiBars: number,
+    requestDetails: RequestDetails,
+  ): Promise<{
+    txSubmitted: boolean;
+    submittedTransactionId: string;
+    error: any;
+  }> {
+    let fileId: FileId | null = null;
+    let txSubmitted = false;
+    let submittedTransactionId = '';
+    let error = null;
+
+    try {
+      const sendRawTransactionResult = await this.hapiService
+        .getSDKClient()
+        .submitEthereumTransaction(
+          transactionBuffer,
+          TransactionService.ethSendRawTransaction,
+          requestDetails,
+          originalCallerAddress,
+          networkGasPriceInWeiBars,
+          await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        );
+
+      txSubmitted = true;
+      fileId = sendRawTransactionResult.fileId;
+      submittedTransactionId = sendRawTransactionResult.txResponse.transactionId?.toString();
+      if (!constants.TRANSACTION_ID_REGEX.test(submittedTransactionId)) {
+        throw predefined.INTERNAL_ERROR(
+          `Transaction successfully submitted but returned invalid transactionID: transactionId==${submittedTransactionId}`,
+        );
+      }
+    } catch (e: any) {
+      if (e instanceof SDKClientError && (e.isConnectionDropped() || e.isTimeoutExceeded())) {
+        submittedTransactionId = e.transactionId || '';
+      }
+
+      error = e;
+    } finally {
+      /**
+       *  For transactions of type CONTRACT_CREATE, if the contract's bytecode (calldata) exceeds 5120 bytes, HFS is employed to temporarily store the bytecode on the network.
+       *  After transaction execution, whether successful or not, any entity associated with the 'fileId' should be removed from the Hedera network.
+       */
+      if (fileId) {
+        this.hapiService
+          .getSDKClient()
+          .deleteFile(
+            fileId,
+            requestDetails,
+            TransactionService.ethSendRawTransaction,
+            fileId.toString(),
+            originalCallerAddress,
+          )
+          .then();
+      }
+    }
+
+    return { txSubmitted, submittedTransactionId, error };
   }
 }
