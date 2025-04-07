@@ -38,19 +38,19 @@ export class ContractService implements IContractService {
   public static readonly iHTSAddress = '0x0000000000000000000000000000000000000167';
 
   /**
-   * The prefix for redirect bytecode used in token redirection.
-   * @public
-   * @static
-   */
-  public static readonly redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-
-  /**
    * The postfix for redirect bytecode used in token redirection.
    * @public
    * @static
    */
   public static readonly redirectBytecodePostfix =
     '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
+
+  /**
+   * The prefix for redirect bytecode used in token redirection.
+   * @public
+   * @static
+   */
+  public static readonly redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
 
   /**
    * The cache service used for caching responses.
@@ -175,128 +175,6 @@ export class ContractService implements IContractService {
       }
       return predefined.INTERNAL_ERROR(e.message.toString());
     }
-  }
-
-  /**
-   * Execute a contract call query to the consensus node
-   *
-   * @param {IContractCallRequest} call - The call data
-   * @param {number | null} gas - The gas limit
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | JsonRpcError>} The call result or error
-   */
-  public async callConsensusNode(
-    call: IContractCallRequest,
-    gas: number | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    try {
-      gas = gas ?? Number.parseInt(this.defaultGas);
-
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" using consensus-node.`,
-          call.to,
-          gas,
-          call.data,
-          call.from,
-        );
-      }
-
-      await this.validateAddresses(call);
-      const cachedResponse = await this.tryGetCachedResponse(call, requestDetails);
-      if (cachedResponse != undefined) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`${requestIdPrefix} eth_call returned cached response: ${cachedResponse}`);
-        }
-        return cachedResponse;
-      }
-      return await this.executeConsensusNodeCall(call, gas, requestDetails);
-    } catch (e: any) {
-      return this.handleConsensusNodeError(e, requestDetails);
-    }
-  }
-
-  /**
-   * Makes a contract call via the Mirror Node.
-   *
-   * @param {IContractCallRequest} call - The call data
-   * @param {number | null} gas - The gas limit
-   * @param {number | string | null | undefined} value - The value to send
-   * @param {string | null} block - The block number or tag
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | JsonRpcError>} The call result or error
-   */
-  public async callMirrorNode(
-    call: IContractCallRequest,
-    gas: number | null,
-    value: number | string | null | undefined,
-    block: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
-          call.to,
-          gas,
-          call.data,
-          call.from,
-          block,
-        );
-      }
-      const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
-      return await this.executeMirrorNodeCall(callData, requestDetails);
-    } catch (e: any) {
-      return this.handleMirrorNodeError(e, call, gas, requestDetails);
-    }
-  }
-
-  /**
-   * Extracts the block number or tag from a block parameter.
-   * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
-   *
-   * @param {string | object | null} blockParam - The block parameter (string, object, or null)
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | null>} The extracted block number or tag, or null if not provided
-   * @private
-   */
-  public async extractBlockNumberOrTag(
-    blockParam: string | object | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
-    if (!blockParam) {
-      return null;
-    }
-
-    // is an object
-    if (typeof blockParam === 'object') {
-      // object has property blockNumber, example: { "blockNumber": "0x0" }
-      if (blockParam['blockNumber'] != null) {
-        return blockParam['blockNumber'];
-      }
-
-      if (blockParam['blockHash'] != null) {
-        return await this.getBlockNumberFromHash(blockParam['blockHash'], requestDetails);
-      }
-
-      // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
-      throw predefined.INVALID_ARGUMENTS('neither block nor hash specified');
-    }
-
-    // if blockParam is a string, could be a blockNumber or blockTag or blockHash
-    if (blockParam.length > 0) {
-      // if string is a blockHash, we return its corresponding blockNumber
-      if (this.common.isBlockHash(blockParam)) {
-        return await this.getBlockNumberFromHash(blockParam, requestDetails);
-      } else {
-        return blockParam;
-      }
-    }
-
-    return null;
   }
 
   /**
@@ -429,6 +307,83 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Execute a contract call query to the consensus node
+   *
+   * @param {IContractCallRequest} call - The call data
+   * @param {number | null} gas - The gas limit
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @returns {Promise<string | JsonRpcError>} The call result or error
+   */
+  private async callConsensusNode(
+    call: IContractCallRequest,
+    gas: number | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | JsonRpcError> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    try {
+      gas = gas ?? Number.parseInt(this.defaultGas);
+
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" using consensus-node.`,
+          call.to,
+          gas,
+          call.data,
+          call.from,
+        );
+      }
+
+      await this.validateAddresses(call);
+      const cachedResponse = await this.tryGetCachedResponse(call, requestDetails);
+      if (cachedResponse != undefined) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(`${requestIdPrefix} eth_call returned cached response: ${cachedResponse}`);
+        }
+        return cachedResponse;
+      }
+      return await this.executeConsensusNodeCall(call, gas, requestDetails);
+    } catch (e: any) {
+      return this.handleConsensusNodeError(e, requestDetails);
+    }
+  }
+
+  /**
+   * Makes a contract call via the Mirror Node.
+   *
+   * @param {IContractCallRequest} call - The call data
+   * @param {number | null} gas - The gas limit
+   * @param {number | string | null | undefined} value - The value to send
+   * @param {string | null} block - The block number or tag
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @returns {Promise<string | JsonRpcError>} The call result or error
+   */
+  private async callMirrorNode(
+    call: IContractCallRequest,
+    gas: number | null,
+    value: number | string | null | undefined,
+    block: string | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | JsonRpcError> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    try {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
+          call.to,
+          gas,
+          call.data,
+          call.from,
+          block,
+        );
+      }
+      const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
+      return await this.executeMirrorNodeCall(callData, requestDetails);
+    } catch (e: any) {
+      return this.handleMirrorNodeError(e, call, gas, requestDetails);
+    }
+  }
+
+  /**
    * Executes the consensus node call and handles the response.
    *
    * @param {IContractCallRequest} call - The call request
@@ -475,6 +430,51 @@ export class ContractService implements IContractService {
   private async executeMirrorNodeCall(callData: IContractCallRequest, requestDetails: RequestDetails): Promise<string> {
     const contractCallResponse = await this.mirrorNodeClient.postContractCall(callData, requestDetails);
     return contractCallResponse?.result ? prepend0x(contractCallResponse.result) : CommonService.emptyHex;
+  }
+
+  /**
+   * Extracts the block number or tag from a block parameter.
+   * according to EIP-1898 (https://eips.ethereum.org/EIPS/eip-1898) block param can either be a string (blockNumber or Block Tag) or an object (blockHash or blockNumber)
+   *
+   * @param {string | object | null} blockParam - The block parameter (string, object, or null)
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking
+   * @returns {Promise<string | null>} The extracted block number or tag, or null if not provided
+   * @private
+   */
+  private async extractBlockNumberOrTag(
+    blockParam: string | object | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | null> {
+    if (!blockParam) {
+      return null;
+    }
+
+    // is an object
+    if (typeof blockParam === 'object') {
+      // object has property blockNumber, example: { "blockNumber": "0x0" }
+      if (blockParam['blockNumber'] != null) {
+        return blockParam['blockNumber'];
+      }
+
+      if (blockParam['blockHash'] != null) {
+        return await this.getBlockNumberFromHash(blockParam['blockHash'], requestDetails);
+      }
+
+      // if is an object but doesn't have blockNumber or blockHash, then it's an invalid blockParam
+      throw predefined.INVALID_ARGUMENTS('neither block nor hash specified');
+    }
+
+    // if blockParam is a string, could be a blockNumber or blockTag or blockHash
+    if (blockParam.length > 0) {
+      // if string is a blockHash, we return its corresponding blockNumber
+      if (this.common.isBlockHash(blockParam)) {
+        return await this.getBlockNumberFromHash(blockParam, requestDetails);
+      } else {
+        return blockParam;
+      }
+    }
+
+    return null;
   }
 
   /**
