@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
-import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
-import { EthImpl } from '../../../src/lib/eth';
-import constants from '../../../src/lib/constants';
-import { SDKClient } from '../../../src/lib/clients';
-import { DEFAULT_NETWORK_FEES, NO_TRANSACTIONS } from './eth-config';
+import sinon from 'sinon';
+
 import { Eth, predefined } from '../../../src';
+import { numberTo0x } from '../../../src/formatters';
+import { SDKClient } from '../../../src/lib/clients';
+import constants from '../../../src/lib/constants';
+import { EthImpl } from '../../../src/lib/eth';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import HAPIService from '../../../src/lib/services/hapiService/hapiService';
+import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   defaultDetailedContractResults,
@@ -15,12 +20,8 @@ import {
   mockData,
   overrideEnvsInMochaDescribe,
 } from '../../helpers';
-import { numberTo0x } from '../../../src/formatters';
+import { DEFAULT_NETWORK_FEES, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
-import { RequestDetails } from '../../../src/lib/types';
-import MockAdapter from 'axios-mock-adapter';
-import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 
 use(chaiAsPromised);
 
@@ -61,14 +62,17 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(blockPath).reply(200, JSON.stringify(mockData.blocks.blocks[2]));
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    restMock.onGet(latestBlockPath).reply(202, JSON.stringify({
-      blocks: [
-        {
-          ...mockData.blocks.blocks[2],
-          number: blockNumber + constants.MAX_BLOCK_RANGE + 1,
-        },
-      ],
-    }));
+    restMock.onGet(latestBlockPath).reply(
+      202,
+      JSON.stringify({
+        blocks: [
+          {
+            ...mockData.blocks.blocks[2],
+            number: blockNumber + constants.MAX_BLOCK_RANGE + 1,
+          },
+        ],
+      }),
+    );
     restMock
       .onGet(transactionPath(mockData.account.evm_address, 2))
       .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }, {}] }));
@@ -184,7 +188,9 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   });
 
   it('should return nonce for request on historical numerical block', async () => {
-    restMock.onGet(accountPath).reply(200, JSON.stringify({ ...mockData.account, transactions: [defaultEthereumTransactions[0]] }));
+    restMock
+      .onGet(accountPath)
+      .reply(200, JSON.stringify({ ...mockData.account, transactions: [defaultEthereumTransactions[0]] }));
     restMock
       .onGet(accountTimestampFilteredPath)
       .reply(200, JSON.stringify({ ...mockData.account, transactions: defaultEthereumTransactions }));
@@ -218,14 +224,17 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   });
 
   it('should return valid nonce for historical numerical block close to latest', async () => {
-    restMock.onGet(latestBlockPath).reply(202, JSON.stringify({
-      blocks: [
-        {
-          ...mockData.blocks.blocks[2],
-          number: blockNumber + 1,
-        },
-      ],
-    }));
+    restMock.onGet(latestBlockPath).reply(
+      202,
+      JSON.stringify({
+        blocks: [
+          {
+            ...mockData.blocks.blocks[2],
+            number: blockNumber + 1,
+          },
+        ],
+      }),
+    );
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
 
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, blockNumberHex, requestDetails);

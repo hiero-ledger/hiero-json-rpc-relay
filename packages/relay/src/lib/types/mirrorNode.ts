@@ -67,6 +67,15 @@ export interface IContractCallResponse {
   };
 }
 
+export interface IContractResult {
+  type: string;
+  entity: {
+    runtime_bytecode: string;
+    created_timestamp: string;
+    [key: string]: any;
+  };
+}
+
 export interface IAssessedCustomFee {
   amount: number;
   collector_account_id: string;

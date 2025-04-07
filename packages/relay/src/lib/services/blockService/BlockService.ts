@@ -11,8 +11,7 @@ import constants from '../../constants';
 import { predefined } from '../../errors/JsonRpcError';
 import { EthImpl } from '../../eth';
 import { Block, Log, Receipt, Transaction } from '../../model';
-import { IContractResultsParams, RequestDetails } from '../../types';
-import { IMirrorNodeBlock } from '../../types/IMirrorNodeBlock';
+import { IContractResultsParams, IMirrorNodeBlock, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
 import { CommonService } from '../ethService/ethCommonService/CommonService';
 import { BlockFactory } from '../factories/blockFactory';
@@ -201,7 +200,7 @@ export class BlockService implements IBlockService {
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
         contractAddress: contractAddress,
         logs: contractResult.logs,
-        logsBloom: contractResult.bloom === EthImpl.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        logsBloom: contractResult.bloom === CommonService.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
         transactionIndex: numberTo0x(contractResult.transaction_index),
         effectiveGasPrice: effectiveGas,
@@ -463,7 +462,7 @@ export class BlockService implements IBlockService {
           chainId: this.chain,
           from: log.address,
           gas: EthImpl.defaultTxGas,
-          gasPrice: EthImpl.invalidEVMInstruction,
+          gasPrice: constants.INVALID_EVM_INSTRUCTION,
           hash: log.transactionHash,
           input: EthImpl.zeroHex8Byte,
           maxPriorityFeePerGas: EthImpl.zeroHex,
