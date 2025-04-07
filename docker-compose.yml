@@ -33,7 +33,7 @@ services:
       - ./.env:/home/node/app/.env
 
   redis:
-    image: redis:latest
+    image: redis@sha256:9c6bb76658f8e6f7ca8d0d96c8fcdfb12e9795579c89918aea4fa2ad9817c2f0 # 8.0-M04-bookworm
     container_name: redis_cache
     ports:
       - '6379:6379'
