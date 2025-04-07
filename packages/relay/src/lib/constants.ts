@@ -229,4 +229,5 @@ export default {
   },
 
   MAX_TRANSACTION_FEE_THRESHOLD: ConfigService.get('MAX_TRANSACTION_FEE_THRESHOLD'),
+  INVALID_EVM_INSTRUCTION: '0xfe',
 };

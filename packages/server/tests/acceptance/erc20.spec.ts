@@ -2,6 +2,7 @@
 
 // External resources
 import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
+import { ContractService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import chai, { expect } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { ethers } from 'ethers';

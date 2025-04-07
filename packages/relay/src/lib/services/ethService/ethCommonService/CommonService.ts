@@ -16,6 +16,7 @@ import {
   stripLeadingZeroForSignatures,
   tinybarsToWeibars,
   toHash32,
+  weibarHexToTinyBarInt,
 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
@@ -25,7 +26,7 @@ import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { EthImpl } from '../../../eth';
 import { Log, Transaction } from '../../../model';
-import { RequestDetails } from '../../../types';
+import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { TransactionFactory } from '../../factories/transactionFactory';
 import HAPIService from '../../hapiService/hapiService';
@@ -75,13 +76,17 @@ export class CommonService implements ICommonService {
   public static readonly blockLatest = 'latest';
   public static readonly blockPending = 'pending';
   public static readonly blockSafe = 'safe';
+  public static readonly ethCall = 'eth_call';
   public static readonly ethGetBalance = 'eth_getBalance';
+  public static readonly ethGetCode = 'eth_getCode';
   public static readonly ethGetTransactionCount = 'eth_getTransactionCount';
   public static readonly emptyHex = '0x';
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
   public static readonly oneHex = '0x1';
   public static readonly zeroHex = '0x0';
+  public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
 
   /**
    * private constants
@@ -93,7 +98,7 @@ export class CommonService implements ICommonService {
   );
   private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
     'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
-    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT'
+    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT',
   );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
@@ -275,7 +280,7 @@ export class CommonService implements ICommonService {
   public async getHistoricalBlockResponse(
     requestDetails: RequestDetails,
     blockNumberOrTagOrHash?: string | null,
-    returnLatest: boolean = true
+    returnLatest: boolean = true,
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
@@ -286,7 +291,7 @@ export class CommonService implements ICommonService {
       return null;
     }
 
-    if (blockNumberOrTagOrHash === EthImpl.emptyHex) {
+    if (blockNumberOrTagOrHash === CommonService.emptyHex) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
@@ -497,7 +502,7 @@ export class CommonService implements ICommonService {
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
-      EthImpl.ethGetCode,
+      CommonService.ethGetCode,
       requestDetails,
       searchableTypes,
       0,
@@ -613,6 +618,89 @@ export class CommonService implements ICommonService {
     } else {
       return Number(tag);
     }
+  }
+
+  private isBlockTagEarliest = (tag: string): boolean => {
+    return tag === EthImpl.blockEarliest;
+  };
+
+  private isBlockTagFinalized = (tag: string): boolean => {
+    return (
+      tag === EthImpl.blockFinalized ||
+      tag === EthImpl.blockLatest ||
+      tag === EthImpl.blockPending ||
+      tag === EthImpl.blockSafe
+    );
+  };
+
+  private isBlockNumValid = (num: string) => {
+    return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
+  };
+
+  public isBlockParamValid = (tag: string | null) => {
+    return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
+  };
+
+  public isBlockHash = (blockHash: string): boolean => {
+    return new RegExp(constants.BLOCK_HASH_REGEX + '{64}$').test(blockHash);
+  };
+
+  /**
+   * Perform value format precheck before making contract call towards the mirror node
+   * @param {IContractCallRequest} transaction the transaction object
+   * @param {RequestDetails} requestDetails the request details for logging and tracking
+   */
+  public async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
+    if (transaction.value) {
+      transaction.value = weibarHexToTinyBarInt(transaction.value);
+    }
+    if (transaction.gasPrice) {
+      transaction.gasPrice = parseInt(transaction.gasPrice.toString());
+    } else {
+      transaction.gasPrice = await this.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
+    }
+    if (transaction.gas) {
+      transaction.gas = parseInt(transaction.gas.toString());
+    }
+    if (!transaction.from && transaction.value && (transaction.value as number) > 0) {
+      if (ConfigService.get('OPERATOR_KEY_FORMAT') === 'HEX_ECDSA') {
+        transaction.from = this.hapiService.getMainClientInstance().operatorPublicKey?.toEvmAddress();
+      } else {
+        const operatorId = this.hapiService.getMainClientInstance().operatorAccountId!.toString();
+        const operatorAccount = await this.getAccount(operatorId, requestDetails);
+        transaction.from = operatorAccount?.evm_address;
+      }
+    }
+
+    // Support either data or input. https://ethereum.github.io/execution-apis/api-documentation/ lists input but many EVM tools still use data.
+    // We chose in the mirror node to use data field as the correct one, however for us to be able to support all tools,
+    // we have to modify transaction object, so that it complies with the mirror node.
+    // That means that, if input field is passed, but data is not, we have to copy value of input to the data to comply with mirror node.
+    // The second scenario occurs when both the data and input fields are present but hold different values.
+    // In this case, the value in the input field should be the one used for consensus based on this resource https://github.com/ethereum/execution-apis/blob/main/tests/eth_call/call-contract.io
+    // Eventually, for optimization purposes, we can rid of the input property or replace it with empty string.
+    if ((transaction.input && transaction.data === undefined) || (transaction.input && transaction.data)) {
+      transaction.data = transaction.input;
+      delete transaction.input;
+    }
+  }
+
+  /**
+   * Tries to get the account with the given address from the cache,
+   * if not found, it fetches it from the mirror node.
+   *
+   * @param {string} address the address of the account
+   * @param {RequestDetails} requestDetails the request details for logging and tracking
+   * @returns {Promise<IAccountInfo | null>} the account (if such exists for the given address)
+   */
+  public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
+    const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
+    let account = await this.cacheService.getAsync(key, EthImpl.ethEstimateGas, requestDetails);
+    if (!account) {
+      account = await this.mirrorNodeClient.getAccount(address, requestDetails);
+      await this.cacheService.set(key, account, EthImpl.ethEstimateGas, requestDetails);
+    }
+    return account;
   }
 
   /**

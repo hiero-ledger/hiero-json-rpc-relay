@@ -6,6 +6,9 @@ import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../src';
 import { EthImpl } from '../../../src/lib/eth';
+import constants from '../../../src/lib/constants';
+import { ContractService } from '../../../src/lib/services';
+import { CommonService } from '../../../src/lib/services';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
@@ -77,8 +80,8 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, JSON.stringify(DEFAULT_CONTRACT));
       const resNoCache = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
       const resCached = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
-      expect(resNoCache).to.equal(EthImpl.emptyHex);
-      expect(resCached).to.equal(EthImpl.emptyHex);
+      expect(resNoCache).to.equal(CommonService.emptyHex);
+      expect(resCached).to.equal(CommonService.emptyHex);
     });
 
     it('should return the runtime_bytecode from the mirror node', async () => {
@@ -95,7 +98,7 @@ describe('@ethGetCode using MirrorNode', async function () {
     it('should return empty bytecode if Mirror Node returns empty runtime_bytecode', async () => {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(200, {
         ...DEFAULT_CONTRACT,
-        runtime_bytecode: EthImpl.emptyHex,
+        runtime_bytecode: CommonService.emptyHex,
       });
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
       expect(res).to.equal(EthImpl.emptyHex);
@@ -110,11 +113,11 @@ describe('@ethGetCode using MirrorNode', async function () {
     });
 
     it('should return the static bytecode for address(0x167) call', async () => {
-      restMock.onGet(`contracts/${EthImpl.iHTSAddress}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
-      restMock.onGet(`accounts/${EthImpl.iHTSAddress}${NO_TRANSACTIONS}`).reply(404, JSON.stringify(null));
+      restMock.onGet(`contracts/${ContractService.iHTSAddress}`).reply(200, JSON.stringify(DEFAULT_CONTRACT));
+      restMock.onGet(`accounts/${ContractService.iHTSAddress}${NO_TRANSACTIONS}`).reply(404, JSON.stringify(null));
 
-      const res = await ethImpl.getCode(EthImpl.iHTSAddress, null, requestDetails);
-      expect(res).to.equal(EthImpl.invalidEVMInstruction);
+      const res = await ethImpl.getCode(ContractService.iHTSAddress, null, requestDetails);
+      expect(res).to.equal(constants.INVALID_EVM_INSTRUCTION);
     });
 
     earlyBlockParams.forEach((blockParam) => {
@@ -127,7 +130,7 @@ describe('@ethGetCode using MirrorNode', async function () {
           }),
         );
         const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, blockParam, requestDetails);
-        expect(res).to.equal(EthImpl.emptyHex);
+        expect(res).to.equal(CommonService.emptyHex);
       });
     });
 
@@ -141,7 +144,7 @@ describe('@ethGetCode using MirrorNode', async function () {
     invalidBlockParam.forEach((blockParam) => {
       it(`should throw INVALID_PARAMETER JsonRpcError with invalid blockParam=${blockParam}`, async () => {
         try {
-          await ethImpl.getCode(EthImpl.iHTSAddress, blockParam, requestDetails);
+          await ethImpl.getCode(ContractService.iHTSAddress, blockParam, requestDetails);
           expect(true).to.eq(false);
         } catch (error: any) {
           const expectedError = predefined.UNKNOWN_BLOCK(
@@ -175,7 +178,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       );
 
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, blockNumberBeforeCreation, requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return empty bytecode for contract before creation block', async () => {
@@ -198,7 +201,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       );
 
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, blockNumberBeforeCreation, requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return redirect bytecode for HTS token after creation block', async () => {
@@ -242,7 +245,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`blocks/${parseInt(futureBlockNumber, 16)}`).reply(404, null);
 
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, futureBlockNumber, requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return empty bytecode for contract when earliest block is queried', async () => {
@@ -264,7 +267,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       );
 
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return redirect bytecode for HTS when accountId has non-zero shard/realm', async function () {
