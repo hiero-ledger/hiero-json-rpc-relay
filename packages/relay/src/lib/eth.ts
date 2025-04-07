@@ -1,34 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { FileId } from '@hashgraph/sdk';
-import { PrecheckStatusError } from '@hashgraph/sdk';
-import crypto from 'crypto';
-import { Transaction as EthersTransaction } from 'ethers';
 import { Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
+import { Registry } from 'prom-client';
 
-import {
-  ASCIIToHex,
-  formatTransactionIdWithoutQueryParams,
-  getFunctionSelector,
-  isHex,
-  isValidEthereumAddress,
-  nanOrNumberTo0x,
-  nullableNumberTo0x,
-  numberTo0x,
-  prepend0x,
-  toHash32,
-} from '../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../formatters';
 import { Eth } from '../index';
-import { LogsBloomUtils } from '../logsBloomUtils';
-import { IReceiptRootHash, ReceiptsRootUtils } from '../receiptsRootUtils';
-import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { SDKClientError } from './errors/SDKClientError';
+import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
 import { BlockService, CommonService, ContractService, FilterService, IBlockService, ICommonService } from './services';

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-
 import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
 
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs

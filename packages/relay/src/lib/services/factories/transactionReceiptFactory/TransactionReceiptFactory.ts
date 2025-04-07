@@ -110,3 +110,5 @@ export class TransactionReceiptFactory {
     return this.ZERO_ADDRESS_HEX;
   }
 }
+
+export { ISyntheticTransactionReceiptParams, IRegularTransactionReceiptParams };

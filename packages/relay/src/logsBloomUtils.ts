@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-
 import { keccak256 } from 'ethers';
 
 import { prepend0x, strip0x } from './formatters';
-import { EthImpl } from './lib/eth';
 
 export class LogsBloomUtils {
   public static readonly BYTE_SIZE = 256;
