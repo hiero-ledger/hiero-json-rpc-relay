@@ -82,7 +82,15 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     restMock.reset();
     sdkClientStub = createStubInstance(SDKClient);
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      registry,
+      cacheService,
+      metricService,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getMainClientInstance().operatorAccountId!.toString(), 200, {

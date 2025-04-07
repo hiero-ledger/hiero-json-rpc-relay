@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { keccak256 } from 'ethers';
+
 import { prepend0x, strip0x } from './formatters';
 import { EthImpl } from './lib/eth';
 
 export class LogsBloomUtils {
   public static readonly BYTE_SIZE = 256;
   public static readonly MASK = 0x7ff;
+
+  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
 
   /**
    * Generate logs bloom for synthetic transaction
@@ -15,10 +18,10 @@ export class LogsBloomUtils {
    */
   public static buildLogsBloom(address: string, topics: string[]): string {
     if (!address?.length) {
-      return EthImpl.emptyBloom;
+      return this.EMPTY_BLOOM;
     }
     if (!topics?.length) {
-      return EthImpl.emptyBloom;
+      return this.EMPTY_BLOOM;
     }
 
     const items = [address, ...topics];

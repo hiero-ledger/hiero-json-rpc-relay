@@ -54,15 +54,17 @@ export class BlockService implements IBlockService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
+  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
+
   /**
    * The static method for the eth_getBlockByHash RPC call.
    */
-  static ethGetBlockByHash = 'eth_GetBlockByHash';
+  private static ethGetBlockByHash = 'eth_GetBlockByHash';
 
   /**
    * The static method for the eth_getBlockByNumber RPC call.
    */
-  static ethGetBlockByNumber = 'eth_GetBlockByNumber';
+  private static ethGetBlockByNumber = 'eth_GetBlockByNumber';
 
   /** Constructor */
   constructor(
@@ -200,7 +202,7 @@ export class BlockService implements IBlockService {
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
         contractAddress: contractAddress,
         logs: contractResult.logs,
-        logsBloom: contractResult.bloom === CommonService.emptyHex ? EthImpl.emptyBloom : contractResult.bloom,
+        logsBloom: contractResult.bloom === CommonService.emptyHex ? BlockService.EMPTY_BLOOM : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
         transactionIndex: numberTo0x(contractResult.transaction_index),
         effectiveGasPrice: effectiveGas,
@@ -332,7 +334,7 @@ export class BlockService implements IBlockService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockHash()`);
     }
-    return EthImpl.zeroHex;
+    return CommonService.zeroHex;
   }
 
   /**
@@ -344,7 +346,7 @@ export class BlockService implements IBlockService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockNumber()`);
     }
-    return EthImpl.zeroHex;
+    return CommonService.zeroHex;
   }
 
   /**
@@ -461,7 +463,7 @@ export class BlockService implements IBlockService {
           blockNumber: log.blockNumber,
           chainId: this.chain,
           from: log.address,
-          gas: EthImpl.defaultTxGas,
+          gas: CommonService.defaultTxGas,
           gasPrice: constants.INVALID_EVM_INSTRUCTION,
           hash: log.transactionHash,
           input: EthImpl.zeroHex8Byte,

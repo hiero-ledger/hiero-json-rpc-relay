@@ -202,6 +202,8 @@ export class Relay {
       chainId,
       register,
       this.cacheService,
+      this.metricService,
+      this.eventEmitter,
     );
 
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService, hapiService);

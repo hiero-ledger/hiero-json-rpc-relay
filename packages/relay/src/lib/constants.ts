@@ -227,6 +227,7 @@ export default {
   EVENTS: {
     EXECUTE_TRANSACTION: 'execute_transaction',
     EXECUTE_QUERY: 'execute_query',
+    ETH_EXECUTION: 'eth_execution',
   },
 
   EXECUTION_MODE: {

@@ -76,6 +76,7 @@ export class CommonService implements ICommonService {
   public static readonly blockLatest = 'latest';
   public static readonly blockPending = 'pending';
   public static readonly blockSafe = 'safe';
+  public static readonly defaultTxGas = numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT);
   public static readonly ethCall = 'eth_call';
   public static readonly ethGetBalance = 'eth_getBalance';
   public static readonly ethGetCode = 'eth_getCode';
@@ -85,8 +86,10 @@ export class CommonService implements ICommonService {
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
   public static readonly oneHex = '0x1';
   public static readonly zeroHex = '0x0';
+  public static readonly oneTwoThreeFourHex = '0x1234';
   public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
-
+  public static readonly twoHex = '0x2';
+  public static readonly zeroHex8Byte = '0x0000000000000000';
 
   /**
    * private constants
@@ -496,7 +499,7 @@ export class CommonService implements ICommonService {
     return this.getLogsWithParams(address, params, requestDetails);
   }
 
-  async resolveEvmAddress(
+  public async resolveEvmAddress(
     address: string,
     requestDetails: RequestDetails,
     searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],

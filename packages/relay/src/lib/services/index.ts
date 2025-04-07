@@ -6,5 +6,17 @@ import { CommonService } from './ethService/ethCommonService/CommonService';
 import { ICommonService } from './ethService/ethCommonService/ICommonService';
 import { FilterService } from './ethService/ethFilterService';
 import { IFilterService } from './ethService/ethFilterService/IFilterService';
+import MetricService from './metricService/metricService';
+import { TransactionService } from './transactionService/TransactionService';
 
-export { BlockService, IBlockService, ICommonService, CommonService, IFilterService, FilterService, ContractService };
+export {
+  BlockService,
+  IBlockService,
+  ICommonService,
+  CommonService,
+  IFilterService,
+  FilterService,
+  ContractService,
+  TransactionService,
+  MetricService,
+};

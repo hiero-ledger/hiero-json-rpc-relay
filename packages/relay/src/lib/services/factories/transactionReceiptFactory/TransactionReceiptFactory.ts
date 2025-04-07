@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+  ASCIIToHex,
+  isHex,
+  nanOrNumberTo0x,
+  nullableNumberTo0x,
+  numberTo0x,
+  prepend0x,
+  toHash32,
+} from '../../../../formatters';
+import { LogsBloomUtils } from '../../../../logsBloomUtils';
+import constants from '../../../constants';
+import { EthImpl } from '../../../eth';
+import { ITransactionReceipt } from '../../../types';
+import {
+  IRegularTransactionReceiptParams,
+  ISyntheticTransactionReceiptParams,
+} from './ITransactionReceiptFactoryParams';
+
+/**
+ * Factory for creating different types of transaction receipts
+ */
+export class TransactionReceiptFactory {
+  private static readonly EMPTY_HEX = '0x';
+  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
+  private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
+  private static readonly ZERO_HEX = '0x0';
+
+  /**
+   * Creates a synthetic transaction receipt from a log
+   *
+   * @param params Parameters required to create a synthetic transaction receipt
+   * @returns Transaction receipt for the synthetic transaction
+   */
+  public static createSyntheticReceipt(params: ISyntheticTransactionReceiptParams): ITransactionReceipt {
+    const { syntheticLogs, gasPriceForTimestamp } = params;
+
+    return {
+      blockHash: syntheticLogs[0].blockHash,
+      blockNumber: syntheticLogs[0].blockNumber,
+      contractAddress: syntheticLogs[0].address,
+      cumulativeGasUsed: this.ZERO_HEX,
+      effectiveGasPrice: gasPriceForTimestamp,
+      from: this.ZERO_ADDRESS_HEX,
+      gasUsed: this.ZERO_HEX,
+      logs: syntheticLogs,
+      logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
+      root: constants.DEFAULT_ROOT_HASH,
+      status: EthImpl.oneHex,
+      to: syntheticLogs[0].address,
+      transactionHash: syntheticLogs[0].transactionHash,
+      transactionIndex: syntheticLogs[0].transactionIndex,
+      type: null, // null from HAPI transactions
+    };
+  }
+
+  /**
+   * Creates a regular transaction receipt from mirror node contract result data
+   *
+   * @param params Parameters required to create a regular transaction receipt
+   * @param resolveEvmAddressFn Function to resolve EVM addresses
+   * @returns Transaction receipt for the regular transaction
+   */
+  public static createRegularReceipt(params: IRegularTransactionReceiptParams): ITransactionReceipt {
+    const { receiptResponse, effectiveGas, from, logs, to } = params;
+
+    // Determine contract address if it exists
+    const contractAddress = TransactionReceiptFactory.getContractAddressFromReceipt(receiptResponse);
+
+    // Create the receipt object
+    const receipt: ITransactionReceipt = {
+      blockHash: toHash32(receiptResponse.block_hash),
+      blockNumber: numberTo0x(receiptResponse.block_number),
+      from: from,
+      to: to,
+      cumulativeGasUsed: numberTo0x(receiptResponse.block_gas_used),
+      gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
+      contractAddress: contractAddress,
+      logs: logs,
+      logsBloom: receiptResponse.bloom === this.EMPTY_HEX ? this.EMPTY_BLOOM : receiptResponse.bloom,
+      transactionHash: toHash32(receiptResponse.hash),
+      transactionIndex: numberTo0x(receiptResponse.transaction_index),
+      effectiveGasPrice: effectiveGas,
+      root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
+      status: receiptResponse.status,
+      type: nullableNumberTo0x(receiptResponse.type),
+    };
+
+    // Add revert reason if available
+    if (receiptResponse.error_message) {
+      receipt.revertReason = isHex(prepend0x(receiptResponse.error_message))
+        ? receiptResponse.error_message
+        : prepend0x(ASCIIToHex(receiptResponse.error_message));
+    }
+
+    return receipt;
+  }
+
+  /**
+   * Helper method to determine if a receipt response includes a contract address
+   *
+   * @param receiptResponse Mirror node contract result response
+   * @returns Contract address or null
+   */
+  private static getContractAddressFromReceipt(receiptResponse: any): string {
+    if (receiptResponse && receiptResponse.created_contract_ids && receiptResponse.created_contract_ids.length > 0) {
+      return receiptResponse.created_contract_ids[0];
+    }
+    return this.ZERO_ADDRESS_HEX;
+  }
+}
