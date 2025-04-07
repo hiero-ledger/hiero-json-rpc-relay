@@ -25,7 +25,7 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { EthImpl } from '../../../eth';
-import { Log } from '../../../model';
+import { Log, Transaction } from '../../../model';
 import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { TransactionFactory } from '../../factories/transactionFactory';
@@ -101,6 +101,7 @@ export class CommonService implements ICommonService {
   );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
+  static EMPTY_HEX = '0x';
 
   /**
    * @private
@@ -520,47 +521,6 @@ export class CommonService implements ICommonService {
     return resolvedAddress;
   }
 
-  public static formatContractResult = (cr: any) => {
-    if (cr === null) {
-      return null;
-    }
-
-    const gasPrice =
-      cr.gas_price === null || cr.gas_price === '0x'
-        ? '0x0'
-        : isHex(cr.gas_price)
-        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-        : nanOrNumberTo0x(cr.gas_price);
-
-    const commonFields = {
-      blockHash: toHash32(cr.block_hash),
-      blockNumber: nullableNumberTo0x(cr.block_number),
-      from: cr.from.substring(0, 42),
-      gas: nanOrNumberTo0x(cr.gas_used),
-      gasPrice,
-      hash: cr.hash.substring(0, 66),
-      input: cr.function_parameters,
-      nonce: nanOrNumberTo0x(cr.nonce),
-      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
-      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
-      to: cr.to?.substring(0, 42),
-      transactionIndex: nullableNumberTo0x(cr.transaction_index),
-      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
-      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
-      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
-      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
-      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
-      chainId: cr.chain_id === '0x' ? undefined : cr.chain_id,
-    };
-
-    return TransactionFactory.createTransactionByType(cr.type, {
-      ...commonFields,
-      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-      maxFeePerGas: cr.max_fee_per_gas,
-    });
-  };
-
   /**
    * Returns the current network fee in denominated in weibars.
    *
@@ -743,5 +703,80 @@ export class CommonService implements ICommonService {
       await this.cacheService.set(key, account, EthImpl.ethEstimateGas, requestDetails);
     }
     return account;
+  }
+  /**
+   * This method retrieves the contract address from the receipt response.
+   * If the contract creation is via a system contract, it handles the system contract creation.
+   * If not, it returns the address from the receipt response.
+   *
+   * @param {any} receiptResponse - The receipt response object.
+   * @returns {string} The contract address.
+   */
+  public getContractAddressFromReceipt(receiptResponse: any): string {
+    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
+      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
+    );
+
+    if (!isCreationViaSystemContract) {
+      return receiptResponse.address;
+    }
+
+    // Handle system contract creation
+    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
+    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
+    return prepend0x(tokenAddress);
+  }
+
+  public async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
+    const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
+    const timestampDecimalString = block ? block.timestamp.from.split('.')[0] : '';
+    const gasPriceForTimestamp = await this.getFeeWeibars(
+      EthImpl.ethGetTransactionReceipt,
+      requestDetails,
+      timestampDecimalString,
+    );
+
+    return numberTo0x(gasPriceForTimestamp);
+  }
+
+  public static formatContractResult(cr: any): Transaction | null {
+    if (cr === null) {
+      return null;
+    }
+
+    const gasPrice =
+      cr.gas_price === null || cr.gas_price === '0x'
+        ? '0x0'
+        : isHex(cr.gas_price)
+        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : nanOrNumberTo0x(cr.gas_price);
+
+    const commonFields = {
+      blockHash: toHash32(cr.block_hash),
+      blockNumber: nullableNumberTo0x(cr.block_number),
+      from: cr.from.substring(0, 42),
+      gas: nanOrNumberTo0x(cr.gas_used),
+      gasPrice,
+      hash: cr.hash.substring(0, 66),
+      input: cr.function_parameters,
+      nonce: nanOrNumberTo0x(cr.nonce),
+      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
+      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
+      to: cr.to?.substring(0, 42),
+      transactionIndex: nullableNumberTo0x(cr.transaction_index),
+      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
+      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
+      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
+      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
+      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
+      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
+      chainId: cr.chain_id === this.EMPTY_HEX ? undefined : cr.chain_id,
+    };
+
+    return TransactionFactory.createTransactionByType(cr.type, {
+      ...commonFields,
+      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
+      maxFeePerGas: cr.max_fee_per_gas,
+    });
   }
 }

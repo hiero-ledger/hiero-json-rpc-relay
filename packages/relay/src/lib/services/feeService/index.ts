@@ -11,8 +11,8 @@ import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { EthImpl } from '../../eth';
 import { IFeeHistory, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
-import { CommonService } from '../ethService';
 import { IFeeService } from '../feeService/IFeeService';
+import { ICommonService } from '../index';
 
 export class FeeService implements IFeeService {
   /**
@@ -20,7 +20,7 @@ export class FeeService implements IFeeService {
    *
    * @private
    */
-  private readonly common: CommonService;
+  private readonly common: ICommonService;
 
   /**
    * The interface through which we interact with the mirror node.
@@ -51,7 +51,7 @@ export class FeeService implements IFeeService {
    * @param logger
    * @param cacheService
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, common: CommonService, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger, cacheService: CacheService) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.common = common;
     this.logger = logger;

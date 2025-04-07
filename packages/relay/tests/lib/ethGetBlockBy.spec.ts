@@ -16,6 +16,8 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
 import { Log, Transaction } from '../../src/lib/model';
+import { CommonService } from '../../src/lib/services';
+import { BlockService } from '../../src/lib/services/blockService/BlockService';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -99,6 +101,7 @@ const defaultLogs1 = [
 describe('eth_getBlockBy', async function () {
   this.timeout(10000);
   let ethImpl: EthImpl;
+  let blockService: BlockService;
 
   const requestDetails = new RequestDetails({ requestId: 'ethGetBlockByTest', ipAddress: '0.0.0.0' });
 
@@ -138,6 +141,8 @@ describe('eth_getBlockBy', async function () {
 
     // @ts-ignore
     ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    const common = new CommonService(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
+    blockService = new BlockService(cacheService, '0x12a', common, mirrorNodeInstance, logger);
   });
 
   this.beforeEach(async () => {
@@ -171,7 +176,7 @@ describe('eth_getBlockBy', async function () {
 
     it('populateSyntheticTransactions with no dupes in empty transactionHashes', async function () {
       const initHashes = [];
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, requestDetails);
       expect(initHashes.length).to.equal(defaultLogs1.length);
       expect(initHashes[0]).to.equal(modelLog1.transactionHash);
       expect(initHashes[1]).to.equal(modelLog2.transactionHash);
@@ -181,7 +186,7 @@ describe('eth_getBlockBy', async function () {
     it('populateSyntheticTransactions with no dupes in non empty transactionHashes', async function () {
       const initHashes = ['txHash1', 'txHash2'];
       const txHashes = initHashes.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, requestDetails);
       expect(txHashes.length).to.equal(initHashes.length + defaultLogs1.length);
       expect(txHashes[initHashes.length + 0]).to.equal(modelLog1.transactionHash);
       expect(txHashes[initHashes.length + 1]).to.equal(modelLog2.transactionHash);
@@ -191,7 +196,7 @@ describe('eth_getBlockBy', async function () {
     it('populateSyntheticTransactions with 1 transaction dupes in transactionHashes', async function () {
       const initHashes = [modelLog2.transactionHash];
       const txHashes = initHashes.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, requestDetails);
       expect(txHashes.length).to.equal(referenceLogs.length);
       expect(txHashes[0]).to.equal(contractHash2);
       expect(txHashes[1]).to.equal(modelLog1.transactionHash);
@@ -201,7 +206,7 @@ describe('eth_getBlockBy', async function () {
     it('populateSyntheticTransactions with all dupes in transactionHashes', async function () {
       const initHashes = [modelLog1.transactionHash, modelLog2.transactionHash, modelLog3.transactionHash];
       const txHashes = initHashes.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txHashes, requestDetails);
       expect(txHashes.length).to.equal(referenceLogs.length);
       expect(txHashes[0]).to.equal(modelLog1.transactionHash);
       expect(txHashes[1]).to.equal(modelLog2.transactionHash);
@@ -237,7 +242,7 @@ describe('eth_getBlockBy', async function () {
     const showDetails = true;
     it('populateSyntheticTransactions with no dupes in empty txObjects', async function () {
       const initTxObjects: Transaction[] = [];
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, initTxObjects, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, initTxObjects, requestDetails);
       expect(initTxObjects.length).to.equal(defaultLogs1.length);
       expect(initTxObjects[0].hash).to.equal(modelLog1.transactionHash);
       expect(initTxObjects[1].hash).to.equal(modelLog2.transactionHash);
@@ -247,7 +252,7 @@ describe('eth_getBlockBy', async function () {
     it('populateSyntheticTransactions with no dupes in non empty txObjects', async function () {
       const initTxObjects = [getTransactionModel('txHash1'), getTransactionModel('txHash2')];
       const txObjects = initTxObjects.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, requestDetails);
       expect(txObjects.length).to.equal(initTxObjects.length + defaultLogs1.length);
       expect(txObjects[initTxObjects.length + 0].hash).to.equal(modelLog1.transactionHash);
       expect(txObjects[initTxObjects.length + 1].hash).to.equal(modelLog2.transactionHash);
@@ -257,7 +262,7 @@ describe('eth_getBlockBy', async function () {
     it('populateSyntheticTransactions with 1 transaction dupes in txObjects', async function () {
       const initTxObjects = [getTransactionModel(modelLog2.transactionHash)];
       const txObjects = initTxObjects.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, requestDetails);
       expect(txObjects.length).to.equal(referenceLogs.length);
       expect(txObjects[0].hash).to.equal(contractHash2);
       expect(txObjects[1].hash).to.equal(modelLog1.transactionHash);
@@ -271,7 +276,7 @@ describe('eth_getBlockBy', async function () {
         getTransactionModel(modelLog3.transactionHash),
       ];
       const txObjects = initTxObjects.slice();
-      ethImpl.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, '1');
+      blockService.populateSyntheticTransactions(showDetails, referenceLogs, txObjects, requestDetails);
       expect(txObjects.length).to.equal(referenceLogs.length);
       expect(txObjects[0].hash).to.equal(modelLog1.transactionHash);
       expect(txObjects[1].hash).to.equal(modelLog2.transactionHash);
