@@ -87,6 +87,7 @@ export class CommonService implements ICommonService {
   public static readonly zeroHex = '0x0';
   public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
+
   /**
    * private constants
    * @private

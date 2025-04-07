@@ -45,6 +45,8 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
+import HAPIService from './services/hapiService/hapiService';
+import { IAccountInfo, IContractResultsParams } from './types/mirrorNode';
 import { ParamType } from './types/validation';
 const _ = require('lodash');
 

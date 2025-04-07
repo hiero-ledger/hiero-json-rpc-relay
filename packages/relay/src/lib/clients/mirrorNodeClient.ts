@@ -16,6 +16,7 @@ import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { CommonService } from '../services';
+import { EthImpl } from '../eth';
 import { CacheService } from '../services/cacheService/cacheService';
 import {
   IContractCallRequest,
