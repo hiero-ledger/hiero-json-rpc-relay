@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
+import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
 
 export interface ICommonService {
   addTopicsToParams(params: any, topics: any[] | null): void;
 
   blockTagIsLatestOrPending(tag: any): boolean;
 
+  contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void>;
+
   gasPrice(requestDetails: RequestDetails): Promise<string>;
 
   genericErrorHandler(error: any, logMessage?: string): void;
+
+  getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
 
   getContractAddressFromReceipt(contractResult: any): string;
 
@@ -38,6 +42,10 @@ export interface ICommonService {
   getLogsByAddress(address: string | [string], params: any, requestDetails: RequestDetails): Promise<any>;
 
   getLogsWithParams(address: string | [string] | null, params: any, requestDetails: RequestDetails): Promise<Log[]>;
+
+  isBlockHash(blockHash: string): boolean;
+
+  isBlockParamValid(tag: string | null): boolean;
 
   resolveEvmAddress(address: string, requestDetails: RequestDetails, types?: string[]): Promise<string>;
 

@@ -14,8 +14,9 @@ import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../errors/SDKClientError';
 import { Log } from '../../model';
 import { IContractCallRequest, IContractResult, IGetLogsParams, RequestDetails } from '../../types';
+import { CommonService } from '..';
 import { CacheService } from '../cacheService/cacheService';
-import { CommonService } from '../ethService/ethCommonService';
+import { ICommonService } from '../ethService/ethCommonService/ICommonService';
 import HAPIService from '../hapiService/hapiService';
 import { IContractService } from './IContractService';
 
@@ -64,7 +65,7 @@ export class ContractService implements IContractService {
    * @private
    * @readonly
    */
-  private readonly common: CommonService;
+  private readonly common: ICommonService;
 
   /**
    * The default gas value for transactions.

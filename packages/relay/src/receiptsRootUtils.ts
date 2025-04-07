@@ -7,7 +7,7 @@ import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethe
 import { prepend0x } from './formatters';
 import { EthImpl } from './lib/eth';
 import { Log } from './lib/model';
-import { CommonService } from './lib/services/ethService';
+import { CommonService } from './lib/services';
 import { LogsBloomUtils } from './logsBloomUtils';
 
 /**
