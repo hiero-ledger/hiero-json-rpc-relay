@@ -704,6 +704,7 @@ export class CommonService implements ICommonService {
     }
     return account;
   }
+
   /**
    * This method retrieves the contract address from the receipt response.
    * If the contract creation is via a system contract, it handles the system contract creation.
