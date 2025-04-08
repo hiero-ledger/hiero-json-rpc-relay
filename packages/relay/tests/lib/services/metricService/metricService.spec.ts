@@ -348,7 +348,6 @@ describe('Metric Service', function () {
             metric.labels.to === mockedTo,
         )?.value || 0;
 
-      // Emit the ETH_EXECUTION event
       eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, mockedEthExecutionEventPayload);
 
       // Get the counter after emitting the event
@@ -363,7 +362,6 @@ describe('Metric Service', function () {
           metric.labels.to === mockedTo,
       )?.value;
 
-      // Expect the metric value to be incremented by 1
       expect(metricValue).to.eq(initialValue + 1);
     });
   });

@@ -211,11 +211,6 @@ export class EthImpl implements Eth {
     );
   }
 
-  private shouldUseCacheForBalance(tag: string | null): boolean {
-    // should only cache balance when is Not latest or pending and is not in dev mode
-    return !CommonService.blockTagIsLatestOrPendingStrict(tag) && !CommonService.isDevMode;
-  }
-
   /**
    * This method is implemented to always return an empty array. This is in alignment
    * with the behavior of Infura.
@@ -1012,76 +1007,6 @@ export class EthImpl implements Eth {
   }
 
   /**
-   * Gets transactions by block hash or block number and index with resolved EVM addresses
-   * @param {object} blockParam The block parameter
-   * @param {string} blockParam.title Possible values are 'blockHash' and 'blockNumber'
-   * @param {string | number} blockParam.value The block hash or block number
-   * @param {string} transactionIndex
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<Transaction | null>} The transaction or null if not found
-   */
-  private async getTransactionByBlockHashOrBlockNumAndIndex(
-    blockParam: {
-      title: 'blockHash' | 'blockNumber';
-      value: string | number;
-    },
-    transactionIndex: string,
-    requestDetails: RequestDetails,
-  ): Promise<Transaction | null> {
-    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResults.name,
-      [
-        requestDetails,
-        {
-          [blockParam.title]: blockParam.value,
-          transactionIndex: Number(transactionIndex),
-        },
-        undefined,
-      ],
-      requestDetails,
-    );
-
-    if (!contractResults[0]) return null;
-
-    const resolvedToAddress = await this.resolveEvmAddress(contractResults[0].to, requestDetails);
-    const resolvedFromAddress = await this.resolveEvmAddress(contractResults[0].from, requestDetails, [
-      constants.TYPE_ACCOUNT,
-    ]);
-
-    return CommonService.formatContractResult({
-      ...contractResults[0],
-      from: resolvedFromAddress,
-      to: resolvedToAddress,
-    });
-  }
-
-  async resolveEvmAddress(
-    address: string,
-    requestDetails: RequestDetails,
-    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
-    if (!address) return address;
-
-    const entity = await this.mirrorNodeClient.resolveEntityType(
-      address,
-      CommonService.ethGetCode,
-      requestDetails,
-      searchableTypes,
-      0,
-    );
-    let resolvedAddress = address;
-    if (
-      entity &&
-      (entity.type === constants.TYPE_CONTRACT || entity.type === constants.TYPE_ACCOUNT) &&
-      entity.entity?.evm_address
-    ) {
-      resolvedAddress = entity.entity.evm_address;
-    }
-
-    return resolvedAddress;
-  }
-
-  /**
    * Gets a transaction by the provided hash
    *
    * @rpcMethod Exposed as eth_getTransactionByHash RPC endpoint
@@ -1114,29 +1039,6 @@ export class EthImpl implements Eth {
   })
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
     return await this.transactionService.getTransactionReceipt(hash, requestDetails);
-  }
-
-  /**
-   * This method retrieves the contract address from the receipt response.
-   * If the contract creation is via a system contract, it handles the system contract creation.
-   * If not, it returns the address from the receipt response.
-   *
-   * @param {any} receiptResponse - The receipt response object.
-   * @returns {string} The contract address.
-   */
-  private getContractAddressFromReceipt(receiptResponse: any): string {
-    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
-      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-    );
-
-    if (!isCreationViaSystemContract) {
-      return receiptResponse.address;
-    }
-
-    // Handle system contract creation
-    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
-    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
-    return prepend0x(tokenAddress);
   }
 
   async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
