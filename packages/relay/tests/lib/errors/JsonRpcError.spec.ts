@@ -20,19 +20,61 @@ describe('Errors', () => {
       expect(err.message).to.eq('test error: foo');
     });
 
-    it('Constructs correctly with request ID', () => {
-      const err = new JsonRpcError(
-        {
-          code: -32999,
-          message: 'test error: foo',
-          data: 'some data',
-        },
-        'abcd-1234',
-      );
-      expect(err.code).to.eq(-32999);
-      expect(err.data).to.eq('some data');
-      // Check that request ID is prefixed
-      expect(err.message).to.eq('[Request ID: abcd-1234] test error: foo');
+    describe('Constructor with RequestId handling', () => {
+      it('Constructs correctly with request ID', () => {
+        const err = new JsonRpcError(
+          {
+            code: -32999,
+            message: 'test error: foo',
+            data: 'some data',
+          },
+          'abcd-1234',
+        );
+        expect(err.code).to.eq(-32999);
+        expect(err.data).to.eq('some data');
+        // Check that request ID is prefixed
+        expect(err.message).to.eq('[Request ID: abcd-1234] test error: foo');
+      });
+
+      it('Should not duplicate request ID if message already has it', () => {
+        const existingMessage = '[Request ID: abcd-1234] test error: foo';
+        const err = new JsonRpcError(
+          {
+            code: -32999,
+            message: existingMessage,
+            data: 'some data',
+          },
+          'efgh-5678', // New request ID that should be ignored
+        );
+        expect(err.message).to.eq(existingMessage);
+      });
+
+      it('Should not add request ID if message includes the request ID pattern anywhere', () => {
+        const messageWithRequestIdPattern = 'Error occurred with [Request ID: abcd-1234] in the middle';
+        const err = new JsonRpcError(
+          {
+            code: -32999,
+            message: messageWithRequestIdPattern,
+            data: 'some data',
+          },
+          'new-id',
+        );
+        expect(err.message).to.eq(messageWithRequestIdPattern);
+      });
+
+      it('Should add request ID when message does not have one', () => {
+        const originalMessage = 'test error: foo';
+        const requestId = 'abcd-1234';
+        const err = new JsonRpcError(
+          {
+            code: -32999,
+            message: originalMessage,
+            data: 'some data',
+          },
+          requestId,
+        );
+        expect(err.message).to.eq(`[Request ID: ${requestId}] ${originalMessage}`);
+      });
     });
 
     describe('predefined.CONTRACT_REVERT', () => {

@@ -10,8 +10,10 @@ export class JsonRpcError {
 
   constructor(args: { code: number; message: string; data?: string }, requestId?: string) {
     this.code = args.code;
-    this.message = requestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ` + args.message : args.message;
     this.data = args.data;
+
+    const hasRequestId = requestId && !args.message.includes(constants.REQUEST_ID_STRING);
+    this.message = hasRequestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ${args.message}` : args.message;
   }
 }
 
