@@ -12,7 +12,11 @@ import { Context } from 'koa';
 import { Logger } from 'pino';
 
 import { SubscriptionService } from '../service/subscriptionService';
-import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
+import {
+  areSubscriptionsEnabled,
+  constructValidLogSubscriptionFilter,
+  getMultipleAddressesEnabled,
+} from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
 import { ISharedParams } from './jsonRpcController';
 /**
@@ -130,6 +134,11 @@ export const handleEthSubscribe = async ({
   requestDetails,
   subscriptionService,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
+  if (request.method === 'eth_subscribe' && !areSubscriptionsEnabled()) {
+    const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
+    logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
+    return jsonResp(null, wsSubscriptionsDisabledError, undefined);
+  }
   const event = params[0];
   const filters = params[1];
   let response: IJsonRpcResponse;

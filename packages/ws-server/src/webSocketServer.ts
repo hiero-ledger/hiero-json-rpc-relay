@@ -18,13 +18,7 @@ import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
 import { SubscriptionService } from './service/subscriptionService';
 import { WS_CONSTANTS } from './utils/constants';
-import {
-  areSubscriptionsEnabled,
-  getBatchRequestsMaxSize,
-  getWsBatchRequestsEnabled,
-  handleConnectionClose,
-  sendToClient,
-} from './utils/utils';
+import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
@@ -168,13 +162,6 @@ app.ws.use(async (ctx: Koa.Context) => {
     } else {
       if (logger.isLevelEnabled('trace')) {
         logger.trace(`${requestDetails.formattedLogPrefix}: Receive single request=${JSON.stringify(request)}`);
-      }
-
-      if (request.method === 'eth_subscribe' && !areSubscriptionsEnabled()) {
-        const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
-        logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
-        ctx.websocket.send(JSON.stringify(jsonResp(null, wsSubscriptionsDisabledError, undefined)));
-        return;
       }
 
       // process requests
