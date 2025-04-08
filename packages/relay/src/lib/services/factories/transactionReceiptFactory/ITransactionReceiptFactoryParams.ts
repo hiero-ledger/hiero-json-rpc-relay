@@ -4,7 +4,7 @@ import { Log } from '../../../model';
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs
  */
-export interface ISyntheticTransactionReceiptParams {
+interface ISyntheticTransactionReceiptParams {
   syntheticLogs: Log[];
   gasPriceForTimestamp: string;
 }
@@ -12,10 +12,12 @@ export interface ISyntheticTransactionReceiptParams {
 /**
  * Parameters specific to creating a regular transaction receipt from mirror node data
  */
-export interface IRegularTransactionReceiptParams {
+interface IRegularTransactionReceiptParams {
   effectiveGas: string;
   from: string;
   logs: Log[];
   receiptResponse: any;
   to: string;
 }
+
+export { ISyntheticTransactionReceiptParams, IRegularTransactionReceiptParams };

@@ -11,7 +11,6 @@ import {
 } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
 import constants from '../../../constants';
-import { EthImpl } from '../../../eth';
 import { ITransactionReceipt } from '../../../types';
 import {
   IRegularTransactionReceiptParams,
@@ -24,6 +23,7 @@ import {
 export class TransactionReceiptFactory {
   private static readonly EMPTY_HEX = '0x';
   private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
+  private static readonly ONE_HEX = '0x1';
   private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
   private static readonly ZERO_HEX = '0x0';
 
@@ -31,7 +31,7 @@ export class TransactionReceiptFactory {
    * Creates a synthetic transaction receipt from a log
    *
    * @param params Parameters required to create a synthetic transaction receipt
-   * @returns Transaction receipt for the synthetic transaction
+   * @returns {ITransactionReceipt} Transaction receipt for the synthetic transaction
    */
   public static createSyntheticReceipt(params: ISyntheticTransactionReceiptParams): ITransactionReceipt {
     const { syntheticLogs, gasPriceForTimestamp } = params;
@@ -47,7 +47,7 @@ export class TransactionReceiptFactory {
       logs: syntheticLogs,
       logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
       root: constants.DEFAULT_ROOT_HASH,
-      status: EthImpl.oneHex,
+      status: this.ONE_HEX,
       to: syntheticLogs[0].address,
       transactionHash: syntheticLogs[0].transactionHash,
       transactionIndex: syntheticLogs[0].transactionIndex,
@@ -60,7 +60,7 @@ export class TransactionReceiptFactory {
    *
    * @param params Parameters required to create a regular transaction receipt
    * @param resolveEvmAddressFn Function to resolve EVM addresses
-   * @returns Transaction receipt for the regular transaction
+   * @returns {ITransactionReceipt} Transaction receipt for the regular transaction
    */
   public static createRegularReceipt(params: IRegularTransactionReceiptParams): ITransactionReceipt {
     const { receiptResponse, effectiveGas, from, logs, to } = params;
@@ -101,7 +101,7 @@ export class TransactionReceiptFactory {
    * Helper method to determine if a receipt response includes a contract address
    *
    * @param receiptResponse Mirror node contract result response
-   * @returns Contract address or null
+   * @returns {string} Contract address or null
    */
   private static getContractAddressFromReceipt(receiptResponse: any): string {
     const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
