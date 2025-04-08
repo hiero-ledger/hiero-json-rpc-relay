@@ -208,6 +208,14 @@ export class MirrorNodeClient {
       );
     }
 
+    // Set the Is-Modularized header for Mirror Node requests only if the routing preference is explicitly configured.
+    // This controls traffic flow between traditional and modularized Mirror Node services.
+    if (ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES') != undefined) {
+      axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = ConfigService.get(
+        'USE_MIRROR_NODE_MODULARIZED_SERVICES',
+      )!.toString();
+    }
+
     //@ts-ignore
     axiosRetry(axiosClient, {
       retries: isDevMode ? mirrorNodeRetriesDevMode : mirrorNodeRetries,
@@ -314,7 +322,6 @@ export class MirrorNodeClient {
       const axiosRequestConfig: AxiosRequestConfig = {
         headers: {
           [MirrorNodeClient.REQUESTID_LABEL]: requestDetails.requestId,
-          [MirrorNodeClient.IS_MODULARIZED]: ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES').toString(),
         },
         signal: controller.signal,
       };
