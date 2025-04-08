@@ -5,6 +5,7 @@ import { generateRandomHex } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { Relay } from '@hashgraph/json-rpc-relay/dist/lib/relay';
 import crypto from 'crypto';
 import LRU from 'lru-cache';
+import LRUCache from 'lru-cache';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
@@ -22,7 +23,7 @@ export class SubscriptionService {
   private pollerService: PollerService;
   private logger: Logger;
   private subscriptions: { [key: string]: Subscriber[] };
-  private cache;
+  private cache: LRUCache<string, boolean>;
   private activeSubscriptionHistogram: Histogram;
   private resultsSentToSubscribersCounter: Counter;
 
@@ -120,8 +121,6 @@ export class SubscriptionService {
 
     let subCount = 0;
     for (const [tag, subs] of Object.entries(this.subscriptions)) {
-      this.logger.info(tag);
-      this.logger.info(subs);
       this.subscriptions[tag] = subs.filter((sub) => {
         const match = sub.connection.id === id && (!subId || subId === sub.subscriptionId);
         if (match) {

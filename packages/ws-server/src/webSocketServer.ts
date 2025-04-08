@@ -13,7 +13,7 @@ import pino from 'pino';
 import { collectDefaultMetrics, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
-import { getRequestResult } from './controllers';
+import { getRequestResult } from './controllers/jsonRpcController';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
 import { SubscriptionService } from './service/subscriptionService';
@@ -56,7 +56,7 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   // Record the start time when the connection is established
   const startTime = process.hrtime();
-  ctx.websocket.id = subscriptionService?.generateId();
+  ctx.websocket.id = subscriptionService.generateId();
   ctx.websocket.requestId = uuid();
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;

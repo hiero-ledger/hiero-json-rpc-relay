@@ -14,7 +14,7 @@ import { Logger } from 'pino';
 import { SubscriptionService } from '../service/subscriptionService';
 import { constructValidLogSubscriptionFilter, getMultipleAddressesEnabled } from '../utils/utils';
 import { validateSubscribeEthLogsParams } from '../utils/validators';
-import { ISharedParams } from './index';
+import { ISharedParams } from './jsonRpcController';
 /**
  * Subscribes to new block headers (newHeads) events and returns the response and subscription ID.
  * @param {any} filters - The filters object specifying criteria for the subscription.
@@ -31,7 +31,7 @@ const subscribeToNewHeads = (
   logger: Logger,
   subscriptionService: SubscriptionService,
 ): string | undefined => {
-  const subscriptionId = subscriptionService?.subscribe(ctx.websocket, event, filters);
+  const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, filters);
   logger.info(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
   return subscriptionId;
 };
@@ -102,7 +102,7 @@ const handleEthSubscribeLogs = async (
   ) {
     throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
   }
-  const subscriptionId = subscriptionService?.subscribe(ctx.websocket, event, validFiltersObject);
+  const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, validFiltersObject);
   return jsonResp(request.id, null, subscriptionId);
 };
 

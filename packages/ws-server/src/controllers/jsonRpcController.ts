@@ -20,8 +20,8 @@ import WsMetricRegistry from '../metrics/wsMetricRegistry';
 import { SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from '../utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
-import { handleEthSubscribe } from './eth_subscribe';
-import { handleEthUnsubscribe } from './eth_unsubscribe';
+import { handleEthSubscribe } from './subscribeController';
+import { handleEthUnsubscribe } from './unsubscribeController';
 
 export type ISharedParams = {
   request: IJsonRpcRequest;

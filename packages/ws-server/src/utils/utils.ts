@@ -27,13 +27,13 @@ const getRequestIdIsOptional = () => {
  */
 export const handleConnectionClose = async (
   ctx: any,
-  subscriptionService: SubscriptionService | undefined,
+  subscriptionService: SubscriptionService,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
   startTime: [number, number],
 ) => {
   // unsubcribe subscriptions
-  subscriptionService?.unsubscribe(ctx.websocket);
+  subscriptionService.unsubscribe(ctx.websocket);
 
   // update limiter counters
   limiter.decrementCounters(ctx);

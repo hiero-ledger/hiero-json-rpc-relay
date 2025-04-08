@@ -2,7 +2,7 @@
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
-import { ISharedParams } from '.';
+import { ISharedParams } from './jsonRpcController';
 
 /**
  * Handles unsubscription requests for on-chain events.
