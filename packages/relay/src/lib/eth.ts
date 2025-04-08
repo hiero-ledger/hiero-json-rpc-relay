@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
 
@@ -11,13 +12,21 @@ import constants from './constants';
 import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
-import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
+import { Block, Log, Receipt, Transaction } from './model';
 import { Precheck } from './precheck';
-import { BlockService, CommonService, ContractService, FilterService, IBlockService, ICommonService } from './services';
+import {
+  BlockService,
+  CommonService,
+  ContractService,
+  FilterService,
+  IBlockService,
+  ICommonService,
+  IContractService,
+  TransactionService,
+} from './services';
 import { AccountService } from './services/accountService';
 import { IAccountService } from './services/accountService/IAccountService';
 import { CacheService } from './services/cacheService/cacheService';
-import { IContractService } from './services/contractService/IContractService';
 import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
 import {
@@ -28,15 +37,6 @@ import {
   RequestDetails,
 } from './types';
 import { ParamType } from './types/validation';
-
-import EventEmitter from 'events';
-
-import { MetricService, TransactionService } from './services';
-
-interface LatestBlockNumberTimestamp {
-  blockNumber: string | null;
-  timeStampTo: string;
-}
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
