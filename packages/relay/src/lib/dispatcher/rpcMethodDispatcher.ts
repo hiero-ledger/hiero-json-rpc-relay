@@ -169,24 +169,24 @@ export class RpcMethodDispatcher {
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {
-      return this.createJsonRpcError(error, requestDetails.requestId);
+      return Utils.newJsonRpcErrorWithRequestId(error, requestDetails.requestId);
     }
 
     // Handle GRPC timeout errors
     if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      return this.createJsonRpcError(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+      return Utils.newJsonRpcErrorWithRequestId(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
     }
 
     // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
     if (error instanceof MirrorNodeClientError) {
-      return this.createJsonRpcError(
+      return Utils.newJsonRpcErrorWithRequestId(
         predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure'),
         requestDetails.requestId,
       );
     }
 
     // Default to internal error for all other error types
-    return this.createJsonRpcError(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
+    return Utils.newJsonRpcErrorWithRequestId(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
   }
 
   /**
@@ -213,19 +213,5 @@ export class RpcMethodDispatcher {
 
     // Default response for truly unknown methods
     throw predefined.METHOD_NOT_FOUND(methodName);
-  }
-
-  /**
-   * Creates a new JsonRpcError with the request ID attached to assist with tracing and debugging
-   */
-  private createJsonRpcError(error: JsonRpcError, requestId: string): JsonRpcError {
-    return new JsonRpcError(
-      {
-        code: error.code,
-        message: error.message,
-        data: error.data,
-      },
-      requestId,
-    );
   }
 }

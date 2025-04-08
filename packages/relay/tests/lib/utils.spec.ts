@@ -10,6 +10,7 @@ import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants, { TracerType } from '../../src/lib/constants';
 import { RPC_PARAM_LAYOUT_KEY } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
 import { RPC_LAYOUT } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
+import { JsonRpcError } from '../../src/lib/errors/JsonRpcError';
 import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -314,6 +315,38 @@ describe('Utils', () => {
           );
           expect(result).to.deep.equal([transactionHash, expectedTracer, expectedConfig, requestDetails]);
         });
+      });
+    });
+
+    describe('newJsonRpcErrorWithRequestId', () => {
+      it('Should create new JsonRpcError with request ID attached', () => {
+        const originalError = new JsonRpcError({
+          code: -32000,
+          message: 'Test error message',
+          data: 'Test data',
+        });
+
+        const requestId = 'test-request-id';
+        const result = Utils.newJsonRpcErrorWithRequestId(originalError, requestId);
+
+        expect(result).to.be.instanceOf(JsonRpcError);
+        expect(result.code).to.equal(originalError.code);
+        expect(result.data).to.equal(originalError.data);
+        expect(result.message).to.equal(`[Request ID: ${requestId}] Test error message`);
+      });
+
+      it('Should not duplicate request ID if already present in message', () => {
+        const requestId = 'existing-id';
+        const originalError = new JsonRpcError({
+          code: -32001,
+          message: `[Request ID: ${requestId}] Original message`,
+          data: 'Original data',
+        });
+
+        const newRequestId = 'new-request-id';
+        const result = Utils.newJsonRpcErrorWithRequestId(originalError, newRequestId);
+
+        expect(result.message).to.equal(`[Request ID: ${requestId}] Original message`);
       });
     });
   });

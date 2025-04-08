@@ -10,6 +10,7 @@ import { Logger } from 'pino';
 import { hexToASCII, prepend0x, strip0x } from './formatters';
 import constants, { TracerType } from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
+import { JsonRpcError } from './lib/errors/JsonRpcError';
 import { ITracerConfig, RequestDetails } from './lib/types';
 import { TYPES } from './lib/validators';
 
@@ -211,5 +212,24 @@ export class Utils {
 
     // No configuration, use default behavior
     return [...rpcParams, requestDetails];
+  }
+
+  /**
+   * Creates a new JsonRpcError with the request ID attached to assist with tracing and debugging.
+   *
+   * @param error - The original JsonRpcError instance to bind the request ID to
+   * @param requestId - The unique identifier of the request that generated this error
+   * @returns A new JsonRpcError instance with identical properties but with the request ID
+   *          prefixed to the error message
+   */
+  public static newJsonRpcErrorWithRequestId(error: JsonRpcError, requestId: string): JsonRpcError {
+    return new JsonRpcError(
+      {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      },
+      requestId,
+    );
   }
 }
