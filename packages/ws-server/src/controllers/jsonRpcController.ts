@@ -89,14 +89,14 @@ const handleSendingRequestsToRelay = async ({
  */
 export const getRequestResult = async (
   ctx: Koa.Context,
-  limiter: ConnectionLimiter,
-  logger: Logger,
-  mirrorNodeClient: MirrorNodeClient,
   relay: Relay,
+  logger: Logger,
   request: IJsonRpcRequest,
+  limiter: ConnectionLimiter,
+  mirrorNodeClient: MirrorNodeClient,
+  wsMetricRegistry: WsMetricRegistry,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
-  wsMetricRegistry: WsMetricRegistry,
 ): Promise<any> => {
   // Extract the method and parameters from the received request
   // eslint-disable-next-line prefer-const

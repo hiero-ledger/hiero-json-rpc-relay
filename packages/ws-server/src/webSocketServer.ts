@@ -143,14 +143,14 @@ app.ws.use(async (ctx: Koa.Context) => {
         }
         return getRequestResult(
           ctx,
-          limiter,
-          logger,
-          mirrorNodeClient,
           relay,
+          logger,
           item,
+          limiter,
+          mirrorNodeClient,
+          wsMetricRegistry,
           requestDetails,
           subscriptionService,
-          wsMetricRegistry,
         );
       });
 
@@ -167,14 +167,14 @@ app.ws.use(async (ctx: Koa.Context) => {
       // process requests
       const response = await getRequestResult(
         ctx,
-        limiter,
-        logger,
-        mirrorNodeClient,
         relay,
+        logger,
         request,
+        limiter,
+        mirrorNodeClient,
+        wsMetricRegistry,
         requestDetails,
         subscriptionService,
-        wsMetricRegistry,
       );
 
       // send to client

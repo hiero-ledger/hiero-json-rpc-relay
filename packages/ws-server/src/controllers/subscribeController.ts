@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
