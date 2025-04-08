@@ -113,6 +113,7 @@ export class TransactionService implements ITransactionService {
    * @param blockHash The block hash
    * @param transactionIndex The transaction index
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByBlockHashAndIndex(
     blockHash: string,
@@ -145,6 +146,7 @@ export class TransactionService implements ITransactionService {
    * @param blockNumber The block number
    * @param transactionIndex The transaction index
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByBlockNumberAndIndex(
     blockNumOrTag: string,
@@ -177,6 +179,7 @@ export class TransactionService implements ITransactionService {
    * Gets a transaction by hash
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -228,8 +231,9 @@ export class TransactionService implements ITransactionService {
    * Gets a transaction receipt by hash
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<ITransactionReceipt>} A promise that resolves to a transaction receipt
    */
-  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
+  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getTransactionReceipt(${hash})`);
@@ -352,6 +356,7 @@ export class TransactionService implements ITransactionService {
    * Sends a raw transaction
    * @param transaction The raw transaction data
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
    */
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
@@ -387,6 +392,7 @@ export class TransactionService implements ITransactionService {
   /**
    * Send transaction - not supported
    * @param requestDetails The request details for logging and tracking
+   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
    */
   public sendTransaction(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
@@ -398,6 +404,7 @@ export class TransactionService implements ITransactionService {
   /**
    * Sign transaction - not supported
    * @param requestDetails The request details for logging and tracking
+   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
    */
   public signTransaction(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
@@ -409,6 +416,7 @@ export class TransactionService implements ITransactionService {
   /**
    * Sign - not supported
    * @param requestDetails The request details for logging and tracking
+   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
    */
   public sign(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
@@ -418,10 +426,100 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
+   * Creates a transaction object from a log entry
+   * @param log The log entry containing transaction data
+   * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
+   */
+  private createTransactionFromLog(log: Log): Transaction1559 | null {
+    const transaction = TransactionFactory.createTransactionByType(2, {
+      accessList: undefined, // we don't support access lists for now
+      blockHash: log.blockHash,
+      blockNumber: log.blockNumber,
+      chainId: this.chain,
+      from: log.address,
+      gas: CommonService.defaultTxGas,
+      gasPrice: constants.INVALID_EVM_INSTRUCTION,
+      hash: log.transactionHash,
+      input: CommonService.zeroHex8Byte,
+      maxPriorityFeePerGas: CommonService.zeroHex,
+      maxFeePerGas: CommonService.zeroHex,
+      nonce: nanOrNumberTo0x(0),
+      r: CommonService.EMPTY_HEX,
+      s: CommonService.EMPTY_HEX,
+      to: log.address,
+      transactionIndex: log.transactionIndex,
+      type: CommonService.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      v: CommonService.zeroHex,
+    }) as Transaction1559;
+
+    return transaction;
+  }
+
+  /**
+   * Emits an Ethereum execution event with transaction details
+   * @param parsedTx The parsed transaction object
+   * @param originalCallerAddress The address of the original caller
+   * @param toAddress The destination address
+   * @param requestDetails The request details for logging and tracking
+   */
+  private emitEthExecutionEvent(
+    parsedTx: EthersTransaction,
+    originalCallerAddress: string,
+    toAddress: string,
+    requestDetails: RequestDetails,
+  ): void {
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      method: TransactionService.ethSendRawTransaction,
+      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
+      from: originalCallerAddress,
+      to: toAddress,
+      requestDetails: requestDetails,
+    });
+  }
+
+  /**
+   * Gets the current gas price for a block
+   * @param blockHash The block hash
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<string>} A promise that resolves to the gas price as a hex string
+   */
+  private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
+    try {
+      const networkFees = await this.common.getFeeWeibars('TransactionService', requestDetails);
+      return `0x${networkFees.toString(16)}`;
+    } catch (error: any) {
+      this.logger.error(`Error retrieving gas price for block ${blockHash}: ${error.message}`);
+      return CommonService.zeroHex;
+    }
+  }
+
+  /**
+   * Retrieves the current network exchange rate of HBAR to USD in cents.
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
+   */
+  private async getCurrentNetworkExchangeRateInCents(requestDetails: RequestDetails): Promise<number> {
+    const cacheKey = constants.CACHE_KEY.CURRENT_NETWORK_EXCHANGE_RATE;
+    const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
+    const cacheTTL = 15 * 60 * 1000; // 15 minutes
+
+    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod, requestDetails);
+
+    if (!currentNetworkExchangeRate) {
+      currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
+      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, requestDetails, cacheTTL);
+    }
+
+    const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
+    return exchangeRateInCents;
+  }
+
+  /**
    * Gets a transaction by block hash or block number and transaction index
    * @param blockParam The block parameter (hash or number)
    * @param transactionIndex The transaction index
    * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   private async getTransactionByBlockHashOrBlockNumAndIndex(
     blockParam: {
@@ -459,44 +557,45 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Gets the current gas price for a block
-   * @param blockHash The block hash
+   * Parses a raw transaction and performs prechecks
+   * @param transaction The raw transaction string
+   * @param networkGasPriceInWeiBars The current network gas price in wei bars
    * @param requestDetails The request details for logging and tracking
-   * @private
+   * @returns {Promise<EthersTransaction>} A promise that resolves to the parsed Ethereum transaction
    */
-  private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
+  async parseRawTxAndPrecheck(
+    transaction: string,
+    networkGasPriceInWeiBars: number,
+    requestDetails: RequestDetails,
+  ): Promise<EthersTransaction> {
+    const parsedTx = Precheck.parseTxIfNeeded(transaction);
     try {
-      const networkFees = await this.common.getFeeWeibars('TransactionService', requestDetails);
-      return `0x${networkFees.toString(16)}`;
-    } catch (error: any) {
-      this.logger.error(`Error retrieving gas price for block ${blockHash}: ${error.message}`);
-      return CommonService.zeroHex;
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestDetails.formattedRequestId} Transaction undergoing prechecks: transaction=${JSON.stringify(
+            parsedTx,
+          )}`,
+        );
+      }
+
+      this.precheck.checkSize(transaction);
+      await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
+      return parsedTx;
+    } catch (e: any) {
+      this.logger.error(
+        `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
+      );
+      throw this.common.genericErrorHandler(e);
     }
   }
 
-  private createTransactionFromLog(log: Log): Transaction1559 | null {
-    const transaction = TransactionFactory.createTransactionByType(2, {
-      accessList: undefined, // we don't support access lists for now
-      blockHash: log.blockHash,
-      blockNumber: log.blockNumber,
-      chainId: this.chain,
-      from: log.address,
-      gas: CommonService.defaultTxGas,
-      gasPrice: constants.INVALID_EVM_INSTRUCTION,
-      hash: log.transactionHash,
-      input: CommonService.zeroHex8Byte,
-      maxPriorityFeePerGas: CommonService.zeroHex,
-      maxFeePerGas: CommonService.zeroHex,
-      nonce: nanOrNumberTo0x(0),
-      r: CommonService.EMPTY_HEX,
-      s: CommonService.EMPTY_HEX,
-      to: log.address,
-      transactionIndex: log.transactionIndex,
-      type: CommonService.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-      v: CommonService.zeroHex,
-    }) as Transaction1559;
-
-    return transaction;
+  /**
+   * Removes the '0x' prefix from a string if present
+   * @param input The input string
+   * @returns {string} The input string without the '0x' prefix
+   */
+  private prune0x(input: string): string {
+    return input.startsWith(CommonService.EMPTY_HEX) ? input.substring(2) : input;
   }
 
   /**
@@ -508,7 +607,6 @@ export class TransactionService implements ITransactionService {
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
-   * @throws {JsonRpcError} If there's an error during transaction processing.
    */
   async sendRawTransactionProcessor(
     transactionBuffer: Buffer,
@@ -596,6 +694,15 @@ export class TransactionService implements ITransactionService {
     );
   }
 
+  /**
+   * Handles errors that occur during raw transaction processing
+   * @param e The error that occurred
+   * @param transactionBuffer The raw transaction buffer
+   * @param txSubmitted Whether the transaction was submitted
+   * @param parsedTx The parsed transaction
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError
+   */
   private async sendRawTransactionErrorHandler(
     e: any,
     transactionBuffer: Buffer,
@@ -676,68 +783,14 @@ export class TransactionService implements ITransactionService {
     return Utils.computeTransactionHash(transactionBuffer);
   }
 
-  private prune0x(input: string): string {
-    return input.startsWith(CommonService.EMPTY_HEX) ? input.substring(2) : input;
-  }
-
-  async parseRawTxAndPrecheck(
-    transaction: string,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<EthersTransaction> {
-    const parsedTx = Precheck.parseTxIfNeeded(transaction);
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Transaction undergoing prechecks: transaction=${JSON.stringify(
-            parsedTx,
-          )}`,
-        );
-      }
-
-      this.precheck.checkSize(transaction);
-      await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return parsedTx;
-    } catch (e: any) {
-      this.logger.error(
-        `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
-      );
-      throw this.common.genericErrorHandler(e);
-    }
-  }
-
   /**
-   * Retrieves the current network exchange rate of HBAR to USD in cents.
-   *
-   * @param {string} requestId - The unique identifier for the request.
-   * @returns {Promise<number>} - A promise that resolves to the current exchange rate in cents.
+   * Submits a transaction to the network
+   * @param transactionBuffer The raw transaction buffer
+   * @param originalCallerAddress The address of the original caller
+   * @param networkGasPriceInWeiBars The current network gas price in wei bars
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<{txSubmitted: boolean, submittedTransactionId: string, error: any}>} A promise that resolves to an object containing transaction submission details
    */
-  private async getCurrentNetworkExchangeRateInCents(requestDetails: RequestDetails): Promise<number> {
-    const cacheKey = constants.CACHE_KEY.CURRENT_NETWORK_EXCHANGE_RATE;
-    const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
-    const cacheTTL = 15 * 60 * 1000; // 15 minutes
-
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod, requestDetails);
-
-    if (!currentNetworkExchangeRate) {
-      currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
-      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, requestDetails, cacheTTL);
-    }
-
-    const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
-    return exchangeRateInCents;
-  }
-
-  private emitEthExecutionEvent(parsedTx, originalCallerAddress, toAddress, requestDetails) {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: TransactionService.ethSendRawTransaction,
-      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-      from: originalCallerAddress,
-      to: toAddress,
-      requestDetails: requestDetails,
-    });
-  }
-
   private async submitTransaction(
     transactionBuffer: Buffer,
     originalCallerAddress: string,
