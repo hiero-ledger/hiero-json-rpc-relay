@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
-import { Admin, Eth, Net, Subs, Web3 } from '../index';
+import { Admin, Eth, Net, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -25,7 +25,6 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
-
 import { Web3Impl } from './web3';
 
 export class Relay {

@@ -11,14 +11,6 @@ export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
 export { Relay } from './lib/relay';
 
-export interface Subs {
-  generateId(): string;
-
-  subscribe(connection, event: string, filters?: {}): string;
-
-  unsubscribe(connection, subscriptionId?: string): number;
-}
-
 export interface Debug {
   traceTransaction: (
     transactionIdOrHash: string,
