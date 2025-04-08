@@ -51,7 +51,7 @@ describe('subscriptionService', async function () {
   it('Should create sha256 hash out of a data object', async function () {
     const dataToHash = 'This is a Test';
 
-    const hash = subscriptionService.createHash(dataToHash);
+    const hash = (subscriptionService as any).createHash(dataToHash);
 
     expect(hash).to.be.eq(`401b022b962452749726ba96d436921e39d6deb2b0f4a922cc3da5d7e99e6e46`);
   });
@@ -75,7 +75,7 @@ describe('subscriptionService', async function () {
   it('when subscribing should return subId and poller should add(tag)', async function () {
     const connectionId = '1';
     const wsConnection = new MockWsConnection(connectionId);
-    const spy = sandbox.spy(subscriptionService.pollerService, 'add');
+    const spy = sandbox.spy((subscriptionService as any).pollerService, 'add');
 
     const subId = subscriptionService.subscribe(wsConnection, 'logs');
 
