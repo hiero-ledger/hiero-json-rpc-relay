@@ -89,6 +89,9 @@ export class TransactionService implements ITransactionService {
   private static ethSendRawTransaction = 'eth_sendRawTransaction';
   private static ethGasPrice: string;
 
+  /**
+   * Constructor for the TransactionService class.
+   */
   constructor(
     cacheService: CacheService,
     chain: string,
