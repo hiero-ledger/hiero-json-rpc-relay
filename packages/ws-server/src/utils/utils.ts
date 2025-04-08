@@ -189,11 +189,7 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
  * @param requestDetails - Details of the current request.
  * @returns void
  */
-export const sendSubscriptionsDisabledError = (
-  logger: Logger,
-  ctx: Koa.Context,
-  requestDetails: RequestDetails,
-): IJsonRpcResponse => {
+export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: RequestDetails): IJsonRpcResponse => {
   const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
   logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
   return jsonResp(null, wsSubscriptionsDisabledError, undefined);

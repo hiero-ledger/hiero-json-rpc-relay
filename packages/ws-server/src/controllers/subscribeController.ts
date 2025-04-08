@@ -136,7 +136,7 @@ export const handleEthSubscribe = async ({
   subscriptionService,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
   if (!areSubscriptionsEnabled()) {
-    return sendSubscriptionsDisabledError(logger, ctx, requestDetails);
+    return sendSubscriptionsDisabledError(logger, requestDetails);
   }
   const event = params[0];
   const filters = params[1];

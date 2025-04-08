@@ -27,7 +27,7 @@ export const handleEthUnsubscribe = ({
   subscriptionService,
 }: ISharedParams): IJsonRpcResponse => {
   if (!areSubscriptionsEnabled()) {
-    return sendSubscriptionsDisabledError(logger, ctx, requestDetails);
+    return sendSubscriptionsDisabledError(logger, requestDetails);
   }
   const subId = params[0];
   const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
