@@ -231,9 +231,9 @@ export class TransactionService implements ITransactionService {
    * Gets a transaction receipt by hash
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<ITransactionReceipt>} A promise that resolves to a transaction receipt
+   * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
-  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt> {
+  async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getTransactionReceipt(${hash})`);
