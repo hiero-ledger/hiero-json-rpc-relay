@@ -2,6 +2,8 @@
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
+import { areSubscriptionsEnabled } from '../utils/utils';
+import { sendSubscriptionsDisabledError } from '../utils/utils';
 import { ISharedParams } from './jsonRpcController';
 
 /**
@@ -20,8 +22,13 @@ export const handleEthUnsubscribe = ({
   params,
   request,
   limiter,
+  logger,
+  requestDetails,
   subscriptionService,
 }: ISharedParams): IJsonRpcResponse => {
+  if (!areSubscriptionsEnabled()) {
+    return sendSubscriptionsDisabledError(logger, ctx, requestDetails);
+  }
   const subId = params[0];
   const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
   limiter.decrementSubs(ctx, unsubbedCount);

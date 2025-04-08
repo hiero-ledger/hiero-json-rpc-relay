@@ -341,6 +341,19 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
           expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
         });
+
+        it('Rejects unsubscribe requests when SUBSCRIPTIONS_ENABLED is false', async function () {
+          const response = await WsTestHelper.sendRequestToStandardWebSocket(
+            'eth_unsubscribe',
+            ['0x123'],
+            3000, // 3 second timeout
+          );
+
+          expect(response).to.not.be.null;
+          expect(response.error).to.exist;
+          expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
+          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+        });
       });
     }
 

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import Koa from 'koa';
 import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';
@@ -177,4 +179,22 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
   return Object.fromEntries(
     Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
   );
+};
+
+/**
+ * Handles sending the WS_SUBSCRIPTIONS_DISABLED error response.
+ *
+ * @param logger - The logger instance.
+ * @param ctx - The Koa context.
+ * @param requestDetails - Details of the current request.
+ * @returns void
+ */
+export const sendSubscriptionsDisabledError = (
+  logger: Logger,
+  ctx: Koa.Context,
+  requestDetails: RequestDetails,
+): IJsonRpcResponse => {
+  const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
+  logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
+  return jsonResp(null, wsSubscriptionsDisabledError, undefined);
 };
