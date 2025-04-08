@@ -5,7 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
-import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services/ethService';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';

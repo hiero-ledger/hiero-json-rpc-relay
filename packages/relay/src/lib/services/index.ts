@@ -8,7 +8,7 @@ import { ICommonService } from './ethService/ethCommonService/ICommonService';
 import { FilterService } from './ethService/ethFilterService';
 import { IFilterService } from './ethService/ethFilterService/IFilterService';
 import MetricService from './metricService/metricService';
-import { TransactionService } from './transactionService/transactionService';
+import { TransactionService } from './transactionService/TransactionService';
 
 export {
   BlockService,
