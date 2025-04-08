@@ -8,10 +8,10 @@ import {
   numberTo0x,
   prepend0x,
   toHash32,
-} from '../../../../formatters';
-import { LogsBloomUtils } from '../../../../logsBloomUtils';
-import constants from '../../../constants';
-import { ITransactionReceipt } from '../../../types';
+} from '../../../formatters';
+import { LogsBloomUtils } from '../../../logsBloomUtils';
+import constants from '../../constants';
+import { ITransactionReceipt } from '../../types';
 import {
   IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,

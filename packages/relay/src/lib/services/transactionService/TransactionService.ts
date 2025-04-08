@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction, TransactionReceipt } from 'ethers';
+import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
@@ -18,12 +18,12 @@ import { Log, Transaction, Transaction1559 } from '../../model';
 import { Precheck } from '../../precheck';
 import { ITransactionReceipt, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
-import { TransactionFactory } from '../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
-} from '../factories/transactionReceiptFactory/ITransactionReceiptFactoryParams';
-import { TransactionReceiptFactory } from '../factories/transactionReceiptFactory/TransactionReceiptFactory';
+} from '../factories/ITransactionReceiptFactoryParams';
+import { TransactionFactory } from '../factories/transactionFactory';
+import { TransactionReceiptFactory } from '../factories/transactionReceiptFactory';
 import HAPIService from '../hapiService/hapiService';
 import { CommonService, ICommonService } from '../index';
 import { ITransactionService } from './ITransactionService';
