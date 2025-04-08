@@ -23,7 +23,7 @@ export const handleEthUnsubscribe = ({
   subscriptionService,
 }: ISharedParams): IJsonRpcResponse => {
   const subId = params[0];
-  const unsubbedCount = subscriptionService?.unsubscribe(ctx.websocket, subId);
+  const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
   limiter.decrementSubs(ctx, unsubbedCount);
   return jsonResp(request.id, null, unsubbedCount !== 0);
 };

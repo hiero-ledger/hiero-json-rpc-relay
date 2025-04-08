@@ -31,9 +31,9 @@ const subscribeToNewHeads = (
   logger: Logger,
   subscriptionService: SubscriptionService,
 ): string | undefined => {
-  const id = subscriptionService?.subscribe(ctx.websocket, event, filters);
-  logger.info(`Subscribed to newHeads, subscriptionId: ${id}`);
-  return id;
+  const subscriptionId = subscriptionService?.subscribe(ctx.websocket, event, filters);
+  logger.info(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
+  return subscriptionId;
 };
 
 /**
@@ -53,7 +53,6 @@ const handleEthSubscribeNewHeads = (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: Relay,
   logger: Logger,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
@@ -89,7 +88,6 @@ const handleEthSubscribeLogs = async (
   request: IJsonRpcRequest,
   ctx: Context,
   event: string,
-  relay: Relay,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
@@ -128,7 +126,6 @@ export const handleEthSubscribe = async ({
   logger,
   mirrorNodeClient,
   params,
-  relay,
   request,
   requestDetails,
   subscriptionService,
@@ -144,7 +141,6 @@ export const handleEthSubscribe = async ({
         request,
         ctx,
         event,
-        relay,
         mirrorNodeClient,
         requestDetails,
         subscriptionService,
@@ -152,16 +148,7 @@ export const handleEthSubscribe = async ({
       break;
 
     case constants.SUBSCRIBE_EVENTS.NEW_HEADS:
-      response = handleEthSubscribeNewHeads(
-        filters,
-        request,
-        ctx,
-        event,
-        relay,
-        logger,
-        requestDetails,
-        subscriptionService,
-      );
+      response = handleEthSubscribeNewHeads(filters, request, ctx, event, logger, requestDetails, subscriptionService);
       break;
 
     default:
