@@ -106,6 +106,13 @@ export class MirrorNodeClient {
   private static readonly REQUESTID_LABEL = 'requestId';
 
   /**
+   * Controls routing of MN traffic through modularized services.
+   * - false: Ensures traffic is not processed by modularized services.
+   * - true: A percentage of traffic is routed to modularized services.
+   */
+  private static readonly IS_MODULARIZED = 'Is-Modularized';
+
+  /**
    * The logger used for logging all output from this class.
    * @private
    */
@@ -199,6 +206,14 @@ export class MirrorNodeClient {
       axiosClient.defaults.headers.common[MirrorNodeClient.X_API_KEY] = ConfigService.get(
         'MIRROR_NODE_URL_HEADER_X_API_KEY',
       );
+    }
+
+    // Set the Is-Modularized header for Mirror Node requests only if the routing preference is explicitly configured.
+    // This controls traffic flow between traditional and modularized Mirror Node services.
+    if (ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES') != undefined) {
+      axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = ConfigService.get(
+        'USE_MIRROR_NODE_MODULARIZED_SERVICES',
+      )!.toString();
     }
 
     //@ts-ignore
