@@ -29,7 +29,7 @@ let sdkClientStub: SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: SinonStub<[], SDKClient>;
 let contractServiceOverriden: ContractService;
 
-describe.only('@ethEstimateGas Estimate Gas spec', async function () {
+describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
   const {
     restMock,
