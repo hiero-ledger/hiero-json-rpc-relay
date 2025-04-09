@@ -217,8 +217,8 @@ export class Utils {
   /**
    * Creates a new JsonRpcError with the request ID attached to assist with tracing and debugging.
    *
-   * @param error - The original JsonRpcError instance to bind the request ID to
-   * @param requestId - The unique identifier of the request that generated this error
+   * @param {JsonRpcError} error - The original JsonRpcError instance to bind the request ID to
+   * @param {string} requestId - The unique identifier of the request that generated this error
    * @returns A new JsonRpcError instance with identical properties but with the request ID
    *          prefixed to the error message
    */
