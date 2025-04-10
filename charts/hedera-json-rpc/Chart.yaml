@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: "0.67.0-rc3"
+appVersion: "0.67.0"
 dependencies:
   - alias: relay
     condition: relay.enabled
@@ -31,4 +31,4 @@ name: hedera-json-rpc
 sources:
   - https://github.com/hiero-ledger/hiero-json-rpc-relay
 type: application
-version: 0.67.0-rc3
+version: 0.67.0
