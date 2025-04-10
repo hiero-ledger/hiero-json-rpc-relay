@@ -10,7 +10,6 @@ import { ASCIIToHex, prepend0x } from '../../src/formatters';
 import constants, { TracerType } from '../../src/lib/constants';
 import { RPC_PARAM_LAYOUT_KEY } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
 import { RPC_LAYOUT } from '../../src/lib/decorators/rpcParamLayoutConfig.decorator';
-import { JsonRpcError } from '../../src/lib/errors/JsonRpcError';
 import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
 import { estimateFileTransactionsFee, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';

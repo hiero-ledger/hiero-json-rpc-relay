@@ -10,7 +10,6 @@ import { Logger } from 'pino';
 import { hexToASCII, prepend0x, strip0x } from './formatters';
 import constants, { TracerType } from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { JsonRpcError } from './lib/errors/JsonRpcError';
 import { ITracerConfig, RequestDetails } from './lib/types';
 import { TYPES } from './lib/validators';
 
