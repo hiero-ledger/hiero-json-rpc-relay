@@ -169,24 +169,24 @@ export class RpcMethodDispatcher {
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {
-      return Utils.newJsonRpcErrorWithRequestId(error, requestDetails.requestId);
+      return JsonRpcError.newWithRequestId(error, requestDetails.requestId);
     }
 
     // Handle GRPC timeout errors
     if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      return Utils.newJsonRpcErrorWithRequestId(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+      return JsonRpcError.newWithRequestId(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
     }
 
     // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
     if (error instanceof MirrorNodeClientError) {
-      return Utils.newJsonRpcErrorWithRequestId(
+      return JsonRpcError.newWithRequestId(
         predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure'),
         requestDetails.requestId,
       );
     }
 
     // Default to internal error for all other error types
-    return Utils.newJsonRpcErrorWithRequestId(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
+    return JsonRpcError.newWithRequestId(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
   }
 
   /**

@@ -15,6 +15,29 @@ export class JsonRpcError {
     const hasRequestId = requestId && !args.message.includes(constants.REQUEST_ID_STRING);
     this.message = hasRequestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ${args.message}` : args.message;
   }
+
+  /**
+   * Creates a new JsonRpcError instance with a request ID attached to the message
+   *
+   * This method creates a new JsonRpcError instance based on an existing one,
+   * ensuring that the error message includes the request ID for traceability.
+   * The constructor logic handles preventing duplicate request IDs if the message
+   * already contains one.
+   *
+   * @param error - The original JsonRpcError to clone
+   * @param requestId - The request ID to append to the error message
+   * @returns A new JsonRpcError instance with the same properties and request ID in its message
+   */
+  public static newWithRequestId(error: JsonRpcError, requestId: string): JsonRpcError {
+    return new JsonRpcError(
+      {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      },
+      requestId,
+    );
+  }
 }
 
 export const predefined = {
