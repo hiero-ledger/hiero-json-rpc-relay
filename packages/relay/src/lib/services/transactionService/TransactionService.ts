@@ -44,6 +44,15 @@ export class TransactionService implements ITransactionService {
   private readonly common: ICommonService;
 
   /**
+   * An instance of EventEmitter used for emitting and handling events within the class.
+   *
+   * @private
+   * @readonly
+   * @type {EventEmitter}
+   */
+  private readonly eventEmitter: EventEmitter;
+
+  /**
    * The HAPI service for interacting with Hedera API.
    * @private
    * @readonly
@@ -63,15 +72,6 @@ export class TransactionService implements ITransactionService {
    * @readonly
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
 
   /**
    * The precheck class used for checking the fields like nonce before the tx execution.
@@ -146,7 +146,7 @@ export class TransactionService implements ITransactionService {
 
   /**
    * Gets a transaction by block number and transaction index
-   * @param blockNumber The block number
+   * @param blockNumOrTag The block number
    * @param transactionIndex The transaction index
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
@@ -566,7 +566,7 @@ export class TransactionService implements ITransactionService {
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<EthersTransaction>} A promise that resolves to the parsed Ethereum transaction
    */
-  async parseRawTxAndPrecheck(
+  private async parseRawTxAndPrecheck(
     transaction: string,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
