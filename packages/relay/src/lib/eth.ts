@@ -1027,19 +1027,6 @@ export class EthImpl implements Eth {
     return numberTo0x(gasPriceForTimestamp);
   }
 
-  private static prune0x(input: string): string {
-    return input.startsWith(CommonService.emptyHex) ? input.substring(2) : input;
-  }
-
-  private static getTransactionCountFromBlockResponse(block: any): null | string {
-    if (block === null || block.count === undefined) {
-      // block not found
-      return null;
-    }
-
-    return numberTo0x(block.count);
-  }
-
   /**
    * Retrieves logs based on the provided parameters.
    *
