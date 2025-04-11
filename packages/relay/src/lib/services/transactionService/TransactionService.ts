@@ -18,12 +18,12 @@ import { Log, Transaction } from '../../model';
 import { Precheck } from '../../precheck';
 import { ITransactionReceipt, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
+import { TransactionFactory } from '../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
-} from '../factories/ITransactionReceiptFactoryParams';
-import { TransactionFactory } from '../factories/transactionFactory';
-import { TransactionReceiptFactory } from '../factories/transactionReceiptFactory';
+  TransactionReceiptFactory,
+} from '../factories/transactionReceiptFactory';
 import HAPIService from '../hapiService/hapiService';
 import { CommonService, ICommonService } from '../index';
 import { ITransactionService } from './ITransactionService';

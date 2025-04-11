@@ -11,16 +11,32 @@ import {
 } from '../../../formatters';
 import { LogsBloomUtils } from '../../../logsBloomUtils';
 import constants from '../../constants';
+import { Log } from '../../model';
 import { ITransactionReceipt } from '../../types';
-import {
-  IRegularTransactionReceiptParams,
-  ISyntheticTransactionReceiptParams,
-} from './ITransactionReceiptFactoryParams';
+
+/**
+ * Parameters specific to creating a synthetic transaction receipt from logs
+ */
+interface ISyntheticTransactionReceiptParams {
+  syntheticLogs: Log[];
+  gasPriceForTimestamp: string;
+}
+
+/**
+ * Parameters specific to creating a regular transaction receipt from mirror node data
+ */
+interface IRegularTransactionReceiptParams {
+  effectiveGas: string;
+  from: string;
+  logs: Log[];
+  receiptResponse: any;
+  to: string;
+}
 
 /**
  * Factory for creating different types of transaction receipts
  */
-export class TransactionReceiptFactory {
+class TransactionReceiptFactory {
   private static readonly EMPTY_HEX = '0x';
   private static readonly ONE_HEX = '0x1';
   private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
@@ -118,4 +134,4 @@ export class TransactionReceiptFactory {
   }
 }
 
-export { ISyntheticTransactionReceiptParams, IRegularTransactionReceiptParams };
+export { ISyntheticTransactionReceiptParams, IRegularTransactionReceiptParams, TransactionReceiptFactory };
