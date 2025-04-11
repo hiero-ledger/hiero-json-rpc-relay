@@ -1084,10 +1084,6 @@ export class EthImpl implements Eth {
     return EthImpl.zeroHex;
   }
 
-  static isArrayNonEmpty(input: any): boolean {
-    return Array.isArray(input) && input.length > 0;
-  }
-
   /**
    * Gets all transaction receipts for a block by block hash or block number.
    *

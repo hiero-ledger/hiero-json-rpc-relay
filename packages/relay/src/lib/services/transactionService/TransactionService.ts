@@ -14,7 +14,7 @@ import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
 import constants from '../../constants';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { SDKClientError } from '../../errors/SDKClientError';
-import { Log, Transaction, Transaction1559 } from '../../model';
+import { Log, Transaction } from '../../model';
 import { Precheck } from '../../precheck';
 import { ITransactionReceipt, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
@@ -267,33 +267,7 @@ export class TransactionService implements ITransactionService {
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
-      const syntheticLogs = await this.common.getLogsWithParams(
-        null,
-        {
-          'transaction.hash': hash,
-        },
-        requestDetails,
-      );
-
-      // no tx found
-      if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`${requestIdPrefix} no receipt for ${hash}`);
-        }
-        return null;
-      }
-
-      const gasPriceForTimestamp = await this.getCurrentGasPriceForBlock(syntheticLogs[0].blockHash, requestDetails);
-
-      const params: ISyntheticTransactionReceiptParams = {
-        syntheticLogs,
-        gasPriceForTimestamp,
-      };
-      const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
-
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
+      const receipt = this.handleSyntheticTransactionReceipt(hash, requestDetails);
 
       await this.cacheService.set(
         cacheKey,
@@ -302,37 +276,10 @@ export class TransactionService implements ITransactionService {
         requestDetails,
         constants.CACHE_TTL.ONE_DAY,
       );
+
       return receipt;
     } else {
-      const effectiveGas = await this.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
-      // support stricter go-eth client which requires the transaction hash property on logs
-      const logs = receiptResponse.logs.map((log) => {
-        return new Log({
-          address: log.address,
-          blockHash: toHash32(receiptResponse.block_hash),
-          blockNumber: numberTo0x(receiptResponse.block_number),
-          data: log.data,
-          logIndex: numberTo0x(log.index),
-          removed: false,
-          topics: log.topics,
-          transactionHash: toHash32(receiptResponse.hash),
-          transactionIndex: numberTo0x(receiptResponse.transaction_index),
-        });
-      });
-
-      const [from, to] = await Promise.all([
-        this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
-        this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
-      ]);
-
-      const transactionReceiptParams: IRegularTransactionReceiptParams = {
-        effectiveGas,
-        from,
-        logs,
-        receiptResponse,
-        to,
-      };
-      const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
+      const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
 
       if (receiptResponse.error_message) {
         receipt.revertReason = isHex(prepend0x(receiptResponse.error_message))
@@ -527,6 +474,90 @@ export class TransactionService implements ITransactionService {
       from: resolvedFromAddress,
       to: resolvedToAddress,
     });
+  }
+
+  /**
+   * Handles the processing of a regular transaction receipt
+   * @param receiptResponse The receipt response from the mirror node
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<ITransactionReceipt>} A promise that resolves to a transaction receipt
+   */
+  private async handleRegularTransactionReceipt(
+    receiptResponse: any,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt> {
+    const effectiveGas = await this.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
+    // support stricter go-eth client which requires the transaction hash property on logs
+    const logs = receiptResponse.logs.map((log) => {
+      return new Log({
+        address: log.address,
+        blockHash: toHash32(receiptResponse.block_hash),
+        blockNumber: numberTo0x(receiptResponse.block_number),
+        data: log.data,
+        logIndex: numberTo0x(log.index),
+        removed: false,
+        topics: log.topics,
+        transactionHash: toHash32(receiptResponse.hash),
+        transactionIndex: numberTo0x(receiptResponse.transaction_index),
+      });
+    });
+    const [from, to] = await Promise.all([
+      this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
+      this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
+    ]);
+    const transactionReceiptParams: IRegularTransactionReceiptParams = {
+      effectiveGas,
+      from,
+      logs,
+      receiptResponse,
+      to,
+    };
+    const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
+
+    return receipt;
+  }
+
+  /**
+   * Handles the processing of a synthetic transaction receipt
+   * @param hash The transaction hash
+   * @param requestDetails The request details for logging and tracking
+   * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
+   */
+  private async handleSyntheticTransactionReceipt(
+    hash: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt | null> {
+    const syntheticLogs = await this.common.getLogsWithParams(
+      null,
+      {
+        'transaction.hash': hash,
+      },
+      requestDetails,
+    );
+
+    // no tx found
+    if (!syntheticLogs.length) {
+      if (this.logger.isLevelEnabled('trace')) {
+        this.logger.trace(`${requestDetails.formattedRequestId} no receipt for ${hash}`);
+      }
+      return null;
+    }
+
+    const gasPriceForTimestamp = await this.getCurrentGasPriceForBlock(syntheticLogs[0].blockHash, requestDetails);
+
+    const params: ISyntheticTransactionReceiptParams = {
+      syntheticLogs,
+      gasPriceForTimestamp,
+    };
+    const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
+
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${requestDetails.formattedRequestId} receipt for ${hash} found in block ${receipt.blockNumber}`,
+      );
+    }
+
+    return receipt;
   }
 
   /**
