@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import pino, { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { LocalLRUCache, RedisCache } from '../../clients';
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RequestDetails } from '../../types';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
+export enum CACHE_LEVEL {
+  L1 = 'L1_CACHE',
+  L2 = 'L2_CACHE'
+}
 
 /**
  * A service that manages caching using different cache implementations based on configuration.
@@ -100,6 +105,18 @@ export class CacheService {
       registers: [register],
       labelNames: ['callingMethod', 'cacheType', 'method'],
     });
+  }
+
+  private static instances: CacheService[] = [];
+
+  public static getInstance(type: CACHE_LEVEL): CacheService {
+    if (!this.instances[type]) {
+      const logger = pino({ level: 'silent' });
+      const registry = new Registry();
+      this.instances[type] = new CacheService(logger.child({ name: type }), registry);
+    }
+
+    return this.instances[type];
   }
 
   /**
