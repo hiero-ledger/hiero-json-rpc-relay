@@ -13,10 +13,8 @@ import {
   nanOrNumberTo0x,
   nullableNumberTo0x,
   numberTo0x,
-  parseNumericEnvVar,
   prepend0x,
   toHash32,
-  trimPrecedingZeros,
 } from '../formatters';
 import { Eth } from '../index';
 import { LogsBloomUtils } from '../logsBloomUtils';
@@ -25,7 +23,6 @@ import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
 import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
 import { Precheck } from './precheck';
@@ -38,7 +35,6 @@ import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
 import {
   IContractCallRequest,
-  IContractCallResponse,
   IFeeHistory,
   IGetLogsParams,
   INewFilterParams,
@@ -46,7 +42,6 @@ import {
   RequestDetails,
 } from './types';
 import { ParamType } from './types/validation';
-const _ = require('lodash');
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -71,6 +66,7 @@ export class EthImpl implements Eth {
   static gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
   static minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
   static EthereumTransactionType = 'EthereumTransaction';
+  static ethTxType = 'EthereumTransaction';
   static defaultGasUsedRatio = 0.5;
   static feeHistoryZeroBlockCountResponse: IFeeHistory = {
     gasUsedRatio: null,
@@ -109,15 +105,6 @@ export class EthImpl implements Eth {
   static blockPending = 'pending';
   static blockSafe = 'safe';
   static blockFinalized = 'finalized';
-
-  /**
-   * Overrideable options used when initializing.
-   *
-   * @private
-   */
-  private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
-  private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-  private readonly estimateGasThrows = ConfigService.get('ESTIMATE_GAS_THROWS');
 
   /**
    * The LRU cache used for caching items from requests.
@@ -351,7 +338,6 @@ export class EthImpl implements Eth {
       delete transaction.data;
     }
 
-    const requestIdPrefix = requestDetails.formattedRequestId;
     const callData = transaction.data || transaction.input;
     const callDataSize = callData?.length || 0;
 
@@ -366,109 +352,7 @@ export class EthImpl implements Eth {
         .inc();
     }
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} estimateGas(transaction=${JSON.stringify(transaction)}, _blockParam=${_blockParam})`,
-      );
-    }
-
-    try {
-      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
-      if (response?.result) {
-        this.logger.info(`${requestIdPrefix} Returning gas: ${response.result}`);
-        return prepend0x(trimPrecedingZeros(response.result));
-      } else {
-        this.logger.error(`${requestIdPrefix} No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
-        return this.predefinedGasForTransaction(transaction, requestDetails);
-      }
-    } catch (e: any) {
-      this.logger.error(
-        `${requestIdPrefix} Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`,
-      );
-      // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
-      if (this.estimateGasThrows && e instanceof MirrorNodeClientError && e.isContractRevertOpcodeExecuted()) {
-        return predefined.CONTRACT_REVERT(e.detail ?? e.message, e.data);
-      }
-      return this.predefinedGasForTransaction(transaction, requestDetails, e);
-    }
-  }
-
-  /**
-   * Executes an estimate contract call gas request in the mirror node.
-   *
-   * @param {IContractCallRequest} transaction The transaction data for the contract call.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking.
-   * @returns {Promise<IContractCallResponse>} the response from the mirror node
-   */
-  private async estimateGasFromMirrorNode(
-    transaction: IContractCallRequest,
-    requestDetails: RequestDetails,
-  ): Promise<IContractCallResponse | null> {
-    await this.common.contractCallFormat(transaction, requestDetails);
-    const callData = { ...transaction, estimate: true };
-    return this.mirrorNodeClient.postContractCall(callData, requestDetails);
-  }
-
-  /**
-   * Fallback calculations for the amount of gas to be used for a transaction.
-   * This method is used when the mirror node fails to return a gas estimate.
-   *
-   * @param {IContractCallRequest} transaction The transaction data for the contract call.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking.
-   * @param error (Optional) received error from the mirror-node contract call request.
-   * @returns {Promise<string | JsonRpcError>} the calculated gas cost for the transaction
-   */
-  private async predefinedGasForTransaction(
-    transaction: IContractCallRequest,
-    requestDetails: RequestDetails,
-    error?: any,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    const isSimpleTransfer = !!transaction?.to && (!transaction.data || transaction.data === '0x');
-    const isContractCall =
-      !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
-    const isContractCreate = !transaction?.to && transaction?.data && transaction.data !== '0x';
-
-    if (isSimpleTransfer) {
-      // Handle Simple Transaction and Hollow Account creation
-      const isZeroOrHigher = Number(transaction.value) >= 0;
-      if (!isZeroOrHigher) {
-        return predefined.INVALID_PARAMETER(
-          0,
-          `Invalid 'value' field in transaction param. Value must be greater than or equal to 0`,
-        );
-      }
-      // when account exists return default base gas
-      if (await this.common.getAccount(transaction.to!, requestDetails)) {
-        this.logger.warn(`${requestIdPrefix} Returning predefined gas for simple transfer: ${EthImpl.gasTxBaseCost}`);
-        return EthImpl.gasTxBaseCost;
-      }
-      // otherwise, return the minimum amount of gas for hollow account creation
-      this.logger.warn(
-        `${requestIdPrefix} Returning predefined gas for hollow account creation: ${EthImpl.minGasTxHollowAccountCreation}`,
-      );
-      return EthImpl.minGasTxHollowAccountCreation;
-    } else if (isContractCreate) {
-      // The size limit of the encoded contract posted to the mirror node can
-      // cause contract deployment transactions to fail with a 400 response code.
-      // The contract is actually deployed on the consensus node, so the contract will work.
-      // In these cases, we don't want to return a CONTRACT_REVERT error.
-      if (
-        this.estimateGasThrows &&
-        error?.isContractReverted() &&
-        error?.message !== MirrorNodeClientError.messages.INVALID_HEX
-      ) {
-        return predefined.CONTRACT_REVERT(error.detail, error.data);
-      }
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract creation: ${EthImpl.gasTxBaseCost}`);
-      return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
-    } else if (isContractCall) {
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract call: ${this.contractCallAverageGas}`);
-      return this.contractCallAverageGas;
-    } else {
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for unknown transaction: ${this.defaultGas}`);
-      return this.defaultGas;
-    }
+    return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
   }
 
   /**
@@ -890,39 +774,7 @@ export class EthImpl implements Eth {
     blockNumberOrTagOrHash: string | null,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getStorageAt(address=${address}, slot=${slot}, blockNumberOrOrHashTag=${blockNumberOrTagOrHash})`,
-      );
-    }
-
-    let result = CommonService.zeroHex32Byte; // if contract or slot not found then return 32 byte 0
-
-    const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
-    // To save a request to the mirror node for `latest` and `pending` blocks, we directly return null from `getHistoricalBlockResponse`
-    // But if a block number or `earliest` tag is passed and the mirror node returns `null`, we should throw an error.
-    if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash) && blockResponse == null) {
-      throw predefined.RESOURCE_NOT_FOUND(`block '${blockNumberOrTagOrHash}'.`);
-    }
-
-    const blockEndTimestamp = blockResponse?.timestamp?.to;
-
-    await this.mirrorNodeClient
-      .getContractStateByAddressAndSlot(address, slot, requestDetails, blockEndTimestamp)
-      .then((response) => {
-        if (response !== null && response.state.length > 0) {
-          result = response.state[0].value;
-        }
-      })
-      .catch((error: any) => {
-        throw this.common.genericErrorHandler(
-          error,
-          `${requestIdPrefix} Failed to retrieve current contract state for address ${address} at slot=${slot}`,
-        );
-      });
-
-    return result;
+    return this.contractService.getStorageAt(address, slot, blockNumberOrTagOrHash, requestDetails);
   }
 
   /**

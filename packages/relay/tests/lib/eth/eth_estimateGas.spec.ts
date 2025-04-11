@@ -12,6 +12,7 @@ import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { EthImpl } from '../../../src/lib/eth';
 import { Precheck } from '../../../src/lib/precheck';
+import { ContractService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
@@ -204,7 +205,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       null,
       requestDetails,
     );
-    expect(gas).to.equal(EthImpl.gasTxBaseCost);
+    expect(gas).to.equal(ContractService.gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to existing cached account', async function () {
@@ -236,8 +237,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gasBeforeCache).to.equal(EthImpl.gasTxBaseCost);
-    expect(gasAfterCache).to.equal(EthImpl.gasTxBaseCost);
+    expect(gasBeforeCache).to.equal(ContractService.gasTxBaseCost);
+    expect(gasAfterCache).to.equal(ContractService.gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to non existing account', async function () {
@@ -257,7 +258,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(Number(EthImpl.minGasTxHollowAccountCreation));
+    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(
+      Number(ContractService.minGasTxHollowAccountCreation),
+    );
   });
 
   it('should eth_estimateGas transfer with 0 value', async function () {
@@ -278,7 +281,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gas).to.equal(EthImpl.gasTxBaseCost);
+    expect(gas).to.equal(ContractService.gasTxBaseCost);
   });
 
   it('should eth_estimateGas for contract create with input field and absent data field', async () => {

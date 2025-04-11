@@ -5,7 +5,13 @@ import { PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 
-import { isValidEthereumAddress, numberTo0x, parseNumericEnvVar, prepend0x } from '../../../formatters';
+import {
+  isValidEthereumAddress,
+  numberTo0x,
+  parseNumericEnvVar,
+  prepend0x,
+  trimPrecedingZeros,
+} from '../../../formatters';
 import { getFunctionSelector } from '../../../formatters';
 import { MirrorNodeClient } from '../../clients';
 import constants from '../../constants';
@@ -13,13 +19,19 @@ import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../errors/SDKClientError';
 import { Log } from '../../model';
-import { IContractCallRequest, IContractResult, IGetLogsParams, RequestDetails } from '../../types';
+import { Precheck } from '../../precheck';
+import {
+  IContractCallRequest,
+  IContractCallResponse,
+  IContractResult,
+  IGetLogsParams,
+  RequestDetails,
+} from '../../types';
 import { CommonService } from '..';
 import { CacheService } from '../cacheService/cacheService';
 import { ICommonService } from '../ethService/ethCommonService/ICommonService';
 import HAPIService from '../hapiService/hapiService';
 import { IContractService } from './IContractService';
-
 /**
  * Service responsible for handling contract-related operations.
  */
@@ -37,6 +49,20 @@ export class ContractService implements IContractService {
    * @static
    */
   public static readonly iHTSAddress = '0x0000000000000000000000000000000000000167';
+
+  /**
+   * The base cost of a transaction.
+   * @public
+   * @static
+   */
+  public static readonly gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
+
+  /**
+   * The minimum gas for hollow account creation.
+   * @public
+   * @static
+   */
+  public static readonly minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
 
   /**
    * The postfix for redirect bytecode used in token redirection.
@@ -68,11 +94,25 @@ export class ContractService implements IContractService {
   private readonly common: ICommonService;
 
   /**
+   * The average gas for contract calls.
+   * @private
+   * @readonly
+   */
+  private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
+
+  /**
    * The default gas value for transactions.
    * @private
    * @readonly
    */
   private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
+
+  /**
+   * Whether to throw errors during gas estimation.
+   * @private
+   * @readonly
+   */
+  private readonly estimateGasThrows = ConfigService.get('ESTIMATE_GAS_THROWS');
 
   /**
    * The cache TTL for Ethereum call responses.
@@ -175,6 +215,48 @@ export class ContractService implements IContractService {
         throw e;
       }
       return predefined.INTERNAL_ERROR(e.message.toString());
+    }
+  }
+
+  /**
+   * Estimates the amount of gas required to execute a contract call.
+   *
+   * @param {IContractCallRequest} transaction - The transaction data for the contract call.
+   * @param {string | null} blockParam - Optional block parameter to specify the block to estimate gas for.
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
+   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
+   */
+  public async estimateGas(
+    transaction: IContractCallRequest,
+    blockParam: string | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | JsonRpcError> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${requestIdPrefix} estimateGas(transaction=${JSON.stringify(transaction)}, blockParam=${blockParam})`,
+      );
+    }
+
+    try {
+      const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
+      if (response?.result) {
+        this.logger.info(`${requestIdPrefix} Returning gas: ${response.result}`);
+        return prepend0x(trimPrecedingZeros(response.result));
+      } else {
+        this.logger.error(`${requestIdPrefix} No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
+        return this.predefinedGasForTransaction(transaction, requestDetails);
+      }
+    } catch (e: any) {
+      this.logger.error(
+        `${requestIdPrefix} Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`,
+      );
+      // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
+      if (this.estimateGasThrows && e instanceof MirrorNodeClientError && e.isContractRevertOpcodeExecuted()) {
+        return predefined.CONTRACT_REVERT(e.detail ?? e.message, e.data);
+      }
+      return this.predefinedGasForTransaction(transaction, requestDetails, e);
     }
   }
 
@@ -382,6 +464,22 @@ export class ContractService implements IContractService {
     } catch (e: any) {
       return this.handleMirrorNodeError(e, call, gas, requestDetails);
     }
+  }
+
+  /**
+   * Executes an estimate contract call gas request in the mirror node.
+   *
+   * @param {IContractCallRequest} transaction The transaction data for the contract call.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking.
+   * @returns {Promise<IContractCallResponse>} the response from the mirror node
+   */
+  private async estimateGasFromMirrorNode(
+    transaction: IContractCallRequest,
+    requestDetails: RequestDetails,
+  ): Promise<IContractCallResponse | null> {
+    await this.common.contractCallFormat(transaction, requestDetails);
+    const callData = { ...transaction, estimate: true };
+    return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }
 
   /**
@@ -845,6 +943,72 @@ export class ContractService implements IContractService {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Fallback calculations for the amount of gas to be used for a transaction.
+   * This method is used when the mirror node fails to return a gas estimate.
+   *
+   * @param {IContractCallRequest} transaction The transaction data for the contract call.
+   * @param {RequestDetails} requestDetails The request details for logging and tracking.
+   * @param error (Optional) received error from the mirror-node contract call request.
+   * @returns {Promise<string | JsonRpcError>} the calculated gas cost for the transaction
+   */
+  private async predefinedGasForTransaction(
+    transaction: IContractCallRequest,
+    requestDetails: RequestDetails,
+    error?: any,
+  ): Promise<string | JsonRpcError> {
+    const requestIdPrefix = requestDetails.formattedRequestId;
+    const isSimpleTransfer = !!transaction?.to && (!transaction.data || transaction.data === '0x');
+    const isContractCall =
+      !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
+    const isContractCreate = !transaction?.to && transaction?.data && transaction.data !== '0x';
+
+    if (isSimpleTransfer) {
+      // Handle Simple Transaction and Hollow Account creation
+      const isZeroOrHigher = Number(transaction.value) >= 0;
+      if (!isZeroOrHigher) {
+        return predefined.INVALID_PARAMETER(
+          0,
+          `Invalid 'value' field in transaction param. Value must be greater than or equal to 0`,
+        );
+      }
+      // when account exists return default base gas
+      if (await this.common.getAccount(transaction.to!, requestDetails)) {
+        this.logger.warn(
+          `${requestIdPrefix} Returning predefined gas for simple transfer: ${ContractService.gasTxBaseCost}`,
+        );
+        return ContractService.gasTxBaseCost;
+      }
+      // otherwise, return the minimum amount of gas for hollow account creation
+      this.logger.warn(
+        `${requestIdPrefix} Returning predefined gas for hollow account creation: ${ContractService.minGasTxHollowAccountCreation}`,
+      );
+      return ContractService.minGasTxHollowAccountCreation;
+    } else if (isContractCreate) {
+      // The size limit of the encoded contract posted to the mirror node can
+      // cause contract deployment transactions to fail with a 400 response code.
+      // The contract is actually deployed on the consensus node, so the contract will work.
+      // In these cases, we don't want to return a CONTRACT_REVERT error.
+      if (
+        this.estimateGasThrows &&
+        error?.isContractReverted() &&
+        error?.message !== MirrorNodeClientError.messages.INVALID_HEX
+      ) {
+        return predefined.CONTRACT_REVERT(error.detail, error.data);
+      }
+      this.logger.warn(
+        `${requestIdPrefix} Returning predefined gas for contract creation: ${ContractService.gasTxBaseCost}`,
+      );
+      return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
+    } else if (isContractCall) {
+      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract call: ${this.contractCallAverageGas}`);
+      return this.contractCallAverageGas;
+    } else {
+      this.logger.warn(`${requestIdPrefix} Returning predefined gas for unknown transaction: ${this.defaultGas}`);
+      return this.defaultGas;
+    }
   }
 
   /**
