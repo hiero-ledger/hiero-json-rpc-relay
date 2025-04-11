@@ -23,7 +23,7 @@ import { LogsBloomUtils } from '../logsBloomUtils';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
+import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { SDKClientError } from './errors/SDKClientError';
@@ -32,7 +32,7 @@ import { Precheck } from './precheck';
 import { BlockService, CommonService, ContractService, FilterService, IBlockService, ICommonService } from './services';
 import { AccountService } from './services/accountService';
 import { IAccountService } from './services/accountService/IAccountService';
-import { CacheService } from './services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import { IContractService } from './services/contractService/IContractService';
 import { FeeService } from './services/feeService';
 import HAPIService from './services/hapiService/hapiService';
@@ -274,6 +274,9 @@ export class EthImpl implements Eth {
     2: { type: ParamType.ARRAY, required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    ttl: constants.CACHE_TTL.FIFTEEN_MINUTES
+  })
   async feeHistory(
     blockCount: number,
     newestBlock: string,
@@ -294,6 +297,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    ttl: 500
+  })
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
@@ -482,6 +488,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    ttl: constants.CACHE_TTL.FIFTEEN_MINUTES
+  })
   async gasPrice(requestDetails: RequestDetails): Promise<string> {
     return this.common.gasPrice(requestDetails);
   }
@@ -868,6 +877,9 @@ export class EthImpl implements Eth {
     2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '2', value: 'latest' }]
+  })
   async getStorageAt(
     address: string,
     slot: string,
@@ -926,6 +938,9 @@ export class EthImpl implements Eth {
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '1', value: 'latest' }]
+  })
   async getBalance(
     account: string,
     blockNumberOrTagOrHash: string | null,
@@ -951,6 +966,9 @@ export class EthImpl implements Eth {
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '1', value: 'latest' }]
+  })
   public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
     return this.contractService.getCode(address, blockNumber, requestDetails);
   }
@@ -971,6 +989,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_HASH, required: true },
     1: { type: ParamType.BOOLEAN, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
     return this.blockService.getBlockByHash(hash, showDetails, requestDetails);
   }
@@ -989,6 +1008,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.BLOCK_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
     return this.blockService.getBlockTransactionCountByHash(hash, requestDetails);
   }
@@ -1006,6 +1026,9 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ParamType.BLOCK_NUMBER, required: true },
+  })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '0', value: 'latest' }]
   })
   async getBlockTransactionCountByNumber(
     blockNumOrTag: string,
@@ -1030,6 +1053,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_HASH, required: true },
     1: { type: ParamType.HEX, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionByBlockHashAndIndex(
     blockHash: string,
     transactionIndex: string,
@@ -1071,6 +1095,9 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.BLOCK_NUMBER, required: true },
     1: { type: ParamType.HEX, required: true },
+  })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '0', value: 'latest' }]
   })
   async getTransactionByBlockNumberAndIndex(
     blockNumOrTag: string,
@@ -1115,6 +1142,9 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_NUMBER, required: true },
     1: { type: ParamType.BOOLEAN, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '0', value: 'latest' }]
+  })
   async getBlockByNumber(
     blockNumOrTag: string,
     showDetails: boolean,
@@ -1141,6 +1171,9 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '1', value: 'latest' }]
   })
   async getTransactionCount(
     address: string,
@@ -1567,6 +1600,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -1623,6 +1657,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
@@ -1864,6 +1899,15 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.FILTER, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipNamedParams: [{
+      index: '0',
+      fields: [
+        { name: 'fromBlock', value: 'latest' },
+        { name: 'toBlock', value: 'latest' }
+      ]
+    }]
+  })
   public async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
     return this.contractService.getLogs(params, requestDetails);
   }
@@ -1926,6 +1970,9 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+  })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '0', value: 'latest' }]
   })
   public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
