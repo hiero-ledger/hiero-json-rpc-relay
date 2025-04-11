@@ -64,7 +64,7 @@ interface CacheNamedParams {
   fields: CacheNamedParam[]
 }
 
-export interface CacheOptions {
+interface CacheOptions {
   skipParams?: CacheSingleParam[],
   skipNamedParams?: CacheNamedParams[],
   ttl?: number,
