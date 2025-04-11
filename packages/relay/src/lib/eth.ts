@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
-import { Registry } from 'prom-client';
 
-import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../formatters';
+import { numberTo0x } from '../formatters';
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { Block, Log, Receipt, Transaction } from './model';
-import { Precheck } from './precheck';
 import {
   BlockService,
   CommonService,
@@ -28,14 +24,10 @@ import { AccountService } from './services/accountService';
 import { IAccountService } from './services/accountService/IAccountService';
 import { CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/feeService';
+import { IFeeService } from './services/feeService/IFeeService';
 import HAPIService from './services/hapiService/hapiService';
-import {
-  IContractCallRequest,
-  IFeeHistory,
-  IGetLogsParams,
-  INewFilterParams,
-  RequestDetails,
-} from './types';
+import { ITransactionService } from './services/transactionService/ITransactionService';
+import { IContractCallRequest, IFeeHistory, IGetLogsParams, INewFilterParams, RequestDetails } from './types';
 import { ParamType } from './types/validation';
 
 /**
@@ -96,36 +88,16 @@ export class EthImpl implements Eth {
   static blockFinalized = 'finalized';
 
   /**
-   * The LRU cache used for caching items from requests.
-   *
+   * The Account Service implementation that takes care of all account API operations.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly accountService: IAccountService;
 
   /**
-   * The client service which is responsible for client all logic related to initialization, reinitialization and error/transactions tracking.
-   *
+   * The Block Service implementation that takes care of all block API operations.
    * @private
    */
-  private readonly hapiService: HAPIService;
-
-  /**
-   * The interface through which we interact with the mirror node
-   * @private
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
-   * The logger used for logging all output from this class.
-   * @private
-   */
-  private readonly logger: Logger;
-
-  /**
-   * The precheck class used for checking the fields like nonce before the tx execution.
-   * @private
-   */
-  private readonly precheck: Precheck;
+  private readonly blockService: IBlockService;
 
   /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
@@ -135,37 +107,45 @@ export class EthImpl implements Eth {
 
   /**
    * The Common Service implementation that contains logic shared by other services.
+   * @private
    */
   private readonly common: ICommonService;
 
   /**
-   * The Filter Service implementation that takes care of all filter API operations.
-   */
-  private readonly filterService: FilterService;
-
-  /**
-   * The Block Service implementation that takes care of all block API operations.
-   */
-  private readonly blockService: IBlockService;
-
-  /**
-   * The Fee Service implementation that takes care of all fee API operations.
-   */
-  private readonly feeService: FeeService;
-
-  private readonly transactionService: TransactionService;
-
-  private readonly eventEmitter: EventEmitter;
-
-  /**
    * The ContractService implementation that takes care of all contract related operations.
+   * @private
    */
   private readonly contractService: IContractService;
 
   /**
-   * The Account Service implementation that takes care of all account API operations.
+   * Event emitter for publishing and subscribing to events.
+   * @private
    */
-  private readonly accountService: IAccountService;
+  private readonly eventEmitter: EventEmitter;
+
+  /**
+   * The Fee Service implementation that takes care of all fee API operations.
+   * @private
+   */
+  private readonly feeService: IFeeService;
+
+  /**
+   * The Filter Service implementation that takes care of all filter API operations.
+   * @private
+   */
+  private readonly filterService: FilterService;
+
+  /**
+   * The logger used for logging all output from this class.
+   * @private
+   */
+  private readonly logger: Logger;
+
+  /**
+   * The Transaction Service implementation that handles all transaction-related operations.
+   * @private
+   */
+  private readonly transactionService: ITransactionService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
@@ -183,16 +163,11 @@ export class EthImpl implements Eth {
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
     chain: string,
-    registry: Registry,
     cacheService: CacheService,
     eventEmitter: EventEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;
-    this.hapiService = hapiService;
-    this.cacheService = cacheService;
-    this.mirrorNodeClient = mirrorNodeClient;
-    this.precheck = new Precheck(mirrorNodeClient, logger, chain);
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);

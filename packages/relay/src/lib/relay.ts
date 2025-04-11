@@ -200,7 +200,6 @@ export class Relay {
       this.mirrorNodeClient,
       logger.child({ name: 'relay-eth' }),
       chainId,
-      register,
       this.cacheService,
       this.eventEmitter,
     );
