@@ -6,7 +6,6 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
-import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
@@ -83,7 +82,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     cacheService,
     mirrorNodeInstance,
     logger,
-    registry,
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
@@ -91,8 +89,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     cacheService: CacheService;
     mirrorNodeInstance: MirrorNodeClient;
     logger: Logger;
-    registry: Registry;
   } = generateEthTestEnv(true);
+  const eventEmitter = new EventEmitter();
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 
@@ -131,7 +129,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       mirrorNodeInstance,
       logger,
       '0x12a',
-      registry,
       cacheService,
       eventEmitter,
     );

@@ -238,7 +238,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   it('handles empty bloom', async function () {
     const receiptWith0xBloom = {
       ...defaultDetailedContractResultByHash,
-      bloom: '0x',
+      bloom: emptyBloom,
     };
 
     restMock.onGet(`contracts/results/${defaultTxHash}`).reply(200, JSON.stringify(receiptWith0xBloom));

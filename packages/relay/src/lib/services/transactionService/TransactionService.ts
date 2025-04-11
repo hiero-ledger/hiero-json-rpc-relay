@@ -5,7 +5,7 @@ import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
-import { ASCIIToHex, formatTransactionIdWithoutQueryParams, nanOrNumberTo0x } from '../../../formatters';
+import { ASCIIToHex, formatTransactionIdWithoutQueryParams } from '../../../formatters';
 import { isHex, prepend0x } from '../../../formatters';
 import { toHash32 } from '../../../formatters';
 import { numberTo0x } from '../../../formatters';
@@ -214,7 +214,7 @@ export class TransactionService implements ITransactionService {
         return null;
       }
 
-      return this.createTransactionFromLog(syntheticLogs[0]);
+      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0]);
     }
 
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
@@ -426,36 +426,6 @@ export class TransactionService implements ITransactionService {
       this.logger.trace(`${requestDetails.formattedRequestId} sign()`);
     }
     return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Creates a transaction object from a log entry
-   * @param log The log entry containing transaction data
-   * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
-   */
-  private createTransactionFromLog(log: Log): Transaction1559 | null {
-    const transaction = TransactionFactory.createTransactionByType(2, {
-      accessList: undefined, // we don't support access lists for now
-      blockHash: log.blockHash,
-      blockNumber: log.blockNumber,
-      chainId: this.chain,
-      from: log.address,
-      gas: CommonService.defaultTxGas,
-      gasPrice: constants.INVALID_EVM_INSTRUCTION,
-      hash: log.transactionHash,
-      input: CommonService.zeroHex8Byte,
-      maxPriorityFeePerGas: CommonService.zeroHex,
-      maxFeePerGas: CommonService.zeroHex,
-      nonce: nanOrNumberTo0x(0),
-      r: CommonService.EMPTY_HEX,
-      s: CommonService.EMPTY_HEX,
-      to: log.address,
-      transactionIndex: log.transactionIndex,
-      type: CommonService.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-      v: CommonService.zeroHex,
-    }) as Transaction1559;
-
-    return transaction;
   }
 
   /**

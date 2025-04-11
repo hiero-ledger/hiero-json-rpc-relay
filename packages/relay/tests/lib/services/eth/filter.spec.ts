@@ -22,6 +22,7 @@ import {
   toHex,
   withOverriddenEnvsInMochaTest,
 } from '../../../helpers';
+import { generateEthTestEnv } from '../../eth/eth-helpers';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
@@ -33,7 +34,7 @@ let cacheService: CacheService;
 
 describe('Filter API Test Suite', async function () {
   this.timeout(10000);
-
+  const { hapiServiceInstance } = generateEthTestEnv();
   const requestDetails = new RequestDetails({ requestId: uuid(), ipAddress: '0.0.0.0' });
   const filterObject = {
     toBlock: 'latest',
@@ -73,7 +74,12 @@ describe('Filter API Test Suite', async function () {
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(mirrorNodeInstance, logger.child({ name: 'common-service' }), cacheService);
+    const common = new CommonService(
+      mirrorNodeInstance,
+      logger.child({ name: 'common-service' }),
+      cacheService,
+      hapiServiceInstance,
+    );
     filterService = new FilterService(
       mirrorNodeInstance,
       logger.child({ name: 'filter-service' }),
