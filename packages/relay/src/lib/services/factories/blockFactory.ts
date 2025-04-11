@@ -16,7 +16,6 @@ interface BlockFactoryParams {
 }
 
 export class BlockFactory {
-  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
   private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
 
   static async createBlock(params: BlockFactoryParams): Promise<Block> {
@@ -33,8 +32,7 @@ export class BlockFactory {
       gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
       gasUsed: numberTo0x(blockResponse.gas_used),
       hash: blockHash,
-      logsBloom:
-        blockResponse.logs_bloom === CommonService.emptyHex ? BlockFactory.EMPTY_BLOOM : blockResponse.logs_bloom,
+      logsBloom: blockResponse.logs_bloom === CommonService.emptyHex ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
       miner: BlockFactory.ZERO_ADDRESS_HEX,
       mixHash: CommonService.zeroHex32Byte,
       nonce: EthImpl.zeroHex8Byte,

@@ -54,8 +54,6 @@ export class BlockService implements IBlockService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
-  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
-
   /**
    * The static method for the eth_getBlockByHash RPC call.
    */
@@ -202,7 +200,7 @@ export class BlockService implements IBlockService {
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
         contractAddress: contractAddress,
         logs: contractResult.logs,
-        logsBloom: contractResult.bloom === CommonService.emptyHex ? BlockService.EMPTY_BLOOM : contractResult.bloom,
+        logsBloom: contractResult.bloom === CommonService.emptyHex ? constants.EMPTY_BLOOM : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
         transactionIndex: numberTo0x(contractResult.transaction_index),
         effectiveGasPrice: effectiveGas,

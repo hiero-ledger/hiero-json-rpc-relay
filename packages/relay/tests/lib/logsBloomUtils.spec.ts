@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import { keccak256, ZeroAddress } from 'ethers';
 
 import { strip0x } from '../../src/formatters';
+import constants from '../../src/lib/constants';
 import { EthImpl } from '../../src/lib/eth';
 import { LogsBloomUtils } from '../../src/logsBloomUtils';
 
@@ -43,7 +44,7 @@ describe('LogsBloomUtils', () => {
       '000000000000100000000000000000000000000000000000000000000000000000400000000000000000300000000040000000000000000' +
       '0000000000000000000000080000000000001000000000000000000000000000000000000000000000000001000000';
 
-    const emptyBloom = '0x' + '0'.repeat(512);
+    const emptyBloom = constants.EMPTY_BLOOM;
 
     it('should be able to generate emptyBloom if passed address is undefined', () => {
       // @ts-ignore

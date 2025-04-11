@@ -22,7 +22,6 @@ import {
  */
 export class TransactionReceiptFactory {
   private static readonly EMPTY_HEX = '0x';
-  private static readonly EMPTY_BLOOM = '0x' + '0'.repeat(512);
   private static readonly ONE_HEX = '0x1';
   private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
   private static readonly ZERO_HEX = '0x0';
@@ -78,7 +77,7 @@ export class TransactionReceiptFactory {
       gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
       contractAddress: contractAddress,
       logs: logs,
-      logsBloom: receiptResponse.bloom === this.EMPTY_HEX ? this.EMPTY_BLOOM : receiptResponse.bloom,
+      logsBloom: receiptResponse.bloom === constants.EMPTY_BLOOM ? constants.EMPTY_BLOOM : receiptResponse.bloom,
       transactionHash: toHash32(receiptResponse.hash),
       transactionIndex: numberTo0x(receiptResponse.transaction_index),
       effectiveGasPrice: effectiveGas,

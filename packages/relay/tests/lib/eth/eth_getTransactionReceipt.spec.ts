@@ -19,7 +19,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   this.timeout(10000);
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
-  const emptyBloom = '0x' + '0'.repeat(512);
+  const emptyBloom = constants.EMPTY_BLOOM;
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionReceiptTest', ipAddress: '0.0.0.0' });
 
