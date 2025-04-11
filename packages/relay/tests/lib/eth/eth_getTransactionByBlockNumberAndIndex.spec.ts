@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
-import sinon from 'sinon';
-import * as _ from 'lodash';
 import chaiAsPromised from 'chai-as-promised';
-import { predefined } from '../../../src/lib/errors/JsonRpcError';
-import { defaultContractResults, defaultDetailedContractResults } from '../../helpers';
-import { Transaction } from '../../../src/lib/model';
-import { SDKClient } from '../../../src/lib/clients';
-import RelayAssertions from '../../assertions';
+import * as _ from 'lodash';
+import sinon from 'sinon';
+
 import { numberTo0x } from '../../../dist/formatters';
+import { Eth } from '../../../src';
+import { SDKClient } from '../../../src/lib/clients';
+import { predefined } from '../../../src/lib/errors/JsonRpcError';
+import { Transaction } from '../../../src/lib/model';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import HAPIService from '../../../src/lib/services/hapiService/hapiService';
+import { RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
+import { defaultContractResults, defaultDetailedContractResults } from '../../helpers';
 import {
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER_HEX,
@@ -23,10 +29,6 @@ import {
   NOT_FOUND_RES,
 } from './eth-config';
 import { contractResultsByNumberByIndexURL, generateEthTestEnv } from './eth-helpers';
-import { RequestDetails } from '../../../src/lib/types';
-import MockAdapter from 'axios-mock-adapter';
-import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 
 use(chaiAsPromised);
 
@@ -239,7 +241,9 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
 
   it('eth_getTransactionByBlockNumberAndIndex with earliest tag', async function () {
     // mirror node request mocks
-    restMock.onGet(contractResultsByNumberByIndexURL(0, DEFAULT_BLOCK.count)).reply(200, JSON.stringify(defaultContractResults));
+    restMock
+      .onGet(contractResultsByNumberByIndexURL(0, DEFAULT_BLOCK.count))
+      .reply(200, JSON.stringify(defaultContractResults));
 
     const result = await ethImpl.getTransactionByBlockNumberAndIndex(
       'earliest',
