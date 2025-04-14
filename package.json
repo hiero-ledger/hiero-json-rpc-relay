@@ -103,7 +103,8 @@
   },
   "overrides": {
     "protobufjs": "^7.2.4",
-    "semver": "^7.5.3"
+    "semver": "^7.5.3",
+    "elliptic": "^6.6.1"
   },
   "lint-staged": {
     "packages/**/src/**/*.ts": [
