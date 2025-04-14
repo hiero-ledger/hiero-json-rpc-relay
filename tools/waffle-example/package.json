@@ -10,5 +10,8 @@
     "dotenv": "^16.4.5",
     "ethereum-waffle": "^4.0.10",
     "mocha": "^10.8.2"
+  },
+  "overrides": {
+    "elliptic": "^6.6.1"
   }
 }
