@@ -17,5 +17,8 @@
   },
   "dependencies": {
     "http-server": "^14.1.1"
+  },
+  "overrides": {
+    "elliptic": "^6.6.1"
   }
 }
