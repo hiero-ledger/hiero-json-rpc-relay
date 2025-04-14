@@ -47,6 +47,7 @@
     "subgraph-test": "hardhat test"
   },
   "overrides": {
-    "protobufjs": "^7.2.4"
+    "protobufjs": "^7.2.4",
+    "elliptic": "^6.6.1"
   }
 }
