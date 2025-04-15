@@ -17,6 +17,7 @@
   "overrides": {
     "elliptic": "^6.6.1",
     "ws": "^8.17.1",
-    "serialize-javascript": "^6.0.2"
+    "serialize-javascript": "^6.0.2",
+    "cookie": "^0.7.0"
   }
 }
