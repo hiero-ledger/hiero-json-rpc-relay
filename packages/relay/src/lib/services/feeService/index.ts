@@ -157,12 +157,12 @@ export class FeeService implements IFeeService {
    *
    * @param requestDetails
    */
-  public async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+  public maxPriorityFeePerGas(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
 
-    return EthImpl.zeroHex;
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**

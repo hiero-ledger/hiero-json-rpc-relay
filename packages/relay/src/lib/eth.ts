@@ -1729,11 +1729,11 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+  maxPriorityFeePerGas(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
-    return EthImpl.zeroHex;
+    return this.feeService.maxPriorityFeePerGas(requestDetails);
   }
 
   static isArrayNonEmpty(input: any): boolean {

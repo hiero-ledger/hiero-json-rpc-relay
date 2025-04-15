@@ -653,17 +653,11 @@
     },
     {
       "name": "eth_maxPriorityFeePerGas",
-      "summary": "Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or 'tip', to get a transaction included in the current block.",
+      "summary": "Always returns UNSUPPORTED_METHOD error. Hedera doesn't have a concept of tipping nodes to promote any behavior",
       "description": "![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
-        "name": "eth_maxPriorityFeePerGas result",
-        "schema": {
-          "description": "Always returns '0x0'. Hedera doesn't have a concept of tipping nodes to promote any behavior",
-          "title": "hex encoded unsigned integer",
-          "type": "string",
-          "pattern": "0x0"
-        }
+        "$ref": "#/components/schemas/unsupportedError"
       }
     },
     {

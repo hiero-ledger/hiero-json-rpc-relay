@@ -127,7 +127,7 @@ export interface Eth {
 
   hashrate(requestDetails: RequestDetails): Promise<string>;
 
-  maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string>;
+  maxPriorityFeePerGas(requestDetails: RequestDetails): JsonRpcError;
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 
