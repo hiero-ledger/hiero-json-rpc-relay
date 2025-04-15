@@ -17,6 +17,8 @@
     "hardhat": "^2.22.4"
   },
   "overrides": {
-    "elliptic": "^6.6.1"
+    "elliptic": "^6.6.1",
+    "ws": "^8.17.1",
+    "cookie": "^0.7.0"
   }
 }
