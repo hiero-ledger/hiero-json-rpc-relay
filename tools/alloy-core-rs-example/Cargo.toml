@@ -10,3 +10,4 @@ alloy = { version = "0.2.0", features = ["full"] }
 eyre = "0.6.12"
 reqwest = "0.12.5"
 dotenv = "0.15.0"
+idna = "1.0.0"
