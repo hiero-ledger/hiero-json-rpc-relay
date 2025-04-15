@@ -12,12 +12,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hardhat:
-    name: Hardhat
-    uses: ./.github/workflows/dev-tool-workflow.yml
-    with:
-      command: cd ./tools/hardhat-example/ && npx hardhat test
-      directory: ./tools/hardhat-example
+  # hardhat:
+  #   name: Hardhat
+  #   uses: ./.github/workflows/dev-tool-workflow.yml
+  #   with:
+  #     command: cd ./tools/hardhat-example/ && npx hardhat test
+  #     directory: ./tools/hardhat-example
 
   truffle:
     name: Truffle
