@@ -65,7 +65,7 @@ jobs:
       #   run: npm run start &
 
       - name: Install dependencies
-        run: cd ${{ inputs.directory }}/ && npm i -f
+        run: cd ${{ inputs.directory }}/ && npm ci
 
       # - name: Run the tests
       #   uses: step-security/retry@2ab886c0de89f68f146c9b43f53e61abc59c46dc # v3.0.1
