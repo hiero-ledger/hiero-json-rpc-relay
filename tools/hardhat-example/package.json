@@ -15,6 +15,7 @@
     "@openzeppelin/contracts": "^4.9.6"
   },
   "overrides": {
-    "elliptic": "^6.6.1"
+    "elliptic": "^6.6.1",
+    "ws": "^8.17.1"
   }
 }
