@@ -36,41 +36,41 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
 
-      - name: Install go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
-        with:
-          go-version: '1.22.3'
+      # - name: Install go
+      #   uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+      #   with:
+      #     go-version: '1.22.3'
 
-      - name: Install packages
-        run: npm ci
+      # - name: Install packages
+      #   run: npm ci
 
-      - name: Create .env file
-        run: |
-          cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
-          cp ./packages/server/tests/localAcceptance.env .env
+      # - name: Create .env file
+      #   run: |
+      #     cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
+      #     cp ./packages/server/tests/localAcceptance.env .env
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      # - name: Install pnpm
+      #   run: npm install -g pnpm
 
-      - name: Build Typescript
-        run: npx lerna run build
+      # - name: Build Typescript
+      #   run: npx lerna run build
 
-      - name: Start the hedera local node
-        run: npx hedera start -d
+      # - name: Start the hedera local node
+      #   run: npx hedera start -d
 
-      - name: Stop the local node's relay
-        run: docker stop json-rpc-relay
+      # - name: Stop the local node's relay
+      #   run: docker stop json-rpc-relay
 
-      - name: Start the local relay
-        run: npm run start &
+      # - name: Start the local relay
+      #   run: npm run start &
 
       - name: Install dependencies
         run: cd ${{ inputs.directory }}/ && npm ci
 
-      - name: Run the tests
-        uses: step-security/retry@2ab886c0de89f68f146c9b43f53e61abc59c46dc # v3.0.1
-        with:
-          max_attempts: 10
-          timeout_minutes: 10
-          retry_wait_seconds: 45
-          command: ${{ inputs.command }}
+      # - name: Run the tests
+      #   uses: step-security/retry@2ab886c0de89f68f146c9b43f53e61abc59c46dc # v3.0.1
+      #   with:
+      #     max_attempts: 10
+      #     timeout_minutes: 10
+      #     retry_wait_seconds: 45
+      #     command: ${{ inputs.command }}

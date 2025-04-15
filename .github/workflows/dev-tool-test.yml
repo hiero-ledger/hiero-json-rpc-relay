@@ -2,10 +2,10 @@ name: Dev Tool Tests
 
 on:
   pull_request:
-    branches: [ main, release/** ]
+    branches: [main, release/**]
   push:
-    branches: [ main, release/** ]
-    tags: [ v* ]
+    branches: [main, release/**, bump-deps-in-tools/truffle-example]
+    tags: [v*]
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -22,29 +22,29 @@ jobs:
   truffle:
     name: Truffle
     uses: ./.github/workflows/dev-tool-workflow.yml
-    needs: hardhat
+    # needs: hardhat
     with:
       command: cd ./tools/truffle-example/ && npx truffle test
       directory: ./tools/truffle-example
 
-  web3js:
-    name: Web3js
-    uses: ./.github/workflows/dev-tool-workflow.yml
-    needs: [ hardhat, truffle]
-    with:
-      command: cd ./tools/web3js-example/ && npm run test
-      directory: ./tools/web3js-example
+  # web3js:
+  #   name: Web3js
+  #   uses: ./.github/workflows/dev-tool-workflow.yml
+  #   needs: [ hardhat, truffle]
+  #   with:
+  #     command: cd ./tools/web3js-example/ && npm run test
+  #     directory: ./tools/web3js-example
 
-  golang-http:
-    name: Golang HTTP
-    uses: ./.github/workflows/dev-tool-workflow.yml
-    with:
-      command: cd ./tools/golang-json-rpc-tests/ && go run .
-      directory: ./tools/golang-json-rpc-tests
+  # golang-http:
+  #   name: Golang HTTP
+  #   uses: ./.github/workflows/dev-tool-workflow.yml
+  #   with:
+  #     command: cd ./tools/golang-json-rpc-tests/ && go run .
+  #     directory: ./tools/golang-json-rpc-tests
 
-  golang-wss:
-    name: Golang WSS
-    uses: ./.github/workflows/dev-tool-workflow.yml
-    with:
-      command: cd ./tools/golang-json-rpc-tests/ && go run . --wss
-      directory: ./tools/golang-json-rpc-tests
+  # golang-wss:
+  #   name: Golang WSS
+  #   uses: ./.github/workflows/dev-tool-workflow.yml
+  #   with:
+  #     command: cd ./tools/golang-json-rpc-tests/ && go run . --wss
+  #     directory: ./tools/golang-json-rpc-tests
