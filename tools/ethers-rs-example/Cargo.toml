@@ -9,6 +9,7 @@ eyre = "0.6.12"
 tokio = { version = "1.43.1", features = ["full"] }
 dotenv = "0.15.0"
 serde_json = "1.0.121"
+idna = "1.0.0"
 
 [dev-dependencies]
 serial_test = "0.5"
