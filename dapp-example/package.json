@@ -21,7 +21,8 @@
     "postcss": "^8.4.31",
     "ws": "^8.17.1",
     "axios": "^1.8.2",
-    "cookie": "^0.7.0"
+    "cookie": "^0.7.0",
+    "path-to-regexp": "^0.1.12"
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
