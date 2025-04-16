@@ -58,7 +58,7 @@
     "better-lookup": "^1.3.0",
     "buffer": "^6.0.3",
     "dotenv": "^16.0.0",
-    "ethers": "^6.7.0",
+    "ethers": "^5.8.0",
     "find-config": "^1.0.0",
     "json-bigint": "^1.0.0",
     "keccak": "^3.0.2",

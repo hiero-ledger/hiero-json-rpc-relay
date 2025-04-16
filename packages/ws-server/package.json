@@ -33,7 +33,7 @@
     "axios": "^1.4.0",
     "axios-retry": "^3.5.1",
     "chai": "^4.3.6",
-    "ethers": "^6.7.0",
+    "ethers": "^5.8.0",
     "mocha": "^10.1.0",
     "shelljs": "^0.8.5",
     "ts-mocha": "^9.0.2",
