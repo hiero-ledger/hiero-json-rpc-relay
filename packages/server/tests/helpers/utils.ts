@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
-import crypto from 'crypto';
 import { ethers } from 'ethers';
+import Assertions from './assertions';
+import crypto from 'crypto';
+import RelayClient from '../clients/relayClient';
+import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import RelayCall from '../../tests/helpers/constants';
+import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
+import { AliasAccount } from '../types/AliasAccount';
+import ServicesClient from '../clients/servicesClient';
 import http from 'http';
-import { Context } from 'mocha';
 import { GCProfiler, setFlagsFromString, writeHeapSnapshot } from 'v8';
 import { runInNewContext } from 'vm';
-
-import RelayCall from '../../tests/helpers/constants';
+import { Context } from 'mocha';
 import { GitHubClient } from '../clients/githubClient';
 import MirrorClient from '../clients/mirrorClient';
-import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
-import { AliasAccount } from '../types/AliasAccount';
 import { HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
-import Assertions from './assertions';
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 
 export class Utils {
   static readonly HEAP_SIZE_DIFF_MEMORY_LEAK_THRESHOLD: number = 4e6; // 4 MB
@@ -101,7 +100,7 @@ export class Utils {
     relay: RelayClient,
   ) => {
     const factory = new ethers.ContractFactory(contractJson.abi, contractJson.bytecode, wallet);
-    const contract = await factory.deploy(...constructorArgs);
+    let contract = await factory.deploy(...constructorArgs);
     await contract.waitForDeployment();
 
     // re-init the contract with the deployed address
