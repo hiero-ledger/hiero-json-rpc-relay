@@ -683,11 +683,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_SYNCING, [], requestId);
       expect(res).to.be.equal(false);
     });
-
-    it('should execute "eth_maxPriorityFeePerGas"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_MAX_PRIORITY_FEE_PER_GAS, [], requestId);
-      expect(res).to.be.equal('0x0');
-    });
   });
 
   describe('@release Unsupported RPC Endpoints', () => {
@@ -723,6 +718,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       for (const method of RelayCalls.ETH_ENDPOINTS.ENGINE) {
         await relay.callUnsupported(method, [], requestId);
       }
+    });
+
+    it('should not support "eth_maxPriorityFeePerGas"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_MAX_PRIORITY_FEE_PER_GAS, [], requestId);
     });
   });
 
