@@ -109,11 +109,10 @@ export class CacheService {
 
   private static instances: CacheService[] = [];
 
-  public static getInstance(type: CACHE_LEVEL): CacheService {
+  public static getInstance(type: CACHE_LEVEL, registry: Registry = new Registry(), reservedKeys: Set<string> = new Set()): CacheService {
     if (!this.instances[type]) {
       const logger = pino({ level: 'silent' });
-      const registry = new Registry();
-      this.instances[type] = new CacheService(logger.child({ name: type }), registry);
+      this.instances[type] = new CacheService(logger.child({ name: type }), registry, reservedKeys);
     }
 
     return this.instances[type];

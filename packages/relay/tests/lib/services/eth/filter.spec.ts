@@ -11,7 +11,7 @@ import { predefined } from '../../../../src';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { CommonService, FilterService } from '../../../../src/lib/services';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import RelayAssertions from '../../../assertions';
 import {
@@ -63,7 +63,7 @@ describe('Filter API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),

@@ -114,17 +114,6 @@ export class AccountService implements IAccountService {
       ));
     }
 
-    // check cache first
-    // create a key for the cache
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BALANCE}-${account}-${blockNumberOrTagOrHash}`;
-    let cachedBalance = await this.cacheService.getAsync(cacheKey, CommonService.ethGetBalance, requestDetails);
-    if (cachedBalance && AccountService.shouldUseCacheForBalance(blockNumberOrTagOrHash)) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(cachedBalance)}`);
-      }
-      return cachedBalance;
-    }
-
     let blockNumber = null;
     let balanceFound = false;
     let weibars = BigInt(0);
@@ -169,20 +158,7 @@ export class AccountService implements IAccountService {
         return CommonService.zeroHex;
       }
 
-      // save in cache the current balance for the account and blockNumberOrTag
-      cachedBalance = numberTo0x(weibars);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} Value cached balance ${cachedBalance}`);
-      }
-      await this.cacheService.set(
-        cacheKey,
-        cachedBalance,
-        CommonService.ethGetBalance,
-        requestDetails,
-        this.ethGetBalanceCacheTtlMs,
-      );
-
-      return cachedBalance;
+      return numberTo0x(weibars);
     } catch (error: any) {
       throw this.common.genericErrorHandler(
         error,
@@ -331,16 +307,7 @@ export class AccountService implements IAccountService {
       this.logger.trace(`${requestIdPrefix} getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
     }
 
-    // cache considerations for high load
-    const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
-    let nonceCount = await this.cacheService.getAsync(cacheKey, CommonService.ethGetTransactionCount, requestDetails);
-    if (nonceCount) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
-      }
-      return nonceCount;
-    }
-
+    let nonceCount;
     const blockNum = Number(blockNumOrTag);
     if (blockNumOrTag) {
       if (blockNum === 0 || blockNum === 1) {
@@ -366,12 +333,6 @@ export class AccountService implements IAccountService {
       // if no block consideration, get latest ethereumNonce from mirror node if account or from consensus node is contract until HIP 729 is implemented
       nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
     }
-
-    const cacheTtl =
-      blockNumOrTag === CommonService.blockEarliest || !isNaN(blockNum)
-        ? constants.CACHE_TTL.ONE_DAY
-        : this.ethGetTransactionCountCacheTtl; // cache historical values longer as they don't change
-    await this.cacheService.set(cacheKey, nonceCount, CommonService.ethGetTransactionCount, requestDetails, cacheTtl);
 
     return nonceCount;
   }

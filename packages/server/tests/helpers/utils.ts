@@ -179,6 +179,10 @@ export class Utils {
     return num.startsWith('0x') ? num : '0x' + num;
   };
 
+  static randomEvmAddress = () => {
+    return (ethers.Wallet.createRandom()).address;
+  }
+
   static gasOptions = async (requestId: string, gasLimit = 1_500_000) => {
     const relay: RelayClient = global.relay;
     return {

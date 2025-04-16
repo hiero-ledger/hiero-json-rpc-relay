@@ -582,25 +582,11 @@ export class CommonService implements ICommonService {
       this.logger.trace(`${requestDetails.formattedRequestId} eth_gasPrice`);
     }
     try {
-      let gasPrice: number | undefined = await this.cacheService.getAsync(
-        constants.CACHE_KEY.GAS_PRICE,
-        EthImpl.ethGasPrice,
-        requestDetails,
+      return numberTo0x(
+        Utils.addPercentageBufferToGasPrice(
+          await this.getFeeWeibars(EthImpl.ethGasPrice, requestDetails)
+        )
       );
-
-      if (!gasPrice) {
-        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getFeeWeibars(EthImpl.ethGasPrice, requestDetails));
-
-        await this.cacheService.set(
-          constants.CACHE_KEY.GAS_PRICE,
-          gasPrice,
-          EthImpl.ethGasPrice,
-          requestDetails,
-          this.ethGasPriceCacheTtlMs,
-        );
-      }
-
-      return numberTo0x(gasPrice);
     } catch (error) {
       throw this.genericErrorHandler(error, `${requestDetails.formattedRequestId} Failed to retrieve gasPrice`);
     }

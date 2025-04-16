@@ -9,6 +9,7 @@ import sinon from 'sinon';
 
 import { Relay } from '../../src';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
+import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 
 chai.use(chaiAsPromised);
 
@@ -67,6 +68,8 @@ describe('Relay', () => {
     let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
 
     beforeEach(() => {
+      // @ts-ignore
+      CacheService.instances = [];
       loggerSpy = sinon.spy(logger);
       populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     });
@@ -77,6 +80,10 @@ describe('Relay', () => {
 
     describe('when a configuration file is provided', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: 'spendingPlansConfig.example.json' });
+
+      before(async () => {
+
+      });
 
       it('should populate preconfigured spending plans successfully', async () => {
         expect((relay = new Relay(logger, register))).to.not.throw;

@@ -17,14 +17,13 @@ import sinon from 'sinon';
 import openRpcSchema from '../../../../docs/openrpc.json';
 import { Relay } from '../../src';
 import { numberTo0x } from '../../src/formatters';
-import { SDKClient } from '../../src/lib/clients';
-import { MirrorNodeClient } from '../../src/lib/clients';
+import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -101,7 +100,7 @@ describe('Open RPC Specification', function () {
 
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),

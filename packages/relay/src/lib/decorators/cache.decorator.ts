@@ -31,8 +31,8 @@ const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
   return false;
 };
 
-const generateCacheKey = (methodName, args) => {
-  let cacheKey = methodName;
+const generateCacheKey = (methodName: string, args: any) => {
+  let cacheKey: string = methodName;
   for (const [, value] of Object.entries(args)) {
     if (value?.constructor?.name != 'RequestDetails') {
       if (value && typeof value === 'object') {
@@ -47,6 +47,20 @@ const generateCacheKey = (methodName, args) => {
   }
 
   return cacheKey;
+};
+
+const extractRequestDetails = (args: any): RequestDetails => {
+  let requestId, ipAddress, connectionId: string = '';
+  for (const [, value] of Object.entries(args)) {
+    if (value?.constructor?.name == 'RequestDetails') {
+      requestId = value['requestId'];
+      ipAddress = value['ipAddress'];
+      connectionId = value['connectionId'];
+      break;
+    }
+  }
+
+  return new RequestDetails({ requestId, ipAddress, connectionId });
 };
 
 interface CacheSingleParam {
@@ -75,7 +89,7 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
     const method = descriptor.value;
 
     descriptor.value = async function() {
-      const requestDetails = new RequestDetails({ requestId: 'request-id-1', ipAddress: '0.0.0.0' });
+      const requestDetails = extractRequestDetails(arguments);
       const cacheKey = generateCacheKey(method.name, arguments);
 
       const cachedResponse = await cacheService.getAsync(cacheKey, method, requestDetails);
@@ -84,7 +98,11 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
       }
 
       const result = await method.apply(this, arguments);
-      if (result && !shouldSkipCachingForSingleParams(arguments, options?.skipParams) && !shouldSkipCachingForNamedParams(arguments, options?.skipNamedParams)) {
+      if (
+        result &&
+        !shouldSkipCachingForSingleParams(arguments, options?.skipParams) &&
+        !shouldSkipCachingForNamedParams(arguments, options?.skipNamedParams)
+      ) {
         await cacheService.set(
           cacheKey,
           result,

@@ -275,6 +275,7 @@ export class EthImpl implements Eth {
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '2', value: 'latest' }],
     ttl: constants.CACHE_TTL.FIFTEEN_MINUTES
   })
   async feeHistory(

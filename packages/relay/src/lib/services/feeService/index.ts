@@ -117,15 +117,6 @@ export class FeeService implements IFeeService {
         const gasPriceFee = await this.common.gasPrice(requestDetails);
         feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       } else {
-        // once we finish testing and refining Fixed Fee method, we can remove this else block to clean up code
-        const cacheKey = `${constants.CACHE_KEY.FEE_HISTORY}_${blockCount}_${newestBlock}_${rewardPercentiles?.join(
-          '',
-        )}`;
-        const cachedFeeHistory = await this.cacheService.getAsync(cacheKey, EthImpl.ethFeeHistory, requestDetails);
-
-        if (cachedFeeHistory) {
-          feeHistory = cachedFeeHistory;
-        } else {
           feeHistory = await this.getFeeHistory(
             blockCount,
             newestBlockNumber,
@@ -133,16 +124,6 @@ export class FeeService implements IFeeService {
             rewardPercentiles,
             requestDetails,
           );
-        }
-        if (newestBlock != EthImpl.blockLatest && newestBlock != EthImpl.blockPending) {
-          await this.cacheService.set(
-            cacheKey,
-            feeHistory,
-            EthImpl.ethFeeHistory,
-            requestDetails,
-            parseInt(constants.ETH_FEE_HISTORY_TTL),
-          );
-        }
       }
 
       return feeHistory;
