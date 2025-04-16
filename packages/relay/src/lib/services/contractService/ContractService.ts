@@ -692,7 +692,7 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Processes and caches contract bytecode if it doesn't contain prohibited opcodes.
+   * Processes and caches contract bytecode
    *
    * @param {IContractResult} result - The contract result containing bytecode
    * @param {string} cachedLabel - The cache key to store the bytecode
@@ -703,18 +703,19 @@ export class ContractService implements IContractService {
   private async handleContractBytecode(
     result: IContractResult,
     cachedLabel: string,
+    blockNumber: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | null> {
     if (result?.entity.runtime_bytecode !== CommonService.emptyHex) {
-      if (!this.hasProhibitedOpcodes(result.entity.runtime_bytecode)) {
+      if (blockNumber !== 'latest') {
         await this.cacheService.set(
           cachedLabel,
           result.entity.runtime_bytecode,
           CommonService.ethGetCode,
           requestDetails,
         );
-        return result.entity.runtime_bytecode;
       }
+      return result.entity.runtime_bytecode;
     }
     return null;
   }
@@ -910,19 +911,6 @@ export class ContractService implements IContractService {
       this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
     }
     return `${ContractService.redirectBytecodePrefix}${address.slice(2)}${ContractService.redirectBytecodePostfix}`;
-  }
-
-  /**
-   * Checks if the provided bytecode contains any prohibited EVM opcodes.
-   *
-   * @param {string} bytecode - The bytecode to check
-   * @returns {boolean} True if prohibited opcodes are found, false otherwise
-   * @private
-   */
-  private hasProhibitedOpcodes(bytecode: string): boolean {
-    const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-    const opcodes = disassemble(bytecode);
-    return opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
   }
 
   /**
@@ -1134,7 +1122,7 @@ export class ContractService implements IContractService {
     }
 
     if (result.type === constants.TYPE_CONTRACT) {
-      return await this.handleContractBytecode(result, cachedLabel, requestDetails);
+      return await this.handleContractBytecode(result, cachedLabel, blockNumber, requestDetails);
     }
 
     return null;
