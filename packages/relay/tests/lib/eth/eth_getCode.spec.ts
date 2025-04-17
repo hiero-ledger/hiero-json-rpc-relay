@@ -279,5 +279,19 @@ describe('@ethGetCode using MirrorNode', async function () {
       const res = await ethImpl.getCode(addr, null, requestDetails);
       expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(addr));
     });
+
+    it('should not cache bytecode when using latest block parameter', async () => {
+      // Record initial number of GET requests
+      const initialGetCount = restMock.history.get.length;
+      // First call with 'latest' should make network calls
+      await ethImpl.getCode(CONTRACT_ADDRESS_1, 'latest', requestDetails);
+      const afterFirstGetCount = restMock.history.get.length;
+      expect(afterFirstGetCount).to.be.greaterThan(initialGetCount);
+
+      // Second call with 'latest' should also make network calls (no caching)
+      await ethImpl.getCode(CONTRACT_ADDRESS_1, 'latest', requestDetails);
+      const afterSecondGetCount = restMock.history.get.length;
+      expect(afterSecondGetCount).to.be.greaterThan(afterFirstGetCount);
+    });
   });
 });
