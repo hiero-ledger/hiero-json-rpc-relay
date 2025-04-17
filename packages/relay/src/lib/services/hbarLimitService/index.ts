@@ -210,49 +210,56 @@ export class HbarLimitService implements IHbarLimitService {
       return false;
     }
 
-    const ipAddress = requestDetails.ipAddress;
     if (await this.isTotalBudgetExceeded(mode, methodName, txConstructorName, estimatedTxFee, requestDetails)) {
       return true;
     }
 
-    if (!evmAddress && !ipAddress) {
-      this.logger.warn(
-        `${requestDetails.formattedRequestId} No evm address or ip address provided, cannot check if address should be limited.`,
+    // *Note: Only check if the spending plan should be limited when the execution mode is TRANSACTION
+    if (mode === constants.EXECUTION_MODE.TRANSACTION) {
+      const ipAddress = requestDetails.ipAddress;
+      if (!evmAddress && !ipAddress) {
+        this.logger.warn(
+          `${requestDetails.formattedRequestId} No evm address or ip address provided, cannot check if address should be limited.`,
+        );
+        return false;
+      }
+      const signer = `signerAddress=${evmAddress}`;
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestDetails.formattedRequestId} Checking if signer account should be limited: ${signer}`,
+        );
+      }
+      let spendingPlan = await this.getSpendingPlan(evmAddress, requestDetails);
+      if (!spendingPlan) {
+        // Create a basic spending plan if none exists for the evm address
+        spendingPlan = await this.createSpendingPlanForAddress(evmAddress, requestDetails);
+      }
+
+      const spendingLimit = HbarLimitService.TIER_LIMITS[spendingPlan.subscriptionTier];
+
+      // note: estimatedTxFee is only applicable in a few cases (currently, only for file transactions).
+      //      In most situations, estimatedTxFee is set to 0 (i.e., not considered).
+      //      In such cases, it should still be true if spendingPlan.amountSpent === spendingLimit.
+      const exceedsLimit =
+        spendingLimit.toTinybars().lte(spendingPlan.amountSpent) ||
+        spendingLimit.toTinybars().lt(spendingPlan.amountSpent + estimatedTxFee);
+
+      this.logger.info(
+        `${requestDetails.formattedRequestId} Signer account ${
+          exceedsLimit ? 'has' : 'has NOT'
+        } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${Hbar.fromTinybars(
+          spendingPlan.amountSpent,
+        )}, estimatedTxFee=${Hbar.fromTinybars(estimatedTxFee)}, spendingLimit=${spendingLimit}, spandingPlanId=${
+          spendingPlan.id
+        }, subscriptionTier=${
+          spendingPlan.subscriptionTier
+        }, txConstructorName=${txConstructorName}, mode=${mode}, methodName=${methodName}`,
       );
+
+      return exceedsLimit;
+    } else {
       return false;
     }
-    const signer = `signerAddress=${evmAddress}`;
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`${requestDetails.formattedRequestId} Checking if signer account should be limited: ${signer}`);
-    }
-    let spendingPlan = await this.getSpendingPlan(evmAddress, requestDetails);
-    if (!spendingPlan) {
-      // Create a basic spending plan if none exists for the evm address
-      spendingPlan = await this.createSpendingPlanForAddress(evmAddress, requestDetails);
-    }
-
-    const spendingLimit = HbarLimitService.TIER_LIMITS[spendingPlan.subscriptionTier];
-
-    // note: estimatedTxFee is only applicable in a few cases (currently, only for file transactions).
-    //      In most situations, estimatedTxFee is set to 0 (i.e., not considered).
-    //      In such cases, it should still be true if spendingPlan.amountSpent === spendingLimit.
-    const exceedsLimit =
-      spendingLimit.toTinybars().lte(spendingPlan.amountSpent) ||
-      spendingLimit.toTinybars().lt(spendingPlan.amountSpent + estimatedTxFee);
-
-    this.logger.info(
-      `${requestDetails.formattedRequestId} Signer account ${
-        exceedsLimit ? 'has' : 'has NOT'
-      } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${Hbar.fromTinybars(
-        spendingPlan.amountSpent,
-      )}, estimatedTxFee=${Hbar.fromTinybars(estimatedTxFee)}, spendingLimit=${spendingLimit}, spandingPlanId=${
-        spendingPlan.id
-      }, subscriptionTier=${
-        spendingPlan.subscriptionTier
-      }, txConstructorName=${txConstructorName}, mode=${mode}, methodName=${methodName}`,
-    );
-
-    return exceedsLimit;
   }
 
   /**

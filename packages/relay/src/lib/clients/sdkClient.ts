@@ -481,7 +481,7 @@ export class SDKClient {
       contractCallQuery.setPaymentTransactionId(TransactionId.generate(this.clientMain.operatorAccountId));
     }
 
-    return this.executeQuery(contractCallQuery, this.clientMain, callerName, to, requestDetails, from);
+    return this.executeQuery(contractCallQuery, this.clientMain, callerName, to, requestDetails);
   }
 
   /**
@@ -580,6 +580,8 @@ export class SDKClient {
    * @param {string} callerName - The name of the caller executing the query.
    * @param {string} interactingEntity - The entity interacting with the query.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @param {boolean} [isAtomicQuery=false] - Flag indicating if this is an atomic query that is part of a larger operation.
+   *                                         When true, HBAR rate limiting is not applied to this query.
    * @param {string} [originalCallerAddress] - The optional address of the original caller making the request.
    * @returns {Promise<T>} A promise resolving to the query response.
    * @throws {Error} Throws an error if the query fails or if rate limits are exceeded.
@@ -591,6 +593,7 @@ export class SDKClient {
     callerName: string,
     interactingEntity: string,
     requestDetails: RequestDetails,
+    isAtomicQuery: boolean = false,
     originalCallerAddress?: string,
   ): Promise<T> {
     const queryConstructorName = query.constructor.name;
@@ -599,12 +602,37 @@ export class SDKClient {
     let queryCost: number | undefined = undefined;
     let status: string = '';
 
+    const baseCostInTinybar = (await query.getCost(this.clientMain))?.toTinybars().toNumber();
+
+    // Apply HBAR rate limit if base cost > 0 and query is not atomic.
+    // Free queries (base cost = 0) and atomic queries (e.g., FileInfoQuery in createFile(), deleteFile()) are exempt from rate limiting.
+    if (baseCostInTinybar > 0 && !isAtomicQuery) {
+      const shouldLimit = await this.hbarLimitService.shouldLimit(
+        constants.EXECUTION_MODE.QUERY,
+        callerName,
+        queryConstructorName,
+        '',
+        requestDetails,
+        baseCostInTinybar,
+      );
+
+      if (shouldLimit) {
+        throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
+      }
+    }
+
     this.logger.info(`${requestIdPrefix} Execute ${queryConstructorName} query.`);
 
     try {
       if (query.paymentTransactionId) {
-        const baseCost = await query.getCost(this.clientMain);
-        const res = await this.increaseCostAndRetryExecution(query, baseCost, client, 3, 0, requestDetails);
+        const res = await this.increaseCostAndRetryExecution(
+          query,
+          Hbar.fromTinybars(baseCostInTinybar),
+          client,
+          3,
+          0,
+          requestDetails,
+        );
         queryResponse = res.resp;
         queryCost = res.cost.toTinybars().toNumber();
       } else {
@@ -909,6 +937,7 @@ export class SDKClient {
         callerName,
         interactingEntity,
         requestDetails,
+        true,
         originalCallerAddress,
       );
 
@@ -965,6 +994,7 @@ export class SDKClient {
         callerName,
         interactingEntity,
         requestDetails,
+        true,
         originalCallerAddress,
       );
 
