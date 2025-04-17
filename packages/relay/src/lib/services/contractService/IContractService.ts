@@ -38,4 +38,13 @@ export interface IContractService {
     blockNumberOrTagOrHash: string | null,
     requestDetails: RequestDetails,
   ) => Promise<string>;
+
+  /**
+   * Estimates the amount of gas required to execute a contract call.
+   */
+  estimateGas: (
+    transaction: IContractCallRequest,
+    blockParam: string | null,
+    requestDetails: RequestDetails,
+  ) => Promise<string | JsonRpcError>;
 }

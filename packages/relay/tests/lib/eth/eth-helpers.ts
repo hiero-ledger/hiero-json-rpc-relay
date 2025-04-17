@@ -75,8 +75,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     mirrorNodeInstance,
   );
 
-  // @ts-ignore
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
 
   return {
     cacheService,
