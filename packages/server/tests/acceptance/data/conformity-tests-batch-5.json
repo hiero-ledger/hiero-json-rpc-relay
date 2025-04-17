@@ -28,8 +28,9 @@
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_maxPriorityFeePerGas": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_maxPriorityFeePerGas\"}",
-    "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
+    "status": 400,
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_maxPriorityFeePerGas\"}",
+    "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601}}"
   },
   "eth_mining": {
     "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_mining\",\"params\":[]}",

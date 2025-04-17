@@ -494,6 +494,12 @@ describe('Open RPC Specification', function () {
     validateResponseSchema(methodsResponseSchema.eth_hashrate, response);
   });
 
+  it('should execute "eth_maxPriorityFeePerGas"', function () {
+    const response = ethImpl.maxPriorityFeePerGas(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_maxPriorityFeePerGas, response);
+  });
+
   it('should execute "eth_mining"', async function () {
     const response = await ethImpl.mining(requestDetails);
 
