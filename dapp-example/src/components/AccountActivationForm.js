@@ -11,7 +11,7 @@ const AccountActivationForm = ({ isConnected, toAccountId, alias, isActive, evmA
 
   const transferHbarHandler = useCallback(async () => {
     try {
-      if (!toAccountId || !mainAccountId || !mainPrivateKey || !amount) return;
+      if (!toAccountId || !mainAccountId || !mainPrivateKey || amount <= 0) return;
 
       await transferHbarsToAccount(mainAccountId, mainPrivateKey, Number(amount), toAccountId);
 
