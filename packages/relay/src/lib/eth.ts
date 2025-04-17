@@ -1537,19 +1537,15 @@ export class EthImpl implements Eth {
           return EthImpl.redirectBytecodeAddressReplace(address);
         } else if (result?.type === constants.TYPE_CONTRACT) {
           if (result?.entity.runtime_bytecode !== EthImpl.emptyHex) {
-            const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = disassemble(result?.entity.runtime_bytecode);
-            const hasProhibitedOpcode =
-              opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
-            if (!hasProhibitedOpcode) {
+            if (blockNumber !== 'latest') {
               await this.cacheService.set(
                 cachedLabel,
                 result?.entity.runtime_bytecode,
                 EthImpl.ethGetCode,
                 requestDetails,
               );
-              return result?.entity.runtime_bytecode;
             }
+            return result?.entity.runtime_bytecode;
           }
         }
       }
