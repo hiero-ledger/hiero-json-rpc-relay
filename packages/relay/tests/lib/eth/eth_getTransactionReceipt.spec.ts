@@ -19,6 +19,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   this.timeout(10000);
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
+  const emptyBloom = constants.EMPTY_BLOOM;
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionReceiptTest', ipAddress: '0.0.0.0' });
 
@@ -237,7 +238,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   it('handles empty bloom', async function () {
     const receiptWith0xBloom = {
       ...defaultDetailedContractResultByHash,
-      bloom: '0x',
+      bloom: emptyBloom,
     };
 
     restMock.onGet(`contracts/results/${defaultTxHash}`).reply(200, JSON.stringify(receiptWith0xBloom));
@@ -248,7 +249,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt).to.exist;
     if (receipt == null) return;
 
-    expect(receipt.logsBloom).to.eq(EthImpl.emptyBloom);
+    expect(receipt.logsBloom).to.eq(emptyBloom);
   });
 
   it('Adds a revertReason field for receipts with errorMessage', async function () {
