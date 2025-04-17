@@ -3240,7 +3240,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  maxPriorityFeePerGas(requestDetails: RequestDetails): JsonRpcError {
+  public maxPriorityFeePerGas(requestDetails: RequestDetails): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
