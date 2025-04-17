@@ -29,6 +29,7 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
+import { predefined } from '../../src';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -2303,7 +2304,8 @@ describe('SdkClient', async function () {
 
     it('should execute submitEthereumTransaction add expenses to limiter for large transaction data', async () => {
       const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(transactionBuffer.length / FILE_APPEND_CHUNK_SIZE));
-      const queryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+      const fileInfoQuery = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       const transactionStub = sinon
         .stub(EthereumTransaction.prototype, 'execute')
@@ -2353,15 +2355,17 @@ describe('SdkClient', async function () {
         mockedExchangeRateIncents,
       );
 
-      expect(queryStub.called).to.be.true;
+      expect(fileInfoQuery.called).to.be.true;
       expect(transactionStub.called).to.be.true;
       expect(createFileStub.called).to.be.true;
       expect(appendFileStub.called).to.be.true;
+      queryCostStub.restore();
     });
 
     it('should execute FileCreateTransaction with callData.length > fileAppendChunkSize and add expenses to limiter', async () => {
       const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
       const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
       const createFileStub = sinon
@@ -2405,12 +2409,14 @@ describe('SdkClient', async function () {
       expect(createFileStub.called).to.be.true;
       expect(appendFileStub.called).to.be.true;
       expect(transactionRecordStub.called).to.be.true;
+      queryCostStub.restore();
     });
 
     it('should execute executeAllTransaction and add expenses to limiter', async () => {
       const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
       const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
       const estimatedFileAppendTxFee = mockedTransactionRecordFee * fileAppendChunks;
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       const appendFileStub = sinon
         .stub(FileAppendTransaction.prototype, 'executeAll')
@@ -2440,6 +2446,7 @@ describe('SdkClient', async function () {
 
       expect(appendFileStub.called).to.be.true;
       expect(transactionRecordStub.called).to.be.true;
+      queryCostStub.restore();
     });
 
     it('should rate limit before executing executeAllTransaction', async () => {
@@ -2475,6 +2482,7 @@ describe('SdkClient', async function () {
 
     it('should execute FileCreateTransaction with callData.length <= fileAppendChunkSize and add expenses to limiter', async () => {
       const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE);
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       const createFileStub = sinon
         .stub(FileCreateTransaction.prototype, 'execute')
@@ -2513,6 +2521,7 @@ describe('SdkClient', async function () {
       expect(createFileStub.called).to.be.true;
       expect(fileInfoQueryStub.called).to.be.true;
       expect(transactionRecordStub.called).to.be.true;
+      queryCostStub.restore();
     });
 
     it('should execute FileDeleteTransaction and add expenses to limiter', async () => {
@@ -2523,6 +2532,7 @@ describe('SdkClient', async function () {
       const transactionRecordStub = sinon
         .stub(TransactionRecordQuery.prototype, 'execute')
         .resolves(getMockedTransactionRecord(FileDeleteTransaction.name));
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       hbarLimitServiceMock.expects('addExpense').withArgs(fileDeleteFee).once();
       hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
@@ -2539,11 +2549,12 @@ describe('SdkClient', async function () {
       expect(deleteFileStub.called).to.be.true;
       expect(fileInfoQueryStub.called).to.be.true;
       expect(transactionRecordStub.called).to.be.true;
+      queryCostStub.restore();
     });
 
     it('should execute FileInfoQuery (without paymentTransactionId) and add expenses to limiter', async () => {
       const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
-      const queryCostStub = sinon.stub(Query.prototype, 'getCost');
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
 
       hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
 
@@ -2557,7 +2568,7 @@ describe('SdkClient', async function () {
 
       expect(result).to.equal(fileInfo);
       expect(queryStub.called).to.be.true;
-      expect(queryCostStub.called).to.be.false;
+      queryCostStub.restore();
     });
 
     it('should execute FileInfoQuery (with paymentTransactionId) and add expenses to limiter', async () => {
@@ -2577,6 +2588,125 @@ describe('SdkClient', async function () {
       expect(result).to.equal(fileInfo);
       expect(queryStub.called).to.be.true;
       expect(queryCostStub.called).to.be.true;
+    });
+
+    it('should execute FileInfoQuery with isAtomicQuery=true and skip rate limiting', async () => {
+      const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
+
+      // shouldLimit should not be called when isAtomicQuery is true
+      hbarLimitServiceMock.expects('shouldLimit').never();
+
+      // But expenses should still be added
+      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
+
+      const result = await sdkClient.executeQuery(
+        new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
+        client,
+        mockedCallerName,
+        mockedInteractingEntity,
+        requestDetails,
+        true, // isAtomicQuery = true
+      );
+
+      expect(result).to.equal(fileInfo);
+      expect(queryStub.called).to.be.true;
+      queryCostStub.restore();
+    });
+
+    it('should execute query with baseCostInTinybar=0 and skip rate limiting', async () => {
+      const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(0)); // Zero cost
+
+      // shouldLimit should not be called when baseCostInTinybar is 0
+      hbarLimitServiceMock.expects('shouldLimit').never();
+
+      // No expense should be added since cost is 0
+      hbarLimitServiceMock.expects('addExpense').never();
+
+      const result = await sdkClient.executeQuery(
+        new FileInfoQuery().setFileId(fileId),
+        client,
+        mockedCallerName,
+        mockedInteractingEntity,
+        requestDetails,
+        false, // isAtomicQuery = false
+      );
+
+      expect(result).to.equal(fileInfo);
+      expect(queryStub.called).to.be.true;
+      queryCostStub.restore();
+    });
+
+    it('should check rate limit when baseCostInTinybar > 0 and isAtomicQuery=false', async () => {
+      const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
+
+      // shouldLimit should be called with the correct parameters
+      hbarLimitServiceMock
+        .expects('shouldLimit')
+        .withArgs(
+          constants.EXECUTION_MODE.QUERY,
+          mockedCallerName,
+          'FileInfoQuery',
+          '',
+          sinon.match.any,
+          defaultTransactionFee,
+        )
+        .once()
+        .returns(false);
+
+      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
+
+      const result = await sdkClient.executeQuery(
+        new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
+        client,
+        mockedCallerName,
+        mockedInteractingEntity,
+        requestDetails,
+        false, // isAtomicQuery = false
+      );
+
+      expect(result).to.equal(fileInfo);
+      expect(queryStub.called).to.be.true;
+      queryCostStub.restore();
+    });
+
+    it('should throw HBAR_RATE_LIMIT_EXCEEDED when shouldLimit returns true', async () => {
+      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
+
+      // shouldLimit returns true to simulate rate limiting
+      hbarLimitServiceMock
+        .expects('shouldLimit')
+        .withArgs(
+          constants.EXECUTION_MODE.QUERY,
+          mockedCallerName,
+          'FileInfoQuery',
+          '',
+          sinon.match.any,
+          defaultTransactionFee,
+        )
+        .once()
+        .returns(true);
+
+      // No expense should be added since we're rate limited
+      hbarLimitServiceMock.expects('addExpense').never();
+
+      try {
+        await sdkClient.executeQuery(
+          new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
+          client,
+          mockedCallerName,
+          mockedInteractingEntity,
+          requestDetails,
+          false, // isAtomicQuery = false
+        );
+        expect.fail('Should have thrown HBAR_RATE_LIMIT_EXCEEDED');
+      } catch (error) {
+        expect(error).to.equal(predefined.HBAR_RATE_LIMIT_EXCEEDED);
+      }
+
+      queryCostStub.restore();
     });
 
     it('should execute EthereumTransaction and add expenses to limiter', async () => {

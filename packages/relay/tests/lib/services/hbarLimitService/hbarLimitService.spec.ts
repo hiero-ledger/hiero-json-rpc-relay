@@ -35,7 +35,8 @@ describe('HBAR Rate Limit Service', function () {
   const register = new Registry();
   const totalBudgetInTinybars = constants.HBAR_RATE_LIMIT_TOTAL.toNumber();
   const limitDuration = constants.HBAR_RATE_LIMIT_DURATION;
-  const mode = constants.EXECUTION_MODE.TRANSACTION;
+  const transactionMode = constants.EXECUTION_MODE.TRANSACTION;
+  const queryMode = constants.EXECUTION_MODE.QUERY;
   const methodName = 'testMethod';
   const txConstructorName = 'testConstructorName';
   const mockEvmAddress = '0x123';
@@ -176,241 +177,519 @@ describe('HBAR Rate Limit Service', function () {
     ];
 
     operatorEnvs.forEach((operatorEnv) => {
-      const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress());
-
       withOverriddenEnvsInMochaTest(operatorEnv, () => {
-        describe('based on evmAddress', async function () {
-          it('should return true if the total budget is exceeded', async function () {
-            const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              operatorPlan.id,
-              totalBudgetInTinybars,
-              requestDetails,
-              limitDuration,
-            );
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
-            expect(result).to.be.true;
+        const operatorAddress = prepend0x(AccountId.fromString(operatorEnv.OPERATOR_ID_MAIN).toSolidityAddress());
+        describe('mode === constants.EXECUTION_MODE.TRANSACTION', async function () {
+          describe('based on evmAddress', async function () {
+            it('should return true if the total budget is exceeded', async function () {
+              const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                operatorPlan.id,
+                totalBudgetInTinybars,
+                requestDetails,
+                limitDuration,
+              );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+              expect(result).to.be.true;
+            });
+
+            it('should return true when remainingBudget < estimatedTxFee ', async function () {
+              const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                operatorPlan.id,
+                totalBudgetInTinybars - mockEstimatedTxFee + 1,
+                requestDetails,
+                limitDuration,
+              );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+                mockEstimatedTxFee,
+              );
+              expect(result).to.be.true;
+            });
+
+            it('should create a basic spending plan if none exists for the evmAddress', async function () {
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.false;
+              expect(hbarSpendingPlanRepositorySpy.create.getCalls().length).to.eq(2); // one for operator and one for evm address
+              expect(evmAddressHbarSpendingPlanRepositorySpy.save.getCalls().length).to.eq(2); // same here
+              expect(hbarSpendingPlanRepositorySpy.create.getCalls()[0].calledWith(SubscriptionTier.OPERATOR)).to.be
+                .true;
+              expect(
+                evmAddressHbarSpendingPlanRepositorySpy.save
+                  .getCalls()[0]
+                  .calledWith({ evmAddress: operatorAddress, planId: sinon.match.string }),
+              ).to.be.true;
+              expect(hbarSpendingPlanRepositorySpy.create.getCalls()[1].calledWith(SubscriptionTier.BASIC)).to.be.true;
+              expect(
+                evmAddressHbarSpendingPlanRepositorySpy.save
+                  .getCalls()[1]
+                  .calledWith({ evmAddress: mockEvmAddress, planId: sinon.match.string }),
+              ).to.be.true;
+            });
+
+            it('should return false if evmAddress and ipAddress is empty string', async function () {
+              const requestDetails = new RequestDetails({ requestId: 'hbarLimterTest', ipAddress: '' });
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
+              expect(result).to.be.false;
+            });
+
+            it('should return true if amountSpent is exactly at the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.true;
+            });
+
+            it('should return false if amountSpent is just below the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() - 1,
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.false;
+            });
+
+            it('should return true if amountSpent is just above the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() + 1,
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.true;
+            });
+
+            it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
+                  .toTinybars()
+                  .sub(mockEstimatedTxFee)
+                  .add(1)
+                  .toNumber(),
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+                mockEstimatedTxFee,
+              );
+
+              expect(result).to.be.true;
+            });
+
+            it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
+                  .toTinybars()
+                  .sub(mockEstimatedTxFee)
+                  .sub(1)
+                  .toNumber(),
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.false;
+            });
+
+            it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
+              await evmAddressHbarSpendingPlanRepository.save(
+                { evmAddress: mockEvmAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
+                requestDetails,
+                limitDuration,
+              );
+
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                mockEvmAddress,
+                requestDetails,
+              );
+
+              expect(result).to.be.false;
+            });
           });
 
-          it('should return true when remainingBudget < estimatedTxFee ', async function () {
-            const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              operatorPlan.id,
-              totalBudgetInTinybars - mockEstimatedTxFee + 1,
-              requestDetails,
-              limitDuration,
-            );
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-              mockEstimatedTxFee,
-            );
-            expect(result).to.be.true;
-          });
+          describe('based on ipAddress', async function () {
+            it('should return true if the total budget is exceeded', async function () {
+              const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                operatorPlan.id,
+                totalBudgetInTinybars,
+                requestDetails,
+                limitDuration,
+              );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
+              expect(result).to.be.true;
+            });
 
-          it('should create a basic spending plan if none exists for the evmAddress', async function () {
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
+            it('should return true when remainingBudget < estimatedTxFee ', async function () {
+              const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                operatorPlan.id,
+                totalBudgetInTinybars - mockEstimatedTxFee + 1,
+                requestDetails,
+                limitDuration,
+              );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+                mockEstimatedTxFee,
+              );
+              expect(result).to.be.true;
+            });
 
-            expect(result).to.be.false;
-            expect(hbarSpendingPlanRepositorySpy.create.getCalls().length).to.eq(2); // one for operator and one for evm address
-            expect(evmAddressHbarSpendingPlanRepositorySpy.save.getCalls().length).to.eq(2); // same here
-            expect(hbarSpendingPlanRepositorySpy.create.getCalls()[0].calledWith(SubscriptionTier.OPERATOR)).to.be.true;
-            expect(
-              evmAddressHbarSpendingPlanRepositorySpy.save
-                .getCalls()[0]
-                .calledWith({ evmAddress: operatorAddress, planId: sinon.match.string }),
-            ).to.be.true;
-            expect(hbarSpendingPlanRepositorySpy.create.getCalls()[1].calledWith(SubscriptionTier.BASIC)).to.be.true;
-            expect(
-              evmAddressHbarSpendingPlanRepositorySpy.save
-                .getCalls()[1]
-                .calledWith({ evmAddress: mockEvmAddress, planId: sinon.match.string }),
-            ).to.be.true;
-          });
+            it('should return false if ipAddress is null or empty', async function () {
+              const requestDetails = new RequestDetails({ requestId: 'hbarLimterTest', ipAddress: '' });
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
+              expect(result).to.be.false;
+            });
 
-          it('should return false if evmAddress and ipAddress is empty string', async function () {
-            const requestDetails = new RequestDetails({ requestId: 'hbarLimterTest', ipAddress: '' });
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-            expect(result).to.be.false;
-          });
+            it('should return true if amountSpent is exactly at the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return true if amountSpent is exactly at the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
+              expect(result).to.be.true;
+            });
 
-            expect(result).to.be.true;
-          });
+            it('should return false if amountSpent is just below the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(1).toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return false if amountSpent is just below the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() - 1,
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
+              expect(result).to.be.false;
+            });
 
-            expect(result).to.be.false;
-          });
+            it('should return true if amountSpent is just above the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().add(1).toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return true if amountSpent is just above the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() + 1,
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
+              expect(result).to.be.true;
+            });
 
-            expect(result).to.be.true;
-          });
+            it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
+                  .toTinybars()
+                  .sub(mockEstimatedTxFee)
+                  .add(1)
+                  .toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
-                .toTinybars()
-                .sub(mockEstimatedTxFee)
-                .add(1)
-                .toNumber(),
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+                mockEstimatedTxFee,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-              mockEstimatedTxFee,
-            );
+              expect(result).to.be.true;
+            });
 
-            expect(result).to.be.true;
-          });
+            it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
+                  .toTinybars()
+                  .sub(mockEstimatedTxFee)
+                  .sub(1)
+                  .toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
-                .toTinybars()
-                .sub(mockEstimatedTxFee)
-                .sub(1)
-                .toNumber(),
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
+              expect(result).to.be.false;
+            });
 
-            expect(result).to.be.false;
-          });
+            it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
+              await ipAddressHbarSpendingPlanRepository.save(
+                { ipAddress: mockIpAddress, planId: mockPlanId },
+                requestDetails,
+                limitDuration,
+              );
+              await hbarSpendingPlanRepository.create(
+                SubscriptionTier.BASIC,
+                requestDetails,
+                limitDuration,
+                mockPlanId,
+              );
+              await hbarSpendingPlanRepository.addToAmountSpent(
+                mockPlanId,
+                HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
+                requestDetails,
+                limitDuration,
+              );
 
-          it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
-            await evmAddressHbarSpendingPlanRepository.save(
-              { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
-              requestDetails,
-              limitDuration,
-            );
+              const result = await hbarLimitService.shouldLimit(
+                transactionMode,
+                methodName,
+                txConstructorName,
+                '',
+                requestDetails,
+              );
 
-            const result = await hbarLimitService.shouldLimit(
-              mode,
-              methodName,
-              txConstructorName,
-              mockEvmAddress,
-              requestDetails,
-            );
-
-            expect(result).to.be.false;
+              expect(result).to.be.false;
+            });
           });
         });
 
-        describe('based on ipAddress', async function () {
-          it('should return true if the total budget is exceeded', async function () {
+        describe('mode !== constants.EXECUTION_MODE.TRANSACTION', async function () {
+          it('should return true if the total budget is exceeded for NON-TRANSACTION mode', async function () {
             const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
             await hbarSpendingPlanRepository.addToAmountSpent(
               operatorPlan.id,
@@ -418,162 +697,73 @@ describe('HBAR Rate Limit Service', function () {
               requestDetails,
               limitDuration,
             );
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
+            const result = await hbarLimitService.shouldLimit(
+              queryMode,
+              methodName,
+              txConstructorName,
+              mockEvmAddress,
+              requestDetails,
+            );
+            // Should return true because total budget is exceeded, regardless of mode
             expect(result).to.be.true;
           });
-
-          it('should return true when remainingBudget < estimatedTxFee ', async function () {
+          it('should return false if the total budget is not exceeded without checking spending plan for NON-TRANSACTION mode', async function () {
+            const basicLimit = HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars();
+            // Set up a spending plan that exceeds its limits
+            await evmAddressHbarSpendingPlanRepository.save(
+              { evmAddress: mockEvmAddress, planId: mockPlanId },
+              requestDetails,
+              limitDuration,
+            );
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.addToAmountSpent(
+              mockPlanId,
+              basicLimit.add(1000).toNumber(),
+              requestDetails,
+              limitDuration,
+            );
+            // mockPlanId spending plan should now have exceeded its limit
+            expect(await hbarSpendingPlanRepository.getAmountSpent(mockPlanId, requestDetails)).to.be.greaterThan(
+              basicLimit.toNumber(),
+            );
+            // Ensure the operator plan has sufficient budget left
             const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
             await hbarSpendingPlanRepository.addToAmountSpent(
               operatorPlan.id,
-              totalBudgetInTinybars - mockEstimatedTxFee + 1,
+              0, // Reset to zero to ensure total budget is not exceeded
               requestDetails,
               limitDuration,
             );
+            // Should return false even though the spending plan exceeds limits because it's not TRANSACTION mode
             const result = await hbarLimitService.shouldLimit(
-              mode,
+              queryMode,
               methodName,
               txConstructorName,
-              '',
+              mockEvmAddress,
               requestDetails,
-              mockEstimatedTxFee,
             );
-            expect(result).to.be.true;
-          });
-
-          it('should return false if ipAddress is null or empty', async function () {
-            const requestDetails = new RequestDetails({ requestId: 'hbarLimterTest', ipAddress: '' });
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
             expect(result).to.be.false;
           });
-
-          it('should return true if amountSpent is exactly at the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+          it('should not create a spending plan even if none exists for NON-TRANSACTION mode', async function () {
+            // Ensure the operator plan has sufficient budget left
+            const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
             await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
+              operatorPlan.id,
+              0, // Reset to zero to ensure total budget is not exceeded
               requestDetails,
               limitDuration,
             );
-
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-
-            expect(result).to.be.true;
-          });
-
-          it('should return false if amountSpent is just below the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(1).toNumber(),
-              requestDetails,
-              limitDuration,
-            );
-
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-
-            expect(result).to.be.false;
-          });
-
-          it('should return true if amountSpent is just above the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().add(1).toNumber(),
-              requestDetails,
-              limitDuration,
-            );
-
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-
-            expect(result).to.be.true;
-          });
-
-          it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
-                .toTinybars()
-                .sub(mockEstimatedTxFee)
-                .add(1)
-                .toNumber(),
-              requestDetails,
-              limitDuration,
-            );
-
-            const result = await hbarLimitService.shouldLimit(
-              mode,
+            const createSpy = sinon.spy(hbarLimitService as any, 'createSpendingPlanForAddress');
+            const getSpendingPlanSpy = sinon.spy(hbarLimitService as any, 'getSpendingPlan');
+            await hbarLimitService.shouldLimit(
+              queryMode,
               methodName,
               txConstructorName,
-              '',
+              mockEvmAddress,
               requestDetails,
-              mockEstimatedTxFee,
             );
-
-            expect(result).to.be.true;
-          });
-
-          it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
-                .toTinybars()
-                .sub(mockEstimatedTxFee)
-                .sub(1)
-                .toNumber(),
-              requestDetails,
-              limitDuration,
-            );
-
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-
-            expect(result).to.be.false;
-          });
-
-          it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
-            await ipAddressHbarSpendingPlanRepository.save(
-              { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
-              limitDuration,
-            );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              mockPlanId,
-              HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
-              requestDetails,
-              limitDuration,
-            );
-
-            const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
-
-            expect(result).to.be.false;
+            expect(createSpy.callCount).to.eq(0);
+            expect(getSpendingPlanSpy.callCount).to.eq(1); // 1 time for operator but none for evm address
           });
         });
 
@@ -608,7 +798,7 @@ describe('HBAR Rate Limit Service', function () {
             );
 
             const result = await hbarLimitServiceDisabled.shouldLimit(
-              mode,
+              transactionMode,
               methodName,
               txConstructorName,
               mockEvmAddress,
@@ -931,7 +1121,7 @@ describe('HBAR Rate Limit Service', function () {
         limitDuration,
       );
       await expect(
-        hbarLimitService['isTotalBudgetExceeded'](mode, methodName, txConstructorName, 0, requestDetails),
+        hbarLimitService['isTotalBudgetExceeded'](transactionMode, methodName, txConstructorName, 0, requestDetails),
       ).to.eventually.equal(expected);
     };
 
@@ -958,7 +1148,7 @@ describe('HBAR Rate Limit Service', function () {
           // @ts-ignore
           const hbarLimitCounterSpy = sinon.spy(hbarLimitService.hbarLimitCounter, <any>'inc');
           await testIsTotalBudgetExceeded(0, true);
-          expect(hbarLimitCounterSpy.calledWithMatch({ mode, methodName }, 1)).to.be.true;
+          expect(hbarLimitCounterSpy.calledWithMatch({ mode: transactionMode, methodName }, 1)).to.be.true;
         });
 
         it('should reset the limiter when the reset date is reached', async function () {
