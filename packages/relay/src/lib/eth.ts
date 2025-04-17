@@ -17,7 +17,6 @@ import {
   FilterService,
   IBlockService,
   ICommonService,
-  IContractService,
   TransactionService,
 } from './services';
 import { AccountService } from './services/accountService';
