@@ -3,6 +3,7 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256 } from 'ethers';
+import { EventEmitter } from 'events';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -29,23 +30,14 @@ use(chaiAsPromised);
 let sdkClientStub: SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: SinonStub<[], SDKClient>;
 let ethImplOverridden: Eth;
-
+let eventEmitter: EventEmitter;
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
-  const {
-    restMock,
-    web3Mock,
-    hapiServiceInstance,
-    ethImpl,
-    cacheService,
-    mirrorNodeInstance,
-    logger,
-    registry,
-    commonService,
-  } = generateEthTestEnv();
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger, commonService } =
+    generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
-
+  eventEmitter = new EventEmitter();
   async function mockContractCall(
     callData: IContractCallRequest,
     estimate: boolean,
@@ -82,7 +74,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     restMock.reset();
     sdkClientStub = createStubInstance(SDKClient);
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      eventEmitter,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getMainClientInstance().operatorAccountId!.toString(), 200, {

@@ -40,6 +40,7 @@ export default class RelayAssertions {
     expect(this.validateHash(receipt.blockHash, 64)).to.eq(true);
     expect(this.validateHash(receipt.from, 40)).to.eq(true);
     if (receipt.contractAddress) {
+      console.log('receipt.contractAddress', receipt.contractAddress);
       expect(this.validateHash(receipt.contractAddress, 40)).to.eq(true);
     }
     if (receipt.to) {
@@ -135,9 +136,9 @@ export default class RelayAssertions {
     expect(block.baseFeePerGas).equal(BASE_FEE_PER_GAS_DEFAULT);
     expect(block.difficulty).equal(EthImpl.zeroHex);
     expect(block.extraData).equal(CommonService.emptyHex);
-    expect(block.miner).equal(EthImpl.zeroAddressHex);
+    expect(block.miner).equal(CommonService.zeroAddressHex);
     expect(block.mixHash).equal(CommonService.zeroHex32Byte);
-    expect(block.nonce).equal(EthImpl.zeroHex8Byte);
+    expect(block.nonce).equal(CommonService.zeroHex8Byte);
     expect(block.sha3Uncles).equal(EthImpl.emptyArrayHex);
     expect(block.stateRoot).equal(constants.DEFAULT_ROOT_HASH);
     expect(block.totalDifficulty).equal(EthImpl.zeroHex);

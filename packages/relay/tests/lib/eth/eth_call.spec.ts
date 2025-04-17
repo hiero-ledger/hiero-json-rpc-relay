@@ -442,20 +442,6 @@ describe('@ethCall Eth Call spec', async function () {
         'Error invoking RPC: Invalid contractCallResponse from consensus-node: undefined',
       );
     });
-
-    it('should update execution counter and list the correct data when eth_call is executed', async function () {
-      const labelsSpy = sinon.spy(ethImpl['ethExecutionsCounter'], 'labels');
-      const expectedLabelsValue = ['eth_call', ETH_CALL_REQ_ARGS.data, ETH_CALL_REQ_ARGS.from, ETH_CALL_REQ_ARGS.to];
-
-      await ethImpl.call(ETH_CALL_REQ_ARGS, 'latest', requestDetails);
-
-      expect(ethImpl['ethExecutionsCounter']).to.be.instanceOf(Counter);
-      labelsSpy.args[0].map((labelValue, index) => {
-        expect(labelValue).to.equal(expectedLabelsValue[index]);
-      });
-
-      sinon.restore();
-    });
   });
 
   describe('eth_call using mirror node', async function () {
@@ -784,29 +770,6 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const result = await contractService.call(callData, 'latest', requestDetails);
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
-    });
-
-    it('should update execution counter and list the correct data when eth_call is executed', async function () {
-      const labelsSpy = sinon.spy(ethImpl['ethExecutionsCounter'], 'labels');
-      const expectedLabelsValue = ['eth_call', CONTRACT_CALL_DATA, ACCOUNT_ADDRESS_1, CONTRACT_ADDRESS_2];
-
-      const callData = {
-        ...defaultCallData,
-        from: ACCOUNT_ADDRESS_1,
-        to: CONTRACT_ADDRESS_2,
-        data: CONTRACT_CALL_DATA,
-        gas: MAX_GAS_LIMIT,
-      };
-      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
-      await ethImpl.call(callData, 'latest', requestDetails);
-
-      expect(ethImpl['ethExecutionsCounter']).to.be.instanceOf(Counter);
-
-      labelsSpy.args[0].map((labelValue, index) => {
-        expect(labelValue).to.equal(expectedLabelsValue[index]);
-      });
-
-      sinon.restore();
     });
 
     async function mockContractCall(

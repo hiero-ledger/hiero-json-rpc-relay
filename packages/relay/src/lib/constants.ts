@@ -220,6 +220,7 @@ export default {
   EVENTS: {
     EXECUTE_TRANSACTION: 'execute_transaction',
     EXECUTE_QUERY: 'execute_query',
+    ETH_EXECUTION: 'eth_execution',
   },
 
   EXECUTION_MODE: {
@@ -230,4 +231,5 @@ export default {
 
   MAX_TRANSACTION_FEE_THRESHOLD: ConfigService.get('MAX_TRANSACTION_FEE_THRESHOLD'),
   INVALID_EVM_INSTRUCTION: '0xfe',
+  EMPTY_BLOOM: '0x' + '0'.repeat(512),
 };

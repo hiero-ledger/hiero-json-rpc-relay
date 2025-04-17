@@ -1,46 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction } from 'ethers';
+import EventEmitter from 'events';
 import { Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
 
-import {
-  ASCIIToHex,
-  formatTransactionIdWithoutQueryParams,
-  isHex,
-  nanOrNumberTo0x,
-  nullableNumberTo0x,
-  numberTo0x,
-  prepend0x,
-  toHash32,
-} from '../formatters';
+import { numberTo0x } from '../formatters';
 import { Eth } from '../index';
-import { LogsBloomUtils } from '../logsBloomUtils';
-import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { SDKClientError } from './errors/SDKClientError';
-import { Block, Log, Receipt, Transaction, Transaction1559 } from './model';
-import { Precheck } from './precheck';
-import { BlockService, CommonService, ContractService, FilterService, IBlockService, ICommonService } from './services';
+import { Block, Log, Receipt, Transaction } from './model';
+import {
+  BlockService,
+  CommonService,
+  ContractService,
+  FilterService,
+  IBlockService,
+  ICommonService,
+  IContractService,
+  TransactionService,
+} from './services';
 import { AccountService } from './services/accountService';
 import { IAccountService } from './services/accountService/IAccountService';
 import { CacheService } from './services/cacheService/cacheService';
-import { IContractService } from './services/contractService/IContractService';
 import { FeeService } from './services/feeService';
+import { IFeeService } from './services/feeService/IFeeService';
 import HAPIService from './services/hapiService/hapiService';
-import {
-  IContractCallRequest,
-  IFeeHistory,
-  IGetLogsParams,
-  INewFilterParams,
-  ITransactionReceipt,
-  RequestDetails,
-} from './types';
+import { ITransactionService } from './services/transactionService/ITransactionService';
+import { IContractCallRequest, IFeeHistory, IGetLogsParams, INewFilterParams, RequestDetails } from './types';
 import { ParamType } from './types/validation';
 
 /**
@@ -60,8 +47,6 @@ export class EthImpl implements Eth {
   static zeroHex8Byte = '0x0000000000000000';
   static emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
   static zeroAddressHex = '0x0000000000000000000000000000000000000000';
-  static emptyBloom =
-    '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
   static defaultTxGas = numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT);
   static gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
   static minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
@@ -97,7 +82,6 @@ export class EthImpl implements Eth {
   static ethGetTransactionCountByHash = 'eth_GetTransactionCountByHash';
   static ethGetTransactionCountByNumber = 'eth_GetTransactionCountByNumber';
   static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
-  static ethSendRawTransaction = 'eth_sendRawTransaction';
 
   // block constants
   static blockLatest = 'latest';
@@ -107,36 +91,16 @@ export class EthImpl implements Eth {
   static blockFinalized = 'finalized';
 
   /**
-   * The LRU cache used for caching items from requests.
-   *
+   * The Account Service implementation that takes care of all account API operations.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly accountService: IAccountService;
 
   /**
-   * The client service which is responsible for client all logic related to initialization, reinitialization and error/transactions tracking.
-   *
+   * The Block Service implementation that takes care of all block API operations.
    * @private
    */
-  private readonly hapiService: HAPIService;
-
-  /**
-   * The interface through which we interact with the mirror node
-   * @private
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
-   * The logger used for logging all output from this class.
-   * @private
-   */
-  private readonly logger: Logger;
-
-  /**
-   * The precheck class used for checking the fields like nonce before the tx execution.
-   * @private
-   */
-  private readonly precheck: Precheck;
+  private readonly blockService: IBlockService;
 
   /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
@@ -145,40 +109,46 @@ export class EthImpl implements Eth {
   private readonly chain: string;
 
   /**
-   * The ethExecutionsCounter used to track the number of daily active users and active contract execution requests.
-   * @private
-   */
-  private readonly ethExecutionsCounter: Counter;
-
-  /**
    * The Common Service implementation that contains logic shared by other services.
+   * @private
    */
   private readonly common: ICommonService;
 
   /**
-   * The Filter Service implementation that takes care of all filter API operations.
-   */
-  private readonly filterService: FilterService;
-
-  /**
-   * The Block Service implementation that takes care of all block API operations.
-   */
-  private readonly blockService: IBlockService;
-
-  /**
-   * The Fee Service implementation that takes care of all fee API operations.
-   */
-  private readonly feeService: FeeService;
-
-  /**
    * The ContractService implementation that takes care of all contract related operations.
+   * @private
    */
   private readonly contractService: IContractService;
 
   /**
-   * The Account Service implementation that takes care of all account API operations.
+   * Event emitter for publishing and subscribing to events.
+   * @private
    */
-  private readonly accountService: IAccountService;
+  private readonly eventEmitter: EventEmitter;
+
+  /**
+   * The Fee Service implementation that takes care of all fee API operations.
+   * @private
+   */
+  private readonly feeService: IFeeService;
+
+  /**
+   * The Filter Service implementation that takes care of all filter API operations.
+   * @private
+   */
+  private readonly filterService: FilterService;
+
+  /**
+   * The logger used for logging all output from this class.
+   * @private
+   */
+  private readonly logger: Logger;
+
+  /**
+   * The Transaction Service implementation that handles all transaction-related operations.
+   * @private
+   */
+  private readonly transactionService: ITransactionService;
 
   /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
@@ -196,36 +166,27 @@ export class EthImpl implements Eth {
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
     chain: string,
-    registry: Registry,
     cacheService: CacheService,
+    eventEmitter: EventEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;
-    this.hapiService = hapiService;
-    this.cacheService = cacheService;
-    this.mirrorNodeClient = mirrorNodeClient;
-    this.precheck = new Precheck(mirrorNodeClient, logger, chain);
-    this.ethExecutionsCounter = this.initCounter(
-      'rpc_relay_eth_executions',
-      ['method', 'function', 'from', 'to'],
-      registry,
-    );
     this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-  }
-
-  private initCounter(metricCounterName: string, labelNames: string[], register: Registry): Counter {
-    register.removeSingleMetric(metricCounterName);
-    return new Counter({
-      name: metricCounterName,
-      help: `Relay ${metricCounterName} function`,
-      labelNames: labelNames,
-      registers: [register],
-    });
+    this.eventEmitter = eventEmitter;
+    this.transactionService = new TransactionService(
+      cacheService,
+      chain,
+      this.common,
+      eventEmitter,
+      hapiService,
+      logger,
+      mirrorNodeClient,
+    );
   }
 
   /**
@@ -342,14 +303,13 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.ethExecutionsCounter
-        .labels(
-          EthImpl.ethEstimateGas,
-          callData!.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-          transaction.from || '',
-          transaction.to || '',
-        )
-        .inc();
+      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+        method: EthImpl.ethEstimateGas,
+        functionSelector: callData!.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
+        from: transaction.from || '',
+        to: transaction.to || '',
+        requestDetails: requestDetails,
+      });
     }
 
     return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
@@ -653,10 +613,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   signTransaction(requestDetails: RequestDetails): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} signTransaction()`);
-    }
-    return predefined.UNSUPPORTED_METHOD;
+    return this.transactionService.signTransaction(requestDetails);
   }
 
   /**
@@ -671,10 +628,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sign(requestDetails: RequestDetails): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} sign()`);
-    }
-    return predefined.UNSUPPORTED_METHOD;
+    return this.transactionService.sign(requestDetails);
   }
 
   /**
@@ -689,10 +643,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sendTransaction(requestDetails: RequestDetails): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} sendTransaction()`);
-    }
-    return predefined.UNSUPPORTED_METHOD;
+    return this.transactionService.sendTransaction(requestDetails);
   }
 
   /**
@@ -903,25 +854,7 @@ export class EthImpl implements Eth {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`,
-      );
-    }
-
-    try {
-      return await this.getTransactionByBlockHashOrBlockNumAndIndex(
-        { title: 'blockHash', value: blockHash },
-        transactionIndex,
-        requestDetails,
-      );
-    } catch (error) {
-      throw this.common.genericErrorHandler(
-        error,
-        `${requestIdPrefix} Failed to retrieve contract result for blockHash ${blockHash} and index=${transactionIndex}`,
-      );
-    }
+    return await this.transactionService.getTransactionByBlockHashAndIndex(blockHash, transactionIndex, requestDetails);
   }
 
   /**
@@ -945,26 +878,11 @@ export class EthImpl implements Eth {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`,
-      );
-    }
-    const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
-
-    try {
-      return await this.getTransactionByBlockHashOrBlockNumAndIndex(
-        { title: 'blockNumber', value: blockNum },
-        transactionIndex,
-        requestDetails,
-      );
-    } catch (error) {
-      throw this.common.genericErrorHandler(
-        error,
-        `${requestIdPrefix} Failed to retrieve contract result for blockNum ${blockNum} and index=${transactionIndex}`,
-      );
-    }
+    return await this.transactionService.getTransactionByBlockNumberAndIndex(
+      blockNumOrTag,
+      transactionIndex,
+      requestDetails,
+    );
   }
 
   /**
@@ -1018,249 +936,6 @@ export class EthImpl implements Eth {
     return this.accountService.getTransactionCount(address, blockNumOrTag, requestDetails);
   }
 
-  async parseRawTxAndPrecheck(
-    transaction: string,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<EthersTransaction> {
-    const parsedTx = Precheck.parseTxIfNeeded(transaction);
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Transaction undergoing prechecks: transaction=${JSON.stringify(
-            parsedTx,
-          )}`,
-        );
-      }
-
-      this.precheck.checkSize(transaction);
-      await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return parsedTx;
-    } catch (e: any) {
-      this.logger.error(
-        `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
-      );
-      throw this.common.genericErrorHandler(e);
-    }
-  }
-
-  async sendRawTransactionErrorHandler(
-    e: any,
-    transactionBuffer: Buffer,
-    txSubmitted: boolean,
-    parsedTx: EthersTransaction,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    this.logger.error(
-      e,
-      `${
-        requestDetails.formattedRequestId
-      } Failed to successfully submit sendRawTransaction: transaction=${JSON.stringify(parsedTx)}`,
-    );
-    if (e instanceof JsonRpcError) {
-      return e;
-    }
-
-    if (e instanceof SDKClientError) {
-      if (e.nodeAccountId) {
-        // Log the target node account ID, right now, it's populated only for MaxAttemptsOrTimeout error
-        this.logger.info(
-          `${requestDetails.formattedRequestId} Transaction failed to execute against node with id: ${e.nodeAccountId}`,
-        );
-      }
-
-      this.hapiService.decrementErrorCounter(e.statusCode);
-      if (e.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
-        const mirrorNodeGetContractResultRetries = this.mirrorNodeClient.getMirrorNodeRequestRetryCount();
-
-        // note: because this is a WRONG_NONCE error handler, the nonce of the account is expected to be different from the nonce of the parsedTx
-        //       running a polling loop to give mirror node enough time to update account nonce
-        let accountNonce: number | null = null;
-        for (let i = 0; i < mirrorNodeGetContractResultRetries; i++) {
-          const accountInfo = await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails);
-          if (accountInfo.ethereum_nonce !== parsedTx.nonce) {
-            accountNonce = accountInfo.ethereum_nonce;
-            break;
-          }
-
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `${
-                requestDetails.formattedRequestId
-              } Repeating retry to poll for updated account nonce. Count ${i} of ${mirrorNodeGetContractResultRetries}. Waiting ${this.mirrorNodeClient.getMirrorNodeRetryDelay()} ms before initiating a new request`,
-            );
-          }
-          await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
-        }
-
-        if (!accountNonce) {
-          this.logger.warn(`${requestDetails.formattedRequestId} Cannot find updated account nonce.`);
-          throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
-        }
-
-        if (parsedTx.nonce > accountNonce) {
-          return predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
-        } else {
-          return predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
-        }
-      }
-    }
-
-    if (!txSubmitted) {
-      return predefined.INTERNAL_ERROR(e.message.toString());
-    }
-
-    await this.mirrorNodeClient.getContractRevertReasonFromTransaction(e, requestDetails);
-
-    this.logger.error(
-      e,
-      `${
-        requestDetails.formattedRequestId
-      } Failed sendRawTransaction during record retrieval for transaction, returning computed hash: transaction=${JSON.stringify(
-        parsedTx,
-      )}`,
-    );
-    //Return computed hash if unable to retrieve EthereumHash from record due to error
-    return Utils.computeTransactionHash(transactionBuffer);
-  }
-
-  /**
-   * Asynchronously processes a raw transaction by submitting it to the network, managing HFS, polling the MN, handling errors, and returning the transaction hash.
-   *
-   * @async
-   * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
-   * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
-   * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
-   * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
-   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
-   * @throws {JsonRpcError} If there's an error during transaction processing.
-   */
-  async sendRawTransactionProcessor(
-    transactionBuffer: Buffer,
-    parsedTx: EthersTransaction,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    let fileId: FileId | null = null;
-    let txSubmitted = false;
-    let submittedTransactionId: string = '';
-    let sendRawTransactionError: any;
-
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    const originalCallerAddress = parsedTx.from?.toString() || '';
-    const toAddress = parsedTx.to?.toString() || '';
-
-    this.ethExecutionsCounter
-      .labels(
-        EthImpl.ethSendRawTransaction,
-        parsedTx.data.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-        originalCallerAddress,
-        toAddress,
-      )
-      .inc();
-
-    try {
-      const sendRawTransactionResult = await this.hapiService
-        .getSDKClient()
-        .submitEthereumTransaction(
-          transactionBuffer,
-          EthImpl.ethSendRawTransaction,
-          requestDetails,
-          originalCallerAddress,
-          networkGasPriceInWeiBars,
-          await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        );
-
-      txSubmitted = true;
-      fileId = sendRawTransactionResult.fileId;
-      submittedTransactionId = sendRawTransactionResult.txResponse.transactionId?.toString();
-      if (!constants.TRANSACTION_ID_REGEX.test(submittedTransactionId)) {
-        throw predefined.INTERNAL_ERROR(
-          `Transaction successfully submitted but returned invalid transactionID: transactionId==${submittedTransactionId}`,
-        );
-      }
-    } catch (e: any) {
-      if (e instanceof SDKClientError && (e.isConnectionDropped() || e.isTimeoutExceeded())) {
-        submittedTransactionId = e.transactionId || '';
-      }
-
-      sendRawTransactionError = e;
-    } finally {
-      /**
-       *  For transactions of type CONTRACT_CREATE, if the contract's bytecode (calldata) exceeds 5120 bytes, HFS is employed to temporarily store the bytecode on the network.
-       *  After transaction execution, whether successful or not, any entity associated with the 'fileId' should be removed from the Hedera network.
-       */
-      if (fileId) {
-        this.hapiService
-          .getSDKClient()
-          .deleteFile(fileId, requestDetails, EthImpl.ethSendRawTransaction, fileId.toString(), originalCallerAddress)
-          .then();
-      }
-    }
-
-    // After the try-catch process above, the `submittedTransactionId` is potentially valid in only two scenarios:
-    //   - The transaction was successfully submitted and fully processed by CN and MN.
-    //   - The transaction encountered "SDK timeout exceeded" or "Connection Dropped" errors from the SDK but still potentially reached the consensus level.
-    // In both scenarios, polling the MN is required to verify the transaction's validity before return the transaction hash to clients.
-    if (submittedTransactionId) {
-      try {
-        const formattedTransactionId = formatTransactionIdWithoutQueryParams(submittedTransactionId);
-
-        // Create a modified copy of requestDetails
-        const modifiedRequestDetails = {
-          ...requestDetails,
-          ipAddress: constants.MASKED_IP_ADDRESS,
-        };
-
-        const contractResult = await this.mirrorNodeClient.repeatedRequest(
-          this.mirrorNodeClient.getContractResult.name,
-          [formattedTransactionId, modifiedRequestDetails],
-          this.mirrorNodeClient.getMirrorNodeRequestRetryCount(),
-          requestDetails,
-        );
-
-        if (!contractResult) {
-          if (
-            sendRawTransactionError instanceof SDKClientError &&
-            (sendRawTransactionError.isConnectionDropped() || sendRawTransactionError.isTimeoutExceeded())
-          ) {
-            throw sendRawTransactionError;
-          }
-
-          this.logger.warn(
-            `${requestIdPrefix} No matching transaction record retrieved: transactionId=${submittedTransactionId}`,
-          );
-
-          throw predefined.INTERNAL_ERROR(
-            `No matching transaction record retrieved: transactionId=${submittedTransactionId}`,
-          );
-        }
-
-        if (contractResult.hash == null) {
-          this.logger.error(
-            `${requestIdPrefix} Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`,
-          );
-          throw predefined.INTERNAL_ERROR(
-            `Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`,
-          );
-        }
-
-        return contractResult.hash;
-      } catch (e: any) {
-        sendRawTransactionError = e;
-      }
-    }
-
-    // If this point is reached, it means that no valid transaction hash was returned. Therefore, an error must have occurred.
-    return await this.sendRawTransactionErrorHandler(
-      sendRawTransactionError,
-      transactionBuffer,
-      txSubmitted,
-      parsedTx,
-      requestDetails,
-    );
-  }
-
   /**
    * Submits a transaction to the network for execution.
    *
@@ -1276,34 +951,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.HEX, required: true },
   })
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
-    const transactionBuffer = Buffer.from(EthImpl.prune0x(transaction), 'hex');
-
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getFeeWeibars(EthImpl.ethGasPrice, requestDetails),
-    );
-    const parsedTx = await this.parseRawTxAndPrecheck(transaction, networkGasPriceInWeiBars, requestDetails);
-
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
-
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      requestDetails,
-    );
+    return await this.transactionService.sendRawTransaction(transaction, requestDetails);
   }
 
   /**
@@ -1339,86 +987,15 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
     }
 
-    this.ethExecutionsCounter
-      .labels(
-        CommonService.ethCall,
-        callData?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) ?? '',
-        call.from || '',
-        call.to || '',
-      )
-      .inc();
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      method: 'eth_call',
+      functionSelector: callData?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
+      from: call.from || '',
+      to: call.to || '',
+      requestDetails: requestDetails,
+    });
 
     return this.contractService.call(call, blockParam, requestDetails);
-  }
-
-  /**
-   * Gets transactions by block hash or block number and index with resolved EVM addresses
-   * @param {object} blockParam The block parameter
-   * @param {string} blockParam.title Possible values are 'blockHash' and 'blockNumber'
-   * @param {string | number} blockParam.value The block hash or block number
-   * @param {string} transactionIndex
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<Transaction | null>} The transaction or null if not found
-   */
-  private async getTransactionByBlockHashOrBlockNumAndIndex(
-    blockParam: {
-      title: 'blockHash' | 'blockNumber';
-      value: string | number;
-    },
-    transactionIndex: string,
-    requestDetails: RequestDetails,
-  ): Promise<Transaction | null> {
-    const contractResults = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResults.name,
-      [
-        requestDetails,
-        {
-          [blockParam.title]: blockParam.value,
-          transactionIndex: Number(transactionIndex),
-        },
-        undefined,
-      ],
-      requestDetails,
-    );
-
-    if (!contractResults[0]) return null;
-
-    const resolvedToAddress = await this.resolveEvmAddress(contractResults[0].to, requestDetails);
-    const resolvedFromAddress = await this.resolveEvmAddress(contractResults[0].from, requestDetails, [
-      constants.TYPE_ACCOUNT,
-    ]);
-
-    return CommonService.formatContractResult({
-      ...contractResults[0],
-      from: resolvedFromAddress,
-      to: resolvedToAddress,
-    });
-  }
-
-  async resolveEvmAddress(
-    address: string,
-    requestDetails: RequestDetails,
-    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
-  ): Promise<string> {
-    if (!address) return address;
-
-    const entity = await this.mirrorNodeClient.resolveEntityType(
-      address,
-      CommonService.ethGetCode,
-      requestDetails,
-      searchableTypes,
-      0,
-    );
-    let resolvedAddress = address;
-    if (
-      entity &&
-      (entity.type === constants.TYPE_CONTRACT || entity.type === constants.TYPE_ACCOUNT) &&
-      entity.entity?.evm_address
-    ) {
-      resolvedAddress = entity.entity.evm_address;
-    }
-
-    return resolvedAddress;
   }
 
   /**
@@ -1436,46 +1013,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.TRANSACTION_HASH, required: true },
   })
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionByHash(hash=${hash})`, hash);
-    }
-
-    const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResult.name,
-      [hash, requestDetails],
-      requestDetails,
-    );
-    if (contractResult === null || contractResult.hash === undefined) {
-      // handle synthetic transactions
-      const syntheticLogs = await this.common.getLogsWithParams(
-        null,
-        {
-          'transaction.hash': hash,
-        },
-        requestDetails,
-      );
-
-      // no tx found
-      if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`${requestIdPrefix} no tx for ${hash}`);
-        }
-        return null;
-      }
-
-      return this.createTransactionFromLog(syntheticLogs[0]);
-    }
-
-    const fromAddress = await this.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]);
-    const toAddress = await this.resolveEvmAddress(contractResult.to, requestDetails);
-    contractResult.chain_id = contractResult.chain_id || this.chain;
-
-    return CommonService.formatContractResult({
-      ...contractResult,
-      from: fromAddress,
-      to: toAddress,
-    });
+    return await this.transactionService.getTransactionByHash(hash, requestDetails);
   }
 
   /**
@@ -1492,181 +1030,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.TRANSACTION_HASH, required: true },
   })
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionReceipt(${hash})`);
-    }
-
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT}_${hash}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetTransactionReceipt, requestDetails);
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `${requestIdPrefix} getTransactionReceipt returned cached response: ${JSON.stringify(cachedResponse)}`,
-          );
-        }
-      }
-      return cachedResponse;
-    }
-
-    const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
-      this.mirrorNodeClient.getContractResult.name,
-      [hash, requestDetails],
-      requestDetails,
-    );
-
-    if (receiptResponse === null || receiptResponse.hash === undefined) {
-      // handle synthetic transactions
-      const syntheticLogs = await this.common.getLogsWithParams(
-        null,
-        {
-          'transaction.hash': hash,
-        },
-        requestDetails,
-      );
-
-      // no tx found
-      if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`${requestIdPrefix} no receipt for ${hash}`);
-        }
-        return null;
-      }
-
-      const gasPriceForTimestamp = await this.common.getCurrentGasPriceForBlock(
-        syntheticLogs[0].blockHash,
-        requestDetails,
-      );
-      const receipt: ITransactionReceipt = {
-        blockHash: syntheticLogs[0].blockHash,
-        blockNumber: syntheticLogs[0].blockNumber,
-        contractAddress: syntheticLogs[0].address,
-        cumulativeGasUsed: EthImpl.zeroHex,
-        effectiveGasPrice: gasPriceForTimestamp,
-        from: EthImpl.zeroAddressHex,
-        gasUsed: EthImpl.zeroHex,
-        logs: [syntheticLogs[0]],
-        logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
-        root: constants.DEFAULT_ROOT_HASH,
-        status: EthImpl.oneHex,
-        to: syntheticLogs[0].address,
-        transactionHash: syntheticLogs[0].transactionHash,
-        transactionIndex: syntheticLogs[0].transactionIndex,
-        type: null, // null from HAPI transactions
-      };
-
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
-
-      await this.cacheService.set(
-        cacheKey,
-        receipt,
-        EthImpl.ethGetTransactionReceipt,
-        requestDetails,
-        constants.CACHE_TTL.ONE_DAY,
-      );
-      return receipt;
-    } else {
-      const effectiveGas = await this.common.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
-      // support stricter go-eth client which requires the transaction hash property on logs
-      const logs = receiptResponse.logs.map((log) => {
-        return new Log({
-          address: log.address,
-          blockHash: toHash32(receiptResponse.block_hash),
-          blockNumber: numberTo0x(receiptResponse.block_number),
-          data: log.data,
-          logIndex: numberTo0x(log.index),
-          removed: false,
-          topics: log.topics,
-          transactionHash: toHash32(receiptResponse.hash),
-          transactionIndex: numberTo0x(receiptResponse.transaction_index),
-        });
-      });
-
-      const contractAddress = this.common.getContractAddressFromReceipt(receiptResponse);
-      const receipt: ITransactionReceipt = {
-        blockHash: toHash32(receiptResponse.block_hash),
-        blockNumber: numberTo0x(receiptResponse.block_number),
-        from: await this.resolveEvmAddress(receiptResponse.from, requestDetails),
-        to: await this.resolveEvmAddress(receiptResponse.to, requestDetails),
-        cumulativeGasUsed: numberTo0x(receiptResponse.block_gas_used),
-        gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
-        contractAddress: contractAddress,
-        logs: logs,
-        logsBloom: receiptResponse.bloom === CommonService.emptyHex ? EthImpl.emptyBloom : receiptResponse.bloom,
-        transactionHash: toHash32(receiptResponse.hash),
-        transactionIndex: numberTo0x(receiptResponse.transaction_index),
-        effectiveGasPrice: effectiveGas,
-        root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
-        status: receiptResponse.status,
-        type: nullableNumberTo0x(receiptResponse.type),
-      };
-
-      if (receiptResponse.error_message) {
-        receipt.revertReason = isHex(prepend0x(receiptResponse.error_message))
-          ? receiptResponse.error_message
-          : prepend0x(ASCIIToHex(receiptResponse.error_message));
-      }
-
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
-
-      await this.cacheService.set(
-        cacheKey,
-        receipt,
-        EthImpl.ethGetTransactionReceipt,
-        requestDetails,
-        constants.CACHE_TTL.ONE_DAY,
-      );
-      return receipt;
-    }
-  }
-
-  static redirectBytecodeAddressReplace(address: string): string {
-    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-    const redirectBytecodePostfix =
-      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
-    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
-  }
-
-  private static prune0x(input: string): string {
-    return input.startsWith(CommonService.emptyHex) ? input.substring(2) : input;
-  }
-
-  private createTransactionFromLog(log: Log): Transaction1559 {
-    return new Transaction1559({
-      accessList: undefined, // we don't support access lists for now
-      blockHash: log.blockHash,
-      blockNumber: log.blockNumber,
-      chainId: this.chain,
-      from: log.address,
-      gas: EthImpl.defaultTxGas,
-      gasPrice: constants.INVALID_EVM_INSTRUCTION,
-      hash: log.transactionHash,
-      input: EthImpl.zeroHex8Byte,
-      maxPriorityFeePerGas: EthImpl.zeroHex,
-      maxFeePerGas: EthImpl.zeroHex,
-      nonce: nanOrNumberTo0x(0),
-      r: EthImpl.zeroHex,
-      s: EthImpl.zeroHex,
-      to: log.address,
-      transactionIndex: log.transactionIndex,
-      type: EthImpl.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-      v: EthImpl.zeroHex,
-      value: EthImpl.oneTwoThreeFourHex,
-    });
-  }
-
-  private static getTransactionCountFromBlockResponse(block: any): null | string {
-    if (block === null || block.count === undefined) {
-      // block not found
-      return null;
-    }
-
-    return numberTo0x(block.count);
+    return await this.transactionService.getTransactionReceipt(hash, requestDetails);
   }
 
   /**
@@ -1724,32 +1088,6 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
     return EthImpl.zeroHex;
-  }
-
-  static isArrayNonEmpty(input: any): boolean {
-    return Array.isArray(input) && input.length > 0;
-  }
-
-  /**
-   * Retrieves the current network exchange rate of HBAR to USD in cents.
-   *
-   * @param {string} requestId - The unique identifier for the request.
-   * @returns {Promise<number>} - A promise that resolves to the current exchange rate in cents.
-   */
-  private async getCurrentNetworkExchangeRateInCents(requestDetails: RequestDetails): Promise<number> {
-    const cacheKey = constants.CACHE_KEY.CURRENT_NETWORK_EXCHANGE_RATE;
-    const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
-    const cacheTTL = 15 * 60 * 1000; // 15 minutes
-
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod, requestDetails);
-
-    if (!currentNetworkExchangeRate) {
-      currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
-      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, requestDetails, cacheTTL);
-    }
-
-    const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
-    return exchangeRateInCents;
   }
 
   /**
