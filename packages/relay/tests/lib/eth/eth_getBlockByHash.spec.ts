@@ -295,6 +295,11 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
       )
       .abortRequest();
+    restMock
+      .onGet(
+        `contracts/results/logs?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
+      )
+      .abortRequest();
 
     await expect(ethImpl.getBlockByHash(BLOCK_HASH, true, requestDetails))
       .to.be.rejectedWith(MirrorNodeClientError)

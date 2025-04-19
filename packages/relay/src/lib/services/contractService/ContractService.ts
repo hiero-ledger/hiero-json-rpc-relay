@@ -214,6 +214,10 @@ export class ContractService implements IContractService {
       if (e instanceof JsonRpcError) {
         throw e;
       }
+      // Preserve and re-throw MirrorNodeClientError to the upper layer
+      if (e instanceof MirrorNodeClientError) {
+        throw e;
+      }
       return predefined.INTERNAL_ERROR(e.message.toString());
     }
   }
@@ -769,10 +773,6 @@ export class ContractService implements IContractService {
       return CommonService.emptyHex;
     }
 
-    if (e.isRateLimit()) {
-      return predefined.IP_RATE_LIMIT_EXCEEDED(e.data || `Rate limit exceeded on ${CommonService.ethCall}`);
-    }
-
     if (e.isContractReverted()) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
@@ -795,7 +795,8 @@ export class ContractService implements IContractService {
       return await this.callConsensusNode(call, gas, requestDetails);
     }
 
-    return predefined.INTERNAL_ERROR(e.message.toString());
+    // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
+    throw e;
   }
 
   /**
