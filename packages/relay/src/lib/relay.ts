@@ -19,7 +19,6 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
-import { Poller } from './poller';
 import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
