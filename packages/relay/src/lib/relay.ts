@@ -191,11 +191,11 @@ export class Relay {
       this.mirrorNodeClient,
       logger.child({ name: 'relay-eth' }),
       chainId,
-      register,
       this.cacheService,
+      this.eventEmitter,
     );
 
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService, hapiService);
     this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(

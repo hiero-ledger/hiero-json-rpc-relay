@@ -7,6 +7,7 @@ import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethe
 import { prepend0x } from './formatters';
 import { EthImpl } from './lib/eth';
 import { Log } from './lib/model';
+import { CommonService } from './lib/services';
 import { LogsBloomUtils } from './logsBloomUtils';
 
 /**
@@ -95,7 +96,7 @@ export class ReceiptsRootUtils {
       receipts.push({
         transactionIndex,
         type: crPerTx.length && crPerTx[0].type ? intToHex(crPerTx[0].type) : null,
-        root: crPerTx.length ? crPerTx[0].root : EthImpl.zeroHex32Byte,
+        root: crPerTx.length ? crPerTx[0].root : CommonService.zeroHex32Byte,
         status: crPerTx.length ? crPerTx[0].status : EthImpl.oneHex,
         cumulativeGasUsed:
           crPerTx.length && crPerTx[0].block_gas_used ? intToHex(crPerTx[0].block_gas_used) : EthImpl.zeroHex,
@@ -117,7 +118,7 @@ export class ReceiptsRootUtils {
 
   public static async getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
     if (!receipts.length) {
-      return EthImpl.zeroHex32Byte;
+      return CommonService.zeroHex32Byte;
     }
 
     const trie: Trie = new Trie();

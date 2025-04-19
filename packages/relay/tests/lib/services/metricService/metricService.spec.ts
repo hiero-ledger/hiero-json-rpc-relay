@@ -319,4 +319,50 @@ describe('Metric Service', function () {
       await verifyMetrics(originalBudget);
     });
   });
+
+  describe('ethExecutionsCounter', () => {
+    const mockedMethod = 'eth_sendRawTransaction';
+    const mockedFunctionSelector = '0x12345678';
+    const mockedFrom = '0x1234567890123456789012345678901234567890';
+    const mockedTo = '0x0987654321098765432109876543210987654321';
+
+    const mockedEthExecutionEventPayload = {
+      method: mockedMethod,
+      functionSelector: mockedFunctionSelector,
+      from: mockedFrom,
+      to: mockedTo,
+      requestDetails,
+    };
+
+    it('should increment ethExecutionsCounter when ETH_EXECUTION event is emitted', async () => {
+      // Get the counter before emitting the event
+      const counterBefore = await metricService['ethExecutionsCounter'].get();
+
+      // Find the initial value for our specific labels, or use 0 if not found
+      const initialValue =
+        counterBefore.values.find(
+          (metric) =>
+            metric.labels.method === mockedMethod &&
+            metric.labels.function === mockedFunctionSelector &&
+            metric.labels.from === mockedFrom &&
+            metric.labels.to === mockedTo,
+        )?.value || 0;
+
+      eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, mockedEthExecutionEventPayload);
+
+      // Get the counter after emitting the event
+      const counterAfter = await metricService['ethExecutionsCounter'].get();
+
+      // Find the value for our specific labels after the event
+      const metricValue = counterAfter.values.find(
+        (metric) =>
+          metric.labels.method === mockedMethod &&
+          metric.labels.function === mockedFunctionSelector &&
+          metric.labels.from === mockedFrom &&
+          metric.labels.to === mockedTo,
+      )?.value;
+
+      expect(metricValue).to.eq(initialValue + 1);
+    });
+  });
 });
