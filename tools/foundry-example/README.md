@@ -14,7 +14,7 @@ https://book.getfoundry.sh/
 
 Typically, it's more straightforward to manage Git submodules at the top level of a repository. When submodules are handled within a nested directory (like `foundry-example`), additional manual setup is required for every new clone of the parent repository. This is because Git doesn't inherently save nested repositories when the parent repo is pushed, meaning the submodule structure of the nested directory won't automatically persist across clones.
 
-A more ideal solution would be to manage these submodules directly from the root of the `hedera-json-rpc-relay` repository. This way, after cloning and checking out the relevant branch, one could simply run `git submodule update --init --recursive`(or `forge install`) to initialize and update all submodules without any additional setup.
+A more ideal solution would be to manage these submodules directly from the root of the `hiero-json-rpc-relay` repository. This way, after cloning and checking out the relevant branch, one could simply run `git submodule update --init --recursive`(or `forge install`) to initialize and update all submodules without any additional setup.
 
 However, for cases where the submodule management in a nested directory as is attempted here with the `.gitmodules` present in `foundry-example`, the following steps will guide you through setting it up:
 
@@ -22,7 +22,7 @@ However, for cases where the submodule management in a nested directory as is at
 
 1. **Navigate to the `foundry-example` directory**:
     ```bash
-    cd path_to/hedera-json-rpc-relay/tools/foundry-example
+    cd path_to/hiero-json-rpc-relay/tools/foundry-example
     ```
 
 2. Create a .gitmodules file with the content listed below:

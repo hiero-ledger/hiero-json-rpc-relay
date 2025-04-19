@@ -132,7 +132,16 @@ export class RpcMethodDispatcher {
     const rearrangedParams = Utils.arrangeRpcParams(operationHandler, rpcMethodParams, requestDetails);
 
     // Execute the operation handler with the rearranged parameters
-    return await operationHandler(...rearrangedParams);
+    const result = await operationHandler(...rearrangedParams);
+
+    // *Note: In some cases, the operation handler may return an exception instead of throwing.
+    // To ensure proper and centralized error handling in the dispatcher, preserve and rethrow the error,
+    // regardless of whether the operation handler returns or throws it.
+    if (result instanceof JsonRpcError || result instanceof SDKClientError || result instanceof MirrorNodeClientError) {
+      throw result;
+    }
+
+    return result;
   }
 
   /**
@@ -160,21 +169,24 @@ export class RpcMethodDispatcher {
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {
-      return this.createJsonRpcError(error, requestDetails.requestId);
+      return JsonRpcError.newWithRequestId(error, requestDetails.requestId);
     }
 
-    // @TODO: handle MirrorNodeClientError by mapping to the correct JsonRpcError
-    if (error instanceof MirrorNodeClientError && error.isTimeout()) {
-      return this.createJsonRpcError(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
-    }
-
-    // @TODO: handle SDKClientError by mapping to the correct JsonRpcError
+    // Handle GRPC timeout errors
     if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      return this.createJsonRpcError(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+      return JsonRpcError.newWithRequestId(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+    }
+
+    // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
+    if (error instanceof MirrorNodeClientError) {
+      return JsonRpcError.newWithRequestId(
+        predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure'),
+        requestDetails.requestId,
+      );
     }
 
     // Default to internal error for all other error types
-    return this.createJsonRpcError(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
+    return JsonRpcError.newWithRequestId(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
   }
 
   /**
@@ -201,19 +213,5 @@ export class RpcMethodDispatcher {
 
     // Default response for truly unknown methods
     throw predefined.METHOD_NOT_FOUND(methodName);
-  }
-
-  /**
-   * Creates a new JsonRpcError with the request ID attached to assist with tracing and debugging
-   */
-  private createJsonRpcError(error: JsonRpcError, requestId: string): JsonRpcError {
-    return new JsonRpcError(
-      {
-        code: error.code,
-        message: error.message,
-        data: error.data,
-      },
-      requestId,
-    );
   }
 }

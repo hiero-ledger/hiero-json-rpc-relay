@@ -15,7 +15,15 @@
   },
   "overrides": {
     "cypress": "^13.13.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "nth-check": "^2.0.1",
+    "serialize-javascript": "^6.0.2",
+    "postcss": "^8.4.31",
+    "ws": "^8.17.1",
+    "axios": "^1.8.2",
+    "cookie": "^0.7.0",
+    "path-to-regexp": "^0.1.12",
+    "gh-pages": "^5.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
@@ -30,7 +38,7 @@
     "env-cmd": "^10.1.0",
     "http-server": "^14.1.1",
     "mocha-junit-reporter": "^2.2.1",
-    "start-server-and-test": "^1.14.0",
+    "start-server-and-test": "^2.0.11",
     "webpack": "^5.94.0"
   },
   "scripts": {

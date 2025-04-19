@@ -61,9 +61,12 @@ app.getKoaApp().use(async (ctx, next) => {
   if (ctx.method !== 'POST') {
     logger.info(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
   } else {
+    // Since ctx.state.status might contain the request ID from JsonRpcError, remove it for a cleaner log.
+    const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
+
     // log call type, method, status code and latency
     logger.info(
-      `${formatRequestIdMessage(ctx.state.reqId)} [${ctx.method}]: ${ctx.state.methodName} ${ctx.status} ${ms} ms`,
+      `${formatRequestIdMessage(ctx.state.reqId)} [${ctx.method}]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
     );
     methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
   }

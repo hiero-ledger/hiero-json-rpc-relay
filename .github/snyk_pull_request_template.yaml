@@ -1,4 +1,4 @@
 commitMessage: |
-  Update dependencies for {{ snyk_project_name }}
+  Update dependencies
 
-  Signed-off-by: Swirlds Automation <swirlds-eng-automation@swirlds.com>
+  Signed-off-by: snyk-bot <snyk-bot@snyk.io>

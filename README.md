@@ -2,12 +2,12 @@
 
 # Hedera JSON RPC Relay
 
-[![Build](https://github.com/hashgraph/hedera-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hashgraph/hedera-json-rpc-relay/actions)
-[![Latest Version](https://img.shields.io/github/v/tag/hashgraph/hedera-json-rpc-relay?sort=semver&label=version)](README.md)
+[![Build](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions)
+[![Latest Version](https://img.shields.io/github/v/tag/hiero-ledger/hiero-json-rpc-relay?sort=semver&label=version)](README.md)
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
 [![RPC API Methods](https://img.shields.io/badge/websocket-docs-green.svg)](docs/live-events-api.md)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://hedera.com/discord)
-[![Made With](https://img.shields.io/badge/made_with-typescript-blue)](https://github.com/hashgraph/hederajson-rpc-relay/)
+[![Made With](https://img.shields.io/badge/made_with-typescript-blue)](https://github.com/hiero-ledger/hiero-json-rpc-relay/)
 [![License](https://img.shields.io/badge/license-apache2-blue.svg)](LICENSE)
 
 </div>
@@ -16,7 +16,7 @@
 
 Implementation of an Ethereum JSON RPC APIs for Hedera Hashgraph. Utilises both Hedera Consensus Nodes and Mirror nodes
 to support RPC queries as defined in
-the [JSON RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/hashgraph/hedera-json-rpc-relay/main/docs/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false)
+the [JSON RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false)
 
 ## Building
 
@@ -122,10 +122,10 @@ docker build -t <owner>/hedera-json-rpc-relay .
 After building, the image may be tagged by running the following command, substituting `<version>` as desired
 
 ```shell
-docker tag <owner>/hedera-json-rpc-relay:latest ghcr.io/hashgraph/hedera-json-rpc-relay:main
+docker tag <owner>/hedera-json-rpc-relay:latest ghcr.io/hiero-ledger/hiero-json-rpc-relay:main
 ```
 
-> **_NOTE:_** image is tagged using `ghcr.io/hashgraph/hedera-json-rpc-relay:main` to agree with [docker compose](docker-compose.yml). Modify build commands or file as needed.
+> **_NOTE:_** image is tagged using `ghcr.io/hiero-ledger/hiero-json-rpc-relay:main` to agree with [docker compose](docker-compose.yml). Modify build commands or file as needed.
 
 ### Configuration
 
@@ -258,7 +258,7 @@ The hedera-json-rpc-relay ships with a metrics endpoint at `/metrics`. Here is a
 Please note that the `/metrics` endpoint is also a default scrape configurations for prometheus. The `job_name` of `kubernetes-pods` is generally deployed as a default with prometheus; in the case where this scrape_config is present metrics will start getting populated by that scrape_config and no other configurations are necessary.
 
 ##### Dashboard
-[Grafana JSON Dashboards](https://github.com/hashgraph/hedera-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
+[Grafana JSON Dashboards](https://github.com/hiero-ledger/hiero-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
 
 ##### Admin-specific RPC methods
 

@@ -12,168 +12,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  api_batch_1:
-    name: API Batch 1
+  acceptance_tests:
+    name: ${{ matrix.test.name }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        test:
+          - { name: 'API Batch 1', testfilter: 'api_batch1' }
+          - { name: 'API Batch 2', testfilter: 'api_batch2' }
+          - { name: 'API Batch 3', testfilter: 'api_batch3' }
+          - { name: 'ERC20', testfilter: 'erc20' }
+          - { name: 'Rate Limiter', testfilter: 'ratelimiter', test_ws_server: true }
+          - { name: 'HBar Limiter Batch 1', testfilter: 'hbarlimiter_batch1' }
+          - { name: 'HBar Limiter Batch 2', testfilter: 'hbarlimiter_batch2' }
+          - { name: 'HBar Limiter Batch 3', testfilter: 'hbarlimiter_batch3' }
+          - { name: 'Token Create', testfilter: 'tokencreate' }
+          - { name: 'Token Management', testfilter: 'tokenmanagement' }
+          - { name: 'Precompile', testfilter: 'htsprecompilev1' }
+          - { name: 'Precompile Calls', testfilter: 'precompile-calls' }
+          - { name: 'Websocket Batch 1', testfilter: 'ws_batch1', test_ws_server: true }
+          - { name: 'Websocket Batch 2', testfilter: 'ws_batch2', test_ws_server: true }
+          - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
+          - { name: 'Cache Service', testfilter: 'cache-service' }
+          - { name: 'Server Config', testfilter: 'serverconfig' }
     uses: ./.github/workflows/acceptance-workflow.yml
     with:
-      testfilter: api_batch1
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  api_batch_2:
-    name: API Batch 2
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: api_batch2
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
-
-  api_batch_3:
-    name: API Batch 3
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: api_batch3
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  erc20:
-    name: ERC20
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: erc20
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  ratelimiter:
-    name: Rate Limiter
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: ratelimiter
-      test_ws_server: true
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  hbarlimiter_batch_1:
-    name: HBar Limiter Batch 1
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: hbarlimiter_batch1
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  hbarlimiter_batch_2:
-    name: HBar Limiter Batch 2
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: hbarlimiter_batch2
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  hbarlimiter_batch_3:
-    name: HBar Limiter Batch 3
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: hbarlimiter_batch3
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  tokencreate:
-    name: Token Create
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: tokencreate
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  tokenmanagement:
-    name: Token Management
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: tokenmanagement
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  htsprecompilev1:
-    name: Precompile
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: htsprecompilev1
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  precompilecalls:
-    name: Precompile Calls
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: precompile-calls
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  websocket-batch-1:
-    name: Websocket Batch 1
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: ws_batch1
-      test_ws_server: true
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  websocket-batch-2:
-    name: Websocket Batch 2
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: ws_batch2
-      test_ws_server: true
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  websocket-batch-3:
-    name: Websocket Batch 3
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: ws_batch3
-      test_ws_server: true
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  cacheservice:
-    name: Cache Service
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: cache-service
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  server-config:
-    name: Server Config
-    uses: ./.github/workflows/acceptance-workflow.yml
-    with:
-      testfilter: serverconfig
+      testfilter: ${{ matrix.test.testfilter }}
+      test_ws_server: ${{ matrix.test.test_ws_server || false }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish_results:
     name: Publish Results
     if: ${{ !cancelled() }}
-    needs:
-      - api_batch_1
-      - api_batch_2
-      - api_batch_3
-      - erc20
-      - ratelimiter
-      - hbarlimiter_batch_1
-      - hbarlimiter_batch_2
-      - hbarlimiter_batch_3
-      - tokencreate
-      - tokenmanagement
-      - htsprecompilev1
-      - precompilecalls
-      - websocket-batch-1
-      - websocket-batch-2
-      - websocket-batch-3
-      - cacheservice
-
+    needs: [acceptance_tests]
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
@@ -190,7 +63,6 @@ jobs:
       - name: Publish Test Report
         uses: step-security/publish-unit-test-result-action@4519d7c9f71dd765f8bbb98626268780f23bab28 # v2.17.0
         with:
-          # check_name: Acceptance Tests
           check_name: '' # Set to empty to disable check run
           json_thousands_separator: ','
           files: 'test-*.xml'

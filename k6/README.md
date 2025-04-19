@@ -5,7 +5,7 @@ This module covers the [k6](https://k6.io/) based performance tests for the Hede
 ## Install k6
 
 1. The k6 test engine is needed to run the tests. Please follow
-   the [official documentation](https://k6.io/docs/getting-started/installation/) to install k6.
+   the [official documentation](https://grafana.com/docs/k6/latest/set-up/install-k6/) to install k6.
 
 2. Node packages
    ```shell

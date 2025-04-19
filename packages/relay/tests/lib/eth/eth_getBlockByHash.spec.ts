@@ -6,7 +6,7 @@ import sinon from 'sinon';
 import { EventEmitter } from 'stream';
 
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
-import { predefined } from '../../../src';
+import { MirrorNodeClientError, predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
@@ -295,11 +295,20 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         `contracts/results?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
       )
       .abortRequest();
-    await RelayAssertions.assertRejection(predefined.INTERNAL_ERROR(), ethImpl.getBlockByHash, false, ethImpl, [
-      BLOCK_HASH,
-      false,
-      requestDetails,
-    ]);
+    restMock
+      .onGet(
+        `contracts/results/logs?timestamp=gte:${randomBlock.timestamp.from}&timestamp=lte:${randomBlock.timestamp.to}&limit=100&order=asc`,
+      )
+      .abortRequest();
+
+    await expect(ethImpl.getBlockByHash(BLOCK_HASH, true, requestDetails))
+      .to.be.rejectedWith(MirrorNodeClientError)
+      .and.eventually.satisfy((error: MirrorNodeClientError) => {
+        expect(error.statusCode).to.equal(504);
+        expect(error.message).to.equal('Request aborted');
+        expect(error.isTimeout()).to.be.true;
+        return true;
+      });
   });
 
   it('eth_getBlockByHash with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
