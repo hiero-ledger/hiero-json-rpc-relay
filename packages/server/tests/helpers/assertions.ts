@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
-import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 chai.use(chaiExclude);
 
@@ -16,8 +16,6 @@ export default class Assertions {
   static zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
   static zeroHex8Byte = '0x0000000000000000';
   static emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
-  static emptyBloom =
-    '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
   static defaultGasPrice = 710_000_000_000;
   static datedGasPrice = 570_000_000_000;
   static updatedGasPrice = 640_000_000_000;
@@ -91,7 +89,7 @@ export default class Assertions {
     expect(relayResponse.uncles, "Assert block: 'uncles' property exists").to.be.exist;
     expect(relayResponse.uncles.length, "Assert block: 'uncles' length should equal 0").to.eq(0);
     expect(relayResponse.logsBloom, "Assert block: 'logsBloom' should equal mirrorNode response").to.eq(
-      mirrorNodeResponse.logs_bloom === Assertions.emptyHex ? Assertions.emptyBloom : mirrorNodeResponse.logs_bloom,
+      mirrorNodeResponse.logs_bloom === Assertions.emptyHex ? constants.EMPTY_BLOOM : mirrorNodeResponse.logs_bloom,
     );
     expect(relayResponse.gasLimit, "Assert block: 'gasLimit' should equal 'maxBlockGasLimit'").to.equal(
       ethers.toQuantity(Assertions.maxBlockGasLimit),

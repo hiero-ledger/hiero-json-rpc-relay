@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { solidity } from 'ethereum-waffle';
+import { ContractService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import chai, { expect } from 'chai';
-
-// Local resources
-import { AliasAccount } from '../types/AliasAccount';
-import { Utils } from '../helpers/utils';
+import { solidity } from 'ethereum-waffle';
 import { ethers } from 'ethers';
-import ERC20MockJson from '../contracts/ERC20Mock.json';
-import Assertions from '../helpers/assertions';
-import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
 
 // Constants from local resources
 import Constants from '../../../server/tests/helpers/constants';
-import ServicesClient from '../clients/servicesClient';
 import RelayClient from '../clients/relayClient';
+import ServicesClient from '../clients/servicesClient';
+import ERC20MockJson from '../contracts/ERC20Mock.json';
+import Assertions from '../helpers/assertions';
+import { Utils } from '../helpers/utils';
+// Local resources
+import { AliasAccount } from '../types/AliasAccount';
 
 chai.use(solidity);
 
@@ -111,8 +110,8 @@ describe('@erc20 Acceptance Tests', async function () {
 
       it('Relay can execute "eth_getCode" for ERC20 contract with evmAddress', async function () {
         const res = await relay.call('eth_getCode', [contract.target, 'latest'], requestId);
-        const expectedBytecode = `${EthImpl.redirectBytecodePrefix}${contract.target.slice(2)}${
-          EthImpl.redirectBytecodePostfix
+        const expectedBytecode = `${ContractService.redirectBytecodePrefix}${contract.target.slice(2)}${
+          ContractService.redirectBytecodePostfix
         }`;
         if (testTitles[i].testName !== HTS) {
           expect(res).to.eq(testTitles[i].expectedBytecode);

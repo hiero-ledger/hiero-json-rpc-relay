@@ -17,14 +17,13 @@ import sinon from 'sinon';
 import openRpcSchema from '../../../../docs/openrpc.json';
 import { Relay } from '../../src';
 import { numberTo0x } from '../../src/formatters';
-import { SDKClient } from '../../src/lib/clients';
-import { MirrorNodeClient } from '../../src/lib/clients';
+import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -101,7 +100,7 @@ describe('Open RPC Specification', function () {
 
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -129,7 +128,7 @@ describe('Open RPC Specification', function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     // @ts-ignore
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
 
     // mocked data
     mock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify({ blocks: [defaultBlock] }));
@@ -446,7 +445,7 @@ describe('Open RPC Specification', function () {
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
 
-    sinon.stub(ethImpl, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sinon.stub(ethImpl.common, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     const response = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_getTransactionReceipt, response);

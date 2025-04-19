@@ -15,7 +15,7 @@ import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
 import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, RequestDetails } from '../../../../src/lib/types';
@@ -150,7 +150,7 @@ describe('Metric Service', function () {
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger.child({ name: `cache` }), registry),
+      CacheService.getInstance(CACHE_LEVEL.L1, registry),
       instance,
     );
   });
@@ -162,7 +162,7 @@ describe('Metric Service', function () {
 
     eventEmitter = new EventEmitter();
 
-    const cacheService = new CacheService(logger, registry);
+    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -178,7 +178,7 @@ describe('Metric Service', function () {
     const sdkClient = new SDKClient(
       client,
       logger.child({ name: `consensus-node` }),
-      new CacheService(logger.child({ name: `cache` }), registry),
+      CacheService.getInstance(CACHE_LEVEL.L1, registry),
       eventEmitter,
       hbarLimitService,
     );
@@ -317,6 +317,52 @@ describe('Metric Service', function () {
       await new Promise((r) => setTimeout(r, 100));
 
       await verifyMetrics(originalBudget);
+    });
+  });
+
+  describe('ethExecutionsCounter', () => {
+    const mockedMethod = 'eth_sendRawTransaction';
+    const mockedFunctionSelector = '0x12345678';
+    const mockedFrom = '0x1234567890123456789012345678901234567890';
+    const mockedTo = '0x0987654321098765432109876543210987654321';
+
+    const mockedEthExecutionEventPayload = {
+      method: mockedMethod,
+      functionSelector: mockedFunctionSelector,
+      from: mockedFrom,
+      to: mockedTo,
+      requestDetails,
+    };
+
+    it('should increment ethExecutionsCounter when ETH_EXECUTION event is emitted', async () => {
+      // Get the counter before emitting the event
+      const counterBefore = await metricService['ethExecutionsCounter'].get();
+
+      // Find the initial value for our specific labels, or use 0 if not found
+      const initialValue =
+        counterBefore.values.find(
+          (metric) =>
+            metric.labels.method === mockedMethod &&
+            metric.labels.function === mockedFunctionSelector &&
+            metric.labels.from === mockedFrom &&
+            metric.labels.to === mockedTo,
+        )?.value || 0;
+
+      eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, mockedEthExecutionEventPayload);
+
+      // Get the counter after emitting the event
+      const counterAfter = await metricService['ethExecutionsCounter'].get();
+
+      // Find the value for our specific labels after the event
+      const metricValue = counterAfter.values.find(
+        (metric) =>
+          metric.labels.method === mockedMethod &&
+          metric.labels.function === mockedFunctionSelector &&
+          metric.labels.from === mockedFrom &&
+          metric.labels.to === mockedTo,
+      )?.value;
+
+      expect(metricValue).to.eq(initialValue + 1);
     });
   });
 });
