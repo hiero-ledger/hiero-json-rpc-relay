@@ -1,9 +1,9 @@
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
 # Setup
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NODE_ENV production
-ENV HEALTHCHECK_PORT 7546
+ENV NODE_ENV=production
+ENV HEALTHCHECK_PORT=7546
 
 EXPOSE 7546
 EXPOSE 8546
@@ -17,11 +17,7 @@ COPY lerna.json ./
 COPY --chown=node:node ./packages ./packages
 
 # Install OS updates and required packages
-RUN apt-get update && \
-    apt-get upgrade -y --no-install-recommends && \
-    apt-get autoremove -y && \
-    apt-get install --no-install-recommends build-essential -y wget make g++ python3 && \
-    npm ci --only=production --ignore-scripts && \
+RUN npm ci --only=production --ignore-scripts && \
     npm cache clean --force --loglevel=error && \
     chown -R node:node . && \
     rm -rf /var/lib/apt/lists/*

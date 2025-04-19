@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from './constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import Koa from 'koa';
 import { Logger } from 'pino';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { SubscriptionService } from '../service/subscriptionService';
+import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
 const getRequestIdIsOptional = () => {
@@ -25,13 +29,13 @@ const getRequestIdIsOptional = () => {
  */
 export const handleConnectionClose = async (
   ctx: any,
-  relay: Relay,
+  subscriptionService: SubscriptionService,
   limiter: ConnectionLimiter,
   wsMetricRegistry: WsMetricRegistry,
   startTime: [number, number],
 ) => {
   // unsubcribe subscriptions
-  relay.subs()?.unsubscribe(ctx.websocket);
+  subscriptionService.unsubscribe(ctx.websocket);
 
   // update limiter counters
   limiter.decrementCounters(ctx);
@@ -159,6 +163,14 @@ const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger, requestDe
 };
 
 /**
+ * Checks if subscriptions are enabled.
+ * @returns {boolean} A boolean indicating whether subscriptions are enabled.
+ */
+export const areSubscriptionsEnabled = (): boolean => {
+  return ConfigService.get('SUBSCRIPTIONS_ENABLED');
+};
+
+/**
  * Constructs a valid log subscription filter from the provided filters, retaining only the 'address' and 'topics' fields while discarding any unexpected parameters.
  * @param {any} filters - The filters to construct the subscription filter from.
  * @returns {Object} A valid log subscription filter object.
@@ -167,4 +179,18 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
   return Object.fromEntries(
     Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
   );
+};
+
+/**
+ * Handles sending the WS_SUBSCRIPTIONS_DISABLED error response.
+ *
+ * @param logger - The logger instance.
+ * @param ctx - The Koa context.
+ * @param requestDetails - Details of the current request.
+ * @returns void
+ */
+export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: RequestDetails): IJsonRpcResponse => {
+  const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
+  logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
+  return jsonResp(null, wsSubscriptionsDisabledError, undefined);
 };

@@ -134,13 +134,21 @@ extraEnvFrom: []
 # - secretRef:
 #     name: "{{ .Release.Name }}-env"
 
+# Redis integration - these settings override any manually configured Redis settings
+# when Redis is enabled via the parent chart
+redis:
+  # When true, automatically sets REDIS_ENABLED=true and
+  # REDIS_URL=redis://<release-name>-redis-master:6379
+  autoconfig: true
+
 cronjob:
   enabled: false
   image:
     pullPolicy: IfNotPresent
     repository: postman/newman
     tag: 5.3.1-alpine
-  postman: '' # Custom postman.json in base64 encoding
+  # Custom postman.json in base64 encoding
+  postman: ''
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -246,7 +254,8 @@ test:
     pullPolicy: IfNotPresent
     repository: postman/newman
     tag: 5.3.1-alpine
-  postman: '' # Custom postman.json in base64 encoding
+  # Custom postman.json in base64 encoding
+  postman: ''
 
 terminationGracePeriodSeconds: 60
 

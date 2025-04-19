@@ -1355,7 +1355,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(info.created_contract_ids.length).to.be.equal(1);
       });
 
-      // note: according to this ticket https://github.com/hashgraph/hedera-json-rpc-relay/issues/2563,
+      // note: according to this ticket https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2563,
       //      if calldata's size fails into the range of [2568 bytes, 5217 bytes], the request fails and throw
       //      `Null Entity ID` error. This unit test makes sure that with the new fix, requests should work with all case scenarios.
       it('should execute "eth_sendRawTransaction" and deploy a contract with any arbitrary calldata size', async () => {

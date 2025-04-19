@@ -10,8 +10,33 @@ export class JsonRpcError {
 
   constructor(args: { code: number; message: string; data?: string }, requestId?: string) {
     this.code = args.code;
-    this.message = requestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ` + args.message : args.message;
     this.data = args.data;
+
+    const hasRequestId = requestId && !args.message.includes(constants.REQUEST_ID_STRING);
+    this.message = hasRequestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ${args.message}` : args.message;
+  }
+
+  /**
+   * Creates a new JsonRpcError instance with a request ID attached to the message
+   *
+   * This method creates a new JsonRpcError instance based on an existing one,
+   * ensuring that the error message includes the request ID for traceability.
+   * The constructor logic handles preventing duplicate request IDs if the message
+   * already contains one.
+   *
+   * @param error - The original JsonRpcError to clone
+   * @param requestId - The request ID to append to the error message
+   * @returns A new JsonRpcError instance with the same properties and request ID in its message
+   */
+  public static newWithRequestId(error: JsonRpcError, requestId: string): JsonRpcError {
+    return new JsonRpcError(
+      {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      },
+      requestId,
+    );
   }
 }
 
@@ -230,6 +255,13 @@ export const predefined = {
       code: -32000,
       message: `Exceeded max transactions that can be returned in a block: ${count}`,
     }),
+  MIRROR_NODE_UPSTREAM_FAIL: (errCode: number, errMessage: string) => {
+    return new JsonRpcError({
+      code: -32020,
+      message: `Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`,
+      data: errCode.toString(), // Preserving the Mirror Node HTTP status for potential exposure/debugging
+    });
+  },
   UNKNOWN_BLOCK: (msg?: string | null) =>
     new JsonRpcError({
       code: -39012,
@@ -275,6 +307,10 @@ export const predefined = {
       code: -32206,
       message: `Batch request amount ${amount} exceeds max ${max}`,
     }),
+  WS_SUBSCRIPTIONS_DISABLED: new JsonRpcError({
+    code: -32207,
+    message: 'WS Subscriptions are disabled',
+  }),
   INVALID_ARGUMENTS: (message: string) =>
     new JsonRpcError({
       code: -32000,

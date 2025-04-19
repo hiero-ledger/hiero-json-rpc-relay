@@ -832,7 +832,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.eq(CommonService.emptyHex);
     });
 
-    // Issue # 2619 https://github.com/hashgraph/hedera-json-rpc-relay/issues/2619
+    // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619
     // Refactor to consider HIP-868
     xit('should not return contract bytecode after sefldestruct', async function () {
       const bytecodeBefore = await relay.call('eth_getCode', [basicContractAddress, 'latest'], requestId);
@@ -1261,7 +1261,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       Assertions.evmAddress(receipt.to);
     });
 
-    // Should be revised or deleted https://github.com/hashgraph/hedera-json-rpc-relay/pull/1726/files#r1320363677
+    // Should be revised or deleted https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/1726/files#r1320363677
     xit('from/to Addresses in transaction to a contract (deployed through HAPI tx) are in evm and long-zero format', async function () {
       const mirrorNodeContractRes = await mirrorNode.get(`/contracts/${parentContractAddress}`, requestId);
       const parentContractId = ContractId.fromString(mirrorNodeContractRes.contract_id);

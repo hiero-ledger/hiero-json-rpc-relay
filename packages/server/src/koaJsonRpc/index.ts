@@ -9,7 +9,7 @@ import { Logger } from 'pino';
 import { Histogram, Registry } from 'prom-client';
 
 import RateLimit from '../rateLimit';
-import { RpcErrorCodeToStatusMap } from './lib/HttpStatusCodeAndMessage';
+import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { IJsonRpcRequest } from './lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from './lib/IJsonRpcResponse';
 import { IMethodRateLimitConfiguration, methodConfiguration } from './lib/methodConfiguration';
@@ -104,17 +104,16 @@ export default class KoaJsonRpc {
   }
 
   private async handleSingleRequest(ctx: Koa.Context, body: IJsonRpcRequest): Promise<void> {
-    ctx.state.methodName = body.method;
     const response = await this.getRequestResult(body, ctx.ip);
     ctx.body = response;
-    const errorOrResult = response.error || response.result;
+    ctx.state.methodName = body.method;
 
+    const errorOrResult = response.error || response.result;
     if (errorOrResult instanceof JsonRpcError || errorOrResult instanceof JsonRpcErrorServer) {
-      // What HTTP Status code to return for JsonRpcError
-      const httpStatusCodeAndMessage =
-        RpcErrorCodeToStatusMap[errorOrResult.code] || RpcErrorCodeToStatusMap['default'];
-      ctx.status = httpStatusCodeAndMessage.statusCode;
-      ctx.state.status = `${ctx.status} (${httpStatusCodeAndMessage.StatusName})`;
+      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(errorOrResult);
+
+      ctx.status = statusErrorCode;
+      ctx.state.status = `${ctx.status} (${statusErrorMessage})`;
     }
   }
 

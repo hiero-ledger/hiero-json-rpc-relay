@@ -334,9 +334,9 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     });
   });
 
-  //According to this ticket the following describe should be deleted after adaptations are applied -> https://github.com/hashgraph/hedera-json-rpc-relay/issues/1131
+  //According to this ticket the following describe should be deleted after adaptations are applied -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
   describe('Calling HTS token through HederaTokenService', async () => {
-    //TODO remove this it when should be able to freeze and unfreeze token2 is implemented -> https://github.com/hashgraph/hedera-json-rpc-relay/issues/1131
+    //TODO remove this it when should be able to freeze and unfreeze token2 is implemented -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
     it('Function with HederaTokenService.isFrozen(token, account) - using long zero address', async () => {
       // freeze token
       const freezeTx = await TokenManagementSigner.freezeTokenPublic(
@@ -365,7 +365,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       expect(responseCodeUnfreeze).to.equal(TX_SUCCESS_CODE);
     });
 
-    //Todo delete when should query isKyc2 is implemented -> https://github.com/hashgraph/hedera-json-rpc-relay/issues/1131
+    //Todo delete when should query isKyc2 is implemented -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
     it('Function with HederaTokenService.isKyc(token, account) - using long zero account address', async () => {
       const isKyc1 = await htsImpl.isKycGranted.staticCall(tokenAddress, account1LongZero);
       expect(isKyc1).to.eq(true);
@@ -526,7 +526,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       ];
     });
 
-    //TODO After adding the additional expects after getTokenKeyPublic in tokenManagementContract, the whole describe can be deleted. -> https://github.com/hashgraph/hedera-json-rpc-relay/issues/1131
+    //TODO After adding the additional expects after getTokenKeyPublic in tokenManagementContract, the whole describe can be deleted. -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
     describe('Function with HederaTokenService.getTokenKey(token, keyType)', async () => {
       const keyTypes = {
         ADMIN: 1,

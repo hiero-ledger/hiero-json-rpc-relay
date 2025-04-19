@@ -1,7 +1,7 @@
 {
   "name": "hedera-rpc-relay-k6-perf-test",
   "version": "0.1.0",
-  "description": "Performance Test for hedera-json-rpc-relay using node and k6",
+  "description": "Performance Test for hiero-json-rpc-relay using node and k6",
   "type": "module",
   "scripts": {
     "prep-and-run": "npm run prep && npm run k6",

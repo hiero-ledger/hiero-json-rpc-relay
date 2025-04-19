@@ -9,3 +9,4 @@ data:
   {{- range $key, $value := .Values.config }}
     {{ $key }}: {{ if typeIs "float64" $value }}{{ $value | int64 | quote }}{{ else }}{{ $value | quote }}{{ end }}
   {{- end }}
+  {{- include "json-rpc-relay-ws.redis-config" . | nindent 2 }}

@@ -1,7 +1,7 @@
 version: "3"
 services:
   graph-node:
-    image: graphprotocol/graph-node:v0.28.2
+    image: graphprotocol/graph-node@sha256:3b9ca6bf98abd97b1083821490481b95e68d4559baa0e7fe2b9c16100ca2b4ec # v0.28.2
     ports:
       - "8000:8000"
       - "8001:8001"
@@ -31,13 +31,13 @@ services:
       GRAPH_ETHEREUM_GENESIS_BLOCK_NUMBER: 1
     restart: unless-stopped
   ipfs:
-    image: ipfs/go-ipfs:v0.10.0
+    image: ipfs/go-ipfs@sha256:881201083640829bf45e6eb0bd2019ec5fe2c142c852ab84b563682bb1f11c9b # v0.10.0
     ports:
       - "5001:5001"
     volumes:
       - ./data/ipfs:/data/ipfs
   postgres:
-    image: postgres
+    image: postgres@sha256:7f29c02ba9eeff4de9a9f414d803faa0e6fe5e8d15ebe217e3e418c82e652b35 # 17.4-bookworm
     ports:
       - "5432:5432"
     command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]

@@ -327,6 +327,36 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
     });
 
+    if (global.relayIsLocal) {
+      WsTestHelper.withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, () => {
+        it('Rejects subscription requests when SUBSCRIPTIONS_ENABLED is false', async function () {
+          const response = await WsTestHelper.sendRequestToStandardWebSocket(
+            'eth_subscribe',
+            ['logs', { address: logContractSigner.target }],
+            3000, // 3 second timeout
+          );
+
+          expect(response).to.not.be.null;
+          expect(response.error).to.exist;
+          expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
+          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+        });
+
+        it('Rejects unsubscribe requests when SUBSCRIPTIONS_ENABLED is false', async function () {
+          const response = await WsTestHelper.sendRequestToStandardWebSocket(
+            'eth_unsubscribe',
+            ['0x123'],
+            3000, // 3 second timeout
+          );
+
+          expect(response).to.not.be.null;
+          expect(response.error).to.exist;
+          expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
+          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+        });
+      });
+    }
+
     it('Expect Unsupported Method Error message when subscribing for newPendingTransactions method', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
       let response = {};
@@ -411,7 +441,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   });
 
   describe('Connection limit', async function () {
-    let providers: ethers.WebSocketProvider[] = [];
+    const providers: ethers.WebSocketProvider[] = [];
 
     WsTestHelper.overrideEnvsInMochaDescribe({ WS_CONNECTION_LIMIT: 5 });
 
@@ -455,7 +485,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   });
 
   describe('Connection TTL', async function () {
-    let TEST_TTL = 5000;
+    const TEST_TTL = 5000;
 
     WsTestHelper.overrideEnvsInMochaDescribe({ WS_MAX_INACTIVITY_TTL: TEST_TTL });
 
@@ -545,7 +575,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   describe('Subscribes to log events', async function () {
     let logContractSigner2, logContractSigner3, wsLogsProvider, contracts, cLen;
     let ANONYMOUS_LOG_DATA, topic1, topic2;
-    let eventsReceivedGlobal: any[] = [];
+    const eventsReceivedGlobal: any[] = [];
 
     // Deploy several contracts
     before(async function () {
@@ -626,7 +656,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     it('Subscribes for debug', async function () {
       await new Promise((r) => setTimeout(r, 2000));
 
-      let eventsReceived = eventsReceivedGlobal[0];
+      const eventsReceived = eventsReceivedGlobal[0];
       const subscriptionEvents = eventsReceived.filter((e) => e?.payload?.method === 'eth_subscribe');
       const receiveRpcResultEvents = eventsReceived.filter((e) => e?.action === 'receiveRpcResult');
 
@@ -636,7 +666,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('@release Subscribes for contract logs for a specific contract address (using evmAddress)', async function () {
-      let eventsReceived = eventsReceivedGlobal[1];
+      const eventsReceived = eventsReceivedGlobal[1];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(5);
@@ -649,7 +679,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('@release Subscribes for contract logs for a specific contract address (using long zero address)', async function () {
-      let eventsReceived = eventsReceivedGlobal[2];
+      const eventsReceived = eventsReceivedGlobal[2];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(5);
@@ -662,7 +692,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('Subscribes for contract logs for a single topic', async function () {
-      let eventsReceived = eventsReceivedGlobal[3];
+      const eventsReceived = eventsReceivedGlobal[3];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(3);
@@ -673,7 +703,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('Subscribes for contract logs for multiple topics', async function () {
-      let eventsReceived = eventsReceivedGlobal[4];
+      const eventsReceived = eventsReceivedGlobal[4];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(3);
@@ -684,7 +714,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('Subscribes for contract logs for address and multiple topics', async function () {
-      let eventsReceived = eventsReceivedGlobal[5];
+      const eventsReceived = eventsReceivedGlobal[5];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(1);
@@ -693,7 +723,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     });
 
     it('Subscribing for contract logs for a specific contract address and a wrong topic.', async function () {
-      let eventsReceived = eventsReceivedGlobal[6];
+      const eventsReceived = eventsReceivedGlobal[6];
 
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(0);
@@ -701,9 +731,10 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
   });
 
   describe('Subscribes to hts tokens and listens for synthetic log events', async function () {
+    // eslint-disable-next-line prefer-const
+    let htsAccounts = [];
     let htsToken,
       wsHtsProvider,
-      htsAccounts = [],
       htsEventsReceived = [];
 
     before(async function () {

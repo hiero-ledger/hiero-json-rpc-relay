@@ -1,6 +1,6 @@
 # Hedera Hardhat Viem Example Project
 
-This Hedera Hardhat Viem Example Project offers boilerplate code for testing and deploying smart contracts via Hardhat with Viem. It includes configuration for both community-hosted and local ([Hedera Local Node](https://github.com/hashgraph/hedera-local-node)) instances of the [Hedera JSON RPC Relay](https://github.com/hashgraph/hedera-json-rpc-relay). 
+This Hedera Hardhat Viem Example Project offers boilerplate code for testing and deploying smart contracts via Hardhat with Viem. It includes configuration for both community-hosted and local ([Hedera Local Node](https://github.com/hashgraph/hedera-local-node)) instances of the [Hedera JSON RPC Relay](https://github.com/hiero-ledger/hiero-json-rpc-relay). 
 
 :fire: Check out the step-by-step tutorial [here](https://docs.hedera.com/hedera/tutorials/smart-contracts/deploy-a-smart-contract-using-hardhat-and-hedera-json-rpc-relays).
 
@@ -35,13 +35,13 @@ Viem already includes out-of-the-box configuration for Hedera public networks: [
 1. Clone this repo to your local machine:
 
 ```shell
-git clone https://github.com/hashgraph/hedera-json-rpc-relay.git
+git clone https://github.com/hiero-ledger/hiero-json-rpc-relay.git
 ```
 
 2. Once you've cloned the repository, open your IDE terminal and navigate to the root directory of the project:
 
 ```shell
-cd hedera-json-rpc-relay/tools/hardhat-viem-example
+cd hiero-json-rpc-relay/tools/hardhat-viem-example
 ```
 
 3. Run the following command to install all the necessary dependencies:

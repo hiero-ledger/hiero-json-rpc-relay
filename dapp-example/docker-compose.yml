@@ -3,7 +3,7 @@ version: '3.9'
 services:
   synpress:
     container_name: synpress
-    image: synthetixio/docker-e2e:18.12-ubuntu
+    image: synthetixio/docker-e2e@sha256:89b1a10bd160dfe7d7726bbe1b9ef8d8139991b888c2591cc6fb99afbe091de2 # 18.12-ubuntu
     environment:
       - DISPLAY=display:0.0
       - CYPRESS_PRIVATE_KEY_WITH_FUNDS=${CYPRESS_PRIVATE_KEY_WITH_FUNDS}
@@ -30,7 +30,7 @@ services:
 
   display:
     container_name: display
-    image: synthetixio/display:457bb48776c3b14de232d9dda620ba9188dc40ac-base
+    image: synthetixio/display@sha256:0b838a500b86a568e0f4685b057a853da50e101cf3b35867798510895ca9f862 # 457bb48776c3b14de232d9dda620ba9188dc40ac-base
     environment:
       - RUN_XTE8080RM=no
     ports:
@@ -42,7 +42,7 @@ services:
     profiles:
       - ngrok
     container_name: ngrok
-    image: synthetixio/ngrok:457bb48776c3b14de232d9dda620ba9188dc40ac-base
+    image: synthetixio/ngrok@sha256:e23abfc9b0d7f13534367a94bde19a85be0d1ff11deb4454c3078cef64585458 # 457bb48776c3b14de232d9dda620ba9188dc40ac-base
     ports:
       - '4040:4040'
     command: ['ngrok', 'http', 'display:8080', '--authtoken', '${NGROK_AUTH}']
@@ -55,7 +55,7 @@ services:
     profiles:
       - video
     container_name: video
-    image: synthetixio/video:457bb48776c3b14de232d9dda620ba9188dc40ac-base
+    image: synthetixio/video@sha256:68eb978492967f5cb144193b08604ce7ff08c29d54fca8d13d75011c6b5d85a7 # 457bb48776c3b14de232d9dda620ba9188dc40ac-base
     volumes:
       - ./docker/videos-ci:/videos
     environment:

@@ -185,12 +185,13 @@ describe('RpcMethodDispatcher', () => {
       expect(operationHandler.calledWith(...TEST_PARAMS_REARRANGED_DEFAULT)).to.be.true;
     });
 
-    it('should directly return JsonRpcError if the handler returns a JsonRpcError', async () => {
+    it('should preserve and rethrow exception even when the handler returns an exception', async () => {
       const jsonRpcError = new JsonRpcError({ code: -32000, message: 'Handler error' });
       operationHandler.returns(jsonRpcError);
 
-      const result = await (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS);
-      expect(result).to.equal(jsonRpcError);
+      await expect(
+        (dispatcher as any).processRpcMethod(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS),
+      ).to.eventually.rejectedWith(jsonRpcError.message);
     });
   });
 
@@ -203,38 +204,6 @@ describe('RpcMethodDispatcher', () => {
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(-32000);
       expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Test error`);
-    });
-
-    it('should return non time out MirrorNodeClientError as INTERNAL_ERROR', () => {
-      const error = new MirrorNodeClientError(new Error('Mirror node error'), 500);
-
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
-      const expected = new JsonRpcError(
-        {
-          code: predefined.INTERNAL_ERROR(error.message).code,
-          message: predefined.INTERNAL_ERROR(error.message).message,
-          data: error.data,
-        },
-        TEST_REQUEST_DETAILS.requestId,
-      );
-
-      expect(result).to.deep.equal(expected);
-    });
-
-    it('should return time out MirrorNodeClientError as REQUEST_TIMEOUT', () => {
-      const error = new MirrorNodeClientError(new Error('Mirror node time out error'), 504);
-
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
-      const expected = new JsonRpcError(
-        {
-          code: predefined.REQUEST_TIMEOUT.code,
-          message: predefined.REQUEST_TIMEOUT.message,
-          data: error.data,
-        },
-        TEST_REQUEST_DETAILS.requestId,
-      );
-
-      expect(result).to.deep.equal(expected);
     });
 
     it('should return non time out SDKClientError as INTERNAL_ERROR', () => {
@@ -265,6 +234,104 @@ describe('RpcMethodDispatcher', () => {
       );
 
       expect(result).to.deep.equal(expected);
+    });
+  });
+
+  describe('handleRpcMethodError() with MirrorNodeClientError', () => {
+    it('should handle rate limit (429) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Rate limit exceeded'),
+        MirrorNodeClientError.statusCodes.TOO_MANY_REQUESTS,
+      );
+      sinon.stub(error, 'isRateLimit').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Rate limit exceeded');
+    });
+
+    it('should handle timeout (504) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Connection aborted'),
+        MirrorNodeClientError.ErrorCodes.ECONNABORTED,
+      );
+      sinon.stub(error, 'isTimeout').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Connection aborted');
+    });
+
+    it('should handle not supported (501) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Not supported'),
+        MirrorNodeClientError.ErrorCodes.NOT_SUPPORTED,
+      );
+      sinon.stub(error, 'isNotSupported').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Not supported');
+    });
+
+    it('should handle not found (404) errors correctly', () => {
+      const error = new MirrorNodeClientError(
+        new Error('Resource not found'),
+        MirrorNodeClientError.statusCodes.NOT_FOUND,
+      );
+      sinon.stub(error, 'isNotFound').returns(true);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Resource not found');
+    });
+
+    it('should handle internal server error (500) correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Internal server error'), 500);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Internal server error');
+    });
+
+    it('should handle bad gateway (502) errors correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Bad gateway'), 502);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Bad gateway');
+    });
+
+    it('should handle service unavailable (503) errors correctly', () => {
+      const error = new MirrorNodeClientError(new Error('Service unavailable'), 503);
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
+      expect(result.message).to.include('Service unavailable');
+    });
+
+    it('should handle mirror node errors with no message', () => {
+      const error = new MirrorNodeClientError(new Error(), 400);
+      error.message = ''; // Explicitly set empty message
+
+      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.message).to.include('Mirror node upstream failure');
     });
   });
 

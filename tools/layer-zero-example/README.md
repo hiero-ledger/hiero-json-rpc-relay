@@ -327,7 +327,7 @@ npx hardhat test --grep "WHBARTests @bsc @test" --network bsc_testnet
 ```
 
 ### Useful information:
-- The addresses of endpoints [here](https://github.com/hashgraph/hedera-json-rpc-relay/blob/1030-lz-setup/tools/layer-zero-example/hardhat.config.js#L60) are the official LZ endpoints. A entire list of LZ supported endpoints can be found on https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts.
+- The addresses of endpoints [here](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/1030-lz-setup/tools/layer-zero-example/hardhat.config.js#L60) are the official LZ endpoints. A entire list of LZ supported endpoints can be found on https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts.
 
 ### HTS Adapter vs HTS Connector
 - You could use a HTS Adapter when you already have an existing HTS token on the fly.

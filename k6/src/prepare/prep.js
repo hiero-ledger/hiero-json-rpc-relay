@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Greeter from './contracts/Greeter.json' assert { type: 'json' };
+import Greeter from './contracts/Greeter.json' with { type: 'json' };
 import { ethers, formatEther, parseEther } from 'ethers';
 import * as fs from 'fs';
 import path from 'path';

@@ -1,24 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { WS_CONSTANTS } from '../utils/constants';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import { handleEthSubscribe, handleEthUnsubscribe } from './eth_subscribe';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
 import {
   InternalError,
   InvalidRequest,
   IPRateLimitExceeded,
   MethodNotFound,
 } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { Logger } from 'pino';
-import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import Koa from 'koa';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import { Logger } from 'pino';
+
+import ConnectionLimiter from '../metrics/connectionLimiter';
+import WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { SubscriptionService } from '../service/subscriptionService';
+import { WS_CONSTANTS } from '../utils/constants';
+import { validateJsonRpcRequest, verifySupportedMethod } from '../utils/utils';
+import { handleEthSubscribe } from './subscribeController';
+import { handleEthUnsubscribe } from './unsubscribeController';
 
 export type ISharedParams = {
   request: IJsonRpcRequest;
@@ -30,6 +33,7 @@ export type ISharedParams = {
   mirrorNodeClient: MirrorNodeClient;
   ctx: Koa.Context;
   requestDetails: RequestDetails;
+  subscriptionService: SubscriptionService;
 };
 
 /**
@@ -92,8 +96,10 @@ export const getRequestResult = async (
   mirrorNodeClient: MirrorNodeClient,
   wsMetricRegistry: WsMetricRegistry,
   requestDetails: RequestDetails,
+  subscriptionService: SubscriptionService,
 ): Promise<any> => {
   // Extract the method and parameters from the received request
+  // eslint-disable-next-line prefer-const
   let { method, params } = request;
 
   // support go-ethereum client by turning undefined into empty array
@@ -137,6 +143,7 @@ export const getRequestResult = async (
       limiter,
       mirrorNodeClient,
       requestDetails,
+      subscriptionService,
     };
 
     switch (method) {
