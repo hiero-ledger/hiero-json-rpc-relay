@@ -1326,7 +1326,8 @@ export class MirrorNodeClient {
   }
 
   setQueryParam(queryParamObject, key, value) {
-    if (key && value !== undefined) {
+    // ignore if value is undefined, null, and empty string
+    if (key && value != undefined && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
       }
