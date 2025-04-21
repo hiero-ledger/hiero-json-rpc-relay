@@ -81,7 +81,7 @@ export class EthImpl implements Eth {
   static defaultTxGas = numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT);
   static gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
   static minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
-  static ethTxType = 'EthereumTransaction';
+  static EthereumTransactionType = 'EthereumTransaction';
   static defaultGasUsedRatio = 0.5;
   static feeHistoryZeroBlockCountResponse: IFeeHistory = {
     gasUsedRatio: null,
@@ -406,7 +406,7 @@ export class EthImpl implements Eth {
     let fee = 0;
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      fee = await this.getFeeWeibars(EthImpl.ethFeeHistory, requestDetails, `lte:${block.timestamp.to}`);
+      fee = await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
     } catch (error) {
       this.logger.warn(
         error,
@@ -485,41 +485,28 @@ export class EthImpl implements Eth {
     return feeHistory;
   }
 
-  private async getFeeWeibars(callerName: string, requestDetails: RequestDetails, timestamp?: string): Promise<number> {
-    let networkFees;
-
-    try {
-      networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
-    } catch (e: any) {
-      this.logger.warn(
-        e,
-        `${requestDetails.formattedRequestId} Mirror Node threw an error while retrieving fees. Fallback to consensus node.`,
-      );
-    }
-
-    if (_.isNil(networkFees)) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Mirror Node returned no network fees. Fallback to consensus node.`,
-        );
-      }
-      networkFees = {
-        fees: [
-          {
-            gas: await this.hapiService.getSDKClient().getTinyBarGasFee(callerName, requestDetails),
-            transaction_type: EthImpl.ethTxType,
-          },
-        ],
-      };
-    }
+  /**
+   * Retrieves the current network gas price in weibars from the mirror node.
+   *
+   * This method fetches network fees from the mirror node for a specific timestamp (if provided)
+   * and converts the gas price from tinybars to weibars for Ethereum compatibility.
+   *
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking
+   * @param {string} [timestamp] - Optional timestamp to get historical gas prices
+   * @returns {Promise<number>} The gas price in weibars
+   * @throws {Error} If the gas price cannot be estimated
+   */
+  private async getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number> {
+    const networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
 
     if (networkFees && Array.isArray(networkFees.fees)) {
-      const txFee = networkFees.fees.find(({ transaction_type }) => transaction_type === EthImpl.ethTxType);
-      if (txFee?.gas) {
-        // convert tinyBars into weiBars
-        const weibars = Hbar.fromTinybars(txFee.gas).toTinybars().multiply(constants.TINYBAR_TO_WEIBAR_COEF);
+      const ethereumTransactionTypeFee = networkFees.fees.find(
+        ({ transaction_type }) => transaction_type === EthImpl.EthereumTransactionType,
+      );
 
-        return weibars.toNumber();
+      if (ethereumTransactionTypeFee?.gas) {
+        // convert tinyBars into weiBars and return the value
+        return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
       }
     }
 
@@ -819,7 +806,7 @@ export class EthImpl implements Eth {
       );
 
       if (!gasPrice) {
-        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getFeeWeibars(EthImpl.ethGasPrice, requestDetails));
+        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));
 
         await this.cacheService.set(
           constants.CACHE_KEY.GAS_PRICE,
@@ -2191,7 +2178,7 @@ export class EthImpl implements Eth {
     const transactionBuffer = Buffer.from(EthImpl.prune0x(transaction), 'hex');
 
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.getFeeWeibars(EthImpl.ethGasPrice, requestDetails),
+      await this.getGasPriceInWeibars(requestDetails),
     );
     const parsedTx = await this.parseRawTxAndPrecheck(transaction, networkGasPriceInWeiBars, requestDetails);
 
@@ -2822,12 +2809,7 @@ export class EthImpl implements Eth {
     const block = await this.getBlockByHash(blockHash, false, requestDetails);
     const timestampDecimal = parseInt(block ? block.timestamp : '0', 16);
     const timestampDecimalString = timestampDecimal > 0 ? timestampDecimal.toString() : '';
-    const gasPriceForTimestamp = await this.getFeeWeibars(
-      EthImpl.ethGetTransactionReceipt,
-      requestDetails,
-      timestampDecimalString,
-    );
-
+    const gasPriceForTimestamp = await this.getGasPriceInWeibars(requestDetails, timestampDecimalString);
     return numberTo0x(gasPriceForTimestamp);
   }
 

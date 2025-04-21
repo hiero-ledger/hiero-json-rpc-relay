@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, use } from 'chai';
-import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
 
-import constants from '../../../src/lib/constants';
-import { SDKClient } from '../../../src/lib/clients';
 import { numberTo0x } from '../../../dist/formatters';
-import { DEFAULT_NETWORK_FEES, NOT_FOUND_RES } from './eth-config';
 import { predefined } from '../../../src';
-import RelayAssertions from '../../assertions';
-import { generateEthTestEnv } from './eth-helpers';
-import { overrideEnvsInMochaDescribe, toHex } from '../../helpers';
+import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
+import { overrideEnvsInMochaDescribe, toHex } from '../../helpers';
+import { DEFAULT_NETWORK_FEES, NOT_FOUND_RES } from './eth-config';
+import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
-let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
-
 describe('@ethGasPrice Gas Price spec', async function () {
   this.timeout(10000);
-  let { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getPriceTest', ipAddress: '0.0.0.0' });
 
@@ -31,13 +26,10 @@ describe('@ethGasPrice Gas Price spec', async function () {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
     restMock.reset();
-    sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
@@ -88,7 +80,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
         expect(initialGasPrice).to.equal(toHex(DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF));
       });
 
-      for (let testCaseName in GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES) {
+      for (const testCaseName in GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES) {
         const GAS_PRICE_PERCENTAGE_BUFFER = GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES[testCaseName];
 
         describe(testCaseName, async function () {
@@ -117,15 +109,6 @@ describe('@ethGasPrice Gas Price spec', async function () {
     describe('eth_gasPrice not found', async function () {
       beforeEach(() => {
         restMock.onGet(`network/fees`).reply(404, JSON.stringify(NOT_FOUND_RES));
-      });
-
-      it('eth_gasPrice with mirror node return network fees found', async function () {
-        const fauxGasTinyBars = 35_000;
-        const fauxGasWeiBarHex = '0x13e52b9abe000';
-        sdkClientStub.getTinyBarGasFee.resolves(fauxGasTinyBars);
-
-        const gas = await ethImpl.gasPrice(requestDetails);
-        expect(gas).to.equal(fauxGasWeiBarHex);
       });
 
       it('eth_gasPrice with no network fees records found', async function () {

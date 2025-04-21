@@ -3,10 +3,8 @@
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon from 'sinon';
 
 import { numberTo0x } from '../../../src/formatters';
-import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
@@ -23,12 +21,9 @@ import {
 import { generateEthTestEnv } from './eth-helpers';
 use(chaiAsPromised);
 
-let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
-
 describe('@ethFeeHistory using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_feeHistoryTest', ipAddress: '0.0.0.0' });
 
@@ -38,13 +33,10 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
     restMock.reset();
-    sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, DEFAULT_NETWORK_FEES);
   });
 
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
@@ -173,18 +165,15 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
   describe('eth_feeHistory -> Mirror node returns error', function () {
     const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
-    const fauxGasTinyBars = 25_000;
-    const fauxGasWeiBarHex = '0xe35fa931a000';
 
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
-      expect(feeHistory['baseFeePerGas'][0]).to.equal(fauxGasWeiBarHex);
+      expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
       expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 
     this.beforeEach(() => {
-      sdkClientStub.getTinyBarGasFee.resolves(fauxGasTinyBars);
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(200, JSON.stringify(latestBlock));
       restMock
