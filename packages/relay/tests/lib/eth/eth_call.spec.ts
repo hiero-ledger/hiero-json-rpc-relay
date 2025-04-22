@@ -632,23 +632,14 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 501, mockData.notSuported, requestDetails);
 
-      sdkClientStub.submitContractCallQueryWithRetry.resolves({
-        asBytes: function () {
-          return Uint8Array.of(0);
-        },
-      } as unknown as ContractFunctionResult);
-
-      const result = await ethImpl.call(callData, 'latest', requestDetails);
-
-      sinon.assert.calledWith(
-        sdkClientStub.submitContractCallQueryWithRetry,
-        CONTRACT_ADDRESS_2,
-        CONTRACT_CALL_DATA,
-        MAX_GAS_LIMIT,
-        ACCOUNT_ADDRESS_1,
-        'eth_call',
-      );
-      expect(result).to.equal('0x00');
+      try {
+        await ethImpl.call(callData, 'latest', requestDetails);
+        expect.fail('Expected error to be thrown');
+      } catch (error) {
+        expect(error).to.be.instanceOf(MirrorNodeClientError);
+        expect(error.isNotSupported()).to.be.true;
+        expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);
+      }
     });
 
     it('eth_call with all fields, but mirror node throws CONTRACT_REVERTED', async function () {
@@ -670,7 +661,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
     });
 
-    it('SDK returns a precheck error', async function () {
+    it('Mirror Node returns 400 contract revert error', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,

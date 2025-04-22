@@ -2239,8 +2239,6 @@ export class EthImpl implements Eth {
       if (shouldForceToConsensus || shouldDefaultToConsensus) {
         result = await this.callConsensusNode(call, gas, requestDetails);
       } else {
-        //temporary workaround until precompiles are implemented in Mirror node evm module
-        // Execute the call and get the response
         result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       }
 
@@ -2400,21 +2398,6 @@ export class EthImpl implements Eth {
           return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
         }
 
-        // Temporary workaround until mirror node web3 module implements the support of precompiles
-        // If mirror node throws, rerun eth_call and force it to go through the Consensus network
-        if (e.isNotSupported() || e.isNotSupportedSystemContractOperaton()) {
-          const errorTypeMessage =
-            e.isNotSupported() || e.isNotSupportedSystemContractOperaton() ? 'Unsupported' : 'Unhandled';
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `${requestIdPrefix} ${errorTypeMessage} mirror node eth_call request, retrying with consensus node. details: ${JSON.stringify(
-                callData,
-              )} with error: "${e.message}"`,
-            );
-          }
-          return await this.callConsensusNode(call, gas, requestDetails);
-        }
-
         // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
         throw e;
       }
@@ -2517,7 +2500,6 @@ export class EthImpl implements Eth {
    * @param call
    */
   async performCallChecks(call: any): Promise<void> {
-    // after this PR https://github.com/hashgraph/hedera-mirror-node/pull/8100 in mirror-node, call.to is allowed to be empty or null
     if (call.to && !isValidEthereumAddress(call.to)) {
       throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
     }
