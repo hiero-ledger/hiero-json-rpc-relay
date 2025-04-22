@@ -1002,7 +1002,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         };
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const error = predefined.INTERNAL_ERROR();
+        const error = predefined.INVALID_ARGUMENTS('unexpected junk after rlp payload');
 
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
           signedTx + '11',
