@@ -1535,56 +1535,24 @@ export class EthImpl implements Eth {
                 EthImpl.ethGetCode,
                 requestDetails,
               );
-              return result?.entity.runtime_bytecode;
             }
+            return result?.entity.runtime_bytecode;
           }
         }
       }
 
-      const bytecode = await this.hapiService
-        .getSDKClient()
-        .getContractByteCode(0, 0, address, EthImpl.ethGetCode, requestDetails);
-      return prepend0x(Buffer.from(bytecode).toString('hex'));
-    } catch (e: any) {
-      if (e instanceof SDKClientError) {
-        // handle INVALID_CONTRACT_ID or CONTRACT_DELETED
-        if (e.isInvalidContractId() || e.isContractDeleted()) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.statusCode}`,
-            );
-          }
-          return EthImpl.emptyHex;
-        }
-
-        this.hapiService.decrementErrorCounter(e.statusCode);
-        this.logger.error(
-          e,
-          `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.statusCode}`,
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning empty hex.`,
         );
-      } else if (e instanceof PrecheckStatusError) {
-        if (
-          e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.INVALID_CONTRACT_ID ||
-          e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.CONTRACT_DELETED
-        ) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.message}`,
-            );
-          }
-          return EthImpl.emptyHex;
-        }
-
-        this.hapiService.decrementErrorCounter(e.status._code);
-        this.logger.error(
-          e,
-          `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.status._code}`,
-        );
-      } else {
-        this.logger.error(e, `${requestIdPrefix} Error raised during getCode for address ${address}`);
       }
 
-      throw e;
+      return EthImpl.emptyHex;
+    } catch (error: any) {
+      this.logger.error(
+        `${requestIdPrefix} Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
+      );
+      throw error;
     }
   }
 

@@ -3,11 +3,8 @@
 import { ContractId } from '@hashgraph/sdk';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon from 'sinon';
 
 import { JsonRpcError, predefined } from '../../../src';
-import { SDKClient } from '../../../src/lib/clients';
-import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
 import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
@@ -16,7 +13,6 @@ import {
   DEFAULT_CONTRACT,
   DEFAULT_HTS_TOKEN,
   DEFAULT_NETWORK_FEES,
-  DEPLOYED_BYTECODE,
   HTS_TOKEN_ADDRESS,
   MIRROR_NODE_DEPLOYED_BYTECODE,
   NO_TRANSACTIONS,
@@ -25,12 +21,9 @@ import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
-let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
-
 describe('@ethGetCode using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   const earlyBlockParams = ['0x0', '0x369ABF', 'earliest'];
   const otherValidBlockParams = [null, 'latest', 'pending', 'finalized', 'safe'];
   const invalidBlockParam = ['hedera', 'ethereum', '0xhbar', '0x369ABF369ABF369ABF'];
@@ -44,8 +37,6 @@ describe('@ethGetCode using MirrorNode', async function () {
     await cacheService.clear(requestDetails);
     restMock.reset();
 
-    sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
 
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, null);
@@ -65,25 +56,15 @@ describe('@ethGetCode using MirrorNode', async function () {
         ],
       }),
     );
-    sdkClientStub.getContractByteCode.resolves(Buffer.from(DEPLOYED_BYTECODE.replace('0x', ''), 'hex'));
   });
 
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
   describe('eth_getCode', async function () {
     it('should return non cached value for not found contract', async () => {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, JSON.stringify(DEFAULT_CONTRACT));
-      sdkClientStub.getContractByteCode.throws(
-        new SDKClientError({
-          status: {
-            _code: 16,
-          },
-        }),
-      );
-
       const resNoCache = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
       const resCached = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
       expect(resNoCache).to.equal(EthImpl.emptyHex);
@@ -95,19 +76,19 @@ describe('@ethGetCode using MirrorNode', async function () {
       expect(res).to.equal(MIRROR_NODE_DEPLOYED_BYTECODE);
     });
 
-    it('should return the bytecode from SDK if Mirror Node returns 404', async () => {
+    it('should return empty bytecode if Mirror Node returns 404', async () => {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, JSON.stringify(DEFAULT_CONTRACT));
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
-      expect(res).to.equal(DEPLOYED_BYTECODE);
+      expect(res).to.equal(EthImpl.emptyHex);
     });
 
-    it('should return the bytecode from SDK if Mirror Node returns empty runtime_bytecode', async () => {
+    it('should return empty bytecode if Mirror Node returns empty runtime_bytecode', async () => {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, {
         ...DEFAULT_CONTRACT,
         runtime_bytecode: EthImpl.emptyHex,
       });
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
-      expect(res).to.equal(DEPLOYED_BYTECODE);
+      expect(res).to.equal(EthImpl.emptyHex);
     });
 
     it('should return redirect bytecode for HTS token', async () => {
