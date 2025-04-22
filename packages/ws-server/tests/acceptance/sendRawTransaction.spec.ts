@@ -39,10 +39,8 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
   const requestId = 'sendRawTransactionTest_ws-server';
   const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
 
-  let tx: any,
-    sendHbarToProxyContractDeployerTx: any,
-    accounts: AliasAccount[] = [],
-    ethersWsProvider: WebSocketProvider;
+  let tx: any, sendHbarToProxyContractDeployerTx: any, ethersWsProvider: WebSocketProvider;
+  const accounts: AliasAccount[] = [];
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -112,6 +110,16 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       expect(fromAccountInfo.evm_address).to.eq(accounts[0].address.toLowerCase());
     });
 
+    it(`Should fail eth_sendRawTransaction on Standard Web Socket when transaction has invalid format`, async () => {
+      const invalidTx =
+        '0xf8748201280585800e8dfc0085800e8dfc00832dc6c094aca85ef7e1fce27079bbf99b60fcf6fd19b99b248502540be40080c001a0210446cfb671c3174392410d52fa3cd58723d8417e40cc67c6225b8f7e3ff693a02674b392846c59f783ea96655d39560956dd987051972064a5d853cea0b6f6d711';
+      const response = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, [invalidTx], 1000);
+
+      const expectedError = predefined.INVALID_ARGUMENTS('invalid hex string');
+      expect(response.error.code).to.eq(expectedError.code);
+      expect(response.error.message).to.contain(expectedError.message);
+    });
+
     it(`Should execute eth_sendRawTransaction on Standard Web Socket for the deterministic deployment transaction`, async () => {
       // send gas money to the proxy deployer
       sendHbarToProxyContractDeployerTx.nonce = await global.relay.getAccountNonce(accounts[0].address);
@@ -176,6 +184,18 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
 
       expect(txReceipt.to).to.eq(accounts[2].address.toLowerCase());
       expect(fromAccountInfo.evm_address).to.eq(accounts[1].address.toLowerCase());
+    });
+
+    it(`Should fail eth_sendRawTransaction on Ethers Web Socket Provider when transaction has invalid format`, async () => {
+      const invalidTx = '0xinvalidtransactionformat';
+      try {
+        await ethersWsProvider.send(METHOD_NAME, [invalidTx]);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        const expectedError = predefined.INVALID_ARGUMENTS('invalid hex string');
+        expect(error.info.error.code).to.eq(expectedError.code);
+        expect(error.info.error.message).to.contain(expectedError.message);
+      }
     });
 
     it(`Should execute eth_sendRawTransaction on Ethers Web Socket Provider for the deterministic deployment transaction`, async () => {
