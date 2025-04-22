@@ -7,7 +7,6 @@ import {
   ContractCallQuery,
   EthereumTransaction,
   ExchangeRate,
-  FeeSchedules,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
@@ -64,22 +63,6 @@ describe('SdkClient', async function () {
   let hbarLimitService: HbarLimitService;
 
   const requestDetails = new RequestDetails({ requestId: 'sdkClientTest', ipAddress: '0.0.0.0' });
-  const feeSchedules = {
-    current: {
-      transactionFeeSchedule: [
-        {
-          hederaFunctionality: {
-            _code: constants.ETH_FUNCTIONALITY_CODE,
-          },
-          fees: [
-            {
-              servicedata: undefined,
-            },
-          ],
-        },
-      ],
-    },
-  } as unknown as FeeSchedules;
 
   overrideEnvsInMochaDescribe({ GET_RECORD_DEFAULT_TO_CONSENSUS_NODE: true });
 
@@ -111,13 +94,7 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    sdkClient = new SDKClient(
-      client,
-      logger.child({ name: `consensus-node` }),
-      new CacheService(logger.child({ name: `cache` }), registry),
-      eventEmitter,
-      hbarLimitService,
-    );
+    sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -231,25 +208,6 @@ describe('SdkClient', async function () {
         expect(e.status).to.eq(Status.InsufficientTxFee);
       }
     });
-
-    it('should return cached getTinyBarGasFee value', async () => {
-      const getFeeScheduleStub = sinon.stub(sdkClient, 'getFeeSchedule').callsFake(() => {
-        return Promise.resolve(feeSchedules);
-      });
-      // @ts-ignore
-      const getExchangeRateStub = sinon.stub(sdkClient, 'getExchangeRate').callsFake(() => {});
-      // @ts-ignore
-      const convertGasPriceToTinyBarsStub = sinon.stub(sdkClient, 'convertGasPriceToTinyBars').callsFake(() => 0x160c);
-
-      for (let i = 0; i < 5; i++) {
-        await sdkClient.getTinyBarGasFee('', requestDetails);
-      }
-
-      sinon.assert.calledOnce(getFeeScheduleStub);
-      sinon.assert.calledOnce(getExchangeRateStub);
-      sinon.assert.calledOnce(convertGasPriceToTinyBarsStub);
-      sinon.restore();
-    });
   });
 
   describe('HAPIService', async () => {
@@ -267,7 +225,7 @@ describe('SdkClient', async function () {
 
     this.beforeEach(() => {
       if (ConfigService.get('OPERATOR_KEY_FORMAT') !== 'BAD_FORMAT') {
-        hapiService = new HAPIService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+        hapiService = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
       }
     });
 
@@ -307,7 +265,7 @@ describe('SdkClient', async function () {
     withOverriddenEnvsInMochaTest({ OPERATOR_KEY_FORMAT: 'BAD_FORMAT' }, () => {
       it('It should throw an Error when an unexpected string is set', async () => {
         try {
-          new HAPIService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+          new HAPIService(logger, registry, eventEmitter, hbarLimitService);
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (e: any) {
           expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');

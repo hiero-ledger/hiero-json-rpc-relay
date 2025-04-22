@@ -2,31 +2,21 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
-  AccountBalance,
-  AccountBalanceQuery,
   AccountId,
-  AccountInfo,
-  AccountInfoQuery,
   Client,
-  ContractByteCodeQuery,
   ContractCallQuery,
   ContractFunctionResult,
   ContractId,
   EthereumTransaction,
   EthereumTransactionData,
   ExchangeRate,
-  ExchangeRates,
-  FeeComponents,
-  FeeSchedules,
   FileAppendTransaction,
-  FileContentsQuery,
   FileCreateTransaction,
   FileDeleteTransaction,
   FileId,
   FileInfoQuery,
   Hbar,
   HbarUnit,
-  Long,
   PrecheckStatusError,
   Query,
   Status,
@@ -36,13 +26,11 @@ import {
   TransactionRecordQuery,
   TransactionResponse,
 } from '@hashgraph/sdk';
-import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CacheService } from '../services/cacheService/cacheService';
 import { HbarLimitService } from '../services/hbarLimitService';
 import {
   IExecuteQueryEventPayload,
@@ -70,12 +58,6 @@ export class SDKClient {
    * @private
    */
   private readonly logger: Logger;
-
-  /**
-   * LRU cache container.
-   * @private
-   */
-  private readonly cacheService: CacheService;
 
   /**
    * Maximum number of chunks for file append transaction.
@@ -111,16 +93,9 @@ export class SDKClient {
    *
    * @param {Client} clientMain - The primary Hedera client instance used for executing transactions and queries.
    * @param {Logger} logger - The logger instance for logging information, warnings, and errors.
-   * @param {CacheService} cacheService - The cache service instance used for caching and retrieving data.
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    */
-  constructor(
-    clientMain: Client,
-    logger: Logger,
-    cacheService: CacheService,
-    eventEmitter: EventEmitter,
-    hbarLimitService: HbarLimitService,
-  ) {
+  constructor(clientMain: Client, logger: Logger, eventEmitter: EventEmitter, hbarLimitService: HbarLimitService) {
     this.clientMain = clientMain;
 
     // sets the maximum time in ms for the SDK to wait when submitting
@@ -128,7 +103,6 @@ export class SDKClient {
     this.clientMain = clientMain.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
 
     this.logger = logger;
-    this.cacheService = cacheService;
     this.eventEmitter = eventEmitter;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
@@ -141,240 +115,6 @@ export class SDKClient {
    */
   public getMainClientInstance() {
     return this.clientMain;
-  }
-
-  /**
-   * Retrieves the balance of a specified Hedera account.
-   *
-   * @param {string} account - The account ID to retrieve the balance for.
-   * @param {string} callerName - The name of the caller requesting the account balance.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<AccountBalance>} - A promise that resolves to the account balance.
-   */
-  async getAccountBalance(
-    account: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<AccountBalance> {
-    return this.executeQuery(
-      new AccountBalanceQuery().setAccountId(AccountId.fromString(account)),
-      this.clientMain,
-      callerName,
-      account,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Retrieves the balance of an account in tinybars.
-   * @param {string} account - The account ID to query.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<BigNumber>} The balance of the account in tinybars.
-   * @throws {SDKClientError} Throws an SDK client error if the balance retrieval fails.
-   */
-  async getAccountBalanceInTinyBar(
-    account: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<BigNumber> {
-    const balance = await this.getAccountBalance(account, callerName, requestDetails);
-    return balance.hbars.to(HbarUnit.Tinybar);
-  }
-
-  /**
-   * Retrieves the balance of an account in weiBars.
-   * @param {string} account - The account ID to query.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<BigNumber>} The balance of the account in weiBars.
-   * @throws {SDKClientError} Throws an SDK client error if the balance retrieval fails.
-   */
-  async getAccountBalanceInWeiBar(
-    account: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<BigNumber> {
-    const balance = await this.getAccountBalance(account, callerName, requestDetails);
-    return SDKClient.HbarToWeiBar(balance);
-  }
-
-  /**
-   * Retrieves information about an account.
-   * @param {string} address - The account ID to query.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<AccountInfo>} The information about the account.
-   * @throws {SDKClientError} Throws an SDK client error if the account info retrieval fails.
-   */
-  async getAccountInfo(address: string, callerName: string, requestDetails: RequestDetails): Promise<AccountInfo> {
-    return this.executeQuery(
-      new AccountInfoQuery().setAccountId(AccountId.fromString(address)),
-      this.clientMain,
-      callerName,
-      address,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Retrieves the bytecode of a contract.
-   * @param {number | Long} shard - The shard number of the contract.
-   * @param {number | Long} realm - The realm number of the contract.
-   * @param {string} address - The address of the contract.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<Uint8Array>} The bytecode of the contract.
-   * @throws {SDKClientError} Throws an SDK client error if the bytecode retrieval fails.
-   */
-  async getContractByteCode(
-    shard: number | Long,
-    realm: number | Long,
-    address: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<Uint8Array> {
-    const contractByteCodeQuery = new ContractByteCodeQuery().setContractId(
-      ContractId.fromEvmAddress(shard, realm, address),
-    );
-    const cost = await contractByteCodeQuery.getCost(this.clientMain);
-
-    return this.executeQuery(
-      contractByteCodeQuery.setQueryPayment(cost),
-      this.clientMain,
-      callerName,
-      address,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Retrieves the balance of a contract.
-   * @param {string} contract - The contract ID to query.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<AccountBalance>} The balance of the contract.
-   * @throws {SDKClientError} Throws an SDK client error if the balance retrieval fails.
-   */
-  async getContractBalance(
-    contract: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<AccountBalance> {
-    return this.executeQuery(
-      new AccountBalanceQuery().setContractId(ContractId.fromString(contract)),
-      this.clientMain,
-      callerName,
-      contract,
-      requestDetails,
-    );
-  }
-
-  /**
-   * Retrieves the balance of a contract in weiBars.
-   * Converts the balance from Hbar to weiBars using the `HbarToWeiBar` method.
-   * @param {string} account - The account address of the contract.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<BigNumber>} The contract balance in weiBars.
-   * @throws {SDKClientError} Throws an SDK client error if the balance retrieval fails.
-   */
-  async getContractBalanceInWeiBar(
-    account: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<BigNumber> {
-    const balance = await this.getContractBalance(account, callerName, requestDetails);
-    return SDKClient.HbarToWeiBar(balance);
-  }
-
-  /**
-   * Retrieves the current exchange rates from a file.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<ExchangeRates>} The exchange rates.
-   * @throws {SDKClientError} Throws an SDK client error if the exchange rates file retrieval or parsing fails.
-   */
-  async getExchangeRate(callerName: string, requestDetails: RequestDetails): Promise<ExchangeRates> {
-    const exchangeFileBytes = await this.getFileIdBytes(constants.EXCHANGE_RATE_FILE_ID, callerName, requestDetails);
-
-    return ExchangeRates.fromBytes(exchangeFileBytes);
-  }
-
-  /**
-   * Retrieves the fee schedule from a file.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<FeeSchedules>} The fee schedules.
-   * @throws {SDKClientError} Throws an SDK client error if the fee schedule file retrieval or parsing fails.
-   */
-  async getFeeSchedule(callerName: string, requestDetails: RequestDetails): Promise<FeeSchedules> {
-    const feeSchedulesFileBytes = await this.getFileIdBytes(constants.FEE_SCHEDULE_FILE_ID, callerName, requestDetails);
-    return FeeSchedules.fromBytes(feeSchedulesFileBytes);
-  }
-
-  /**
-   * Retrieves the gas fee in tinybars for Ethereum transactions using HAPI and caches the result to avoid repeated fee schedule queries.
-   *
-   * @note This method should be used as a fallback if retrieving the network gas price with MAPI fails.
-   * MAPI does not incur any fees, while HAPI will incur a query fee.
-   *
-   * @param {string} callerName - The name of the caller, used for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<number>} The gas fee in tinybars.
-   * @throws {SDKClientError} Throws an SDK client error if the fee schedules or exchange rates are invalid.
-   */
-  async getTinyBarGasFee(callerName: string, requestDetails: RequestDetails): Promise<number> {
-    const cachedResponse: number | undefined = await this.cacheService.getAsync(
-      constants.CACHE_KEY.GET_TINYBAR_GAS_FEE,
-      callerName,
-      requestDetails,
-    );
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-
-    const feeSchedules = await this.getFeeSchedule(callerName, requestDetails);
-    if (_.isNil(feeSchedules.current) || feeSchedules.current?.transactionFeeSchedule === undefined) {
-      throw new SDKClientError({}, 'Invalid FeeSchedules proto format');
-    }
-
-    for (const schedule of feeSchedules.current?.transactionFeeSchedule ?? []) {
-      if (schedule.hederaFunctionality?._code === constants.ETH_FUNCTIONALITY_CODE && schedule.fees !== undefined) {
-        // get exchange rate & convert to tiny bar
-        const exchangeRates = await this.getExchangeRate(callerName, requestDetails);
-        const tinyBars = this.convertGasPriceToTinyBars(schedule.fees[0].servicedata, exchangeRates);
-
-        await this.cacheService.set(
-          constants.CACHE_KEY.GET_TINYBAR_GAS_FEE,
-          tinyBars,
-          callerName,
-          requestDetails,
-          parseInt(constants.ETH_GAS_FEE_TTL),
-        );
-        return tinyBars;
-      }
-    }
-
-    throw new SDKClientError({}, `${constants.ETH_FUNCTIONALITY_CODE} code not found in feeSchedule`);
-  }
-
-  /**
-   * Retrieves the contents of a file identified by its ID and returns them as a byte array.
-   * @param {string} address - The file ID or address of the file to retrieve.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<Uint8Array>} The contents of the file as a byte array.
-   * @throws {SDKClientError} Throws an SDK client error if the file query fails.
-   */
-  async getFileIdBytes(address: string, callerName: string, requestDetails: RequestDetails): Promise<Uint8Array> {
-    return this.executeQuery(
-      new FileContentsQuery().setFileId(address),
-      this.clientMain,
-      callerName,
-      address,
-      requestDetails,
-    );
   }
 
   /**
@@ -981,30 +721,6 @@ export class SDKClient {
   }
 
   /**
-   * Converts the gas price to tinybars using the provided fee components and exchange rates.
-   * @private
-   *
-   * @param {FeeComponents | undefined} feeComponents - The fee components to use for the conversion.
-   * @param {ExchangeRates} exchangeRates - The exchange rates to use for the conversion.
-   * @returns {number} The converted gas price in tinybars.
-   */
-  private convertGasPriceToTinyBars = (
-    feeComponents: FeeComponents | undefined,
-    exchangeRates: ExchangeRates,
-  ): number => {
-    // gas -> tinCents:  gas / 1000
-    // tinCents -> tinyBars: tinCents * exchangeRate (hbarEquiv/ centsEquiv)
-    if (feeComponents === undefined || feeComponents.contractTransactionGas === undefined) {
-      return constants.DEFAULT_TINY_BAR_GAS;
-    }
-
-    return Math.ceil(
-      (feeComponents.contractTransactionGas.toNumber() / 1_000) *
-        (exchangeRates.currentRate.hbars / exchangeRates.currentRate.cents),
-    );
-  };
-
-  /**
    * Retrieves transaction record metrics for a given transaction ID.
    *
    * @param {string} transactionId - The ID of the transaction to retrieve metrics for.
@@ -1093,15 +809,5 @@ export class SDKClient {
    */
   private static prune0x(input: string): string {
     return input.startsWith('0x') ? input.substring(2) : input;
-  }
-
-  /**
-   * Converts an account balance from Hbars to WeiBars.
-   * @private
-   * @param {AccountBalance} balance - The account balance in Hbars.
-   * @returns {BigNumber} The account balance converted to WeiBars.
-   */
-  private static HbarToWeiBar(balance: AccountBalance): BigNumber {
-    return balance.hbars.to(HbarUnit.Tinybar).multipliedBy(constants.TINYBAR_TO_WEIBAR_COEF);
   }
 }

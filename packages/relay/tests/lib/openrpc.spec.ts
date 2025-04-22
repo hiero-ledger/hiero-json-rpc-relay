@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { AccountInfo } from '@hashgraph/sdk';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { BigNumber } from 'bignumber.js';
 import { expect } from 'chai';
 import EventEmitter from 'events';
-import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -31,7 +28,6 @@ import { RequestDetails } from '../../src/lib/types';
 import {
   blockHash,
   blockNumber,
-  bytecode,
   contractAddress1,
   contractAddress2,
   contractAddress3,
@@ -125,7 +121,7 @@ describe('Open RPC Specification', function () {
       duration,
     );
 
-    clientServiceInstance = new ClientService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+    clientServiceInstance = new ClientService(logger, registry, eventEmitter, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     // @ts-ignore
@@ -222,10 +218,6 @@ describe('Open RPC Specification', function () {
     mock
       .onPost(`contracts/call`, { ...defaultCallData, estimate: false })
       .reply(200, JSON.stringify({ result: '0x12' }));
-    sdkClientStub.getAccountBalanceInWeiBar.resolves(BigNumber(1000));
-    sdkClientStub.getAccountBalanceInTinyBar.resolves(BigNumber(100000000000));
-    sdkClientStub.getContractByteCode.resolves(Buffer.from(bytecode.replace('0x', ''), 'hex'));
-    sdkClientStub.getAccountInfo.resolves({ ethereumNonce: Long.ONE } as unknown as AccountInfo);
     sdkClientStub.submitEthereumTransaction.resolves();
     mock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     mock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);

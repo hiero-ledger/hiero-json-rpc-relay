@@ -161,7 +161,7 @@ export class Relay {
       duration,
     );
 
-    const hapiService = new HAPIService(logger, register, this.cacheService, this.eventEmitter, hbarLimitService);
+    const hapiService = new HAPIService(logger, register, this.eventEmitter, hbarLimitService);
 
     this.clientMain = hapiService.getMainClientInstance();
 

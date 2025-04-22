@@ -24,10 +24,7 @@ enum CACHE_KEY {
   GET_BLOCK = 'getBlock',
   GET_CONTRACT = 'getContract',
   GET_CONTRACT_RESULT = 'getContractResult',
-  GET_TINYBAR_GAS_FEE = 'getTinyBarGasFee',
-  NETWORK_FEES = 'network_fees',
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
-  SYNTHETIC_LOG_TRANSACTION_HASH = 'syntheticLogTransactionHash',
 }
 
 enum CACHE_TTL {
