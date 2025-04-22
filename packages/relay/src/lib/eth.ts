@@ -1950,7 +1950,7 @@ export class EthImpl implements Eth {
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
       return parsedTx;
     } catch (e: any) {
-      if (e.code === 'INVALID_ARGUMENT') {
+      if (e.code === 'INVALID_ARGUMENT' && e.message.toString().includes('unexpected junk after rlp payload')) {
         throw predefined.INVALID_ARGUMENTS(e.message.toString());
       }
       this.logger.error(
