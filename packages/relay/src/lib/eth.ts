@@ -1935,9 +1935,8 @@ export class EthImpl implements Eth {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<EthersTransaction> {
-    let parsedTx;
+    const parsedTx = Precheck.parseTxIfNeeded(transaction);
     try {
-      parsedTx = Precheck.parseTxIfNeeded(transaction);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `${requestDetails.formattedRequestId} Transaction undergoing prechecks: transaction=${JSON.stringify(
@@ -1950,9 +1949,6 @@ export class EthImpl implements Eth {
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
       return parsedTx;
     } catch (e: any) {
-      if (e.code === 'INVALID_ARGUMENT' && e.message.toString().includes('unexpected junk after rlp payload')) {
-        throw predefined.INVALID_ARGUMENTS(e.message.toString());
-      }
       this.logger.error(
         `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
       );
