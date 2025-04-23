@@ -21,6 +21,16 @@ import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
+function entityIdToEvmAddress(entityId: string): string {
+  const pad = (num: string, n: number) =>
+    Number(num)
+      .toString(16)
+      .padStart(n * 2, '0');
+  const [shardNum, realmNum, accountNum] = entityId.split('.');
+
+  return `0x${pad(shardNum, 4)}${pad(realmNum, 8)}${pad(accountNum, 8)}`;
+}
+
 describe('@ethGetCode using MirrorNode', async function () {
   this.timeout(10000);
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
@@ -258,17 +268,8 @@ describe('@ethGetCode using MirrorNode', async function () {
     });
 
     it('should return redirect bytecode for HTS when accountId has non-zero shard/realm', async function () {
-      const pad = (n, b) =>
-        Number(n)
-          .toString(16)
-          .padStart(b * 2, '0');
-      function toAddress(accountId: string) {
-        const [shardNum, realmNum, accountNum] = accountId.split('.');
-        return `0x${pad(shardNum, 4)}${pad(realmNum, 8)}${pad(accountNum, 8)}`;
-      }
-
       const accountId = '1.2.3';
-      const addr = toAddress(accountId);
+      const addr = entityIdToEvmAddress(accountId);
 
       restMock.onGet(`contracts/${addr}`).reply(404, JSON.stringify(null));
       restMock.onGet(`accounts/${addr}?limit=100`).reply(404, JSON.stringify(null));

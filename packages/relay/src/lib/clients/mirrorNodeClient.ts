@@ -1398,12 +1398,12 @@ export class MirrorNodeClient {
           : Promise.reject(),
       ];
 
-      const toEntityId = (eid: string) => {
-        eid = eid.slice(2);
-        const shard = eid.slice(0, 4 * 2);
-        const realm = eid.slice(4 * 2, 12 * 2);
-        const num = eid.slice(12 * 2);
-        return `${parseInt(shard, 16)}.${parseInt(realm, 16)}.${parseInt(num, 16)}`;
+      const toEntityId = (address: string) => {
+        address = address.slice(2);
+        const shardNum = address.slice(0, 8);
+        const realmNum = address.slice(8, 24);
+        const accountNum = address.slice(24);
+        return `${parseInt(shardNum, 16)}.${parseInt(realmNum, 16)}.${parseInt(accountNum, 16)}`;
       };
 
       promises.push(
