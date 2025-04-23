@@ -26,7 +26,7 @@ import storageContractJson from '../contracts/Storage.json';
 import TokenCreateJson from '../contracts/TokenCreateContract.json';
 // Assertions from local resources
 import Assertions from '../helpers/assertions';
-import { Utils } from '../helpers/utils';
+import { entityIdToEvmAddress, toHex, Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
 describe('@api-batch-2 RPC Server Acceptance Tests', function () {
@@ -58,8 +58,8 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   let accounts0StartBalance: bigint;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
-  const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
-  const ONE_WEIBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 18)));
+  const ONE_TINYBAR = Utils.add0xPrefix(toHex(ethers.parseUnits('1', 10)));
+  const ONE_WEIBAR = Utils.add0xPrefix(toHex(ethers.parseUnits('1', 18)));
 
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
   const PING_CALL_ESTIMATED_GAS = '0x6122';
@@ -129,7 +129,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     blockNumberAtStartOfTests = blockNumber as number;
     accounts0StartBalance = balance as bigint;
 
-    htsAddress = Utils.idToEvmAddress(tokenId.toString());
+    htsAddress = entityIdToEvmAddress(tokenId.toString());
     await Promise.all([
       accounts[0].client.associateToken(tokenId, requestId),
       accounts[1].client.associateToken(tokenId, requestId),
@@ -817,13 +817,13 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should return 0x0 for account evm_address on eth_getCode', async function () {
-      const evmAddress = Utils.idToEvmAddress(accounts[2].accountId.toString());
+      const evmAddress = entityIdToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [evmAddress, 'latest'], requestId);
       expect(res).to.eq(EthImpl.emptyHex);
     });
 
     it('should return 0x0 for account alias on eth_getCode', async function () {
-      const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
+      const alias = entityIdToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest'], requestId);
       expect(res).to.eq(EthImpl.emptyHex);
     });

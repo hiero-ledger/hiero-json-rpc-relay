@@ -1,56 +1,53 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ethers } from 'ethers';
-import Assertions from './assertions';
-import crypto from 'crypto';
-import RelayClient from '../clients/relayClient';
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import RelayCall from '../../tests/helpers/constants';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
-import { AliasAccount } from '../types/AliasAccount';
-import ServicesClient from '../clients/servicesClient';
+import crypto from 'crypto';
+import { ethers } from 'ethers';
 import http from 'http';
+import { Context } from 'mocha';
 import { GCProfiler, setFlagsFromString, writeHeapSnapshot } from 'v8';
 import { runInNewContext } from 'vm';
-import { Context } from 'mocha';
+
+import RelayCall from '../../tests/helpers/constants';
 import { GitHubClient } from '../clients/githubClient';
 import MirrorClient from '../clients/mirrorClient';
+import RelayClient from '../clients/relayClient';
+import ServicesClient from '../clients/servicesClient';
+import { AliasAccount } from '../types/AliasAccount';
 import { HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import Assertions from './assertions';
+
+/**
+ * Converts a number to its hexadecimal representation.
+ *
+ * @param {number | bigint | string} num The number to convert to hexadecimal.
+ * @returns {string} The hexadecimal representation of the number.
+ */
+export function toHex(num: number | bigint | string): string {
+  return Number(num).toString(16);
+}
+
+/**
+ * Converts a given Hedera account ID to an EVM compatible address.
+ *
+ * @param entityId The Hedera account ID to convert.
+ * @returns The EVM compatible address.
+ */
+export function entityIdToEvmAddress(entityId: string): string {
+  const pad = (num: string, n: number) => toHex(num).padStart(n, '0');
+  Assertions.assertId(entityId);
+  const [shardNum, realmNum, accountNum] = entityId.split('.');
+
+  return `0x${pad(shardNum, 8)}${pad(realmNum, 16)}${pad(accountNum, 16)}`;
+}
 
 export class Utils {
   static readonly HEAP_SIZE_DIFF_MEMORY_LEAK_THRESHOLD: number = 4e6; // 4 MB
   static readonly HEAP_SIZE_DIFF_SNAPSHOT_THRESHOLD: number = 5e6; // 5 MB
   static readonly WARM_UP_TEST_COUNT: number = 3;
-
-  /**
-   * Converts a number to its hexadecimal representation.
-   *
-   * @param {number | bigint | string} num The number to convert to hexadecimal.
-   * @returns {string} The hexadecimal representation of the number.
-   */
-  static toHex = (num: number | bigint | string): string => {
-    return Number(num).toString(16);
-  };
-
-  /**
-   * Converts a given Hedera account ID to an EVM compatible address.
-   *
-   * @param {string} id The Hedera account ID to convert.
-   * @returns {string} The EVM compatible address.
-   */
-  static idToEvmAddress = (id: string): string => {
-    Assertions.assertId(id);
-    const [shard, realm, num] = id.split('.');
-
-    return [
-      '0x',
-      this.toHex(shard).padStart(8, '0'),
-      this.toHex(realm).padStart(16, '0'),
-      this.toHex(num).padStart(16, '0'),
-    ].join('');
-  };
 
   /**
    * Converts a value from tinybars to weibars.
@@ -100,7 +97,7 @@ export class Utils {
     relay: RelayClient,
   ) => {
     const factory = new ethers.ContractFactory(contractJson.abi, contractJson.bytecode, wallet);
-    let contract = await factory.deploy(...constructorArgs);
+    const contract = await factory.deploy(...constructorArgs);
     await contract.waitForDeployment();
 
     // re-init the contract with the deployed address
@@ -171,7 +168,7 @@ export class Utils {
       htsResult.client.operatorAccountId!,
       requestId,
     );
-    const evmAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId!.toString());
+    const evmAddress = entityIdToEvmAddress(htsResult.receipt.tokenId!.toString());
     return new ethers.Contract(evmAddress, abi, owner.wallet);
   };
 
