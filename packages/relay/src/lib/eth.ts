@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import EventEmitter from 'events';
+import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { Eth } from '../index';
