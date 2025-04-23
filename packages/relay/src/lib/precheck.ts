@@ -62,11 +62,11 @@ export class Precheck {
   ): Promise<void> {
     this.transactionType(parsedTx, requestDetails);
     this.gasLimit(parsedTx, requestDetails);
-    const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-    this.nonce(parsedTx, mirrorAccountInfo.ethereum_nonce, requestDetails);
     this.chainId(parsedTx, requestDetails);
     this.value(parsedTx);
     this.gasPrice(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
+    this.nonce(parsedTx, mirrorAccountInfo.ethereum_nonce, requestDetails);
     this.balance(parsedTx, mirrorAccountInfo, requestDetails);
     await this.receiverAccount(parsedTx, requestDetails);
   }
