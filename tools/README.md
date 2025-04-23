@@ -20,14 +20,14 @@
 
 ### Supported tools
 
-|                                                                      | web3js | Truffle | ethers | Hardhat | Remix IDE | Foundry |
-| -------------------------------------------------------------------- | ------ | ------- | ------ | ------- | --------- | ------- |
-| Transfer HBARS                                                       | ✅     | ✅      | ✅     | ✅      | ✅        | ✅        |
-| Contract Deployment                                                  | ✅     | ✅      | ✅     | ✅      | ✅        |  ✅        |
-| Can use the contract instance after deploy without re-initialization | ✅     | ✅      | ✅     | ✅      | ✅        | ✅        |
-| Contract View Function Call                                          | ✅     | ✅      | ✅     | ✅      | ✅        | ✅        |
-| Contract Function Call                                               | ✅     | ✅      | ✅     | ✅      | ✅        | ✅        |
-| Debug Operations\*                                                   | ❌     | ❌      | ❌     | ❌      | ❌        | ❌        |
+|                                                                      | web3js | ethers | Hardhat | Remix IDE | Foundry |
+| -------------------------------------------------------------------- | ------ | ------ | ------- | --------- | ------- |
+| Transfer HBARS                                                       | ✅     | ✅     | ✅      | ✅        | ✅      |
+| Contract Deployment                                                  | ✅     | ✅     | ✅      | ✅        | ✅      |
+| Can use the contract instance after deploy without re-initialization | ✅     | ✅     | ✅      | ✅        | ✅      |
+| Contract View Function Call                                          | ✅     | ✅     | ✅      | ✅        | ✅      |
+| Contract Function Call                                               | ✅     | ✅     | ✅      | ✅        | ✅      |
+| Debug Operations\*                                                   | ❌     | ❌     | ❌      | ❌        | ❌      |
 
 \*1: Debug operation are not supported yet.
 
