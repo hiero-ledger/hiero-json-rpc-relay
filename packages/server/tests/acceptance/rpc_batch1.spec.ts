@@ -98,7 +98,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, [], requestIdPrefix);
 
       const initialAccount: AliasAccount = global.accounts[0];
-      const neededAccounts: number = 3;
+      const neededAccounts: number = 4;
       accounts.push(
         ...(await Utils.createMultipleAliasAccounts(
           mirrorNode,
@@ -1483,7 +1483,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-          data: '0x' + '00'.repeat(40000),
+          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
         };
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -1512,7 +1512,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             maxPriorityFeePerGas: gasPrice,
             maxFeePerGas: gasPrice,
             gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-            data: '0x' + '00'.repeat(60000),
+            data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
           };
           const signedTx = await accounts[2].wallet.signTransaction(transaction);
           const error = predefined.INTERNAL_ERROR();
@@ -1796,6 +1796,75 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             signedTx,
             requestDetails,
           ]);
+        });
+
+        describe('contractCodeSize', function () {
+          it('@release should execute "eth_sendRawTransaction" and deploy a contract with code size within the limit', async function () {
+            const gasPrice = await relay.gasPrice(requestId);
+            const transaction = {
+              type: 2,
+              chainId: Number(CHAIN_ID),
+              nonce: await relay.getAccountNonce(accounts[3].address, requestId),
+              maxPriorityFeePerGas: gasPrice,
+              maxFeePerGas: gasPrice,
+              gasLimit: defaultGasLimit,
+              data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT), // Within the CONTRACT_CODE_SIZE_LIMIT limit
+            };
+
+            const signedTx = await accounts[3].wallet.signTransaction(transaction);
+            const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+            expect(info).to.have.property('contract_id');
+            expect(info.contract_id).to.not.be.null;
+            expect(info).to.have.property('created_contract_ids');
+            expect(info.created_contract_ids.length).to.be.equal(1);
+          });
+
+          it('@release should fail "eth_sendRawTransaction" for contract with code size exceeding the limit', async function () {
+            const gasPrice = await relay.gasPrice(requestId);
+            // Create a transaction with contract code size exceeding CONTRACT_CODE_SIZE_LIMIT
+            const transaction = {
+              type: 2,
+              chainId: Number(CHAIN_ID),
+              nonce: await relay.getAccountNonce(accounts[3].address, requestId),
+              maxPriorityFeePerGas: gasPrice,
+              maxFeePerGas: gasPrice,
+              gasLimit: defaultGasLimit,
+              data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT + 1),
+            };
+
+            const signedTx = await accounts[3].wallet.signTransaction(transaction);
+            const contractCodeSize = (transaction.data.length - 2) / 2;
+            const error = predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(
+              contractCodeSize,
+              Constants.CONTRACT_CODE_SIZE_LIMIT,
+            );
+
+            await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
+              signedTx,
+              requestDetails,
+            ]);
+          });
+
+          it('@release should pass precheck and execute "eth_sendRawTransaction" for a regular transaction i.e. non contract deployment transaction with data exceeding the limit', async function () {
+            const gasPrice = await relay.gasPrice(requestId);
+            // Create a transaction with large data but sent to an existing address (not contract creation)
+            const transaction = {
+              type: 2,
+              chainId: Number(CHAIN_ID),
+              nonce: await relay.getAccountNonce(accounts[3].address, requestId),
+              maxPriorityFeePerGas: gasPrice,
+              maxFeePerGas: gasPrice,
+              gasLimit: defaultGasLimit,
+              to: parentContractAddress, // Sending to existing address, so code size check doesn't apply
+              data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT + 1), // Size exceeds CONTRACT_CODE_SIZE_LIMIT but should work
+            };
+
+            const signedTx = await accounts[3].wallet.signTransaction(transaction);
+            const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+            const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+            expect(info).to.exist;
+          });
         });
       });
 
