@@ -2502,7 +2502,7 @@ export class EthImpl implements Eth {
     }
   }
 
-  async resolveEvmAddress(
+  private async resolveEvmAddress(
     address: string,
     requestDetails: RequestDetails,
     searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
