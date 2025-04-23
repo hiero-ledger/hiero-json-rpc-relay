@@ -95,11 +95,8 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`contracts/${HTS_TOKEN_ADDRESS}`).reply(404, JSON.stringify(null));
       restMock.onGet(`accounts/${HTS_TOKEN_ADDRESS}?limit=100`).reply(404, JSON.stringify(null));
       restMock.onGet(`tokens/0.0.${parseInt(HTS_TOKEN_ADDRESS, 16)}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
-      const redirectBytecode = `6080604052348015600f57600080fd5b506000610167905077618dc65e${HTS_TOKEN_ADDRESS.slice(
-        2,
-      )}600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033`;
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, null, requestDetails);
-      expect(res).to.equal(redirectBytecode);
+      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
     });
 
     it('should return the static bytecode for address(0x167) call', async () => {
@@ -214,10 +211,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       );
 
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, blockNumberAfterCreation, requestDetails);
-      const expectedRedirectBytecode = `6080604052348015600f57600080fd5b506000610167905077618dc65e${HTS_TOKEN_ADDRESS.slice(
-        2,
-      )}600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033`;
-      expect(res).to.equal(expectedRedirectBytecode);
+      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
     });
 
     it('should throw error for invalid block number', async () => {
@@ -261,6 +255,26 @@ describe('@ethGetCode using MirrorNode', async function () {
 
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
       expect(res).to.equal(EthImpl.emptyHex);
+    });
+
+    it('should return redirect bytecode for HTS when accountId has non-zero shard/realm', async function () {
+      const pad = (n, b) =>
+        Number(n)
+          .toString(16)
+          .padStart(b * 2, '0');
+      function toAddress(accountId: string) {
+        const [shardNum, realmNum, accountNum] = accountId.split('.');
+        return `0x${pad(shardNum, 4)}${pad(realmNum, 8)}${pad(accountNum, 8)}`;
+      }
+
+      const accountId = '1.2.3';
+      const addr = toAddress(accountId);
+
+      restMock.onGet(`contracts/${addr}`).reply(404, JSON.stringify(null));
+      restMock.onGet(`accounts/${addr}?limit=100`).reply(404, JSON.stringify(null));
+      restMock.onGet(`tokens/${accountId}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
+      const res = await ethImpl.getCode(addr, null, requestDetails);
+      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(addr));
     });
   });
 });
