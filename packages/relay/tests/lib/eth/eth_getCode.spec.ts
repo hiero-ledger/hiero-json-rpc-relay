@@ -83,7 +83,7 @@ describe('@ethGetCode using MirrorNode', async function () {
     });
 
     it('should return empty bytecode if Mirror Node returns empty runtime_bytecode', async () => {
-      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(200, {
         ...DEFAULT_CONTRACT,
         runtime_bytecode: EthImpl.emptyHex,
       });
