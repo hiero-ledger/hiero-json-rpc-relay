@@ -1543,7 +1543,7 @@ export class EthImpl implements Eth {
 
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning empty hex.`,
+          `${requestIdPrefix} Address ${address} is not a contract nor an HTS token, returning empty hex`,
         );
       }
 
