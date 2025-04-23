@@ -730,7 +730,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     let mainContract: ethers.Contract;
     let mainContractAddress: string;
     let NftHTSTokenContractAddress: string;
-    let redirectBytecode: string;
     let blockBeforeContractCreation: number;
     let basicContract: ethers.Contract;
     let basicContractAddress: string;
@@ -770,14 +769,12 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getCode" for hts token', async function () {
-      const tokenAddress = NftHTSTokenContractAddress.slice(2);
-      redirectBytecode = `6080604052348015600f57600080fd5b506000610167905077618dc65e${tokenAddress}600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033`;
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE,
         [NftHTSTokenContractAddress, 'latest'],
         requestId,
       );
-      expect(res).to.equal(redirectBytecode);
+      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
     });
 
     it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {
