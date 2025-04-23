@@ -2185,7 +2185,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
       const signedTx = await accounts[0].wallet.signTransaction(transaction);
       await Assertions.assertPredefinedRpcError(
-        predefined.UNSUPPORTED_TRANSACTION_TYPE,
+        predefined.UNSUPPORTED_TRANSACTION_TYPE(3),
         relay.sendRawTransaction,
         false,
         relay,

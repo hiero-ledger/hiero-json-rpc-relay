@@ -125,8 +125,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sdkClientStub = sinon.createStubInstance(SDKClient);
       sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
-   JSON.stringify(   restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
-   JSON.stringify(   restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
+      JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
+      JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
     });
 
     afterEach(() => {
@@ -277,7 +277,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const signed = await signTransaction(type3tx);
 
       await RelayAssertions.assertRejection(
-        predefined.UNSUPPORTED_TRANSACTION_TYPE,
+        predefined.UNSUPPORTED_TRANSACTION_TYPE(3),
         ethImpl.sendRawTransaction,
         false,
         ethImpl,

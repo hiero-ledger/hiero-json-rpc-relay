@@ -182,10 +182,11 @@ export const predefined = {
     code: -32601,
     message: 'Not yet implemented',
   }),
-  UNSUPPORTED_TRANSACTION_TYPE: new JsonRpcError({
-    code: -32611,
-    message: 'Unsupported transaction type',
-  }),
+  UNSUPPORTED_TRANSACTION_TYPE: (txType: number) =>
+    new JsonRpcError({
+      code: -32611,
+      message: `Unsupported transaction type: txType=${txType}`,
+    }),
   VALUE_TOO_LOW: new JsonRpcError({
     code: -32602,
     message: "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",

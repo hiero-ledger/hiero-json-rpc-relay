@@ -1904,9 +1904,7 @@ export class EthImpl implements Eth {
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
       return parsedTx;
     } catch (e: any) {
-      this.logger.error(
-        `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
-      );
+      this.logger.error(`${requestDetails.formattedRequestId} Transaction failed prechecks: error=${e.message}`);
       throw this.common.genericErrorHandler(e);
     }
   }
