@@ -659,40 +659,50 @@ describe('Precheck', async function () {
     });
   });
 
-  describe('hexToBytes', async function () {
-    it('should convert a hex string to bytes', () => {
-      const hexString = 'aabbccddeeff';
-      const result = precheck.hexToBytes(hexString);
+  describe('transactionSize', async function () {
+    const defaultTx = {
+      value: ONE_TINYBAR_IN_WEI_HEX,
+      gasPrice: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      chainId: defaultChainId,
+      nonce: 5,
+      to: contractAddress1,
+    };
 
-      expect(Array.from(result)).to.deep.equal([170, 187, 204, 221, 238, 255]);
+    it('should accept transactions within size limit', async () => {
+      // undersizedTx = data is set to size limit - approx 1 KB for other fields => within size limit
+      const undersizedTx = {
+        ...defaultTx,
+        data: '0x' + '00'.repeat(constants.SEND_RAW_TRANSACTION_SIZE_LIMIT - 1024),
+      };
+      const signedTx = await signTransaction(undersizedTx);
+      const tx = ethers.Transaction.from(signedTx);
+      expect(() => precheck.transactionSize(tx)).not.to.throw();
     });
 
-    it('should fail if passed 0x', () => {
-      const hexString = '0x';
-      let error;
-      try {
-        precheck.hexToBytes(hexString);
-      } catch (e) {
-        error = e;
-      }
-      expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal('Error invoking RPC: Hex cannot be 0x');
-      expect(error.code).to.equal(-32603);
-    });
+    it('should reject transactions exceeding size limit', async () => {
+      // oversizedTx = data is set to size limit + bytes for other fields => exceeds size limit
+      const oversizedTx = {
+        ...defaultTx,
+        data: '0x' + '00'.repeat(constants.SEND_RAW_TRANSACTION_SIZE_LIMIT),
+      };
 
-    it('should fail if passed empty string', () => {
-      let error;
+      const signedTx = await signTransaction(oversizedTx);
+      const tx = ethers.Transaction.from(signedTx);
+
       try {
-        precheck.hexToBytes('');
-      } catch (e) {
-        error = e;
+        precheck.transactionSize(tx);
+        expect('Transaction should have been rejected');
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.TRANSACTION_SIZE_TOO_BIG(
+          (tx.serialized.length - 2) / 2,
+          constants.SEND_RAW_TRANSACTION_SIZE_LIMIT,
+        );
+        expect(error).to.deep.equal(expectedError);
       }
-      expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal('Error invoking RPC: Passed hex an empty string');
-      expect(error.code).to.equal(-32603);
     });
   });
-
   describe('transactionType', async function () {
     const defaultTx = {
       value: ONE_TINYBAR_IN_WEI_HEX,

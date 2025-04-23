@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -60,6 +59,7 @@ export class Precheck {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
+    this.transactionSize(parsedTx);
     this.transactionType(parsedTx, requestDetails);
     this.gasLimit(parsedTx, requestDetails);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
@@ -317,35 +317,18 @@ export class Precheck {
   }
 
   /**
-   * Converts hex string to bytes array
-   * @param {string} hex - The hex string you want to convert.
-   * @returns {Uint8Array} The bytes array.
+   * Validates that the transaction size is within the allowed limit.
+   * The serialized transaction length is converted from hex string length to byte count
+   * by subtracting the '0x' prefix (2 characters) and dividing by 2 (since each byte is represented by 2 hex characters).
+   *
+   * @param {Transaction} tx - The transaction to validate.
+   * @throws {JsonRpcError} If the transaction size exceeds the configured limit.
    */
-  hexToBytes(hex: string): Uint8Array {
-    if (hex === '') {
-      throw predefined.INTERNAL_ERROR('Passed hex an empty string');
-    }
-
-    if (hex.startsWith('0x') && hex.length == 2) {
-      throw predefined.INTERNAL_ERROR('Hex cannot be 0x');
-    } else if (hex.startsWith('0x') && hex.length != 2) {
-      hex = hex.slice(2);
-    }
-
-    return Uint8Array.from(Buffer.from(hex, 'hex'));
-  }
-
-  /**
-   * Checks the size of the transaction.
-   * @param {string} transaction - The transaction to check.
-   */
-  checkSize(transaction: string): void {
-    const transactionToBytes: Uint8Array = this.hexToBytes(transaction);
-    const transactionSize: number = transactionToBytes.length;
-    const transactionSizeLimit: number = ConfigService.get('SEND_RAW_TRANSACTION_SIZE_LIMIT');
-
-    if (transactionSize > transactionSizeLimit) {
-      throw predefined.TRANSACTION_SIZE_TOO_BIG(String(transactionSize), String(transactionSizeLimit));
+  transactionSize(tx: Transaction): void {
+    const totalRawTransactionSizeInBytes = (tx.serialized.length - 2) / 2;
+    const transactionSizeLimit = constants.SEND_RAW_TRANSACTION_SIZE_LIMIT;
+    if (totalRawTransactionSizeInBytes > transactionSizeLimit) {
+      throw predefined.TRANSACTION_SIZE_TOO_BIG(totalRawTransactionSizeInBytes, transactionSizeLimit);
     }
   }
 
