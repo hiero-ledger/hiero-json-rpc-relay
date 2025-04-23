@@ -411,6 +411,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 1,
   },
+  JUMBO_TX_ENABLED: {
+    envName: 'JUMBO_TX_ENABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   LIMIT_DURATION: {
     envName: 'LIMIT_DURATION',
     type: 'number',
