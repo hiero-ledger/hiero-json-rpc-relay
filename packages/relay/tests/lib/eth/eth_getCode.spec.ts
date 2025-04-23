@@ -293,5 +293,40 @@ describe('@ethGetCode using MirrorNode', async function () {
       const afterSecondGetCount = restMock.history.get.length;
       expect(afterSecondGetCount).to.be.greaterThan(afterFirstGetCount);
     });
+
+    it('should cache bytecode when using earliest block parameter with SELFDESTRUCT opcode', async () => {
+      // Setup contract with SELFDESTRUCT opcode (0xff is SELFDESTRUCT opcode)
+      const bytecodeWithSelfDestruct = '0x6080604052348015600f57600080fd5b50600033ff'; // Simple contract that immediately calls SELFDESTRUCT
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(
+        200,
+        JSON.stringify({
+          ...DEFAULT_CONTRACT,
+          runtime_bytecode: bytecodeWithSelfDestruct,
+        }),
+      );
+
+      restMock.onGet('blocks/0').reply(
+        200,
+        JSON.stringify({
+          timestamp: { to: '1532175203.847228000' },
+        }),
+      );
+
+      // Record initial number of GET requests
+      const initialGetCount = restMock.history.get.length;
+
+      // First call with 'earliest' should make network calls
+      const firstResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
+      const afterFirstGetCount = restMock.history.get.length;
+      expect(afterFirstGetCount).to.be.greaterThan(initialGetCount);
+      expect(firstResult).to.equal(EthImpl.emptyHex); // Should return empty for prohibited opcode
+
+      // Second call with 'earliest' should use cache (no additional GET requests)
+      const secondResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
+      const afterSecondGetCount = restMock.history.get.length;
+      expect(afterSecondGetCount).to.equal(afterFirstGetCount);
+      expect(secondResult).to.equal(EthImpl.emptyHex); // Should still return empty from cache
+    });
   });
 });
