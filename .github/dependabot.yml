@@ -1,0 +1,42 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directories: 
+      - "/"
+      - "/dapp-example"
+      - "/docs/examples"
+      - "/k6"
+      - "/packages/*"
+      - "/tools/hardhat-example"
+      - "/tools/hardhat-viem-example"
+      - "/tools/solidity-coverage-example"
+      - "/tools/subgraph-example"
+      - "/tools/truffle-example"
+      - "/tools/waffle-example"
+      - "/tools/wagmi-example"
+      - "/tools/web3js-example"
+      - "/tools/whbar-hardhat-example"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 20
+    labels:
+      - "dependencies"
+      - "npm"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
+    
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "docker"
