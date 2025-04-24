@@ -59,9 +59,9 @@ export class Precheck {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
-    this.transactionSize(parsedTx);
-    this.callDataSize(parsedTx);
     this.contractCodeSize(parsedTx);
+    this.callDataSize(parsedTx);
+    this.transactionSize(parsedTx);
     this.transactionType(parsedTx, requestDetails);
     this.gasLimit(parsedTx, requestDetails);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
