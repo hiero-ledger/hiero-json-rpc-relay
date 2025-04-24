@@ -284,6 +284,11 @@ export const predefined = {
       code: -32201,
       message: `Oversized data: transaction size ${actualSize}, transaction limit ${expectedSize}`,
     }),
+  CALL_DATA_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+    new JsonRpcError({
+      code: -32201,
+      message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
+    }),
   CONTRACT_CODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
     new JsonRpcError({
       code: -32201,

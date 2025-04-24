@@ -117,6 +117,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 3600000,
   },
+  CALL_DATA_SIZE_LIMIT: {
+    envName: 'CALL_DATA_SIZE_LIMIT',
+    type: 'number',
+    required: false,
+    defaultValue: 131072, // 128KB
+  },
   CHAIN_ID: {
     envName: 'CHAIN_ID',
     type: 'string',

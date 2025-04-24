@@ -60,6 +60,7 @@ export class Precheck {
     requestDetails: RequestDetails,
   ): Promise<void> {
     this.transactionSize(parsedTx);
+    this.callDataSize(parsedTx);
     this.contractCodeSize(parsedTx);
     this.transactionType(parsedTx, requestDetails);
     this.gasLimit(parsedTx, requestDetails);
@@ -330,6 +331,22 @@ export class Precheck {
     const transactionSizeLimit = constants.SEND_RAW_TRANSACTION_SIZE_LIMIT;
     if (totalRawTransactionSizeInBytes > transactionSizeLimit) {
       throw predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(totalRawTransactionSizeInBytes, transactionSizeLimit);
+    }
+  }
+
+  /**
+   * Validates that the call data size is within the allowed limit.
+   * The data field length is converted from hex string length to byte count
+   * by subtracting the '0x' prefix (2 characters) and dividing by 2 (since each byte is represented by 2 hex characters).
+   *
+   * @param {Transaction} tx - The transaction to validate.
+   * @throws {JsonRpcError} If the call data size exceeds the configured limit.
+   */
+  callDataSize(tx: Transaction): void {
+    const totalCallDataSizeInBytes = tx.data.replace('0x', '').length / 2;
+    const callDataSizeLimit = constants.CALL_DATA_SIZE_LIMIT;
+    if (totalCallDataSizeInBytes > callDataSizeLimit) {
+      throw predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(totalCallDataSizeInBytes, callDataSizeLimit);
     }
   }
 

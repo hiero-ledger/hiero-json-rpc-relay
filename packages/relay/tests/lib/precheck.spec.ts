@@ -704,6 +704,73 @@ describe('Precheck', async function () {
     });
   });
 
+  describe('callDataSize', function () {
+    const defaultTx = {
+      value: ONE_TINYBAR_IN_WEI_HEX,
+      gasPrice: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      chainId: defaultChainId,
+      nonce: 5,
+      to: contractAddress1,
+    };
+
+    // Helper function to create a transaction with specified data
+    const createTransaction = async (data: string) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        ...defaultTx,
+        from: wallet.address,
+        data: data,
+      };
+
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    it('should accept transactions with call data size within limit', async () => {
+      // Create data that is within the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT - 1);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
+    });
+
+    it('should accept transactions with call data size at the limit', async () => {
+      // Create data that is exactly at the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
+    });
+
+    it('should reject transactions with call data size exceeding limit', async () => {
+      // Create data that exceeds the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT + 1);
+
+      const tx = await createTransaction(data);
+
+      try {
+        precheck.callDataSize(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(
+          (tx.data.length - 2) / 2,
+          constants.CALL_DATA_SIZE_LIMIT,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+
+    it('should handle empty data', async () => {
+      const tx = await createTransaction('0x');
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
+    });
+  });
+
   describe('contractCodeSize', function () {
     const defaultTx = {
       value: ONE_TINYBAR_IN_WEI_HEX,
