@@ -656,7 +656,7 @@ const _CONFIG = {
     envName: 'SEND_RAW_TRANSACTION_SIZE_LIMIT',
     type: 'number',
     required: false,
-    defaultValue: 131072,
+    defaultValue: 133120, // 130 KB
   },
   SERVER_HOST: {
     envName: 'SERVER_HOST',

@@ -695,7 +695,7 @@ describe('Precheck', async function () {
         expect('Transaction should have been rejected');
       } catch (error) {
         expect(error).to.be.an.instanceOf(JsonRpcError);
-        const expectedError = predefined.TRANSACTION_SIZE_TOO_BIG(
+        const expectedError = predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(
           (tx.serialized.length - 2) / 2,
           constants.SEND_RAW_TRANSACTION_SIZE_LIMIT,
         );

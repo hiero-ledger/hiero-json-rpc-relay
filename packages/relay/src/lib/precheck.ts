@@ -326,10 +326,10 @@ export class Precheck {
    * @throws {JsonRpcError} If the transaction size exceeds the configured limit.
    */
   transactionSize(tx: Transaction): void {
-    const totalRawTransactionSizeInBytes = (tx.serialized.length - 2) / 2;
+    const totalRawTransactionSizeInBytes = tx.serialized.replace('0x', '').length / 2;
     const transactionSizeLimit = constants.SEND_RAW_TRANSACTION_SIZE_LIMIT;
     if (totalRawTransactionSizeInBytes > transactionSizeLimit) {
-      throw predefined.TRANSACTION_SIZE_TOO_BIG(totalRawTransactionSizeInBytes, transactionSizeLimit);
+      throw predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(totalRawTransactionSizeInBytes, transactionSizeLimit);
     }
   }
 
