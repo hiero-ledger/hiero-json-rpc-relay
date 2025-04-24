@@ -278,6 +278,12 @@ describe('Open RPC Specification', function () {
     validateResponseSchema(methodsResponseSchema.eth_coinbase, response);
   });
 
+  it('should execute "eth_blobBaseFee"', function () {
+    const response = ethImpl.blobBaseFee(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_blobBaseFee, response);
+  });
+
   it('should execute "eth_estimateGas"', async function () {
     mock.onGet(`accounts/undefined${noTransactions}`).reply(404);
     const response = await ethImpl.estimateGas({}, null, requestDetails);

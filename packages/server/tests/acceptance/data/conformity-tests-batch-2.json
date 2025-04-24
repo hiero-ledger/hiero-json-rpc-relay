@@ -29,6 +29,11 @@
     "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_coinbase\"}",
     "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601}}"
   },
+  "eth_blobBaseFee": {
+    "status": 400,
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_blobBaseFee\"}",
+    "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601}}"
+  },
   "eth_getWork": {
     "status": 400,
     "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getWork\"}",

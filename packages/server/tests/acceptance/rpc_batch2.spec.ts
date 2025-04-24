@@ -703,6 +703,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_COINBASE, [], requestId);
     });
 
+    it('should not support "eth_blobBaseFee"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_BLOB_BASE_FEE, [], requestId);
+    });
+
     it('should not support "eth_sendTransaction"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_SEND_TRANSACTION, [], requestId);
     });
@@ -1203,6 +1207,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       );
     });
   });
+
   describe('Formats of addresses in Transaction and Receipt results', () => {
     const getTxData = async (hash) => {
       const txByHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash], requestId);

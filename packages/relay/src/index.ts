@@ -45,6 +45,8 @@ export interface Eth {
 
   coinbase(requestDetails: RequestDetails): JsonRpcError;
 
+  blobBaseFee(requestDetails: RequestDetails): JsonRpcError;
+
   estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,

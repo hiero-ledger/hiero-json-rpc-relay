@@ -43,6 +43,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   eth_coinbase: {
     total: tier2rateLimit,
   },
+  eth_blobBaseFee: {
+    total: tier2rateLimit,
+  },
   eth_estimateGas: {
     total: tier2rateLimit,
   },

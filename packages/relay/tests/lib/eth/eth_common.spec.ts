@@ -82,6 +82,14 @@ describe('@ethCommon', async function () {
       expect(result.message).to.be.equal('Unsupported JSON-RPC method');
     });
 
+    it('should execute "eth_blobBaseFee"', async function () {
+      const result = relay.eth().blobBaseFee(requestDetails);
+      expect(result).to.have.property('code');
+      expect(result.code).to.be.equal(-32601);
+      expect(result).to.have.property('message');
+      expect(result.message).to.be.equal('Unsupported JSON-RPC method');
+    });
+
     it('should execute "eth_maxPriorityFeePerGas"', async function () {
       const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
       expect(result).to.eq('0x0');
