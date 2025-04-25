@@ -20,7 +20,7 @@ export interface ICommonService {
 
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
-  getFeeWeibars(callerName: string, requestDetails: RequestDetails, timestamp?: string): Promise<number>;
+  getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number>;
 
   getHistoricalBlockResponse(
     requestDetails: RequestDetails,

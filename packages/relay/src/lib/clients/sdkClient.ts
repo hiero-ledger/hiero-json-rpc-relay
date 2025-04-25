@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import {
   AccountId,
   Client,
+  ContractByteCodeQuery,
   ContractCallQuery,
   ContractFunctionResult,
   ContractId,
@@ -664,6 +665,37 @@ export class SDKClient {
     }
 
     return fileId;
+  }
+
+  /**
+   * Retrieves the bytecode of a contract.
+   * @param {number | Long} shard - The shard number of the contract.
+   * @param {number | Long} realm - The realm number of the contract.
+   * @param {string} address - The address of the contract.
+   * @param {string} callerName - The name of the caller for logging purposes.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @returns {Promise<Uint8Array>} The bytecode of the contract.
+   * @throws {SDKClientError} Throws an SDK client error if the bytecode retrieval fails.
+   */
+  async getContractByteCode(
+    shard: number | Long,
+    realm: number | Long,
+    address: string,
+    callerName: string,
+    requestDetails: RequestDetails,
+  ): Promise<Uint8Array> {
+    const contractByteCodeQuery = new ContractByteCodeQuery().setContractId(
+      ContractId.fromEvmAddress(shard, realm, address),
+    );
+    const cost = await contractByteCodeQuery.getCost(this.clientMain);
+
+    return this.executeQuery(
+      contractByteCodeQuery.setQueryPayment(cost),
+      this.clientMain,
+      callerName,
+      address,
+      requestDetails,
+    );
   }
 
   /**

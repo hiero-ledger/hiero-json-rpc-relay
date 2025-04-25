@@ -312,7 +312,7 @@ export class TransactionService implements ITransactionService {
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
 
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getFeeWeibars(TransactionService.ethGasPrice, requestDetails),
+      await this.common.getGasPriceInWeibars(requestDetails),
     );
     const parsedTx = await this.parseRawTxAndPrecheck(transaction, networkGasPriceInWeiBars, requestDetails);
 
@@ -405,7 +405,7 @@ export class TransactionService implements ITransactionService {
    */
   private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
     try {
-      const networkFees = await this.common.getFeeWeibars('TransactionService', requestDetails);
+      const networkFees = await this.common.getGasPriceInWeibars(requestDetails);
       return `0x${networkFees.toString(16)}`;
     } catch (error: any) {
       this.logger.error(`Error retrieving gas price for block ${blockHash}: ${error.message}`);

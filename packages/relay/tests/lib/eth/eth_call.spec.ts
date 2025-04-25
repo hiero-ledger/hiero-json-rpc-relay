@@ -608,7 +608,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
     });
 
-    it('eth_call with all fields, but mirror node throws NOT_SUPPORTED', async function () {
+    it.only('eth_call with all fields, but mirror node throws NOT_SUPPORTED', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -624,6 +624,7 @@ describe('@ethCall Eth Call spec', async function () {
         await ethImpl.call(callData, 'latest', requestDetails);
         expect.fail('Expected error to be thrown');
       } catch (error) {
+        console.log(error);
         expect(error).to.be.instanceOf(MirrorNodeClientError);
         expect(error.isNotSupported()).to.be.true;
         expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);

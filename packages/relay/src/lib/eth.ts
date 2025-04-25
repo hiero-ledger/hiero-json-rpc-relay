@@ -994,7 +994,7 @@ export class EthImpl implements Eth {
       to: call.to || '',
       requestDetails: requestDetails,
     });
-
+    console.log('call', call);
     return this.contractService.call(call, blockParam, requestDetails);
   }
 

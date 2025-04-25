@@ -258,7 +258,7 @@ export class FeeService implements IFeeService {
     let fee = 0;
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      fee = await this.common.getFeeWeibars(EthImpl.ethFeeHistory, requestDetails, `lte:${block.timestamp.to}`);
+      fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
     } catch (error) {
       this.logger.warn(
         error,

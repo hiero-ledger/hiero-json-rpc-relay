@@ -525,47 +525,27 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Returns the current network fee in denominated in weibars.
+   * Retrieves the current network gas price in weibars from the mirror node.
    *
-   * @param callerName
-   * @param requestDetails
-   * @param timestamp
+   * This method fetches network fees from the mirror node for a specific timestamp (if provided)
+   * and converts the gas price from tinybars to weibars for Ethereum compatibility.
+   *
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking
+   * @param {string} [timestamp] - Optional timestamp to get historical gas prices
+   * @returns {Promise<number>} The gas price in weibars
+   * @throws {Error} If the gas price cannot be estimated
    */
-  public async getFeeWeibars(callerName: string, requestDetails: RequestDetails, timestamp?: string): Promise<number> {
-    let networkFees;
-
-    try {
-      networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
-    } catch (e: any) {
-      this.logger.warn(
-        e,
-        `${requestDetails.formattedRequestId} Mirror Node threw an error while retrieving fees. Fallback to consensus node.`,
-      );
-    }
-
-    if (_.isNil(networkFees)) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Mirror Node returned no network fees. Fallback to consensus node.`,
-        );
-      }
-      networkFees = {
-        fees: [
-          {
-            gas: await this.hapiService.getSDKClient().getTinyBarGasFee(callerName, requestDetails),
-            transaction_type: EthImpl.ethTxType,
-          },
-        ],
-      };
-    }
+  public async getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number> {
+    const networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
 
     if (networkFees && Array.isArray(networkFees.fees)) {
-      const txFee = networkFees.fees.find(({ transaction_type }) => transaction_type === EthImpl.ethTxType);
-      if (txFee?.gas) {
-        // convert tinyBars into weiBars
-        const weibars = Hbar.fromTinybars(txFee.gas).toTinybars().multiply(constants.TINYBAR_TO_WEIBAR_COEF);
+      const ethereumTransactionTypeFee = networkFees.fees.find(
+        ({ transaction_type }) => transaction_type === EthImpl.EthereumTransactionType,
+      );
 
-        return weibars.toNumber();
+      if (ethereumTransactionTypeFee?.gas) {
+        // convert tinyBars into weiBars and return the value
+        return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
       }
     }
 
@@ -591,7 +571,7 @@ export class CommonService implements ICommonService {
       );
 
       if (!gasPrice) {
-        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getFeeWeibars(EthImpl.ethGasPrice, requestDetails));
+        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));
 
         await this.cacheService.set(
           constants.CACHE_KEY.GAS_PRICE,
@@ -734,11 +714,7 @@ export class CommonService implements ICommonService {
   public async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
     const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
     const timestampDecimalString = block ? block.timestamp.from.split('.')[0] : '';
-    const gasPriceForTimestamp = await this.getFeeWeibars(
-      EthImpl.ethGetTransactionReceipt,
-      requestDetails,
-      timestampDecimalString,
-    );
+    const gasPriceForTimestamp = await this.getGasPriceInWeibars(requestDetails, timestampDecimalString);
 
     return numberTo0x(gasPriceForTimestamp);
   }

@@ -203,13 +203,14 @@ export class ContractService implements IContractService {
       await this.common.contractCallFormat(call, requestDetails);
 
       const result = await this.routeAndExecuteCall(call, gas, blockNumberOrTag, requestDetails);
-
+      console.log('result', result);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(`${requestDetails.formattedRequestId} eth_call response: ${JSON.stringify(result)}`);
       }
 
       return result;
     } catch (e: any) {
+      console.log('e', e);
       this.logger.error(e, `${requestDetails.formattedRequestId} Failed to successfully submit eth_call`);
       if (e instanceof JsonRpcError) {
         throw e;
@@ -245,6 +246,7 @@ export class ContractService implements IContractService {
 
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
+      console.log('response', response);
       if (response?.result) {
         this.logger.info(`${requestIdPrefix} Returning gas: ${response.result}`);
         return prepend0x(trimPrecedingZeros(response.result));
