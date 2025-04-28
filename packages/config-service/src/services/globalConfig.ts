@@ -734,7 +734,7 @@ const _CONFIG = {
     envName: 'USE_MIRROR_NODE_MODULARIZED_SERVICES',
     type: 'boolean',
     required: false,
-    defaultValue: null,
+    defaultValue: true,
   },
   WEB_SOCKET_HTTP_PORT: {
     envName: 'WEB_SOCKET_HTTP_PORT',
