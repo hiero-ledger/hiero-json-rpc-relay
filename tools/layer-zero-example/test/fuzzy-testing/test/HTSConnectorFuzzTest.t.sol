@@ -6,7 +6,6 @@ import "src/ExampleHTSConnectorMock.sol";
 import {htsSetup} from "lib/hedera-forking/contracts/htsSetup.sol";
 
 contract HTSConnectorFuzzTest is Test {
-
     uint32 public srcEid = 5644;
     ExampleHTSConnectorMock public htsConnector;
 
