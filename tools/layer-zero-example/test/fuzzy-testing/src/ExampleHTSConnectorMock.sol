@@ -13,6 +13,7 @@ contract ExampleHTSConnectorMock is Ownable, HTSConnectorMock {
         address _delegate
     ) payable HTSConnectorMock (_name, _symbol, _lzEndpoint, _delegate) Ownable(_delegate) {}
 
+    /// Expose credit for test purpose only
     function exposeCredit(address _to, uint256 _amountLD, uint32 _srcEid) external returns (uint256) {
         return _credit(_to, _amountLD, _srcEid);
     }
