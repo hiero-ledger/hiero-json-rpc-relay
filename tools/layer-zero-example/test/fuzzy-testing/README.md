@@ -4,7 +4,7 @@
 
 - Install forge dependencies
 ```bash
-forge install hashgraph/hedera-forking --no-commit
+forge install hashgraph/hedera-forking --no-commit --no-git
 ```
 
 - Install npm dependencies (openzeppelin and lz contracts)
