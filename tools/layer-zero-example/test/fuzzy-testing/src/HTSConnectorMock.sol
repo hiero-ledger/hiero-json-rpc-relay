@@ -9,13 +9,11 @@ import "./hts/KeyHelper.sol";
 abstract contract HTSConnectorMock is OFTCore, KeyHelper, HederaTokenServiceMock {
     address public htsTokenAddress;
 
-    /**
-     * @dev Constructor for the HTS Connector contract.
-     * @param _name The name of HTS token
-     * @param _symbol The symbol of HTS token
-     * @param _lzEndpoint The LayerZero endpoint address.
-     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
-     */
+     /// @dev Constructor for the HTS Connector contract.
+     /// @param _name The name of HTS token
+     /// @param _symbol The symbol of HTS token
+     /// @param _lzEndpoint The LayerZero endpoint address.
+     /// @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
     constructor(
         string memory _name,
         string memory _symbol,
@@ -23,29 +21,23 @@ abstract contract HTSConnectorMock is OFTCore, KeyHelper, HederaTokenServiceMock
         address _delegate
     ) payable OFTCore(8, _lzEndpoint, _delegate) {}
 
-    /**
-     * @dev Retrieves the address of the underlying HTS implementation.
-     * @return The address of the HTS token.
-     */
+     /// @dev Retrieves the address of the underlying HTS implementation.
+     /// @return The address of the HTS token.
     function token() public view returns (address) {
         return htsTokenAddress;
     }
 
-    /**
-     * @notice Indicates whether the HTS Connector contract requires approval of the 'token()' to send.
-     * @return requiresApproval Needs approval of the underlying token implementation.
-     */
+     /// @notice Indicates whether the HTS Connector contract requires approval of the 'token()' to send.
+     /// @return requiresApproval Needs approval of the underlying token implementation.
     function approvalRequired() external pure virtual returns (bool) {
         return false;
     }
 
-    /**
-     * @dev Credits tokens to the specified address.
-     * @param _to The address to credit the tokens to.
-     * @param _amountLD The amount of tokens to credit in local decimals.
-     * @dev _srcEid The source chain ID.
-     * @return amountReceivedLD The amount of tokens ACTUALLY received in local decimals.
-     */
+     /// @dev Credits tokens to the specified address.
+     /// @param _to The address to credit the tokens to.
+     /// @param _amountLD The amount of tokens to credit in local decimals.
+     /// @dev _srcEid The source chain ID.
+     /// @return amountReceivedLD The amount of tokens ACTUALLY received in local decimals.
     function _credit(
         address _to,
         uint256 _amountLD,
@@ -62,15 +54,13 @@ abstract contract HTSConnectorMock is OFTCore, KeyHelper, HederaTokenServiceMock
         return _amountLD;
     }
 
-    /**
-     * @dev Burns tokens from the sender's specified balance.
-     * @param _from The address to debit the tokens from.
-     * @param _amountLD The amount of tokens to send in local decimals.
-     * @param _minAmountLD The minimum amount to send in local decimals.
-     * @param _dstEid The destination chain ID.
-     * @return amountSentLD The amount sent in local decimals.
-     * @return amountReceivedLD The amount received in local decimals on the remote.
-     */
+     /// @dev Burns tokens from the sender's specified balance.
+     /// @param _from The address to debit the tokens from.
+     /// @param _amountLD The amount of tokens to send in local decimals.
+     /// @param _minAmountLD The minimum amount to send in local decimals.
+     /// @param _dstEid The destination chain ID.
+     /// @return amountSentLD The amount sent in local decimals.
+     /// @return amountReceivedLD The amount received in local decimals on the remote.
     function _debit(
         address _from,
         uint256 _amountLD,

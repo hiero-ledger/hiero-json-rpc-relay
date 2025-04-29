@@ -23,12 +23,11 @@ contract HTSConnectorFuzzTest is Test {
         htsConnector = new ExampleHTSConnectorMock(name, symbol, lzEndpoint, delegate);
     }
 
-    /**
-     * @notice Fuzz test for the _credit function in HTSConnector.
-     * @param _amountLD The amount of tokens in local decimals to credit.
-     * @param _to The address to credit the tokens to.
-     * @param _srcEid The source chain ID.
-     */
+
+     /// @notice Fuzz test for the _credit function in HTSConnector.
+     /// @param _amountLD The amount of tokens in local decimals to credit.
+     /// @param _to The address to credit the tokens to.
+     /// @param _srcEid The source chain ID.
     function testFuzzCredit(uint256 _amountLD, address _to, uint32 _srcEid) public {
         /// Ensure the amount does not exceed int64 max to satisfy the require statement in _credit
         vm.assume(_amountLD <= uint64(type(int64).max));
