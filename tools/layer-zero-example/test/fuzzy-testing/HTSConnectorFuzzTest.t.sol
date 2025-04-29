@@ -42,8 +42,5 @@ contract HTSConnectorFuzzTest is Test {
 
         // Assert that the returned amount matches the input amount
         assertEq(returnedAmount, _amountLD);
-
-        // Additional assertions can be added here to verify state changes
-        // For example, checking the balance of the recipient if applicable
     }
 }
