@@ -781,7 +781,7 @@ describe('@ethCall Eth Call spec', async function () {
       requestDetails: RequestDetails,
     ) {
       const formattedCallData = { ...callData, estimate };
-      await commonService.contractCallFormat(formattedCallData, requestDetails);
+      await contractService.contractCallFormat(formattedCallData, requestDetails);
       return web3Mock.onPost('contracts/call', formattedCallData).reply(statusCode, JSON.stringify(result));
     }
   });
@@ -805,7 +805,7 @@ describe('@ethCall Eth Call spec', async function () {
         value: '0x2540BE400',
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
       expect(transaction.value).to.equal(1);
     });
 
@@ -814,7 +814,7 @@ describe('@ethCall Eth Call spec', async function () {
         gasPrice: '1000000000',
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       expect(transaction.gasPrice).to.equal(1000000000);
     });
@@ -824,7 +824,7 @@ describe('@ethCall Eth Call spec', async function () {
         gas: '50000',
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       expect(transaction.gas).to.equal(50000);
     });
@@ -836,7 +836,7 @@ describe('@ethCall Eth Call spec', async function () {
         input: inputValue,
         data: dataValue,
       };
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
       expect(transaction.data).to.eq(inputValue);
       expect(transaction.data).to.not.eq(dataValue);
       expect(transaction.input).to.be.undefined;
@@ -847,7 +847,7 @@ describe('@ethCall Eth Call spec', async function () {
       const transaction = {
         data: dataValue,
       };
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
       expect(transaction.data).to.eq(dataValue);
     });
 
@@ -856,7 +856,7 @@ describe('@ethCall Eth Call spec', async function () {
         input: 'input data',
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       // @ts-ignore
       expect(transaction.data).to.equal('input data');
@@ -870,7 +870,7 @@ describe('@ethCall Eth Call spec', async function () {
         gas: '50000',
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       expect(transaction.value).to.equal(1);
       expect(transaction.gasPrice).to.equal(1000000000);
@@ -883,7 +883,7 @@ describe('@ethCall Eth Call spec', async function () {
         gasPrice: undefined,
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       const expectedGasPrice = await commonService.gasPrice(requestDetails);
       expect(transaction.gasPrice).to.equal(parseInt(expectedGasPrice));
@@ -896,7 +896,7 @@ describe('@ethCall Eth Call spec', async function () {
         from: undefined,
       };
 
-      await commonService.contractCallFormat(transaction, requestDetails);
+      await contractService.contractCallFormat(transaction, requestDetails);
 
       expect(transaction.from).to.equal(operatorEvmAddress);
     });

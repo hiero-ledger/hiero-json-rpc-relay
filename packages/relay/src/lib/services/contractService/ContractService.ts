@@ -529,7 +529,7 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} transaction the transaction object
    * @param {RequestDetails} requestDetails the request details for logging and tracking
    */
-  private async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
+  public async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
     if (transaction.value) {
       transaction.value = weibarHexToTinyBarInt(transaction.value);
     }
