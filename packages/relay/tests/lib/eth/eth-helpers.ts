@@ -65,9 +65,9 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+  const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
-  const commonService = new CommonService(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
+  const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
   const contractService = new ContractService(
     cacheService,
     commonService,

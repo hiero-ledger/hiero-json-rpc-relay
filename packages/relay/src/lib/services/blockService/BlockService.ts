@@ -11,7 +11,7 @@ import constants from '../../constants';
 import { predefined } from '../../errors/JsonRpcError';
 import { EthImpl } from '../../eth';
 import { Block, Log, Receipt, Transaction } from '../../model';
-import { IContractResultsParams, IMirrorNodeBlock, RequestDetails } from '../../types';
+import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
 import { CommonService } from '../ethService/ethCommonService/CommonService';
 import { BlockFactory } from '../factories/blockFactory';
@@ -363,7 +363,7 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const blockResponse: IMirrorNodeBlock = await this.common.getHistoricalBlockResponse(
+    const blockResponse: MirrorNodeBlock = await this.common.getHistoricalBlockResponse(
       requestDetails,
       blockHashOrNumber,
       true,
@@ -408,17 +408,12 @@ export class BlockService implements IBlockService {
 
     const gasPrice = await this.common.gasPrice(requestDetails);
 
-    try {
-      return await BlockFactory.createBlock({
-        blockResponse,
-        receipts,
-        txArray,
-        gasPrice,
-      });
-    } catch (error: any) {
-      this.logger.error(`Error creating Block: ${error.message}`);
-      return null;
-    }
+    return await BlockFactory.createBlock({
+      blockResponse,
+      receipts,
+      txArray,
+      gasPrice,
+    });
   }
 
   /**
@@ -426,7 +421,7 @@ export class BlockService implements IBlockService {
    * @param block The block response
    * @returns The transaction count
    */
-  private getTransactionCountFromBlockResponse(block: IMirrorNodeBlock): null | string {
+  private getTransactionCountFromBlockResponse(block: MirrorNodeBlock): null | string {
     if (block === null || block.count === undefined) {
       // block not found
       return null;

@@ -74,12 +74,7 @@ describe('Filter API Test Suite', async function () {
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(
-      mirrorNodeInstance,
-      logger.child({ name: 'common-service' }),
-      cacheService,
-      hapiServiceInstance,
-    );
+    const common = new CommonService(mirrorNodeInstance, logger.child({ name: 'common-service' }), cacheService);
     filterService = new FilterService(
       mirrorNodeInstance,
       logger.child({ name: 'filter-service' }),

@@ -13,9 +13,8 @@ import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
-
 import HAPIService from './services/hapiService/hapiService';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
 /**
  * Represents a DebugService for tracing and debugging transactions.
  *
@@ -60,7 +59,7 @@ export class DebugImpl implements Debug {
     hapiService: HAPIService,
   ) {
     this.logger = logger;
-    this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
   }
 

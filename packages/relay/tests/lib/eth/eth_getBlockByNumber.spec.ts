@@ -72,7 +72,7 @@ use(chaiAsPromised);
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
 let ethImplLowTransactionCount: EthImpl;
-let eventEmitter: EventEmitter;
+
 describe('@ethGetBlockByNumber using MirrorNode', async function () {
   this.timeout(10000);
   const {

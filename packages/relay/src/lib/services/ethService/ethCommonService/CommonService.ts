@@ -15,7 +15,6 @@ import {
   stripLeadingZeroForSignatures,
   tinybarsToWeibars,
   toHash32,
-  weibarHexToTinyBarInt,
 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
@@ -25,10 +24,9 @@ import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { EthImpl } from '../../../eth';
 import { Log, Transaction } from '../../../model';
-import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
+import { IAccountInfo, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { TransactionFactory } from '../../factories/transactionFactory';
-import HAPIService from '../../hapiService/hapiService';
 import { ICommonService } from './ICommonService';
 
 /**
@@ -41,30 +39,23 @@ import { ICommonService } from './ICommonService';
  */
 export class CommonService implements ICommonService {
   /**
+   * The LRU cache used for caching items from requests.
+   *
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * The interface through which we interact with the mirror node
    * @private
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
   /**
-   * The client service which is responsible for client all logic related to initialization, reinitialization and error/transactions tracking.
-   *
-   * @private
-   */
-  private readonly hapiService: HAPIService;
-
-  /**
    * The logger used for logging all output from this class.
    * @private
    */
   private readonly logger: Logger;
-
-  /**
-   * The LRU cache used for caching items from requests.
-   *
-   * @private
-   */
-  private readonly cacheService: CacheService;
 
   /**
    * public constants
@@ -115,16 +106,10 @@ export class CommonService implements ICommonService {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
-  constructor(
-    mirrorNodeClient: MirrorNodeClient,
-    logger: Logger,
-    cacheService: CacheService,
-    hapiService: HAPIService,
-  ) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
-    this.hapiService = hapiService;
   }
 
   public static blockTagIsLatestOrPendingStrict(tag: string | null): boolean {

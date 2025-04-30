@@ -240,7 +240,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
     it('should not send second transaction on error different from timeout', async function () {
       restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-      const repeatedRequestSpy = sinon.spy(ethImpl.transactionService['mirrorNodeClient'], 'repeatedRequest');
+      const repeatedRequestSpy = sinon.spy(ethImpl['transactionService']['mirrorNodeClient'], 'repeatedRequest');
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),

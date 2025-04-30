@@ -132,6 +132,23 @@ export interface IMirrorNodeTransactionRecord {
   valid_duration_seconds: number;
   valid_start_timestamp: string;
 }
+interface ITimestamp {
+  from: string;
+  to: string;
+}
+
+export interface MirrorNodeBlock {
+  count: number;
+  gas_used: number;
+  hapi_version: string;
+  hash: string;
+  logs_bloom: string;
+  name: string;
+  number: number;
+  previous_hash: string;
+  size: number;
+  timestamp: ITimestamp;
+}
 
 export class MirrorNodeTransactionRecord {
   public readonly assessed_custom_fees: IAssessedCustomFee[];

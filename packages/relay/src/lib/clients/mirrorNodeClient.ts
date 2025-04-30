@@ -15,8 +15,8 @@ import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { CommonService } from '../services';
 import { EthImpl } from '../eth';
+import { CommonService } from '../services';
 import { CacheService } from '../services/cacheService/cacheService';
 import {
   IContractCallRequest,
@@ -29,7 +29,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import { IMirrorNodeBlock } from '../types/IMirrorNodeBlock';
+import { MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
 
@@ -624,7 +624,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<IMirrorNodeBlock> {
+  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
     const cachedResponse: any = await this.cacheService.getAsync(
       cachedLabel,

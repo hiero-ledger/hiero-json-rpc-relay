@@ -273,13 +273,12 @@ describe('Debug API Test Suite', async function () {
       register,
       duration,
     );
-    hapiServiceInstance = new HAPIService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
     debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
   });
 

@@ -199,14 +199,12 @@ export class ContractService implements IContractService {
       await this.contractCallFormat(call, requestDetails);
 
       const result = await this.routeAndExecuteCall(call, gas, blockNumberOrTag, requestDetails);
-      console.log('result', result);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(`${requestDetails.formattedRequestId} eth_call response: ${JSON.stringify(result)}`);
       }
 
       return result;
     } catch (e: any) {
-      console.log('e', e);
       this.logger.error(e, `${requestDetails.formattedRequestId} Failed to successfully submit eth_call`);
       if (e instanceof JsonRpcError) {
         throw e;
@@ -719,22 +717,6 @@ export class ContractService implements IContractService {
 
     return gas;
   }
-
-  /**
-   * Retrieves contract bytecode from the SDK client.
-   *
-   * @param {string} address - The contract address
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string>} The contract bytecode prefixed with '0x'
-   * @private
-   */
-  private async getCodeFromSDKClient(address: string, requestDetails: RequestDetails): Promise<string> {
-    const bytecode = await this.hapiService
-      .getSDKClient()
-      .getContractByteCode(0, 0, address, CommonService.ethGetCode, requestDetails);
-    return prepend0x(Buffer.from(bytecode).toString('hex'));
-  }
-
   /**
    * Attempts to get code from cache and mirror node.
    *

@@ -624,7 +624,6 @@ describe('@ethCall Eth Call spec', async function () {
         await ethImpl.call(callData, 'latest', requestDetails);
         expect.fail('Expected error to be thrown');
       } catch (error) {
-        console.log(error);
         expect(error).to.be.instanceOf(MirrorNodeClientError);
         expect(error.isNotSupported()).to.be.true;
         expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);

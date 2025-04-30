@@ -171,7 +171,7 @@ export class EthImpl implements Eth {
   ) {
     this.chain = chain;
     this.logger = logger;
-    this.common = new CommonService(mirrorNodeClient, logger, cacheService, hapiService);
+    this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
@@ -998,7 +998,7 @@ export class EthImpl implements Eth {
       to: call.to || '',
       requestDetails: requestDetails,
     });
-    console.log('call', call);
+
     return this.contractService.call(call, blockParam, requestDetails);
   }
 
