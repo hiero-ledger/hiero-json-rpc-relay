@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Hbar } from '@hashgraph/sdk';
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
@@ -631,46 +630,6 @@ export class CommonService implements ICommonService {
   };
 
   /**
-   * Perform value format precheck before making contract call towards the mirror node
-   * @param {IContractCallRequest} transaction the transaction object
-   * @param {RequestDetails} requestDetails the request details for logging and tracking
-   */
-  public async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
-    if (transaction.value) {
-      transaction.value = weibarHexToTinyBarInt(transaction.value);
-    }
-    if (transaction.gasPrice) {
-      transaction.gasPrice = parseInt(transaction.gasPrice.toString());
-    } else {
-      transaction.gasPrice = await this.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
-    }
-    if (transaction.gas) {
-      transaction.gas = parseInt(transaction.gas.toString());
-    }
-    if (!transaction.from && transaction.value && (transaction.value as number) > 0) {
-      if (ConfigService.get('OPERATOR_KEY_FORMAT') === 'HEX_ECDSA') {
-        transaction.from = this.hapiService.getMainClientInstance().operatorPublicKey?.toEvmAddress();
-      } else {
-        const operatorId = this.hapiService.getMainClientInstance().operatorAccountId!.toString();
-        const operatorAccount = await this.getAccount(operatorId, requestDetails);
-        transaction.from = operatorAccount?.evm_address;
-      }
-    }
-
-    // Support either data or input. https://ethereum.github.io/execution-apis/api-documentation/ lists input but many EVM tools still use data.
-    // We chose in the mirror node to use data field as the correct one, however for us to be able to support all tools,
-    // we have to modify transaction object, so that it complies with the mirror node.
-    // That means that, if input field is passed, but data is not, we have to copy value of input to the data to comply with mirror node.
-    // The second scenario occurs when both the data and input fields are present but hold different values.
-    // In this case, the value in the input field should be the one used for consensus based on this resource https://github.com/ethereum/execution-apis/blob/main/tests/eth_call/call-contract.io
-    // Eventually, for optimization purposes, we can rid of the input property or replace it with empty string.
-    if ((transaction.input && transaction.data === undefined) || (transaction.input && transaction.data)) {
-      transaction.data = transaction.input;
-      delete transaction.input;
-    }
-  }
-
-  /**
    * Tries to get the account with the given address from the cache,
    * if not found, it fetches it from the mirror node.
    *
@@ -758,5 +717,12 @@ export class CommonService implements ICommonService {
       maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
       maxFeePerGas: cr.max_fee_per_gas,
     });
+  }
+
+  public static redirectBytecodeAddressReplace(address: string): string {
+    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
+    const redirectBytecodePostfix =
+      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
+    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
   }
 }

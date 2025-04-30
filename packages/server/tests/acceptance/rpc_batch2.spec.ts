@@ -779,7 +779,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [NftHTSTokenContractAddress, 'latest'],
         requestId,
       );
-      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
+      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
     });
 
     it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {

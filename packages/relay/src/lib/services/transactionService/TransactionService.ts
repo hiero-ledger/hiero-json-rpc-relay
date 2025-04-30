@@ -5,8 +5,7 @@ import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
-import { ASCIIToHex, formatTransactionIdWithoutQueryParams } from '../../../formatters';
-import { isHex, prepend0x } from '../../../formatters';
+import { formatTransactionIdWithoutQueryParams } from '../../../formatters';
 import { toHash32 } from '../../../formatters';
 import { numberTo0x } from '../../../formatters';
 import { Utils } from '../../../utils';
@@ -87,7 +86,6 @@ export class TransactionService implements ITransactionService {
 
   private static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
   private static ethSendRawTransaction = 'eth_sendRawTransaction';
-  private static ethGasPrice: string;
 
   /**
    * Constructor for the TransactionService class.
@@ -281,12 +279,6 @@ export class TransactionService implements ITransactionService {
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
 
-      if (receiptResponse.error_message) {
-        receipt.revertReason = isHex(prepend0x(receiptResponse.error_message))
-          ? receiptResponse.error_message
-          : prepend0x(ASCIIToHex(receiptResponse.error_message));
-      }
-
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
       }
@@ -398,22 +390,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Gets the current gas price for a block
-   * @param blockHash The block hash
-   * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} A promise that resolves to the gas price as a hex string
-   */
-  private async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
-    try {
-      const networkFees = await this.common.getGasPriceInWeibars(requestDetails);
-      return `0x${networkFees.toString(16)}`;
-    } catch (error: any) {
-      this.logger.error(`Error retrieving gas price for block ${blockHash}: ${error.message}`);
-      return CommonService.zeroHex;
-    }
-  }
-
-  /**
    * Retrieves the current network exchange rate of HBAR to USD in cents.
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
@@ -486,7 +462,7 @@ export class TransactionService implements ITransactionService {
     receiptResponse: any,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt> {
-    const effectiveGas = await this.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
+    const effectiveGas = await this.common.getCurrentGasPriceForBlock(receiptResponse.block_hash, requestDetails);
     // support stricter go-eth client which requires the transaction hash property on logs
     const logs = receiptResponse.logs.map((log) => {
       return new Log({
@@ -543,7 +519,10 @@ export class TransactionService implements ITransactionService {
       return null;
     }
 
-    const gasPriceForTimestamp = await this.getCurrentGasPriceForBlock(syntheticLogs[0].blockHash, requestDetails);
+    const gasPriceForTimestamp = await this.common.getCurrentGasPriceForBlock(
+      syntheticLogs[0].blockHash,
+      requestDetails,
+    );
 
     const params: ISyntheticTransactionReceiptParams = {
       syntheticLogs,

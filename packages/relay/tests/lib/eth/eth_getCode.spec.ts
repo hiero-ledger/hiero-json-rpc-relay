@@ -5,7 +5,6 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../src';
-import { EthImpl } from '../../../src/lib/eth';
 import constants from '../../../src/lib/constants';
 import { ContractService } from '../../../src/lib/services';
 import { CommonService } from '../../../src/lib/services';
@@ -92,7 +91,7 @@ describe('@ethGetCode using MirrorNode', async function () {
     it('should return empty bytecode if Mirror Node returns 404', async () => {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(404, JSON.stringify(DEFAULT_CONTRACT));
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return empty bytecode if Mirror Node returns empty runtime_bytecode', async () => {
@@ -101,7 +100,7 @@ describe('@ethGetCode using MirrorNode', async function () {
         runtime_bytecode: CommonService.emptyHex,
       });
       const res = await ethImpl.getCode(CONTRACT_ADDRESS_1, null, requestDetails);
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(CommonService.emptyHex);
     });
 
     it('should return redirect bytecode for HTS token', async () => {
@@ -109,7 +108,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`accounts/${HTS_TOKEN_ADDRESS}?limit=100`).reply(404, JSON.stringify(null));
       restMock.onGet(`tokens/0.0.${parseInt(HTS_TOKEN_ADDRESS, 16)}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, null, requestDetails);
-      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
+      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
     });
 
     it('should return the static bytecode for address(0x167) call', async () => {
@@ -224,7 +223,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       );
 
       const res = await ethImpl.getCode(HTS_TOKEN_ADDRESS, blockNumberAfterCreation, requestDetails);
-      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
+      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(HTS_TOKEN_ADDRESS));
     });
 
     it('should throw error for invalid block number', async () => {
@@ -278,7 +277,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`accounts/${addr}?limit=100`).reply(404, JSON.stringify(null));
       restMock.onGet(`tokens/${accountId}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
       const res = await ethImpl.getCode(addr, null, requestDetails);
-      expect(res).to.be.equal(EthImpl.redirectBytecodeAddressReplace(addr));
+      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(addr));
     });
   });
 });

@@ -770,7 +770,11 @@ export class EthImpl implements Eth {
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
-  public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
+  public async getCode(
+    address: string,
+    blockNumber: string | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | null> {
     return this.contractService.getCode(address, blockNumber, requestDetails);
   }
 

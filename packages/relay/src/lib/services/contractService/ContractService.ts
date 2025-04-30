@@ -11,6 +11,7 @@ import {
   parseNumericEnvVar,
   prepend0x,
   trimPrecedingZeros,
+  weibarHexToTinyBarInt,
 } from '../../../formatters';
 import { getFunctionSelector } from '../../../formatters';
 import { MirrorNodeClient } from '../../clients';
@@ -18,6 +19,7 @@ import constants from '../../constants';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../errors/SDKClientError';
+import { EthImpl } from '../../eth';
 import { Log } from '../../model';
 import { Precheck } from '../../precheck';
 import {
@@ -32,17 +34,11 @@ import { CacheService } from '../cacheService/cacheService';
 import { ICommonService } from '../ethService/ethCommonService/ICommonService';
 import HAPIService from '../hapiService/hapiService';
 import { IContractService } from './IContractService';
+
 /**
  * Service responsible for handling contract-related operations.
  */
 export class ContractService implements IContractService {
-  /**
-   * Array of addresses owned by the client. Always empty for Hedera.
-   * @public
-   * @static
-   */
-  public static readonly accounts = [];
-
   /**
    * The Hedera Token Service (HTS) precompiled contract address.
    * @public
@@ -171,13 +167,13 @@ export class ContractService implements IContractService {
    * Always returns an empty array for Hedera.
    *
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {never[]} An empty array of addresses
+   * @returns {[]} An empty array of addresses
    */
-  public accounts(requestDetails: RequestDetails): never[] {
+  public accounts(requestDetails: RequestDetails): [] {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} accounts()`);
     }
-    return ContractService.accounts;
+    return [];
   }
 
   /**
@@ -200,7 +196,7 @@ export class ContractService implements IContractService {
 
       const blockNumberOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
       const gas = this.getCappedBlockGasLimit(call.gas?.toString(), requestDetails);
-      await this.common.contractCallFormat(call, requestDetails);
+      await this.contractCallFormat(call, requestDetails);
 
       const result = await this.routeAndExecuteCall(call, gas, blockNumberOrTag, requestDetails);
       console.log('result', result);
@@ -246,7 +242,7 @@ export class ContractService implements IContractService {
 
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
-      console.log('response', response);
+
       if (response?.result) {
         this.logger.info(`${requestIdPrefix} Returning gas: ${response.result}`);
         return prepend0x(trimPrecedingZeros(response.result));
@@ -274,32 +270,88 @@ export class ContractService implements IContractService {
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} The code at the given address
    */
-  public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
+  public async getCode(
+    address: string,
+    blockNumber: string | null,
+    requestDetails: RequestDetails,
+  ): Promise<string | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (!this.common.isBlockParamValid(blockNumber)) {
       throw predefined.UNKNOWN_BLOCK(
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
     }
-
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getCode(address=${address}, blockNumber=${blockNumber})`);
     }
 
     // check for static precompile cases first before consulting nodes
-    if (this.isHTSPrecompile(address, requestIdPrefix)) {
-      return constants.INVALID_EVM_INSTRUCTION;
+    // this also account for environments where system entities were not yet exposed to the mirror node
+    if (address === ContractService.iHTSAddress) {
+      if (this.logger.isLevelEnabled('trace')) {
+        this.logger.trace(
+          `${requestIdPrefix} HTS precompile case, return ${EthImpl.invalidEVMInstruction} for byte code`,
+        );
+      }
+      return EthImpl.invalidEVMInstruction;
+    }
+
+    const cachedLabel = `getCode.${address}.${blockNumber}`;
+    const cachedResponse: string | undefined = await this.cacheService.getAsync(
+      cachedLabel,
+      CommonService.ethGetCode,
+      requestDetails,
+    );
+    if (cachedResponse != undefined) {
+      return cachedResponse;
     }
 
     try {
-      const code = await this.getCodeWithCache(address, blockNumber, requestDetails);
-      if (code) {
-        return code;
+      const result = await this.mirrorNodeClient.resolveEntityType(address, CommonService.ethGetCode, requestDetails, [
+        constants.TYPE_CONTRACT,
+        constants.TYPE_TOKEN,
+      ]);
+      if (result) {
+        const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
+        if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
+          return CommonService.emptyHex;
+        }
+        if (result?.type === constants.TYPE_TOKEN) {
+          if (this.logger.isLevelEnabled('trace')) {
+            this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
+          }
+          return CommonService.redirectBytecodeAddressReplace(address);
+        } else if (result?.type === constants.TYPE_CONTRACT) {
+          if (result?.entity.runtime_bytecode !== CommonService.emptyHex) {
+            const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
+            const opcodes = disassemble(result?.entity.runtime_bytecode);
+            const hasProhibitedOpcode =
+              opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
+            if (!hasProhibitedOpcode) {
+              await this.cacheService.set(
+                cachedLabel,
+                result?.entity.runtime_bytecode,
+                CommonService.ethGetCode,
+                requestDetails,
+              );
+            }
+            return result?.entity.runtime_bytecode;
+          }
+        }
       }
 
-      return await this.getCodeFromSDKClient(address, requestDetails);
-    } catch (e: any) {
-      return this.handleGetCodeError(e, address, blockNumber, requestIdPrefix);
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} Address ${address} is not a contract nor an HTS token, returning empty hex`,
+        );
+      }
+
+      return CommonService.emptyHex;
+    } catch (error: any) {
+      this.logger.error(
+        `${requestIdPrefix} Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
+      );
+      throw error;
     }
   }
 
@@ -473,6 +525,46 @@ export class ContractService implements IContractService {
   }
 
   /**
+   * Perform value format precheck before making contract call towards the mirror node
+   * @param {IContractCallRequest} transaction the transaction object
+   * @param {RequestDetails} requestDetails the request details for logging and tracking
+   */
+  private async contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void> {
+    if (transaction.value) {
+      transaction.value = weibarHexToTinyBarInt(transaction.value);
+    }
+    if (transaction.gasPrice) {
+      transaction.gasPrice = parseInt(transaction.gasPrice.toString());
+    } else {
+      transaction.gasPrice = await this.common.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
+    }
+    if (transaction.gas) {
+      transaction.gas = parseInt(transaction.gas.toString());
+    }
+    if (!transaction.from && transaction.value && (transaction.value as number) > 0) {
+      if (ConfigService.get('OPERATOR_KEY_FORMAT') === 'HEX_ECDSA') {
+        transaction.from = this.hapiService.getMainClientInstance().operatorPublicKey?.toEvmAddress();
+      } else {
+        const operatorId = this.hapiService.getMainClientInstance().operatorAccountId!.toString();
+        const operatorAccount = await this.common.getAccount(operatorId, requestDetails);
+        transaction.from = operatorAccount?.evm_address;
+      }
+    }
+
+    // Support either data or input. https://ethereum.github.io/execution-apis/api-documentation/ lists input but many EVM tools still use data.
+    // We chose in the mirror node to use data field as the correct one, however for us to be able to support all tools,
+    // we have to modify transaction object, so that it complies with the mirror node.
+    // That means that, if input field is passed, but data is not, we have to copy value of input to the data to comply with mirror node.
+    // The second scenario occurs when both the data and input fields are present but hold different values.
+    // In this case, the value in the input field should be the one used for consensus based on this resource https://github.com/ethereum/execution-apis/blob/main/tests/eth_call/call-contract.io
+    // Eventually, for optimization purposes, we can rid of the input property or replace it with empty string.
+    if ((transaction.input && transaction.data === undefined) || (transaction.input && transaction.data)) {
+      transaction.data = transaction.input;
+      delete transaction.input;
+    }
+  }
+
+  /**
    * Executes an estimate contract call gas request in the mirror node.
    *
    * @param {IContractCallRequest} transaction The transaction data for the contract call.
@@ -483,7 +575,7 @@ export class ContractService implements IContractService {
     transaction: IContractCallRequest,
     requestDetails: RequestDetails,
   ): Promise<IContractCallResponse | null> {
-    await this.common.contractCallFormat(transaction, requestDetails);
+    await this.contractCallFormat(transaction, requestDetails);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
   }
@@ -783,20 +875,6 @@ export class ContractService implements IContractService {
       }
       return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
     }
-
-    if (e.isNotSupported() || e.isNotSupportedSystemContractOperaton()) {
-      const errorTypeMessage =
-        e.isNotSupported() || e.isNotSupportedSystemContractOperaton() ? 'Unsupported' : 'Unhandled';
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestIdPrefix} ${errorTypeMessage} mirror node eth_call request, retrying with consensus node. details: ${JSON.stringify(
-            call,
-          )} with error: "${e.message}"`,
-        );
-      }
-      return await this.callConsensusNode(call, gas, requestDetails);
-    }
-
     // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
     throw e;
   }

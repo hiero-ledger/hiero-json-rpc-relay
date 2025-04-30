@@ -93,7 +93,7 @@ class TransactionReceiptFactory {
       gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
       contractAddress: contractAddress,
       logs: logs,
-      logsBloom: receiptResponse.bloom === constants.EMPTY_BLOOM ? constants.EMPTY_BLOOM : receiptResponse.bloom,
+      logsBloom: receiptResponse.bloom === this.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
       transactionHash: toHash32(receiptResponse.hash),
       transactionIndex: numberTo0x(receiptResponse.transaction_index),
       effectiveGasPrice: effectiveGas,

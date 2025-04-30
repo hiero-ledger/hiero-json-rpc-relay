@@ -8,8 +8,6 @@ export interface ICommonService {
 
   blockTagIsLatestOrPending(tag: any): boolean;
 
-  contractCallFormat(transaction: IContractCallRequest, requestDetails: RequestDetails): Promise<void>;
-
   gasPrice(requestDetails: RequestDetails): Promise<string>;
 
   genericErrorHandler(error: any, logMessage?: string): void;
