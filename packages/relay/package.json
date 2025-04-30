@@ -51,10 +51,10 @@
   "dependencies": {
     "@ethersproject/asm": "^5.7.0",
     "@hashgraph/json-rpc-config-service": "file:../config-service",
-    "@hashgraph/sdk": "^2.54.0-beta.1",
+    "@hashgraph/sdk": "^2.63.0",
     "@keyvhq/core": "^1.6.9",
     "axios": "^1.4.0",
-    "axios-retry": "^3.5.1",
+    "axios-retry": "^4.5.0",
     "better-lookup": "^1.3.0",
     "buffer": "^6.0.3",
     "dotenv": "^16.0.0",

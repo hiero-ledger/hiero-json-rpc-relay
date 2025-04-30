@@ -2,8 +2,7 @@
 
 // External resources
 import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
-import chai, { expect } from 'chai';
-import { solidity } from 'ethereum-waffle';
+import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 // Constants from local resources
@@ -15,8 +14,6 @@ import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 // Local resources
 import { AliasAccount } from '../types/AliasAccount';
-
-chai.use(solidity);
 
 const extractRevertReason = (errorReason: string) => {
   const pattern = /(?<=reverted: ).*/;
