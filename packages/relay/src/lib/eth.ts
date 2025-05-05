@@ -11,17 +11,17 @@ import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } 
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { Block, Log, Receipt, Transaction } from './model';
 import {
+  AccountService,
   BlockService,
   CommonService,
   ContractService,
   FilterService,
+  IAccountService,
   IBlockService,
   ICommonService,
   IContractService,
   TransactionService,
 } from './services';
-import { AccountService } from './services/accountService';
-import { IAccountService } from './services/accountService/IAccountService';
 import { CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/feeService';
 import { IFeeService } from './services/feeService/IFeeService';

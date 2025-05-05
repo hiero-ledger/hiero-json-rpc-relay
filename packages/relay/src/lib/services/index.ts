@@ -9,3 +9,5 @@ export * from './ethService/ethFilterService';
 export * from './ethService/ethFilterService/IFilterService';
 export * from './transactionService/TransactionService';
 export * from './metricService/metricService';
+export * from './accountService/AccountService';
+export * from './accountService/IAccountService';
