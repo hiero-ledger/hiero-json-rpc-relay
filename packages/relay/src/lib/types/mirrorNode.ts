@@ -202,3 +202,38 @@ export class MirrorNodeTransactionRecord {
     this.valid_start_timestamp = transactionRecord.valid_start_timestamp;
   }
 }
+
+export interface MirrorNodeContractResult {
+  address: string;
+  amount: number;
+  bloom: string;
+  call_result: string;
+  contract_id: string;
+  created_contract_ids: string[];
+  error_message: string | null;
+  from: string;
+  function_parameters: string;
+  gas_consumed: number;
+  gas_limit: number;
+  gas_used: number;
+  timestamp: string;
+  to: string;
+  hash: string;
+  block_hash: string;
+  block_number: number;
+  result: string;
+  transaction_index: number;
+  status: string;
+  failed_initcode: string | null;
+  access_list: string;
+  block_gas_used: number;
+  chain_id: string;
+  gas_price: string;
+  max_fee_per_gas: string;
+  max_priority_fee_per_gas: string;
+  r: string;
+  s: string;
+  type: number;
+  v: number;
+  nonce: number;
+}
