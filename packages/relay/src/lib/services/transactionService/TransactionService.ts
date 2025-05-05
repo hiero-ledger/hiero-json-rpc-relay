@@ -265,7 +265,7 @@ export class TransactionService implements ITransactionService {
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
-      const receipt = this.handleSyntheticTransactionReceipt(hash, requestDetails);
+      const receipt = await this.handleSyntheticTransactionReceipt(hash, requestDetails);
 
       await this.cacheService.set(
         cacheKey,
