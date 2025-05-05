@@ -18,4 +18,5 @@ export const INVALID_BLOCK_HASH_TAG_NUMBER = 'The value passed is not a valid bl
 export enum TracerType {
   CallTracer = 'callTracer',
   OpcodeLogger = 'opcodeLogger',
+  PrestateTracer = 'prestateTracer',
 }

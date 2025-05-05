@@ -13,7 +13,14 @@ import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
+import {
+  ICallTracerConfig,
+  IOpcodeLoggerConfig,
+  ITracerConfig,
+  ITracerConfigWrapper,
+  ParamType,
+  RequestDetails,
+} from './types';
 
 /**
  * Represents a DebugService for tracing and debugging transactions.
@@ -23,6 +30,7 @@ import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, Reque
  */
 export class DebugImpl implements Debug {
   static debugTraceTransaction = 'debug_traceTransaction';
+  static traceBlockByNumber = 'debug_traceBlockByNumber';
   static zeroHex = '0x0';
 
   /**
@@ -108,6 +116,41 @@ export class DebugImpl implements Debug {
       }
     } catch (e) {
       throw this.common.genericErrorHandler(e);
+    }
+  }
+
+  /**
+   * Trace a block by its number for debugging purposes.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_traceBlockByNumber RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNumber - The block number to be traced (in hex format or as a tag like 'latest').
+   * @param {ITracerConfigWrapper} tracerObject - The configuration wrapper containing tracer type and config.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs during the trace.
+   * @returns {Promise<any>} A Promise that resolves to the result of the block trace operation.
+   *
+   * @example
+   * const result = await traceBlockByNumber('0x1234', { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails);
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
+  })
+  async traceBlockByNumber(
+    blockNumber: string,
+    tracerObject: ITracerConfigWrapper,
+    requestDetails: RequestDetails,
+  ): Promise<any> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${
+          requestDetails.formattedRequestId
+        } traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`,
+      );
     }
   }
 
