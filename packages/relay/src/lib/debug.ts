@@ -18,6 +18,7 @@ import {
   IOpcodeLoggerConfig,
   ITracerConfig,
   ITracerConfigWrapper,
+  MirrorNodeContractResult,
   ParamType,
   RequestDetails,
 } from './types';
@@ -151,6 +152,40 @@ export class DebugImpl implements Debug {
           requestDetails.formattedRequestId
         } traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`,
       );
+    }
+
+    try {
+      DebugImpl.requireDebugAPIEnabled();
+      const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
+
+      if (blockResponse == null) return [];
+      const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+
+      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
+        this.mirrorNodeClient.getContractResults.name,
+        [requestDetails, { timestamp: timestampRangeParams }, undefined],
+        requestDetails,
+      );
+      if (contractResults == null) {
+        // return empty array if no EthereumTransaction typed transactions found in the block
+        return [];
+      }
+
+      const { tracer, tracerConfig } = tracerObject;
+      if (tracer === TracerType.CallTracer) {
+        const res = await Promise.all(
+          contractResults
+            // filter out transactions with wrong nonce since they do not reach consensus
+            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+            .map(async (contractResult) => {
+              return await this.callTracer(contractResult.hash, tracerConfig as ICallTracerConfig, requestDetails);
+            }),
+        );
+
+        return res;
+      }
+    } catch (error) {
+      throw this.common.genericErrorHandler(error);
     }
   }
 
