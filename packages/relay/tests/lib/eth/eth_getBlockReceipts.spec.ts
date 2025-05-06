@@ -205,7 +205,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const specificCacheServiceSpy = sinon
         .spy(cacheService, 'getAsync')
-        .withArgs(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+        .withArgs(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
       const firstResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
       // Subsequent calls should use cache
@@ -226,7 +226,8 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
-      expect(cacheSetSpy.calledWith(cacheKey, sinon.match.any, EthImpl.ethGetBlockReceipts, requestDetails)).to.be.true;
+      expect(cacheSetSpy.calledWith(cacheKey, sinon.match.any, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails)).to.be
+        .true;
 
       cacheSetSpy.restore();
     });

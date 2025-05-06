@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { nanOrNumberTo0x, prepend0x, trimPrecedingZeros } from '../../../formatters';
+import { nanOrNumberTo0x, numberTo0x, prepend0x, trimPrecedingZeros } from '../../../formatters';
 import constants from '../../constants';
 import { Log, Transaction, Transaction1559, Transaction2930 } from '../../model';
-import { CommonService } from '../ethService/ethCommonService/CommonService';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
@@ -21,12 +20,12 @@ export class TransactionFactory {
           ...fields,
           accessList: [],
           maxPriorityFeePerGas:
-            fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === '0x'
-              ? '0x0'
+            fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === constants.EMPTY_HEX
+              ? constants.ZERO_HEX
               : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas)),
           maxFeePerGas:
-            fields.maxFeePerGas === null || fields.maxFeePerGas === '0x'
-              ? '0x0'
+            fields.maxFeePerGas === null || fields.maxFeePerGas === constants.EMPTY_HEX
+              ? constants.ZERO_HEX
               : prepend0x(trimPrecedingZeros(fields.maxFeePerGas)),
         }); // eip 1559 fields
       case null:
@@ -48,19 +47,19 @@ export class TransactionFactory {
       blockNumber: log.blockNumber,
       chainId: chainId,
       from: log.address,
-      gas: CommonService.defaultTxGas,
+      gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
       gasPrice: constants.INVALID_EVM_INSTRUCTION,
       hash: log.transactionHash,
-      input: CommonService.zeroHex8Byte,
-      maxPriorityFeePerGas: CommonService.zeroHex,
-      maxFeePerGas: CommonService.zeroHex,
+      input: constants.ZERO_HEX_8_BYTE,
+      maxPriorityFeePerGas: constants.ZERO_HEX,
+      maxFeePerGas: constants.ZERO_HEX,
       nonce: nanOrNumberTo0x(0),
-      r: CommonService.EMPTY_HEX,
-      s: CommonService.EMPTY_HEX,
+      r: constants.EMPTY_HEX,
+      s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: CommonService.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-      v: CommonService.zeroHex,
+      type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      v: constants.ZERO_HEX,
     }) as Transaction1559;
 
     return transaction;

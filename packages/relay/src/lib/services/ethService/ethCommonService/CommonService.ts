@@ -22,7 +22,6 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
-import { EthImpl } from '../../../eth';
 import { Log, Transaction } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
@@ -60,28 +59,8 @@ export class CommonService implements ICommonService {
   /**
    * public constants
    */
-  public static readonly blockEarliest = 'earliest';
-  public static readonly blockFinalized = 'finalized';
-  public static readonly blockHashLength = 66;
-  public static readonly blockLatest = 'latest';
-  public static readonly blockPending = 'pending';
-  public static readonly blockSafe = 'safe';
-  public static readonly defaultTxGas = numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT);
-  public static readonly ethCall = 'eth_call';
-  public static readonly ethGetBalance = 'eth_getBalance';
-  public static readonly ethGetCode = 'eth_getCode';
-  public static readonly ethGetTransactionCount = 'eth_getTransactionCount';
-  public static readonly emptyHex = '0x';
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
-  public static readonly oneHex = '0x1';
-  public static readonly zeroHex = '0x0';
-  public static readonly oneTwoThreeFourHex = '0x1234';
-  public static readonly zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
-  public static readonly twoHex = '0x2';
-  public static readonly zeroHex8Byte = '0x0000000000000000';
-  public static readonly zeroAddressHex = '0x0000000000000000000000000000000000000000';
-  public static readonly emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
 
   /**
    * private constants
@@ -97,7 +76,6 @@ export class CommonService implements ICommonService {
   );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
-  static EMPTY_HEX = '0x';
 
   /**
    * @private
@@ -113,16 +91,16 @@ export class CommonService implements ICommonService {
   }
 
   public static blockTagIsLatestOrPendingStrict(tag: string | null): boolean {
-    return tag === CommonService.blockLatest || tag === CommonService.blockPending;
+    return tag === constants.BLOCK_LATEST || tag === constants.BLOCK_PENDING;
   }
 
   public blockTagIsLatestOrPending = (tag): boolean => {
     return (
       tag == null ||
-      tag === CommonService.blockLatest ||
-      tag === CommonService.blockPending ||
-      tag === CommonService.blockSafe ||
-      tag === CommonService.blockFinalized
+      tag === constants.BLOCK_LATEST ||
+      tag === constants.BLOCK_PENDING ||
+      tag === constants.BLOCK_SAFE ||
+      tag === constants.BLOCK_FINALIZED
     );
   };
 
@@ -134,7 +112,7 @@ export class CommonService implements ICommonService {
     address?: string | string[] | null,
   ) {
     if (this.blockTagIsLatestOrPending(toBlock)) {
-      toBlock = CommonService.blockLatest;
+      toBlock = constants.BLOCK_LATEST;
     } else {
       const latestBlockNumber: string = await this.getLatestBlockNumber(requestDetails);
 
@@ -148,7 +126,7 @@ export class CommonService implements ICommonService {
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
-      fromBlock = CommonService.blockLatest;
+      fromBlock = constants.BLOCK_LATEST;
     }
 
     let fromBlockNum = 0;
@@ -216,7 +194,7 @@ export class CommonService implements ICommonService {
     let toBlockNumber: any = null;
 
     if (this.blockTagIsLatestOrPending(toBlock)) {
-      toBlock = CommonService.blockLatest;
+      toBlock = constants.BLOCK_LATEST;
     } else {
       toBlockNumber = Number(toBlock);
 
@@ -232,7 +210,7 @@ export class CommonService implements ICommonService {
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
-      fromBlock = CommonService.blockLatest;
+      fromBlock = constants.BLOCK_LATEST;
     } else {
       fromBlockNumber = Number(fromBlock);
     }
@@ -280,7 +258,7 @@ export class CommonService implements ICommonService {
       return null;
     }
 
-    if (blockNumberOrTagOrHash === CommonService.emptyHex) {
+    if (blockNumberOrTagOrHash === constants.EMPTY_HEX) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
@@ -303,7 +281,7 @@ export class CommonService implements ICommonService {
       return latestBlockResponse.blocks[0];
     }
 
-    if (blockNumberOrTagOrHash == CommonService.blockEarliest) {
+    if (blockNumberOrTagOrHash == constants.BLOCK_EARLIEST) {
       return await this.mirrorNodeClient.getBlock(0, requestDetails);
     }
 
@@ -491,7 +469,7 @@ export class CommonService implements ICommonService {
 
     const entity = await this.mirrorNodeClient.resolveEntityType(
       address,
-      CommonService.ethGetCode,
+      constants.ETH_GET_CODE,
       requestDetails,
       searchableTypes,
       0,
@@ -524,7 +502,7 @@ export class CommonService implements ICommonService {
 
     if (networkFees && Array.isArray(networkFees.fees)) {
       const ethereumTransactionTypeFee = networkFees.fees.find(
-        ({ transaction_type }) => transaction_type === EthImpl.EthereumTransactionType,
+        ({ transaction_type }) => transaction_type === 'EthereumTransaction',
       );
 
       if (ethereumTransactionTypeFee?.gas) {
@@ -550,7 +528,7 @@ export class CommonService implements ICommonService {
     try {
       let gasPrice: number | undefined = await this.cacheService.getAsync(
         constants.CACHE_KEY.GAS_PRICE,
-        EthImpl.ethGasPrice,
+        constants.ETH_GAS_PRICE,
         requestDetails,
       );
 
@@ -560,7 +538,7 @@ export class CommonService implements ICommonService {
         await this.cacheService.set(
           constants.CACHE_KEY.GAS_PRICE,
           gasPrice,
-          EthImpl.ethGasPrice,
+          constants.ETH_GAS_PRICE,
           requestDetails,
           this.ethGasPriceCacheTtlMs,
         );
@@ -582,7 +560,7 @@ export class CommonService implements ICommonService {
   public async translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number> {
     if (this.blockTagIsLatestOrPending(tag)) {
       return Number(await this.getLatestBlockNumber(requestDetails));
-    } else if (tag === EthImpl.blockEarliest) {
+    } else if (tag === constants.BLOCK_EARLIEST) {
       return 0;
     } else {
       return Number(tag);
@@ -590,15 +568,15 @@ export class CommonService implements ICommonService {
   }
 
   private isBlockTagEarliest = (tag: string): boolean => {
-    return tag === EthImpl.blockEarliest;
+    return tag === constants.BLOCK_EARLIEST;
   };
 
   private isBlockTagFinalized = (tag: string): boolean => {
     return (
-      tag === EthImpl.blockFinalized ||
-      tag === EthImpl.blockLatest ||
-      tag === EthImpl.blockPending ||
-      tag === EthImpl.blockSafe
+      tag === constants.BLOCK_FINALIZED ||
+      tag === constants.BLOCK_LATEST ||
+      tag === constants.BLOCK_PENDING ||
+      tag === constants.BLOCK_SAFE
     );
   };
 
@@ -624,10 +602,10 @@ export class CommonService implements ICommonService {
    */
   public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
     const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
-    let account = await this.cacheService.getAsync(key, EthImpl.ethEstimateGas, requestDetails);
+    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS, requestDetails);
     if (!account) {
       account = await this.mirrorNodeClient.getAccount(address, requestDetails);
-      await this.cacheService.set(key, account, EthImpl.ethEstimateGas, requestDetails);
+      await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS, requestDetails);
     }
     return account;
   }
@@ -694,7 +672,7 @@ export class CommonService implements ICommonService {
       // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
       //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
       //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
-      chainId: cr.chain_id === this.EMPTY_HEX ? undefined : cr.chain_id,
+      chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
     };
 
     return TransactionFactory.createTransactionByType(cr.type, {

@@ -9,7 +9,6 @@ import { Utils } from '../../../utils';
 import { MirrorNodeClient } from '../../clients/mirrorNodeClient';
 import constants from '../../constants';
 import { predefined } from '../../errors/JsonRpcError';
-import { EthImpl } from '../../eth';
 import { Block, Log, Receipt, Transaction } from '../../model';
 import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../types';
 import { CacheService } from '../cacheService/cacheService';
@@ -158,7 +157,7 @@ export class BlockService implements IBlockService {
     const blockNumber = block.number;
 
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
     if (cachedResponse) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
@@ -200,7 +199,7 @@ export class BlockService implements IBlockService {
         gasUsed: nanOrNumberTo0x(contractResult.gas_used),
         contractAddress: contractAddress,
         logs: contractResult.logs,
-        logsBloom: contractResult.bloom === CommonService.emptyHex ? constants.EMPTY_BLOOM : contractResult.bloom,
+        logsBloom: contractResult.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : contractResult.bloom,
         transactionHash: toHash32(contractResult.hash),
         transactionIndex: numberTo0x(contractResult.transaction_index),
         effectiveGasPrice: effectiveGas,
@@ -212,7 +211,7 @@ export class BlockService implements IBlockService {
       receipts.push(receipt);
     }
 
-    await this.cacheService.set(cacheKey, receipts, EthImpl.ethGetBlockReceipts, requestDetails);
+    await this.cacheService.set(cacheKey, receipts, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
     return receipts;
   }
 
@@ -230,7 +229,7 @@ export class BlockService implements IBlockService {
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_HASH}_${hash}`;
     const cachedResponse = await this.cacheService.getAsync(
       cacheKey,
-      EthImpl.ethGetTransactionCountByHash,
+      constants.ETH_GET_TRANSACTION_COUNT_BY_HASH,
       requestDetails,
     );
     if (cachedResponse) {
@@ -245,7 +244,12 @@ export class BlockService implements IBlockService {
     try {
       const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
       const transactionCount = this.getTransactionCountFromBlockResponse(block);
-      await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByHash, requestDetails);
+      await this.cacheService.set(
+        cacheKey,
+        transactionCount,
+        constants.ETH_GET_TRANSACTION_COUNT_BY_HASH,
+        requestDetails,
+      );
 
       return transactionCount;
     } catch (error: any) {
@@ -274,7 +278,7 @@ export class BlockService implements IBlockService {
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_NUMBER}_${blockNum}`;
     const cachedResponse = await this.cacheService.getAsync(
       cacheKey,
-      EthImpl.ethGetTransactionCountByNumber,
+      constants.ETH_GET_TRANSACTION_COUNT_BY_NUMBER,
       requestDetails,
     );
     if (cachedResponse) {
@@ -289,7 +293,12 @@ export class BlockService implements IBlockService {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
       const transactionCount = this.getTransactionCountFromBlockResponse(block);
-      await this.cacheService.set(cacheKey, transactionCount, EthImpl.ethGetTransactionCountByNumber, requestDetails);
+      await this.cacheService.set(
+        cacheKey,
+        transactionCount,
+        constants.ETH_GET_TRANSACTION_COUNT_BY_NUMBER,
+        requestDetails,
+      );
       return transactionCount;
     } catch (error: any) {
       throw this.common.genericErrorHandler(
@@ -332,7 +341,7 @@ export class BlockService implements IBlockService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockHash()`);
     }
-    return CommonService.zeroHex;
+    return constants.ZERO_HEX;
   }
 
   /**
@@ -344,7 +353,7 @@ export class BlockService implements IBlockService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockNumber()`);
     }
-    return CommonService.zeroHex;
+    return constants.ZERO_HEX;
   }
 
   /**
@@ -377,7 +386,7 @@ export class BlockService implements IBlockService {
     const [contractResults, logs] = await Promise.all([
       this.mirrorNodeClient.getContractResultWithRetry(
         this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRangeParams }, undefined],
+        [requestDetails, params, undefined],
         requestDetails,
       ),
       this.common.getLogsWithParams(null, params, requestDetails),
@@ -456,20 +465,20 @@ export class BlockService implements IBlockService {
           blockNumber: log.blockNumber,
           chainId: this.chain,
           from: log.address,
-          gas: CommonService.defaultTxGas,
+          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
           gasPrice: constants.INVALID_EVM_INSTRUCTION,
           hash: log.transactionHash,
-          input: EthImpl.zeroHex8Byte,
-          maxPriorityFeePerGas: EthImpl.zeroHex,
-          maxFeePerGas: EthImpl.zeroHex,
+          input: constants.ZERO_HEX_8_BYTE,
+          maxPriorityFeePerGas: constants.ZERO_HEX,
+          maxFeePerGas: constants.ZERO_HEX,
           nonce: nanOrNumberTo0x(0),
-          r: EthImpl.zeroHex,
-          s: EthImpl.zeroHex,
+          r: constants.ZERO_HEX,
+          s: constants.ZERO_HEX,
           to: log.address,
           transactionIndex: log.transactionIndex,
-          type: EthImpl.twoHex, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
-          v: EthImpl.zeroHex,
-          value: EthImpl.oneTwoThreeFourHex,
+          type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+          v: constants.ZERO_HEX,
+          value: constants.ONE_TWO_THREE_FOUR_HEX,
         });
 
         if (transaction !== null) {

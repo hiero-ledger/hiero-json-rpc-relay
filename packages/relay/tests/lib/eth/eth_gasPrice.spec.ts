@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
@@ -16,7 +15,7 @@ use(chaiAsPromised);
 
 describe('@ethGasPrice Gas Price spec', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getPriceTest', ipAddress: '0.0.0.0' });
 

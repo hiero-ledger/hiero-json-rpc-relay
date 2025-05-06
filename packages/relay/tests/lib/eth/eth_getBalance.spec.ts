@@ -6,7 +6,7 @@ import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
 import { SDKClient } from '../../../src/lib/clients';
-import { EthImpl } from '../../../src/lib/eth';
+import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { buildCryptoTransferTransaction, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
@@ -163,7 +163,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-    expect(resBalance).to.equal(EthImpl.zeroHex);
+    expect(resBalance).to.equal(constants.ZERO_HEX);
   });
 
   it('should return cached value for mirror nodes', async () => {
@@ -735,7 +735,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         .reply(404, JSON.stringify(NOT_FOUND_RES));
 
       const resBalance = await ethImpl.getBalance(notFoundEvmAddress, '1', requestDetails);
-      expect(resBalance).to.equal(EthImpl.zeroHex);
+      expect(resBalance).to.equal(constants.ZERO_HEX);
     });
 
     it('blockNumber is in the latest 15 minutes, mirror node balance for address not found 404 status', async () => {
@@ -754,7 +754,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       restMock.onGet(`accounts/${notFoundEvmAddress}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
       const resBalance = await ethImpl.getBalance(notFoundEvmAddress, '2', requestDetails);
-      expect(resBalance).to.equal(EthImpl.zeroHex);
+      expect(resBalance).to.equal(constants.ZERO_HEX);
     });
   });
 

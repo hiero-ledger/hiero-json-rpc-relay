@@ -13,7 +13,6 @@ import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { EthImpl } from '../../../src/lib/eth';
 import { Precheck } from '../../../src/lib/precheck';
-import { ContractService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
@@ -31,6 +30,7 @@ let sdkClientStub: SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: SinonStub<[], SDKClient>;
 let ethImplOverridden: Eth;
 let eventEmitter: EventEmitter;
+const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
   const {
@@ -212,7 +212,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       null,
       requestDetails,
     );
-    expect(gas).to.equal(ContractService.gasTxBaseCost);
+    expect(gas).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to existing cached account', async function () {
@@ -244,8 +244,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gasBeforeCache).to.equal(ContractService.gasTxBaseCost);
-    expect(gasAfterCache).to.equal(ContractService.gasTxBaseCost);
+    expect(gasBeforeCache).to.equal(gasTxBaseCost);
+    expect(gasAfterCache).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to non existing account', async function () {
@@ -264,10 +264,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       null,
       requestDetails,
     );
-
-    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(
-      Number(ContractService.minGasTxHollowAccountCreation),
-    );
+    const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
+    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
   });
 
   it('should eth_estimateGas transfer with 0 value', async function () {
@@ -288,7 +286,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gas).to.equal(ContractService.gasTxBaseCost);
+    expect(gas).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas for contract create with input field and absent data field', async () => {

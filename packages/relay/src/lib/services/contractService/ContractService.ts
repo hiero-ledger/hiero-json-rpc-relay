@@ -40,42 +40,6 @@ import { IContractService } from './IContractService';
  */
 export class ContractService implements IContractService {
   /**
-   * The Hedera Token Service (HTS) precompiled contract address.
-   * @public
-   * @static
-   */
-  public static readonly iHTSAddress = '0x0000000000000000000000000000000000000167';
-
-  /**
-   * The base cost of a transaction.
-   * @public
-   * @static
-   */
-  public static readonly gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
-
-  /**
-   * The minimum gas for hollow account creation.
-   * @public
-   * @static
-   */
-  public static readonly minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
-
-  /**
-   * The postfix for redirect bytecode used in token redirection.
-   * @public
-   * @static
-   */
-  public static readonly redirectBytecodePostfix =
-    '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
-
-  /**
-   * The prefix for redirect bytecode used in token redirection.
-   * @public
-   * @static
-   */
-  public static readonly redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-
-  /**
    * The cache service used for caching responses.
    * @private
    * @readonly
@@ -90,32 +54,11 @@ export class ContractService implements IContractService {
   private readonly common: ICommonService;
 
   /**
-   * The average gas for contract calls.
-   * @private
-   * @readonly
-   */
-  private readonly contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-
-  /**
    * The default gas value for transactions.
    * @private
    * @readonly
    */
   private readonly defaultGas = numberTo0x(parseNumericEnvVar('TX_DEFAULT_GAS', 'TX_DEFAULT_GAS_DEFAULT'));
-
-  /**
-   * Whether to throw errors during gas estimation.
-   * @private
-   * @readonly
-   */
-  private readonly estimateGasThrows = ConfigService.get('ESTIMATE_GAS_THROWS');
-
-  /**
-   * The cache TTL for Ethereum call responses.
-   * @private
-   * @readonly
-   */
-  private readonly ethCallCacheTtl = parseNumericEnvVar('ETH_CALL_CACHE_TTL', 'ETH_CALL_CACHE_TTL_DEFAULT');
 
   /**
    * The interface for HAPI service to interact with consensus nodes.
@@ -142,7 +85,6 @@ export class ContractService implements IContractService {
    * Creates a new instance of the ContractService
    *
    * @param {CacheService} cacheService - The cache service for caching responses
-   * @param {string} chain - The chain ID
    * @param {CommonService} common - The common service for shared functionality
    * @param {HAPIService} hapiService - The HAPI service for consensus node interaction
    * @param {Logger} logger - The logger for logging
@@ -253,7 +195,11 @@ export class ContractService implements IContractService {
         `${requestIdPrefix} Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`,
       );
       // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
-      if (this.estimateGasThrows && e instanceof MirrorNodeClientError && e.isContractRevertOpcodeExecuted()) {
+      if (
+        ConfigService.get('ESTIMATE_GAS_THROWS') &&
+        e instanceof MirrorNodeClientError &&
+        e.isContractRevertOpcodeExecuted()
+      ) {
         return predefined.CONTRACT_REVERT(e.detail ?? e.message, e.data);
       }
       return this.predefinedGasForTransaction(transaction, requestDetails, e);
@@ -285,19 +231,19 @@ export class ContractService implements IContractService {
 
     // check for static precompile cases first before consulting nodes
     // this also account for environments where system entities were not yet exposed to the mirror node
-    if (address === ContractService.iHTSAddress) {
+    if (address === constants.HTS_ADDRESS) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestIdPrefix} HTS precompile case, return ${EthImpl.invalidEVMInstruction} for byte code`,
+          `${requestIdPrefix} HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`,
         );
       }
-      return EthImpl.invalidEVMInstruction;
+      return constants.INVALID_EVM_INSTRUCTION;
     }
 
     const cachedLabel = `getCode.${address}.${blockNumber}`;
     const cachedResponse: string | undefined = await this.cacheService.getAsync(
       cachedLabel,
-      CommonService.ethGetCode,
+      constants.ETH_GET_CODE,
       requestDetails,
     );
     if (cachedResponse != undefined) {
@@ -305,14 +251,14 @@ export class ContractService implements IContractService {
     }
 
     try {
-      const result = await this.mirrorNodeClient.resolveEntityType(address, CommonService.ethGetCode, requestDetails, [
+      const result = await this.mirrorNodeClient.resolveEntityType(address, constants.ETH_GET_CODE, requestDetails, [
         constants.TYPE_CONTRACT,
         constants.TYPE_TOKEN,
       ]);
       if (result) {
         const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
         if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
-          return CommonService.emptyHex;
+          return constants.EMPTY_HEX;
         }
         if (result?.type === constants.TYPE_TOKEN) {
           if (this.logger.isLevelEnabled('trace')) {
@@ -320,7 +266,7 @@ export class ContractService implements IContractService {
           }
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result?.type === constants.TYPE_CONTRACT) {
-          if (result?.entity.runtime_bytecode !== CommonService.emptyHex) {
+          if (result?.entity.runtime_bytecode !== constants.EMPTY_HEX) {
             const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
             const opcodes = disassemble(result?.entity.runtime_bytecode);
             const hasProhibitedOpcode =
@@ -329,7 +275,7 @@ export class ContractService implements IContractService {
               await this.cacheService.set(
                 cachedLabel,
                 result?.entity.runtime_bytecode,
-                CommonService.ethGetCode,
+                constants.ETH_GET_CODE,
                 requestDetails,
               );
             }
@@ -344,7 +290,7 @@ export class ContractService implements IContractService {
         );
       }
 
-      return CommonService.emptyHex;
+      return constants.EMPTY_HEX;
     } catch (error: any) {
       this.logger.error(
         `${requestIdPrefix} Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
@@ -393,7 +339,7 @@ export class ContractService implements IContractService {
       );
     }
 
-    let result = CommonService.zeroHex32Byte; // if contract or slot not found then return 32 byte 0
+    let result = constants.ZERO_HEX_32_BYTE; // if contract or slot not found then return 32 byte 0
 
     const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
     // To save a request to the mirror node for `latest` and `pending` blocks, we directly return null from `getHistoricalBlockResponse`
@@ -442,7 +388,8 @@ export class ContractService implements IContractService {
           .digest('hex')
       : null; // NOSONAR
     const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
-    await this.cacheService.set(cacheKey, response, CommonService.ethCall, requestDetails, this.ethCallCacheTtl);
+    const ethCallCacheTtl = parseNumericEnvVar('ETH_CALL_CACHE_TTL', 'ETH_CALL_CACHE_TTL_DEFAULT');
+    await this.cacheService.set(cacheKey, response, constants.ETH_CALL, requestDetails, ethCallCacheTtl);
   }
 
   /**
@@ -459,6 +406,7 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
+
     try {
       gas = gas ?? Number.parseInt(this.defaultGas);
 
@@ -599,7 +547,7 @@ export class ContractService implements IContractService {
         call.data as string,
         gas,
         call.from as string,
-        CommonService.ethCall,
+        constants.ETH_CALL,
         requestDetails,
       );
 
@@ -624,7 +572,7 @@ export class ContractService implements IContractService {
    */
   private async executeMirrorNodeCall(callData: IContractCallRequest, requestDetails: RequestDetails): Promise<string> {
     const contractCallResponse = await this.mirrorNodeClient.postContractCall(callData, requestDetails);
-    return contractCallResponse?.result ? prepend0x(contractCallResponse.result) : CommonService.emptyHex;
+    return contractCallResponse?.result ? prepend0x(contractCallResponse.result) : constants.EMPTY_HEX;
   }
 
   /**
@@ -734,7 +682,7 @@ export class ContractService implements IContractService {
     const cachedLabel = `getCode.${address}.${blockNumber}`;
     const cachedResponse: string | undefined = await this.cacheService.getAsync(
       cachedLabel,
-      CommonService.ethGetCode,
+      constants.ETH_GET_CODE,
       requestDetails,
     );
     if (cachedResponse != undefined) {
@@ -785,18 +733,18 @@ export class ContractService implements IContractService {
     cachedLabel: string,
     requestDetails: RequestDetails,
   ): Promise<string | null> {
-    if (result?.entity.runtime_bytecode !== CommonService.emptyHex) {
+    if (result?.entity.runtime_bytecode !== constants.EMPTY_HEX) {
       if (!this.hasProhibitedOpcodes(result.entity.runtime_bytecode)) {
         await this.cacheService.set(
           cachedLabel,
           result.entity.runtime_bytecode,
-          CommonService.ethGetCode,
+          constants.ETH_GET_CODE,
           requestDetails,
         );
         return result.entity.runtime_bytecode;
       }
     }
-    return null;
+    return constants.EMPTY_HEX;
   }
 
   /**
@@ -846,7 +794,7 @@ export class ContractService implements IContractService {
     const requestIdPrefix = requestDetails.formattedRequestId;
 
     if (e.isFailInvalid() || e.isInvalidTransaction()) {
-      return CommonService.emptyHex;
+      return constants.EMPTY_HEX;
     }
 
     if (e.isContractReverted()) {
@@ -916,7 +864,7 @@ export class ContractService implements IContractService {
           `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.status._code}`,
         );
       }
-      return CommonService.emptyHex;
+      return constants.EMPTY_HEX;
     }
 
     this.hapiService.decrementErrorCounter(e.status._code);
@@ -949,7 +897,7 @@ export class ContractService implements IContractService {
           `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.statusCode}`,
         );
       }
-      return CommonService.emptyHex;
+      return constants.EMPTY_HEX;
     }
 
     this.hapiService.decrementErrorCounter(e.statusCode);
@@ -969,10 +917,14 @@ export class ContractService implements IContractService {
    * @private
    */
   private handleTokenRedirect(address: string, requestIdPrefix: string): string {
+    const redirectBytecodePostfix =
+      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
+    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
+
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
     }
-    return `${ContractService.redirectBytecodePrefix}${address.slice(2)}${ContractService.redirectBytecodePostfix}`;
+    return `${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
   }
 
   /**
@@ -997,7 +949,7 @@ export class ContractService implements IContractService {
    * @private
    */
   private isHTSPrecompile(address: string, requestIdPrefix: string): boolean {
-    if (address === ContractService.iHTSAddress) {
+    if (address === constants.HTS_ADDRESS) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
           `${requestIdPrefix} HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`,
@@ -1027,6 +979,8 @@ export class ContractService implements IContractService {
     const isContractCall =
       !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
     const isContractCreate = !transaction?.to && transaction?.data && transaction.data !== '0x';
+    const contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
+    const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
 
     if (isSimpleTransfer) {
       // Handle Simple Transaction and Hollow Account creation
@@ -1039,35 +993,32 @@ export class ContractService implements IContractService {
       }
       // when account exists return default base gas
       if (await this.common.getAccount(transaction.to!, requestDetails)) {
-        this.logger.warn(
-          `${requestIdPrefix} Returning predefined gas for simple transfer: ${ContractService.gasTxBaseCost}`,
-        );
-        return ContractService.gasTxBaseCost;
+        this.logger.warn(`${requestIdPrefix} Returning predefined gas for simple transfer: ${gasTxBaseCost}`);
+        return gasTxBaseCost;
       }
+      const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
       // otherwise, return the minimum amount of gas for hollow account creation
       this.logger.warn(
-        `${requestIdPrefix} Returning predefined gas for hollow account creation: ${ContractService.minGasTxHollowAccountCreation}`,
+        `${requestIdPrefix} Returning predefined gas for hollow account creation: ${minGasTxHollowAccountCreation}`,
       );
-      return ContractService.minGasTxHollowAccountCreation;
+      return minGasTxHollowAccountCreation;
     } else if (isContractCreate) {
       // The size limit of the encoded contract posted to the mirror node can
       // cause contract deployment transactions to fail with a 400 response code.
       // The contract is actually deployed on the consensus node, so the contract will work.
       // In these cases, we don't want to return a CONTRACT_REVERT error.
       if (
-        this.estimateGasThrows &&
+        ConfigService.get('ESTIMATE_GAS_THROWS') &&
         error?.isContractReverted() &&
         error?.message !== MirrorNodeClientError.messages.INVALID_HEX
       ) {
         return predefined.CONTRACT_REVERT(error.detail, error.data);
       }
-      this.logger.warn(
-        `${requestIdPrefix} Returning predefined gas for contract creation: ${ContractService.gasTxBaseCost}`,
-      );
+      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract creation: ${gasTxBaseCost}`);
       return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
     } else if (isContractCall) {
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract call: ${this.contractCallAverageGas}`);
-      return this.contractCallAverageGas;
+      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract call: ${contractCallAverageGas}`);
+      return contractCallAverageGas;
     } else {
       this.logger.warn(`${requestIdPrefix} Returning predefined gas for unknown transaction: ${this.defaultGas}`);
       return this.defaultGas;
@@ -1129,7 +1080,6 @@ export class ContractService implements IContractService {
       return await this.callConsensusNode(call, gas, requestDetails);
     }
 
-    //temporary workaround until precompiles are implemented in Mirror node evm module
     return await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
   }
 
@@ -1152,7 +1102,7 @@ export class ContractService implements IContractService {
           .digest('hex')
       : null; // NOSONAR
     const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, CommonService.ethCall, requestDetails);
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_CALL, requestDetails);
 
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
@@ -1179,7 +1129,7 @@ export class ContractService implements IContractService {
     cachedLabel: string,
     requestDetails: RequestDetails,
   ): Promise<string | null> {
-    const result = await this.mirrorNodeClient.resolveEntityType(address, CommonService.ethGetCode, requestDetails, [
+    const result = await this.mirrorNodeClient.resolveEntityType(address, constants.ETH_GET_CODE, requestDetails, [
       constants.TYPE_CONTRACT,
       constants.TYPE_TOKEN,
     ]);
@@ -1189,7 +1139,7 @@ export class ContractService implements IContractService {
     // Check if contract was created after the requested block
     const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
     if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
-      return CommonService.emptyHex;
+      return constants.EMPTY_HEX;
     }
 
     if (result.type === constants.TYPE_TOKEN) {
@@ -1200,7 +1150,7 @@ export class ContractService implements IContractService {
       return await this.handleContractBytecode(result, cachedLabel, requestDetails);
     }
 
-    return null;
+    return constants.EMPTY_HEX;
   }
 
   /**

@@ -3,14 +3,12 @@
 import { ContractFunctionResult } from '@hashgraph/sdk';
 import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { Counter } from 'prom-client';
 import sinon from 'sinon';
 
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
-import { EthImpl } from '../../../src/lib/eth';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
@@ -107,7 +105,7 @@ describe('@ethCall Eth Call spec', async function () {
         contractService,
         {
           from: CONTRACT_ADDRESS_1,
-          to: EthImpl.zeroHex,
+          to: constants.ZERO_HEX,
           data: CONTRACT_CALL_DATA,
           gas: MAX_GAS_LIMIT_HEX,
         },
@@ -115,7 +113,7 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
         (error: any) => {
           expect(error.message).to.equal(
-            `Invalid Contract Address: ${EthImpl.zeroHex}. Expected length of 42 chars but was 3.`,
+            `Invalid Contract Address: ${constants.ZERO_HEX}. Expected length of 42 chars but was 3.`,
           );
         },
       );

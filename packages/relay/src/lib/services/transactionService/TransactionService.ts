@@ -84,9 +84,6 @@ export class TransactionService implements ITransactionService {
    */
   private readonly chain: string;
 
-  private static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
-  private static ethSendRawTransaction = 'eth_sendRawTransaction';
-
   /**
    * Constructor for the TransactionService class.
    */
@@ -243,7 +240,7 @@ export class TransactionService implements ITransactionService {
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT}_${hash}`;
     const cachedResponse = await this.cacheService.getAsync(
       cacheKey,
-      TransactionService.ethGetTransactionReceipt,
+      constants.ETH_GET_TRANSACTION_RECEIPT,
       requestDetails,
     );
     if (cachedResponse) {
@@ -270,7 +267,7 @@ export class TransactionService implements ITransactionService {
       await this.cacheService.set(
         cacheKey,
         receipt,
-        TransactionService.ethGetTransactionReceipt,
+        constants.ETH_GET_TRANSACTION_RECEIPT,
         requestDetails,
         constants.CACHE_TTL.ONE_DAY,
       );
@@ -286,7 +283,7 @@ export class TransactionService implements ITransactionService {
       await this.cacheService.set(
         cacheKey,
         receipt,
-        TransactionService.ethGetTransactionReceipt,
+        constants.ETH_GET_TRANSACTION_RECEIPT,
         requestDetails,
         constants.CACHE_TTL.ONE_DAY,
       );
@@ -381,7 +378,7 @@ export class TransactionService implements ITransactionService {
     requestDetails: RequestDetails,
   ): void {
     this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: TransactionService.ethSendRawTransaction,
+      method: constants.ETH_SEND_RAW_TRANSACTION,
       functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
       from: originalCallerAddress,
       to: toAddress,
@@ -578,7 +575,7 @@ export class TransactionService implements ITransactionService {
    * @returns {string} The input string without the '0x' prefix
    */
   private prune0x(input: string): string {
-    return input.startsWith(CommonService.EMPTY_HEX) ? input.substring(2) : input;
+    return input.startsWith(constants.EMPTY_HEX) ? input.substring(2) : input;
   }
 
   /**
@@ -794,7 +791,7 @@ export class TransactionService implements ITransactionService {
         .getSDKClient()
         .submitEthereumTransaction(
           transactionBuffer,
-          TransactionService.ethSendRawTransaction,
+          constants.ETH_SEND_RAW_TRANSACTION,
           requestDetails,
           originalCallerAddress,
           networkGasPriceInWeiBars,
@@ -826,7 +823,7 @@ export class TransactionService implements ITransactionService {
           .deleteFile(
             fileId,
             requestDetails,
-            TransactionService.ethSendRawTransaction,
+            constants.ETH_SEND_RAW_TRANSACTION,
             fileId.toString(),
             originalCallerAddress,
           )

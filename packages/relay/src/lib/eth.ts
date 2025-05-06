@@ -3,7 +3,6 @@
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
-import { numberTo0x } from '../formatters';
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
@@ -40,56 +39,6 @@ import { ParamType } from './types/validation';
  * of fake stuff in this class for now for the purpose of demos and POC.
  */
 export class EthImpl implements Eth {
-  static zeroHex = '0x0';
-  static oneHex = '0x1';
-  static twoHex = '0x2';
-  static oneTwoThreeFourHex = '0x1234';
-  static zeroHex8Byte = '0x0000000000000000';
-  static emptyArrayHex = '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347';
-  static zeroAddressHex = '0x0000000000000000000000000000000000000000';
-  static defaultTxGas = numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT);
-  static gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
-  static minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
-  static EthereumTransactionType = 'EthereumTransaction';
-  static ethTxType = 'EthereumTransaction';
-  static defaultGasUsedRatio = 0.5;
-  static feeHistoryZeroBlockCountResponse: IFeeHistory = {
-    gasUsedRatio: null,
-    oldestBlock: EthImpl.zeroHex,
-    baseFeePerGas: undefined,
-  };
-  static readonly feeHistoryEmptyResponse: IFeeHistory = {
-    baseFeePerGas: [],
-    gasUsedRatio: [],
-    reward: [],
-    oldestBlock: EthImpl.zeroHex,
-  };
-  static iHTSAddress = '0x0000000000000000000000000000000000000167';
-  static invalidEVMInstruction = '0xfe';
-  static blockHashLength = 66;
-
-  // endpoint callerNames
-  static ethBlockByNumber = 'eth_blockNumber';
-  static ethEstimateGas = 'eth_estimateGas';
-  static ethFeeHistory = 'eth_feeHistory';
-  static ethGasPrice = 'eth_gasPrice';
-  static ethGetBalance = 'eth_getBalance';
-  static ethGetBlockReceipts = 'eth_getBlockReceipts';
-  static ethGetBlockByHash = 'eth_GetBlockByHash';
-  static ethGetBlockByNumber = 'eth_GetBlockByNumber';
-  static ethGetTransactionByHash = 'eth_GetTransactionByHash';
-  static ethGetTransactionCount = 'eth_getTransactionCount';
-  static ethGetTransactionCountByHash = 'eth_GetTransactionCountByHash';
-  static ethGetTransactionCountByNumber = 'eth_GetTransactionCountByNumber';
-  static ethGetTransactionReceipt = 'eth_GetTransactionReceipt';
-
-  // block constants
-  static blockLatest = 'latest';
-  static blockEarliest = 'earliest';
-  static blockPending = 'pending';
-  static blockSafe = 'safe';
-  static blockFinalized = 'finalized';
-
   /**
    * The Account Service implementation that takes care of all account API operations.
    * @private
@@ -304,7 +253,7 @@ export class EthImpl implements Eth {
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
       this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-        method: EthImpl.ethEstimateGas,
+        method: constants.ETH_ESTIMATE_GAS,
         functionSelector: callData!.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
         from: transaction.from || '',
         to: transaction.to || '',
@@ -562,7 +511,7 @@ export class EthImpl implements Eth {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} hashrate()`);
     }
-    return EthImpl.zeroHex;
+    return constants.ZERO_HEX;
   }
 
   /**
@@ -1091,7 +1040,7 @@ export class EthImpl implements Eth {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
-    return EthImpl.zeroHex;
+    return constants.ZERO_HEX;
   }
 
   /**

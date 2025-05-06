@@ -16,8 +16,6 @@ interface BlockFactoryParams {
 }
 
 export class BlockFactory {
-  private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
-
   static async createBlock(params: BlockFactoryParams): Promise<Block> {
     const { blockResponse, receipts, txArray, gasPrice } = params;
 
@@ -27,23 +25,23 @@ export class BlockFactory {
 
     return new Block({
       baseFeePerGas: gasPrice,
-      difficulty: EthImpl.zeroHex,
-      extraData: CommonService.emptyHex,
+      difficulty: constants.ZERO_HEX,
+      extraData: constants.EMPTY_HEX,
       gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
       gasUsed: numberTo0x(blockResponse.gas_used),
       hash: blockHash,
-      logsBloom: blockResponse.logs_bloom === CommonService.emptyHex ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
-      miner: BlockFactory.ZERO_ADDRESS_HEX,
-      mixHash: CommonService.zeroHex32Byte,
-      nonce: EthImpl.zeroHex8Byte,
+      logsBloom: blockResponse.logs_bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
+      miner: constants.ZERO_ADDRESS_HEX,
+      mixHash: constants.ZERO_HEX_32_BYTE,
+      nonce: constants.ZERO_HEX_8_BYTE,
       number: numberTo0x(blockResponse.number),
       parentHash: blockResponse.previous_hash.substring(0, 66),
       receiptsRoot: await ReceiptsRootUtils.getRootHash(receipts),
       timestamp: numberTo0x(Number(timestamp)),
-      sha3Uncles: EthImpl.emptyArrayHex,
+      sha3Uncles: constants.EMPTY_ARRAY_HEX,
       size: numberTo0x(blockResponse.size | 0),
       stateRoot: constants.DEFAULT_ROOT_HASH,
-      totalDifficulty: EthImpl.zeroHex,
+      totalDifficulty: constants.ZERO_HEX,
       transactions: txArray,
       transactionsRoot: txArray.length == 0 ? constants.DEFAULT_ROOT_HASH : blockHash,
       uncles: [],

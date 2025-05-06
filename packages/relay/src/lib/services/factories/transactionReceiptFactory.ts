@@ -37,11 +37,6 @@ interface IRegularTransactionReceiptParams {
  * Factory for creating different types of transaction receipts
  */
 class TransactionReceiptFactory {
-  private static readonly EMPTY_HEX = '0x';
-  private static readonly ONE_HEX = '0x1';
-  private static readonly ZERO_ADDRESS_HEX = '0x' + '0'.repeat(40);
-  private static readonly ZERO_HEX = '0x0';
-
   /**
    * Creates a synthetic transaction receipt from a log
    *
@@ -55,14 +50,14 @@ class TransactionReceiptFactory {
       blockHash: syntheticLogs[0].blockHash,
       blockNumber: syntheticLogs[0].blockNumber,
       contractAddress: syntheticLogs[0].address,
-      cumulativeGasUsed: this.ZERO_HEX,
+      cumulativeGasUsed: constants.ZERO_HEX,
       effectiveGasPrice: gasPriceForTimestamp,
-      from: this.ZERO_ADDRESS_HEX,
-      gasUsed: this.ZERO_HEX,
+      from: constants.ZERO_ADDRESS_HEX,
+      gasUsed: constants.ZERO_HEX,
       logs: syntheticLogs,
       logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
       root: constants.DEFAULT_ROOT_HASH,
-      status: this.ONE_HEX,
+      status: constants.ONE_HEX,
       to: syntheticLogs[0].address,
       transactionHash: syntheticLogs[0].transactionHash,
       transactionIndex: syntheticLogs[0].transactionIndex,
@@ -93,7 +88,7 @@ class TransactionReceiptFactory {
       gasUsed: nanOrNumberTo0x(receiptResponse.gas_used),
       contractAddress: contractAddress,
       logs: logs,
-      logsBloom: receiptResponse.bloom === this.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
+      logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
       transactionHash: toHash32(receiptResponse.hash),
       transactionIndex: numberTo0x(receiptResponse.transaction_index),
       effectiveGasPrice: effectiveGas,

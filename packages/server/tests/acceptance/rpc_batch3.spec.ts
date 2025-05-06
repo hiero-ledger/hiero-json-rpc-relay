@@ -8,7 +8,6 @@ import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 // Helper functions/constants from local resources
-import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { TYPES } from '@hashgraph/json-rpc-relay/src/lib/validators';
 import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
 import { ContractId } from '@hashgraph/sdk';
@@ -902,7 +901,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     it('@release should execute "eth_getTransactionCount" contract latest', async function () {
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
-        [deployerContractAddress, EthImpl.blockLatest],
+        [deployerContractAddress, Constants.BLOCK_LATEST],
         requestId,
       );
       expect(res).to.be.equal('0x2');
@@ -938,7 +937,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     it('@release should execute "eth_getTransactionCount" contract with id converted to evm_address latest', async function () {
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_COUNT,
-        [Utils.idToEvmAddress(contractId.toString()), EthImpl.blockLatest],
+        [Utils.idToEvmAddress(contractId.toString()), Constants.BLOCK_LATEST],
         requestId,
       );
       expect(res).to.be.equal('0x2');

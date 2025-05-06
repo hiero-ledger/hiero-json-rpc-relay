@@ -9,7 +9,7 @@ import sinon from 'sinon';
 import { Eth, predefined } from '../../../src';
 import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
-import { CommonService } from '../../../src/lib/services';
+import constants from '../../../src/lib/constants';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
@@ -245,7 +245,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       );
     });
 
-    it('eth_getStorageAt should return CommonService.zeroHex32Byte when slot wrong', async function () {
+    it('eth_getStorageAt should return zeroHex32Byte when slot wrong', async function () {
       const wrongSlot = '0x0000000000000000000000000000000000000000000000000000000000001101';
       restMock
         .onGet(
@@ -259,7 +259,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
         numberTo0x(BLOCK_NUMBER),
         requestDetails,
       );
-      expect(result).to.equal(CommonService.zeroHex32Byte);
+      expect(result).to.equal(constants.ZERO_HEX_32_BYTE);
     });
 
     it('eth_getStorageAt should return old state when passing older block number', async function () {

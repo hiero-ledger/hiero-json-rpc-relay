@@ -334,7 +334,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       type: defaultDetailedContractResultByHash.type,
     };
 
-    await cacheService.set(cacheKey, cacheReceipt, EthImpl.ethGetTransactionReceipt, requestDetails);
+    await cacheService.set(cacheKey, cacheReceipt, constants.ETH_GET_TRANSACTION_RECEIPT, requestDetails);
 
     // w no mirror node requests
     const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);

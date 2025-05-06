@@ -92,9 +92,9 @@ export class FeeService implements IFeeService {
     }
 
     try {
-      const latestBlockNumber = await this.common.translateBlockTag(EthImpl.blockLatest, requestDetails);
+      const latestBlockNumber = await this.common.translateBlockTag(constants.BLOCK_LATEST, requestDetails);
       const newestBlockNumber =
-        newestBlock == EthImpl.blockLatest || newestBlock == EthImpl.blockPending
+        newestBlock == constants.BLOCK_LATEST || newestBlock == constants.BLOCK_PENDING
           ? latestBlockNumber
           : await this.common.translateBlockTag(newestBlock, requestDetails);
 
@@ -104,7 +104,12 @@ export class FeeService implements IFeeService {
       blockCount = blockCount > maxResults ? maxResults : blockCount;
 
       if (blockCount <= 0) {
-        return EthImpl.feeHistoryZeroBlockCountResponse;
+        const feeHistoryZeroBlockCountResponse: IFeeHistory = {
+          gasUsedRatio: null,
+          oldestBlock: constants.ZERO_HEX,
+          baseFeePerGas: undefined,
+        };
+        return feeHistoryZeroBlockCountResponse;
       }
       let feeHistory: IFeeHistory;
 
@@ -121,7 +126,7 @@ export class FeeService implements IFeeService {
         const cacheKey = `${constants.CACHE_KEY.FEE_HISTORY}_${blockCount}_${newestBlock}_${rewardPercentiles?.join(
           '',
         )}`;
-        const cachedFeeHistory = await this.cacheService.getAsync(cacheKey, EthImpl.ethFeeHistory, requestDetails);
+        const cachedFeeHistory = await this.cacheService.getAsync(cacheKey, constants.ETH_FEE_HISTORY, requestDetails);
 
         if (cachedFeeHistory) {
           feeHistory = cachedFeeHistory;
@@ -134,11 +139,11 @@ export class FeeService implements IFeeService {
             requestDetails,
           );
         }
-        if (newestBlock != EthImpl.blockLatest && newestBlock != EthImpl.blockPending) {
+        if (newestBlock != constants.BLOCK_LATEST && newestBlock != constants.BLOCK_PENDING) {
           await this.cacheService.set(
             cacheKey,
             feeHistory,
-            EthImpl.ethFeeHistory,
+            constants.ETH_FEE_HISTORY,
             requestDetails,
             parseInt(constants.ETH_FEE_HISTORY_TTL),
           );
@@ -147,8 +152,14 @@ export class FeeService implements IFeeService {
 
       return feeHistory;
     } catch (e) {
+      const feeHistoryEmptyResponse: IFeeHistory = {
+        baseFeePerGas: [],
+        gasUsedRatio: [],
+        reward: [],
+        oldestBlock: constants.ZERO_HEX,
+      };
       this.logger.error(e, `${requestIdPrefix} Error constructing default feeHistory`);
-      return EthImpl.feeHistoryEmptyResponse;
+      return feeHistoryEmptyResponse;
     }
   }
 
@@ -162,7 +173,7 @@ export class FeeService implements IFeeService {
       this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
     }
 
-    return EthImpl.zeroHex;
+    return constants.ZERO_HEX;
   }
 
   /**
@@ -182,7 +193,7 @@ export class FeeService implements IFeeService {
 
     const feeHistory: IFeeHistory = {
       baseFeePerGas: Array(blockCount).fill(fee),
-      gasUsedRatio: Array(blockCount).fill(EthImpl.defaultGasUsedRatio),
+      gasUsedRatio: Array(blockCount).fill(constants.DEFAULT_GAS_USED_RATIO),
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
@@ -191,7 +202,7 @@ export class FeeService implements IFeeService {
     feeHistory.baseFeePerGas?.push(fee);
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(EthImpl.zeroHex));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
     }
 
     return feeHistory;
@@ -226,7 +237,7 @@ export class FeeService implements IFeeService {
       const fee = await this.getFeeByBlockNumber(blockNumber, requestDetails);
 
       feeHistory.baseFeePerGas?.push(fee);
-      feeHistory.gasUsedRatio?.push(EthImpl.defaultGasUsedRatio);
+      feeHistory.gasUsedRatio?.push(constants.DEFAULT_GAS_USED_RATIO);
     }
 
     // get latest block fee
@@ -243,7 +254,7 @@ export class FeeService implements IFeeService {
     }
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(EthImpl.zeroHex));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
     }
 
     return feeHistory;
