@@ -7,3 +7,8 @@ export interface ITracerConfigWrapper {
   tracer?: TracerType;
   tracerConfig?: ITracerConfig;
 }
+
+export interface IBlockTracerConfig {
+  tracer: TracerType;
+  onlyTopCall?: boolean;
+}

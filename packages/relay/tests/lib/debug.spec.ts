@@ -712,7 +712,7 @@ describe('Debug API Test Suite', async function () {
           debugService.traceBlockByNumber,
           true,
           debugService,
-          [blockNumber, { tracer: callTracer, tracerConfig: tracerConfigFalse }, requestDetails],
+          [blockNumber, { tracer: callTracer, onlyTopCall: false }, requestDetails],
         );
       });
     });
@@ -721,7 +721,7 @@ describe('Debug API Test Suite', async function () {
       it('should return results for multiple transactions with callTracer', async function () {
         const result = await debugService.traceBlockByNumber(
           blockNumber,
-          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          { tracer: callTracer, onlyTopCall: false },
           requestDetails,
         );
 
@@ -799,7 +799,7 @@ describe('Debug API Test Suite', async function () {
 
         const result = await debugService.traceBlockByNumber(
           blockNumber,
-          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          { tracer: callTracer, onlyTopCall: false },
           requestDetails,
         );
 
@@ -843,7 +843,7 @@ describe('Debug API Test Suite', async function () {
 
         const result = await debugService.traceBlockByNumber(
           blockNumber,
-          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          { tracer: callTracer, onlyTopCall: false },
           requestDetails,
         );
 
@@ -854,7 +854,7 @@ describe('Debug API Test Suite', async function () {
       it('should handle "latest" block tag', async function () {
         const result = await debugService.traceBlockByNumber(
           'latest',
-          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          { tracer: callTracer, onlyTopCall: false },
           requestDetails,
         );
 
@@ -882,7 +882,7 @@ describe('Debug API Test Suite', async function () {
         try {
           await debugService.traceBlockByNumber(
             blockNumber,
-            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+            { tracer: callTracer, onlyTopCall: false },
             requestDetails,
           );
           // If we get here, the test failed because no error was thrown
@@ -896,7 +896,7 @@ describe('Debug API Test Suite', async function () {
       it('should filter out transactions with WRONG_NONCE result', async function () {
         const result = await debugService.traceBlockByNumber(
           blockNumber,
-          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          { tracer: callTracer, onlyTopCall: false },
           requestDetails,
         );
 
@@ -1012,7 +1012,7 @@ describe('Debug API Test Suite', async function () {
             )
             .reply(200, JSON.stringify(stateResponse));
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
 
           expect(result).to.exist;
           expect(result[contractEntity.entity.evm_address]).to.exist;
@@ -1035,7 +1035,7 @@ describe('Debug API Test Suite', async function () {
           // Then setup account data retrieval
           restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
 
           expect(result).to.exist;
           expect(result[accountEntity.entity.evm_address]).to.exist;
@@ -1044,7 +1044,7 @@ describe('Debug API Test Suite', async function () {
           );
           expect(result[accountEntity.entity.evm_address].nonce).to.equal(accountEntity.entity.ethereum_nonce);
           expect(result[accountEntity.entity.evm_address].code).to.equal('0x');
-          expect(result[accountEntity.entity.evm_address].storage).to.deep.equal({});
+          expect(result[accountEntity.entity.evm_address].storage).to.deep.equals({});
         });
 
         it('should return combined pre-state for both contract and account', async function () {
@@ -1079,7 +1079,7 @@ describe('Debug API Test Suite', async function () {
           // Account data
           restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
 
           expect(result).to.exist;
           expect(result[contractEntity.entity.evm_address]).to.exist;
@@ -1090,7 +1090,7 @@ describe('Debug API Test Suite', async function () {
           // Setup mock for non-existent entity
           restMock.onGet(`entity/${contractAddress}`).reply(404);
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
           expect(result).to.deep.equal({});
         });
 
@@ -1110,7 +1110,178 @@ describe('Debug API Test Suite', async function () {
           // Contract data without evm_address
           restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(entityWithoutEvmAddress.entity));
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+          expect(result).to.deep.equal({});
+        });
+
+        it('should filter actions by call_depth when onlyTopCall is true', async function () {
+          // Create actions with different call depths
+          const actionsWithDepth = {
+            actions: [
+              {
+                call_depth: 0,
+                call_operation_type: 'CALL',
+                call_type: 'CALL',
+                caller: '0.0.1016',
+                caller_type: 'ACCOUNT',
+                from: accountAddress,
+                gas: 247000,
+                gas_used: 77324,
+                index: 0,
+                input: '0x',
+                recipient: '0.0.1033',
+                recipient_type: 'CONTRACT',
+                result_data: '0x',
+                result_data_type: 'OUTPUT',
+                timestamp: '1696438011.462526383',
+                to: contractAddress,
+                value: 100,
+              },
+              {
+                call_depth: 1, // This should be filtered out when onlyTopCall=true
+                call_operation_type: 'CALL',
+                call_type: 'CALL',
+                caller: '0.0.1033',
+                caller_type: 'CONTRACT',
+                from: contractAddress,
+                gas: 200000,
+                gas_used: 50000,
+                index: 1,
+                input: '0x',
+                recipient: '0.0.1016',
+                recipient_type: 'ACCOUNT',
+                result_data: '0x',
+                result_data_type: 'OUTPUT',
+                timestamp: '1696438011.462526383',
+                to: accountAddress,
+                value: 0,
+              },
+            ],
+          };
+
+          // Override the default actions response with our custom one
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsWithDepth));
+
+          // Set up entity resolution for both addresses
+          restMock
+            .onGet(`entity/${contractAddress}`)
+            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
+          restMock
+            .onGet(`entity/${accountAddress}`)
+            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
+
+          // Set up contract and account data
+          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
+          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
+
+          // Set up balance response
+          restMock
+            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
+            .reply(200, JSON.stringify(balanceResponse));
+
+          // Set up contract state
+          restMock
+            .onGet(
+              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
+                contractEntity.entity.timestamp.to,
+              )}&limit=100&order=desc`,
+            )
+            .reply(200, JSON.stringify(stateResponse));
+
+          // Test with onlyTopCall=true
+          const resultWithTopCallOnly = await debugService.prestateTracer(transactionHash, true, requestDetails);
+
+          // When onlyTopCall is true, we should only see addresses from the top-level call
+          // The top-level call is from accountAddress to contractAddress
+          expect(Object.keys(resultWithTopCallOnly)).to.have.lengthOf(2);
+          expect(resultWithTopCallOnly).to.have.property(contractEntity.entity.evm_address);
+          expect(resultWithTopCallOnly).to.have.property(accountEntity.entity.evm_address);
+
+          // Create a mock with a nested call that has a different from/to than the top call
+          const actionsWithDifferentNestedCall = {
+            actions: [
+              {
+                call_depth: 0,
+                call_operation_type: 'CALL',
+                call_type: 'CALL',
+                from: accountAddress,
+                gas: 247000,
+                gas_used: 77324,
+                to: contractAddress,
+                value: 100,
+              },
+              {
+                call_depth: 1,
+                call_operation_type: 'CALL',
+                call_type: 'CALL',
+                from: contractAddress,
+                gas: 200000,
+                gas_used: 50000,
+                to: '0x000000000000000000000000000000000000040a', // Different address
+                value: 0,
+              },
+            ],
+          };
+
+          // Override the actions response
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsWithDifferentNestedCall));
+
+          // Mock the entity resolution for the new address
+          restMock
+            .onGet(`entity/0x000000000000000000000000000000000000040a`)
+            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1034' }));
+
+          // Mock the contract data
+          restMock.onGet(`contracts/0x000000000000000000000000000000000000040a`).reply(
+            200,
+            JSON.stringify({
+              evm_address: '0x91b1c451777122afc9b83f9b96160d7e59847ad7',
+              contract_id: '0.0.1034',
+              timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
+              nonce: 1,
+              runtime_bytecode: '0x60806040',
+            }),
+          );
+
+          // Mock the balance response
+          restMock.onGet(`balances?account.id=0.0.1034`).reply(200, JSON.stringify(balanceResponse));
+
+          // Mock the contract state
+          restMock
+            .onGet(
+              `contracts/0.0.1034/state?timestamp=${encodeURIComponent(
+                contractEntity.entity.timestamp.to,
+              )}&limit=100&order=desc`,
+            )
+            .reply(200, JSON.stringify(stateResponse));
+
+          // Test with onlyTopCall=true
+          const resultWithNestedCall = await debugService.prestateTracer(transactionHash, true, requestDetails);
+
+          // Should not include the nested call address
+          expect(resultWithNestedCall).to.not.have.property('0x91b1c451777122afc9b83f9b96160d7e59847ad7');
+
+          // Test with onlyTopCall=false
+          const resultWithAllNestedCalls = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+          // Should include all addresses
+          expect(Object.keys(resultWithAllNestedCalls).length).to.be.at.least(3);
+        });
+
+        it('should handle onlyTopCall parameter when there are no nested calls', async function () {
+          // With only top-level calls, both true and false should yield the same result
+          const resultWithTopCallOnly = await debugService.prestateTracer(transactionHash, true, requestDetails);
+          const resultWithAllCalls = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+          // Both should have the same keys since there are no nested calls
+          expect(Object.keys(resultWithTopCallOnly)).to.deep.equal(Object.keys(resultWithAllCalls));
+        });
+
+        it('should return empty object when no addresses in actions', async function () {
+          const emptyActionsResponse = { actions: [] };
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(emptyActionsResponse));
+
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
           expect(result).to.deep.equal({});
         });
       });
@@ -1125,6 +1296,7 @@ describe('Debug API Test Suite', async function () {
 
           await RelayAssertions.assertRejection(expectedError, debugService.prestateTracer, true, debugService, [
             transactionHash,
+            false,
             requestDetails,
           ]);
         });
@@ -1133,7 +1305,7 @@ describe('Debug API Test Suite', async function () {
           const emptyActionsResponse = { actions: [] };
           restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(emptyActionsResponse));
 
-          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
           expect(result).to.deep.equal({});
         });
       });

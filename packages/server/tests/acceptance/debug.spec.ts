@@ -90,7 +90,7 @@ describe('@debug API Acceptance Tests', function () {
   });
 
   describe('debug_traceBlockByNumber', () => {
-    it('should trace a block containing successful transactions using CallTracer', async function () {
+    it('@release should trace a block containing successful transactions using CallTracer', async function () {
       // Create a transaction that will be included in the next block
       const transaction = {
         to: basicContractAddress,
@@ -114,7 +114,7 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
       const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, tracerConfig], requestId);
 
       expect(result).to.be.an('array');
@@ -130,7 +130,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(txTrace.result.input).to.equal(BASIC_CONTRACT_PING_CALL_DATA);
     });
 
-    it('should trace a block containing a failing transaction using CallTracer', async function () {
+    it('@release should trace a block containing a failing transaction using CallTracer', async function () {
       // Create a transaction that will revert
       const transaction = {
         to: reverterContractAddress,
@@ -154,7 +154,7 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
       const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, tracerConfig], requestId);
 
       expect(result).to.be.an('array');
@@ -172,7 +172,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(txTrace.result.revertReason).to.exist; // There should be a revert reason
     });
 
-    it('should trace a block using PrestateTracer', async function () {
+    it('@release should trace a block using PrestateTracer', async function () {
       // Create a transaction that will be included in the next block
       const transaction = {
         to: basicContractAddress,
@@ -222,6 +222,75 @@ describe('@debug API Acceptance Tests', function () {
       }
     });
 
+    it('should trace a block using PrestateTracer with onlyTopCall=true', async function () {
+      // Create a transaction that calls a contract which might make internal calls
+      const transaction = {
+        to: basicContractAddress,
+        from: accounts[0].address,
+        value: ONE_TINYBAR,
+        gasLimit: numberTo0x(3_000_000),
+        chainId: Number(CHAIN_ID),
+        type: 2,
+        maxFeePerGas: await relay.gasPrice(requestId),
+        maxPriorityFeePerGas: await relay.gasPrice(requestId),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+        nonce: await relay.getAccountNonce(accounts[0].address, requestId),
+      };
+
+      const signedTx = await accounts[0].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+
+      // Wait for transaction to be processed
+      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      const blockNumber = receipt.blockNumber;
+
+      // First trace with onlyTopCall=false (default)
+      const fullTracerConfig = { tracer: TracerType.PrestateTracer, onlyTopCall: false };
+      const fullResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, fullTracerConfig], requestId);
+
+      // Then trace with onlyTopCall=true
+      const topCallTracerConfig = { tracer: TracerType.PrestateTracer, onlyTopCall: true };
+      const topCallResult = await relay.call(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [blockNumber, topCallTracerConfig],
+        requestId,
+      );
+
+      // Both should return results
+      expect(fullResult).to.be.an('array');
+      expect(topCallResult).to.be.an('array');
+
+      // Find our transaction in both results
+      const fullTxTrace = fullResult.find((trace) => trace.txHash === transactionHash);
+      const topCallTxTrace = topCallResult.find((trace) => trace.txHash === transactionHash);
+
+      expect(fullTxTrace).to.exist;
+      expect(topCallTxTrace).to.exist;
+
+      // Both should contain at least the contract address and sender address
+      expect(Object.keys(fullTxTrace.result).length).to.be.at.least(2);
+      expect(Object.keys(topCallTxTrace.result).length).to.be.at.least(2);
+
+      // The addresses in topCallResult should be a subset of those in fullResult
+      // or equal if there are no nested calls
+      const fullAddresses = Object.keys(fullTxTrace.result);
+      const topCallAddresses = Object.keys(topCallTxTrace.result);
+
+      // Every address in topCallAddresses should be in fullAddresses
+      topCallAddresses.forEach((address) => {
+        expect(fullAddresses).to.include(address);
+      });
+
+      // Each address should have the standard fields
+      for (const address of topCallAddresses) {
+        const state = topCallTxTrace.result[address];
+        expect(state).to.have.property('balance');
+        expect(state).to.have.property('nonce');
+        expect(state).to.have.property('code');
+        expect(state).to.have.property('storage');
+      }
+    });
+
     it('should return an empty array for a block with no transactions', async function () {
       // Find a block with no transactions
       let currentBlockNumber = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
@@ -250,7 +319,7 @@ describe('@debug API Acceptance Tests', function () {
 
       if (!hasTransactions) {
         // Found a block without transactions
-        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+        const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
         const result = await relay.call(
           DEBUG_TRACE_BLOCK_BY_NUMBER,
           [numberTo0x(blockNumberToTest), tracerConfig],
@@ -273,7 +342,7 @@ describe('@debug API Acceptance Tests', function () {
       ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
 
       try {
-        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+        const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
 
         // Should return UNSUPPORTED_METHOD error
         await relay.callFailing(
@@ -289,7 +358,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     it('should fail with INVALID_PARAMETER when given an invalid block number', async function () {
-      const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
 
       // Invalid block number format
       await relay.callFailing(
@@ -305,7 +374,7 @@ describe('@debug API Acceptance Tests', function () {
 
     it('should fail with INVALID_PARAMETER when given an invalid tracer configuration', async function () {
       // Invalid tracer type
-      const invalidTracerConfig = { tracer: 'InvalidTracer', tracerConfig: { onlyTopCall: false } };
+      const invalidTracerConfig = { tracer: 'InvalidTracer', onlyTopCall: false };
 
       try {
         await relay.call(

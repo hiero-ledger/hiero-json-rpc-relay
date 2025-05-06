@@ -14,6 +14,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import {
+  IBlockTracerConfig,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   ITracerConfig,
@@ -150,7 +151,7 @@ export class DebugImpl implements Debug {
   })
   async traceBlockByNumber(
     blockNumber: string,
-    tracerObject: ITracerConfigWrapper,
+    tracerObject: IBlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -194,7 +195,7 @@ export class DebugImpl implements Debug {
         return [];
       }
 
-      const { tracer, tracerConfig } = tracerObject;
+      const { tracer, onlyTopCall } = tracerObject;
       if (tracer === TracerType.CallTracer) {
         const result = await Promise.all(
           contractResults
@@ -203,7 +204,11 @@ export class DebugImpl implements Debug {
             .map(async (contractResult) => {
               return {
                 txHash: contractResult.hash,
-                result: await this.callTracer(contractResult.hash, tracerConfig as ICallTracerConfig, requestDetails),
+                result: await this.callTracer(
+                  contractResult.hash,
+                  { onlyTopCall } as ICallTracerConfig,
+                  requestDetails,
+                ),
               };
             }),
         );
@@ -220,7 +225,7 @@ export class DebugImpl implements Debug {
             .map(async (contractResult) => {
               return {
                 txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, requestDetails),
+                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
               };
             }),
         );
@@ -480,8 +485,12 @@ export class DebugImpl implements Debug {
    *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
    * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
    */
-  async prestateTracer(transactionHash: string, requestDetails: RequestDetails): Promise<object> {
-    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}`;
+  async prestateTracer(
+    transactionHash: string,
+    onlyTopCall: boolean = false,
+    requestDetails: RequestDetails,
+  ): Promise<object> {
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
     const cachedTracerObject = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
 
@@ -495,8 +504,13 @@ export class DebugImpl implements Debug {
       throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
     }
 
+    // Filter by call_depth if onlyTopCall is true
+    const filteredActions = onlyTopCall
+      ? actionsResponse.actions.filter((action) => action.call_depth === 0)
+      : actionsResponse.actions;
+
     // Extract unique addresses involved in the transaction
-    const uniqueAddresses = [...new Set(actionsResponse.actions.flatMap((action) => [action.from, action.to]))].filter(
+    const uniqueAddresses = [...new Set(filteredActions.flatMap((action) => [action.from, action.to]))].filter(
       Boolean,
     ) as string[];
     if (uniqueAddresses.length === 0) return {};
