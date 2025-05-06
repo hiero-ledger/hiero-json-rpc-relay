@@ -9,7 +9,7 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
 import { predefined } from '../../src';
-import { strip0x } from '../../src/formatters';
+import { numberTo0x, strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import { IOpcodesResponse } from '../../src/lib/clients/models/IOpcodesResponse';
 import constants, { TracerType } from '../../src/lib/constants';
@@ -17,7 +17,6 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
-import { CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -279,7 +278,8 @@ describe('Debug API Test Suite', async function () {
 
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
-    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
+    // Create the debug service
+    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
   });
 
   describe('debug_traceTransaction', async function () {
@@ -519,6 +519,236 @@ describe('Debug API Test Suite', async function () {
             const address = await debugService.resolveAddress(accountAddress, requestDetails);
             expect(address).to.eq(accountAddress);
           });
+        });
+      });
+    });
+  });
+
+  describe('Helper Methods Test Suite', async function () {
+    this.timeout(10000);
+    beforeEach(async function () {
+      restMock.reset();
+      web3Mock.reset();
+      await cacheService.clear(requestDetails);
+    });
+
+    describe('prestateTracer', async function () {
+      const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
+      const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+      const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
+
+      const contractAddress = '0x0000000000000000000000000000000000000409';
+      const accountAddress = '0x00000000000000000000000000000000000003f7';
+      const CONTRACT_RESOLVE = `contracts/${contractAddress}`;
+      const ACCOUNT_RESOLVE = `accounts/${accountAddress}?transactions=false`;
+
+      const actionsResponse = {
+        actions: [
+          {
+            call_depth: 0,
+            call_operation_type: 'CALL',
+            call_type: 'CALL',
+            caller: '0.0.1016',
+            caller_type: 'ACCOUNT',
+            from: accountAddress,
+            gas: 247000,
+            gas_used: 77324,
+            index: 0,
+            input: '0x',
+            recipient: '0.0.1033',
+            recipient_type: 'CONTRACT',
+            result_data: '0x',
+            result_data_type: 'OUTPUT',
+            timestamp: '1696438011.462526383',
+            to: contractAddress,
+            value: 100,
+          },
+        ],
+      };
+
+      const contractEntity = {
+        type: 'contract',
+        entity: {
+          evm_address: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
+          contract_id: '0.0.1033',
+          timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
+          nonce: 5,
+          runtime_bytecode: '0x60806040',
+        },
+      };
+
+      const accountEntity = {
+        type: 'account',
+        entity: {
+          evm_address: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+          ethereum_nonce: 1,
+          balance: { balance: 1000 },
+        },
+      };
+
+      const balanceResponse = {
+        balances: [{ balance: 500 }],
+      };
+
+      const stateResponse = {
+        state: [
+          { slot: '0x01', value: '0x0a' },
+          { slot: '0x02', value: '0x0b' },
+        ],
+      };
+
+      describe('when contract actions exist', async function () {
+        beforeEach(() => {
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsResponse));
+        });
+
+        it('should return pre-state information for contracts', async function () {
+          // Setup mocks for contract resolving and state retrieval
+          // First set up entity type resolution
+          restMock
+            .onGet(`entity/${contractAddress}`)
+            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
+
+          // Then setup contract data retrieval
+          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
+
+          // Setup balance response
+          restMock
+            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
+            .reply(200, JSON.stringify(balanceResponse));
+
+          // Setup contract state response
+          restMock
+            .onGet(
+              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
+                contractEntity.entity.timestamp.to,
+              )}&limit=100&order=desc`,
+            )
+            .reply(200, JSON.stringify(stateResponse));
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+          expect(result).to.exist;
+          expect(result[contractEntity.entity.evm_address]).to.exist;
+          expect(result[contractEntity.entity.evm_address].balance).to.equal(
+            numberTo0x(balanceResponse.balances[0].balance),
+          );
+          expect(result[contractEntity.entity.evm_address].nonce).to.equal(contractEntity.entity.nonce);
+          expect(result[contractEntity.entity.evm_address].code).to.equal(contractEntity.entity.runtime_bytecode);
+          expect(result[contractEntity.entity.evm_address].storage['0x01']).to.equal('0x0a');
+          expect(result[contractEntity.entity.evm_address].storage['0x02']).to.equal('0x0b');
+        });
+
+        it('should return pre-state information for accounts', async function () {
+          // Setup mocks for account resolving
+          // First set up entity type resolution
+          restMock
+            .onGet(`entity/${accountAddress}`)
+            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
+
+          // Then setup account data retrieval
+          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+          expect(result).to.exist;
+          expect(result[accountEntity.entity.evm_address]).to.exist;
+          expect(result[accountEntity.entity.evm_address].balance).to.equal(
+            numberTo0x(accountEntity.entity.balance.balance),
+          );
+          expect(result[accountEntity.entity.evm_address].nonce).to.equal(accountEntity.entity.ethereum_nonce);
+          expect(result[accountEntity.entity.evm_address].code).to.equal('0x');
+          expect(result[accountEntity.entity.evm_address].storage).to.deep.equal({});
+        });
+
+        it('should return combined pre-state for both contract and account', async function () {
+          // Setup mocks for both contract and account
+          // Contract entity resolution
+          restMock
+            .onGet(`entity/${contractAddress}`)
+            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
+
+          // Contract data
+          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
+
+          // Setup balance response
+          restMock
+            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
+            .reply(200, JSON.stringify(balanceResponse));
+
+          // Contract state
+          restMock
+            .onGet(
+              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
+                contractEntity.entity.timestamp.to,
+              )}&limit=100&order=desc`,
+            )
+            .reply(200, JSON.stringify(stateResponse));
+
+          // Account entity resolution
+          restMock
+            .onGet(`entity/${accountAddress}`)
+            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
+
+          // Account data
+          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+
+          expect(result).to.exist;
+          expect(result[contractEntity.entity.evm_address]).to.exist;
+          expect(result[accountEntity.entity.evm_address]).to.exist;
+        });
+
+        it('should handle address with no entity type', async function () {
+          // Setup mock for non-existent entity
+          restMock.onGet(`entity/${contractAddress}`).reply(404);
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          expect(result).to.deep.equal({});
+        });
+
+        it('should handle address with no evm_address', async function () {
+          // Setup mock for entity without evm_address
+          const entityWithoutEvmAddress = { ...contractEntity };
+          entityWithoutEvmAddress.entity = {
+            ...contractEntity.entity,
+            evm_address: null as unknown as string,
+          };
+
+          // Entity type resolution
+          restMock
+            .onGet(`entity/${contractAddress}`)
+            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
+
+          // Contract data without evm_address
+          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(entityWithoutEvmAddress.entity));
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          expect(result).to.deep.equal({});
+        });
+      });
+
+      describe('when contract actions do not exist', async function () {
+        it('should throw RESOURCE_NOT_FOUND when actions response is null', async function () {
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(404);
+
+          const expectedError = predefined.RESOURCE_NOT_FOUND(
+            `Failed to retrieve contract results for transaction ${transactionHash}`,
+          );
+
+          await RelayAssertions.assertRejection(expectedError, debugService.prestateTracer, true, debugService, [
+            transactionHash,
+            requestDetails,
+          ]);
+        });
+
+        it('should return empty object when no addresses in actions', async function () {
+          const emptyActionsResponse = { actions: [] };
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(emptyActionsResponse));
+
+          const result = await debugService.prestateTracer(transactionHash, requestDetails);
+          expect(result).to.deep.equal({});
         });
       });
     });
