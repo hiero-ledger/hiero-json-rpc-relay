@@ -1198,6 +1198,25 @@ export class MirrorNodeClient {
     return this.getContractResultsByAddress(address, requestDetails, contractResultsParams, limitOrderParams);
   }
 
+  public async getContractState(address: string, requestDetails: RequestDetails, blockEndTimestamp?: string) {
+    const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
+      constants.MIRROR_NODE_QUERY_LIMIT,
+      constants.ORDER.DESC,
+    );
+    const queryParamObject = {};
+
+    if (blockEndTimestamp) {
+      this.setQueryParam(queryParamObject, 'timestamp', blockEndTimestamp);
+    }
+    this.setLimitOrderParams(queryParamObject, limitOrderParams);
+    const queryParams = this.getQueryParams(queryParamObject);
+    const apiEndpoint = MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT.replace(
+      MirrorNodeClient.ADDRESS_PLACEHOLDER,
+      address,
+    );
+    return this.get(`${apiEndpoint}${queryParams}`, MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT, requestDetails);
+  }
+
   public async getContractStateByAddressAndSlot(
     address: string,
     slot: string,
