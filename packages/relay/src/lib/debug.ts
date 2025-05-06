@@ -136,7 +136,7 @@ export class DebugImpl implements Debug {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} blockNumber - The block number to be traced (in hex format or as a tag like 'latest').
-   * @param {ITracerConfigWrapper} tracerObject - The configuration wrapper containing tracer type and config.
+   * @param {IBlockTracerConfig} tracerObject - The configuration wrapper containing tracer type and config.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs during the trace.
    * @returns {Promise<any>} A Promise that resolves to the result of the block trace operation.

@@ -7,6 +7,7 @@ ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import Axios, { AxiosInstance } from 'axios';
@@ -2782,6 +2783,253 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(error.response, predefined.INVALID_REQUEST.code, `Invalid Request`);
         }
+      });
+    });
+
+    describe('debug_traceBlockByNumber', async function () {
+      const transactionHash = '0xabc123'; // Mock transaction hash
+      const contractResult = {
+        address: contractAddress1,
+        amount: 0,
+        call_result: '0x2',
+        error_message: null,
+        from: contractAddress2,
+        function_parameters: '0x1',
+        gas_limit: 300000,
+        gas_used: 240000,
+        result: 'SUCCESS',
+        transaction_index: 0,
+        block_number: 42,
+        hash: transactionHash, // Important: add hash to contract result
+        block_hash:
+          '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
+      };
+
+      const blockResponse = {
+        number: '0x1',
+        timestamp: {
+          from: '1696438000.000000000',
+          to: '1696438100.000000000',
+        },
+      };
+
+      const actionsResponse = {
+        actions: [
+          {
+            call_depth: 0,
+            call_operation_type: 'CALL',
+            call_type: 'CALL',
+            from: contractAddress1,
+            to: contractAddress2,
+            gas: 300000,
+            gas_used: 240000,
+            input: '0x1',
+            result_data: '0x2',
+            value: 0,
+          },
+        ],
+      };
+
+      let getBlockByNumberStub: sinon.SinonStub;
+      let getContractResultsStub: sinon.SinonStub;
+      let getContractResultStub: sinon.SinonStub;
+      let getContractsResultsActionsStub: sinon.SinonStub;
+      let cacheServiceSetAsyncStub: sinon.SinonStub;
+
+      beforeEach(() => {
+        getBlockByNumberStub = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves(blockResponse);
+        getContractResultsStub = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractResults')
+          .resolves([contractResult]);
+        getContractResultStub = sinon.stub(MirrorNodeClient.prototype, 'getContractResult').resolves(contractResult);
+        getContractsResultsActionsStub = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractsResultsActions')
+          .resolves(actionsResponse);
+        cacheServiceSetAsyncStub = sinon.stub(CacheService.prototype, 'getAsync').resolves(null);
+      });
+
+      afterEach(() => {
+        getBlockByNumberStub.restore();
+        getContractResultsStub.restore();
+        getContractResultStub.restore();
+        getContractsResultsActionsStub.restore();
+        if (cacheServiceSetAsyncStub && cacheServiceSetAsyncStub.restore) {
+          cacheServiceSetAsyncStub.restore();
+        }
+      });
+
+      it('should execute with valid block number and CallTracer config', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['0x1', { tracer: TracerType.CallTracer, onlyTopCall: true }],
+            id: '2',
+          }),
+        ).to.not.throw;
+      });
+
+      it('should execute with valid block tag and CallTracer config', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['latest', { tracer: TracerType.CallTracer, onlyTopCall: false }],
+            id: '2',
+          }),
+        ).to.not.throw;
+      });
+
+      it('should execute with valid block number and PrestateTracer config', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['0x1', { tracer: TracerType.PrestateTracer, onlyTopCall: true }],
+            id: '2',
+          }),
+        ).to.not.throw;
+      });
+
+      it('should execute with valid block number and empty tracer config', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['0x1', { tracer: TracerType.CallTracer }],
+            id: '2',
+          }),
+        ).to.not.throw;
+      });
+
+      it('should return empty array when no contract results found', async () => {
+        // Override all stubs for this test to return empty results
+        getContractResultsStub.restore();
+        getContractResultsStub = sinon.stub(MirrorNodeClient.prototype, 'getContractResults').resolves([]);
+
+        // Also stub getContractResult and getContractsResultsActions for this test
+        getContractResultStub.restore();
+        getContractsResultsActionsStub.restore();
+
+        // Make sure other methods don't return data that could be picked up by the implementation
+        getContractResultStub = sinon.stub(MirrorNodeClient.prototype, 'getContractResult').resolves(null);
+        getContractsResultsActionsStub = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractsResultsActions')
+          .resolves(null);
+
+        // Restore any other stubs that could interfere
+        getBlockByNumberStub.restore();
+        getBlockByNumberStub = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves({
+          number: 1,
+          timestamp: {
+            from: '123456789.0',
+            to: '123456790.0',
+          },
+        });
+
+        // Make sure the cache returns null
+        cacheServiceSetAsyncStub.restore();
+        cacheServiceSetAsyncStub = sinon.stub(CacheService.prototype, 'getAsync').resolves(null);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: ['0x1', { tracer: TracerType.CallTracer }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('Array');
+        expect(response.data.result.length).to.equal(0);
+      });
+
+      it('should fail with missing block number', async () => {
+        try {
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: [],
+            id: '2',
+          });
+
+          Assertions.expectedError();
+        } catch (error: any) {
+          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+        }
+      });
+
+      it('should fail with invalid block number format', async () => {
+        try {
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['invalid', { tracer: TracerType.CallTracer }],
+            id: '2',
+          });
+
+          Assertions.expectedError();
+        } catch (error: any) {
+          BaseTest.invalidParamError(
+            error.response,
+            Validator.ERROR_CODE,
+            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: invalid`,
+          );
+        }
+      });
+
+      it('should fail with invalid tracer type', async () => {
+        try {
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['0x1', { tracer: 'invalidTracerType' }],
+            id: '2',
+          });
+
+          Assertions.expectedError();
+        } catch (error: any) {
+          BaseTest.invalidParamError(
+            error.response,
+            Validator.ERROR_CODE,
+            `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
+          );
+        }
+      });
+
+      it('should fail with invalid tracer config', async () => {
+        try {
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params: ['0x1', { tracer: TracerType.CallTracer, tracerConfig: 'invalid' }],
+            id: '2',
+          });
+
+          Assertions.expectedError();
+        } catch (error: any) {
+          BaseTest.invalidParamError(
+            error.response,
+            Validator.ERROR_CODE,
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: invalid`,
+          );
+        }
+      });
+
+      it('should return null when block is not found', async () => {
+        // Override the stub for this test to return null
+        getBlockByNumberStub.restore();
+        getBlockByNumberStub = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves(null);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: ['0x999', { tracer: TracerType.CallTracer }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('Array');
+        expect(response.data.result.length).to.equal(0);
       });
     });
   });
