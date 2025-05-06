@@ -1768,4 +1768,82 @@ describe('MirrorNodeClient', async function () {
       expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
     });
   });
+
+  describe('getContractState', async () => {
+    const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+    const contractStatePath = `contracts/${contractAddress}/state?limit=100&order=desc`;
+    const blockEndTimestamp = '1653077541.983983199';
+    const contractStatePathWithTimestamp = `contracts/${contractAddress}/state?timestamp=${blockEndTimestamp}&limit=100&order=desc`;
+
+    const mockContractState = {
+      state: [
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000101',
+          value: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+        },
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000102',
+          value: '0x9c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b926',
+        },
+      ],
+    };
+
+    it('should fetch contract state for existing contract', async () => {
+      mock.onGet(contractStatePath).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.exist;
+      expect(result.state).to.exist;
+      expect(result.state.length).to.equal(2);
+      expect(result.state[0].address).to.equal(contractAddress);
+      expect(result.state[0].slot).to.equal(mockContractState.state[0].slot);
+      expect(result.state[0].value).to.equal(mockContractState.state[0].value);
+    });
+
+    it('should fetch contract state with blockEndTimestamp', async () => {
+      mock.onGet(contractStatePathWithTimestamp).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails, blockEndTimestamp);
+      expect(result).to.exist;
+      expect(result.state).to.exist;
+      expect(result.state.length).to.equal(2);
+      expect(result.state[0].address).to.equal(contractAddress);
+      expect(result.state[0].timestamp).to.equal(blockEndTimestamp);
+    });
+
+    it('should return null when contract state is not found', async () => {
+      mock.onGet(contractStatePath).reply(404, JSON.stringify(mockData.notFound));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.be.null;
+    });
+
+    it('should throw error for invalid contract address', async () => {
+      const invalidAddress = '0x123';
+      mock.onGet(`contracts/${invalidAddress}/state?limit=100&order=desc`).reply(400, JSON.stringify(null));
+      let errorRaised = false;
+      try {
+        await mirrorNodeInstance.getContractState(invalidAddress, requestDetails);
+      } catch (error) {
+        errorRaised = true;
+        expect(error.message).to.equal('Request failed with status code 400');
+      }
+      expect(errorRaised).to.be.true;
+    });
+
+    it('should throw error for server error', async () => {
+      mock.onGet(contractStatePath).reply(500, JSON.stringify({ error: 'Server error' }));
+      let errorRaised = false;
+      try {
+        await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      } catch (error) {
+        errorRaised = true;
+        expect(error.message).to.equal('Request failed with status code 500');
+      }
+      expect(errorRaised).to.be.true;
+    });
+  });
 });
