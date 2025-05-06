@@ -25,6 +25,8 @@ enum CACHE_KEY {
   GET_CONTRACT = 'getContract',
   GET_CONTRACT_RESULT = 'getContractResult',
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
+  DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber',
+  PRESTATE_TRACER = 'prestateTracer',
 }
 
 enum CACHE_TTL {

@@ -53,6 +53,12 @@ export class DebugImpl implements Debug {
   private readonly common: CommonService;
 
   /**
+   * The cacheService containing useful functions
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
@@ -64,6 +70,7 @@ export class DebugImpl implements Debug {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
+    this.cacheService = cacheService;
   }
 
   /**
@@ -159,6 +166,21 @@ export class DebugImpl implements Debug {
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
 
       if (blockResponse == null) return [];
+
+      const cacheKey = `${constants.CACHE_KEY.DEBUG_TRACE_BLOCK_BY_NUMBER}_${blockResponse.number}_${JSON.stringify(
+        tracerObject,
+      )}`;
+
+      const cachedTracerObject = await this.cacheService.getAsync(
+        cacheKey,
+        DebugImpl.traceBlockByNumber,
+        requestDetails,
+      );
+
+      if (cachedTracerObject) {
+        return cachedTracerObject;
+      }
+
       const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
 
       const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
@@ -174,7 +196,7 @@ export class DebugImpl implements Debug {
 
       const { tracer, tracerConfig } = tracerObject;
       if (tracer === TracerType.CallTracer) {
-        return await Promise.all(
+        const result = await Promise.all(
           contractResults
             // filter out transactions with wrong nonce since they do not reach consensus
             .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
@@ -185,10 +207,13 @@ export class DebugImpl implements Debug {
               };
             }),
         );
+
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
+        return result;
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        return await Promise.all(
+        const result = await Promise.all(
           contractResults
             // filter out transactions with wrong nonce since they do not reach consensus
             .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
@@ -199,6 +224,9 @@ export class DebugImpl implements Debug {
               };
             }),
         );
+
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
+        return result;
       }
     } catch (error) {
       throw this.common.genericErrorHandler(error);
@@ -453,6 +481,14 @@ export class DebugImpl implements Debug {
    * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
    */
   async prestateTracer(transactionHash: string, requestDetails: RequestDetails): Promise<object> {
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}`;
+
+    const cachedTracerObject = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+
+    if (cachedTracerObject) {
+      return cachedTracerObject;
+    }
+
     // Get transaction actions
     const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
     if (!actionsResponse) {
@@ -515,6 +551,7 @@ export class DebugImpl implements Debug {
       }),
     );
 
+    await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
     return result;
   }
 }
