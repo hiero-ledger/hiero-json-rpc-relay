@@ -22,6 +22,7 @@ jobs:
           - { name: 'API Batch 1', testfilter: 'api_batch1' }
           - { name: 'API Batch 2', testfilter: 'api_batch2' }
           - { name: 'API Batch 3', testfilter: 'api_batch3' }
+          - { name: 'Debug API', testfilter: 'debug' }
           - { name: 'ERC20', testfilter: 'erc20' }
           - { name: 'Rate Limiter', testfilter: 'ratelimiter', test_ws_server: true }
           - { name: 'SendRawTransaction Extension', testfilter: 'send_raw_transaction_extension' }
