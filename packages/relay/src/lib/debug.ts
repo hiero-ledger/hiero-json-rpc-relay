@@ -394,6 +394,7 @@ export class DebugImpl implements Debug {
           requestDetails,
         ),
       ]);
+
       if (!actionsResponse || !transactionsResponse) {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }

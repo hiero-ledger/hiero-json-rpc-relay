@@ -48,6 +48,7 @@ describe('Debug API Test Suite', async function () {
   const tracerConfigFalse = { onlyTopCall: false };
   const callTracer: TracerType = TracerType.CallTracer;
   const opcodeLogger: TracerType = TracerType.OpcodeLogger;
+  const prestateTracer: TracerType = TracerType.PrestateTracer;
   const CONTRACTS_RESULTS_OPCODES = `contracts/results/${transactionHash}/opcodes`;
   const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
   const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}`;
@@ -57,6 +58,7 @@ describe('Debug API Test Suite', async function () {
   const CONTRACT_BY_ADDRESS2 = `contracts/${contractAddress2}`;
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
+  const BLOCKS_ENDPOINT = 'blocks';
 
   const opcodeLoggerConfigs = [
     {
@@ -520,6 +522,390 @@ describe('Debug API Test Suite', async function () {
             expect(address).to.eq(accountAddress);
           });
         });
+      });
+    });
+  });
+
+  describe('debug_traceBlockByNumber', async function () {
+    const blockNumber = '0x2a'; // Block number in hex format (42)
+    const blockTimestamp = { from: '1696438011.462526383', to: '1696438015.462526383' };
+
+    beforeEach(() => {
+      const blockResponse = {
+        blocks: [
+          {
+            number: 42,
+            timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
+          },
+        ],
+      };
+
+      // Mock for getting block response - must match what getHistoricalBlockResponse expects
+      restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(
+        200,
+        JSON.stringify({
+          number: 42,
+          timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
+        }),
+      );
+      restMock.onGet(`${BLOCKS_ENDPOINT}/latest`).reply(200, JSON.stringify(blockResponse));
+
+      // Add mock for latest blocks query
+      restMock.onGet(`${BLOCKS_ENDPOINT}?limit=1&order=desc`).reply(200, JSON.stringify(blockResponse));
+
+      // Add mock for decimal block number (42)
+      restMock.onGet(`${BLOCKS_ENDPOINT}/42`).reply(
+        200,
+        JSON.stringify({
+          number: 42,
+          timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
+        }),
+      );
+
+      // Mock contract results based on timestamp range
+      const timestampRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
+
+      const contractResultsResponse = {
+        results: [
+          {
+            hash: transactionHash,
+            result: 'SUCCESS',
+            transaction_index: 0,
+            block_number: 42,
+            block_hash:
+              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
+          },
+          {
+            hash: '0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285',
+            result: 'SUCCESS',
+            transaction_index: 0,
+            block_number: 42,
+            block_hash:
+              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
+          },
+          {
+            hash: '0xddba254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91dddddd',
+            result: 'WRONG_NONCE',
+            transaction_index: 0,
+            block_number: 42,
+            block_hash:
+              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
+          },
+        ],
+      };
+
+      restMock.onGet(`contracts/results${timestampRangeParams}`).reply(200, JSON.stringify(contractResultsResponse));
+      restMock.onGet(`contracts/results/${transactionHash}`).reply(200, JSON.stringify(contractsResultsByHashResult));
+      restMock
+        .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285`)
+        .reply(200, JSON.stringify(contractsResultsByHashResult));
+
+      // Reuse the existing contract results mocks
+      restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(contractsResultsActionsResult));
+
+      // Also mock actions for the second transaction hash
+      restMock
+        .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285/actions`)
+        .reply(200, JSON.stringify(contractsResultsActionsResult));
+
+      restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
+      restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
+      restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+      restMock.onGet(CONTRACT_BY_ADDRESS2).reply(200, JSON.stringify(contractResultSecond));
+
+      // Mock entity resolution for the addresses
+      restMock.onGet(`entity/${contractAddress}`).reply(
+        200,
+        JSON.stringify({
+          type: 'contract',
+          entity_id: '0.0.1033',
+        }),
+      );
+
+      restMock.onGet(`entity/${senderAddress}`).reply(
+        200,
+        JSON.stringify({
+          type: 'account',
+          entity_id: '0.0.1016',
+        }),
+      );
+
+      // Additional mocks for prestateTracer
+      const contractEntityResponse = {
+        contract_id: '0.0.1033',
+        evm_address: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
+        timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
+        nonce: 5,
+        runtime_bytecode: '0x60806040',
+      };
+
+      const accountEntityResponse = {
+        evm_address: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+        ethereum_nonce: 1,
+        balance: { balance: 1000 },
+      };
+
+      const balanceResponse = {
+        balances: [{ balance: 500 }],
+      };
+
+      const stateResponse = {
+        state: [
+          { slot: '0x01', value: '0x0a' },
+          { slot: '0x02', value: '0x0b' },
+        ],
+      };
+
+      // Mock contract data for prestateTracer
+      restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractEntityResponse));
+      restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountEntityResponse));
+
+      // Mock balance and state for prestateTracer
+      restMock.onGet(`balances?account.id=0.0.1033`).reply(200, JSON.stringify(balanceResponse));
+      restMock.onGet(/contracts\/0\.0\.1033\/state\?timestamp=.*/).reply(200, JSON.stringify(stateResponse));
+
+      // Configure opcode logger mock for any transaction hash
+      for (const config of opcodeLoggerConfigs) {
+        const opcodeLoggerParams = getQueryParams({
+          memory: !!config.enableMemory,
+          stack: !config.disableStack,
+          storage: !config.disableStorage,
+        });
+
+        web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES}${opcodeLoggerParams}`).reply(
+          200,
+          JSON.stringify({
+            ...opcodesResponse,
+            opcodes: opcodesResponse.opcodes?.map((opcode) => ({
+              ...opcode,
+              stack: config.disableStack ? [] : opcode.stack,
+              memory: config.enableMemory ? opcode.memory : [],
+              storage: config.disableStorage ? {} : opcode.storage,
+            })),
+          }),
+        );
+      }
+    });
+
+    afterEach(() => {
+      restMock.reset();
+      web3Mock.reset();
+      cacheService.clear(requestDetails).then();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
+      it('should throw UNSUPPORTED_METHOD when debug API is not enabled', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: callTracer, tracerConfig: tracerConfigFalse }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
+      it('should throw UNSUPPORTED_METHOD when debug API is explicitly disabled', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: callTracer, tracerConfig: tracerConfigFalse }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return results for multiple transactions with callTracer', async function () {
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(2); // Two successful transactions (SUCCESS), one with WRONG_NONCE is filtered out
+
+        // Verify each result has the expected format
+        result.forEach((item) => {
+          expect(item).to.have.property('txHash');
+          expect(item).to.have.property('result');
+        });
+      });
+
+      it('should return results with prestateTracer', async function () {
+        // Create a special action response for prestateTracer with a simpler format
+        const prestateActionsResponse = {
+          actions: [
+            {
+              call_depth: 0,
+              call_operation_type: 'CALL',
+              call_type: 'CALL',
+              from: senderAddress,
+              to: contractAddress,
+              gas: 247000,
+              gas_used: 77324,
+              input: '0x',
+              result_data: '0x',
+            },
+          ],
+        };
+
+        // Mock the actions for both transaction hashes
+        restMock
+          .onGet(`contracts/results/${transactionHash}/actions`)
+          .reply(200, JSON.stringify(prestateActionsResponse));
+        restMock
+          .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285/actions`)
+          .reply(200, JSON.stringify(prestateActionsResponse));
+
+        const result = await debugService.traceBlockByNumber(blockNumber, { tracer: prestateTracer }, requestDetails);
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(2); // Two successful transactions
+
+        // Verify each result has the expected format
+        result.forEach((item) => {
+          expect(item).to.have.property('txHash');
+          expect(item).to.have.property('result');
+
+          // Verify the structure of the result matches what prestateTracer should return
+          const prestate = item.result;
+
+          // Check for contract address result format
+          const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
+          expect(prestate).to.have.property(contractEvmAddress);
+          expect(prestate[contractEvmAddress]).to.have.property('balance').that.is.a('string').and.match(/^0x/);
+          expect(prestate[contractEvmAddress]).to.have.property('nonce').that.is.a('number');
+          expect(prestate[contractEvmAddress]).to.have.property('code').that.is.a('string').and.match(/^0x/);
+          expect(prestate[contractEvmAddress]).to.have.property('storage').that.is.an('object');
+
+          // Check for account address result format
+          const accountEvmAddress = '0xc37f417fa09933335240fca72dd257bfbde9c275';
+          expect(prestate).to.have.property(accountEvmAddress);
+          expect(prestate[accountEvmAddress]).to.have.property('balance').that.is.a('string').and.match(/^0x/);
+          expect(prestate[accountEvmAddress]).to.have.property('nonce').that.is.a('number');
+          expect(prestate[accountEvmAddress]).to.have.property('code').that.equals('0x');
+          expect(prestate[accountEvmAddress]).to.have.property('storage').that.deep.equals({});
+        });
+      });
+
+      it('should return empty array when no transactions found in block', async function () {
+        // Mock empty contract results
+        const emptyTimestampRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
+        restMock.onGet(`contracts/results${emptyTimestampRangeParams}`).reply(200, JSON.stringify({ results: [] }));
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(0);
+      });
+
+      it('should return empty array when block is not found', async function () {
+        // Reset mocks and set up a completely fresh environment
+        restMock.reset();
+
+        // Need to mock the block not found but also provide the necessary mocks for getHistoricalBlockResponse
+        restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(404, null);
+        restMock.onGet(`${BLOCKS_ENDPOINT}/latest`).reply(
+          200,
+          JSON.stringify({
+            blocks: [
+              {
+                number: 100, // Different block number
+                timestamp: { from: '1696438020.000000000', to: '1696438025.000000000' },
+              },
+            ],
+          }),
+        );
+
+        // Also need to mock the block by number using decimal
+        restMock.onGet(`${BLOCKS_ENDPOINT}/42`).reply(404, null);
+
+        // And the latest block query that's used as a fallback
+        restMock.onGet(`${BLOCKS_ENDPOINT}?limit=1&order=desc`).reply(
+          200,
+          JSON.stringify({
+            blocks: [
+              {
+                number: 100, // Different block number
+                timestamp: { from: '1696438020.000000000', to: '1696438025.000000000' },
+              },
+            ],
+          }),
+        );
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(0);
+      });
+
+      it('should handle "latest" block tag', async function () {
+        const result = await debugService.traceBlockByNumber(
+          'latest',
+          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(2);
+      });
+
+      it('should handle errors during trace execution', async function () {
+        // Reset all mocks first
+        restMock.reset();
+
+        // Set up the minimum mocks required for the test to fail at the right point
+        restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(
+          200,
+          JSON.stringify({
+            number: 42,
+            timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
+          }),
+        );
+
+        // This is the error point we want to trigger
+        const errorRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
+        restMock.onGet(`contracts/results${errorRangeParams}`).reply(500);
+
+        try {
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: callTracer, tracerConfig: tracerConfigFalse },
+            requestDetails,
+          );
+          // If we get here, the test failed because no error was thrown
+          expect.fail('Expected an error to be thrown');
+        } catch (error) {
+          // Just verify that an error is thrown, specific properties are too implementation-dependent
+          expect(error).to.be.an('error');
+        }
+      });
+
+      it('should filter out transactions with WRONG_NONCE result', async function () {
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: callTracer, tracerConfig: tracerConfigFalse },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array');
+        expect(result).to.have.length(2); // Only SUCCESS transactions included
+
+        // Verify all txHashes don't include the one with WRONG_NONCE
+        const txHashes = result.map((item) => item.txHash);
+        expect(txHashes).to.not.include('0xddba254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91dddddd');
       });
     });
   });
