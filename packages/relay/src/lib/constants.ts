@@ -44,6 +44,7 @@ export enum TracerType {
   CallTracer = 'callTracer',
   // Opcode logger executes a transaction and emits the opcodes  and context at every step
   OpcodeLogger = 'opcodeLogger',
+  PrestateTracer = 'prestateTracer',
 }
 
 export enum CallType {

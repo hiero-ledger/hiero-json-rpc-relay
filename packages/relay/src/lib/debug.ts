@@ -166,23 +166,39 @@ export class DebugImpl implements Debug {
         [requestDetails, { timestamp: timestampRangeParams }, undefined],
         requestDetails,
       );
-      if (contractResults == null) {
+
+      if (contractResults == null || contractResults.length === 0) {
         // return empty array if no EthereumTransaction typed transactions found in the block
         return [];
       }
 
       const { tracer, tracerConfig } = tracerObject;
       if (tracer === TracerType.CallTracer) {
-        const res = await Promise.all(
+        return await Promise.all(
           contractResults
             // filter out transactions with wrong nonce since they do not reach consensus
             .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
             .map(async (contractResult) => {
-              return await this.callTracer(contractResult.hash, tracerConfig as ICallTracerConfig, requestDetails);
+              return {
+                txHash: contractResult.hash,
+                result: await this.callTracer(contractResult.hash, tracerConfig as ICallTracerConfig, requestDetails),
+              };
             }),
         );
+      }
 
-        return res;
+      if (tracer === TracerType.PrestateTracer) {
+        return await Promise.all(
+          contractResults
+            // filter out transactions with wrong nonce since they do not reach consensus
+            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+            .map(async (contractResult) => {
+              return {
+                txHash: contractResult.hash,
+                result: await this.prestateTracer(contractResult.hash, requestDetails),
+              };
+            }),
+        );
       }
     } catch (error) {
       throw this.common.genericErrorHandler(error);
@@ -422,5 +438,82 @@ export class DebugImpl implements Debug {
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
+  }
+
+  /**
+   * Retrieves the pre-state information for contracts and accounts involved in a transaction.
+   * This tracer collects the state of all accounts and contracts before the transaction execution.
+   *
+   * @async
+   * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
+   *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
+   * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
+   */
+  async prestateTracer(transactionHash: string, requestDetails: RequestDetails): Promise<object> {
+    // Get transaction actions
+    const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    if (!actionsResponse) {
+      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+    }
+
+    // Extract unique addresses involved in the transaction
+    const uniqueAddresses = [...new Set(actionsResponse.actions.flatMap((action) => [action.from, action.to]))].filter(
+      Boolean,
+    ) as string[];
+    if (uniqueAddresses.length === 0) return {};
+
+    const result = {};
+
+    await Promise.all(
+      uniqueAddresses.map(async (address) => {
+        const entityObject = await this.mirrorNodeClient.resolveEntityType(
+          address,
+          DebugImpl.debugTraceTransaction,
+          requestDetails,
+          [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
+        );
+
+        if (!entityObject) return;
+
+        const evmAddress = entityObject.entity?.evm_address;
+        if (!evmAddress) return;
+
+        // Process based on entity type
+        if (entityObject.type === constants.TYPE_CONTRACT) {
+          const contractId = entityObject.entity.contract_id;
+          const timestamp = entityObject.entity.timestamp.to;
+
+          const [balanceResponse, stateResponse] = await Promise.all([
+            this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails),
+            this.mirrorNodeClient.getContractState(contractId, requestDetails, timestamp),
+          ]);
+
+          const storageMap = stateResponse.state.reduce((map, stateItem) => {
+            map[stateItem.slot] = stateItem.value;
+            return map;
+          }, {});
+
+          // Add contract data directly to result
+          result[evmAddress] = {
+            balance: numberTo0x(balanceResponse.balances[0].balance),
+            nonce: entityObject.entity.nonce,
+            code: entityObject.entity.runtime_bytecode,
+            storage: storageMap,
+          };
+        } else if (entityObject.type === constants.TYPE_ACCOUNT) {
+          // Add account data directly to result
+          result[evmAddress] = {
+            balance: numberTo0x(entityObject.entity.balance.balance),
+            nonce: entityObject.entity.ethereum_nonce,
+            code: '0x',
+            storage: {},
+          };
+        }
+      }),
+    );
+
+    return result;
   }
 }
