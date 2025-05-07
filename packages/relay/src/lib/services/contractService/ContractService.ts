@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { PrecheckStatusError } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 
@@ -19,16 +18,9 @@ import constants from '../../constants';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../errors/SDKClientError';
-import { EthImpl } from '../../eth';
 import { Log } from '../../model';
 import { Precheck } from '../../precheck';
-import {
-  IContractCallRequest,
-  IContractCallResponse,
-  IContractResult,
-  IGetLogsParams,
-  RequestDetails,
-} from '../../types';
+import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../types';
 import { CommonService } from '..';
 import { CacheService } from '../cacheService/cacheService';
 import { ICommonService } from '../ethService/ethCommonService/ICommonService';
@@ -260,13 +252,13 @@ export class ContractService implements IContractService {
         if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
           return constants.EMPTY_HEX;
         }
-        if (result?.type === constants.TYPE_TOKEN) {
+        if (result.type === constants.TYPE_TOKEN) {
           if (this.logger.isLevelEnabled('trace')) {
             this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
           }
           return CommonService.redirectBytecodeAddressReplace(address);
-        } else if (result?.type === constants.TYPE_CONTRACT) {
-          if (result?.entity.runtime_bytecode !== constants.EMPTY_HEX) {
+        } else if (result.type === constants.TYPE_CONTRACT) {
+          if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
             const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
             const opcodes = disassemble(result?.entity.runtime_bytecode);
             const hasProhibitedOpcode =
@@ -274,12 +266,12 @@ export class ContractService implements IContractService {
             if (!hasProhibitedOpcode) {
               await this.cacheService.set(
                 cachedLabel,
-                result?.entity.runtime_bytecode,
+                result.entity.runtime_bytecode,
                 constants.ETH_GET_CODE,
                 requestDetails,
               );
             }
-            return result?.entity.runtime_bytecode;
+            return result.entity.runtime_bytecode;
           }
         }
       }
@@ -665,37 +657,6 @@ export class ContractService implements IContractService {
 
     return gas;
   }
-  /**
-   * Attempts to get code from cache and mirror node.
-   *
-   * @param {string} address - The contract address
-   * @param {string | null} blockNumber - Block number or tag
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {Promise<string | null>} The contract code if found, null otherwise
-   * @private
-   */
-  private async getCodeWithCache(
-    address: string,
-    blockNumber: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
-    const cachedLabel = `getCode.${address}.${blockNumber}`;
-    const cachedResponse: string | undefined = await this.cacheService.getAsync(
-      cachedLabel,
-      constants.ETH_GET_CODE,
-      requestDetails,
-    );
-    if (cachedResponse != undefined) {
-      return cachedResponse;
-    }
-
-    const mirrorNodeResult = await this.tryGetCodeFromMirrorNode(address, blockNumber, cachedLabel, requestDetails);
-    if (mirrorNodeResult) {
-      return mirrorNodeResult;
-    }
-
-    return null;
-  }
 
   /**
    * Handles errors from consensus node calls.
@@ -718,63 +679,6 @@ export class ContractService implements IContractService {
     }
     return predefined.INTERNAL_ERROR(e.message.toString());
   }
-
-  /**
-   * Processes and caches contract bytecode if it doesn't contain prohibited opcodes.
-   *
-   * @param {IContractResult} result - The contract result containing bytecode
-   * @param {string} cachedLabel - The cache key to store the bytecode
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | null>} The runtime bytecode if valid, null otherwise
-   * @private
-   */
-  private async handleContractBytecode(
-    result: IContractResult,
-    cachedLabel: string,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
-    if (result?.entity.runtime_bytecode !== constants.EMPTY_HEX) {
-      if (!this.hasProhibitedOpcodes(result.entity.runtime_bytecode)) {
-        await this.cacheService.set(
-          cachedLabel,
-          result.entity.runtime_bytecode,
-          constants.ETH_GET_CODE,
-          requestDetails,
-        );
-        return result.entity.runtime_bytecode;
-      }
-    }
-    return constants.EMPTY_HEX;
-  }
-
-  /**
-   * Handles errors that occur during getCode operations.
-   *
-   * @param {any} e - The error to handle
-   * @param {string} address - The contract address
-   * @param {string | null} blockNumber - The block number or tag
-   * @param {string} requestIdPrefix - The request ID prefix for logging
-   * @returns {string | never} The error response or throws if unhandled
-   * @private
-   */
-  private handleGetCodeError(
-    e: any,
-    address: string,
-    blockNumber: string | null,
-    requestIdPrefix: string,
-  ): string | never {
-    if (e instanceof SDKClientError) {
-      return this.handleSDKClientError(e, address, blockNumber, requestIdPrefix);
-    }
-
-    if (e instanceof PrecheckStatusError) {
-      return this.handlePrecheckStatusError(e, address, blockNumber, requestIdPrefix);
-    }
-
-    this.logger.error(e, `${requestIdPrefix} Error raised during getCode for address ${address}`);
-    throw e;
-  }
-
   /**
    * Handles specific mirror node client errors.
    *
@@ -837,127 +741,6 @@ export class ContractService implements IContractService {
 
     this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
     return predefined.INTERNAL_ERROR(e.message.toString());
-  }
-
-  /**
-   * Handles precheck status errors during contract operations.
-   *
-   * @param {PrecheckStatusError} e - The precheck status error
-   * @param {string} address - The contract address
-   * @param {string | null} blockNumber - The block number or tag
-   * @param {string} requestIdPrefix - The request ID prefix for logging
-   * @returns {string | never} The empty hex string for known errors or throws
-   * @private
-   */
-  private handlePrecheckStatusError(
-    e: PrecheckStatusError,
-    address: string,
-    blockNumber: string | null,
-    requestIdPrefix: string,
-  ): string | never {
-    if (
-      e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.INVALID_CONTRACT_ID ||
-      e.status._code === constants.PRECHECK_STATUS_ERROR_STATUS_CODES.CONTRACT_DELETED
-    ) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.status._code}`,
-        );
-      }
-      return constants.EMPTY_HEX;
-    }
-
-    this.hapiService.decrementErrorCounter(e.status._code);
-    this.logger.error(
-      e,
-      `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.status._code}`,
-    );
-    throw e;
-  }
-
-  /**
-   * Handles SDK client errors during contract operations.
-   *
-   * @param {SDKClientError} e - The SDK client error
-   * @param {string} address - The contract address
-   * @param {string | null} blockNumber - The block number or tag
-   * @param {string} requestIdPrefix - The request ID prefix for logging
-   * @returns {string | never} The empty hex string for known errors or throws
-   * @private
-   */
-  private handleSDKClientError(
-    e: SDKClientError,
-    address: string,
-    blockNumber: string | null,
-    requestIdPrefix: string,
-  ): string | never {
-    if (e.isInvalidContractId() || e.isContractDeleted()) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Unable to find code for contract ${address} in block "${blockNumber}", returning 0x0, err code: ${e.statusCode}`,
-        );
-      }
-      return constants.EMPTY_HEX;
-    }
-
-    this.hapiService.decrementErrorCounter(e.statusCode);
-    this.logger.error(
-      e,
-      `${requestIdPrefix} Error raised during getCode for address ${address}, err code: ${e.statusCode}`,
-    );
-    throw e;
-  }
-
-  /**
-   * Handles token redirect cases by generating appropriate bytecode.
-   *
-   * @param {string} address - The token address
-   * @param {string} requestIdPrefix - The request ID prefix for logging
-   * @returns {string} The redirect bytecode for the token
-   * @private
-   */
-  private handleTokenRedirect(address: string, requestIdPrefix: string): string {
-    const redirectBytecodePostfix =
-      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
-    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
-    }
-    return `${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
-  }
-
-  /**
-   * Checks if the provided bytecode contains any prohibited EVM opcodes.
-   *
-   * @param {string} bytecode - The bytecode to check
-   * @returns {boolean} True if prohibited opcodes are found, false otherwise
-   * @private
-   */
-  private hasProhibitedOpcodes(bytecode: string): boolean {
-    const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-    const opcodes = disassemble(bytecode);
-    return opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
-  }
-
-  /**
-   * Checks if the address is the HTS precompile address.
-   *
-   * @param {string} address - The address to check
-   * @param {string} requestIdPrefix - The request ID prefix for logging
-   * @returns {boolean} True if address is HTS precompile
-   * @private
-   */
-  private isHTSPrecompile(address: string, requestIdPrefix: string): boolean {
-    if (address === constants.HTS_ADDRESS) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestIdPrefix} HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`,
-        );
-      }
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -1111,46 +894,6 @@ export class ContractService implements IContractService {
     }
 
     return cachedResponse === null ? undefined : cachedResponse;
-  }
-
-  /**
-   * Attempts to retrieve contract code from the mirror node.
-   *
-   * @param {string} address - The contract address
-   * @param {string | null} blockNumber - The block number or tag
-   * @param {string} cachedLabel - The cache key for storing results
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | null>} The contract code if found, null otherwise
-   * @private
-   */
-  private async tryGetCodeFromMirrorNode(
-    address: string,
-    blockNumber: string | null,
-    cachedLabel: string,
-    requestDetails: RequestDetails,
-  ): Promise<string | null> {
-    const result = await this.mirrorNodeClient.resolveEntityType(address, constants.ETH_GET_CODE, requestDetails, [
-      constants.TYPE_CONTRACT,
-      constants.TYPE_TOKEN,
-    ]);
-
-    if (!result) return null;
-
-    // Check if contract was created after the requested block
-    const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
-    if (!blockInfo || parseFloat(result.entity?.created_timestamp) > parseFloat(blockInfo.timestamp.to)) {
-      return constants.EMPTY_HEX;
-    }
-
-    if (result.type === constants.TYPE_TOKEN) {
-      return this.handleTokenRedirect(address, requestDetails.formattedRequestId);
-    }
-
-    if (result.type === constants.TYPE_CONTRACT) {
-      return await this.handleContractBytecode(result, cachedLabel, requestDetails);
-    }
-
-    return constants.EMPTY_HEX;
   }
 
   /**
