@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { numberTo0x, toHash32 } from '../../../formatters';
-import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
-import constants from '../../constants';
-import { Block } from '../../model';
-import { MirrorNodeBlock } from '../../types/mirrorNode';
+import { numberTo0x, toHash32 } from '../../formatters';
+import { IReceiptRootHash, ReceiptsRootUtils } from '../../receiptsRootUtils';
+import constants from '../constants';
+import { Block } from '../model';
+import { MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;

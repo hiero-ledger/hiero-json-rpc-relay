@@ -22,10 +22,10 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
+import { TransactionFactory } from '../../../factories/transactionFactory';
 import { Log, Transaction } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
-import { TransactionFactory } from '../../factories/transactionFactory';
 import { ICommonService } from './ICommonService';
 
 /**

@@ -8,11 +8,11 @@ import {
   numberTo0x,
   prepend0x,
   toHash32,
-} from '../../../formatters';
-import { LogsBloomUtils } from '../../../logsBloomUtils';
-import constants from '../../constants';
-import { Log } from '../../model';
-import { ITransactionReceipt } from '../../types';
+} from '../../formatters';
+import { LogsBloomUtils } from '../../logsBloomUtils';
+import constants from '../constants';
+import { Log } from '../model';
+import { ITransactionReceipt } from '../types';
 
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs
