@@ -1214,7 +1214,13 @@ export class MirrorNodeClient {
       MirrorNodeClient.ADDRESS_PLACEHOLDER,
       address,
     );
-    return this.get(`${apiEndpoint}${queryParams}`, MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT, requestDetails);
+
+    return this.getPaginatedResults(
+      `${apiEndpoint}${queryParams}`,
+      MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT,
+      'state',
+      requestDetails,
+    );
   }
 
   public async getContractStateByAddressAndSlot(

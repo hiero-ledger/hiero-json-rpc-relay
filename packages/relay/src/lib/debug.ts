@@ -18,7 +18,6 @@ import {
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   ITracerConfig,
-  ITracerConfigWrapper,
   MirrorNodeContractResult,
   ParamType,
   RequestDetails,
@@ -541,7 +540,7 @@ export class DebugImpl implements Debug {
             this.mirrorNodeClient.getContractState(contractId, requestDetails, timestamp),
           ]);
 
-          const storageMap = stateResponse.state.reduce((map, stateItem) => {
+          const storageMap = stateResponse.reduce((map, stateItem) => {
             map[stateItem.slot] = stateItem.value;
             return map;
           }, {});
