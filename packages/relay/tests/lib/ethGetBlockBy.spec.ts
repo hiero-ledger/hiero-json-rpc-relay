@@ -289,10 +289,15 @@ describe('eth_getBlockBy', async function () {
       const initTxObjects = [tx1, tx2];
 
       const txObjects = initTxObjects.slice();
-      const returnedTxObjects = ethImpl.populateSyntheticTransactions(true, referenceLogs, txObjects, requestDetails);
+      const returnedTxObjects = blockService['populateSyntheticTransactions'](
+        true,
+        referenceLogs,
+        txObjects,
+        requestDetails,
+      );
 
       // Should only have one object with modelLog1.transactionHash
-      const count = returnedTxObjects.filter((tx) => tx.hash === modelLog1.transactionHash).length;
+      const count = returnedTxObjects.filter((tx) => (tx as Transaction).hash === modelLog1.transactionHash).length;
       expect(count).to.equal(1);
 
       expect(returnedTxObjects.length).to.equal(referenceLogs.length);

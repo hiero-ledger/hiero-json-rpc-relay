@@ -407,7 +407,6 @@ export class BlockService implements IBlockService {
     );
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
-    txArray = showDetails ? (txArray as Transaction[]) : _.uniq(txArray as string[]);
 
     const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
       txArray.map((tx) => (showDetails ? tx.hash : tx)),
@@ -498,6 +497,7 @@ export class BlockService implements IBlockService {
       );
     }
 
+    transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
     return transactionsArray;
   }
 
