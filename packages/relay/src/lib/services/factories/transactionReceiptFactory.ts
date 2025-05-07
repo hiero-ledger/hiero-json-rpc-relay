@@ -54,7 +54,7 @@ class TransactionReceiptFactory {
       effectiveGasPrice: gasPriceForTimestamp,
       from: constants.ZERO_ADDRESS_HEX,
       gasUsed: constants.ZERO_HEX,
-      logs: syntheticLogs,
+      logs: [syntheticLogs[0]],
       logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
       root: constants.DEFAULT_ROOT_HASH,
       status: constants.ONE_HEX,

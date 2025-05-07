@@ -4,7 +4,6 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import {
   AccountId,
   Client,
-  ContractByteCodeQuery,
   ContractCallQuery,
   ContractFunctionResult,
   ContractId,

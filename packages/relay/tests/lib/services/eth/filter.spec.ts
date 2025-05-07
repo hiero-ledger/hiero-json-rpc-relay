@@ -34,7 +34,6 @@ let cacheService: CacheService;
 
 describe('Filter API Test Suite', async function () {
   this.timeout(10000);
-  const { hapiServiceInstance } = generateEthTestEnv();
   const requestDetails = new RequestDetails({ requestId: uuid(), ipAddress: '0.0.0.0' });
   const filterObject = {
     toBlock: 'latest',

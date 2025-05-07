@@ -34,6 +34,7 @@ describe('@erc20 Acceptance Tests', async function () {
   let initialHolder;
   let anotherAccount;
   let requestId;
+  let recipient;
 
   const contracts: [any] = [];
 
