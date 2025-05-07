@@ -3,14 +3,15 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
-import { numberTo0x, parseNumericEnvVar } from '../../../formatters';
-import { MirrorNodeClient } from '../../clients';
-import constants from '../../constants';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import { RequestDetails } from '../../types';
-import { LatestBlockNumberTimestamp } from '../../types/mirrorNode';
-import { CacheService } from '../cacheService/cacheService';
-import { CommonService, ICommonService } from '../index';
+import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
+import { MirrorNodeClient } from '../../../clients';
+import constants from '../../../constants';
+import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { RequestDetails } from '../../../types';
+import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
+import { CacheService } from '../../cacheService/cacheService';
+import { CommonService } from '../ethCommonService/CommonService';
+import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
 
 export class AccountService implements IAccountService {

@@ -11,7 +11,7 @@ import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { INewFilterParams } from '../../../types/requestParams';
 import { CacheService } from '../../cacheService/cacheService';
-import { CommonService, ICommonService } from '../../index';
+import { ICommonService } from '../../index';
 import { IFilterService } from './IFilterService';
 
 /**

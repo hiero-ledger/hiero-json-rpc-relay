@@ -4,15 +4,14 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x } from '../../../formatters';
-import { MirrorNodeClient } from '../../clients';
-import constants from '../../constants';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import { EthImpl } from '../../eth';
-import { IFeeHistory, RequestDetails } from '../../types';
-import { CacheService } from '../cacheService/cacheService';
+import { numberTo0x } from '../../../../formatters';
+import { MirrorNodeClient } from '../../../clients';
+import constants from '../../../constants';
+import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { IFeeHistory, RequestDetails } from '../../../types';
+import { CacheService } from '../../cacheService/cacheService';
+import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
-import { ICommonService } from '../index';
 
 export class FeeService implements IFeeService {
   /**

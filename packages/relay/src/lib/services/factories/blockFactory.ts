@@ -3,10 +3,8 @@
 import { numberTo0x, toHash32 } from '../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../receiptsRootUtils';
 import constants from '../../constants';
-import { EthImpl } from '../../eth';
 import { Block } from '../../model';
 import { MirrorNodeBlock } from '../../types/mirrorNode';
-import { CommonService } from '..';
 
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;

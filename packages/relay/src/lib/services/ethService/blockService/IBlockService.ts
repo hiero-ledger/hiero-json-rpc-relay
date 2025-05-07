@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Block, Receipt } from '../../model';
-import { RequestDetails } from '../../types';
+import { Block, Receipt } from '../../../model';
+import { RequestDetails } from '../../../types';
 
 export interface IBlockService {
   getBlockByNumber: (

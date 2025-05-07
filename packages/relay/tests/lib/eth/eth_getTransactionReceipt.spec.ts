@@ -6,7 +6,6 @@ import sinon, { createSandbox } from 'sinon';
 
 import { predefined } from '../../../src';
 import constants from '../../../src/lib/constants';
-import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex } from '../../helpers';

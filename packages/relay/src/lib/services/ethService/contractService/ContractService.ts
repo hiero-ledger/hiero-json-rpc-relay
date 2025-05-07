@@ -11,20 +11,20 @@ import {
   prepend0x,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
-} from '../../../formatters';
-import { getFunctionSelector } from '../../../formatters';
-import { MirrorNodeClient } from '../../clients';
-import constants from '../../constants';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
-import { SDKClientError } from '../../errors/SDKClientError';
-import { Log } from '../../model';
-import { Precheck } from '../../precheck';
-import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../types';
-import { CommonService } from '..';
-import { CacheService } from '../cacheService/cacheService';
-import { ICommonService } from '../ethService/ethCommonService/ICommonService';
-import HAPIService from '../hapiService/hapiService';
+} from '../../../../formatters';
+import { getFunctionSelector } from '../../../../formatters';
+import { MirrorNodeClient } from '../../../clients';
+import constants from '../../../constants';
+import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
+import { SDKClientError } from '../../../errors/SDKClientError';
+import { Log } from '../../../model';
+import { Precheck } from '../../../precheck';
+import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
+import { CacheService } from '../../cacheService/cacheService';
+import { CommonService } from '../../ethService/ethCommonService/CommonService';
+import { ICommonService } from '../../ethService/ethCommonService/ICommonService';
+import HAPIService from '../../hapiService/hapiService';
 import { IContractService } from './IContractService';
 
 /**
@@ -691,8 +691,6 @@ export class ContractService implements IContractService {
    */
   private async handleMirrorNodeClientError(
     e: MirrorNodeClientError,
-    call: IContractCallRequest,
-    gas: number | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -736,7 +734,7 @@ export class ContractService implements IContractService {
     }
 
     if (e instanceof MirrorNodeClientError) {
-      return await this.handleMirrorNodeClientError(e, call, gas, requestDetails);
+      return await this.handleMirrorNodeClientError(e, requestDetails);
     }
 
     this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
@@ -886,12 +884,6 @@ export class ContractService implements IContractService {
       : null; // NOSONAR
     const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_CALL, requestDetails);
-
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `${requestDetails.formattedRequestId} Cache lookup for key ${cacheKey} returned: ${cachedResponse}`,
-      );
-    }
 
     return cachedResponse === null ? undefined : cachedResponse;
   }

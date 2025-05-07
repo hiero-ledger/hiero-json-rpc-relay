@@ -22,10 +22,10 @@ import {
   TransactionService,
 } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { FeeService } from './services/feeService';
-import { IFeeService } from './services/feeService/IFeeService';
+import { FeeService } from './services/ethService/feeService/FeeService';
+import { IFeeService } from './services/ethService/feeService/IFeeService';
+import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
-import { ITransactionService } from './services/transactionService/ITransactionService';
 import { IContractCallRequest, IFeeHistory, IGetLogsParams, INewFilterParams, RequestDetails } from './types';
 import { ParamType } from './types/validation';
 

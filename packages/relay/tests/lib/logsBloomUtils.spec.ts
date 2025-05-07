@@ -5,7 +5,6 @@ import { keccak256, ZeroAddress } from 'ethers';
 
 import { strip0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
-import { EthImpl } from '../../src/lib/eth';
 import { LogsBloomUtils } from '../../src/logsBloomUtils';
 
 describe('LogsBloomUtils', () => {

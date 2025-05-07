@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '../../errors/JsonRpcError';
-import { Transaction } from '../../model';
-import { RequestDetails } from '../../types';
+import { JsonRpcError } from '../../../errors/JsonRpcError';
+import { Transaction } from '../../../model';
+import { RequestDetails } from '../../../types';
 
 export interface ITransactionService {
   getTransactionByBlockHashAndIndex(
