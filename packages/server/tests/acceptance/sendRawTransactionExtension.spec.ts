@@ -56,7 +56,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   describe('Prechecks', function () {
     describe('transactionSize', function () {
-      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the limit', async function () {
+      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
         const transaction = {
           type: 2,
@@ -79,7 +79,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(info.result).to.equal('SUCCESS');
       });
 
-      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the limit', async function () {
+      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
         const transaction = {
           type: 2,
@@ -104,7 +104,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
 
     describe('callDataSize', function () {
-      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the limit', async function () {
+      it('@release should execute "eth_sendRawTransaction" with regular transaction size within the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
         const transaction = {
           type: 2,
@@ -127,7 +127,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(info.result).to.equal('SUCCESS');
       });
 
-      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the limit', async function () {
+      it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
         const transaction = {
           type: 2,
@@ -152,8 +152,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
 
     describe('contractCodeSize', function () {
-      it('@release should execute "eth_sendRawTransaction" and deploy a contract with code size within the limit', async function () {
+      it('@release should execute "eth_sendRawTransaction" and deploy a contract with code size within the CONTRACT_CODE_SIZE_LIMIT - 24kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
+
+        // create a regular deployment transaction with contract code size within the CONTRACT_CODE_SIZE_LIMIT - 24kb limit
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
@@ -161,7 +163,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
-          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT), // Within the CONTRACT_CODE_SIZE_LIMIT limit
+          data: '0x' + '00'.repeat(5120),
         };
 
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
@@ -175,9 +177,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(info.created_contract_ids.length).to.be.equal(1);
       });
 
-      it('@release should fail "eth_sendRawTransaction" for contract with code size exceeding the limit', async function () {
+      it('@release should fail "eth_sendRawTransaction" for contract with code size exceeding the CONTRACT_CODE_SIZE_LIMIT - 24kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
-        // Create a transaction with contract code size exceeding CONTRACT_CODE_SIZE_LIMIT
+        // Create a deployment transaction with contract code size exceeding CONTRACT_CODE_SIZE_LIMIT
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
@@ -185,7 +187,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
-          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT + 1),
+          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT + 1024), // exceeds the limit by 1KB
         };
 
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
@@ -198,7 +200,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
       });
 
-      it('@release should pass precheck and execute "eth_sendRawTransaction" for a regular transaction i.e. non contract deployment transaction with data exceeding the limit', async function () {
+      it('@release should pass precheck and execute "eth_sendRawTransaction" for a regular transaction i.e. non contract deployment transaction with data exceeding the CONTRACT_CODE_SIZE_LIMIT - 24kb limit', async function () {
         const gasPrice = await relay.gasPrice(requestId);
         // Create a transaction with large data but sent to an existing address (not contract creation)
         const transaction = {
@@ -217,6 +219,35 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
         expect(info).to.exist;
       });
+    });
+  });
+
+  describe('Jumbo Transaction', function () {
+    it('@release should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
+      const isJumboTransaction = ConfigService.get('JUMBO_TX_ENABLED');
+      // skip this test if JUMBO_TX_ENABLED is false
+      if (!isJumboTransaction) {
+        this.skip();
+      }
+
+      const gasPrice = await relay.gasPrice(requestId);
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        data: '0x' + '00'.repeat(6144), // = 6kb just barely above the HFS threshold to trigger the jumbo transaction flow
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+      expect(info).to.exist;
     });
   });
 });
