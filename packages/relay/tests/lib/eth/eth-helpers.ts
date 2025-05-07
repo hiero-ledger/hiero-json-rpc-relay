@@ -68,13 +68,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
-  const contractService = new ContractService(
-    cacheService,
-    commonService,
-    hapiServiceInstance,
-    logger,
-    mirrorNodeInstance,
-  );
 
   const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
 
@@ -88,6 +81,5 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     logger,
     registry,
     commonService,
-    contractService,
   };
 }

@@ -33,17 +33,10 @@ let eventEmitter: EventEmitter;
 const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
-  const {
-    restMock,
-    web3Mock,
-    hapiServiceInstance,
-    ethImpl,
-    cacheService,
-    mirrorNodeInstance,
-    logger,
-    contractService,
-  } = generateEthTestEnv();
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } =
+    generateEthTestEnv();
 
+  const contractService = ethImpl['contractService'];
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
   eventEmitter = new EventEmitter();
   async function mockContractCall(
@@ -54,7 +47,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     requestDetails: RequestDetails,
   ) {
     const formattedData = { ...callData, estimate };
-    await contractService.contractCallFormat(formattedData, requestDetails);
+    await contractService['contractCallFormat'](formattedData, requestDetails);
     return web3Mock.onPost('contracts/call', formattedData).reply(statusCode, JSON.stringify(result));
   }
 
@@ -557,7 +550,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await contractService.contractCallFormat(transaction, requestDetails);
+    await contractService['contractCallFormat'](transaction, requestDetails);
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
@@ -575,7 +568,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await contractService.contractCallFormat(transaction, requestDetails);
+    await contractService['contractCallFormat'](transaction, requestDetails);
     expect(transaction.data).to.eq(inputValue);
     expect(transaction.data).to.not.eq(dataValue);
     expect(transaction.input).to.be.undefined;
