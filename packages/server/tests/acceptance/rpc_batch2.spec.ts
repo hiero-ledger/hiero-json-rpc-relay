@@ -200,7 +200,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         ],
         requestId,
       );
-      const gasTxBaseCost = numberTo0x(21000);
+      const gasTxBaseCost = numberTo0x(Constants.TX_BASE_COST);
       const gasPriceDeviation = parseFloat((Number(gasTxBaseCost) * 0.2).toString());
       expect(res).to.contain('0x');
       expect(parseInt(res)).to.be.lessThan(Number(gasTxBaseCost) * (1 + gasPriceDeviation));
