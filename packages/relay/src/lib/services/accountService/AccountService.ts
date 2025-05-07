@@ -8,8 +8,8 @@ import { MirrorNodeClient } from '../../clients';
 import constants from '../../constants';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { RequestDetails } from '../../types';
+import { LatestBlockNumberTimestamp } from '../../types/mirrorNode';
 import { CacheService } from '../cacheService/cacheService';
-import { LatestBlockNumberTimestamp } from '../ethService/ethCommonService/ITimestamp';
 import { CommonService, ICommonService } from '../index';
 import { IAccountService } from './IAccountService';
 

@@ -137,6 +137,11 @@ interface ITimestamp {
   to: string;
 }
 
+export interface LatestBlockNumberTimestamp {
+  blockNumber: string | null;
+  timeStampTo: string;
+}
+
 export interface MirrorNodeBlock {
   count: number;
   gas_used: number;
