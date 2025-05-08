@@ -678,9 +678,6 @@ export class EthImpl implements Eth {
     2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '2', value: 'latest|pending|finalized|safe' }],
-  })
   async getStorageAt(
     address: string,
     slot: string,
