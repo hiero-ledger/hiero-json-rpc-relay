@@ -166,7 +166,7 @@ export class DebugImpl implements Debug {
       DebugImpl.requireDebugAPIEnabled();
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
 
-      if (blockResponse == null) return [];
+      if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
       const cacheKey = `${constants.CACHE_KEY.DEBUG_TRACE_BLOCK_BY_NUMBER}_${blockResponse.number}_${JSON.stringify(
         tracerObject,
