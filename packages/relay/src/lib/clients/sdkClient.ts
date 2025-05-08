@@ -454,35 +454,18 @@ export class SDKClient {
       );
       return transactionResponse;
     } catch (e: any) {
-      this.logger.warn(
-        e,
-        `${requestDetails.formattedRequestId} Transaction failed while executing transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
-      );
-
-      if (e instanceof JsonRpcError) {
-        throw e;
-      }
-
       const sdkClientError = new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
 
-      // WRONG_NONCE is one of the special errors where the SDK still returns a valid transactionResponse.
-      // Throw the WRONG_NONCE error, as additional handling logic is expected in a higher layer.
-      if (sdkClientError.status && sdkClientError.status === Status.WrongNonce) {
-        throw sdkClientError;
+      this.logger.warn(
+        `${requestDetails.formattedRequestId} Failed to execute transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}, errorStatus=${sdkClientError.status}(${sdkClientError.status._code}), errorMessage=${sdkClientError.message}, nodeId=${sdkClientError.nodeAccountId}`,
+      );
+
+      // In some cases, for instance, when the SDK returns a WRONG_NONCE error, the SDK still returns a valid transactionResponse.
+      if (transactionResponse) {
+        return transactionResponse;
       }
 
-      if (!transactionResponse) {
-        // Transactions may experience "SDK timeout exceeded" or "Connection Dropped" errors from the SDK, yet they may still be able to reach the consensus layer.
-        // Throw Connection Drop and Timeout errors as additional handling logic is expected in a higher layer.
-        if (sdkClientError.isConnectionDropped() || sdkClientError.isTimeoutExceeded()) {
-          throw sdkClientError;
-        } else {
-          throw predefined.INTERNAL_ERROR(
-            `${requestDetails.formattedRequestId} Transaction execution returns a null value: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
-          );
-        }
-      }
-      return transactionResponse;
+      throw sdkClientError;
     } finally {
       if (transactionId?.length) {
         this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
