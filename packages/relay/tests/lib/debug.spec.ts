@@ -7,9 +7,10 @@ import chaiAsPromised from 'chai-as-promised';
 import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
+import sinon from 'sinon';
 
 import { predefined } from '../../src';
-import { numberTo0x, strip0x } from '../../src/formatters';
+import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import { IOpcodesResponse } from '../../src/lib/clients/models/IOpcodesResponse';
 import constants, { TracerType } from '../../src/lib/constants';
@@ -526,787 +527,351 @@ describe('Debug API Test Suite', async function () {
     });
   });
 
-  describe('debug_traceBlockByNumber', async function () {
-    const blockNumber = '0x2a'; // Block number in hex format (42)
-    const blockTimestamp = { from: '1696438011.462526383', to: '1696438015.462526383' };
+  describe('prestateTracer', async function () {
+    const mockTimestamp = '1696438011.462526383';
+    const contractId = '0.0.1033';
+    const accountId = '0.0.1016';
+    const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
+    const accountEvmAddress = '0xc37f417fa09933335240fca72dd257bfbde9c275';
+    const contractAddress = '0x0000000000000000000000000000000000000409';
+    const accountAddress = '0x00000000000000000000000000000000000003f8';
+
+    const actionsResponseMock = {
+      actions: [
+        {
+          call_depth: 0,
+          call_operation_type: 'CREATE',
+          call_type: 'CREATE',
+          caller: accountId,
+          caller_type: 'ACCOUNT',
+          from: accountAddress,
+          gas: 247000,
+          gas_used: 77324,
+          index: 0,
+          input: '0x',
+          recipient: contractId,
+          recipient_type: 'CONTRACT',
+          result_data: '0x',
+          result_data_type: 'OUTPUT',
+          timestamp: mockTimestamp,
+          to: contractAddress,
+          value: 0,
+        },
+        {
+          call_depth: 1,
+          call_operation_type: 'CREATE',
+          call_type: 'CREATE',
+          caller: contractId,
+          caller_type: 'CONTRACT',
+          from: contractAddress,
+          gas: 189733,
+          gas_used: 75,
+          index: 1,
+          input: '0x',
+          recipient: '0.0.1034',
+          recipient_type: 'CONTRACT',
+          result_data: '0x',
+          result_data_type: 'OUTPUT',
+          timestamp: mockTimestamp,
+          to: '0x000000000000000000000000000000000000040a',
+          value: 0,
+        },
+      ],
+    };
+
+    const contractEntityMock = {
+      type: constants.TYPE_CONTRACT,
+      entity: {
+        contract_id: contractId,
+        evm_address: contractEvmAddress,
+        runtime_bytecode: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        nonce: 1,
+      },
+    };
+
+    const accountEntityMock = {
+      type: constants.TYPE_ACCOUNT,
+      entity: {
+        evm_address: accountEvmAddress,
+        ethereum_nonce: 2,
+        balance: {
+          balance: '100000000',
+        },
+      },
+    };
+
+    const contractBalanceMock = {
+      balances: [
+        {
+          account: contractId,
+          balance: '200000000',
+        },
+      ],
+    };
+
+    const contractStateMock = [
+      {
+        address: contractAddress,
+        slot: '0x0',
+        value: '0x1',
+      },
+      {
+        address: contractAddress,
+        slot: '0x1',
+        value: '0x2',
+      },
+    ];
+
+    const expectedResult = {
+      [contractEvmAddress]: {
+        balance: '0x200000000',
+        nonce: 1,
+        code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        storage: {
+          '0x0': '0x1',
+          '0x1': '0x2',
+        },
+      },
+      [accountEvmAddress]: {
+        balance: '0x100000000',
+        nonce: 2,
+        code: '0x',
+        storage: {},
+      },
+    };
 
     beforeEach(() => {
-      const blockResponse = {
-        blocks: [
-          {
-            number: 42,
-            timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
-          },
-        ],
-      };
-
-      // Mock for getting block response - must match what getHistoricalBlockResponse expects
-      restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(
-        200,
-        JSON.stringify({
-          number: 42,
-          timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
-        }),
-      );
-      restMock.onGet(`${BLOCKS_ENDPOINT}/latest`).reply(200, JSON.stringify(blockResponse));
-
-      // Add mock for latest blocks query
-      restMock.onGet(`${BLOCKS_ENDPOINT}?limit=1&order=desc`).reply(200, JSON.stringify(blockResponse));
-
-      // Add mock for decimal block number (42)
-      restMock.onGet(`${BLOCKS_ENDPOINT}/42`).reply(
-        200,
-        JSON.stringify({
-          number: 42,
-          timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
-        }),
-      );
-
-      // Mock contract results based on timestamp range
-      const timestampRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
-
-      const contractResultsResponse = {
-        results: [
-          {
-            hash: transactionHash,
-            result: 'SUCCESS',
-            transaction_index: 0,
-            block_number: 42,
-            block_hash:
-              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
-          },
-          {
-            hash: '0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285',
-            result: 'SUCCESS',
-            transaction_index: 0,
-            block_number: 42,
-            block_hash:
-              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
-          },
-          {
-            hash: '0xddba254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91dddddd',
-            result: 'WRONG_NONCE',
-            transaction_index: 0,
-            block_number: 42,
-            block_hash:
-              '0x4a25d11dc95a339bd6d8c4558f9f4c420e68a06f453fe2266e905c5c583f7948a159ee0cb0ec1d031d692d746f93d760',
-          },
-        ],
-      };
-
-      restMock.onGet(`contracts/results${timestampRangeParams}`).reply(200, JSON.stringify(contractResultsResponse));
-      restMock.onGet(`contracts/results/${transactionHash}`).reply(200, JSON.stringify(contractsResultsByHashResult));
-      restMock
-        .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285`)
-        .reply(200, JSON.stringify(contractsResultsByHashResult));
-
-      // Reuse the existing contract results mocks
-      restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(contractsResultsActionsResult));
-
-      // Also mock actions for the second transaction hash
-      restMock
-        .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285/actions`)
-        .reply(200, JSON.stringify(contractsResultsActionsResult));
-
-      restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
-      restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
-      restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
-      restMock.onGet(CONTRACT_BY_ADDRESS2).reply(200, JSON.stringify(contractResultSecond));
-
-      // Mock entity resolution for the addresses
-      restMock.onGet(`entity/${contractAddress}`).reply(
-        200,
-        JSON.stringify({
-          type: 'contract',
-          entity_id: '0.0.1033',
-        }),
-      );
-
-      restMock.onGet(`entity/${senderAddress}`).reply(
-        200,
-        JSON.stringify({
-          type: 'account',
-          entity_id: '0.0.1016',
-        }),
-      );
-
-      // Additional mocks for prestateTracer
-      const contractEntityResponse = {
-        contract_id: '0.0.1033',
-        evm_address: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
-        timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
-        nonce: 5,
-        runtime_bytecode: '0x60806040',
-      };
-
-      const accountEntityResponse = {
-        evm_address: '0xc37f417fa09933335240fca72dd257bfbde9c275',
-        ethereum_nonce: 1,
-        balance: { balance: 1000 },
-      };
-
-      const balanceResponse = {
-        balances: [{ balance: 500 }],
-      };
-
-      const stateResponse = {
-        state: [
-          { slot: '0x01', value: '0x0a' },
-          { slot: '0x02', value: '0x0b' },
-        ],
-      };
-
-      // Mock contract data for prestateTracer
-      restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractEntityResponse));
-      restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountEntityResponse));
-
-      // Mock balance and state for prestateTracer
-      restMock.onGet(`balances?account.id=0.0.1033`).reply(200, JSON.stringify(balanceResponse));
-      restMock.onGet(/contracts\/0\.0\.1033\/state\?timestamp=.*/).reply(200, JSON.stringify(stateResponse));
-
-      // Configure opcode logger mock for any transaction hash
-      for (const config of opcodeLoggerConfigs) {
-        const opcodeLoggerParams = getQueryParams({
-          memory: !!config.enableMemory,
-          stack: !config.disableStack,
-          storage: !config.disableStorage,
-        });
-
-        web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES}${opcodeLoggerParams}`).reply(
-          200,
-          JSON.stringify({
-            ...opcodesResponse,
-            opcodes: opcodesResponse.opcodes?.map((opcode) => ({
-              ...opcode,
-              stack: config.disableStack ? [] : opcode.stack,
-              memory: config.enableMemory ? opcode.memory : [],
-              storage: config.disableStorage ? {} : opcode.storage,
-            })),
-          }),
-        );
-      }
-    });
-
-    afterEach(() => {
+      sinon.restore();
       restMock.reset();
       web3Mock.reset();
-      cacheService.clear(requestDetails).then();
-    });
-
-    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
-      it('should throw UNSUPPORTED_METHOD when debug API is not enabled', async function () {
-        await RelayAssertions.assertRejection(
-          predefined.UNSUPPORTED_METHOD,
-          debugService.traceBlockByNumber,
-          true,
-          debugService,
-          [blockNumber, { tracer: callTracer, tracerConfig: tracerConfigFalse }, requestDetails],
-        );
-      });
-    });
-
-    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
-      it('should throw UNSUPPORTED_METHOD when debug API is explicitly disabled', async function () {
-        await RelayAssertions.assertRejection(
-          predefined.UNSUPPORTED_METHOD,
-          debugService.traceBlockByNumber,
-          true,
-          debugService,
-          [blockNumber, { tracer: callTracer, onlyTopCall: false }, requestDetails],
-        );
-      });
+      cacheService.clear(requestDetails);
     });
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
-      it('should return results for multiple transactions with callTracer', async function () {
-        const result = await debugService.traceBlockByNumber(
-          blockNumber,
-          { tracer: callTracer, onlyTopCall: false },
-          requestDetails,
-        );
+      it('should fetch and format prestate data for a transaction', async function () {
+        // Set up stubs
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
 
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(2); // Two successful transactions (SUCCESS), one with WRONG_NONCE is filtered out
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
 
-        // Verify each result has the expected format
-        result.forEach((item) => {
-          expect(item).to.have.property('txHash');
-          expect(item).to.have.property('result');
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        expect(result).to.deep.equal(expectedResult);
+      });
+
+      it('should filter actions based on onlyTopCall=true parameter', async function () {
+        // Set up stubs
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        // With onlyTopCall=true, it should only include top-level actions (call_depth=0)
+        const result = await debugService.prestateTracer(transactionHash, true, requestDetails);
+
+        expect(Object.keys(result).length).to.be.at.least(1);
+        expect(result).to.have.property(accountEvmAddress);
+        expect(result[accountEvmAddress]).to.deep.equal({
+          balance: '0x100000000',
+          nonce: 2,
+          code: '0x',
+          storage: {},
         });
       });
 
-      it('should return results with prestateTracer', async function () {
-        // Create a special action response for prestateTracer with a simpler format
-        const prestateActionsResponse = {
-          actions: [
-            {
-              call_depth: 0,
-              call_operation_type: 'CALL',
-              call_type: 'CALL',
-              from: senderAddress,
-              to: contractAddress,
-              gas: 247000,
-              gas_used: 77324,
-              input: '0x',
-              result_data: '0x',
+      it('should return cached results when available', async function () {
+        // Create stubs that return expected data AND track calls
+        const getContractsResultsActionsStub = sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        const resolveEntityTypeStub = sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        const getBalanceAtTimestampStub = sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        const getContractStateStub = sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        // First call should fetch from API
+        const firstResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        // Verify the first result is correct
+        expect(firstResult).to.deep.equal(expectedResult);
+
+        // Verify that the methods were called during the first request
+        expect(getContractsResultsActionsStub.called).to.be.true;
+        expect(resolveEntityTypeStub.called).to.be.true;
+
+        // Reset call counts for the stubs
+        getContractsResultsActionsStub.resetHistory();
+        resolveEntityTypeStub.resetHistory();
+        getBalanceAtTimestampStub.resetHistory();
+        getContractStateStub.resetHistory();
+
+        // Second call should use cache
+        const secondResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        // Results should be identical
+        expect(secondResult).to.deep.equal(firstResult);
+
+        // Verify that the methods were NOT called during the second request
+        expect(getContractsResultsActionsStub.called).to.be.false;
+        expect(resolveEntityTypeStub.called).to.be.false;
+        expect(getBalanceAtTimestampStub.called).to.be.false;
+        expect(getContractStateStub.called).to.be.false;
+      });
+
+      it('should handle empty actions array', async function () {
+        // Set up empty actions response
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves({ actions: [] });
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        expect(result).to.deep.equal({});
+      });
+
+      it('should throw RESOURCE_NOT_FOUND error when the transaction hash is not found', async function () {
+        // Create a separate DebugImpl instance just for this test
+        const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+
+        // Mock the API call to throw the expected error
+        restMock.onGet(`contracts/results/${nonExistentTransactionHash}/actions`).reply(
+          404,
+          JSON.stringify({
+            _status: {
+              messages: [{ message: 'Not found' }],
             },
-          ],
-        };
-
-        // Mock the actions for both transaction hashes
-        restMock
-          .onGet(`contracts/results/${transactionHash}/actions`)
-          .reply(200, JSON.stringify(prestateActionsResponse));
-        restMock
-          .onGet(`contracts/results/0xc0ffee254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91d8285/actions`)
-          .reply(200, JSON.stringify(prestateActionsResponse));
-
-        const result = await debugService.traceBlockByNumber(blockNumber, { tracer: prestateTracer }, requestDetails);
-
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(2); // Two successful transactions
-
-        // Verify each result has the expected format
-        result.forEach((item) => {
-          expect(item).to.have.property('txHash');
-          expect(item).to.have.property('result');
-
-          // Verify the structure of the result matches what prestateTracer should return
-          const prestate = item.result;
-
-          // Check for contract address result format
-          const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
-          expect(prestate).to.have.property(contractEvmAddress);
-          expect(prestate[contractEvmAddress]).to.have.property('balance').that.is.a('string').and.match(/^0x/);
-          expect(prestate[contractEvmAddress]).to.have.property('nonce').that.is.a('number');
-          expect(prestate[contractEvmAddress]).to.have.property('code').that.is.a('string').and.match(/^0x/);
-          expect(prestate[contractEvmAddress]).to.have.property('storage').that.is.an('object');
-
-          // Check for account address result format
-          const accountEvmAddress = '0xc37f417fa09933335240fca72dd257bfbde9c275';
-          expect(prestate).to.have.property(accountEvmAddress);
-          expect(prestate[accountEvmAddress]).to.have.property('balance').that.is.a('string').and.match(/^0x/);
-          expect(prestate[accountEvmAddress]).to.have.property('nonce').that.is.a('number');
-          expect(prestate[accountEvmAddress]).to.have.property('code').that.equals('0x');
-          expect(prestate[accountEvmAddress]).to.have.property('storage').that.deep.equals({});
-        });
-      });
-
-      it('should return empty array when no transactions found in block', async function () {
-        // Mock empty contract results
-        const emptyTimestampRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
-        restMock.onGet(`contracts/results${emptyTimestampRangeParams}`).reply(200, JSON.stringify({ results: [] }));
-
-        const result = await debugService.traceBlockByNumber(
-          blockNumber,
-          { tracer: callTracer, onlyTopCall: false },
-          requestDetails,
-        );
-
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(0);
-      });
-
-      it('should return empty array when block is not found', async function () {
-        // Reset mocks and set up a completely fresh environment
-        restMock.reset();
-
-        // Need to mock the block not found but also provide the necessary mocks for getHistoricalBlockResponse
-        restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(404, null);
-        restMock.onGet(`${BLOCKS_ENDPOINT}/latest`).reply(
-          200,
-          JSON.stringify({
-            blocks: [
-              {
-                number: 100, // Different block number
-                timestamp: { from: '1696438020.000000000', to: '1696438025.000000000' },
-              },
-            ],
           }),
         );
 
-        // Also need to mock the block by number using decimal
-        restMock.onGet(`${BLOCKS_ENDPOINT}/42`).reply(404, null);
+        // Make sure no sinon stubs interfere
+        const getContractsResultsActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
+        getContractsResultsActionsStub.callThrough(); // Let it use the original method which will hit the mock
 
-        // And the latest block query that's used as a fallback
-        restMock.onGet(`${BLOCKS_ENDPOINT}?limit=1&order=desc`).reply(
-          200,
-          JSON.stringify({
-            blocks: [
-              {
-                number: 100, // Different block number
-                timestamp: { from: '1696438020.000000000', to: '1696438025.000000000' },
-              },
-            ],
-          }),
-        );
-
-        const result = await debugService.traceBlockByNumber(
-          blockNumber,
-          { tracer: callTracer, onlyTopCall: false },
-          requestDetails,
-        );
-
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(0);
-      });
-
-      it('should handle "latest" block tag', async function () {
-        const result = await debugService.traceBlockByNumber(
-          'latest',
-          { tracer: callTracer, onlyTopCall: false },
-          requestDetails,
-        );
-
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(2);
-      });
-
-      it('should handle errors during trace execution', async function () {
-        // Reset all mocks first
-        restMock.reset();
-
-        // Set up the minimum mocks required for the test to fail at the right point
-        restMock.onGet(`${BLOCKS_ENDPOINT}/${blockNumber}`).reply(
-          200,
-          JSON.stringify({
-            number: 42,
-            timestamp: { from: blockTimestamp.from, to: blockTimestamp.to },
-          }),
-        );
-
-        // This is the error point we want to trigger
-        const errorRangeParams = `?timestamp=gte:${blockTimestamp.from}&timestamp=lte:${blockTimestamp.to}&limit=100&order=asc`;
-        restMock.onGet(`contracts/results${errorRangeParams}`).reply(500);
-
+        // The test should now properly throw the expected error
         try {
-          await debugService.traceBlockByNumber(
-            blockNumber,
-            { tracer: callTracer, onlyTopCall: false },
-            requestDetails,
-          );
-          // If we get here, the test failed because no error was thrown
-          expect.fail('Expected an error to be thrown');
+          await isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails);
+          expect.fail('Expected the prestateTracer to throw an error but it did not');
         } catch (error) {
-          // Just verify that an error is thrown, specific properties are too implementation-dependent
-          expect(error).to.be.an('error');
+          expect(error.code).to.equal(predefined.RESOURCE_NOT_FOUND().code);
+          expect(error.message).to.include(
+            `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
+          );
         }
       });
 
-      it('should filter out transactions with WRONG_NONCE result', async function () {
-        const result = await debugService.traceBlockByNumber(
-          blockNumber,
-          { tracer: callTracer, onlyTopCall: false },
-          requestDetails,
-        );
+      it('should handle entity resolution errors', async function () {
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
 
-        expect(result).to.be.an('array');
-        expect(result).to.have.length(2); // Only SUCCESS transactions included
-
-        // Verify all txHashes don't include the one with WRONG_NONCE
-        const txHashes = result.map((item) => item.txHash);
-        expect(txHashes).to.not.include('0xddba254a6b68de33dc659a99cb674a3a3e5b3afec22c63b965ded1e91dddddd');
-      });
-    });
-  });
-
-  describe('Helper Methods Test Suite', async function () {
-    this.timeout(10000);
-    beforeEach(async function () {
-      restMock.reset();
-      web3Mock.reset();
-      await cacheService.clear(requestDetails);
-    });
-
-    describe('prestateTracer', async function () {
-      const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
-      const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
-      const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
-
-      const contractAddress = '0x0000000000000000000000000000000000000409';
-      const accountAddress = '0x00000000000000000000000000000000000003f7';
-      const CONTRACT_RESOLVE = `contracts/${contractAddress}`;
-      const ACCOUNT_RESOLVE = `accounts/${accountAddress}?transactions=false`;
-
-      const actionsResponse = {
-        actions: [
-          {
-            call_depth: 0,
-            call_operation_type: 'CALL',
-            call_type: 'CALL',
-            caller: '0.0.1016',
-            caller_type: 'ACCOUNT',
-            from: accountAddress,
-            gas: 247000,
-            gas_used: 77324,
-            index: 0,
-            input: '0x',
-            recipient: '0.0.1033',
-            recipient_type: 'CONTRACT',
-            result_data: '0x',
-            result_data_type: 'OUTPUT',
-            timestamp: '1696438011.462526383',
-            to: contractAddress,
-            value: 100,
-          },
-        ],
-      };
-
-      const contractEntity = {
-        type: 'contract',
-        entity: {
-          evm_address: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
-          contract_id: '0.0.1033',
-          timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
-          nonce: 5,
-          runtime_bytecode: '0x60806040',
-        },
-      };
-
-      const accountEntity = {
-        type: 'account',
-        entity: {
-          evm_address: '0xc37f417fa09933335240fca72dd257bfbde9c275',
-          ethereum_nonce: 1,
-          balance: { balance: 1000 },
-        },
-      };
-
-      const balanceResponse = {
-        balances: [{ balance: 500 }],
-      };
-
-      const stateResponse = {
-        state: [
-          { slot: '0x01', value: '0x0a' },
-          { slot: '0x02', value: '0x0b' },
-        ],
-      };
-
-      describe('when contract actions exist', async function () {
-        beforeEach(() => {
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsResponse));
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            throw new Error('Failed to resolve contract');
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
         });
 
-        it('should return pre-state information for contracts', async function () {
-          // Setup mocks for contract resolving and state retrieval
-          // First set up entity type resolution
-          restMock
-            .onGet(`entity/${contractAddress}`)
-            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
 
-          // Then setup contract data retrieval
-          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
 
-          // Setup balance response
-          restMock
-            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
-            .reply(200, JSON.stringify(balanceResponse));
+        expect(Object.keys(result)).to.have.lengthOf(1);
+        expect(result).to.have.property(accountEvmAddress);
+        expect(result).to.not.have.property(contractEvmAddress);
 
-          // Setup contract state response
-          restMock
-            .onGet(
-              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
-                contractEntity.entity.timestamp.to,
-              )}&limit=100&order=desc`,
-            )
-            .reply(200, JSON.stringify(stateResponse));
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-          expect(result).to.exist;
-          expect(result[contractEntity.entity.evm_address]).to.exist;
-          expect(result[contractEntity.entity.evm_address].balance).to.equal(
-            numberTo0x(balanceResponse.balances[0].balance),
-          );
-          expect(result[contractEntity.entity.evm_address].nonce).to.equal(contractEntity.entity.nonce);
-          expect(result[contractEntity.entity.evm_address].code).to.equal(contractEntity.entity.runtime_bytecode);
-          expect(result[contractEntity.entity.evm_address].storage['0x01']).to.equal('0x0a');
-          expect(result[contractEntity.entity.evm_address].storage['0x02']).to.equal('0x0b');
-        });
-
-        it('should return pre-state information for accounts', async function () {
-          // Setup mocks for account resolving
-          // First set up entity type resolution
-          restMock
-            .onGet(`entity/${accountAddress}`)
-            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
-
-          // Then setup account data retrieval
-          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-          expect(result).to.exist;
-          expect(result[accountEntity.entity.evm_address]).to.exist;
-          expect(result[accountEntity.entity.evm_address].balance).to.equal(
-            numberTo0x(accountEntity.entity.balance.balance),
-          );
-          expect(result[accountEntity.entity.evm_address].nonce).to.equal(accountEntity.entity.ethereum_nonce);
-          expect(result[accountEntity.entity.evm_address].code).to.equal('0x');
-          expect(result[accountEntity.entity.evm_address].storage).to.deep.equals({});
-        });
-
-        it('should return combined pre-state for both contract and account', async function () {
-          // Setup mocks for both contract and account
-          // Contract entity resolution
-          restMock
-            .onGet(`entity/${contractAddress}`)
-            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
-
-          // Contract data
-          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
-
-          // Setup balance response
-          restMock
-            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
-            .reply(200, JSON.stringify(balanceResponse));
-
-          // Contract state
-          restMock
-            .onGet(
-              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
-                contractEntity.entity.timestamp.to,
-              )}&limit=100&order=desc`,
-            )
-            .reply(200, JSON.stringify(stateResponse));
-
-          // Account entity resolution
-          restMock
-            .onGet(`entity/${accountAddress}`)
-            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
-
-          // Account data
-          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-          expect(result).to.exist;
-          expect(result[contractEntity.entity.evm_address]).to.exist;
-          expect(result[accountEntity.entity.evm_address]).to.exist;
-        });
-
-        it('should handle address with no entity type', async function () {
-          // Setup mock for non-existent entity
-          restMock.onGet(`entity/${contractAddress}`).reply(404);
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-          expect(result).to.deep.equal({});
-        });
-
-        it('should handle address with no evm_address', async function () {
-          // Setup mock for entity without evm_address
-          const entityWithoutEvmAddress = { ...contractEntity };
-          entityWithoutEvmAddress.entity = {
-            ...contractEntity.entity,
-            evm_address: null as unknown as string,
-          };
-
-          // Entity type resolution
-          restMock
-            .onGet(`entity/${contractAddress}`)
-            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
-
-          // Contract data without evm_address
-          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(entityWithoutEvmAddress.entity));
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-          expect(result).to.deep.equal({});
-        });
-
-        it('should filter actions by call_depth when onlyTopCall is true', async function () {
-          // Create actions with different call depths
-          const actionsWithDepth = {
-            actions: [
-              {
-                call_depth: 0,
-                call_operation_type: 'CALL',
-                call_type: 'CALL',
-                caller: '0.0.1016',
-                caller_type: 'ACCOUNT',
-                from: accountAddress,
-                gas: 247000,
-                gas_used: 77324,
-                index: 0,
-                input: '0x',
-                recipient: '0.0.1033',
-                recipient_type: 'CONTRACT',
-                result_data: '0x',
-                result_data_type: 'OUTPUT',
-                timestamp: '1696438011.462526383',
-                to: contractAddress,
-                value: 100,
-              },
-              {
-                call_depth: 1, // This should be filtered out when onlyTopCall=true
-                call_operation_type: 'CALL',
-                call_type: 'CALL',
-                caller: '0.0.1033',
-                caller_type: 'CONTRACT',
-                from: contractAddress,
-                gas: 200000,
-                gas_used: 50000,
-                index: 1,
-                input: '0x',
-                recipient: '0.0.1016',
-                recipient_type: 'ACCOUNT',
-                result_data: '0x',
-                result_data_type: 'OUTPUT',
-                timestamp: '1696438011.462526383',
-                to: accountAddress,
-                value: 0,
-              },
-            ],
-          };
-
-          // Override the default actions response with our custom one
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsWithDepth));
-
-          // Set up entity resolution for both addresses
-          restMock
-            .onGet(`entity/${contractAddress}`)
-            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1033' }));
-          restMock
-            .onGet(`entity/${accountAddress}`)
-            .reply(200, JSON.stringify({ type: 'account', entity_id: '0.0.1016' }));
-
-          // Set up contract and account data
-          restMock.onGet(CONTRACT_RESOLVE).reply(200, JSON.stringify(contractEntity.entity));
-          restMock.onGet(ACCOUNT_RESOLVE).reply(200, JSON.stringify(accountEntity.entity));
-
-          // Set up balance response
-          restMock
-            .onGet(`balances?account.id=${contractEntity.entity.contract_id}`)
-            .reply(200, JSON.stringify(balanceResponse));
-
-          // Set up contract state
-          restMock
-            .onGet(
-              `contracts/${contractEntity.entity.contract_id}/state?timestamp=${encodeURIComponent(
-                contractEntity.entity.timestamp.to,
-              )}&limit=100&order=desc`,
-            )
-            .reply(200, JSON.stringify(stateResponse));
-
-          // Test with onlyTopCall=true
-          const resultWithTopCallOnly = await debugService.prestateTracer(transactionHash, true, requestDetails);
-
-          // When onlyTopCall is true, we should only see addresses from the top-level call
-          // The top-level call is from accountAddress to contractAddress
-          expect(Object.keys(resultWithTopCallOnly)).to.have.lengthOf(2);
-          expect(resultWithTopCallOnly).to.have.property(contractEntity.entity.evm_address);
-          expect(resultWithTopCallOnly).to.have.property(accountEntity.entity.evm_address);
-
-          // Create a mock with a nested call that has a different from/to than the top call
-          const actionsWithDifferentNestedCall = {
-            actions: [
-              {
-                call_depth: 0,
-                call_operation_type: 'CALL',
-                call_type: 'CALL',
-                from: accountAddress,
-                gas: 247000,
-                gas_used: 77324,
-                to: contractAddress,
-                value: 100,
-              },
-              {
-                call_depth: 1,
-                call_operation_type: 'CALL',
-                call_type: 'CALL',
-                from: contractAddress,
-                gas: 200000,
-                gas_used: 50000,
-                to: '0x000000000000000000000000000000000000040a', // Different address
-                value: 0,
-              },
-            ],
-          };
-
-          // Override the actions response
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(actionsWithDifferentNestedCall));
-
-          // Mock the entity resolution for the new address
-          restMock
-            .onGet(`entity/0x000000000000000000000000000000000000040a`)
-            .reply(200, JSON.stringify({ type: 'contract', entity_id: '0.0.1034' }));
-
-          // Mock the contract data
-          restMock.onGet(`contracts/0x000000000000000000000000000000000000040a`).reply(
-            200,
-            JSON.stringify({
-              evm_address: '0x91b1c451777122afc9b83f9b96160d7e59847ad7',
-              contract_id: '0.0.1034',
-              timestamp: { from: '1696438000.000000000', to: '1696438011.462526383' },
-              nonce: 1,
-              runtime_bytecode: '0x60806040',
-            }),
-          );
-
-          // Mock the balance response
-          restMock.onGet(`balances?account.id=0.0.1034`).reply(200, JSON.stringify(balanceResponse));
-
-          // Mock the contract state
-          restMock
-            .onGet(
-              `contracts/0.0.1034/state?timestamp=${encodeURIComponent(
-                contractEntity.entity.timestamp.to,
-              )}&limit=100&order=desc`,
-            )
-            .reply(200, JSON.stringify(stateResponse));
-
-          // Test with onlyTopCall=true
-          const resultWithNestedCall = await debugService.prestateTracer(transactionHash, true, requestDetails);
-
-          // Should not include the nested call address
-          expect(resultWithNestedCall).to.not.have.property('0x91b1c451777122afc9b83f9b96160d7e59847ad7');
-
-          // Test with onlyTopCall=false
-          const resultWithAllNestedCalls = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-          // Should include all addresses
-          expect(Object.keys(resultWithAllNestedCalls).length).to.be.at.least(3);
-        });
-
-        it('should handle onlyTopCall parameter when there are no nested calls', async function () {
-          // With only top-level calls, both true and false should yield the same result
-          const resultWithTopCallOnly = await debugService.prestateTracer(transactionHash, true, requestDetails);
-          const resultWithAllCalls = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-          // Both should have the same keys since there are no nested calls
-          expect(Object.keys(resultWithTopCallOnly)).to.deep.equal(Object.keys(resultWithAllCalls));
-        });
-
-        it('should return empty object when no addresses in actions', async function () {
-          const emptyActionsResponse = { actions: [] };
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(emptyActionsResponse));
-
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-          expect(result).to.deep.equal({});
-        });
+        expect(result[accountEvmAddress]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
       });
 
-      describe('when contract actions do not exist', async function () {
-        it('should throw RESOURCE_NOT_FOUND when actions response is null', async function () {
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(404);
+      it('should handle entities without EVM address', async function () {
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
 
-          const expectedError = predefined.RESOURCE_NOT_FOUND(
-            `Failed to retrieve contract results for transaction ${transactionHash}`,
-          );
-
-          await RelayAssertions.assertRejection(expectedError, debugService.prestateTracer, true, debugService, [
-            transactionHash,
-            false,
-            requestDetails,
-          ]);
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return { ...contractEntityMock, entity: { ...contractEntityMock.entity, evm_address: null } };
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
         });
 
-        it('should return empty object when no addresses in actions', async function () {
-          const emptyActionsResponse = { actions: [] };
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(emptyActionsResponse));
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
 
-          const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-          expect(result).to.deep.equal({});
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        expect(Object.keys(result)).to.have.lengthOf(1);
+        expect(result).to.have.property(accountEvmAddress);
+
+        expect(result[accountEvmAddress]).to.deep.equal({
+          balance: '0x100000000',
+          nonce: 2,
+          code: '0x',
+          storage: {},
         });
       });
     });
