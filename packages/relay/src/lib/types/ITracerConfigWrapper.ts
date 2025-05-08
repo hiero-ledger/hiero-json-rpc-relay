@@ -11,5 +11,4 @@ export interface ITracerConfigWrapper {
 export interface IBlockTracerConfig {
   tracer: TracerType;
   tracerConfig?: ICallTracerConfig;
-  onlyTopCall?: boolean;
 }
