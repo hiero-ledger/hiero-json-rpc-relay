@@ -194,7 +194,9 @@ export class DebugImpl implements Debug {
         return [];
       }
 
-      const { tracer, onlyTopCall } = tracerObject;
+      const { tracer, tracerConfig, onlyTopCall } = tracerObject;
+      const onlyTopCallOption = tracerConfig?.onlyTopCall || onlyTopCall;
+
       if (tracer === TracerType.CallTracer) {
         const result = await Promise.all(
           contractResults
@@ -205,7 +207,7 @@ export class DebugImpl implements Debug {
                 txHash: contractResult.hash,
                 result: await this.callTracer(
                   contractResult.hash,
-                  { onlyTopCall } as ICallTracerConfig,
+                  { onlyTopCallOption } as ICallTracerConfig,
                   requestDetails,
                 ),
               };
@@ -224,7 +226,7 @@ export class DebugImpl implements Debug {
             .map(async (contractResult) => {
               return {
                 txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
+                result: await this.prestateTracer(contractResult.hash, onlyTopCallOption, requestDetails),
               };
             }),
         );
@@ -475,10 +477,12 @@ export class DebugImpl implements Debug {
 
   /**
    * Retrieves the pre-state information for contracts and accounts involved in a transaction.
-   * This tracer collects the state of all accounts and contracts before the transaction execution.
+   * This tracer collects the state (balance, nonce, code, and storage) of all accounts and
+   * contracts just before the transaction execution.
    *
    * @async
    * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {boolean} onlyTopCall - When true, only includes accounts involved in top-level calls.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
    * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
    *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
@@ -489,12 +493,12 @@ export class DebugImpl implements Debug {
     onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
   ): Promise<object> {
+    // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
-    const cachedTracerObject = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
-
-    if (cachedTracerObject) {
-      return cachedTracerObject;
+    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+    if (cachedResult) {
+      return cachedResult;
     }
 
     // Get transaction actions
@@ -508,9 +512,8 @@ export class DebugImpl implements Debug {
       ? actionsResponse.actions.filter((action) => action.call_depth === 0)
       : actionsResponse.actions;
 
-    // Extract unique addresses involved in the transaction
+    // Extract unique addresses involved in the transaction with their metadata
     const addressMap = new Map();
-
     filteredActions.forEach((action) => {
       if (action.from) {
         addressMap.set(action.from, {
@@ -529,64 +532,69 @@ export class DebugImpl implements Debug {
       }
     });
 
+    // Return empty result if no accounts are involved
     const accountEntities = Array.from(addressMap.values());
     if (accountEntities.length === 0) return {};
-
-    const uniqueAddresses = [...new Set(filteredActions.flatMap((action) => [action.from, action.to]))].filter(
-      Boolean,
-    ) as string[];
-    if (uniqueAddresses.length === 0) return {};
 
     const result = {};
 
     await Promise.all(
       accountEntities.map(async (accountEntity) => {
-        const entityObject = await this.mirrorNodeClient.resolveEntityType(
-          accountEntity.address,
-          DebugImpl.debugTraceTransaction,
-          requestDetails,
-          [accountEntity.type],
-          1,
-          accountEntity.timestamp,
-        );
+        try {
+          // Resolve entity type (contract or account)
+          const entityObject = await this.mirrorNodeClient.resolveEntityType(
+            accountEntity.address,
+            DebugImpl.debugTraceTransaction,
+            requestDetails,
+            [accountEntity.type],
+            1,
+            accountEntity.timestamp,
+          );
 
-        if (!entityObject) return;
+          if (!entityObject || !entityObject.entity?.evm_address) return;
 
-        const evmAddress = entityObject.entity?.evm_address;
+          const evmAddress = entityObject.entity.evm_address;
 
-        // Process based on entity type
-        if (entityObject.type === constants.TYPE_CONTRACT) {
-          const contractId = entityObject.entity.contract_id;
+          // Process based on entity type
+          if (entityObject.type === constants.TYPE_CONTRACT) {
+            const contractId = entityObject.entity.contract_id;
 
-          const [balanceResponse, stateResponse] = await Promise.all([
-            this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
-            this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
-          ]);
+            // Fetch balance and state concurrently
+            const [balanceResponse, stateResponse] = await Promise.all([
+              this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
+            ]);
 
-          const storageMap = stateResponse.reduce((map, stateItem) => {
-            map[stateItem.slot] = stateItem.value;
-            return map;
-          }, {});
+            // Build storage map from state items
+            const storageMap = stateResponse.reduce((map, stateItem) => {
+              map[stateItem.slot] = stateItem.value;
+              return map;
+            }, {});
 
-          // Add contract data directly to result
-          result[evmAddress] = {
-            balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
-            nonce: entityObject.entity.nonce,
-            code: entityObject.entity.runtime_bytecode,
-            storage: storageMap,
-          };
-        } else if (entityObject.type === constants.TYPE_ACCOUNT) {
-          // Add account data directly to result
-          result[evmAddress] = {
-            balance: numberTo0x(entityObject.entity.balance.balance),
-            nonce: entityObject.entity.ethereum_nonce,
-            code: '0x',
-            storage: {},
-          };
+            // Add contract data to result
+            result[evmAddress] = {
+              balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
+              nonce: entityObject.entity.nonce,
+              code: entityObject.entity.runtime_bytecode,
+              storage: storageMap,
+            };
+          } else if (entityObject.type === constants.TYPE_ACCOUNT) {
+            result[evmAddress] = {
+              balance: numberTo0x(entityObject.entity.balance?.balance || '0'),
+              nonce: entityObject.entity.ethereum_nonce,
+              code: '0x',
+              storage: {},
+            };
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error processing entity ${accountEntity.address} for transaction ${transactionHash}: ${error}`,
+          );
         }
       }),
     );
 
+    // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
     return result;
   }

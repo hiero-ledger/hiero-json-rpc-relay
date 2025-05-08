@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { TracerType } from '../constants';
-import { ITracerConfig } from './ITracerConfig';
+import { ICallTracerConfig, ITracerConfig } from './ITracerConfig';
 
 export interface ITracerConfigWrapper {
   tracer?: TracerType;
@@ -10,5 +10,6 @@ export interface ITracerConfigWrapper {
 
 export interface IBlockTracerConfig {
   tracer: TracerType;
+  tracerConfig?: ICallTracerConfig;
   onlyTopCall?: boolean;
 }
