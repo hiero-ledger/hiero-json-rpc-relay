@@ -24,6 +24,7 @@ import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
+import { CommonService } from '../../src/lib/services';
 chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
@@ -523,6 +524,258 @@ describe('Debug API Test Suite', async function () {
             expect(address).to.eq(accountAddress);
           });
         });
+      });
+    });
+  });
+
+  describe('debug_traceBlockByNumber', async function () {
+    const blockNumber = '0x123';
+    const blockNumberInDecimal = 291;
+    const blockResponse = {
+      number: blockNumberInDecimal,
+      timestamp: {
+        from: '1696438000.000000000',
+        to: '1696438020.000000000',
+      },
+    };
+    const contractResult1 = {
+      hash: '0xabc123',
+      result: 'SUCCESS',
+    };
+    const contractResult2 = {
+      hash: '0xdef456',
+      result: 'SUCCESS',
+    };
+    const contractResultWrongNonce = {
+      hash: '0xghi789',
+      result: 'WRONG_NONCE',
+    };
+    const callTracerResult1 = {
+      type: 'CREATE',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x1',
+      output: '0x2',
+    };
+    const callTracerResult2 = {
+      type: 'CALL',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x91b1c451777122afc9b83f9b96160d7e59847ad7',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x3',
+      output: '0x4',
+    };
+    const prestateTracerResult1 = {
+      '0xc37f417fa09933335240fca72dd257bfbde9c275': {
+        balance: '0x100000000',
+        nonce: 2,
+        code: '0x',
+        storage: {},
+      },
+    };
+    const prestateTracerResult2 = {
+      '0x91b1c451777122afc9b83f9b96160d7e59847ad7': {
+        balance: '0x200000000',
+        nonce: 1,
+        code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        storage: {
+          '0x0': '0x1',
+          '0x1': '0x2',
+        },
+      },
+    };
+
+    beforeEach(() => {
+      sinon.restore();
+      restMock.reset();
+      web3Mock.reset();
+      cacheService.clear(requestDetails);
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return empty array if block is not found', async function () {
+        // Stub CommonService.getHistoricalBlockResponse
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(null);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        try {
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+          expect.fail('Expected the traceBlockByNumber to throw an error but it did not');
+        } catch (error) {
+          expect(error.code).to.equal(predefined.RESOURCE_NOT_FOUND().code);
+          expect(error.message).to.include(`Block ${blockNumber} not found`);
+        }
+      });
+
+      it('should return empty array if no contract results are found for the block', async function () {
+        // Stub CommonService.getHistoricalBlockResponse
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        // Stub MirrorNodeClient.getContractResultWithRetry
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array').that.is.empty;
+      });
+
+      it('should return cached result if available', async function () {
+        const cachedResult = [{ txHash: '0xabc123', result: callTracerResult1 }];
+
+        // Stub CommonService.getHistoricalBlockResponse
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        // Stub CacheService.getAsync
+        sinon.stub(cacheService, 'getAsync').resolves(cachedResult);
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.deep.equal(cachedResult);
+      });
+
+      describe('with CallTracer', async function () {
+        beforeEach(() => {
+          // Stub CommonService.getHistoricalBlockResponse
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          // Stub CacheService methods
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+        });
+
+        it('should trace block with CallTracer and filter out WRONG_NONCE results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+        });
+
+        it('should use default CallTracer when no tracer is specified', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(debugService, 'callTracer').resolves(callTracerResult1);
+
+          // Pass undefined with type assertion for the second parameter
+          // In the implementation, undefined tracerObject triggers default behavior (using CallTracer)
+          // TypeScript requires type assertion since the parameter is normally required
+          const result = await debugService.traceBlockByNumber(blockNumber, undefined as any, requestDetails);
+
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+        });
+      });
+
+      describe('with PrestateTracer', async function () {
+        beforeEach(() => {
+          // Stub CommonService.getHistoricalBlockResponse
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          // Stub CacheService methods
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+        });
+
+        it('should trace block with PrestateTracer and filter out WRONG_NONCE results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
+
+          sinon
+            .stub(debugService, 'prestateTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult2);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: prestateTracerResult2 });
+        });
+      });
+
+      it('should handle error scenarios', async function () {
+        // Create a proper JsonRpcError
+        const jsonRpcError = predefined.INTERNAL_ERROR('Test error');
+
+        // Stub CommonService.getHistoricalBlockResponse to throw error
+        const getHistoricalBlockResponseStub = sinon.stub().throws(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        // Stub CommonService.genericErrorHandler to return the error
+        const genericErrorHandlerStub = sinon.stub().returns(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
+
+        await RelayAssertions.assertRejection(jsonRpcError, debugService.traceBlockByNumber, true, debugService, [
+          blockNumber,
+          { tracer: TracerType.CallTracer },
+          requestDetails,
+        ]);
       });
     });
   });
