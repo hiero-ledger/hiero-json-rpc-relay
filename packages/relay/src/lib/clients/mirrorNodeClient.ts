@@ -505,9 +505,18 @@ export class MirrorNodeClient {
     }
   }
 
-  public async getAccount(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async getAccount(
+    idOrAliasOrEvmAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+    timestamp?: string,
+  ) {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    this.setQueryParam(queryParamObject, 'transactions', 'false');
+    const queryParams = this.getQueryParams(queryParamObject);
     return this.get(
-      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}?transactions=false`,
+      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}${queryParams}`,
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
       requestDetails,
       retries,
@@ -664,9 +673,18 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async getContract(
+    contractIdOrAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+    timestamp?: string,
+  ) {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    const queryParams = this.getQueryParams(queryParamObject);
+
     return this.get(
-      `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}`,
+      `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}${queryParams}`,
       MirrorNodeClient.GET_CONTRACT_ENDPOINT,
       requestDetails,
       retries,
@@ -1198,15 +1216,15 @@ export class MirrorNodeClient {
     return this.getContractResultsByAddress(address, requestDetails, contractResultsParams, limitOrderParams);
   }
 
-  public async getContractState(address: string, requestDetails: RequestDetails, blockEndTimestamp?: string) {
+  public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string) {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
       constants.MIRROR_NODE_QUERY_LIMIT,
       constants.ORDER.DESC,
     );
     const queryParamObject = {};
 
-    if (blockEndTimestamp) {
-      this.setQueryParam(queryParamObject, 'timestamp', blockEndTimestamp);
+    if (timestamp) {
+      this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     }
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
     const queryParams = this.getQueryParams(queryParamObject);
@@ -1378,8 +1396,11 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     searchableTypes: any[] = [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
     retries?: number,
+    timestamp?: string,
   ) {
-    const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}`;
+    const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}${
+      timestamp ? `_${timestamp}` : ''
+    }`;
     const cachedResponse: { type: string; entity: any } | undefined = await this.cacheService.getAsync(
       cachedLabel,
       callerName,
@@ -1397,10 +1418,11 @@ export class MirrorNodeClient {
         }),
       );
 
-    if (searchableTypes.find((t) => t === constants.TYPE_CONTRACT)) {
-      const contract = await this.getContract(entityIdentifier, requestDetails, retries).catch(() => {
+    if (searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_CONTRACT.toLowerCase())) {
+      const contract = await this.getContract(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
         return null;
       });
+
       if (contract) {
         const response = {
           type: constants.TYPE_CONTRACT,
@@ -1414,9 +1436,9 @@ export class MirrorNodeClient {
     let data;
     try {
       const promises = [
-        searchableTypes.find((t) => t === constants.TYPE_ACCOUNT)
+        searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_ACCOUNT.toLowerCase())
           ? buildPromise(
-              this.getAccount(entityIdentifier, requestDetails, retries).catch(() => {
+              this.getAccount(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
                 return null;
               }),
             )
@@ -1432,7 +1454,7 @@ export class MirrorNodeClient {
       };
 
       promises.push(
-        searchableTypes.find((t) => t === constants.TYPE_TOKEN)
+        searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_TOKEN.toLowerCase())
           ? buildPromise(
               this.getTokenById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
                 return null;
