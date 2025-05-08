@@ -4,9 +4,31 @@ import { RequestDetails } from '../types';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { CacheService } from '../services/cacheService/cacheService';
 
+interface CacheSingleParam {
+  index: string,
+  value: string
+}
+
+interface CacheNamedParam {
+  name: string,
+  value: string
+}
+
+interface CacheNamedParams {
+  index: string,
+  fields: CacheNamedParam[]
+}
+
+interface CacheOptions {
+  skipParams?: CacheSingleParam[],
+  skipNamedParams?: CacheNamedParams[],
+  ttl?: number,
+}
+
 const shouldSkipCachingForSingleParams = (args: any, params: any = []) => {
   for (const item of params) {
-    if (args[item.index] == item.value) {
+    const values = item.value.split('|');
+    if (values.indexOf(args[item.index]) > -1) {
       return true;
     }
   }
@@ -22,7 +44,8 @@ const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
     }));
 
     for (const [key, value] of Object.entries(skipList)) {
-      if (input[key] == value) {
+      const values = (value as string).split('|');
+      if (values.indexOf(input[key]) > -1) {
         return true;
       }
     }
@@ -62,27 +85,6 @@ const extractRequestDetails = (args: any): RequestDetails => {
 
   return new RequestDetails({ requestId, ipAddress, connectionId });
 };
-
-interface CacheSingleParam {
-  index: string,
-  value: string
-}
-
-interface CacheNamedParam {
-  name: string,
-  value: string
-}
-
-interface CacheNamedParams {
-  index: string,
-  fields: CacheNamedParam[]
-}
-
-interface CacheOptions {
-  skipParams?: CacheSingleParam[],
-  skipNamedParams?: CacheNamedParams[],
-  ttl?: number,
-}
 
 export function cache(cacheService: CacheService, options: CacheOptions = {}) {
   return function(_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
