@@ -509,6 +509,29 @@ export class DebugImpl implements Debug {
       : actionsResponse.actions;
 
     // Extract unique addresses involved in the transaction
+    const addressMap = new Map();
+
+    filteredActions.forEach((action) => {
+      if (action.from) {
+        addressMap.set(action.from, {
+          address: action.from,
+          type: action.caller_type,
+          timestamp: action.timestamp,
+        });
+      }
+
+      if (action.to) {
+        addressMap.set(action.to, {
+          address: action.to,
+          type: action.recipient_type,
+          timestamp: action.timestamp,
+        });
+      }
+    });
+
+    const accountEntities = Array.from(addressMap.values());
+    if (accountEntities.length === 0) return {};
+
     const uniqueAddresses = [...new Set(filteredActions.flatMap((action) => [action.from, action.to]))].filter(
       Boolean,
     ) as string[];
@@ -517,27 +540,27 @@ export class DebugImpl implements Debug {
     const result = {};
 
     await Promise.all(
-      uniqueAddresses.map(async (address) => {
+      accountEntities.map(async (accountEntity) => {
         const entityObject = await this.mirrorNodeClient.resolveEntityType(
-          address,
+          accountEntity.address,
           DebugImpl.debugTraceTransaction,
           requestDetails,
-          [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
+          [accountEntity.type],
+          1,
+          accountEntity.timestamp,
         );
 
         if (!entityObject) return;
 
         const evmAddress = entityObject.entity?.evm_address;
-        if (!evmAddress) return;
 
         // Process based on entity type
         if (entityObject.type === constants.TYPE_CONTRACT) {
           const contractId = entityObject.entity.contract_id;
-          const timestamp = entityObject.entity.timestamp.to;
 
           const [balanceResponse, stateResponse] = await Promise.all([
-            this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails),
-            this.mirrorNodeClient.getContractState(contractId, requestDetails, timestamp),
+            this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
+            this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
           ]);
 
           const storageMap = stateResponse.reduce((map, stateItem) => {
@@ -547,7 +570,7 @@ export class DebugImpl implements Debug {
 
           // Add contract data directly to result
           result[evmAddress] = {
-            balance: numberTo0x(balanceResponse.balances[0].balance),
+            balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
             nonce: entityObject.entity.nonce,
             code: entityObject.entity.runtime_bytecode,
             storage: storageMap,
