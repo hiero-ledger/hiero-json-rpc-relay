@@ -9,7 +9,7 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
-import { rpcMethod, rpcParamValidationRules } from './decorators';
+import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
@@ -148,6 +148,7 @@ export class DebugImpl implements Debug {
     0: { type: ParamType.BLOCK_NUMBER, required: true },
     1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1]]))
   async traceBlockByNumber(
     blockNumber: string,
     tracerObject: IBlockTracerConfig,
@@ -194,8 +195,13 @@ export class DebugImpl implements Debug {
         return [];
       }
 
-      const { tracer, tracerConfig, onlyTopCall } = tracerObject;
-      const onlyTopCallOption = tracerConfig?.onlyTopCall || onlyTopCall;
+      let tracer = TracerType.CallTracer;
+      let onlyTopCall;
+
+      if (tracerObject) {
+        tracer = tracerObject.tracer;
+        onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
+      }
 
       if (tracer === TracerType.CallTracer) {
         const result = await Promise.all(
@@ -207,7 +213,7 @@ export class DebugImpl implements Debug {
                 txHash: contractResult.hash,
                 result: await this.callTracer(
                   contractResult.hash,
-                  { onlyTopCallOption } as ICallTracerConfig,
+                  { onlyTopCall } as ICallTracerConfig,
                   requestDetails,
                 ),
               };
@@ -226,7 +232,7 @@ export class DebugImpl implements Debug {
             .map(async (contractResult) => {
               return {
                 txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCallOption, requestDetails),
+                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
               };
             }),
         );
