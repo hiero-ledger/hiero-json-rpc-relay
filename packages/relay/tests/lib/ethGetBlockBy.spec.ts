@@ -17,7 +17,7 @@ import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositori
 import { EthImpl } from '../../src/lib/eth';
 import { Log, Transaction } from '../../src/lib/model';
 import { BlockService, CommonService } from '../../src/lib/services';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -108,7 +108,7 @@ describe('eth_getBlockBy', async function () {
   overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });
 
   this.beforeAll(async () => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
 
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(

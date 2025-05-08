@@ -232,16 +232,6 @@ export class ContractService implements IContractService {
       return constants.INVALID_EVM_INSTRUCTION;
     }
 
-    const cachedLabel = `getCode.${address}.${blockNumber}`;
-    const cachedResponse: string | undefined = await this.cacheService.getAsync(
-      cachedLabel,
-      constants.ETH_GET_CODE,
-      requestDetails,
-    );
-    if (cachedResponse != undefined) {
-      return cachedResponse;
-    }
-
     try {
       const result = await this.mirrorNodeClient.resolveEntityType(address, constants.ETH_GET_CODE, requestDetails, [
         constants.TYPE_CONTRACT,
@@ -259,18 +249,21 @@ export class ContractService implements IContractService {
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
-            const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            const opcodes = disassemble(result?.entity.runtime_bytecode);
-            const hasProhibitedOpcode =
-              opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
-            if (!hasProhibitedOpcode) {
-              await this.cacheService.set(
-                cachedLabel,
-                result.entity.runtime_bytecode,
-                constants.ETH_GET_CODE,
-                requestDetails,
-              );
-            }
+
+            // Might be removed by another PR related to the getCode improvements
+            //
+            // const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
+            // const opcodes = disassemble(result?.entity.runtime_bytecode);
+            // const hasProhibitedOpcode =
+            //   opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
+            // if (!hasProhibitedOpcode) {
+            //   await this.cacheService.set(
+            //     cachedLabel,
+            //     result.entity.runtime_bytecode,
+            //     constants.ETH_GET_CODE,
+            //     requestDetails,
+            //   );
+            // }
             return result.entity.runtime_bytecode;
           }
         }

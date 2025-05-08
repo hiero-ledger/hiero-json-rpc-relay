@@ -7,8 +7,8 @@ import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
 import { SDKClient } from '../../../src/lib/clients';
-import constants from '../../../src/lib/constants';
 import { EthImpl } from '../../../src/lib/eth';
+import { ContractService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
@@ -53,9 +53,9 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    currentGasPriceStub = sinon.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0x25');
+    currentGasPriceStub = sinon.stub(ethImpl.common, 'getCurrentGasPriceForBlock').resolves('0x25');
     extractBlockNumberOrTagStub = sinon
-      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
+      .stub(ethImpl.contractService, 'extractBlockNumberOrTag')
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
@@ -196,37 +196,37 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   });
 
   describe('Cache behavior', () => {
-    it('should use cached results for subsequent calls', async function () {
-      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER}`;
+    let spyCommonGetHistoricalBlockResponse;
+
+    this.beforeEach(() => {
+      spyCommonGetHistoricalBlockResponse = sinon
+        .spy(ethImpl.common, 'getHistoricalBlockResponse');
+    });
+
+    this.afterEach(() => {
+      spyCommonGetHistoricalBlockResponse.restore();
+    });
+
+    it('should use cached results for subsequent calls', async function() {
       setupStandardResponses();
 
-      const specificCacheServiceSpy = sinon
-        .spy(cacheService, 'getAsync')
-        .withArgs(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
       const firstResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
       // Subsequent calls should use cache
       const secondResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
       const thirdResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
-      expect(specificCacheServiceSpy.calledThrice).to.be.true;
-      expect(specificCacheServiceSpy.callCount).to.equal(3);
+      expect(spyCommonGetHistoricalBlockResponse.calledOnce).to.be.true;
       expect(secondResponse).to.deep.equal(firstResponse);
       expect(thirdResponse).to.deep.equal(firstResponse);
     });
 
-    it('should set cache when not previously cached', async function () {
-      const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${BLOCK_NUMBER}`;
-      const cacheSetSpy = sinon.spy(cacheService, 'set');
-
+    it('should set cache when not previously cached', async function() {
       setupStandardResponses();
 
       await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
-      expect(cacheSetSpy.calledWith(cacheKey, sinon.match.any, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails)).to.be
-        .true;
-
-      cacheSetSpy.restore();
+      expect(spyCommonGetHistoricalBlockResponse.calledOnce).to.be.true;
     });
   });
 });

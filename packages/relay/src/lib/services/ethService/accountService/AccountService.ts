@@ -116,17 +116,6 @@ export class AccountService implements IAccountService {
       ));
     }
 
-    // check cache first
-    // create a key for the cache
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BALANCE}-${account}-${blockNumberOrTagOrHash}`;
-    let cachedBalance = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE, requestDetails);
-    if (cachedBalance && AccountService.shouldUseCacheForBalance(blockNumberOrTagOrHash)) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(cachedBalance)}`);
-      }
-      return cachedBalance;
-    }
-
     let blockNumber = null;
     let balanceFound = false;
     let weibars = BigInt(0);
@@ -171,20 +160,7 @@ export class AccountService implements IAccountService {
         return constants.ZERO_HEX;
       }
 
-      // save in cache the current balance for the account and blockNumberOrTag
-      cachedBalance = numberTo0x(weibars);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} Value cached balance ${cachedBalance}`);
-      }
-      await this.cacheService.set(
-        cacheKey,
-        cachedBalance,
-        constants.ETH_GET_BALANCE,
-        requestDetails,
-        this.ethGetBalanceCacheTtlMs,
-      );
-
-      return cachedBalance;
+      return numberTo0x(weibars);
     } catch (error: any) {
       throw this.common.genericErrorHandler(
         error,

@@ -12,7 +12,7 @@ import { EvmAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbar
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IEvmAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -32,7 +32,9 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
     let repository: EvmAddressHbarSpendingPlanRepository;
 
     before(async () => {
-      cacheService = new CacheService(logger.child({ name: 'CacheService' }), registry);
+      // @ts-ignore
+      CacheService.instances = [];
+      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,

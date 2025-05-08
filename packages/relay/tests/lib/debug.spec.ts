@@ -18,7 +18,7 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
 import { CommonService } from '../../src/lib/services';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -251,7 +251,7 @@ describe('Debug API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
