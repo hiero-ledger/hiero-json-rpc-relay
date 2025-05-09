@@ -2844,6 +2844,8 @@ describe('RPC Server', function () {
 
       let getHistoricalBlockResponse: sinon.SinonStub;
       let getContractResultWithRetry: sinon.SinonStub;
+      let getBlocks: sinon.SinonStub;
+      let getBlock: sinon.SinonStub;
       let callTracer: sinon.SinonStub;
       let prestateTracer: sinon.SinonStub;
       let cacheGetAsync: sinon.SinonStub;
@@ -2857,6 +2859,40 @@ describe('RPC Server', function () {
         getContractResultWithRetry = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResults);
+        getBlocks = sinon.stub(MirrorNodeClient.prototype, 'getBlocks').resolves({
+          blocks: [
+            {
+              count: 3,
+              hapi_version: '0.27.0',
+              hash: '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b',
+              name: '2022-05-03T06_46_26.060890949Z.rcd',
+              number: 77,
+              previous_hash:
+                '0xf7d6481f659c866c35391ee230c374f163642ebf13a5e604e04a95a9ca48a298dc2dfa10f51bcbaab8ae23bc6d662a0b',
+              size: null,
+              timestamp: {
+                from: '1651560386.060890949',
+                to: '1651560389.060890949',
+              },
+            },
+          ],
+        });
+        getBlock = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves({
+          count: 1,
+          hapi_version: '0.44.0',
+          hash: '0xf5e3d29fc3ffd39ce50eb879e76257c2ba6e2414d5379a19d7c4fd23543e8f20573904e25caacedc7b40f9abbfe196c6',
+          name: '2024-02-01T18_35_40.404621003Z.rcd.gz',
+          number: 1,
+          previous_hash:
+            '0x5699954170cc8177692691d15368cad54f1e7a90c9e16b782f989de1b8d193583ed6ea19eb3290f59b85891eb23e8883',
+          size: 489,
+          timestamp: {
+            from: '1706812540.404621003',
+            to: '1706812540.404621003',
+          },
+          gas_used: 0,
+          logs_bloom: '0x',
+        });
         callTracer = sinon.stub(DebugImpl.prototype, 'callTracer').resolves(callTracerResult);
         prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateTracer').resolves(prestateTracerResult);
         cacheGetAsync = sinon.stub(CacheService.prototype, 'getAsync').resolves(null);
@@ -2867,6 +2903,8 @@ describe('RPC Server', function () {
       afterEach(() => {
         getHistoricalBlockResponse.restore();
         getContractResultWithRetry.restore();
+        getBlocks.restore();
+        getBlock.restore();
         callTracer.restore();
         prestateTracer.restore();
         cacheGetAsync.restore();
