@@ -25,6 +25,17 @@ interface CacheOptions {
   ttl?: number,
 }
 
+/**
+ * Skip single params in the following format
+ *
+ * [{
+ *    index: '0',
+ *    value: 'pending|safe'
+ * }]
+ *
+ * @param args
+ * @param params
+ */
 const shouldSkipCachingForSingleParams = (args: any, params: any = []) => {
   for (const item of params) {
     const values = item.value.split('|');
@@ -36,6 +47,21 @@ const shouldSkipCachingForSingleParams = (args: any, params: any = []) => {
   return false;
 };
 
+/**
+ * Skip named params in the following format
+ *
+ * [{
+ *    index: '0',
+ *    fields: [{
+ *        name: 'fromBlock', value: 'pending|safe'
+ *    }, {
+ *        name: 'toBlock', value: 'safe|finalized'
+ *   }],
+ * }]
+ *
+ * @param args
+ * @param params
+ */
 const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
   for (const item of params) {
     const input = args[item.index];
@@ -54,6 +80,12 @@ const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
   return false;
 };
 
+/**
+ * Generate cache key by method name and passed arguments
+ *
+ * @param methodName
+ * @param args
+ */
 const generateCacheKey = (methodName: string, args: any) => {
   let cacheKey: string = methodName;
   for (const [, value] of Object.entries(args)) {
@@ -72,6 +104,11 @@ const generateCacheKey = (methodName: string, args: any) => {
   return cacheKey;
 };
 
+/**
+ * Extract the RequestDetails field from the arguments
+ *
+ * @param args
+ */
 const extractRequestDetails = (args: any): RequestDetails => {
   let requestId, ipAddress, connectionId: string = '';
   for (const [, value] of Object.entries(args)) {
