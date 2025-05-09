@@ -15,6 +15,7 @@ import {
   DEFAULT_CONTRACT,
   DEFAULT_HTS_TOKEN,
   DEFAULT_NETWORK_FEES,
+  DEPLOYED_BYTECODE,
   HTS_TOKEN_ADDRESS,
   MIRROR_NODE_DEPLOYED_BYTECODE,
   NO_TRANSACTIONS,
@@ -278,6 +279,97 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`tokens/${accountId}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
       const res = await ethImpl.getCode(addr, null, requestDetails);
       expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(addr));
+    });
+
+    it('should verify correct endpoints are called for latest block parameter', async () => {
+      // First call
+      const firstResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'latest', requestDetails);
+      expect(firstResult).to.equal(MIRROR_NODE_DEPLOYED_BYTECODE);
+
+      // Check first call history
+      const firstCallHistory = restMock.history.get;
+      expect(firstCallHistory.length).to.equal(2);
+      expect(firstCallHistory[0].url).to.include(`contracts/${CONTRACT_ADDRESS_1}`); // Contract lookup
+      expect(firstCallHistory[1].url).to.include('blocks?limit=1&order=desc'); // Latest block lookup
+
+      // Reset history to clearly see second call
+      restMock.resetHistory();
+
+      // Change the mock response to verify no bytecode caching
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(
+        200,
+        JSON.stringify({
+          ...DEFAULT_CONTRACT,
+          runtime_bytecode: DEPLOYED_BYTECODE, // Different bytecode
+        }),
+      );
+
+      // Second call
+      const secondResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'latest', requestDetails);
+
+      // Check second call history - should still make both calls since latest is not cached
+      const secondCallHistory = restMock.history.get;
+      expect(secondCallHistory.length).to.equal(1);
+      expect(secondCallHistory[0].url).to.include('blocks?limit=1&order=desc'); // Latest block lookup needed
+      // No contract lookup due to entity resolution cache, but we still get the cached entity's bytecode
+      expect(secondResult).to.equal(MIRROR_NODE_DEPLOYED_BYTECODE);
+    });
+
+    it('should cache bytecode when using earliest block parameter with SELFDESTRUCT opcode', async () => {
+      // Setup contract with SELFDESTRUCT opcode
+      const bytecodeWithSelfDestruct = '0x6080604052348015600f57600080fd5b50600033ff';
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(
+        200,
+        JSON.stringify({
+          ...DEFAULT_CONTRACT,
+          runtime_bytecode: bytecodeWithSelfDestruct,
+        }),
+      );
+
+      restMock.onGet('blocks/0').reply(
+        200,
+        JSON.stringify({
+          timestamp: { to: '1532175203.847228000' },
+        }),
+      );
+
+      // First call
+      const firstResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
+
+      // Check first call history
+      const firstCallHistory = restMock.history.get;
+      expect(firstCallHistory.length).to.equal(2);
+      expect(firstCallHistory[0].url).to.include(`contracts/${CONTRACT_ADDRESS_1}`); // Contract lookup
+      expect(firstCallHistory[1].url).to.include('blocks/0'); // Earliest block lookup
+      expect(firstResult).to.equal(constants.EMPTY_HEX); // Should return empty for SELFDESTRUCT
+
+      // Reset history and change mock responses to verify both entity and bytecode caching
+      restMock.resetHistory();
+
+      // Change contract mock to return different bytecode
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(
+        200,
+        JSON.stringify({
+          ...DEFAULT_CONTRACT,
+          runtime_bytecode: DEPLOYED_BYTECODE, // Different non-SELFDESTRUCT bytecode
+        }),
+      );
+
+      // Change block mock to return different timestamp
+      restMock.onGet('blocks/0').reply(
+        200,
+        JSON.stringify({
+          timestamp: { to: '1632175203.847228000' }, // Different timestamp
+        }),
+      );
+
+      // Second call
+      const secondResult = await ethImpl.getCode(CONTRACT_ADDRESS_1, 'earliest', requestDetails);
+
+      // Check second call history - no calls should be made due to both entity and bytecode caching
+      const secondCallHistory = restMock.history.get;
+      expect(secondCallHistory.length).to.equal(0); // No calls made - everything cached
+      expect(secondResult).to.equal(constants.EMPTY_HEX); // Should still return empty from cache
     });
   });
 });
