@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect } from 'chai';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
-import { Registry } from 'prom-client';
+import { CACHE_LEVEL, CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { expect } from 'chai';
+import { Registry } from 'prom-client';
+
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
 
 const registry = new Registry();
@@ -20,7 +21,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
   const requestDetails = new RequestDetails({ requestId: 'cacheServiceTest', ipAddress: '0.0.0.0' });
 
   before(async () => {
-    cacheService = new CacheService(global.logger, registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1);
     await new Promise((r) => setTimeout(r, 1000));
   });
 
@@ -69,7 +70,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     it('Falls back to local cache for REDIS_ENABLED !== true', async () => {
       const dataLabel = `${DATA_LABEL_PREFIX}3`;
 
-      const serviceWithDisabledRedis = new CacheService(global.logger, registry);
+      const serviceWithDisabledRedis = CacheService.getInstance(CACHE_LEVEL.L1);
       await new Promise((r) => setTimeout(r, 1000));
       expect(serviceWithDisabledRedis.isRedisEnabled()).to.eq(false, 'redis is disabled');
       await serviceWithDisabledRedis.set(dataLabel, DATA, CALLING_METHOD, requestDetails);
@@ -82,7 +83,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
   it('Cache set by one instance can be accessed by another', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}4`;
-    const otherServiceInstance = new CacheService(global.logger, registry);
+    const otherServiceInstance = CacheService.getInstance(CACHE_LEVEL.L1);
     await cacheService.set(dataLabel, DATA, CALLING_METHOD, requestDetails);
     await new Promise((r) => setTimeout(r, 200));
 
@@ -98,7 +99,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     overrideEnvsInMochaDescribe({ REDIS_ENABLED: true });
 
     before(async () => {
-      cacheService = new CacheService(global.logger, registry);
+      cacheService = CacheService.getInstance(CACHE_LEVEL.L1);
 
       // disconnect redis client to simulate Redis error
       await cacheService.disconnectRedisClient();

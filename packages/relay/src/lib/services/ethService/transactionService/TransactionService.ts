@@ -236,23 +236,6 @@ export class TransactionService implements ITransactionService {
       this.logger.trace(`${requestIdPrefix} getTransactionReceipt(${hash})`);
     }
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT}_${hash}`;
-    const cachedResponse = await this.cacheService.getAsync(
-      cacheKey,
-      constants.ETH_GET_TRANSACTION_RECEIPT,
-      requestDetails,
-    );
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `${requestIdPrefix} getTransactionReceipt returned cached response: ${JSON.stringify(cachedResponse)}`,
-          );
-        }
-      }
-      return cachedResponse;
-    }
-
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -261,31 +244,13 @@ export class TransactionService implements ITransactionService {
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
-      const receipt = await this.handleSyntheticTransactionReceipt(hash, requestDetails);
-
-      await this.cacheService.set(
-        cacheKey,
-        receipt,
-        constants.ETH_GET_TRANSACTION_RECEIPT,
-        requestDetails,
-        constants.CACHE_TTL.ONE_DAY,
-      );
-
-      return receipt;
+      return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
       }
 
-      await this.cacheService.set(
-        cacheKey,
-        receipt,
-        constants.ETH_GET_TRANSACTION_RECEIPT,
-        requestDetails,
-        constants.CACHE_TTL.ONE_DAY,
-      );
       return receipt;
     }
   }

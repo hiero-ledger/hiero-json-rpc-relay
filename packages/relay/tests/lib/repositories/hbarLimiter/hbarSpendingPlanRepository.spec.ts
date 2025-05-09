@@ -14,7 +14,7 @@ import {
 import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { IHbarSpendingRecord } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingRecord';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -32,7 +32,9 @@ describe('HbarSpendingPlanRepository', function () {
     let repository: HbarSpendingPlanRepository;
 
     before(async () => {
-      cacheService = new CacheService(logger.child({ name: `CacheService` }), registry);
+      // @ts-ignore
+      CacheService.instances = [];
+      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
     });

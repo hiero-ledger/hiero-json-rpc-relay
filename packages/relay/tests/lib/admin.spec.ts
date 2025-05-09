@@ -7,12 +7,22 @@ import { Registry } from 'prom-client';
 import { Relay } from '../../src/lib/relay';
 import { RequestDetails } from '../../src/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 
 const logger = pino({ level: 'silent' });
 let relay;
 
 const requestDetails = new RequestDetails({ requestId: 'admin', ipAddress: '0.0.0.0' });
 describe('Admin', async function () {
+  this.beforeAll(() => {
+    // @ts-ignore
+    CacheService.instances = [];
+  });
+
+  this.beforeEach(async () => {
+    await CacheService.getInstance(CACHE_LEVEL.L1).clear(requestDetails);
+  });
+
   it('should execute config', async () => {
     relay = new Relay(logger, new Registry());
     const res = await relay.admin().config(requestDetails);

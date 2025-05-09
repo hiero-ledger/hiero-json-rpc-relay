@@ -6,6 +6,7 @@ import fs from 'fs';
 import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
+import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 
 import { Relay } from '../../src';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -49,6 +50,8 @@ describe('Relay', () => {
     let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
 
     beforeEach(() => {
+      // @ts-ignore
+      CacheService.instances = [];
       loggerSpy = sinon.spy(logger);
       populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     });

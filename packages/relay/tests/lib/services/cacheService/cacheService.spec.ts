@@ -7,7 +7,7 @@ import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { RequestDetails } from '../../../../dist/lib/types';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -125,7 +125,9 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
 
     this.beforeAll(() => {
-      cacheService = new CacheService(logger.child({ name: 'cache-service' }), registry);
+      // @ts-ignore
+      CacheService.instances = [];
+      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     });
 
     this.afterEach(async () => {
@@ -261,7 +263,9 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     this.beforeAll(async () => {
-      cacheService = new CacheService(logger.child({ name: 'cache-service' }), registry);
+      // @ts-ignore
+      CacheService.instances = [];
+      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     });
 
     this.afterAll(async () => {
