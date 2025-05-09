@@ -15,6 +15,7 @@ import {
   DEFAULT_CONTRACT,
   DEFAULT_HTS_TOKEN,
   DEFAULT_NETWORK_FEES,
+  DEPLOYED_BYTECODE,
   HTS_TOKEN_ADDRESS,
   MIRROR_NODE_DEPLOYED_BYTECODE,
   NO_TRANSACTIONS,
@@ -340,7 +341,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       expect(firstCallHistory.length).to.equal(2);
       expect(firstCallHistory[0].url).to.include(`contracts/${CONTRACT_ADDRESS_1}`); // Contract lookup
       expect(firstCallHistory[1].url).to.include('blocks/0'); // Earliest block lookup
-      expect(firstResult).to.equal(EthImpl.emptyHex); // Should return empty for SELFDESTRUCT
+      expect(firstResult).to.equal(constants.EMPTY_HEX); // Should return empty for SELFDESTRUCT
 
       // Reset history and change mock responses to verify both entity and bytecode caching
       restMock.resetHistory();
@@ -368,7 +369,7 @@ describe('@ethGetCode using MirrorNode', async function () {
       // Check second call history - no calls should be made due to both entity and bytecode caching
       const secondCallHistory = restMock.history.get;
       expect(secondCallHistory.length).to.equal(0); // No calls made - everything cached
-      expect(secondResult).to.equal(EthImpl.emptyHex); // Should still return empty from cache
+      expect(secondResult).to.equal(constants.EMPTY_HEX); // Should still return empty from cache
     });
   });
 });
