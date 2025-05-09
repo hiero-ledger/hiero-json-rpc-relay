@@ -22,7 +22,7 @@ export interface IContractService {
   /**
    * Returns the compiled smart contract code at a given address.
    */
-  getCode: (address: string, blockNumber: string | null, requestDetails: RequestDetails) => Promise<string | null>;
+  getCode: (address: string, blockNumber: string | null, requestDetails: RequestDetails) => Promise<string>;
 
   /**
    * Returns an array of all logs matching the filter criteria.
