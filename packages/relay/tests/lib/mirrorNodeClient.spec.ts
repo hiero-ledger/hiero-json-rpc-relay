@@ -1768,4 +1768,141 @@ describe('MirrorNodeClient', async function () {
       expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
     });
   });
+
+  describe('getContractState', async () => {
+    const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+    const contractStatePath = `contracts/${contractAddress}/state?limit=100&order=desc`;
+    const blockEndTimestamp = '1653077541.983983199';
+    const contractStatePathWithTimestamp = `contracts/${contractAddress}/state?timestamp=${blockEndTimestamp}&limit=100&order=desc`;
+
+    const mockContractState = {
+      state: [
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000101',
+          value: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+        },
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000102',
+          value: '0x9c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b926',
+        },
+      ],
+    };
+
+    it('should fetch contract state for existing contract', async () => {
+      mock.onGet(contractStatePath).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.exist;
+      expect(result.length).to.equal(2);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].slot).to.equal(mockContractState.state[0].slot);
+      expect(result[0].value).to.equal(mockContractState.state[0].value);
+    });
+
+    it('should fetch contract state with blockEndTimestamp', async () => {
+      mock.onGet(contractStatePathWithTimestamp).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails, blockEndTimestamp);
+      expect(result).to.exist;
+      expect(result.length).to.equal(2);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].timestamp).to.equal(blockEndTimestamp);
+    });
+
+    it('should return empty array when contract state is not found', async () => {
+      mock.onGet(contractStatePath).reply(404, JSON.stringify(mockData.notFound));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.be.empty;
+    });
+
+    it('should throw error for invalid contract address', async () => {
+      const invalidAddress = '0x123';
+      mock.onGet(`contracts/${invalidAddress}/state?limit=100&order=desc`).reply(400, JSON.stringify(null));
+      let errorRaised = false;
+      try {
+        await mirrorNodeInstance.getContractState(invalidAddress, requestDetails);
+      } catch (error) {
+        errorRaised = true;
+        expect(error.message).to.equal('Request failed with status code 400');
+      }
+      expect(errorRaised).to.be.true;
+    });
+
+    it('should throw error for server error', async () => {
+      mock.onGet(contractStatePath).reply(500, JSON.stringify({ error: 'Server error' }));
+      let errorRaised = false;
+      try {
+        await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      } catch (error) {
+        errorRaised = true;
+        expect(error.message).to.equal('Request failed with status code 500');
+      }
+      expect(errorRaised).to.be.true;
+    });
+
+    it('should handle pagination and consolidate results from multiple pages', async () => {
+      // Mock first page with a next link
+      const firstPageResponse = {
+        state: [
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000101',
+            value: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+          },
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000102',
+            value: '0x9c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b926',
+          },
+        ],
+        links: {
+          next: '/api/v1/contracts/results/0x7e08d3df45823dc56298a9a097f8cb9bde2f99c4e114b569a9aff3eb227e4d23/actions?limit=2&order=desc&index=lt:8',
+        },
+      };
+
+      // Mock second page with no next link (final page)
+      const secondPageResponse = {
+        state: [
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000103',
+            value: '0xac5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b927',
+          },
+        ],
+        links: {
+          next: null,
+        },
+      };
+
+      // Setup mocks for both pages
+      mock.onGet(contractStatePath).reply(200, JSON.stringify(firstPageResponse));
+      mock
+        .onGet(
+          'contracts/results/0x7e08d3df45823dc56298a9a097f8cb9bde2f99c4e114b569a9aff3eb227e4d23/actions?limit=2&order=desc&index=lt:8',
+        )
+        .reply(200, JSON.stringify(secondPageResponse));
+
+      // Call the method
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+
+      // Verify the results are merged correctly
+      expect(result).to.exist;
+      expect(result.length).to.equal(3);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].slot).to.equal(firstPageResponse.state[0].slot);
+      expect(result[0].value).to.equal(firstPageResponse.state[0].value);
+      expect(result[2].slot).to.equal(secondPageResponse.state[0].slot);
+      expect(result[2].value).to.equal(secondPageResponse.state[0].value);
+    });
+  });
 });
