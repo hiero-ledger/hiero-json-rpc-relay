@@ -210,7 +210,7 @@ export class ContractService implements IContractService {
     address: string,
     blockNumber: string | null,
     requestDetails: RequestDetails,
-  ): Promise<string | null> {
+  ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (!this.common.isBlockParamValid(blockNumber)) {
       throw predefined.UNKNOWN_BLOCK(
@@ -250,7 +250,7 @@ export class ContractService implements IContractService {
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
 
-            // Might be removed by another PR related to the getCode improvements
+            // Might be removed by another PR related to the getCode improvements - https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/3698
             //
             // const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
             // const opcodes = disassemble(result?.entity.runtime_bytecode);
