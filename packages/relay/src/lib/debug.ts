@@ -148,7 +148,7 @@ export class DebugImpl implements Debug {
     0: { type: ParamType.BLOCK_NUMBER, required: true },
     1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
-  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1]]))
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async traceBlockByNumber(
     blockNumber: string,
     tracerObject: IBlockTracerConfig,

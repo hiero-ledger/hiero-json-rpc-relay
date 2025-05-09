@@ -9,9 +9,9 @@ import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
-import { CommonService } from '@hashgraph/json-rpc-relay/dist/lib/services/ethService/ethCommonService';
 import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -3042,7 +3042,7 @@ describe('RPC Server', function () {
           await testClient.post('/', {
             jsonrpc: '2.0',
             method: 'debug_traceBlockByNumber',
-            params: [blockNumberHex],
+            params: ['0x999999999999'], // block number that doesn't exist
             id: '2',
           });
 
