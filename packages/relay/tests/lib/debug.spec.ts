@@ -18,13 +18,13 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
+import { CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
-import { CommonService } from '../../src/lib/services';
 chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
@@ -622,8 +622,7 @@ describe('Debug API Test Suite', async function () {
     });
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
-      it('should return empty array if block is not found', async function () {
-        // Stub CommonService.getHistoricalBlockResponse
+      it('should throw RESOURCE_NOT_FOUND if block is not found', async function () {
         const getHistoricalBlockResponseStub = sinon.stub().resolves(null);
         sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
@@ -641,11 +640,9 @@ describe('Debug API Test Suite', async function () {
       });
 
       it('should return empty array if no contract results are found for the block', async function () {
-        // Stub CommonService.getHistoricalBlockResponse
         const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
         sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
-        // Stub MirrorNodeClient.getContractResultWithRetry
         sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
 
         const result = await debugService.traceBlockByNumber(
@@ -660,11 +657,9 @@ describe('Debug API Test Suite', async function () {
       it('should return cached result if available', async function () {
         const cachedResult = [{ txHash: '0xabc123', result: callTracerResult1 }];
 
-        // Stub CommonService.getHistoricalBlockResponse
         const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
         sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
-        // Stub CacheService.getAsync
         sinon.stub(cacheService, 'getAsync').resolves(cachedResult);
 
         const result = await debugService.traceBlockByNumber(
@@ -678,11 +673,9 @@ describe('Debug API Test Suite', async function () {
 
       describe('with CallTracer', async function () {
         beforeEach(() => {
-          // Stub CommonService.getHistoricalBlockResponse
           const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
           sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
-          // Stub CacheService methods
           sinon.stub(cacheService, 'getAsync').resolves(null);
           sinon.stub(cacheService, 'set').resolves();
         });
@@ -726,11 +719,9 @@ describe('Debug API Test Suite', async function () {
 
       describe('with PrestateTracer', async function () {
         beforeEach(() => {
-          // Stub CommonService.getHistoricalBlockResponse
           const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
           sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
-          // Stub CacheService methods
           sinon.stub(cacheService, 'getAsync').resolves(null);
           sinon.stub(cacheService, 'set').resolves();
         });
@@ -760,14 +751,11 @@ describe('Debug API Test Suite', async function () {
       });
 
       it('should handle error scenarios', async function () {
-        // Create a proper JsonRpcError
         const jsonRpcError = predefined.INTERNAL_ERROR('Test error');
 
-        // Stub CommonService.getHistoricalBlockResponse to throw error
         const getHistoricalBlockResponseStub = sinon.stub().throws(jsonRpcError);
         sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
-        // Stub CommonService.genericErrorHandler to return the error
         const genericErrorHandlerStub = sinon.stub().returns(jsonRpcError);
         sinon.stub(CommonService.prototype, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
 
