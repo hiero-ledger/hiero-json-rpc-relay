@@ -174,7 +174,7 @@ export class EthImpl implements Eth {
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '2', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '2', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
     ttl: constants.CACHE_TTL.FIFTEEN_MINUTES,
   })
   async feeHistory(
@@ -705,7 +705,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '1', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBalance(
     account: string,
@@ -733,7 +733,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '1', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async getCode(
     address: string,
@@ -798,7 +798,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_NUMBER, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '0', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBlockTransactionCountByNumber(
     blockNumOrTag: string,
@@ -849,7 +849,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.HEX, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '0', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getTransactionByBlockNumberAndIndex(
     blockNumOrTag: string,
@@ -880,7 +880,7 @@ export class EthImpl implements Eth {
     1: { type: ParamType.BOOLEAN, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '0', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBlockByNumber(
     blockNumOrTag: string,
@@ -1055,8 +1055,8 @@ export class EthImpl implements Eth {
       {
         index: '0',
         fields: [
-          { name: 'fromBlock', value: 'latest|pending|finalized|safe' },
-          { name: 'toBlock', value: 'latest|pending|finalized|safe' },
+          { name: 'fromBlock', value: constants.NON_CACHABLE_BLOCK_PARAMS },
+          { name: 'toBlock', value: constants.NON_CACHABLE_BLOCK_PARAMS },
         ],
       },
     ],
@@ -1099,7 +1099,7 @@ export class EthImpl implements Eth {
     0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '0', value: 'latest|pending|finalized|safe' }],
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);

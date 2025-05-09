@@ -263,4 +263,6 @@ export default {
   ETH_GET_TRANSACTION_COUNT: 'eth_getTransactionCount',
   ETH_GET_TRANSACTION_RECEIPT: 'eth_GetTransactionReceipt',
   ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
+
+  NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
 };
