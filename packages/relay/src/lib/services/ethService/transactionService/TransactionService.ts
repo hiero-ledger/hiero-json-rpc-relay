@@ -298,11 +298,12 @@ export class TransactionService implements ITransactionService {
    */
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
-
+    const parsedTx = Precheck.parseRawTransaction(transaction);
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
       await this.common.getGasPriceInWeibars(requestDetails),
     );
-    const parsedTx = await this.parseRawTxAndPrecheck(transaction, networkGasPriceInWeiBars, requestDetails);
+
+    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -536,18 +537,17 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Parses a raw transaction and performs prechecks
-   * @param transaction The raw transaction string
+   * Validates a parsed transaction by performing prechecks
+   * @param parsedTx The parsed Ethereum transaction to validate
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
    * @param requestDetails The request details for logging and tracking
-   * @returns {Promise<EthersTransaction>} A promise that resolves to the parsed Ethereum transaction
+   * @throws {JsonRpcError} If validation fails
    */
-  private async parseRawTxAndPrecheck(
-    transaction: string,
+  private async validateRawTransaction(
+    parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
-  ): Promise<EthersTransaction> {
-    const parsedTx = Precheck.parseTxIfNeeded(transaction);
+  ): Promise<void> {
     try {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
@@ -557,9 +557,7 @@ export class TransactionService implements ITransactionService {
         );
       }
 
-      this.precheck.checkSize(transaction);
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return parsedTx;
     } catch (e: any) {
       this.logger.error(
         `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,

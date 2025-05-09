@@ -279,10 +279,20 @@ export const predefined = {
     code: -32001,
     message: 'Filter not found',
   }),
-  TRANSACTION_SIZE_TOO_BIG: (actualSize: string, expectedSize: string) =>
+  TRANSACTION_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
     new JsonRpcError({
       code: -32201,
       message: `Oversized data: transaction size ${actualSize}, transaction limit ${expectedSize}`,
+    }),
+  CALL_DATA_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+    new JsonRpcError({
+      code: -32201,
+      message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
+    }),
+  CONTRACT_CODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
+    new JsonRpcError({
+      code: -32201,
+      message: `Oversized data: contract code size ${actualSize}, contract code size limit ${expectedSize}`,
     }),
   BATCH_REQUESTS_DISABLED: new JsonRpcError({
     code: -32202,

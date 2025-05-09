@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { hexToBytes } from '@ethereumjs/util';
 import { hexToASCII } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
@@ -720,7 +721,7 @@ describe('Equivalence tests', async function () {
       const { contractExecuteTimestamp } = await servicesClient.executeContractCall(
         equivalenceContractId,
         getFunctionName(callType, Constants.AMOUNT.AMOUNT_0, ADDRESS_0_0_1),
-        new ContractFunctionParameters().addAddress(evmAddress).addBytes(precheck.hexToBytes(hashedMessage)),
+        new ContractFunctionParameters().addAddress(evmAddress).addBytes(hexToBytes(hashedMessage)),
         Constants.GAS_AS_NUMBER.LIMIT_500_000,
       );
 
