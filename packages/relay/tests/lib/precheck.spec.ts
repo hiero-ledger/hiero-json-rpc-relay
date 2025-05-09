@@ -236,7 +236,6 @@ describe('Precheck', async function () {
             await precheck.gasLimit(parsedTx, requestDetails);
             expectedError();
           } catch (e: any) {
-            console.log(e);
             expect(e).to.exist;
             expect(e.code).to.eq(errorCode);
             expect(e.message).to.contain(message);
