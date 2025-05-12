@@ -19,7 +19,7 @@
     {
       "name": "Previewnet",
       "url": "https://previewnet.hashio.io/api",
-      "description": "Hedera Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.png) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+      "description": "Hedera Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
     },
     {
       "name": "localhost",
