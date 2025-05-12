@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { disassemble } from '@ethersproject/asm';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import crypto from 'crypto';
 import { Logger } from 'pino';
