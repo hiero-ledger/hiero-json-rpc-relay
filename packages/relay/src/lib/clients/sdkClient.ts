@@ -454,15 +454,17 @@ export class SDKClient {
       );
       return transactionResponse;
     } catch (e: any) {
+      const sdkClientError = new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
+
+      this.logger.warn(
+        `${requestDetails.formattedRequestId} Failed to execute transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}, errorStatus=${sdkClientError.status}(${sdkClientError.status._code}), errorMessage=${sdkClientError.message}, nodeId=${sdkClientError.nodeAccountId}`,
+      );
+
       // In some cases, for instance, when the SDK returns a WRONG_NONCE error, the SDK still returns a valid transactionResponse.
       if (transactionResponse) {
         return transactionResponse;
       }
 
-      const sdkClientError = new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
-      this.logger.warn(
-        `${requestDetails.formattedRequestId} Failed to execute transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}, errorStatus=${sdkClientError.status}(${sdkClientError.status._code}), errorMessage=${sdkClientError.message}, nodeId=${sdkClientError.nodeAccountId}`,
-      );
       throw sdkClientError;
     } finally {
       if (transactionId?.length) {
