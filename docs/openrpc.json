@@ -1216,7 +1216,7 @@
                   },
                   "nonce": {
                     "$ref": "#/components/schemas/uint",
-                    "description": "The latest nonce of the account, represented as an unsigned integer. Historical nonces are not stored due to performance concerns."
+                    "description": "The latest nonce of the account, represented as an unsigned integer. Historical nonces are not supported by now."
                   },
                   "code": {
                     "$ref": "#/components/schemas/bytes",
