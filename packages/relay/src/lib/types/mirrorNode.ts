@@ -237,3 +237,23 @@ export interface MirrorNodeContractResult {
   v: number;
   nonce: number;
 }
+
+export interface ContractAction {
+  call_depth: number;
+  call_operation_type: 'CALL' | string;
+  call_type: 'CALL' | string;
+  caller: string; // e.g., '0.0.2661815'
+  caller_type: 'ACCOUNT' | 'CONTRACT' | string;
+  from: string; // hex address
+  gas: number;
+  gas_used: number;
+  index: number;
+  input: string; // hex-encoded input data
+  recipient: string; // e.g., '0.0.5950145'
+  recipient_type: 'ACCOUNT' | 'CONTRACT' | string;
+  result_data: string;
+  result_data_type: 'OUTPUT' | string;
+  timestamp: string; // can also be typed as number if preferred
+  to: string; // hex address
+  value: number;
+}

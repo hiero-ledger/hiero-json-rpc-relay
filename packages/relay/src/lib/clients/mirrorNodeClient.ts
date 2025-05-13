@@ -27,7 +27,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
-import { MirrorNodeBlock } from '../types/mirrorNode';
+import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
 
@@ -898,10 +898,14 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getContractsResultsActions(transactionIdOrHash: string, requestDetails: RequestDetails): Promise<any> {
-    return this.get(
+  public async getContractsResultsActions(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<ContractAction[]> {
+    return this.getPaginatedResults(
       `${this.getContractResultsActionsByTransactionIdPath(transactionIdOrHash)}`,
       MirrorNodeClient.GET_CONTRACTS_RESULTS_ACTIONS,
+      'actions',
       requestDetails,
     );
   }

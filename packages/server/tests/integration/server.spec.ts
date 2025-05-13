@@ -2388,29 +2388,27 @@ describe('RPC Server', function () {
         result: 'SUCCESS',
       };
 
-      const contractActions = {
-        actions: [
-          {
-            call_depth: 0,
-            call_operation_type: 'CREATE',
-            call_type: 'CREATE',
-            caller: '0.0.1016',
-            caller_type: 'ACCOUNT',
-            from: '0x00000000000000000000000000000000000003f8',
-            gas: 247000,
-            gas_used: 77324,
-            index: 0,
-            input: '0x',
-            recipient: '0.0.1033',
-            recipient_type: 'CONTRACT',
-            result_data: '0x',
-            result_data_type: 'OUTPUT',
-            timestamp: '1696438011.462526383',
-            to: '0x0000000000000000000000000000000000000409',
-            value: 0,
-          },
-        ],
-      };
+      const contractActions = [
+        {
+          call_depth: 0,
+          call_operation_type: 'CREATE',
+          call_type: 'CREATE',
+          caller: '0.0.1016',
+          caller_type: 'ACCOUNT',
+          from: '0x00000000000000000000000000000000000003f8',
+          gas: 247000,
+          gas_used: 77324,
+          index: 0,
+          input: '0x',
+          recipient: '0.0.1033',
+          recipient_type: 'CONTRACT',
+          result_data: '0x',
+          result_data_type: 'OUTPUT',
+          timestamp: '1696438011.462526383',
+          to: '0x0000000000000000000000000000000000000409',
+          value: 0,
+        },
+      ];
 
       const contractOpcodes = {
         address: contractAddress1,

@@ -50,7 +50,6 @@ describe('Debug API Test Suite', async function () {
   const tracerConfigFalse = { onlyTopCall: false };
   const callTracer: TracerType = TracerType.CallTracer;
   const opcodeLogger: TracerType = TracerType.OpcodeLogger;
-  const prestateTracer: TracerType = TracerType.PrestateTracer;
   const CONTRACTS_RESULTS_OPCODES = `contracts/results/${transactionHash}/opcodes`;
   const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
   const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}`;
@@ -777,48 +776,46 @@ describe('Debug API Test Suite', async function () {
     const contractAddress = '0x0000000000000000000000000000000000000409';
     const accountAddress = '0x00000000000000000000000000000000000003f8';
 
-    const actionsResponseMock = {
-      actions: [
-        {
-          call_depth: 0,
-          call_operation_type: 'CREATE',
-          call_type: 'CREATE',
-          caller: accountId,
-          caller_type: 'ACCOUNT',
-          from: accountAddress,
-          gas: 247000,
-          gas_used: 77324,
-          index: 0,
-          input: '0x',
-          recipient: contractId,
-          recipient_type: 'CONTRACT',
-          result_data: '0x',
-          result_data_type: 'OUTPUT',
-          timestamp: mockTimestamp,
-          to: contractAddress,
-          value: 0,
-        },
-        {
-          call_depth: 1,
-          call_operation_type: 'CREATE',
-          call_type: 'CREATE',
-          caller: contractId,
-          caller_type: 'CONTRACT',
-          from: contractAddress,
-          gas: 189733,
-          gas_used: 75,
-          index: 1,
-          input: '0x',
-          recipient: '0.0.1034',
-          recipient_type: 'CONTRACT',
-          result_data: '0x',
-          result_data_type: 'OUTPUT',
-          timestamp: mockTimestamp,
-          to: '0x000000000000000000000000000000000000040a',
-          value: 0,
-        },
-      ],
-    };
+    const actionsResponseMock = [
+      {
+        call_depth: 0,
+        call_operation_type: 'CREATE',
+        call_type: 'CREATE',
+        caller: accountId,
+        caller_type: 'ACCOUNT',
+        from: accountAddress,
+        gas: 247000,
+        gas_used: 77324,
+        index: 0,
+        input: '0x',
+        recipient: contractId,
+        recipient_type: 'CONTRACT',
+        result_data: '0x',
+        result_data_type: 'OUTPUT',
+        timestamp: mockTimestamp,
+        to: contractAddress,
+        value: 0,
+      },
+      {
+        call_depth: 1,
+        call_operation_type: 'CREATE',
+        call_type: 'CREATE',
+        caller: contractId,
+        caller_type: 'CONTRACT',
+        from: contractAddress,
+        gas: 189733,
+        gas_used: 75,
+        index: 1,
+        input: '0x',
+        recipient: '0.0.1034',
+        recipient_type: 'CONTRACT',
+        result_data: '0x',
+        result_data_type: 'OUTPUT',
+        timestamp: mockTimestamp,
+        to: '0x000000000000000000000000000000000000040a',
+        value: 0,
+      },
+    ];
 
     const contractEntityMock = {
       type: constants.TYPE_CONTRACT,
@@ -1018,13 +1015,13 @@ describe('Debug API Test Suite', async function () {
         sinon
           .stub(mirrorNodeInstance, 'getContractsResultsActions')
           .withArgs(transactionHash, sinon.match.any)
-          .resolves({ actions: [] });
+          .resolves([]);
 
         const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
         expect(result).to.deep.equal({});
       });
 
-      it('should throw RESOURCE_NOT_FOUND error when the transaction hash is not found', async function () {
+      it('should return empty array when the transaction hash is not found', async function () {
         // Create a separate DebugImpl instance just for this test
         const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
 
@@ -1043,15 +1040,8 @@ describe('Debug API Test Suite', async function () {
         getContractsResultsActionsStub.callThrough(); // Let it use the original method which will hit the mock
 
         // The test should now properly throw the expected error
-        try {
-          await isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails);
-          expect.fail('Expected the prestateTracer to throw an error but it did not');
-        } catch (error) {
-          expect(error.code).to.equal(predefined.RESOURCE_NOT_FOUND().code);
-          expect(error.message).to.include(
-            `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
-          );
-        }
+        const result = await isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails);
+        expect(result).to.deep.equal({});
       });
 
       it('should handle entity resolution errors', async function () {

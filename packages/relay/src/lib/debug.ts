@@ -439,8 +439,8 @@ export class DebugImpl implements Debug {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
 
-      const { call_type: type } = actionsResponse.actions[0];
-      const formattedActions = await this.formatActionsResult(actionsResponse.actions, requestDetails);
+      const { call_type: type } = actionsResponse[0];
+      const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
 
       const {
         from,
@@ -473,8 +473,7 @@ export class DebugImpl implements Debug {
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls:
-          tracerConfig?.onlyTopCall || actionsResponse.actions.length === 1 ? undefined : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? undefined : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);
@@ -514,9 +513,7 @@ export class DebugImpl implements Debug {
     }
 
     // Filter by call_depth if onlyTopCall is true
-    const filteredActions = onlyTopCall
-      ? actionsResponse.actions.filter((action) => action.call_depth === 0)
-      : actionsResponse.actions;
+    const filteredActions = onlyTopCall ? actionsResponse.filter((action) => action.call_depth === 0) : actionsResponse;
 
     // Extract unique addresses involved in the transaction with their metadata
     const addressMap = new Map();
