@@ -421,7 +421,7 @@ const _CONFIG = {
     envName: 'JUMBO_TX_ENABLED',
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   LIMIT_DURATION: {
     envName: 'LIMIT_DURATION',
