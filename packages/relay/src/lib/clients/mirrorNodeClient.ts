@@ -1227,9 +1227,7 @@ export class MirrorNodeClient {
     );
     const queryParamObject = {};
 
-    if (timestamp) {
-      this.setQueryParam(queryParamObject, 'timestamp', timestamp);
-    }
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
     const queryParams = this.getQueryParams(queryParamObject);
     const apiEndpoint = MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT.replace(
