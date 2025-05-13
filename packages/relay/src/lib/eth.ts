@@ -19,7 +19,7 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
-  TransactionService,
+  TransactionService
 } from './services';
 import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/ethService/feeService/FeeService';
@@ -174,7 +174,7 @@ export class EthImpl implements Eth {
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '2', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+    skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
     ttl: constants.CACHE_TTL.FIFTEEN_MINUTES,
   })
   async feeHistory(
@@ -678,6 +678,9 @@ export class EthImpl implements Eth {
     2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '2', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
   async getStorageAt(
     address: string,
     slot: string,
@@ -909,6 +912,9 @@ export class EthImpl implements Eth {
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
   async getTransactionCount(
     address: string,
     blockNumOrTag: string | null,
@@ -950,6 +956,9 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION, required: true },
     1: { type: ParamType.BLOCK_PARAMS, required: true },
+  })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+    skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async call(
     call: IContractCallRequest,

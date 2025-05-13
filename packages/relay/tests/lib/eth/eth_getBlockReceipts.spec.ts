@@ -8,7 +8,6 @@ import sinon from 'sinon';
 import { numberTo0x } from '../../../dist/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
-import { ContractService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
@@ -53,9 +52,8 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    currentGasPriceStub = sinon.stub(ethImpl.common, 'getCurrentGasPriceForBlock').resolves('0x25');
-    extractBlockNumberOrTagStub = sinon
-      .stub(ethImpl.contractService, 'extractBlockNumberOrTag')
+    currentGasPriceStub = sinon.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0x25');
+    extractBlockNumberOrTagStub = sinon.stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);

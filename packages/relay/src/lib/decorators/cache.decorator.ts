@@ -26,17 +26,20 @@ interface CacheOptions {
 }
 
 /**
- * Skip single params in the following format
+ * Iterates through the provided 'params' array and checks if any argument in 'args' at the specified 'index'
+ * matches one of the pipe-separated values in 'value'. If a match is found, caching should be skipped.
  *
- * [{
- *    index: '0',
- *    value: 'pending|safe'
- * }]
+ * @param args - The IArguments arguments object
+ * @param params - An array of CacheSingleParam caching rules
+ * @returns 'true' if any argument matches a rule and caching should be skipped; otherwise, 'false'.
  *
- * @param args
- * @param params
+ * @example
+ *   [{
+ *     index: '0',
+ *     value: 'pending|safe'
+ *   }]
  */
-const shouldSkipCachingForSingleParams = (args: any, params: any = []) => {
+const shouldSkipCachingForSingleParams = (args: IArguments, params: CacheSingleParam[] = []): boolean => {
   for (const item of params) {
     const values = item.value.split('|');
     if (values.indexOf(args[item.index]) > -1) {
@@ -48,23 +51,29 @@ const shouldSkipCachingForSingleParams = (args: any, params: any = []) => {
 };
 
 /**
- * Skip named params in the following format
+ * Determines whether caching should be skipped based on field-level conditions within specific argument objects. For each
+ * item in 'params', the function inspects a corresponding argument at the specified 'index' in 'args'. It builds
+ * a list of field-based skip conditions and checks if any of the fields in the input argument match any of the provided
+ * values (supports multiple values via pipe '|' separators).
  *
- * [{
- *    index: '0',
- *    fields: [{
- *        name: 'fromBlock', value: 'pending|safe'
- *    }, {
- *        name: 'toBlock', value: 'safe|finalized'
- *   }],
- * }]
+ * @param args - The function's arguments object (e.g., `IArguments`), where values are accessed by index.
+ * @param params - An array of `CacheNamedParams` defining which arguments and which fields to inspect.
+ * @returns `true` if any field value matches a skip condition; otherwise, `false`.
  *
- * @param args
- * @param params
+ * @example
+ *   [{
+ *     index: '0',
+ *     fields: [{
+ *       name: 'fromBlock', value: 'pending|safe'
+ *     }, {
+ *       name: 'toBlock', value: 'safe|finalized'
+ *     }],
+ *   }]
  */
-const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
+const shouldSkipCachingForNamedParams = (args: IArguments, params: CacheNamedParams[] = []): boolean => {
   for (const item of params) {
     const input = args[item.index];
+    // @ts-ignore
     const skipList = Object.assign({}, ...params.filter(el => el.index == item.index)[0].fields.map(el => {
       return { [el.name]: el.value };
     }));
@@ -81,12 +90,21 @@ const shouldSkipCachingForNamedParams = (args: any, params: any = []) => {
 };
 
 /**
- * Generate cache key by method name and passed arguments
+ * Generates a unique cache key string based on the method name and argument values. It serializes each argument (excluding
+ * instances of `RequestDetails`) into a string format and appends them to the method name to form the final key.
  *
- * @param methodName
- * @param args
+ * - If an argument is an object, each of its key-value pairs is added to the key.
+ * - Primitive values are directly appended to the key.
+ * - Arguments of type `RequestDetails` are ignored in the key generation.
+ *
+ * @param methodName - The name of the method being cached.
+ * @param args - The arguments passed to the method (typically from `IArguments`).
+ * @returns A string that uniquely identifies the method call for caching purposes.
+ *
+ * @example
+ *   generateCacheKey('getBlockByNumber', arguments); // should return getBlockByNumber_0x160c_false
  */
-const generateCacheKey = (methodName: string, args: any) => {
+const generateCacheKey = (methodName: string, args: IArguments) => {
   let cacheKey: string = methodName;
   for (const [, value] of Object.entries(args)) {
     if (value?.constructor?.name != 'RequestDetails') {
@@ -105,24 +123,42 @@ const generateCacheKey = (methodName: string, args: any) => {
 };
 
 /**
- * Extract the RequestDetails field from the arguments
+ * This utility is used to scan through the provided arguments (typically from `IArguments`)
+ * and return the first value that is identified as an instance of `RequestDetails`.
  *
- * @param args
+ * If no such instance is found, it returns a new `RequestDetails` object with empty defaults.
+ *
+ * @param args - The arguments object from a function (typically `IArguments`).
+ * @returns The first found `RequestDetails` instance, or a new one with default values if none is found.
  */
-const extractRequestDetails = (args: any): RequestDetails => {
-  let requestId, ipAddress, connectionId: string = '';
+const extractRequestDetails = (args: IArguments): RequestDetails => {
   for (const [, value] of Object.entries(args)) {
     if (value?.constructor?.name == 'RequestDetails') {
-      requestId = value['requestId'];
-      ipAddress = value['ipAddress'];
-      connectionId = value['connectionId'];
-      break;
+      // @ts-ignore
+      return value;
     }
   }
 
-  return new RequestDetails({ requestId, ipAddress, connectionId });
+  return new RequestDetails({ requestId: '', ipAddress: '' });
 };
 
+/**
+ * This decorator uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
+ * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
+ * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
+ * and `skipNamedParams` (for object args).
+ *
+ * @param cacheService - The caching service used to store and retrieve cache entries.
+ * @param options - Optional configuration for caching behavior.
+ *   @property skipParams - An array of rules for skipping caching based on specific argument values.
+ *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
+ *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
+ *
+ * @returns A method decorator function that wraps the original method with caching logic.
+ *
+ * @example
+ *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
+ */
 export function cache(cacheService: CacheService, options: CacheOptions = {}) {
   return function(_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;

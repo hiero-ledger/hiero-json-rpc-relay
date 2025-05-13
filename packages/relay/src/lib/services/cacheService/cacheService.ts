@@ -123,7 +123,7 @@ export class CacheService {
    */
   public static getInstance(type: CACHE_LEVEL, registry: Registry = new Registry(), reservedKeys: Set<string> = new Set()): CacheService {
     if (!this.instances[type]) {
-      const logger = pino({ level: 'silent' });
+      const logger = pino({ level: ConfigService.get('LOG_LEVEL') });
       this.instances[type] = new CacheService(logger.child({ name: type }), registry, reservedKeys);
     }
 
