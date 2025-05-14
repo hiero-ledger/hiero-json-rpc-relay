@@ -1060,4 +1060,22 @@ export class EthImpl implements Eth {
   public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
   }
+
+  /**
+   * Always returns UNSUPPORTED_METHOD error.
+   *
+   * @rpcMethod Exposed as eth_getWork RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {JsonRpcError} An error indicating the method is not supported
+   */
+  @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  getProof(requestDetails: RequestDetails): JsonRpcError {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} getProof()`);
+    }
+    return predefined.UNSUPPORTED_METHOD;
+  }
 }
