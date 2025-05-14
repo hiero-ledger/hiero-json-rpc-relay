@@ -4,6 +4,7 @@ import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
+import { LogsBloomUtils } from '../../../../logsBloomUtils';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
@@ -11,8 +12,12 @@ import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
 import { TransactionFactory } from '../../../factories/transactionFactory';
-import { Block, Log, Receipt, Transaction } from '../../../model';
-import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../../types';
+import {
+  IRegularTransactionReceiptParams,
+  TransactionReceiptFactory,
+} from '../../../factories/transactionReceiptFactory';
+import { Block, Log, Transaction } from '../../../model';
+import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
 
@@ -106,7 +111,10 @@ export class BlockService implements IBlockService {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
-  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+  public async getBlockReceipts(
+    blockHashOrBlockNumber: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt[]> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
@@ -122,39 +130,58 @@ export class BlockService implements IBlockService {
       return [];
     }
 
+    const receipts: ITransactionReceipt[] = [];
     const effectiveGas = await this.common.getCurrentGasPriceForBlock(block.hash, requestDetails);
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-    contractResults.forEach((contractResult) => {
-      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+
+    if (contractResults && contractResults.length > 0) {
+      contractResults.forEach((contractResult) => {
+        contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+      });
+
+      for (const contractResult of contractResults) {
+        const [from, to] = await Promise.all([
+          this.common.resolveEvmAddress(contractResult.from, requestDetails),
+          this.common.resolveEvmAddress(contractResult.to, requestDetails),
+        ]);
+
+        const transactionReceiptParams: IRegularTransactionReceiptParams = {
+          effectiveGas,
+          from,
+          logs: contractResult.logs,
+          receiptResponse: contractResult,
+          to,
+        };
+        const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
+
+        receipts.push(receipt);
+      }
+    }
+
+    const regularTxHashes = contractResults ? contractResults.map((result) => result.hash) : [];
+
+    // Filter logs that don't belong to any regular transaction
+    const syntheticLogs = logs.filter((log) => !regularTxHashes.includes(log.transactionHash));
+
+    // Group logs by transaction hash since one transaction hash may have multiple logs
+    const syntheticTxGroups = new Map<string, Log[]>();
+    syntheticLogs.forEach((log) => {
+      if (!syntheticTxGroups.has(log.transactionHash)) {
+        syntheticTxGroups.set(log.transactionHash, []);
+      }
+      syntheticTxGroups.get(log.transactionHash)?.push(log);
     });
 
-    const receipts: Receipt[] = [];
-
-    for (const contractResult of contractResults) {
-      const from = await this.common.resolveEvmAddress(contractResult.from, requestDetails);
-      const to = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
-
-      const contractAddress = this.common.getContractAddressFromReceipt(contractResult);
-      const receipt = {
-        blockHash: toHash32(contractResult.block_hash),
-        blockNumber: numberTo0x(contractResult.block_number),
-        from: from,
-        to: to,
-        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
-        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
-        contractAddress: contractAddress,
-        logs: contractResult.logs,
-        logsBloom: contractResult.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : contractResult.bloom,
-        transactionHash: toHash32(contractResult.hash),
-        transactionIndex: numberTo0x(contractResult.transaction_index),
-        effectiveGasPrice: effectiveGas,
-        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
-        status: contractResult.status,
-        type: nullableNumberTo0x(contractResult.type),
+    // Create synthetic receipts for each group
+    for (const [txHash, syntheticLogGroup] of syntheticTxGroups.entries()) {
+      const params = {
+        syntheticLogs: syntheticLogGroup,
+        gasPriceForTimestamp: effectiveGas,
       };
 
-      receipts.push(receipt);
+      const syntheticReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
+      receipts.push(syntheticReceipt as ITransactionReceipt);
     }
 
     return receipts;

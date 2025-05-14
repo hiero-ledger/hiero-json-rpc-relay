@@ -179,6 +179,9 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
       expect(receipts[0].logs.length).to.equal(0);
+      expect(receipts[1].logs.length).to.equal(1);
+      expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
+      expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
     });
   });
 
