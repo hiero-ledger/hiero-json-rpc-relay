@@ -15,12 +15,15 @@ import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import {
   BlockTracerConfig,
+  CallTracerResult,
+  EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   ITracerConfig,
   MirrorNodeContractResult,
   ParamType,
   RequestDetails,
+  TraceBlockByNumberTxResult,
 } from './types';
 
 /**
@@ -153,7 +156,7 @@ export class DebugImpl implements Debug {
     blockNumber: string,
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<TraceBlockByNumberTxResult[]> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
         `${
@@ -195,7 +198,7 @@ export class DebugImpl implements Debug {
         return [];
       }
 
-      let tracer = TracerType.CallTracer;
+      let tracer: TracerType = TracerType.CallTracer;
       let onlyTopCall;
 
       if (tracerObject) {
@@ -240,6 +243,8 @@ export class DebugImpl implements Debug {
         await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
         return result;
       }
+
+      return [];
     } catch (error) {
       throw this.common.genericErrorHandler(error);
     }
@@ -424,7 +429,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<object> {
+  ): Promise<CallTracerResult> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
@@ -497,7 +502,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
-  ): Promise<object> {
+  ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
@@ -539,7 +544,7 @@ export class DebugImpl implements Debug {
     const accountEntities = Array.from(addressMap.values());
     if (accountEntities.length === 0) return {};
 
-    const result = {};
+    const result: EntityTraceStateMap = {};
 
     await Promise.all(
       accountEntities.map(async (accountEntity) => {
