@@ -36,13 +36,6 @@ export class FeeService implements IFeeService {
   private readonly logger: Logger;
 
   /**
-   * The service used for caching items from requests.
-   *
-   * @private
-   */
-  private readonly cacheService: CacheService;
-
-  /**
    * Constructor
    *
    * @param mirrorNodeClient
@@ -50,11 +43,10 @@ export class FeeService implements IFeeService {
    * @param logger
    * @param cacheService
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.common = common;
     this.logger = logger;
-    this.cacheService = cacheService;
   }
 
   /**

@@ -45,6 +45,11 @@ const shouldSkipCachingForSingleParams = (args: IArguments, params: CacheSingleP
     if (values.indexOf(args[item.index]) > -1) {
       return true;
     }
+
+    // do not cache optional parameters like 'blockNumber' on 'eth_getStorageAt'
+    if (!args.hasOwnProperty(item.index)) {
+      return true;
+    }
   }
 
   return false;
@@ -71,16 +76,23 @@ const shouldSkipCachingForSingleParams = (args: IArguments, params: CacheSingleP
  *   }]
  */
 const shouldSkipCachingForNamedParams = (args: IArguments, params: CacheNamedParams[] = []): boolean => {
-  for (const item of params) {
-    const input = args[item.index];
-    // @ts-ignore
-    const skipList = Object.assign({}, ...params.filter(el => el.index == item.index)[0].fields.map(el => {
-      return { [el.name]: el.value };
-    }));
+  for (const { index, fields } of params) {
+    const input = args[index];
 
+    // build a map from field names to their match values
+    const skipList: Record<string, string> = Object.fromEntries(
+      fields.map(({ name, value }) => [name, value])
+    );
+
+    // check each field in the skip list
     for (const [key, value] of Object.entries(skipList)) {
-      const values = (value as string).split('|');
-      if (values.indexOf(input[key]) > -1) {
+      // convert "latest|safe" to ["latest", "safe"]
+      const allowedValues = value.split('|');
+      // get the actual value from the input object
+      const actualValue = (input as Record<string, any>)[key];
+
+      // if the actual value is one of the values that should skip caching, return true
+      if (allowedValues.includes(actualValue)) {
         return true;
       }
     }
@@ -132,9 +144,8 @@ const generateCacheKey = (methodName: string, args: IArguments) => {
  * @returns The first found `RequestDetails` instance, or a new one with default values if none is found.
  */
 const extractRequestDetails = (args: IArguments): RequestDetails => {
-  for (const [, value] of Object.entries(args)) {
-    if (value?.constructor?.name == 'RequestDetails') {
-      // @ts-ignore
+  for (const value of Array.from(args)) {
+    if (value instanceof RequestDetails) {
       return value;
     }
   }

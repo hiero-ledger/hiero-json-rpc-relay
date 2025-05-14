@@ -18,11 +18,6 @@ import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
 
 export class BlockService implements IBlockService {
-  /**
-   * The cache service used for caching all responses.
-   * @private
-   */
-  private readonly cacheService: CacheService;
 
   /**
    * The chain id.
@@ -53,25 +48,13 @@ export class BlockService implements IBlockService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
-  /**
-   * The static method for the eth_getBlockByHash RPC call.
-   */
-  private static ethGetBlockByHash = 'eth_GetBlockByHash';
-
-  /**
-   * The static method for the eth_getBlockByNumber RPC call.
-   */
-  private static ethGetBlockByNumber = 'eth_GetBlockByNumber';
-
   /** Constructor */
   constructor(
-    cacheService: CacheService,
     chain: string,
     common: ICommonService,
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
   ) {
-    this.cacheService = cacheService;
     this.chain = chain;
     this.common = common;
     this.mirrorNodeClient = mirrorNodeClient;

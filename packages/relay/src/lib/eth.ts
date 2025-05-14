@@ -122,10 +122,10 @@ export class EthImpl implements Eth {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
-    this.feeService = new FeeService(mirrorNodeClient, this.common, logger, cacheService);
+    this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
-    this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
+    this.blockService = new BlockService(chain, this.common, mirrorNodeClient, logger);
     this.eventEmitter = eventEmitter;
     this.transactionService = new TransactionService(
       cacheService,

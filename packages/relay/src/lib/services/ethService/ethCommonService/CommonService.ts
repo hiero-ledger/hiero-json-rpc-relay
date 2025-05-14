@@ -62,18 +62,6 @@ export class CommonService implements ICommonService {
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
 
-  /**
-   * private constants
-   * @private
-   */
-  private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
-  );
-  private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
-    'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
-    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT',
-  );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
 
