@@ -69,6 +69,7 @@
     "acceptancetest:cache-service": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@cache-service' --exit",
     "acceptancetest:rpc_api_schema_conformity": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@api-conformity' --exit",
     "acceptancetest:serverconfig": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
+    "acceptancetest:send_raw_transaction_extension": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
     "build": "npx lerna run build",
     "build-and-test": "npx lerna run build && npx lerna run test",
     "build:docker": "docker build . -t ${npm_package_name}",
