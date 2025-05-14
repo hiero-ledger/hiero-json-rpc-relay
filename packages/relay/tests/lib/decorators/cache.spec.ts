@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
+import { cache } from '../../../dist/lib/decorators';
 import { CacheService } from '../../../dist/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../src/lib/types';
-import { cache } from '../../../dist/lib/decorators';
 
 describe('cache decorator', () => {
   let sandbox: sinon.SinonSandbox;
@@ -18,7 +21,7 @@ describe('cache decorator', () => {
     sandbox = sinon.createSandbox();
     cacheService = {
       getAsync: sandbox.stub(),
-      set: sandbox.stub()
+      set: sandbox.stub(),
     } as any;
 
     // default ttl
@@ -66,7 +69,7 @@ describe('cache decorator', () => {
 
   it('should not cache result if shouldSkipCachingForSingleParams returns true', async () => {
     const instance = createDecoratedMethod({
-      skipParams: [{ index: '0', value: 'latest' }]
+      skipParams: [{ index: '0', value: 'latest' }],
     });
     cacheService.getAsync.resolves(null);
 
@@ -77,10 +80,12 @@ describe('cache decorator', () => {
 
   it('should not cache result if shouldSkipCachingForNamedParams returns true', async () => {
     const instance = createDecoratedMethod({
-      skipNamedParams: [{
-        index: '0',
-        fields: [{ name: 'fromBlock', value: 'latest|pending' }]
-      }]
+      skipNamedParams: [
+        {
+          index: '0',
+          fields: [{ name: 'fromBlock', value: 'latest|pending' }],
+        },
+      ],
     });
     cacheService.getAsync.resolves(null);
 
