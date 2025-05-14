@@ -26,7 +26,14 @@ import { FeeService } from './services/ethService/feeService/FeeService';
 import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
-import { IContractCallRequest, IFeeHistory, IGetLogsParams, INewFilterParams, RequestDetails } from './types';
+import {
+  IContractCallRequest,
+  IFeeHistory,
+  IGetLogsParams,
+  INewFilterParams,
+  ITransactionReceipt,
+  RequestDetails,
+} from './types';
 import { ParamType } from './types/validation';
 
 /**
@@ -1057,7 +1064,10 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
-  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+  public async getBlockReceipts(
+    blockHashOrBlockNumber: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt[]> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
   }
 }
