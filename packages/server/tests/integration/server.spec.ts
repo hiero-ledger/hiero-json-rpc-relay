@@ -11,6 +11,7 @@ import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import { JsonRpcError } from '@hashgraph/json-rpc-relay/src';
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
@@ -2840,6 +2841,26 @@ describe('RPC Server', function () {
         },
       };
 
+      const sharedFailureChecks = async (
+        params: any[],
+        statusCode: number,
+        baseTestChecker: any,
+        checkerCode,
+        checkerMessage,
+      ) => {
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params,
+            id: '2',
+          }),
+        ).to.be.rejected.then((error: any) => {
+          expect(error.response.status).to.equal(statusCode);
+          baseTestChecker(error.response, checkerCode, checkerMessage);
+        });
+      };
+
       let getHistoricalBlockResponse: sinon.SinonStub;
       let getContractResultWithRetry: sinon.SinonStub;
       let getBlocks: sinon.SinonStub;
@@ -3073,141 +3094,78 @@ describe('RPC Server', function () {
 
       it('should fail when block not found', async () => {
         getHistoricalBlockResponse.resolves(null);
-
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: ['0x999999999999'], // block number that doesn't exist
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          expect(error.response.status).to.equal(400);
-          BaseTest.errorResponseChecks(
-            error.response,
-            predefined.RESOURCE_NOT_FOUND().code,
-            predefined.RESOURCE_NOT_FOUND().message,
-          );
-        }
+        await sharedFailureChecks(
+          ['0x999999999999'],
+          400,
+          BaseTest.errorResponseChecks.bind(BaseTest),
+          predefined.RESOURCE_NOT_FOUND().code,
+          predefined.RESOURCE_NOT_FOUND().message,
+        );
       });
 
       it('should fail with missing block number parameter', async () => {
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: [],
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
-        }
+        await sharedFailureChecks(
+          [],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          MISSING_PARAM_ERROR + ' 0',
+        );
       });
 
       it('should fail with invalid block number parameter', async () => {
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: ['not-a-block-number'],
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          BaseTest.invalidParamError(
-            error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: not-a-block-number`,
-          );
-        }
+        await sharedFailureChecks(
+          ['not-a-block-number'],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: not-a-block-number`,
+        );
       });
 
       it('should fail with invalid tracer type', async () => {
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: [blockNumberHex, { tracer: 'invalidTracerType' }],
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          BaseTest.invalidParamError(
-            error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
-          );
-        }
+        await sharedFailureChecks(
+          [blockNumberHex, { tracer: 'invalidTracerType' }],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
+        );
       });
 
       it('should fail with invalid tracer config', async () => {
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: [blockNumberHex, { tracer: TracerType.CallTracer, tracerConfig: 'not-an-object' }],
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          BaseTest.invalidParamError(
-            error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: not-an-object`,
-          );
-        }
+        await sharedFailureChecks(
+          [blockNumberHex, { tracer: TracerType.CallTracer, tracerConfig: 'not-an-object' }],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: not-an-object`,
+        );
       });
 
       it('should fail when debug API is not enabled', async () => {
         requireDebugAPIEnabled.throws(predefined.UNSUPPORTED_METHOD);
 
-        try {
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: [blockNumberHex],
-            id: '2',
-          });
-
-          Assertions.expectedError();
-        } catch (error: any) {
-          expect(error.response.status).to.equal(400);
-          BaseTest.errorResponseChecks(
-            error.response,
-            predefined.UNSUPPORTED_METHOD.code,
-            predefined.UNSUPPORTED_METHOD.message,
-          );
-        }
+        await sharedFailureChecks(
+          [blockNumberHex],
+          400,
+          BaseTest.errorResponseChecks.bind(BaseTest),
+          predefined.UNSUPPORTED_METHOD.code,
+          predefined.UNSUPPORTED_METHOD.message,
+        );
       });
 
       withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, async function () {
         it('should fail when DEBUG_API_ENABLED is false', async () => {
           requireDebugAPIEnabled.restore(); // Restore the original method so real config is checked
 
-          try {
-            await testClient.post('/', {
-              jsonrpc: '2.0',
-              method: 'debug_traceBlockByNumber',
-              params: [blockNumberHex],
-              id: '2',
-            });
-
-            Assertions.expectedError();
-          } catch (error: any) {
-            expect(error.response.status).to.equal(400);
-            BaseTest.errorResponseChecks(
-              error.response,
-              predefined.UNSUPPORTED_METHOD.code,
-              predefined.UNSUPPORTED_METHOD.message,
-            );
-          }
+          await sharedFailureChecks(
+            [blockNumberHex],
+            400,
+            BaseTest.errorResponseChecks.bind(BaseTest),
+            predefined.UNSUPPORTED_METHOD.code,
+            predefined.UNSUPPORTED_METHOD.message,
+          );
         });
       });
     });

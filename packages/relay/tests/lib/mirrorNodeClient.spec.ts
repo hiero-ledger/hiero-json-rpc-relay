@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { BigNumber } from 'bignumber.js';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
@@ -16,6 +17,7 @@ import { SDKClientError } from '../../src/lib/errors/SDKClientError';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
+chai.use(chaiAsPromised);
 
 describe('MirrorNodeClient', async function () {
   this.timeout(20000);
@@ -1822,26 +1824,16 @@ describe('MirrorNodeClient', async function () {
     it('should throw error for invalid contract address', async () => {
       const invalidAddress = '0x123';
       mock.onGet(`contracts/${invalidAddress}/state?limit=100&order=desc`).reply(400, JSON.stringify(null));
-      let errorRaised = false;
-      try {
-        await mirrorNodeInstance.getContractState(invalidAddress, requestDetails);
-      } catch (error) {
-        errorRaised = true;
-        expect(error.message).to.equal('Request failed with status code 400');
-      }
-      expect(errorRaised).to.be.true;
+      await expect(mirrorNodeInstance.getContractState(invalidAddress, requestDetails)).to.be.rejectedWith(
+        'Request failed with status code 400',
+      );
     });
 
     it('should throw error for server error', async () => {
       mock.onGet(contractStatePath).reply(500, JSON.stringify({ error: 'Server error' }));
-      let errorRaised = false;
-      try {
-        await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
-      } catch (error) {
-        errorRaised = true;
-        expect(error.message).to.equal('Request failed with status code 500');
-      }
-      expect(errorRaised).to.be.true;
+      await expect(mirrorNodeInstance.getContractState(contractAddress, requestDetails)).to.be.rejectedWith(
+        'Request failed with status code 500',
+      );
     });
 
     it('should handle pagination and consolidate results from multiple pages', async () => {
