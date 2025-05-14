@@ -1420,7 +1420,7 @@ export class MirrorNodeClient {
         }),
       );
 
-    if (searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_CONTRACT.toLowerCase())) {
+    if (searchableTypes.includes(constants.TYPE_CONTRACT)) {
       const contract = await this.getContract(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
         return null;
       });
@@ -1438,7 +1438,7 @@ export class MirrorNodeClient {
     let data;
     try {
       const promises = [
-        searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_ACCOUNT.toLowerCase())
+        searchableTypes.includes(constants.TYPE_ACCOUNT)
           ? buildPromise(
               this.getAccount(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
                 return null;
@@ -1456,7 +1456,7 @@ export class MirrorNodeClient {
       };
 
       promises.push(
-        searchableTypes.find((t) => t.toLowerCase() === constants.TYPE_TOKEN.toLowerCase())
+        searchableTypes.includes(constants.TYPE_TOKEN)
           ? buildPromise(
               this.getTokenById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
                 return null;

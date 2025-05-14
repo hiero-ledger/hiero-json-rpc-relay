@@ -1069,7 +1069,7 @@ describe('MirrorNodeClient', async function () {
 
   describe('resolveEntityType', async () => {
     const notFoundAddress = random20BytesAddress();
-    it('returns `contract` when CONTRACTS endpoint returns a result', async () => {
+    it('returns `CONTRACT` when CONTRACTS endpoint returns a result', async () => {
       mock.onGet(`contracts/${mockData.contractEvmAddress}`).reply(200, JSON.stringify(mockData.contract));
       mock
         .onGet(`accounts/${mockData.contractEvmAddress}${noTransactions}`)
@@ -1084,12 +1084,12 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('contract');
+      expect(entityType!.type).to.eq('CONTRACT');
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
     });
 
-    it('returns `account` when CONTRACTS and TOKENS endpoint returns 404 and ACCOUNTS endpoint returns a result', async () => {
+    it('returns `ACCOUNT` when CONTRACTS and TOKENS endpoint returns 404 and ACCOUNTS endpoint returns a result', async () => {
       mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
       mock
         .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
@@ -1104,12 +1104,12 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('account');
+      expect(entityType!.type).to.eq('ACCOUNT');
       expect(entityType!.entity).to.have.property('account');
       expect(entityType!.entity.account).to.eq(mockData.account.account);
     });
 
-    it('returns `token` when CONTRACTS and ACCOUNTS endpoints returns 404 and TOKEN endpoint returns a result', async () => {
+    it('returns `TOKEN` when CONTRACTS and ACCOUNTS endpoints returns 404 and TOKEN endpoint returns a result', async () => {
       mock.onGet(`contracts/${notFoundAddress}`).reply(404, JSON.stringify(mockData.notFound));
       mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
       mock.onGet(`tokens/${mockData.tokenId}`).reply(200, JSON.stringify(mockData.token));
@@ -1122,7 +1122,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('token');
+      expect(entityType!.type).to.eq('TOKEN');
       expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
     });
 
@@ -1152,7 +1152,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('token');
+      expect(entityType!.type).to.eq('TOKEN');
       expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
     });
 
@@ -1169,7 +1169,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('contract');
+      expect(entityType!.type).to.eq('CONTRACT');
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
     });
