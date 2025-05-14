@@ -8,7 +8,7 @@ export interface ITracerConfigWrapper {
   tracerConfig?: ITracerConfig;
 }
 
-export interface IBlockTracerConfig {
+export interface BlockTracerConfig {
   tracer: TracerType;
   tracerConfig?: ICallTracerConfig;
 }

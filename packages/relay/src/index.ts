@@ -6,7 +6,7 @@ import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
 import {
-  IBlockTracerConfig,
+  BlockTracerConfig,
   IContractCallRequest,
   IGetLogsParams,
   INewFilterParams,
@@ -28,7 +28,7 @@ export interface Debug {
 
   traceBlockByNumber(
     blockNumber: string,
-    tracerObject: IBlockTracerConfig,
+    tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any>;
 }

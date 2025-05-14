@@ -14,7 +14,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import {
-  IBlockTracerConfig,
+  BlockTracerConfig,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   ITracerConfig,
@@ -135,7 +135,7 @@ export class DebugImpl implements Debug {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} blockNumber - The block number to be traced (in hex format or as a tag like 'latest').
-   * @param {IBlockTracerConfig} tracerObject - The configuration wrapper containing tracer type and config.
+   * @param {BlockTracerConfig} tracerObject - The configuration wrapper containing tracer type and config.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
    * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs during the trace.
    * @returns {Promise<any>} A Promise that resolves to the result of the block trace operation.
@@ -151,7 +151,7 @@ export class DebugImpl implements Debug {
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async traceBlockByNumber(
     blockNumber: string,
-    tracerObject: IBlockTracerConfig,
+    tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
