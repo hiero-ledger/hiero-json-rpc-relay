@@ -1,0 +1,71 @@
+envVarName TX_DEFAULT_GAS
+value NaN
+envVarName ETH_CALL_CACHE_TTL
+value 200
+value is not NaN
+envVarName ETH_BLOCK_NUMBER_CACHE_TTL_MS
+value 1000
+value is not NaN
+envVarName ETH_GET_BALANCE_CACHE_TTL_MS
+value 1000
+value is not NaN
+envVarName MAX_BLOCK_RANGE
+value 5
+value is not NaN
+envVarName CONTRACT_CALL_GAS_LIMIT
+value 50000000
+value is not NaN
+envVarName ETH_GET_TRANSACTION_COUNT_CACHE_TTL
+value 500
+value is not NaN
+envVarName ETH_GET_GAS_PRICE_CACHE_TTL_MS
+value 1800000
+value is not NaN
+envVarName MAX_BLOCK_RANGE
+value 5
+value is not NaN
+envVarName ETH_BLOCK_NUMBER_CACHE_TTL_MS
+value 1000
+value is not NaN
+envVarName MAX_BLOCK_RANGE
+value 5
+value is not NaN
+envVarName ETH_BLOCK_NUMBER_CACHE_TTL_MS
+value 1000
+value is not NaN
+
+
+  @ethEstimateGas Estimate Gas spec
+envVarName TX_DEFAULT_GAS
+value 400001
+value is not NaN
+envVarName ETH_CALL_CACHE_TTL
+value 200
+value is not NaN
+envVarName ETH_BLOCK_NUMBER_CACHE_TTL_MS
+value 1000
+value is not NaN
+envVarName ETH_GET_BALANCE_CACHE_TTL_MS
+value 1000
+value is not NaN
+envVarName MAX_BLOCK_RANGE
+value 5
+value is not NaN
+envVarName CONTRACT_CALL_GAS_LIMIT
+value 50000000
+value is not NaN
+envVarName ETH_GET_TRANSACTION_COUNT_CACHE_TTL
+value 500
+value is not NaN
+envVarName ETH_GET_GAS_PRICE_CACHE_TTL_MS
+value 1800000
+value is not NaN
+envVarName MAX_BLOCK_RANGE
+value 5
+value is not NaN
+envVarName ETH_BLOCK_NUMBER_CACHE_TTL_MS
+value 1000
+value is not NaN
+something else
+this.defaultGas 0x61a80
+result 0x61a80
