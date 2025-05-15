@@ -3,8 +3,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
-import { LogsBloomUtils } from '../../../../logsBloomUtils';
+import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
@@ -16,7 +15,7 @@ import {
   IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import { Block, Log, Receipt, Transaction } from '../../../model';
+import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
