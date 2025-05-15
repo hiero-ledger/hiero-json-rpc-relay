@@ -139,15 +139,17 @@ export class SDKClient {
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
+    const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
     const ethereumTransaction = new EthereumTransaction();
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
+
     let fileId: FileId | null = null;
 
-    // if callData's size is greater than `fileAppendChunkSize` => employ HFS to create new file to carry the rest of the contents of callData
-    if (ethereumTransactionData.callData.length <= this.fileAppendChunkSize) {
+    if (jumboTxEnabled || ethereumTransactionData.callData.length <= this.fileAppendChunkSize) {
       ethereumTransaction.setEthereumData(ethereumTransactionData.toBytes());
     } else {
+      // if JUMBO_TX_ENABLED is false and callData's size is greater than `fileAppendChunkSize` => employ HFS to create new file to carry the rest of the contents of callData
       fileId = await this.createFile(
         ethereumTransactionData.callData,
         this.clientMain,
@@ -163,10 +165,11 @@ export class SDKClient {
       ethereumTransactionData.callData = new Uint8Array();
       ethereumTransaction.setEthereumData(ethereumTransactionData.toBytes()).setCallDataFileId(fileId);
     }
-    const networkGasPriceInTinyBars = weibarHexToTinyBarInt(networkGasPriceInWeiBars);
 
     ethereumTransaction.setMaxTransactionFee(
-      Hbar.fromTinybars(Math.floor(networkGasPriceInTinyBars * constants.MAX_TRANSACTION_FEE_THRESHOLD)),
+      Hbar.fromTinybars(
+        Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * constants.MAX_TRANSACTION_FEE_THRESHOLD),
+      ),
     );
 
     return {

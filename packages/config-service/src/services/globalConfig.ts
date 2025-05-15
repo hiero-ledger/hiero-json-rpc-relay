@@ -117,6 +117,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 3600000,
   },
+  CALL_DATA_SIZE_LIMIT: {
+    envName: 'CALL_DATA_SIZE_LIMIT',
+    type: 'number',
+    required: false,
+    defaultValue: 131072, // 128KB
+  },
   CHAIN_ID: {
     envName: 'CHAIN_ID',
     type: 'string',
@@ -140,6 +146,12 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 50_000_000,
+  },
+  CONTRACT_CODE_SIZE_LIMIT: {
+    envName: 'CONTRACT_CODE_SIZE_LIMIT',
+    type: 'number',
+    required: false,
+    defaultValue: 24576, // 24KB
   },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     envName: 'CONTRACT_QUERY_TIMEOUT_RETRIES',
@@ -405,6 +417,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 1,
   },
+  JUMBO_TX_ENABLED: {
+    envName: 'JUMBO_TX_ENABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   LIMIT_DURATION: {
     envName: 'LIMIT_DURATION',
     type: 'number',
@@ -644,7 +662,7 @@ const _CONFIG = {
     envName: 'SEND_RAW_TRANSACTION_SIZE_LIMIT',
     type: 'number',
     required: false,
-    defaultValue: 131072,
+    defaultValue: 133120, // 130 KB
   },
   SERVER_HOST: {
     envName: 'SERVER_HOST',

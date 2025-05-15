@@ -459,6 +459,21 @@ describe('RPC Server', function () {
     }
   });
 
+  it('should execute "eth_blobBaseFee"', async function () {
+    try {
+      await testClient.post('/', {
+        id: '2',
+        jsonrpc: '2.0',
+        method: RelayCalls.ETH_ENDPOINTS.ETH_BLOB_BASE_FEE,
+        params: [null],
+      });
+
+      Assertions.expectedError();
+    } catch (error: any) {
+      BaseTest.unsupportedJsonRpcMethodChecks(error.response);
+    }
+  });
+
   it('should execute "eth_getWork"', async function () {
     try {
       await testClient.post('/', {

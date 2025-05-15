@@ -67,6 +67,15 @@ export interface IContractCallResponse {
   };
 }
 
+export interface IContractResult {
+  type: string;
+  entity: {
+    runtime_bytecode: string;
+    created_timestamp: string;
+    [key: string]: any;
+  };
+}
+
 export interface IAssessedCustomFee {
   amount: number;
   collector_account_id: string;
@@ -122,6 +131,28 @@ export interface IMirrorNodeTransactionRecord {
   transfers: ITransfer[];
   valid_duration_seconds: number;
   valid_start_timestamp: string;
+}
+interface ITimestamp {
+  from: string;
+  to: string;
+}
+
+export interface LatestBlockNumberTimestamp {
+  blockNumber: string | null;
+  timeStampTo: string;
+}
+
+export interface MirrorNodeBlock {
+  count: number;
+  gas_used: number;
+  hapi_version: string;
+  hash: string;
+  logs_bloom: string;
+  name: string;
+  number: number;
+  previous_hash: string;
+  size: number;
+  timestamp: ITimestamp;
 }
 
 export class MirrorNodeTransactionRecord {

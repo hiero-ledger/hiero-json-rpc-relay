@@ -125,8 +125,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sdkClientStub = sinon.createStubInstance(SDKClient);
       sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
-   JSON.stringify(   restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
-   JSON.stringify(   restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
+      JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
+      JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
     });
 
     afterEach(() => {
@@ -240,7 +240,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
     it('should not send second transaction on error different from timeout', async function () {
       restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-      const repeatedRequestSpy = sinon.spy(ethImpl['mirrorNodeClient'], 'repeatedRequest');
+      const repeatedRequestSpy = sinon.spy(ethImpl['transactionService']['mirrorNodeClient'], 'repeatedRequest');
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -283,22 +283,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         ethImpl,
         [signed, getRequestId()],
       );
-    });
-
-    it('should update execution counter and list the correct data when eth_sendRawTransation is executed', async function () {
-      const labelsSpy = sinon.spy(ethImpl['ethExecutionsCounter'], 'labels');
-      const expectedLabelsValue = ['eth_sendRawTransaction', '0x', transaction.from, transaction.to];
-
-      const signed = await signTransaction(transaction);
-
-      await ethImpl.sendRawTransaction(signed, requestDetails);
-
-      expect(ethImpl['ethExecutionsCounter']).to.be.instanceOf(Counter);
-      labelsSpy.args[0].map((labelValue, index) => {
-        expect(labelValue).to.equal(expectedLabelsValue[index]);
-      });
-
-      sinon.restore();
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {

@@ -1423,10 +1423,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         };
 
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
-        const error = predefined.TRANSACTION_SIZE_TOO_BIG(
-          '132320',
-          String(ConfigService.get('SEND_RAW_TRANSACTION_SIZE_LIMIT')),
-        );
+        const error = predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(132221, Constants.CONTRACT_CODE_SIZE_LIMIT);
 
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
       });
@@ -1486,7 +1483,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-          data: '0x' + '00'.repeat(40000),
+          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
         };
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
@@ -1504,28 +1501,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000,
         );
       });
-
-      if (!useAsyncTxProcessing) {
-        it('should execute "eth_sendRawTransaction" and deploy a contract with more than max transaction fee', async function () {
-          const gasPrice = await relay.gasPrice(requestId);
-          const transaction = {
-            type: 2,
-            chainId: Number(CHAIN_ID),
-            nonce: await relay.getAccountNonce(accounts[2].address, requestId),
-            maxPriorityFeePerGas: gasPrice,
-            maxFeePerGas: gasPrice,
-            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-            data: '0x' + '00'.repeat(60000),
-          };
-          const signedTx = await accounts[2].wallet.signTransaction(transaction);
-          const error = predefined.INTERNAL_ERROR();
-
-          await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [
-            signedTx,
-            requestDetails,
-          ]);
-        });
-      }
 
       describe('Prechecks', async function () {
         it('should fail "eth_sendRawTransaction" for transaction with incorrect chain_id', async function () {

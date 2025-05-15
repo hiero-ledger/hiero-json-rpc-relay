@@ -24,6 +24,7 @@ jobs:
           - { name: 'API Batch 3', testfilter: 'api_batch3' }
           - { name: 'ERC20', testfilter: 'erc20' }
           - { name: 'Rate Limiter', testfilter: 'ratelimiter', test_ws_server: true }
+          - { name: 'SendRawTransaction Extension', testfilter: 'send_raw_transaction_extension' }
           - { name: 'HBar Limiter Batch 1', testfilter: 'hbarlimiter_batch1' }
           - { name: 'HBar Limiter Batch 2', testfilter: 'hbarlimiter_batch2' }
           - { name: 'HBar Limiter Batch 3', testfilter: 'hbarlimiter_batch3' }

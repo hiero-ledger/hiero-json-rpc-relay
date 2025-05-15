@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import sinon from 'sinon';
-import chaiAsPromised from 'chai-as-promised';
-import { EthImpl } from '../../../src/lib/eth';
+
+import { Eth, predefined } from '../../../src';
+import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
+import constants from '../../../src/lib/constants';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import HAPIService from '../../../src/lib/services/hapiService/hapiService';
+import { RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
+import { defaultDetailedContractResults, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_HASH,
   BLOCK_NUMBER,
@@ -20,15 +29,7 @@ import {
   MOST_RECENT_BLOCK,
   OLDER_BLOCK,
 } from './eth-config';
-import { Eth, predefined } from '../../../src';
-import RelayAssertions from '../../assertions';
-import { defaultDetailedContractResults, overrideEnvsInMochaDescribe } from '../../helpers';
-import { numberTo0x } from '../../../src/formatters';
 import { generateEthTestEnv } from './eth-helpers';
-import { RequestDetails } from '../../../src/lib/types';
-import MockAdapter from 'axios-mock-adapter';
-import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 
 use(chaiAsPromised);
 
@@ -244,7 +245,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       );
     });
 
-    it('eth_getStorageAt should return EthImpl.zeroHex32Byte when slot wrong', async function () {
+    it('eth_getStorageAt should return zeroHex32Byte when slot wrong', async function () {
       const wrongSlot = '0x0000000000000000000000000000000000000000000000000000000000001101';
       restMock
         .onGet(
@@ -258,7 +259,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
         numberTo0x(BLOCK_NUMBER),
         requestDetails,
       );
-      expect(result).to.equal(EthImpl.zeroHex32Byte);
+      expect(result).to.equal(constants.ZERO_HEX_32_BYTE);
     });
 
     it('eth_getStorageAt should return old state when passing older block number', async function () {

@@ -32,6 +32,7 @@ The following table highlights each relay endpoint and the TIER associated with 
 | `eth_call`                                | TIER_1_RATE_LIMIT |
 | `eth_chainId`                             | TIER_2_RATE_LIMIT |
 | `eth_coinbase`                            | TIER_2_RATE_LIMIT |
+| `eth_blobBaseFee`                         | TIER_2_RATE_LIMIT |
 | `eth_estimateGas`                         | TIER_2_RATE_LIMIT |
 | `eth_feeHistory`                          | TIER_2_RATE_LIMIT |
 | `eth_gasPrice`                            | TIER_2_RATE_LIMIT |

@@ -14,10 +14,15 @@ Maintainers are assigned the following scopes in this repository:
 
 <!-- Please keep this sorted alphabetically by github -->
 
-| Name | GitHub ID | Scope | LFID | Discord ID | Email | Company Affiliation |
-|----- | --------- | ----- | ---- | ---------- | ----- | ------------------- |
-|      |           |       |      |            |       |                     |
-
+| Name | GitHub ID       | Scope | LFID | Discord ID | Email | Company Affiliation |
+|----- | --------------- | ----- | ---- | ---------- | ----- | ------------------- |
+|      | Ferparishuertas |       |      |            |       |                     |
+|      | Nana-EC         |       |      |            |       |                     |
+|      | acuarica        |       |      |            |       |                     |
+|      | konstantinabl   |       |      |            |       |                     |
+|      | quiet-node      |       |      |            |       |                     |
+|      | simzzz          |       |      |            |       |                     |
+|      | natanasow       |       |      |            |       |                     |
 
 ## Emeritus Maintainers
 

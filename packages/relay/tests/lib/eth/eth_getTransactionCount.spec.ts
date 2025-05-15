@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
-import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
-import { EthImpl } from '../../../src/lib/eth';
-import constants from '../../../src/lib/constants';
-import { SDKClient } from '../../../src/lib/clients';
-import { DEFAULT_NETWORK_FEES, NO_TRANSACTIONS } from './eth-config';
+import sinon from 'sinon';
+
 import { Eth, predefined } from '../../../src';
+import { numberTo0x } from '../../../src/formatters';
+import { SDKClient } from '../../../src/lib/clients';
+import constants from '../../../src/lib/constants';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import HAPIService from '../../../src/lib/services/hapiService/hapiService';
+import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   defaultDetailedContractResults,
@@ -15,12 +19,8 @@ import {
   mockData,
   overrideEnvsInMochaDescribe,
 } from '../../helpers';
-import { numberTo0x } from '../../../src/formatters';
+import { DEFAULT_NETWORK_FEES, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
-import { RequestDetails } from '../../../src/lib/types';
-import MockAdapter from 'axios-mock-adapter';
-import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 
 use(chaiAsPromised);
 
@@ -61,14 +61,17 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(blockPath).reply(200, JSON.stringify(mockData.blocks.blocks[2]));
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    restMock.onGet(latestBlockPath).reply(202, JSON.stringify({
-      blocks: [
-        {
-          ...mockData.blocks.blocks[2],
-          number: blockNumber + constants.MAX_BLOCK_RANGE + 1,
-        },
-      ],
-    }));
+    restMock.onGet(latestBlockPath).reply(
+      202,
+      JSON.stringify({
+        blocks: [
+          {
+            ...mockData.blocks.blocks[2],
+            number: blockNumber + constants.MAX_BLOCK_RANGE + 1,
+          },
+        ],
+      }),
+    );
     restMock
       .onGet(transactionPath(mockData.account.evm_address, 2))
       .reply(200, JSON.stringify({ transactions: [{ transaction_id: transactionId }, {}] }));
@@ -93,7 +96,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     // @ts-ignore
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, null, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.zeroHex);
+    expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
   it('should return latest nonce for no block consideration but valid account', async () => {
@@ -109,54 +112,54 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, '0', requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.zeroHex);
+    expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
   it('should return 0x0 nonce for block 1 consideration', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, '1', requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.zeroHex);
+    expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
   it('should return latest nonce for latest block', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockLatest, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_LATEST, requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });
 
   it('should return latest nonce for finalized block', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockFinalized, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_FINALIZED, requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });
 
   it('should return latest nonce for latest block', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockSafe, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_SAFE, requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });
 
   it('should return latest nonce for pending block', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockPending, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_PENDING, requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });
 
   it('should return 0x0 nonce for earliest block with valid block', async () => {
     restMock.onGet(earliestBlockPath).reply(200, JSON.stringify({ blocks: [mockData.blocks.blocks[0]] }));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockEarliest, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_EARLIEST, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.zeroHex);
+    expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
   it('should throw error for earliest block with invalid block', async () => {
     restMock.onGet(earliestBlockPath).reply(200, JSON.stringify({ blocks: [] }));
-    const args = [MOCK_ACCOUNT_ADDR, EthImpl.blockEarliest, requestDetails];
+    const args = [MOCK_ACCOUNT_ADDR, constants.BLOCK_EARLIEST, requestDetails];
 
     await RelayAssertions.assertRejection(
       predefined.INTERNAL_ERROR('No network blocks found'),
@@ -170,7 +173,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   it('should throw error for earliest block with non 0 or 1 block', async () => {
     restMock.onGet(earliestBlockPath).reply(200, JSON.stringify({ blocks: [mockData.blocks.blocks[2]] }));
 
-    const args = [MOCK_ACCOUNT_ADDR, EthImpl.blockEarliest, requestDetails];
+    const args = [MOCK_ACCOUNT_ADDR, constants.BLOCK_EARLIEST, requestDetails];
 
     const errMessage = `Partial mirror node encountered, earliest block number is ${mockData.blocks.blocks[2].number}`;
 
@@ -184,7 +187,9 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   });
 
   it('should return nonce for request on historical numerical block', async () => {
-    restMock.onGet(accountPath).reply(200, JSON.stringify({ ...mockData.account, transactions: [defaultEthereumTransactions[0]] }));
+    restMock
+      .onGet(accountPath)
+      .reply(200, JSON.stringify({ ...mockData.account, transactions: [defaultEthereumTransactions[0]] }));
     restMock
       .onGet(accountTimestampFilteredPath)
       .reply(200, JSON.stringify({ ...mockData.account, transactions: defaultEthereumTransactions }));
@@ -218,14 +223,17 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
   });
 
   it('should return valid nonce for historical numerical block close to latest', async () => {
-    restMock.onGet(latestBlockPath).reply(202, JSON.stringify({
-      blocks: [
-        {
-          ...mockData.blocks.blocks[2],
-          number: blockNumber + 1,
-        },
-      ],
-    }));
+    restMock.onGet(latestBlockPath).reply(
+      202,
+      JSON.stringify({
+        blocks: [
+          {
+            ...mockData.blocks.blocks[2],
+            number: blockNumber + 1,
+          },
+        ],
+      }),
+    );
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
 
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, blockNumberHex, requestDetails);
@@ -238,7 +246,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
 
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, blockNumberHex, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.zeroHex);
+    expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
   it('should return 0x1 nonce for historical numerical block with a single ethereum transactions found', async () => {
@@ -246,7 +254,7 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
 
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, blockNumberHex, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.oneHex);
+    expect(nonce).to.equal(constants.ONE_HEX);
   });
 
   it('should throw for historical numerical block with a missing contracts results', async () => {
@@ -307,9 +315,9 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
 
   it('should return 0x1 for pre-hip-729 contracts with nonce=null', async () => {
     restMock.onGet(accountPath).reply(200, JSON.stringify({ ...mockData.account, ethereum_nonce: null }));
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, EthImpl.blockLatest, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_LATEST, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(EthImpl.oneHex);
+    expect(nonce).to.equal(constants.ONE_HEX);
   });
 
   it('should return nonce when block hash is passed', async () => {

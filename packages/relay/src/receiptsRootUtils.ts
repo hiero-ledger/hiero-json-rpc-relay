@@ -5,10 +5,9 @@ import { Trie } from '@ethereumjs/trie';
 import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethereumjs/util';
 
 import { prepend0x } from './formatters';
-import { EthImpl } from './lib/eth';
+import constants from './lib/constants';
 import { Log } from './lib/model';
 import { LogsBloomUtils } from './logsBloomUtils';
-
 /**
  * A {Log} serialized as a tuple containing:
  * - {Uint8Array} address
@@ -54,7 +53,7 @@ export class ReceiptsRootUtils {
     } else if (bytesToInt(hexToBytes(receipt.status)) === 0) {
       receiptRoot = Uint8Array.from([]);
     } else {
-      receiptRoot = hexToBytes(EthImpl.oneHex);
+      receiptRoot = hexToBytes(constants.ONE_HEX);
     }
 
     const encodedReceipt: Uint8Array = RLP.encode([
@@ -95,10 +94,10 @@ export class ReceiptsRootUtils {
       receipts.push({
         transactionIndex,
         type: crPerTx.length && crPerTx[0].type ? intToHex(crPerTx[0].type) : null,
-        root: crPerTx.length ? crPerTx[0].root : EthImpl.zeroHex32Byte,
-        status: crPerTx.length ? crPerTx[0].status : EthImpl.oneHex,
+        root: crPerTx.length ? crPerTx[0].root : constants.ZERO_HEX_32_BYTE,
+        status: crPerTx.length ? crPerTx[0].status : constants.ONE_HEX,
         cumulativeGasUsed:
-          crPerTx.length && crPerTx[0].block_gas_used ? intToHex(crPerTx[0].block_gas_used) : EthImpl.zeroHex,
+          crPerTx.length && crPerTx[0].block_gas_used ? intToHex(crPerTx[0].block_gas_used) : constants.ZERO_HEX,
         logsBloom: crPerTx.length
           ? crPerTx[0].bloom
           : LogsBloomUtils.buildLogsBloom(logs[0].address, logsPerTx[0].topics),
@@ -117,17 +116,17 @@ export class ReceiptsRootUtils {
 
   public static async getRootHash(receipts: IReceiptRootHash[]): Promise<string> {
     if (!receipts.length) {
-      return EthImpl.zeroHex32Byte;
+      return constants.ZERO_HEX_32_BYTE;
     }
 
     const trie: Trie = new Trie();
     receipts.map(async (receipt) => {
       // key of the element that is being added to the trie
       const path: Uint8Array =
-        receipt.transactionIndex === EthImpl.zeroHex
+        receipt.transactionIndex === constants.ZERO_HEX
           ? RLP.encode(Buffer.alloc(0))
-          : RLP.encode(bytesToInt(hexToBytes(receipt.transactionIndex ?? EthImpl.zeroHex)));
-      await trie.put(path, this.encodeReceipt(receipt, bytesToInt(hexToBytes(receipt.type ?? EthImpl.zeroHex))));
+          : RLP.encode(bytesToInt(hexToBytes(receipt.transactionIndex ?? constants.ZERO_HEX)));
+      await trie.put(path, this.encodeReceipt(receipt, bytesToInt(hexToBytes(receipt.type ?? constants.ZERO_HEX))));
     });
 
     trie.checkpoint();

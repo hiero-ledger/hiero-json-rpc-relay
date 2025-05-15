@@ -6,7 +6,6 @@ import sinon, { createSandbox } from 'sinon';
 
 import { predefined } from '../../../src';
 import constants from '../../../src/lib/constants';
-import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultErrorMessageHex } from '../../helpers';
@@ -19,6 +18,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   this.timeout(10000);
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
   let sandbox: sinon.SinonSandbox;
+  const emptyBloom = constants.EMPTY_BLOOM;
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getTransactionReceiptTest', ipAddress: '0.0.0.0' });
 
@@ -33,8 +33,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   const defaultDetailedContractResultByHash = {
     address: '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9',
     amount: 2000000000,
-    bloom:
-      '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    bloom: emptyBloom,
     call_result: '0x0606',
     contract_id: '0.0.5001',
     created_contract_ids: ['0.0.7001'],
@@ -50,8 +49,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     logs: [
       {
         address: '0x0000000000000000000000000000000000001389',
-        bloom:
-          '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+        bloom: emptyBloom,
         contract_id: '0.0.5001',
         data: '0x0123',
         index: 0,
@@ -105,8 +103,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
         transactionIndex: '0x1',
       },
     ],
-    logsBloom:
-      '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    logsBloom: emptyBloom,
     status: '0x1',
     transactionHash: '0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7236170ae5e5e7957eb6392',
     transactionIndex: '0x1',
@@ -116,9 +113,9 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
 
   const stubBlockAndFeesFunc = (sandbox: sinon.SinonSandbox) => {
     const gasPrice = 12500000000000000000;
-    sandbox.stub(ethImpl, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sandbox.stub(ethImpl['common'], <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     sandbox.stub(ethImpl, <any>'getBlockByHash').resolves(DEFAULT_BLOCK);
-    sandbox.stub(ethImpl, <any>'getGasPriceInWeibars').resolves(gasPrice);
+    sandbox.stub(ethImpl['common'], <any>'getGasPriceInWeibars').resolves(gasPrice);
   };
 
   this.afterEach(async () => {
@@ -248,7 +245,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt).to.exist;
     if (receipt == null) return;
 
-    expect(receipt.logsBloom).to.eq(EthImpl.emptyBloom);
+    expect(receipt.logsBloom).to.eq(emptyBloom);
   });
 
   it('Adds a revertReason field for receipts with errorMessage', async function () {
@@ -336,7 +333,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       type: defaultDetailedContractResultByHash.type,
     };
 
-    await cacheService.set(cacheKey, cacheReceipt, EthImpl.ethGetTransactionReceipt, requestDetails);
+    await cacheService.set(cacheKey, cacheReceipt, constants.ETH_GET_TRANSACTION_RECEIPT, requestDetails);
 
     // w no mirror node requests
     const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);

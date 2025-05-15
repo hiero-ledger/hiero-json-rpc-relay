@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
+import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
 
 export interface ICommonService {
+  addTopicsToParams(params: any, topics: any[] | null): void;
+
   blockTagIsLatestOrPending(tag: any): boolean;
 
-  validateBlockRangeAndAddTimestampToParams(
-    params: any,
-    fromBlock: string,
-    toBlock: string,
-    requestDetails: RequestDetails,
-    address?: string | string[] | null,
-  ): Promise<boolean>;
+  gasPrice(requestDetails: RequestDetails): Promise<string>;
+
+  genericErrorHandler(error: any, logMessage?: string): void;
+
+  getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null>;
+
+  getContractAddressFromReceipt(contractResult: any): string;
+
+  getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
+
+  getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number>;
 
   getHistoricalBlockResponse(
     requestDetails: RequestDetails,
@@ -22,7 +28,26 @@ export interface ICommonService {
 
   getLatestBlockNumber(requestDetails: RequestDetails): Promise<string>;
 
-  genericErrorHandler(error: any, logMessage?: string): void;
+  getLogs(
+    blockHash: string | null,
+    fromBlock: string | 'latest',
+    toBlock: string | 'latest',
+    address: string | string[] | null,
+    topics: any[] | null,
+    requestDetails: RequestDetails,
+  ): Promise<Log[]>;
+
+  getLogsByAddress(address: string | [string], params: any, requestDetails: RequestDetails): Promise<any>;
+
+  getLogsWithParams(address: string | [string] | null, params: any, requestDetails: RequestDetails): Promise<Log[]>;
+
+  isBlockHash(blockHash: string): boolean;
+
+  isBlockParamValid(tag: string | null): boolean;
+
+  resolveEvmAddress(address: string, requestDetails: RequestDetails, types?: string[]): Promise<string>;
+
+  translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number>;
 
   validateBlockHashAndAddTimestampToParams(
     params: any,
@@ -30,18 +55,13 @@ export interface ICommonService {
     requestDetails: RequestDetails,
   ): Promise<boolean>;
 
-  addTopicsToParams(params: any, topics: any[] | null): void;
+  validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails): Promise<boolean>;
 
-  getLogsByAddress(address: string | [string], params: any, requestDetails: RequestDetails): Promise<any>;
-
-  getLogsWithParams(address: string | [string] | null, params: any, requestDetails: RequestDetails): Promise<Log[]>;
-
-  getLogs(
-    blockHash: string | null,
-    fromBlock: string | 'latest',
-    toBlock: string | 'latest',
-    address: string | [string] | null,
-    topics: any[] | null,
+  validateBlockRangeAndAddTimestampToParams(
+    params: any,
+    fromBlock: string,
+    toBlock: string,
     requestDetails: RequestDetails,
-  ): Promise<Log[]>;
+    address?: string | string[] | null,
+  ): Promise<boolean>;
 }

@@ -4,17 +4,23 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import pino from 'pino';
-import { Registry } from 'prom-client';
+import { register, Registry } from 'prom-client';
 
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import { IOpcodesResponse } from '../../src/lib/clients/models/IOpcodesResponse';
-import { TracerType } from '../../src/lib/constants';
+import constants, { TracerType } from '../../src/lib/constants';
+import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
+import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
+import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
+import { CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
-import { CommonService } from '../../src/lib/services/ethService';
+import HAPIService from '../../src/lib/services/hapiService/hapiService';
+import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -23,12 +29,12 @@ chai.use(chaiAsPromised);
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
 
-let restMock: typeof MockAdapter;
-let web3Mock: typeof MockAdapter;
+let restMock: MockAdapter;
+let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
 let cacheService: CacheService;
-
+let hapiServiceInstance: HAPIService;
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
 
@@ -253,12 +259,27 @@ describe('Debug API Test Suite', async function () {
       registry,
       cacheService,
     );
+    const duration = constants.HBAR_RATE_LIMIT_DURATION;
+    const eventEmitter = new EventEmitter();
+
+    const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
+    const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
+    const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
+    const hbarLimitService = new HbarLimitService(
+      hbarSpendingPlanRepository,
+      evmAddressHbarSpendingPlanRepository,
+      ipAddressHbarSpendingPlanRepository,
+      logger,
+      register,
+      duration,
+    );
+    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
+
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(mirrorNodeInstance, logger, cacheService);
-    debugService = new DebugImpl(mirrorNodeInstance, logger, common);
+    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, hapiServiceInstance);
   });
 
   describe('debug_traceTransaction', async function () {

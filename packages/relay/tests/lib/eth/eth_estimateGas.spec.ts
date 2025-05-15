@@ -3,6 +3,7 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256 } from 'ethers';
+import { EventEmitter } from 'events';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -28,14 +29,16 @@ use(chaiAsPromised);
 let sdkClientStub: SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: SinonStub<[], SDKClient>;
 let ethImplOverridden: Eth;
-
+let eventEmitter: EventEmitter;
+const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
-  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger, registry } =
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } =
     generateEthTestEnv();
 
+  const contractService = ethImpl['contractService'];
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
-
+  eventEmitter = new EventEmitter();
   async function mockContractCall(
     callData: IContractCallRequest,
     estimate: boolean,
@@ -44,12 +47,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     requestDetails: RequestDetails,
   ) {
     const formattedData = { ...callData, estimate };
-    await ethImpl.contractCallFormat(formattedData, requestDetails);
+    await contractService['contractCallFormat'](formattedData, requestDetails);
     return web3Mock.onPost('contracts/call', formattedData).reply(statusCode, JSON.stringify(result));
   }
 
   function mockGetAccount(idOrAliasOrEvmAddress: string, statusCode: number, result: any) {
-    return restMock.onGet(`accounts/${idOrAliasOrEvmAddress}?transactions=false`).reply(statusCode, JSON.stringify(result));
+    return restMock
+      .onGet(`accounts/${idOrAliasOrEvmAddress}?transactions=false`)
+      .reply(statusCode, JSON.stringify(result));
   }
 
   const transaction = {
@@ -70,7 +75,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     restMock.reset();
     sdkClientStub = createStubInstance(SDKClient);
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      eventEmitter,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getMainClientInstance().operatorAccountId!.toString(), 200, {
@@ -181,7 +193,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       value: 10, //in tinybars
     };
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
-    restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
+    restMock
+      .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
+      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
 
     const gas = await ethImpl.estimateGas(
       {
@@ -191,7 +205,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       null,
       requestDetails,
     );
-    expect(gas).to.equal(EthImpl.gasTxBaseCost);
+    expect(gas).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to existing cached account', async function () {
@@ -200,7 +214,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       value: 10, //in tinybars
     };
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
-    restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
+    restMock
+      .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
+      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
 
     const gasBeforeCache = await ethImpl.estimateGas(
       {
@@ -221,8 +237,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gasBeforeCache).to.equal(EthImpl.gasTxBaseCost);
-    expect(gasAfterCache).to.equal(EthImpl.gasTxBaseCost);
+    expect(gasBeforeCache).to.equal(gasTxBaseCost);
+    expect(gasAfterCache).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas transfer to non existing account', async function () {
@@ -241,8 +257,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       null,
       requestDetails,
     );
-
-    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(Number(EthImpl.minGasTxHollowAccountCreation));
+    const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
+    expect(Number(hollowAccountGasCreation)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
   });
 
   it('should eth_estimateGas transfer with 0 value', async function () {
@@ -251,7 +267,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       value: 0, //in tinybars
     };
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
-    restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
+    restMock
+      .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
+      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
     const gas = await ethImpl.estimateGas(
       {
         to: RECEIVER_ADDRESS,
@@ -261,7 +279,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    expect(gas).to.equal(EthImpl.gasTxBaseCost);
+    expect(gas).to.equal(gasTxBaseCost);
   });
 
   it('should eth_estimateGas for contract create with input field and absent data field', async () => {
@@ -287,7 +305,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       value: -100_000_000_000, //in tinybars
     };
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
-    restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
+    restMock
+      .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
+      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
     const result = await ethImpl.estimateGas(
       {
         to: RECEIVER_ADDRESS,
@@ -530,7 +550,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await ethImpl.contractCallFormat(transaction, requestDetails);
+    await contractService['contractCallFormat'](transaction, requestDetails);
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
@@ -548,7 +568,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       gas: '0xd97010',
     };
 
-    await ethImpl.contractCallFormat(transaction, requestDetails);
+    await contractService['contractCallFormat'](transaction, requestDetails);
     expect(transaction.data).to.eq(inputValue);
     expect(transaction.data).to.not.eq(dataValue);
     expect(transaction.input).to.be.undefined;

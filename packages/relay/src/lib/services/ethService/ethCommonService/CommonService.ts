@@ -4,15 +4,27 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
+import {
+  isHex,
+  nanOrNumberInt64To0x,
+  nanOrNumberTo0x,
+  nullableNumberTo0x,
+  numberTo0x,
+  parseNumericEnvVar,
+  prepend0x,
+  stripLeadingZeroForSignatures,
+  tinybarsToWeibars,
+  toHash32,
+} from '../../../../formatters';
+import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
-import { EthImpl } from '../../../eth';
-import { Log } from '../../../model';
-import { RequestDetails } from '../../../types';
+import { TransactionFactory } from '../../../factories/transactionFactory';
+import { Log, Transaction } from '../../../model';
+import { IAccountInfo, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { ICommonService } from './ICommonService';
 
@@ -26,6 +38,13 @@ import { ICommonService } from './ICommonService';
  */
 export class CommonService implements ICommonService {
   /**
+   * The LRU cache used for caching items from requests.
+   *
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * The interface through which we interact with the mirror node
    * @private
    */
@@ -38,32 +57,30 @@ export class CommonService implements ICommonService {
   private readonly logger: Logger;
 
   /**
-   * The LRU cache used for caching items from requests.
-   *
-   * @private
+   * public constants
    */
-  private readonly cacheService: CacheService;
-
-  public static readonly blockLatest = 'latest';
-  public static readonly blockEarliest = 'earliest';
-  public static readonly blockPending = 'pending';
-  public static readonly blockSafe = 'safe';
-  public static readonly blockFinalized = 'finalized';
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
-
-  // function callerNames
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
 
-  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
+  /**
+   * private constants
+   * @private
+   */
   private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
     'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
   );
-
-  // Maximum allowed timestamp range for mirror node requests' timestamp parameter is 7 days (604800 seconds)
+  private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
+    'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
+    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT',
+  );
+  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
 
-  private getLogsBlockRangeLimit() {
+  /**
+   * @private
+   */
+  private static getLogsBlockRangeLimit() {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
@@ -74,16 +91,16 @@ export class CommonService implements ICommonService {
   }
 
   public static blockTagIsLatestOrPendingStrict(tag: string | null): boolean {
-    return tag === CommonService.blockLatest || tag === CommonService.blockPending;
+    return tag === constants.BLOCK_LATEST || tag === constants.BLOCK_PENDING;
   }
 
   public blockTagIsLatestOrPending = (tag): boolean => {
     return (
       tag == null ||
-      tag === CommonService.blockLatest ||
-      tag === CommonService.blockPending ||
-      tag === CommonService.blockSafe ||
-      tag === CommonService.blockFinalized
+      tag === constants.BLOCK_LATEST ||
+      tag === constants.BLOCK_PENDING ||
+      tag === constants.BLOCK_SAFE ||
+      tag === constants.BLOCK_FINALIZED
     );
   };
 
@@ -95,7 +112,7 @@ export class CommonService implements ICommonService {
     address?: string | string[] | null,
   ) {
     if (this.blockTagIsLatestOrPending(toBlock)) {
-      toBlock = CommonService.blockLatest;
+      toBlock = constants.BLOCK_LATEST;
     } else {
       const latestBlockNumber: string = await this.getLatestBlockNumber(requestDetails);
 
@@ -109,7 +126,7 @@ export class CommonService implements ICommonService {
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
-      fromBlock = CommonService.blockLatest;
+      fromBlock = constants.BLOCK_LATEST;
     }
 
     let fromBlockNum = 0;
@@ -158,7 +175,7 @@ export class CommonService implements ICommonService {
         throw predefined.INVALID_BLOCK_RANGE;
       }
 
-      const blockRangeLimit = this.getLogsBlockRangeLimit();
+      const blockRangeLimit = CommonService.getLogsBlockRangeLimit();
       // Increasing it to more then one address may degrade mirror node performance
       // when addresses contains many log events.
       const isSingleAddress = Array.isArray(address)
@@ -177,7 +194,7 @@ export class CommonService implements ICommonService {
     let toBlockNumber: any = null;
 
     if (this.blockTagIsLatestOrPending(toBlock)) {
-      toBlock = CommonService.blockLatest;
+      toBlock = constants.BLOCK_LATEST;
     } else {
       toBlockNumber = Number(toBlock);
 
@@ -193,7 +210,7 @@ export class CommonService implements ICommonService {
     }
 
     if (this.blockTagIsLatestOrPending(fromBlock)) {
-      fromBlock = CommonService.blockLatest;
+      fromBlock = constants.BLOCK_LATEST;
     } else {
       fromBlockNumber = Number(fromBlock);
     }
@@ -241,7 +258,7 @@ export class CommonService implements ICommonService {
       return null;
     }
 
-    if (blockNumberOrTagOrHash === EthImpl.emptyHex) {
+    if (blockNumberOrTagOrHash === constants.EMPTY_HEX) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
           `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
@@ -264,7 +281,7 @@ export class CommonService implements ICommonService {
       return latestBlockResponse.blocks[0];
     }
 
-    if (blockNumberOrTagOrHash == CommonService.blockEarliest) {
+    if (blockNumberOrTagOrHash == constants.BLOCK_EARLIEST) {
       return await this.mirrorNodeClient.getBlock(0, requestDetails);
     }
 
@@ -441,5 +458,234 @@ export class CommonService implements ICommonService {
     this.addTopicsToParams(params, topics);
 
     return this.getLogsWithParams(address, params, requestDetails);
+  }
+
+  public async resolveEvmAddress(
+    address: string,
+    requestDetails: RequestDetails,
+    searchableTypes = [constants.TYPE_CONTRACT, constants.TYPE_TOKEN, constants.TYPE_ACCOUNT],
+  ): Promise<string> {
+    if (!address) return address;
+
+    const entity = await this.mirrorNodeClient.resolveEntityType(
+      address,
+      constants.ETH_GET_CODE,
+      requestDetails,
+      searchableTypes,
+      0,
+    );
+    let resolvedAddress = address;
+    if (
+      entity &&
+      (entity.type === constants.TYPE_CONTRACT || entity.type === constants.TYPE_ACCOUNT) &&
+      entity.entity?.evm_address
+    ) {
+      resolvedAddress = entity.entity.evm_address;
+    }
+
+    return resolvedAddress;
+  }
+
+  /**
+   * Retrieves the current network gas price in weibars from the mirror node.
+   *
+   * This method fetches network fees from the mirror node for a specific timestamp (if provided)
+   * and converts the gas price from tinybars to weibars for Ethereum compatibility.
+   *
+   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking
+   * @param {string} [timestamp] - Optional timestamp to get historical gas prices
+   * @returns {Promise<number>} The gas price in weibars
+   * @throws {Error} If the gas price cannot be estimated
+   */
+  public async getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number> {
+    const networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
+
+    if (networkFees && Array.isArray(networkFees.fees)) {
+      const ethereumTransactionTypeFee = networkFees.fees.find(
+        ({ transaction_type }) => transaction_type === 'EthereumTransaction',
+      );
+
+      if (ethereumTransactionTypeFee?.gas) {
+        // convert tinyBars into weiBars and return the value
+        return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
+      }
+    }
+
+    throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE;
+  }
+
+  /**
+   * Retrieves the current network gas price in weibars.
+   *
+   * @returns {Promise<string>} The current gas price in weibars as a hexadecimal string.
+   * @throws Will throw an error if unable to retrieve the gas price.
+   * @param requestDetails
+   */
+  public async gasPrice(requestDetails: RequestDetails): Promise<string> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} eth_gasPrice`);
+    }
+    try {
+      let gasPrice: number | undefined = await this.cacheService.getAsync(
+        constants.CACHE_KEY.GAS_PRICE,
+        constants.ETH_GAS_PRICE,
+        requestDetails,
+      );
+
+      if (!gasPrice) {
+        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));
+
+        await this.cacheService.set(
+          constants.CACHE_KEY.GAS_PRICE,
+          gasPrice,
+          constants.ETH_GAS_PRICE,
+          requestDetails,
+          this.ethGasPriceCacheTtlMs,
+        );
+      }
+
+      return numberTo0x(gasPrice);
+    } catch (error) {
+      throw this.genericErrorHandler(error, `${requestDetails.formattedRequestId} Failed to retrieve gasPrice`);
+    }
+  }
+
+  /**
+   * Translates a block tag into a number. 'latest', 'pending', and null are the most recent block, 'earliest' is 0, numbers become numbers.
+   *
+   * @param tag null, a number, or 'latest', 'pending', or 'earliest'
+   * @param requestDetails
+   * @private
+   */
+  public async translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number> {
+    if (this.blockTagIsLatestOrPending(tag)) {
+      return Number(await this.getLatestBlockNumber(requestDetails));
+    } else if (tag === constants.BLOCK_EARLIEST) {
+      return 0;
+    } else {
+      return Number(tag);
+    }
+  }
+
+  private isBlockTagEarliest = (tag: string): boolean => {
+    return tag === constants.BLOCK_EARLIEST;
+  };
+
+  private isBlockTagFinalized = (tag: string): boolean => {
+    return (
+      tag === constants.BLOCK_FINALIZED ||
+      tag === constants.BLOCK_LATEST ||
+      tag === constants.BLOCK_PENDING ||
+      tag === constants.BLOCK_SAFE
+    );
+  };
+
+  private isBlockNumValid = (num: string) => {
+    return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
+  };
+
+  public isBlockParamValid = (tag: string | null) => {
+    return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
+  };
+
+  public isBlockHash = (blockHash: string): boolean => {
+    return new RegExp(constants.BLOCK_HASH_REGEX + '{64}$').test(blockHash);
+  };
+
+  /**
+   * Tries to get the account with the given address from the cache,
+   * if not found, it fetches it from the mirror node.
+   *
+   * @param {string} address the address of the account
+   * @param {RequestDetails} requestDetails the request details for logging and tracking
+   * @returns {Promise<IAccountInfo | null>} the account (if such exists for the given address)
+   */
+  public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
+    const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
+    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS, requestDetails);
+    if (!account) {
+      account = await this.mirrorNodeClient.getAccount(address, requestDetails);
+      await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS, requestDetails);
+    }
+    return account;
+  }
+
+  /**
+   * This method retrieves the contract address from the receipt response.
+   * If the contract creation is via a system contract, it handles the system contract creation.
+   * If not, it returns the address from the receipt response.
+   *
+   * @param {any} receiptResponse - The receipt response object.
+   * @returns {string} The contract address.
+   */
+  public getContractAddressFromReceipt(receiptResponse: any): string {
+    const isCreationViaSystemContract = constants.HTS_CREATE_FUNCTIONS_SELECTORS.includes(
+      receiptResponse.function_parameters.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
+    );
+
+    if (!isCreationViaSystemContract) {
+      return receiptResponse.address;
+    }
+
+    // Handle system contract creation
+    // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
+    const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
+    return prepend0x(tokenAddress);
+  }
+
+  public async getCurrentGasPriceForBlock(blockHash: string, requestDetails: RequestDetails): Promise<string> {
+    const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
+    const timestampDecimalString = block ? block.timestamp.from.split('.')[0] : '';
+    const gasPriceForTimestamp = await this.getGasPriceInWeibars(requestDetails, timestampDecimalString);
+
+    return numberTo0x(gasPriceForTimestamp);
+  }
+
+  public static formatContractResult(cr: any): Transaction | null {
+    if (cr === null) {
+      return null;
+    }
+
+    const gasPrice =
+      cr.gas_price === null || cr.gas_price === '0x'
+        ? '0x0'
+        : isHex(cr.gas_price)
+        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : nanOrNumberTo0x(cr.gas_price);
+
+    const commonFields = {
+      blockHash: toHash32(cr.block_hash),
+      blockNumber: nullableNumberTo0x(cr.block_number),
+      from: cr.from.substring(0, 42),
+      gas: nanOrNumberTo0x(cr.gas_used),
+      gasPrice,
+      hash: cr.hash.substring(0, 66),
+      input: cr.function_parameters,
+      nonce: nanOrNumberTo0x(cr.nonce),
+      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
+      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
+      to: cr.to?.substring(0, 42),
+      transactionIndex: nullableNumberTo0x(cr.transaction_index),
+      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
+      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
+      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
+      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
+      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
+      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
+      chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
+    };
+
+    return TransactionFactory.createTransactionByType(cr.type, {
+      ...commonFields,
+      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
+      maxFeePerGas: cr.max_fee_per_gas,
+    });
+  }
+
+  public static redirectBytecodeAddressReplace(address: string): string {
+    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
+    const redirectBytecodePostfix =
+      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
+    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
   }
 }

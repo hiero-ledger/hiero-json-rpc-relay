@@ -11,7 +11,7 @@ import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { INewFilterParams } from '../../../types/requestParams';
 import { CacheService } from '../../cacheService/cacheService';
-import { CommonService } from '../ethCommonService';
+import { ICommonService } from '../../index';
 import { IFilterService } from './IFilterService';
 
 /**
@@ -41,15 +41,19 @@ export class FilterService implements IFilterService {
    * @private
    */
   private readonly cacheService: CacheService;
+
+  /**
+   * The Common Service implementation that contains logic shared by other services.
+   */
+  private readonly common: ICommonService;
+
   public readonly ethNewFilter = 'eth_newFilter';
   public readonly ethUninstallFilter = 'eth_uninstallFilter';
   public readonly ethGetFilterLogs = 'eth_getFilterLogs';
   public readonly ethGetFilterChanges = 'eth_getFilterChanges';
-
-  private readonly common: CommonService;
   private readonly supportedTypes: string[];
 
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, common: CommonService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, common: ICommonService) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
@@ -102,8 +106,8 @@ export class FilterService implements IFilterService {
     try {
       FilterService.requireFiltersEnabled();
 
-      const fromBlock = params?.fromBlock === undefined ? CommonService.blockLatest : params?.fromBlock;
-      const toBlock = params?.toBlock === undefined ? CommonService.blockLatest : params?.toBlock;
+      const fromBlock = params?.fromBlock === undefined ? constants.BLOCK_LATEST : params?.fromBlock;
+      const toBlock = params?.toBlock === undefined ? constants.BLOCK_LATEST : params?.toBlock;
 
       if (!(await this.common.validateBlockRange(fromBlock, toBlock, requestDetails))) {
         throw predefined.INVALID_BLOCK_RANGE;
@@ -113,9 +117,7 @@ export class FilterService implements IFilterService {
         constants.FILTER.TYPE.LOG,
         {
           fromBlock:
-            fromBlock === CommonService.blockLatest
-              ? await this.common.getLatestBlockNumber(requestDetails)
-              : fromBlock,
+            fromBlock === constants.BLOCK_LATEST ? await this.common.getLatestBlockNumber(requestDetails) : fromBlock,
           toBlock,
           address: params?.address,
           topics: params?.topics,

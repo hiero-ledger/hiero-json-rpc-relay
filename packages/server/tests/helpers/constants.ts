@@ -16,6 +16,7 @@ const ETH_ENDPOINTS = {
   ETH_PROTOCOL_VERSION: 'eth_protocolVersion',
   ETH_SEND_TRANSACTION: 'eth_sendTransaction',
   ETH_COINBASE: 'eth_coinbase',
+  ETH_BLOB_BASE_FEE: 'eth_blobBaseFee',
   ETH_GET_WORK: 'eth_getWork',
   ETH_SUBMIT_HASH_RATE: 'eth_submitHashrate',
   ETH_MAX_PRIORITY_FEE_PER_GAS: 'eth_maxPriorityFeePerGas',

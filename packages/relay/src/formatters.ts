@@ -6,7 +6,6 @@ import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
-import { Transaction, Transaction1559, Transaction2930 } from './lib/model';
 
 const EMPTY_HEX = '0x';
 
@@ -132,67 +131,6 @@ const weibarHexToTinyBarInt = (value: bigint | boolean | number | string): numbe
     return 1; // Round up to the smallest unit of tinybar
   }
   return Number(tinybarValue);
-};
-
-const formatContractResult = (cr: any) => {
-  if (cr === null) {
-    return null;
-  }
-
-  const gasPrice =
-    cr.gas_price === null || cr.gas_price === '0x'
-      ? '0x0'
-      : isHex(cr.gas_price)
-      ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-      : nanOrNumberTo0x(cr.gas_price);
-
-  const commonFields = {
-    blockHash: toHash32(cr.block_hash),
-    blockNumber: nullableNumberTo0x(cr.block_number),
-    from: cr.from.substring(0, 42),
-    gas: nanOrNumberTo0x(cr.gas_used),
-    gasPrice,
-    hash: cr.hash.substring(0, 66),
-    input: cr.function_parameters,
-    nonce: nanOrNumberTo0x(cr.nonce),
-    r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
-    s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
-    to: cr.to?.substring(0, 42),
-    transactionIndex: nullableNumberTo0x(cr.transaction_index),
-    type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
-    v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-    value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
-    // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
-    //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
-    //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
-    chainId: cr.chain_id === EMPTY_HEX ? undefined : cr.chain_id,
-  };
-
-  switch (cr.type) {
-    case 0:
-      return new Transaction(commonFields); // eip 155 fields
-    case 1:
-      return new Transaction2930({
-        ...commonFields,
-        accessList: [],
-      }); // eip 2930 fields
-    case 2:
-      return new Transaction1559({
-        ...commonFields,
-        accessList: [],
-        maxPriorityFeePerGas:
-          cr.max_priority_fee_per_gas === null || cr.max_priority_fee_per_gas === '0x'
-            ? '0x0'
-            : prepend0x(trimPrecedingZeros(cr.max_priority_fee_per_gas)),
-        maxFeePerGas:
-          cr.max_fee_per_gas === null || cr.max_fee_per_gas === '0x'
-            ? '0x0'
-            : prepend0x(trimPrecedingZeros(cr.max_fee_per_gas)),
-      }); // eip 1559 fields
-    case null:
-      return new Transaction(commonFields); //hapi
-  }
-  return null;
 };
 
 /**
@@ -346,7 +284,6 @@ export {
   formatTransactionId,
   formatTransactionIdWithoutQueryParams,
   parseNumericEnvVar,
-  formatContractResult,
   prepend0x,
   numberTo0x,
   nullableNumberTo0x,

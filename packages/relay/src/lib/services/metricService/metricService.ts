@@ -3,11 +3,12 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
-import { Histogram, Registry } from 'prom-client';
+import { Counter, Histogram, Registry } from 'prom-client';
 
 import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
+  IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
@@ -66,6 +67,14 @@ export default class MetricService {
   private readonly eventEmitter: EventEmitter;
 
   /**
+   * Counter for tracking Ethereum executions.
+   * @type {Counter}
+   * @readonly
+   * @private
+   */
+  private readonly ethExecutionsCounter: Counter;
+
+  /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
    * @private
    * @readonly
@@ -98,13 +107,17 @@ export default class MetricService {
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
-
+    this.ethExecutionsCounter = this.initEthCounter(register);
     this.eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
       this.captureTransactionMetrics(args).then();
     });
 
     this.eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
       this.addExpenseAndCaptureMetrics(args);
+    });
+
+    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
+      this.ethExecutionsCounter.labels(args.method, args.functionSelector, args.from, args.to).inc();
     });
   }
 
@@ -239,6 +252,17 @@ export default class MetricService {
       name: metricHistogramGasFee,
       help: 'Relay consensusnode mode type status gas fee histogram',
       labelNames: ['mode', 'type', 'status', 'caller', 'interactingEntity'],
+      registers: [register],
+    });
+  }
+
+  private initEthCounter(register: Registry): Counter {
+    const metricCounterName = 'rpc_relay_eth_executions';
+    register.removeSingleMetric(metricCounterName);
+    return new Counter({
+      name: metricCounterName,
+      help: `Relay ${metricCounterName} function`,
+      labelNames: ['method', 'function', 'from', 'to'],
       registers: [register],
     });
   }

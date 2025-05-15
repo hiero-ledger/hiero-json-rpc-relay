@@ -53,8 +53,10 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    currentGasPriceStub = sinon.stub(ethImpl, 'getCurrentGasPriceForBlock').resolves('0x25');
-    extractBlockNumberOrTagStub = sinon.stub(ethImpl, 'extractBlockNumberOrTag').resolves(BLOCK_NUMBER);
+    currentGasPriceStub = sinon.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0x25');
+    extractBlockNumberOrTagStub = sinon
+      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
+      .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
@@ -200,7 +202,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       const specificCacheServiceSpy = sinon
         .spy(cacheService, 'getAsync')
-        .withArgs(cacheKey, EthImpl.ethGetBlockReceipts, requestDetails);
+        .withArgs(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
       const firstResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
 
       // Subsequent calls should use cache
@@ -221,7 +223,8 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
-      expect(cacheSetSpy.calledWith(cacheKey, sinon.match.any, EthImpl.ethGetBlockReceipts, requestDetails)).to.be.true;
+      expect(cacheSetSpy.calledWith(cacheKey, sinon.match.any, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails)).to.be
+        .true;
 
       cacheSetSpy.restore();
     });

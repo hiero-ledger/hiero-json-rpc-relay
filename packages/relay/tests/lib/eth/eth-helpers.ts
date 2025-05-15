@@ -13,6 +13,8 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../../src/lib/db/reposi
 import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../../src/lib/eth';
+import { ContractService } from '../../../src/lib/services';
+import { CommonService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
@@ -63,10 +65,11 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+  const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
-  // @ts-ignore
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+  const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
+
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
 
   return {
     cacheService,
@@ -77,5 +80,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     ethImpl,
     logger,
     registry,
+    commonService,
   };
 }

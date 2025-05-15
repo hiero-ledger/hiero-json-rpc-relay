@@ -2,11 +2,11 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+
 import { JsonRpcError } from '../src';
-import { EthImpl } from '../src/lib/eth';
-import { Block, Transaction } from '../src/lib/model';
 import { numberTo0x } from '../src/formatters';
 import constants from '../src/lib/constants';
+import { Block, Transaction } from '../src/lib/model';
 import { BASE_FEE_PER_GAS_DEFAULT } from './lib/eth/eth-config';
 
 chai.use(chaiAsPromised);
@@ -131,15 +131,15 @@ export default class RelayAssertions {
   static verifyBlockConstants = (block: Block) => {
     expect(block.gasLimit).equal(numberTo0x(constants.BLOCK_GAS_LIMIT));
     expect(block.baseFeePerGas).equal(BASE_FEE_PER_GAS_DEFAULT);
-    expect(block.difficulty).equal(EthImpl.zeroHex);
-    expect(block.extraData).equal(EthImpl.emptyHex);
-    expect(block.miner).equal(EthImpl.zeroAddressHex);
-    expect(block.mixHash).equal(EthImpl.zeroHex32Byte);
-    expect(block.nonce).equal(EthImpl.zeroHex8Byte);
-    expect(block.sha3Uncles).equal(EthImpl.emptyArrayHex);
+    expect(block.difficulty).equal(constants.ZERO_HEX);
+    expect(block.extraData).equal(constants.EMPTY_HEX);
+    expect(block.miner).equal(constants.ZERO_ADDRESS_HEX);
+    expect(block.mixHash).equal(constants.ZERO_HEX_32_BYTE);
+    expect(block.nonce).equal(constants.ZERO_HEX_8_BYTE);
+    expect(block.sha3Uncles).equal(constants.EMPTY_ARRAY_HEX);
     expect(block.stateRoot).equal(constants.DEFAULT_ROOT_HASH);
-    expect(block.totalDifficulty).equal(EthImpl.zeroHex);
+    expect(block.totalDifficulty).equal(constants.ZERO_HEX);
     expect(block.uncles).to.deep.equal([]);
-    expect(block.withdrawalsRoot).to.equal(EthImpl.zeroHex32Byte);
+    expect(block.withdrawalsRoot).to.equal(constants.ZERO_HEX_32_BYTE);
   };
 }

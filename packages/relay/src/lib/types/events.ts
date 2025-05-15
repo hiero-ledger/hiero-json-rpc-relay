@@ -24,3 +24,11 @@ export interface IExecuteQueryEventPayload {
   requestDetails: RequestDetails;
   originalCallerAddress: string | undefined;
 }
+
+export interface IEthExecutionEventPayload {
+  method: string;
+  functionSelector: string;
+  from: string;
+  to: string;
+  requestDetails: RequestDetails;
+}

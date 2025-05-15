@@ -11,8 +11,8 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
-import { CommonService } from './services/ethService/ethCommonService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
 
 /**
