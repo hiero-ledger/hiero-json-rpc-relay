@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -35,7 +36,11 @@ export class Precheck {
    * @returns {Transaction} The parsed transaction.
    */
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
-    return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
+    try {
+      return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
+    } catch (e: any) {
+      throw predefined.INVALID_ARGUMENTS(e.message.toString());
+    }
   }
 
   /**
@@ -59,9 +64,6 @@ export class Precheck {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
-    this.contractCodeSize(parsedTx);
-    this.callDataSize(parsedTx);
-    this.transactionSize(parsedTx);
     this.transactionType(parsedTx, requestDetails);
     this.gasLimit(parsedTx, requestDetails);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
@@ -319,34 +321,35 @@ export class Precheck {
   }
 
   /**
-   * Validates that the transaction size is within the allowed limit.
-   * The serialized transaction length is converted from hex string length to byte count
-   * by subtracting the '0x' prefix (2 characters) and dividing by 2 (since each byte is represented by 2 hex characters).
-   *
-   * @param {Transaction} tx - The transaction to validate.
-   * @throws {JsonRpcError} If the transaction size exceeds the configured limit.
+   * Converts hex string to bytes array
+   * @param {string} hex - The hex string you want to convert.
+   * @returns {Uint8Array} The bytes array.
    */
-  transactionSize(tx: Transaction): void {
-    const totalRawTransactionSizeInBytes = tx.serialized.replace('0x', '').length / 2;
-    const transactionSizeLimit = constants.SEND_RAW_TRANSACTION_SIZE_LIMIT;
-    if (totalRawTransactionSizeInBytes > transactionSizeLimit) {
-      throw predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(totalRawTransactionSizeInBytes, transactionSizeLimit);
+  hexToBytes(hex: string): Uint8Array {
+    if (hex === '') {
+      throw predefined.INTERNAL_ERROR('Passed hex an empty string');
     }
+
+    if (hex.startsWith('0x') && hex.length == 2) {
+      throw predefined.INTERNAL_ERROR('Hex cannot be 0x');
+    } else if (hex.startsWith('0x') && hex.length != 2) {
+      hex = hex.slice(2);
+    }
+
+    return Uint8Array.from(Buffer.from(hex, 'hex'));
   }
 
   /**
-   * Validates that the call data size is within the allowed limit.
-   * The data field length is converted from hex string length to byte count
-   * by subtracting the '0x' prefix (2 characters) and dividing by 2 (since each byte is represented by 2 hex characters).
-   *
-   * @param {Transaction} tx - The transaction to validate.
-   * @throws {JsonRpcError} If the call data size exceeds the configured limit.
+   * Checks the size of the transaction.
+   * @param {string} transaction - The transaction to check.
    */
-  callDataSize(tx: Transaction): void {
-    const totalCallDataSizeInBytes = tx.data.replace('0x', '').length / 2;
-    const callDataSizeLimit = constants.CALL_DATA_SIZE_LIMIT;
-    if (totalCallDataSizeInBytes > callDataSizeLimit) {
-      throw predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(totalCallDataSizeInBytes, callDataSizeLimit);
+  checkSize(transaction: string): void {
+    const transactionToBytes: Uint8Array = this.hexToBytes(transaction);
+    const transactionSize: number = transactionToBytes.length;
+    const transactionSizeLimit: number = ConfigService.get('SEND_RAW_TRANSACTION_SIZE_LIMIT');
+
+    if (transactionSize > transactionSizeLimit) {
+      throw predefined.TRANSACTION_SIZE_TOO_BIG(String(transactionSize), String(transactionSizeLimit));
     }
   }
 
@@ -376,23 +379,6 @@ export class Precheck {
       // When `receiver_sig_required` is set to true, the receiver's account must sign all incoming transactions.
       if (verifyAccount && verifyAccount.receiver_sig_required) {
         throw predefined.RECEIVER_SIGNATURE_ENABLED;
-      }
-    }
-  }
-
-  /**
-   * Validates that the contract code size is within the allowed limit.
-   * This check is only performed for contract creation transactions (where tx.to is null).
-   * This limits contract code size to prevent excessive gas consumption.
-   *
-   * @param {Transaction} tx - The transaction to validate.
-   * @throws {JsonRpcError} If the contract code size exceeds the configured limit.
-   */
-  contractCodeSize(tx: Transaction): void {
-    if (!tx.to) {
-      const contractCodeSize = tx.data.replace('0x', '').length / 2;
-      if (contractCodeSize > constants.CONTRACT_CODE_SIZE_LIMIT) {
-        throw predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(contractCodeSize, constants.CONTRACT_CODE_SIZE_LIMIT);
       }
     }
   }

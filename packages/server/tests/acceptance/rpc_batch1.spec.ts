@@ -1535,6 +1535,18 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           ]);
         });
 
+        it('should fail "eth_sendRawTransaction" when transaction has invalid format', async function () {
+          // signature has been truncated
+          const invalidTx =
+            '0xf8748201280585800e8dfc0085800e8dfc00832dc6c094aca85ef7e1fce27079bbf99b60fcf6fd19b99b248502540be40080c001a0210446cfb671c3174392410d52fa3cd58723d8417e40cc67c6225b8f7e3ff693a02674b392846c59f783ea96655d39560956dd987051972064a5d853cea0b6f6d711';
+          const error = predefined.INVALID_ARGUMENTS('unexpected junk after rlp payload');
+
+          await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [
+            invalidTx,
+            requestDetails,
+          ]);
+        });
+
         it('should fail "eth_sendRawTransaction" for EIP155 transaction with a too high gasLimit', async function () {
           const gasLimit = 999999999;
           const transaction = {
