@@ -32,6 +32,7 @@ describe('cache decorator', () => {
     class TestClass {
       @cache(cacheService as unknown as CacheService, options)
       async testMethod(arg1: any, arg2: any, requestDetails: RequestDetails) {
+        console.log(arg1, arg2, requestDetails);
         return COMPUTED_RESULT;
       }
     }
