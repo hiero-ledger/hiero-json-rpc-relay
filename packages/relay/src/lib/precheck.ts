@@ -35,12 +35,8 @@ export class Precheck {
    * @param {string | Transaction} transaction - The transaction to parse.
    * @returns {Transaction} The parsed transaction.
    */
-  public static parseTxIfNeeded(transaction: string | Transaction): Transaction {
-    try {
-      return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
-    } catch (e: any) {
-      throw predefined.INVALID_ARGUMENTS(e.message.toString());
-    }
+  public static parseRawTransaction(transaction: string | Transaction): Transaction {
+    return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
   }
 
   /**

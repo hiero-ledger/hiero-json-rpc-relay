@@ -785,15 +785,15 @@ describe('Precheck', async function () {
     });
   });
 
-  describe('parseTxIfNeeded', async function () {
+  describe('parseRawTransaction', async function () {
     it('should successfully parse a valid transaction string', function () {
-      const parsedTx = Precheck.parseTxIfNeeded(parsedTxWithMatchingChainId);
+      const parsedTx = Precheck.parseRawTransaction(parsedTxWithMatchingChainId);
       expect(parsedTx).to.be.instanceOf(Transaction);
       expect(parsedTx.chainId).to.equal(BigInt(298));
     });
 
     it('should throw INVALID_ARGUMENTS for invalid RLP', function () {
-      expect(() => Precheck.parseTxIfNeeded(invalidTx)).to.throw('Invalid arguments: invalid BytesLike value');
+      expect(() => Precheck.parseRawTransaction(invalidTx)).to.throw('Invalid arguments: invalid BytesLike value');
     });
   });
 });

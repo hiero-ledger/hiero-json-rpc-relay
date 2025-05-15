@@ -1935,7 +1935,7 @@ export class EthImpl implements Eth {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<EthersTransaction> {
-    const parsedTx = Precheck.parseTxIfNeeded(transaction);
+    const parsedTx = Precheck.parseRawTransaction(transaction);
     try {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
