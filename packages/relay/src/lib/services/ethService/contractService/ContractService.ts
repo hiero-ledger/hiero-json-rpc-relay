@@ -206,11 +206,7 @@ export class ContractService implements IContractService {
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} The code at the given address
    */
-  public async getCode(
-    address: string,
-    blockNumber: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string> {
+  public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (!this.common.isBlockParamValid(blockNumber)) {
       throw predefined.UNKNOWN_BLOCK(
@@ -249,21 +245,6 @@ export class ContractService implements IContractService {
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
-
-            // Might be removed by another PR related to the getCode improvements - https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/3698
-            //
-            // const prohibitedOpcodes = ['CALLCODE', 'DELEGATECALL', 'SELFDESTRUCT', 'SUICIDE'];
-            // const opcodes = disassemble(result?.entity.runtime_bytecode);
-            // const hasProhibitedOpcode =
-            //   opcodes.filter((opcode) => prohibitedOpcodes.indexOf(opcode.opcode.mnemonic) > -1).length > 0;
-            // if (!hasProhibitedOpcode) {
-            //   await this.cacheService.set(
-            //     cachedLabel,
-            //     result.entity.runtime_bytecode,
-            //     constants.ETH_GET_CODE,
-            //     requestDetails,
-            //   );
-            // }
             return result.entity.runtime_bytecode;
           }
         }
