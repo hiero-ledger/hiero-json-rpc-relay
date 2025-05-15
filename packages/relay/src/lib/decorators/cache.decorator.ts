@@ -145,7 +145,7 @@ const generateCacheKey = (methodName: string, args: IArguments) => {
  */
 const extractRequestDetails = (args: IArguments): RequestDetails => {
   for (const value of Array.from(args)) {
-    if (value instanceof RequestDetails) {
+    if (value?.constructor?.name === 'RequestDetails') {
       return value;
     }
   }
@@ -200,5 +200,14 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
 
       return result;
     };
+  };
+}
+
+export namespace __test__ {
+  export const __private = {
+    shouldSkipCachingForSingleParams,
+    shouldSkipCachingForNamedParams,
+    generateCacheKey,
+    extractRequestDetails
   };
 }
