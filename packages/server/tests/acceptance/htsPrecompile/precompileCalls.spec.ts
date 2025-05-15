@@ -4,8 +4,7 @@
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
 import { ContractId } from '@hashgraph/sdk';
-import chai, { expect } from 'chai';
-import { solidity } from 'ethereum-waffle';
+import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import MirrorClient from '../../clients/mirrorClient';
@@ -25,7 +24,6 @@ import RelayCall from '../../helpers/constants';
 import { Utils } from '../../helpers/utils';
 import { AliasAccount } from '../../types/AliasAccount';
 
-chai.use(solidity);
 describe('@precompile-calls Tests for eth_call with HTS', async function () {
   this.timeout(240 * 1000); // 240 seconds
 

@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { solidity } from 'ethereum-waffle';
-import chai, { expect } from 'chai';
-import Constants from '../../helpers/constants';
-import Assertions from '../../helpers/assertions';
+import relayConstants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { expect } from 'chai';
 import { ethers } from 'ethers';
+
 import ERC20MockJson from '../../contracts/ERC20Mock.json';
 import TokenManagementJson from '../../contracts/TokenManagementContract.json';
+import Assertions from '../../helpers/assertions';
+import Constants from '../../helpers/constants';
 import { Utils } from '../../helpers/utils';
-import relayConstants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { AliasAccount } from '../../types/AliasAccount';
-
-chai.use(solidity);
 
 /**
  * Tests for:

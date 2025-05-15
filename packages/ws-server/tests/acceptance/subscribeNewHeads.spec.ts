@@ -8,14 +8,11 @@ import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
 import Assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import chai, { expect } from 'chai';
-import { solidity } from 'ethereum-waffle';
+import { expect } from 'chai';
 import { ethers } from 'ethers';
 import WebSocket from 'ws';
 
 import { WsTestHelper } from '../helper';
-
-chai.use(solidity);
 
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
 const evmAddressRegex = /^0x[a-fA-F0-9]*$/;

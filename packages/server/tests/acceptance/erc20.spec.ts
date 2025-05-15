@@ -2,7 +2,7 @@
 
 // External resources
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
-import chai, { expect } from 'chai';
+import { expect } from 'chai';
 import { solidity } from 'ethereum-waffle';
 import { ethers } from 'ethers';
 
@@ -15,8 +15,6 @@ import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 // Local resources
 import { AliasAccount } from '../types/AliasAccount';
-
-chai.use(solidity);
 
 const extractRevertReason = (errorReason: string) => {
   const pattern = /(?<=reverted: ).*/;

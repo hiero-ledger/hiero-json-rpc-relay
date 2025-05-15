@@ -20,7 +20,7 @@
     "uuid": "^3.3.2"
   },
   "devDependencies": {
-    "@hashgraph/sdk": "^2.54.0-beta.1",
+    "@hashgraph/sdk": "^2.63.0",
     "@koa/cors": "^5.0.0",
     "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.12",
@@ -32,7 +32,7 @@
     "@types/node": "^17.0.31",
     "@types/uuid": "^10.0.0",
     "axios": "^1.4.0",
-    "axios-retry": "^3.5.1",
+    "axios-retry": "^4.5.0",
     "chai": "^4.3.6",
     "ethers": "^5.8.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",

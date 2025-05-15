@@ -1,24 +1,21 @@
 {
-    "compilerOptions": {
-        "composite": true,
-        "target": "es6",
-        "lib": [
-            "es6"
-        ],
-        "module": "commonjs",
-        "rootDir": "src/",
-        "moduleResolution": "node",
-        "outDir": "./dist",
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "forceConsistentCasingInFileNames": true,
-        "noImplicitAny": false,
-        "declaration": true,
-        "strict": true,
-        "sourceMap": true,
-        "experimentalDecorators": true
-    },
-    "include": [
-        "src"
-    ]
+  "compilerOptions": {
+    "composite": true,
+    "target": "es6",
+    "lib": ["es6"],
+    "module": "commonjs",
+    "rootDir": "src/",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "declaration": true,
+    "strict": true,
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
 }
