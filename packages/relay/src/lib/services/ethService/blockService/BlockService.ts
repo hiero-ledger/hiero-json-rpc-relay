@@ -141,6 +141,15 @@ export class BlockService implements IBlockService {
       });
 
       for (const contractResult of contractResults) {
+        if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
+          if (this.logger.isLevelEnabled('debug')) {
+            this.logger.debug(
+              `${requestDetails.formattedRequestId} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+            );
+          }
+          continue;
+        }
+
         const [from, to] = await Promise.all([
           this.common.resolveEvmAddress(contractResult.from, requestDetails),
           this.common.resolveEvmAddress(contractResult.to, requestDetails),

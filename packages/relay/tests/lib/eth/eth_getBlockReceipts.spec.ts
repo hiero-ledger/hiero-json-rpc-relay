@@ -139,6 +139,35 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       });
     });
 
+    ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'].forEach((status) => {
+      it('should filter out transactions with Hedera-specific validation failures', async function () {
+        const modifiedContractResults = {
+          results: [
+            { ...results[0] }, // Normal transaction
+            { ...results[1], result: status }, // Transaction with a Hedera-specific revert status
+          ],
+          links: { next: null },
+        };
+
+        restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify(modifiedContractResults));
+        restMock
+          .onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2)
+          .reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+        restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
+        restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+        restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+        const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+        // Verify only one receipt was returned (the non-reverted one)
+        expect(receipts).to.exist;
+        expect(receipts.length).to.equal(1);
+        expect(receipts[0].transactionHash).to.equal(results[0].hash);
+
+        expectValidReceipt(receipts[0], results[0]);
+      });
+    });
+
     it('should return empty array for block with no transactions', async function () {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ results: [] }));
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
