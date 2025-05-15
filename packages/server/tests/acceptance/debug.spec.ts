@@ -373,29 +373,13 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     it('should fail with INVALID_PARAMETER when given an invalid tracer configuration', async function () {
-      // Invalid tracer type
       const invalidTracerConfig = { tracer: 'InvalidTracer', onlyTopCall: false };
-
-      try {
-        await relay.call(
-          DEBUG_TRACE_BLOCK_BY_NUMBER,
-          [numberTo0x(deploymentBlockNumber), invalidTracerConfig],
-          requestId,
-        );
-        // If we get here, the test should fail because we expect an error
-        expect.fail('Expected an error to be thrown for invalid tracer type');
-      } catch (error) {
-        // Check for error in a way that's robust to different error structures
-        expect(error).to.exist;
-
-        // The error might be structured differently depending on how it's run
-        const errorMessage =
-          error.error?.message || // Standard structure
-          error.message || // Direct error message
-          JSON.stringify(error); // Fallback
-
-        expect(errorMessage).to.include('Invalid'); // Should contain some indication it's invalid
-      }
+      await relay.callFailing(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [numberTo0x(deploymentBlockNumber), invalidTracerConfig],
+        predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
+        requestId,
+      );
     });
   });
 });
