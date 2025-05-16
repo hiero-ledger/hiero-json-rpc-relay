@@ -732,6 +732,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         await relay.callUnsupported(method, [], requestId);
       }
     });
+
+    it('should not support "eth_getProof"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF, [], requestId);
+    });
   });
 
   describe('eth_getCode', () => {

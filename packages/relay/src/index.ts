@@ -154,4 +154,6 @@ export interface Eth {
   syncing(requestDetails: RequestDetails): Promise<boolean>;
 
   accounts(requestDetails: RequestDetails): Array<any>;
+
+  getProof(requestDetails: RequestDetails): JsonRpcError;
 }

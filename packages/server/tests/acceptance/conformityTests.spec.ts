@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import fs from 'fs';
-import { bytecode } from '../contracts/Basic.json';
-import path from 'path';
-import axios from 'axios';
-import openRpcData from '../../../../docs/openrpc.json';
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { signTransaction } from '@hashgraph/json-rpc-relay/tests/helpers';
+import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { signTransaction } from '@hashgraph/json-rpc-relay/tests/helpers';
+import axios from 'axios';
 import { expect } from 'chai';
+import fs from 'fs';
+import path from 'path';
 import WebSocket from 'ws';
-import LogsContract from '../contracts/Logs.json';
+
+import openRpcData from '../../../../docs/openrpc.json';
+import { bytecode } from '../contracts/Basic.json';
 import CallerContract from '../contracts/Caller.json';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
+import LogsContract from '../contracts/Logs.json';
 
 const directoryPath = path.resolve(__dirname, '../../../../node_modules/execution-apis/tests');
 
@@ -52,7 +53,7 @@ let relayOpenRpcData: any;
 
 const chainId = Number(ConfigService.get('CHAIN_ID'));
 
-let legacyTransaction = {
+const legacyTransaction = {
   chainId,
   to: receiveAccountAddress,
   from: sendAccountAddress,
@@ -62,7 +63,7 @@ let legacyTransaction = {
   type: 0,
 };
 
-let transaction2930 = {
+const transaction2930 = {
   chainId,
   to: receiveAccountAddress,
   from: sendAccountAddress,
@@ -72,7 +73,7 @@ let transaction2930 = {
   type: 1,
 };
 
-let transaction1559 = {
+const transaction1559 = {
   chainId,
   to: receiveAccountAddress,
   from: sendAccountAddress,
@@ -84,7 +85,7 @@ let transaction1559 = {
   type: 2,
 };
 
-let createContractLegacyTransaction = {
+const createContractLegacyTransaction = {
   chainId,
   to: null,
   from: sendAccountAddress,
@@ -247,6 +248,7 @@ function isResponseValid(schema, response) {
 function extractKeys(obj, prefix = '') {
   let keys = [];
   for (const key in obj) {
+    // eslint-disable-next-line no-prototype-builtins
     if (obj.hasOwnProperty(key)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
       keys.push(newKey);
@@ -373,7 +375,12 @@ describe('@api-conformity', async function () {
           it(`Executing for ${directory} and ${file}`, async () => {
             //We are excluding these directories, since these tests in execution-apis repos
             //use set of contracts which are not deployed on our network
-            if (directory === 'eth_getLogs' || directory === 'eth_call' || directory === 'eth_estimateGas') {
+            if (
+              directory === 'eth_getLogs' ||
+              directory === 'eth_call' ||
+              directory === 'eth_estimateGas' ||
+              directory === 'eth_getProof'
+            ) {
               return;
             }
             execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');

@@ -1105,6 +1105,14 @@
         },
         "description": "The trace object containing detailed information about the transaction execution, encapsulated in a call frame."
       }
+    },
+    {
+      "name": "eth_getProof",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "result": {
+        "$ref": "#/components/schemas/unsupportedError"
+      }
     }
   ],
   "components": {

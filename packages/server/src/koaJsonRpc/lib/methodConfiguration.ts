@@ -175,4 +175,7 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   batch_request: {
     total: tier1rateLimit,
   },
+  eth_getProof: {
+    total: tier2rateLimit,
+  },
 };
