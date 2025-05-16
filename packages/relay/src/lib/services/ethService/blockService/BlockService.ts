@@ -141,16 +141,15 @@ export class BlockService implements IBlockService {
       logsByHash.set(log.transactionHash, existingLogs);
     }
 
-    for (const contractResult of contractResults) {
+    const receiptPromises = contractResults.map(async (contractResult) => {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `${requestDetails.formattedRequestId} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+            `${requestIdPrefix} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
           );
         }
-        continue;
+        return null;
       }
-
       contractResult.logs = logsByHash.get(contractResult.hash) || [];
       const [from, to] = await Promise.all([
         this.common.resolveEvmAddress(contractResult.from, requestDetails),
@@ -163,9 +162,11 @@ export class BlockService implements IBlockService {
         receiptResponse: contractResult,
         to,
       };
-      const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
-      receipts.push(receipt);
-    }
+      return TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
+    });
+
+    const resolvedReceipts = await Promise.all(receiptPromises);
+    receipts.push(...resolvedReceipts.filter(Boolean));
 
     const regularTxHashes = new Set(contractResults.map((result) => result.hash));
 
