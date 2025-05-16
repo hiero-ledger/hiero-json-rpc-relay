@@ -196,8 +196,8 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
         expect.fail('Should have thrown an error');
       } catch (error) {
         const expectedError = predefined.INVALID_ARGUMENTS('invalid hex string');
-        expect(error.info.error.code).to.eq(expectedError.code);
-        expect(error.info.error.message).to.contain(expectedError.message);
+        expect(error.code).to.eq(expectedError.code);
+        expect(error.message).to.contain(expectedError.message);
       }
     });
 
