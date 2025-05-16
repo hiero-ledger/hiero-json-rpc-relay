@@ -422,6 +422,19 @@ describe('Debug API Test Suite', async function () {
 
           expect(result).to.deep.equal(expectedResult);
         });
+
+        it('Should return empty array if no actions found', async function () {
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            callTracer,
+            tracerConfigFalse,
+            requestDetails,
+          );
+
+          expect(result).to.be.null;
+        });
       });
 
       describe('opcodeLogger', async function () {

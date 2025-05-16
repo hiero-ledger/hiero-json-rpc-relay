@@ -429,7 +429,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult> {
+  ): Promise<CallTracerResult | null> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
@@ -443,6 +443,9 @@ export class DebugImpl implements Debug {
       if (!actionsResponse || !transactionsResponse) {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
+
+      // return empty array if no actions
+      if (actionsResponse.length === 0) return null;
 
       const { call_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);

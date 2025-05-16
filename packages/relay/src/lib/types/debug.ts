@@ -73,5 +73,5 @@ export interface TraceBlockByNumberTxResult {
   /**
    * The result of the trace, which can be either a {@link CallTracerResult} or an {@link EntityTraceStateMap}.
    */
-  result: CallTracerResult | EntityTraceStateMap;
+  result: CallTracerResult | EntityTraceStateMap | null;
 }
