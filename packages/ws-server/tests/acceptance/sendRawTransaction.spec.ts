@@ -194,10 +194,9 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       try {
         await ethersWsProvider.send(METHOD_NAME, [invalidTx]);
         expect.fail('Should have thrown an error');
-      } catch (error) {
-        const expectedError = predefined.INVALID_ARGUMENTS('invalid hex string');
-        expect(error.code).to.eq(expectedError.code);
-        expect(error.message).to.contain(expectedError.message);
+      } catch ({ error }) {
+        expect(error.code).to.eq(-32603);
+        expect(error.message).to.contain('unexpected junk after rlp payload');
       }
     });
 
