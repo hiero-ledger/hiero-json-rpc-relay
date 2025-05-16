@@ -134,37 +134,37 @@ export class BlockService implements IBlockService {
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
 
-    if (contractResults && contractResults.length > 0) {
-      contractResults.forEach((contractResult) => {
-        contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
-      });
+    const logsByHash = new Map<string, Log[]>();
+    for (const log of logs) {
+      const existingLogs = logsByHash.get(log.transactionHash) || [];
+      existingLogs.push(log);
+      logsByHash.set(log.transactionHash, existingLogs);
+    }
 
-      for (const contractResult of contractResults) {
-        if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `${requestDetails.formattedRequestId} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-            );
-          }
-          continue;
+    for (const contractResult of contractResults) {
+      if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(
+            `${requestDetails.formattedRequestId} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+          );
         }
-
-        const [from, to] = await Promise.all([
-          this.common.resolveEvmAddress(contractResult.from, requestDetails),
-          this.common.resolveEvmAddress(contractResult.to, requestDetails),
-        ]);
-
-        const transactionReceiptParams: IRegularTransactionReceiptParams = {
-          effectiveGas,
-          from,
-          logs: contractResult.logs,
-          receiptResponse: contractResult,
-          to,
-        };
-        const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
-
-        receipts.push(receipt);
+        continue;
       }
+
+      contractResult.logs = logsByHash.get(contractResult.hash) || [];
+      const [from, to] = await Promise.all([
+        this.common.resolveEvmAddress(contractResult.from, requestDetails),
+        this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      ]);
+      const transactionReceiptParams: IRegularTransactionReceiptParams = {
+        effectiveGas,
+        from,
+        logs: contractResult.logs,
+        receiptResponse: contractResult,
+        to,
+      };
+      const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
+      receipts.push(receipt);
     }
 
     const regularTxHashes = contractResults ? contractResults.map((result) => result.hash) : [];
