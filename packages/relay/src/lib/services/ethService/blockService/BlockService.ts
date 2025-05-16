@@ -130,7 +130,7 @@ export class BlockService implements IBlockService {
     }
 
     const receipts: ITransactionReceipt[] = [];
-    const effectiveGas = await this.common.getCurrentGasPriceForBlock(block.hash, requestDetails);
+    const effectiveGas = numberTo0x(await this.common.getGasPriceInWeibars(block.timestamp.from.split('.')[0]));
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
 
