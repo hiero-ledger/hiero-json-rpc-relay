@@ -38,7 +38,10 @@ export class Precheck {
     try {
       return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
     } catch (e: any) {
-      throw predefined.INVALID_ARGUMENTS(e.message.toString());
+      if (e.message.toString().includes('unexpected junk after rlp payload')) {
+        throw predefined.INVALID_ARGUMENTS(e.message.toString());
+      }
+      throw predefined.INTERNAL_ERROR(e.message.toString());
     }
   }
 
