@@ -433,7 +433,7 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.be.empty;
+          expect(result).to.be.null;
         });
       });
 
