@@ -13,6 +13,7 @@ import { BlockFactory } from '../../../factories/blockFactory';
 import { TransactionFactory } from '../../../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
+  ISyntheticTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
@@ -167,29 +168,17 @@ export class BlockService implements IBlockService {
       receipts.push(receipt);
     }
 
-    const regularTxHashes = contractResults ? contractResults.map((result) => result.hash) : [];
+    const regularTxHashes = new Set(contractResults.map((result) => result.hash));
 
-    // Filter logs that don't belong to any regular transaction
-    const syntheticLogs = logs.filter((log) => !regularTxHashes.includes(log.transactionHash));
-
-    // Group logs by transaction hash since one transaction hash may have multiple logs
-    const syntheticTxGroups = new Map<string, Log[]>();
-    syntheticLogs.forEach((log) => {
-      if (!syntheticTxGroups.has(log.transactionHash)) {
-        syntheticTxGroups.set(log.transactionHash, []);
+    // filtering out the synthetic tx hashes and creating the synthetic receipt
+    for (const [txHash, logGroup] of logsByHash.entries()) {
+      if (!regularTxHashes.has(txHash)) {
+        const syntheticReceipt = TransactionReceiptFactory.createSyntheticReceipt({
+          syntheticLogs: logGroup,
+          gasPriceForTimestamp: effectiveGas,
+        });
+        receipts.push(syntheticReceipt as ITransactionReceipt);
       }
-      syntheticTxGroups.get(log.transactionHash)?.push(log);
-    });
-
-    // Create synthetic receipts for each group
-    for (const [txHash, syntheticLogGroup] of syntheticTxGroups.entries()) {
-      const params = {
-        syntheticLogs: syntheticLogGroup,
-        gasPriceForTimestamp: effectiveGas,
-      };
-
-      const syntheticReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
-      receipts.push(syntheticReceipt as ITransactionReceipt);
     }
 
     return receipts;
