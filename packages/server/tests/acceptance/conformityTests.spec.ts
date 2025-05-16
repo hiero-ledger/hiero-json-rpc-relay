@@ -375,7 +375,12 @@ describe('@api-conformity', async function () {
           it(`Executing for ${directory} and ${file}`, async () => {
             //We are excluding these directories, since these tests in execution-apis repos
             //use set of contracts which are not deployed on our network
-            if (directory === 'eth_getLogs' || directory === 'eth_call' || directory === 'eth_estimateGas') {
+            if (
+              directory === 'eth_getLogs' ||
+              directory === 'eth_call' ||
+              directory === 'eth_estimateGas' ||
+              directory === 'eth_getProof'
+            ) {
               return;
             }
             execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
