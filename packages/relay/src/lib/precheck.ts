@@ -35,7 +35,14 @@ export class Precheck {
    * @returns {Transaction} The parsed transaction.
    */
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
-    return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
+    try {
+      return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
+    } catch (e: any) {
+      if (e.message.toString().includes('unexpected junk after rlp payload')) {
+        throw predefined.INVALID_ARGUMENTS(e.message.toString());
+      }
+      throw predefined.INTERNAL_ERROR(e.message.toString());
+    }
   }
 
   /**
