@@ -13,9 +13,8 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../../src/lib/db/reposi
 import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../../src/lib/eth';
-import { ContractService } from '../../../src/lib/services';
 import { CommonService } from '../../../src/lib/services';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 
@@ -36,7 +35,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   ConfigServiceTestHelper.dynamicOverride('ETH_FEE_HISTORY_FIXED', fixedFeeHistory);
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
-  const cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+  const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
   // @ts-ignore
   const mirrorNodeInstance = new MirrorNodeClient(
     ConfigService.get('MIRROR_NODE_URL'),

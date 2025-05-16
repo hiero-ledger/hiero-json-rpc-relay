@@ -62,18 +62,6 @@ export class CommonService implements ICommonService {
   public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
 
-  /**
-   * private constants
-   * @private
-   */
-  private readonly ethBlockNumberCacheTtlMs = parseNumericEnvVar(
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS',
-    'ETH_BLOCK_NUMBER_CACHE_TTL_MS_DEFAULT',
-  );
-  private readonly ethGasPriceCacheTtlMs = parseNumericEnvVar(
-    'ETH_GET_GAS_PRICE_CACHE_TTL_MS',
-    'ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT',
-  );
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
   private readonly maxTimestampParamRange = 604800; // 7 days
 
@@ -296,39 +284,10 @@ export class CommonService implements ICommonService {
    * Gets the most recent block number.
    */
   public async getLatestBlockNumber(requestDetails: RequestDetails): Promise<string> {
-    // check for cached value
-    const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-    const blockNumberCached = await this.cacheService.getAsync(
-      cacheKey,
-      CommonService.latestBlockNumber,
-      requestDetails,
-    );
-
-    if (blockNumberCached) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestDetails.formattedRequestId} returning cached value ${cacheKey}:${JSON.stringify(
-            blockNumberCached,
-          )}`,
-        );
-      }
-      return blockNumberCached;
-    }
-
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
     const blocks = blocksResponse !== null ? blocksResponse.blocks : null;
     if (Array.isArray(blocks) && blocks.length > 0) {
-      const currentBlock = numberTo0x(blocks[0].number);
-      // save the latest block number in cache
-      await this.cacheService.set(
-        cacheKey,
-        currentBlock,
-        CommonService.latestBlockNumber,
-        requestDetails,
-        this.ethBlockNumberCacheTtlMs,
-      );
-
-      return currentBlock;
+      return numberTo0x(blocks[0].number);
     }
 
     throw predefined.COULD_NOT_RETRIEVE_LATEST_BLOCK;
@@ -525,24 +484,9 @@ export class CommonService implements ICommonService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} eth_gasPrice`);
     }
+
     try {
-      let gasPrice: number | undefined = await this.cacheService.getAsync(
-        constants.CACHE_KEY.GAS_PRICE,
-        constants.ETH_GAS_PRICE,
-        requestDetails,
-      );
-
-      if (!gasPrice) {
-        gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));
-
-        await this.cacheService.set(
-          constants.CACHE_KEY.GAS_PRICE,
-          gasPrice,
-          constants.ETH_GAS_PRICE,
-          requestDetails,
-          this.ethGasPriceCacheTtlMs,
-        );
-      }
+      const gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));
 
       return numberTo0x(gasPrice);
     } catch (error) {

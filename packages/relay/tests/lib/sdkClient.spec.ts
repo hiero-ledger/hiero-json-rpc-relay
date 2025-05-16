@@ -34,7 +34,7 @@ import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import MetricService from '../../src/lib/services/metricService/metricService';
@@ -82,7 +82,7 @@ describe('SdkClient', async function () {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     eventEmitter = new EventEmitter();
 
-    cacheService = new CacheService(logger, registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -111,7 +111,7 @@ describe('SdkClient', async function () {
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger.child({ name: `cache` }), registry),
+      CacheService.getInstance(CACHE_LEVEL.L1, registry),
       instance,
     );
 

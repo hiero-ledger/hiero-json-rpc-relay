@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import pino, { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { ICacheClient } from '../../clients/cache/ICacheClient';
+
 import { LocalLRUCache, RedisCache } from '../../clients';
+import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RequestDetails } from '../../types';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
+export enum CACHE_LEVEL {
+  L1 = 'L1_CACHE',
+  L2 = 'L2_CACHE',
+}
 
 /**
  * A service that manages caching using different cache implementations based on configuration.
@@ -100,6 +106,33 @@ export class CacheService {
       registers: [register],
       labelNames: ['callingMethod', 'cacheType', 'method'],
     });
+  }
+
+  /**
+   * Array of singletons for L1 and L2 layers
+   *
+   * @private
+   */
+  private static instances: CacheService[] = [];
+
+  /**
+   * Get a cache service instance
+   *
+   * @param type
+   * @param registry
+   * @param reservedKeys
+   */
+  public static getInstance(
+    type: CACHE_LEVEL,
+    registry: Registry = new Registry(),
+    reservedKeys: Set<string> = new Set(),
+  ): CacheService {
+    if (!this.instances[type]) {
+      const logger = pino({ level: ConfigService.get('LOG_LEVEL') });
+      this.instances[type] = new CacheService(logger.child({ name: type }), registry, reservedKeys);
+    }
+
+    return this.instances[type];
   }
 
   /**

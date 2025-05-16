@@ -315,8 +315,8 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     }
   });
 
-  it('valid receipt on cache match', async function () {
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT}_${defaultDetailedContractResultByHash.hash}`;
+  it('valid receipt on cache match', async function() {
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT.replace('eth_', '')}_${defaultDetailedContractResultByHash.hash}`;
     const cacheReceipt = {
       blockHash: defaultDetailedContractResultByHash.block_hash,
       blockNumber: defaultDetailedContractResultByHash.block_number,

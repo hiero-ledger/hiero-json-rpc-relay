@@ -5,6 +5,7 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 
 import { Relay } from '../../src/lib/relay';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../src/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -13,6 +14,15 @@ let relay;
 
 const requestDetails = new RequestDetails({ requestId: 'admin', ipAddress: '0.0.0.0' });
 describe('Admin', async function () {
+  this.beforeAll(() => {
+    // @ts-ignore
+    CacheService.instances = [];
+  });
+
+  this.beforeEach(async () => {
+    await CacheService.getInstance(CACHE_LEVEL.L1).clear(requestDetails);
+  });
+
   it('should execute config', async () => {
     relay = new Relay(logger, new Registry());
     const res = await relay.admin().config(requestDetails);
@@ -33,29 +43,33 @@ describe('Admin', async function () {
   for (const [chainId, networkName] of Object.entries({
     '0x127': 'mainnet',
     '0x128': 'testnet',
-    '0x129': 'previewnet'
+    '0x129': 'previewnet',
   })) {
-    withOverriddenEnvsInMochaTest({
-        CHAIN_ID: chainId
-      }, () => {
+    withOverriddenEnvsInMochaTest(
+      {
+        CHAIN_ID: chainId,
+      },
+      () => {
         it(`should return a valid consensus version for ${networkName}`, async () => {
           const tempRelay = new Relay(logger, new Registry());
           const res = await tempRelay.admin().config(requestDetails);
           const regex = /^\d+\.\d+\.\d+.*$/;
           expect(res.upstreamDependencies[0].version.match(regex)).to.not.be.empty;
         });
-      }
+      },
     );
   }
 
-  withOverriddenEnvsInMochaTest({
-      CHAIN_ID: '0x12a'
-    }, () => {
+  withOverriddenEnvsInMochaTest(
+    {
+      CHAIN_ID: '0x12a',
+    },
+    () => {
       it(`should return a valid consensus version for local network`, async () => {
         const tempRelay = new Relay(logger, new Registry());
         const res = await tempRelay.admin().config(requestDetails);
         expect(res.upstreamDependencies[0].version).to.equal('local');
       });
-    }
+    },
   );
 });

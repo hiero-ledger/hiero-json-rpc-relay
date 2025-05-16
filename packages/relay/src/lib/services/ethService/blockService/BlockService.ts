@@ -13,17 +13,10 @@ import { BlockFactory } from '../../../factories/blockFactory';
 import { TransactionFactory } from '../../../factories/transactionFactory';
 import { Block, Log, Receipt, Transaction } from '../../../model';
 import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
 
 export class BlockService implements IBlockService {
-  /**
-   * The cache service used for caching all responses.
-   * @private
-   */
-  private readonly cacheService: CacheService;
-
   /**
    * The chain id.
    * @private
@@ -53,25 +46,8 @@ export class BlockService implements IBlockService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
-  /**
-   * The static method for the eth_getBlockByHash RPC call.
-   */
-  private static ethGetBlockByHash = 'eth_GetBlockByHash';
-
-  /**
-   * The static method for the eth_getBlockByNumber RPC call.
-   */
-  private static ethGetBlockByNumber = 'eth_GetBlockByNumber';
-
   /** Constructor */
-  constructor(
-    cacheService: CacheService,
-    chain: string,
-    common: ICommonService,
-    mirrorNodeClient: MirrorNodeClient,
-    logger: Logger,
-  ) {
-    this.cacheService = cacheService;
+  constructor(chain: string, common: ICommonService, mirrorNodeClient: MirrorNodeClient, logger: Logger) {
     this.chain = chain;
     this.common = common;
     this.mirrorNodeClient = mirrorNodeClient;
@@ -94,16 +70,9 @@ export class BlockService implements IBlockService {
     const requestIdPrefix = requestDetails.formattedRequestId;
     this.logger.trace(`${requestIdPrefix} getBlockByHash(hash=${hash}, showDetails=${showDetails})`);
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_BY_HASH}_${hash}_${showDetails}`;
-    let block = await this.cacheService.getAsync(cacheKey, BlockService.ethGetBlockByHash, requestDetails);
-    if (!block) {
-      block = await this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
-        throw this.common.genericErrorHandler(e, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
-      });
-      await this.cacheService.set(cacheKey, block, BlockService.ethGetBlockByHash, requestDetails);
-    }
-
-    return block;
+    return this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
+      throw this.common.genericErrorHandler(e, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
+    });
   }
 
   /**
@@ -112,32 +81,22 @@ export class BlockService implements IBlockService {
    * @param {string} blockNumber The block number
    * @param {boolean} showDetails Whether to show the details of the block
    * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<Block>} The block
+   * @returns {Promise<Block | null>} The block
    */
   public async getBlockByNumber(
     blockNumber: string,
     showDetails: boolean,
     requestDetails: RequestDetails,
-  ): Promise<Block> {
+  ): Promise<Block | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     this.logger.trace(`${requestIdPrefix} getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_BY_NUMBER}_${blockNumber}_${showDetails}`;
-    let block = await this.cacheService.getAsync(cacheKey, BlockService.ethGetBlockByNumber, requestDetails);
-    if (!block) {
-      block = await this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
-        throw this.common.genericErrorHandler(
-          e,
-          `${requestIdPrefix} Failed to retrieve block for blockNumber ${blockNumber}`,
-        );
-      });
-
-      if (!this.common.blockTagIsLatestOrPending(blockNumber)) {
-        await this.cacheService.set(cacheKey, block, BlockService.ethGetBlockByNumber, requestDetails);
-      }
-    }
-
-    return block;
+    return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
+      throw this.common.genericErrorHandler(
+        e,
+        `${requestIdPrefix} Failed to retrieve block for blockNumber ${blockNumber}`,
+      );
+    });
   }
 
   /**
@@ -154,19 +113,6 @@ export class BlockService implements IBlockService {
     }
 
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
-    const blockNumber = block.number;
-
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
-        );
-      }
-      return cachedResponse;
-    }
-
     const paramTimestamp: IContractResultsParams = {
       timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
@@ -211,7 +157,6 @@ export class BlockService implements IBlockService {
       receipts.push(receipt);
     }
 
-    await this.cacheService.set(cacheKey, receipts, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
     return receipts;
   }
 
@@ -226,32 +171,9 @@ export class BlockService implements IBlockService {
     const requestIdPrefix = requestDetails.formattedRequestId;
     this.logger.trace(`${requestIdPrefix} getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
 
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_HASH}_${hash}`;
-    const cachedResponse = await this.cacheService.getAsync(
-      cacheKey,
-      constants.ETH_GET_TRANSACTION_COUNT_BY_HASH,
-      requestDetails,
-    );
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} getBlockTransactionCountByHash returned cached response: ${cachedResponse}`,
-        );
-      }
-      return cachedResponse;
-    }
-
     try {
       const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
-      const transactionCount = this.getTransactionCountFromBlockResponse(block);
-      await this.cacheService.set(
-        cacheKey,
-        transactionCount,
-        constants.ETH_GET_TRANSACTION_COUNT_BY_HASH,
-        requestDetails,
-      );
-
-      return transactionCount;
+      return this.getTransactionCountFromBlockResponse(block);
     } catch (error: any) {
       throw this.common.genericErrorHandler(error, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
     }
@@ -273,33 +195,11 @@ export class BlockService implements IBlockService {
         `${requestIdPrefix} getBlockTransactionCountByNumber(blockNum=${blockNumOrTag}, showDetails=%o)`,
       );
     }
+
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
-
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_COUNT_BY_NUMBER}_${blockNum}`;
-    const cachedResponse = await this.cacheService.getAsync(
-      cacheKey,
-      constants.ETH_GET_TRANSACTION_COUNT_BY_NUMBER,
-      requestDetails,
-    );
-    if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} getBlockTransactionCountByNumber returned cached response: ${cachedResponse}`,
-        );
-      }
-      return cachedResponse;
-    }
-
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
-      const transactionCount = this.getTransactionCountFromBlockResponse(block);
-      await this.cacheService.set(
-        cacheKey,
-        transactionCount,
-        constants.ETH_GET_TRANSACTION_COUNT_BY_NUMBER,
-        requestDetails,
-      );
-      return transactionCount;
+      return this.getTransactionCountFromBlockResponse(block);
     } catch (error: any) {
       throw this.common.genericErrorHandler(
         error,

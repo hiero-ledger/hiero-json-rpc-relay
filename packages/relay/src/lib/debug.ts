@@ -9,10 +9,10 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
-import { rpcMethod, rpcParamValidationRules } from './decorators';
+import { cache, rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
-import { CacheService } from './services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
 
 /**
@@ -90,6 +90,7 @@ export class DebugImpl implements Debug {
     1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
     2: { type: ParamType.TRACER_CONFIG, required: false },
   })
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async traceTransaction(
     transactionIdOrHash: string,
     tracer: TracerType,

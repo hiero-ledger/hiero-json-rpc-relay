@@ -7,7 +7,7 @@ import { HbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/d
 import { IPAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/subscriptionTier';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '@hashgraph/json-rpc-relay/dist/lib/services/hbarLimitService';
 import { ITransfer, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { SpendingPlanConfig } from '@hashgraph/json-rpc-relay/src/lib/types/spendingPlanConfig';
@@ -19,7 +19,6 @@ import findConfig from 'find-config';
 import fs from 'fs';
 import { resolve } from 'path';
 import { Logger } from 'pino';
-import { Registry } from 'prom-client';
 
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
@@ -59,7 +58,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   const fileAppendChunkSize = Number(ConfigService.get('FILE_APPEND_CHUNK_SIZE'));
   const requestId = 'hbarLimiterTest';
   const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
-  const cacheService = new CacheService(logger.child({ name: 'cache-service' }), new Registry());
+  const cacheService = CacheService.getInstance(CACHE_LEVEL.L1);
   const maxBasicSpendingLimit = HbarLimitService.TIER_LIMITS.BASIC.toTinybars().toNumber();
   const maxExtendedSpendingLimit = HbarLimitService.TIER_LIMITS.EXTENDED.toTinybars().toNumber();
   const maxPrivilegedSpendingLimit = HbarLimitService.TIER_LIMITS.PRIVILEGED.toTinybars().toNumber();

@@ -49,7 +49,6 @@
     "test:eth-get-logs": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetLogs' --exit"
   },
   "dependencies": {
-    "@ethersproject/asm": "^5.7.0",
     "@hashgraph/json-rpc-config-service": "file:../config-service",
     "@hashgraph/sdk": "^2.63.0",
     "@keyvhq/core": "^1.6.9",
