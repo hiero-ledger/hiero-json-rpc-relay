@@ -3,7 +3,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../../../formatters';
+import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
@@ -11,8 +11,12 @@ import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
 import { TransactionFactory } from '../../../factories/transactionFactory';
-import { Block, Log, Receipt, Transaction } from '../../../model';
-import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../../types';
+import {
+  IRegularTransactionReceiptParams,
+  TransactionReceiptFactory,
+} from '../../../factories/transactionReceiptFactory';
+import { Block, Log, Transaction } from '../../../model';
+import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
@@ -147,7 +151,10 @@ export class BlockService implements IBlockService {
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
    */
-  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<Receipt[]> {
+  public async getBlockReceipts(
+    blockHashOrBlockNumber: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt[]> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
@@ -176,39 +183,56 @@ export class BlockService implements IBlockService {
       return [];
     }
 
+    const receipts: ITransactionReceipt[] = [];
     const effectiveGas = await this.common.getCurrentGasPriceForBlock(block.hash, requestDetails);
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
-    contractResults.forEach((contractResult) => {
-      contractResult.logs = logs.filter((log) => log.transactionHash === contractResult.hash);
+
+    const logsByHash = new Map<string, Log[]>();
+    for (const log of logs) {
+      const existingLogs = logsByHash.get(log.transactionHash) || [];
+      existingLogs.push(log);
+      logsByHash.set(log.transactionHash, existingLogs);
+    }
+
+    const receiptPromises = contractResults.map(async (contractResult) => {
+      if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(
+            `${requestIdPrefix} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+          );
+        }
+        return null;
+      }
+      contractResult.logs = logsByHash.get(contractResult.hash) || [];
+      const [from, to] = await Promise.all([
+        this.common.resolveEvmAddress(contractResult.from, requestDetails),
+        this.common.resolveEvmAddress(contractResult.to, requestDetails),
+      ]);
+      const transactionReceiptParams: IRegularTransactionReceiptParams = {
+        effectiveGas,
+        from,
+        logs: contractResult.logs,
+        receiptResponse: contractResult,
+        to,
+      };
+      return TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
     });
 
-    const receipts: Receipt[] = [];
+    const resolvedReceipts = await Promise.all(receiptPromises);
+    receipts.push(...resolvedReceipts.filter(Boolean));
 
-    for (const contractResult of contractResults) {
-      const from = await this.common.resolveEvmAddress(contractResult.from, requestDetails);
-      const to = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
+    const regularTxHashes = new Set(contractResults.map((result) => result.hash));
 
-      const contractAddress = this.common.getContractAddressFromReceipt(contractResult);
-      const receipt = {
-        blockHash: toHash32(contractResult.block_hash),
-        blockNumber: numberTo0x(contractResult.block_number),
-        from: from,
-        to: to,
-        cumulativeGasUsed: numberTo0x(contractResult.block_gas_used),
-        gasUsed: nanOrNumberTo0x(contractResult.gas_used),
-        contractAddress: contractAddress,
-        logs: contractResult.logs,
-        logsBloom: contractResult.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : contractResult.bloom,
-        transactionHash: toHash32(contractResult.hash),
-        transactionIndex: numberTo0x(contractResult.transaction_index),
-        effectiveGasPrice: effectiveGas,
-        root: contractResult.root || constants.DEFAULT_ROOT_HASH,
-        status: contractResult.status,
-        type: nullableNumberTo0x(contractResult.type),
-      };
-
-      receipts.push(receipt);
+    // filtering out the synthetic tx hashes and creating the synthetic receipt
+    for (const [txHash, logGroup] of logsByHash.entries()) {
+      if (!regularTxHashes.has(txHash)) {
+        const syntheticReceipt = TransactionReceiptFactory.createSyntheticReceipt({
+          syntheticLogs: logGroup,
+          gasPriceForTimestamp: effectiveGas,
+        });
+        receipts.push(syntheticReceipt as ITransactionReceipt);
+      }
     }
 
     await this.cacheService.set(cacheKey, receipts, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);

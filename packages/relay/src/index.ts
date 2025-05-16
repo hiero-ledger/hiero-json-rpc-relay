@@ -5,7 +5,14 @@ import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IContractCallRequest, IGetLogsParams, INewFilterParams, ITracerConfig, RequestDetails } from './lib/types';
+import {
+  IContractCallRequest,
+  IGetLogsParams,
+  INewFilterParams,
+  ITracerConfig,
+  ITransactionReceipt,
+  RequestDetails,
+} from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -57,7 +64,7 @@ export interface Eth {
 
   getBalance(account: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string>;
 
-  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<Receipt[]>;
+  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[]>;
 
   getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null>;
 
