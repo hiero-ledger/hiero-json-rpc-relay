@@ -17,7 +17,6 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
-import { CommonService } from '../../src/lib/services';
 import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';

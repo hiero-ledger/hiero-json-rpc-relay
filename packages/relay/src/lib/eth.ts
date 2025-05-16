@@ -19,7 +19,7 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
-  TransactionService
+  TransactionService,
 } from './services';
 import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/ethService/feeService/FeeService';

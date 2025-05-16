@@ -1,29 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RequestDetails } from '../types';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
 import { CacheService } from '../services/cacheService/cacheService';
+import { RequestDetails } from '../types';
 
 interface CacheSingleParam {
-  index: string,
-  value: string
+  index: string;
+  value: string;
 }
 
 interface CacheNamedParam {
-  name: string,
-  value: string
+  name: string;
+  value: string;
 }
 
 interface CacheNamedParams {
-  index: string,
-  fields: CacheNamedParam[]
+  index: string;
+  fields: CacheNamedParam[];
 }
 
 interface CacheOptions {
-  skipParams?: CacheSingleParam[],
-  skipNamedParams?: CacheNamedParams[],
-  ttl?: number,
+  skipParams?: CacheSingleParam[];
+  skipNamedParams?: CacheNamedParams[];
+  ttl?: number;
 }
+
+type IArgument = Record<string, any>;
 
 /**
  * Iterates through the provided 'params' array and checks if any argument in 'args' at the specified 'index'
@@ -39,7 +42,7 @@ interface CacheOptions {
  *     value: 'pending|safe'
  *   }]
  */
-const shouldSkipCachingForSingleParams = (args: IArguments, params: CacheSingleParam[] = []): boolean => {
+const shouldSkipCachingForSingleParams = (args: IArgument[], params: CacheSingleParam[] = []): boolean => {
   for (const item of params) {
     const values = item.value.split('|');
     if (values.indexOf(args[item.index]) > -1) {
@@ -75,21 +78,19 @@ const shouldSkipCachingForSingleParams = (args: IArguments, params: CacheSingleP
  *     }],
  *   }]
  */
-const shouldSkipCachingForNamedParams = (args: IArguments, params: CacheNamedParams[] = []): boolean => {
+const shouldSkipCachingForNamedParams = (args: IArgument[], params: CacheNamedParams[] = []): boolean => {
   for (const { index, fields } of params) {
     const input = args[index];
 
     // build a map from field names to their match values
-    const skipList: Record<string, string> = Object.fromEntries(
-      fields.map(({ name, value }) => [name, value])
-    );
+    const skipList: Record<string, string> = Object.fromEntries(fields.map(({ name, value }) => [name, value]));
 
     // check each field in the skip list
     for (const [key, value] of Object.entries(skipList)) {
       // convert "latest|safe" to ["latest", "safe"]
       const allowedValues = value.split('|');
       // get the actual value from the input object
-      const actualValue = (input as Record<string, any>)[key];
+      const actualValue = (input as IArgument)[key];
 
       // if the actual value is one of the values that should skip caching, return true
       if (allowedValues.includes(actualValue)) {
@@ -116,7 +117,7 @@ const shouldSkipCachingForNamedParams = (args: IArguments, params: CacheNamedPar
  * @example
  *   generateCacheKey('getBlockByNumber', arguments); // should return getBlockByNumber_0x160c_false
  */
-const generateCacheKey = (methodName: string, args: IArguments) => {
+const generateCacheKey = (methodName: string, args: IArgument[]) => {
   let cacheKey: string = methodName;
   for (const [, value] of Object.entries(args)) {
     if (value?.constructor?.name != 'RequestDetails') {
@@ -143,8 +144,8 @@ const generateCacheKey = (methodName: string, args: IArguments) => {
  * @param args - The arguments object from a function (typically `IArguments`).
  * @returns The first found `RequestDetails` instance, or a new one with default values if none is found.
  */
-const extractRequestDetails = (args: IArguments): RequestDetails => {
-  for (const value of Array.from(args)) {
+const extractRequestDetails = (args: IArgument): RequestDetails => {
+  for (const [, value] of Object.entries(args)) {
     if (value?.constructor?.name === 'RequestDetails') {
       return value;
     }
@@ -171,30 +172,30 @@ const extractRequestDetails = (args: IArguments): RequestDetails => {
  *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cache(cacheService: CacheService, options: CacheOptions = {}) {
-  return function(_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
 
-    descriptor.value = async function() {
-      const requestDetails = extractRequestDetails(arguments);
-      const cacheKey = generateCacheKey(method.name, arguments);
+    descriptor.value = async function (...args: IArgument[]) {
+      const requestDetails = extractRequestDetails(args);
+      const cacheKey = generateCacheKey(method.name, args);
 
       const cachedResponse = await cacheService.getAsync(cacheKey, method, requestDetails);
       if (cachedResponse) {
         return cachedResponse;
       }
 
-      const result = await method.apply(this, arguments);
+      const result = await method.apply(this, args);
       if (
         result &&
-        !shouldSkipCachingForSingleParams(arguments, options?.skipParams) &&
-        !shouldSkipCachingForNamedParams(arguments, options?.skipNamedParams)
+        !shouldSkipCachingForSingleParams(args, options?.skipParams) &&
+        !shouldSkipCachingForNamedParams(args, options?.skipNamedParams)
       ) {
         await cacheService.set(
           cacheKey,
           result,
           method,
           requestDetails,
-          options?.ttl ?? ConfigService.get('CACHE_TTL')
+          options?.ttl ?? ConfigService.get('CACHE_TTL'),
         );
       }
 
@@ -203,11 +204,21 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
   };
 }
 
-export namespace __test__ {
-  export const __private = {
-    shouldSkipCachingForSingleParams,
-    shouldSkipCachingForNamedParams,
-    generateCacheKey,
-    extractRequestDetails
-  };
+// this class will be used for test purpose only
+export class CacheHelper {
+  private static shouldSkipCachingForSingleParams(args: any, params: CacheSingleParam[] = []): boolean {
+    return shouldSkipCachingForSingleParams(args, params);
+  }
+
+  private static shouldSkipCachingForNamedParams(args: any, params: CacheNamedParams[] = []): boolean {
+    return shouldSkipCachingForNamedParams(args, params);
+  }
+
+  private static generateCacheKey(methodName: string, args: any): string {
+    return generateCacheKey(methodName, args);
+  }
+
+  private static extractRequestDetails(args: any): RequestDetails {
+    return extractRequestDetails(args);
+  }
 }

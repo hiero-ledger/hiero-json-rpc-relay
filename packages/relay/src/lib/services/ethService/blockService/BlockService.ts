@@ -13,12 +13,10 @@ import { BlockFactory } from '../../../factories/blockFactory';
 import { TransactionFactory } from '../../../factories/transactionFactory';
 import { Block, Log, Receipt, Transaction } from '../../../model';
 import { IContractResultsParams, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
 
 export class BlockService implements IBlockService {
-
   /**
    * The chain id.
    * @private
@@ -49,12 +47,7 @@ export class BlockService implements IBlockService {
   private readonly mirrorNodeClient: MirrorNodeClient;
 
   /** Constructor */
-  constructor(
-    chain: string,
-    common: ICommonService,
-    mirrorNodeClient: MirrorNodeClient,
-    logger: Logger,
-  ) {
+  constructor(chain: string, common: ICommonService, mirrorNodeClient: MirrorNodeClient, logger: Logger) {
     this.chain = chain;
     this.common = common;
     this.mirrorNodeClient = mirrorNodeClient;

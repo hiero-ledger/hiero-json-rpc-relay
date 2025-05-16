@@ -53,7 +53,8 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
     currentGasPriceStub = sinon.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0x25');
-    extractBlockNumberOrTagStub = sinon.stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
+    extractBlockNumberOrTagStub = sinon
+      .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
@@ -197,15 +198,14 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     let spyCommonGetHistoricalBlockResponse;
 
     this.beforeEach(() => {
-      spyCommonGetHistoricalBlockResponse = sinon
-        .spy(ethImpl.common, 'getHistoricalBlockResponse');
+      spyCommonGetHistoricalBlockResponse = sinon.spy(ethImpl.common, 'getHistoricalBlockResponse');
     });
 
     this.afterEach(() => {
       spyCommonGetHistoricalBlockResponse.restore();
     });
 
-    it('should use cached results for subsequent calls', async function() {
+    it('should use cached results for subsequent calls', async function () {
       setupStandardResponses();
 
       const firstResponse = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
@@ -219,7 +219,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(thirdResponse).to.deep.equal(firstResponse);
     });
 
-    it('should set cache when not previously cached', async function() {
+    it('should set cache when not previously cached', async function () {
       setupStandardResponses();
 
       await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
