@@ -204,21 +204,13 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
   };
 }
 
-// this class will be used for test purpose only
-export class CacheHelper {
-  private static shouldSkipCachingForSingleParams(args: any, params: CacheSingleParam[] = []): boolean {
-    return shouldSkipCachingForSingleParams(args, params);
-  }
-
-  private static shouldSkipCachingForNamedParams(args: any, params: CacheNamedParams[] = []): boolean {
-    return shouldSkipCachingForNamedParams(args, params);
-  }
-
-  private static generateCacheKey(methodName: string, args: any): string {
-    return generateCacheKey(methodName, args);
-  }
-
-  private static extractRequestDetails(args: any): RequestDetails {
-    return extractRequestDetails(args);
-  }
-}
+// export private methods under __test__ "namespace" but using const
+// due to `ES2015 module syntax is preferred over namespaces` eslint warning
+export const __test__ = {
+  __private: {
+    shouldSkipCachingForSingleParams,
+    shouldSkipCachingForNamedParams,
+    generateCacheKey,
+    extractRequestDetails,
+  },
+};
