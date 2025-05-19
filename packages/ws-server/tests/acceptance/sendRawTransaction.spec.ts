@@ -116,7 +116,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
         '0xf8748201280585800e8dfc0085800e8dfc00832dc6c094aca85ef7e1fce27079bbf99b60fcf6fd19b99b248502540be40080c001a0210446cfb671c3174392410d52fa3cd58723d8417e40cc67c6225b8f7e3ff693a02674b392846c59f783ea96655d39560956dd987051972064a5d853cea0b6f6d711';
       const response = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, [invalidTx], 1000);
 
-      expect(response.error.code).to.eq(-32603);
+      expect(response.error.code).to.eq(-32000);
       expect(response.error.message).to.contain('unexpected junk after rlp payload');
     });
 
@@ -194,7 +194,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
         await ethersWsProvider.send(METHOD_NAME, [invalidTx]);
         expect.fail('Should have thrown an error');
       } catch ({ error }) {
-        expect(error.code).to.eq(-32603);
+        expect(error.code).to.eq(-32000);
         expect(error.message).to.contain('unexpected junk after rlp payload');
       }
     });
