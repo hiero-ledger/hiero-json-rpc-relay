@@ -35,7 +35,7 @@ let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
 let cacheService: CacheService;
 let hapiServiceInstance: HAPIService;
-describe.only('Debug API Test Suite', async function () {
+describe('Debug API Test Suite', async function () {
   this.timeout(10000);
 
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
