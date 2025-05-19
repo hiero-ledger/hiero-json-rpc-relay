@@ -30,7 +30,6 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let currentGasPriceStub: sinon.SinonStub;
 let extractBlockNumberOrTagStub: sinon.SinonStub;
 
 const DEFAULTS: Record<string, any> = {
