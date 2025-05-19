@@ -7,8 +7,12 @@ ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
+import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import { JsonRpcError } from '@hashgraph/json-rpc-relay/src';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
@@ -2385,29 +2389,27 @@ describe('RPC Server', function () {
         result: 'SUCCESS',
       };
 
-      const contractActions = {
-        actions: [
-          {
-            call_depth: 0,
-            call_operation_type: 'CREATE',
-            call_type: 'CREATE',
-            caller: '0.0.1016',
-            caller_type: 'ACCOUNT',
-            from: '0x00000000000000000000000000000000000003f8',
-            gas: 247000,
-            gas_used: 77324,
-            index: 0,
-            input: '0x',
-            recipient: '0.0.1033',
-            recipient_type: 'CONTRACT',
-            result_data: '0x',
-            result_data_type: 'OUTPUT',
-            timestamp: '1696438011.462526383',
-            to: '0x0000000000000000000000000000000000000409',
-            value: 0,
-          },
-        ],
-      };
+      const contractActions = [
+        {
+          call_depth: 0,
+          call_operation_type: 'CREATE',
+          call_type: 'CREATE',
+          caller: '0.0.1016',
+          caller_type: 'ACCOUNT',
+          from: '0x00000000000000000000000000000000000003f8',
+          gas: 247000,
+          gas_used: 77324,
+          index: 0,
+          input: '0x',
+          recipient: '0.0.1033',
+          recipient_type: 'CONTRACT',
+          result_data: '0x',
+          result_data_type: 'OUTPUT',
+          timestamp: '1696438011.462526383',
+          to: '0x0000000000000000000000000000000000000409',
+          value: 0,
+        },
+      ];
 
       const contractOpcodes = {
         address: contractAddress1,
@@ -2782,6 +2784,389 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(error.response, predefined.INVALID_REQUEST.code, `Invalid Request`);
         }
+      });
+    });
+
+    describe('debug_traceBlockByNumber', async function () {
+      const blockNumberHex = '0x1';
+      const blockResponse = {
+        number: 1,
+        timestamp: {
+          from: '1696438000.000000000',
+          to: '1696438020.000000000',
+        },
+      };
+
+      const contractResults = [
+        {
+          hash: '0xabcd1234',
+          result: 'SUCCESS',
+        },
+        {
+          hash: '0xefgh5678',
+          result: 'SUCCESS',
+        },
+        {
+          hash: '0xijkl9012',
+          result: 'WRONG_NONCE', // This should be filtered out
+        },
+      ];
+
+      const callTracerResult = {
+        type: 'CALL',
+        from: '0x00000000000000000000000000000000000003f8',
+        to: '0x0000000000000000000000000000000000000409',
+        value: '0x0',
+        gas: '0x3c588',
+        gasUsed: '0x12dc0',
+        input: '0x1',
+        output: '0x2',
+      };
+
+      const prestateTracerResult = {
+        '0x00000000000000000000000000000000000003f8': {
+          balance: '0x3e8',
+          nonce: 1,
+          code: '0x',
+          storage: {},
+        },
+        '0x0000000000000000000000000000000000000409': {
+          balance: '0x0',
+          nonce: 0,
+          code: '0x60806040...',
+          storage: {
+            '0x0000000000000000000000000000000000000000000000000000000000000000':
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+          },
+        },
+      };
+
+      const sharedFailureChecks = async (
+        params: any[],
+        statusCode: number,
+        baseTestChecker: any,
+        checkerCode,
+        checkerMessage,
+      ) => {
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceBlockByNumber',
+            params,
+            id: '2',
+          }),
+        ).to.be.rejected.then((error: any) => {
+          expect(error.response.status).to.equal(statusCode);
+          baseTestChecker(error.response, checkerCode, checkerMessage);
+        });
+      };
+
+      let getHistoricalBlockResponse: sinon.SinonStub;
+      let getContractResultWithRetry: sinon.SinonStub;
+      let getBlocks: sinon.SinonStub;
+      let getBlock: sinon.SinonStub;
+      let callTracer: sinon.SinonStub;
+      let prestateTracer: sinon.SinonStub;
+      let cacheGetAsync: sinon.SinonStub;
+      let cacheSet: sinon.SinonStub;
+      let requireDebugAPIEnabled: sinon.SinonStub;
+
+      beforeEach(() => {
+        getHistoricalBlockResponse = sinon
+          .stub(CommonService.prototype, 'getHistoricalBlockResponse')
+          .resolves(blockResponse);
+        getContractResultWithRetry = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
+          .resolves(contractResults);
+        getBlocks = sinon.stub(MirrorNodeClient.prototype, 'getBlocks').resolves({
+          blocks: [
+            {
+              count: 3,
+              hapi_version: '0.27.0',
+              hash: '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b',
+              name: '2022-05-03T06_46_26.060890949Z.rcd',
+              number: 77,
+              previous_hash:
+                '0xf7d6481f659c866c35391ee230c374f163642ebf13a5e604e04a95a9ca48a298dc2dfa10f51bcbaab8ae23bc6d662a0b',
+              size: null,
+              timestamp: {
+                from: '1651560386.060890949',
+                to: '1651560389.060890949',
+              },
+            },
+          ],
+        });
+        getBlock = sinon.stub(MirrorNodeClient.prototype, 'getBlock').resolves({
+          count: 1,
+          hapi_version: '0.44.0',
+          hash: '0xf5e3d29fc3ffd39ce50eb879e76257c2ba6e2414d5379a19d7c4fd23543e8f20573904e25caacedc7b40f9abbfe196c6',
+          name: '2024-02-01T18_35_40.404621003Z.rcd.gz',
+          number: 1,
+          previous_hash:
+            '0x5699954170cc8177692691d15368cad54f1e7a90c9e16b782f989de1b8d193583ed6ea19eb3290f59b85891eb23e8883',
+          size: 489,
+          timestamp: {
+            from: '1706812540.404621003',
+            to: '1706812540.404621003',
+          },
+          gas_used: 0,
+          logs_bloom: '0x',
+        });
+        callTracer = sinon.stub(DebugImpl.prototype, 'callTracer').resolves(callTracerResult);
+        prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateTracer').resolves(prestateTracerResult);
+        cacheGetAsync = sinon.stub(CacheService.prototype, 'getAsync').resolves(null);
+        cacheSet = sinon.stub(CacheService.prototype, 'set').resolves();
+        requireDebugAPIEnabled = sinon.stub(DebugImpl, 'requireDebugAPIEnabled').returns();
+      });
+
+      afterEach(() => {
+        getHistoricalBlockResponse.restore();
+        getContractResultWithRetry.restore();
+        getBlocks.restore();
+        getBlock.restore();
+        callTracer.restore();
+        prestateTracer.restore();
+        cacheGetAsync.restore();
+        cacheSet.restore();
+        requireDebugAPIEnabled.restore();
+      });
+
+      it('should execute with valid block number and default tracer', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2); // Since we filter out WRONG_NONCE
+
+        // Check structure of the result items
+        const [firstTrace] = response.data.result;
+        expect(firstTrace).to.have.property('txHash', '0xabcd1234');
+        expect(firstTrace).to.have.property('result');
+        expect(firstTrace.result).to.deep.equal(callTracerResult);
+      });
+
+      it('should execute with valid block number and CallTracer', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.CallTracer }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2);
+
+        // Verify CallTracer specific fields
+        const [firstTrace] = response.data.result;
+        expect(firstTrace.result).to.have.property('type');
+        expect(firstTrace.result).to.have.property('from');
+        expect(firstTrace.result).to.have.property('to');
+        expect(firstTrace.result).to.have.property('gas');
+        expect(firstTrace.result).to.have.property('gasUsed');
+        expect(firstTrace.result).to.have.property('input');
+        expect(firstTrace.result).to.have.property('output');
+      });
+
+      it('should execute with valid block number, CallTracer and onlyTopCall option', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2);
+
+        // We can't directly test if onlyTopCall worked since it's an internal implementation detail,
+        // but we can verify the basic structure is correct
+        const [firstTrace] = response.data.result;
+        expect(firstTrace.result).to.have.property('type');
+        expect(firstTrace.result).to.have.property('from');
+        expect(firstTrace.result).to.have.property('to');
+      });
+
+      it('should execute with valid block number and PrestateTracer', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.PrestateTracer }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2);
+
+        // Verify PrestateTracer specific response structure
+        const [firstTrace] = response.data.result;
+        expect(firstTrace.result).to.be.an('object');
+        const firstAddress = Object.keys(firstTrace.result)[0];
+        expect(firstTrace.result[firstAddress]).to.have.property('balance');
+        expect(firstTrace.result[firstAddress]).to.have.property('nonce');
+        expect(firstTrace.result[firstAddress]).to.have.property('code');
+        expect(firstTrace.result[firstAddress]).to.have.property('storage');
+      });
+
+      it('should execute with valid block number, PrestateTracer and onlyTopCall option', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2);
+
+        // We're testing the basic structure of the prestate tracer result
+        const [firstTrace] = response.data.result;
+        expect(firstTrace.txHash).to.equal('0xabcd1234');
+        expect(firstTrace.result).to.deep.equal(prestateTracerResult);
+      });
+
+      it('should execute with block tag instead of number', async () => {
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: ['latest'],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(2);
+      });
+
+      it('should return cached result if available', async () => {
+        const cachedResult = [{ txHash: '0xabcd1234', result: callTracerResult }];
+        cacheGetAsync.resolves(cachedResult);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.deep.equal(cachedResult);
+      });
+
+      it('should return empty array when no contract results found', async () => {
+        getContractResultWithRetry.resolves(null);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.be.empty;
+      });
+
+      it('should return empty array when contract results is an empty array', async () => {
+        getContractResultWithRetry.resolves([]);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.be.empty;
+      });
+
+      it('should fail when block not found', async () => {
+        getHistoricalBlockResponse.resolves(null);
+        await sharedFailureChecks(
+          ['0x999999999999'],
+          400,
+          BaseTest.errorResponseChecks.bind(BaseTest),
+          predefined.RESOURCE_NOT_FOUND().code,
+          predefined.RESOURCE_NOT_FOUND().message,
+        );
+      });
+
+      it('should fail with missing block number parameter', async () => {
+        await sharedFailureChecks(
+          [],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          MISSING_PARAM_ERROR + ' 0',
+        );
+      });
+
+      it('should fail with invalid block number parameter', async () => {
+        await sharedFailureChecks(
+          ['not-a-block-number'],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: not-a-block-number`,
+        );
+      });
+
+      it('should fail with invalid tracer type', async () => {
+        await sharedFailureChecks(
+          [blockNumberHex, { tracer: 'invalidTracerType' }],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
+        );
+      });
+
+      it('should fail with invalid tracer config', async () => {
+        await sharedFailureChecks(
+          [blockNumberHex, { tracer: TracerType.CallTracer, tracerConfig: 'not-an-object' }],
+          400,
+          BaseTest.invalidParamError.bind(BaseTest),
+          Validator.ERROR_CODE,
+          `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: not-an-object`,
+        );
+      });
+
+      it('should fail when debug API is not enabled', async () => {
+        requireDebugAPIEnabled.throws(predefined.UNSUPPORTED_METHOD);
+
+        await sharedFailureChecks(
+          [blockNumberHex],
+          400,
+          BaseTest.errorResponseChecks.bind(BaseTest),
+          predefined.UNSUPPORTED_METHOD.code,
+          predefined.UNSUPPORTED_METHOD.message,
+        );
+      });
+
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, async function () {
+        it('should fail when DEBUG_API_ENABLED is false', async () => {
+          requireDebugAPIEnabled.restore(); // Restore the original method so real config is checked
+
+          await sharedFailureChecks(
+            [blockNumberHex],
+            400,
+            BaseTest.errorResponseChecks.bind(BaseTest),
+            predefined.UNSUPPORTED_METHOD.code,
+            predefined.UNSUPPORTED_METHOD.message,
+          );
+        });
       });
     });
   });

@@ -85,6 +85,7 @@ const _CONFIG = {
     required: false,
     defaultValue: [
       'debug_traceTransaction',
+      'debug_traceBlockByNumber',
       'eth_newFilter',
       'eth_uninstallFilter',
       'eth_getFilterChanges',

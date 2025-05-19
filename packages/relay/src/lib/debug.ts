@@ -9,9 +9,23 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
+import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { cache, rpcMethod, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
+import { CacheService } from './services/cacheService/cacheService';
+import {
+  BlockTracerConfig,
+  CallTracerResult,
+  EntityTraceStateMap,
+  ICallTracerConfig,
+  IOpcodeLoggerConfig,
+  ITracerConfig,
+  MirrorNodeContractResult,
+  ParamType,
+  RequestDetails,
+  TraceBlockByNumberTxResult,
+} from './types';
 import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, RequestDetails } from './types';
 
@@ -23,6 +37,7 @@ import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ParamType, Reque
  */
 export class DebugImpl implements Debug {
   static debugTraceTransaction = 'debug_traceTransaction';
+  static traceBlockByNumber = 'debug_traceBlockByNumber';
   static zeroHex = '0x0';
 
   /**
@@ -44,6 +59,12 @@ export class DebugImpl implements Debug {
   private readonly common: CommonService;
 
   /**
+   * The cacheService containing useful functions
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
@@ -55,6 +76,7 @@ export class DebugImpl implements Debug {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
+    this.cacheService = cacheService;
   }
 
   /**
@@ -109,6 +131,126 @@ export class DebugImpl implements Debug {
       }
     } catch (e) {
       throw this.common.genericErrorHandler(e);
+    }
+  }
+
+  /**
+   * Trace a block by its number for debugging purposes.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_traceBlockByNumber RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNumber - The block number to be traced (in hex format or as a tag like 'latest').
+   * @param {BlockTracerConfig} tracerObject - The configuration wrapper containing tracer type and config.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs during the trace.
+   * @returns {Promise<any>} A Promise that resolves to the result of the block trace operation.
+   *
+   * @example
+   * const result = await traceBlockByNumber('0x1234', { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails);
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
+  })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+  async traceBlockByNumber(
+    blockNumber: string,
+    tracerObject: BlockTracerConfig,
+    requestDetails: RequestDetails,
+  ): Promise<TraceBlockByNumberTxResult[]> {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        `${
+          requestDetails.formattedRequestId
+        } traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`,
+      );
+    }
+
+    try {
+      DebugImpl.requireDebugAPIEnabled();
+      const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
+
+      if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
+
+      const cacheKey = `${constants.CACHE_KEY.DEBUG_TRACE_BLOCK_BY_NUMBER}_${blockResponse.number}_${JSON.stringify(
+        tracerObject,
+      )}`;
+
+      const cachedTracerObject = await this.cacheService.getAsync(
+        cacheKey,
+        DebugImpl.traceBlockByNumber,
+        requestDetails,
+      );
+
+      if (cachedTracerObject) {
+        return cachedTracerObject;
+      }
+
+      const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+
+      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
+        this.mirrorNodeClient.getContractResults.name,
+        [requestDetails, { timestamp: timestampRangeParams }, undefined],
+        requestDetails,
+      );
+
+      if (contractResults == null || contractResults.length === 0) {
+        // return empty array if no EthereumTransaction typed transactions found in the block
+        return [];
+      }
+
+      let tracer: TracerType = TracerType.CallTracer;
+      let onlyTopCall;
+
+      if (tracerObject) {
+        tracer = tracerObject.tracer;
+        onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
+      }
+
+      if (tracer === TracerType.CallTracer) {
+        const result = await Promise.all(
+          contractResults
+            // filter out transactions with wrong nonce since they do not reach consensus
+            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+            .map(async (contractResult) => {
+              return {
+                txHash: contractResult.hash,
+                result: await this.callTracer(
+                  contractResult.hash,
+                  { onlyTopCall } as ICallTracerConfig,
+                  requestDetails,
+                ),
+              };
+            }),
+        );
+
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
+        return result;
+      }
+
+      if (tracer === TracerType.PrestateTracer) {
+        const result = await Promise.all(
+          contractResults
+            // filter out transactions with wrong nonce since they do not reach consensus
+            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+            .map(async (contractResult) => {
+              return {
+                txHash: contractResult.hash,
+                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
+              };
+            }),
+        );
+
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
+        return result;
+      }
+
+      return [];
+    } catch (error) {
+      throw this.common.genericErrorHandler(error);
     }
   }
 
@@ -291,7 +433,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<object> {
+  ): Promise<CallTracerResult | null> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
@@ -301,12 +443,16 @@ export class DebugImpl implements Debug {
           requestDetails,
         ),
       ]);
+
       if (!actionsResponse || !transactionsResponse) {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
 
-      const { call_type: type } = actionsResponse.actions[0];
-      const formattedActions = await this.formatActionsResult(actionsResponse.actions, requestDetails);
+      // return empty array if no actions
+      if (actionsResponse.length === 0) return null;
+
+      const { call_type: type } = actionsResponse[0];
+      const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
 
       const {
         from,
@@ -339,11 +485,132 @@ export class DebugImpl implements Debug {
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls:
-          tracerConfig?.onlyTopCall || actionsResponse.actions.length === 1 ? undefined : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? undefined : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
+  }
+
+  /**
+   * Retrieves the pre-state information for contracts and accounts involved in a transaction.
+   * This tracer collects the state (balance, nonce, code, and storage) of all accounts and
+   * contracts just before the transaction execution.
+   *
+   * @async
+   * @param {string} transactionHash - The hash of the transaction to trace.
+   * @param {boolean} onlyTopCall - When true, only includes accounts involved in top-level calls.
+   * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
+   *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
+   * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
+   */
+  async prestateTracer(
+    transactionHash: string,
+    onlyTopCall: boolean = false,
+    requestDetails: RequestDetails,
+  ): Promise<EntityTraceStateMap> {
+    // Try to get cached result first
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
+
+    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Get transaction actions
+    const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    if (!actionsResponse) {
+      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+    }
+
+    // Filter by call_depth if onlyTopCall is true
+    const filteredActions = onlyTopCall ? actionsResponse.filter((action) => action.call_depth === 0) : actionsResponse;
+
+    // Extract unique addresses involved in the transaction with their metadata
+    const addressMap = new Map();
+    filteredActions.forEach((action) => {
+      if (action.from) {
+        addressMap.set(action.from, {
+          address: action.from,
+          type: action.caller_type,
+          timestamp: action.timestamp,
+        });
+      }
+
+      if (action.to) {
+        addressMap.set(action.to, {
+          address: action.to,
+          type: action.recipient_type,
+          timestamp: action.timestamp,
+        });
+      }
+    });
+
+    // Return empty result if no accounts are involved
+    const accountEntities = Array.from(addressMap.values());
+    if (accountEntities.length === 0) return {};
+
+    const result: EntityTraceStateMap = {};
+
+    await Promise.all(
+      accountEntities.map(async (accountEntity) => {
+        try {
+          // Resolve entity type (contract or account)
+          const entityObject = await this.mirrorNodeClient.resolveEntityType(
+            accountEntity.address,
+            DebugImpl.debugTraceTransaction,
+            requestDetails,
+            [accountEntity.type],
+            1,
+            accountEntity.timestamp,
+          );
+
+          if (!entityObject || !entityObject.entity?.evm_address) return;
+
+          const evmAddress = entityObject.entity.evm_address;
+
+          // Process based on entity type
+          if (entityObject.type === constants.TYPE_CONTRACT) {
+            const contractId = entityObject.entity.contract_id;
+
+            // Fetch balance and state concurrently
+            const [balanceResponse, stateResponse] = await Promise.all([
+              this.mirrorNodeClient.getBalanceAtTimestamp(contractId, requestDetails, accountEntity.timestamp),
+              this.mirrorNodeClient.getContractState(contractId, requestDetails, accountEntity.timestamp),
+            ]);
+
+            // Build storage map from state items
+            const storageMap = stateResponse.reduce((map, stateItem) => {
+              map[stateItem.slot] = stateItem.value;
+              return map;
+            }, {});
+
+            // Add contract data to result
+            result[evmAddress] = {
+              balance: numberTo0x(balanceResponse.balances[0]?.balance || '0'),
+              nonce: entityObject.entity.nonce,
+              code: entityObject.entity.runtime_bytecode,
+              storage: storageMap,
+            };
+          } else if (entityObject.type === constants.TYPE_ACCOUNT) {
+            result[evmAddress] = {
+              balance: numberTo0x(entityObject.entity.balance?.balance || '0'),
+              nonce: entityObject.entity.ethereum_nonce,
+              code: '0x',
+              storage: {},
+            };
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error processing entity ${accountEntity.address} for transaction ${transactionHash}: ${error}`,
+          );
+        }
+      }),
+    );
+
+    // Cache the result before returning
+    await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
+    return result;
   }
 }

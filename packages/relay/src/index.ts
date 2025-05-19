@@ -5,7 +5,14 @@ import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IContractCallRequest, IGetLogsParams, INewFilterParams, ITracerConfig, RequestDetails } from './lib/types';
+import {
+  BlockTracerConfig,
+  IContractCallRequest,
+  IGetLogsParams,
+  INewFilterParams,
+  ITracerConfig,
+  RequestDetails,
+} from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -18,6 +25,12 @@ export interface Debug {
     tracerConfig: ITracerConfig,
     requestDetails: RequestDetails,
   ) => Promise<any>;
+
+  traceBlockByNumber(
+    blockNumber: string,
+    tracerObject: BlockTracerConfig,
+    requestDetails: RequestDetails,
+  ): Promise<any>;
 }
 
 export interface Web3 {

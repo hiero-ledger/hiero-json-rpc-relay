@@ -25,6 +25,8 @@ enum CACHE_KEY {
   GET_CONTRACT = 'getContract',
   GET_CONTRACT_RESULT = 'getContractResult',
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
+  DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber',
+  PRESTATE_TRACER = 'prestateTracer',
 }
 
 enum CACHE_TTL {
@@ -44,6 +46,7 @@ export enum TracerType {
   CallTracer = 'callTracer',
   // Opcode logger executes a transaction and emits the opcodes  and context at every step
   OpcodeLogger = 'opcodeLogger',
+  PrestateTracer = 'prestateTracer',
 }
 
 export enum CallType {
@@ -73,9 +76,9 @@ export default {
   CACHE_TTL,
   DEFAULT_TINY_BAR_GAS: 72, // (853454 / 1000) * (1 / 12)
 
-  TYPE_CONTRACT: 'contract',
-  TYPE_ACCOUNT: 'account',
-  TYPE_TOKEN: 'token',
+  TYPE_CONTRACT: 'CONTRACT',
+  TYPE_ACCOUNT: 'ACCOUNT',
+  TYPE_TOKEN: 'TOKEN',
 
   DEFAULT_FEE_HISTORY_MAX_RESULTS: 10,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE: 100,

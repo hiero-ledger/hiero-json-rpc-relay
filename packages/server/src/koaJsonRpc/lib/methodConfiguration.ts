@@ -172,6 +172,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   debug_traceTransaction: {
     total: tier1rateLimit,
   },
+  debug_traceBlockByNumber: {
+    total: tier1rateLimit,
+  },
   batch_request: {
     total: tier1rateLimit,
   },

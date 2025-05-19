@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { solidity } from 'ethereum-waffle';
-import chai, { expect } from 'chai';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { expect } from 'chai';
+import { ethers } from 'ethers';
 
 // Constants from local resources
 import Constants from '../../tests/helpers/constants';
-
-// Local resources
-import { AliasAccount } from '../types/AliasAccount';
-import { ethers } from 'ethers';
+import MirrorClient from '../clients/mirrorClient';
+import RelayClient from '../clients/relayClient';
+import ServicesClient from '../clients/servicesClient';
 import BaseHTSJson from '../contracts/contracts_v1/BaseHTS.json';
 import { Utils } from '../helpers/utils';
-import ServicesClient from '../clients/servicesClient';
-import RelayClient from '../clients/relayClient';
-import MirrorClient from '../clients/mirrorClient';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-
-chai.use(solidity);
+// Local resources
+import { AliasAccount } from '../types/AliasAccount';
 
 describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function () {
   this.timeout(240 * 1000); // 240 seconds
