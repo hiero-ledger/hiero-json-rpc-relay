@@ -9,10 +9,10 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
-import { RPC_LAYOUT, cache, rpcMethod, rpcParamValidationRules, rpcParamLayoutConfig } from './decorators';
+import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
-import { CacheService, CACHE_LEVEL } from './services/cacheService/cacheService';
+import { CacheService } from './services/cacheService/cacheService';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -56,6 +56,12 @@ export class DebugImpl implements Debug {
   private readonly common: CommonService;
 
   /**
+   * The cacheService containing useful functions
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
@@ -67,6 +73,7 @@ export class DebugImpl implements Debug {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
+    this.cacheService = cacheService;
   }
 
   /**
@@ -102,7 +109,6 @@ export class DebugImpl implements Debug {
     1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
     2: { type: ParamType.TRACER_CONFIG, required: false },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async traceTransaction(
     transactionIdOrHash: string,
     tracer: TracerType,
@@ -146,9 +152,6 @@ export class DebugImpl implements Debug {
     1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
-  })
   async traceBlockByNumber(
     blockNumber: string,
     tracerObject: BlockTracerConfig,
@@ -167,6 +170,20 @@ export class DebugImpl implements Debug {
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
 
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
+
+      const cacheKey = `${constants.CACHE_KEY.DEBUG_TRACE_BLOCK_BY_NUMBER}_${blockResponse.number}_${JSON.stringify(
+        tracerObject,
+      )}`;
+
+      const cachedTracerObject = await this.cacheService.getAsync(
+        cacheKey,
+        DebugImpl.traceBlockByNumber,
+        requestDetails,
+      );
+
+      if (cachedTracerObject) {
+        return cachedTracerObject;
+      }
 
       const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
 
@@ -206,6 +223,7 @@ export class DebugImpl implements Debug {
             }),
         );
 
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
         return result;
       }
 
@@ -222,6 +240,7 @@ export class DebugImpl implements Debug {
             }),
         );
 
+        await this.cacheService.set(cacheKey, result, DebugImpl.traceBlockByNumber, requestDetails);
         return result;
       }
 
@@ -487,6 +506,14 @@ export class DebugImpl implements Debug {
     onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
   ): Promise<EntityTraceStateMap> {
+    // Try to get cached result first
+    const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
+
+    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
     // Get transaction actions
     const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
     if (!actionsResponse) {
@@ -578,6 +605,8 @@ export class DebugImpl implements Debug {
       }),
     );
 
+    // Cache the result before returning
+    await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
     return result;
   }
 }
