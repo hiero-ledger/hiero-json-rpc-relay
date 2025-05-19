@@ -231,13 +231,10 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         .stub(ethImpl['blockService']['common'], 'getHistoricalBlockResponse')
         .resolves(null);
 
-      // Call the method with any block identifier
       const receipts = await ethImpl.getBlockReceipts('0x123456', requestDetails);
 
-      // Verify that an empty array is returned
       expect(receipts).to.exist;
       expect(receipts).to.be.an('array').that.is.empty;
-
       expect(getHistoricalBlockResponseStub.calledOnce).to.be.true;
 
       getHistoricalBlockResponseStub.restore();
