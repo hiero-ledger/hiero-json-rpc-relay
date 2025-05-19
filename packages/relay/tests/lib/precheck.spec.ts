@@ -953,7 +953,7 @@ describe('Precheck', async function () {
     });
 
     it('should throw INVALID_ARGUMENTS for invalid RLP', function () {
-      expect(() => Precheck.parseRawTransaction(invalidTx)).to.throw('Error invoking RPC: invalid BytesLike value');
+      expect(() => Precheck.parseRawTransaction(invalidTx)).to.throw('Invalid arguments: invalid BytesLike value');
     });
   });
 });
