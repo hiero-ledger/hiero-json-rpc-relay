@@ -131,11 +131,6 @@ export class BlockService implements IBlockService {
     const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
     if (cachedResponse) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
-        );
-      }
       return cachedResponse;
     }
 
