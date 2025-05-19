@@ -57,8 +57,6 @@ describe('Precheck', async function () {
   const txWithZeroValue =
     '0xf86380843b9aca00825208940000000000000000000000000000000000000000808025a04e557f2008ff383df9a21919860939f60f4c27b9c845b89021ae2a79be4f6790a002f86d6dcefd2ffec72bf4d427091e7375acb6707e49d99893173cbc03515fd6';
   const parsedTxWithZeroValue = ethers.Transaction.from(txWithZeroValue);
-  const invalidTx =
-    '6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea26469706673582212209c06253b6069b4e1f720945c020dc1c7b3d74b850eba35ac8b6fb407eff7ca7364736f6c63430008120033';
   const defaultGasPrice = 720_000_000_000;
   const defaultGasLimit = 1_000_000;
   const defaultChainId = Number('0x12a');
@@ -953,7 +951,9 @@ describe('Precheck', async function () {
     });
 
     it('should throw INVALID_ARGUMENTS for invalid RLP', function () {
-      expect(() => Precheck.parseRawTransaction(invalidTx)).to.throw('Invalid arguments: invalid BytesLike value');
+      expect(() => Precheck.parseRawTransaction(constants.INVALID_TRANSACTION)).to.throw(
+        'Invalid arguments: invalid BytesLike value',
+      );
     });
   });
 });
