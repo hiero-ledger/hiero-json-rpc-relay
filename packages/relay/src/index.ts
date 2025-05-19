@@ -6,18 +6,12 @@ import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
 import {
-<<<<<<< HEAD
   BlockTracerConfig,
-=======
->>>>>>> 1539f12d (improves performance and adds synthetic transaction support)
   IContractCallRequest,
   IGetLogsParams,
   INewFilterParams,
   ITracerConfig,
-<<<<<<< HEAD
-=======
   ITransactionReceipt,
->>>>>>> 1539f12d (improves performance and adds synthetic transaction support)
   RequestDetails,
 } from './lib/types';
 
