@@ -120,6 +120,26 @@ export class BlockService implements IBlockService {
     }
 
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+<<<<<<< HEAD
+=======
+
+    if (block == null) {
+      return [];
+    }
+
+    const blockNumber = block.number;
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
+    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
+    if (cachedResponse) {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `${requestIdPrefix} getBlockReceipts returned cached response: ${JSON.stringify(cachedResponse)}`,
+        );
+      }
+      return cachedResponse;
+    }
+
+>>>>>>> 12b9c58e (adds block null check and test case to cover it)
     const paramTimestamp: IContractResultsParams = {
       timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
