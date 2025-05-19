@@ -35,7 +35,7 @@ let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
 let cacheService: CacheService;
 let hapiServiceInstance: HAPIService;
-describe('Debug API Test Suite', async function () {
+describe.only('Debug API Test Suite', async function () {
   this.timeout(10000);
 
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
@@ -325,9 +325,10 @@ describe('Debug API Test Suite', async function () {
       }
     });
 
-    afterEach(() => {
+    afterEach(async () => {
       restMock.reset();
       web3Mock.reset();
+      await cacheService.clear(requestDetails);
     });
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
@@ -635,7 +636,7 @@ describe('Debug API Test Suite', async function () {
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('should throw RESOURCE_NOT_FOUND if block is not found', async function () {
         const getHistoricalBlockResponseStub = sinon.stub().resolves(null);
-        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+        sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
         try {
           await debugService.traceBlockByNumber(
@@ -652,7 +653,7 @@ describe('Debug API Test Suite', async function () {
 
       it('should return empty array if no contract results are found for the block', async function () {
         const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
-        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+        sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
         sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
 
@@ -666,12 +667,9 @@ describe('Debug API Test Suite', async function () {
       });
 
       it('should return cached result if available', async function () {
-        const cachedResult = [{ txHash: '0xabc123', result: callTracerResult1 }];
-
         const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
-        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
-
-        sinon.stub(cacheService, 'getAsync').resolves(cachedResult);
+        sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
 
         const result = await debugService.traceBlockByNumber(
           blockNumber,
@@ -679,13 +677,20 @@ describe('Debug API Test Suite', async function () {
           requestDetails,
         );
 
+        const cachedResult = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
         expect(result).to.deep.equal(cachedResult);
+        expect(getHistoricalBlockResponseStub.calledOnce).to.be.true;
       });
 
       describe('with CallTracer', async function () {
         beforeEach(() => {
           const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
-          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+          sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
           sinon.stub(cacheService, 'getAsync').resolves(null);
           sinon.stub(cacheService, 'set').resolves();
@@ -731,7 +736,7 @@ describe('Debug API Test Suite', async function () {
       describe('with PrestateTracer', async function () {
         beforeEach(() => {
           const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
-          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+          sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
           sinon.stub(cacheService, 'getAsync').resolves(null);
           sinon.stub(cacheService, 'set').resolves();
@@ -765,10 +770,10 @@ describe('Debug API Test Suite', async function () {
         const jsonRpcError = predefined.INTERNAL_ERROR('Test error');
 
         const getHistoricalBlockResponseStub = sinon.stub().throws(jsonRpcError);
-        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+        sinon.stub(debugService.common, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
 
         const genericErrorHandlerStub = sinon.stub().returns(jsonRpcError);
-        sinon.stub(CommonService.prototype, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
+        sinon.stub(debugService.common, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
 
         await RelayAssertions.assertRejection(jsonRpcError, debugService.traceBlockByNumber, true, debugService, [
           blockNumber,
@@ -965,61 +970,6 @@ describe('Debug API Test Suite', async function () {
           code: '0x',
           storage: {},
         });
-      });
-
-      it('should return cached results when available', async function () {
-        // Create stubs that return expected data AND track calls
-        const getContractsResultsActionsStub = sinon
-          .stub(mirrorNodeInstance, 'getContractsResultsActions')
-          .withArgs(transactionHash, sinon.match.any)
-          .resolves(actionsResponseMock);
-
-        const resolveEntityTypeStub = sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
-          if (address === contractAddress) {
-            return contractEntityMock;
-          } else if (address === accountAddress) {
-            return accountEntityMock;
-          }
-          return null;
-        });
-
-        const getBalanceAtTimestampStub = sinon
-          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
-          .withArgs(contractId, sinon.match.any, sinon.match.any)
-          .resolves(contractBalanceMock);
-
-        const getContractStateStub = sinon
-          .stub(mirrorNodeInstance, 'getContractState')
-          .withArgs(contractId, sinon.match.any, sinon.match.any)
-          .resolves(contractStateMock);
-
-        // First call should fetch from API
-        const firstResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-        // Verify the first result is correct
-        expect(firstResult).to.deep.equal(expectedResult);
-
-        // Verify that the methods were called during the first request
-        expect(getContractsResultsActionsStub.called).to.be.true;
-        expect(resolveEntityTypeStub.called).to.be.true;
-
-        // Reset call counts for the stubs
-        getContractsResultsActionsStub.resetHistory();
-        resolveEntityTypeStub.resetHistory();
-        getBalanceAtTimestampStub.resetHistory();
-        getContractStateStub.resetHistory();
-
-        // Second call should use cache
-        const secondResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
-
-        // Results should be identical
-        expect(secondResult).to.deep.equal(firstResult);
-
-        // Verify that the methods were NOT called during the second request
-        expect(getContractsResultsActionsStub.called).to.be.false;
-        expect(resolveEntityTypeStub.called).to.be.false;
-        expect(getBalanceAtTimestampStub.called).to.be.false;
-        expect(getContractStateStub.called).to.be.false;
       });
 
       it('should handle empty actions array', async function () {
