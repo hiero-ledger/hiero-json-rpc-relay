@@ -952,7 +952,7 @@ describe('Precheck', async function () {
 
     it('should throw INVALID_ARGUMENTS for invalid RLP', function () {
       expect(() => Precheck.parseRawTransaction(constants.INVALID_TRANSACTION)).to.throw(
-        'Invalid arguments: invalid BytesLike value',
+        'Invalid arguments: unexpected junk after rlp payload',
       );
     });
   });
