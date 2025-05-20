@@ -17,10 +17,16 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
+import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 import { CommonService } from '../ethCommonService/CommonService';
-
 export class BlockService implements IBlockService {
+  /**
+   * The cache service used for caching all responses.
+   * @private
+   */
+  private readonly cacheService: CacheService;
+
   /**
    * The chain id.
    * @private
@@ -51,7 +57,14 @@ export class BlockService implements IBlockService {
   private readonly mirrorNodeClient: MirrorNodeClient;
 
   /** Constructor */
-  constructor(chain: string, common: ICommonService, mirrorNodeClient: MirrorNodeClient, logger: Logger) {
+  constructor(
+    cacheService: CacheService,
+    chain: string,
+    common: ICommonService,
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+  ) {
+    this.cacheService = cacheService;
     this.chain = chain;
     this.common = common;
     this.mirrorNodeClient = mirrorNodeClient;
@@ -120,8 +133,6 @@ export class BlockService implements IBlockService {
     }
 
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
-<<<<<<< HEAD
-=======
 
     if (block == null) {
       throw predefined.RESOURCE_NOT_FOUND(`Block: ${blockHashOrBlockNumber}`);
@@ -134,7 +145,6 @@ export class BlockService implements IBlockService {
       return cachedResponse;
     }
 
->>>>>>> 12b9c58e (adds block null check and test case to cover it)
     const paramTimestamp: IContractResultsParams = {
       timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
