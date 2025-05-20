@@ -42,7 +42,7 @@ No automated updates will be made to the repository. Instead, this process will 
 * Bad, requires manual effort to detect changes and update the schema.
 * Bad, there is a high risk of missing updates.
 
-#### Option 2: Add validation process in the Github Action
+#### Option 2: Add validation process in the Github Action (Chosen)
 
 * Good, improves visibility into discrepancies between our schema and upstream.
 * Good, maintainers retain full control over when and how to update the schema.
