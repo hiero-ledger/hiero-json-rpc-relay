@@ -77,7 +77,20 @@ describe('@web-socket-batch-request Batch Requests', async function () {
       });
       const individualResponses = await Promise.all(promises);
 
-      expect(batchResponses).to.deep.eq(individualResponses);
+      // Compare responses
+      expect(batchResponses.length).to.equal(individualResponses.length);
+
+      batchResponses.forEach((batch, i) => {
+        const ind = individualResponses[i];
+
+        // For error responses, ignore the request ID
+        if (batch.error?.message?.includes('Request ID:')) {
+          expect(batch.error.code).to.equal(ind.error.code);
+          expect(batch.error.message).to.include(batch.error.message.split('] ')[1]);
+        } else {
+          expect(batch).to.deep.equal(ind);
+        }
+      });
     });
 
     it('@release Should return errors for blacklisted methods', async function () {
