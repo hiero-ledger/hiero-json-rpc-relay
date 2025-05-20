@@ -6,7 +6,7 @@ import { Logger } from 'pino';
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
+import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
 import { Block, Log, Receipt, Transaction } from './model';
 import {
@@ -35,6 +35,7 @@ import {
   RequestDetails,
 } from './types';
 import { ParamType } from './types/validation';
+import { rpcParamValidationRules } from './validators';
 
 /**
  * Implementation of the "eth_" methods from the Ethereum JSON-RPC API.
@@ -175,9 +176,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.HEX, required: true },
-    1: { type: ParamType.BLOCK_NUMBER, required: true },
-    2: { type: ParamType.ARRAY, required: false },
+    0: { type: 'hex', required: true },
+    1: { type: 'blockNumber', required: true },
+    2: { type: 'array', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
@@ -248,8 +249,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION, required: true },
-    1: { type: ParamType.BLOCK_NUMBER, required: false },
+    0: { type: 'transaction', required: true },
+    1: { type: 'blockNumber', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async estimateGas(
@@ -322,7 +323,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.FILTER, required: true },
+    0: { type: 'filter', required: true },
   })
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -344,7 +345,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.HEX, required: true },
+    0: { type: 'hex', required: true },
   })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -365,7 +366,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.HEX, required: true },
+    0: { type: 'hex', required: true },
   })
   async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -404,7 +405,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.HEX, required: true },
+    0: { type: 'hex', required: true },
   })
   async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -677,9 +678,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.ADDRESS, required: true },
-    1: { type: ParamType.HEX64, required: true },
-    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+    0: { type: 'address', required: true },
+    1: { type: 'hex64', required: true },
+    2: { type: ['blockNumber', 'blockHash'], required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
@@ -708,8 +709,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.ADDRESS, required: true },
-    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+    0: { type: 'address', required: true },
+    1: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -736,8 +737,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.ADDRESS, required: true },
-    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+    0: { type: 'address', required: true },
+    1: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -763,8 +764,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_HASH, required: true },
-    1: { type: ParamType.BOOLEAN, required: true },
+    0: { type: 'blockHash', required: true },
+    1: { type: 'boolean', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
@@ -783,7 +784,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_HASH, required: true },
+    0: { type: 'blockHash', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
@@ -802,7 +803,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER, required: true },
+    0: { type: 'blockNumber', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -827,8 +828,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_HASH, required: true },
-    1: { type: ParamType.HEX, required: true },
+    0: { type: 'blockHash', required: true },
+    1: { type: 'hex', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionByBlockHashAndIndex(
@@ -852,8 +853,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER, required: true },
-    1: { type: ParamType.HEX, required: true },
+    0: { type: 'blockNumber', required: true },
+    1: { type: 'hex', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -883,8 +884,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER, required: true },
-    1: { type: ParamType.BOOLEAN, required: true },
+    0: { type: 'blockNumber', required: true },
+    1: { type: 'boolean', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -913,8 +914,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.ADDRESS, required: true },
-    1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+    0: { type: 'address', required: true },
+    1: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -939,7 +940,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.HEX, required: true },
+    0: { type: 'hex', required: true },
   })
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
     return await this.transactionService.sendRawTransaction(transaction, requestDetails);
@@ -958,8 +959,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION, required: true },
-    1: { type: ParamType.BLOCK_PARAMS, required: true },
+    0: { type: 'transaction', required: true },
+    1: { type: 'blockParams', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
@@ -1001,7 +1002,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION_HASH, required: true },
+    0: { type: 'transactionHash', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
@@ -1019,7 +1020,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION_HASH, required: true },
+    0: { type: 'transactionHash', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
@@ -1058,7 +1059,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.FILTER, required: true },
+    0: { type: 'filter', required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipNamedParams: [
@@ -1106,7 +1107,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
+    0: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],

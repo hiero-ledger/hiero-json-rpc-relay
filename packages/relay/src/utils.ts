@@ -162,6 +162,7 @@ export class Utils {
         return 'local';
     }
   }
+
   /**
    * Arranges parameters for an RPC method based on its layout configuration
    *
