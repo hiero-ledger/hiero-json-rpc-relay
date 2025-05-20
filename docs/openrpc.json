@@ -1236,6 +1236,14 @@
         },
         "description": "An array of trace objects containing detailed information about all transactions in the block. For callTracer, each item is a call frame with transaction details. For prestateTracer, each item is an object mapping addresses to their account state."
       }
+    },
+    {
+      "name": "eth_getProof",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "result": {
+        "$ref": "#/components/schemas/unsupportedError"
+      }
     }
   ],
   "components": {

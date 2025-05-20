@@ -298,7 +298,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
       const countBlocks = 2;
 
-      const feeHistory = await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails);
+      const feeHistory = await ethImpl.feeHistory(countBlocks, numberTo0x(latestBlockNumber), [], requestDetails);
 
       checkCommonFeeHistoryFields(feeHistory);
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
@@ -307,7 +307,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(404, JSON.stringify({}));
       restMock.onGet(`blocks/${latestBlock.number}`).reply(404, JSON.stringify({}));
 
-      const feeHistoryUsingCache = await ethImpl.feeHistory(countBlocks, 'latest', [], requestDetails);
+      const feeHistoryUsingCache = await ethImpl.feeHistory(countBlocks, numberTo0x(latestBlockNumber), [], requestDetails);
       checkCommonFeeHistoryFields(feeHistoryUsingCache);
       expect(feeHistoryUsingCache['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
       expect(feeHistoryUsingCache['baseFeePerGas'].length).to.eq(countBlocks + 1);

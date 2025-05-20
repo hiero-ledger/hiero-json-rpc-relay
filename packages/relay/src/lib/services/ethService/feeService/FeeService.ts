@@ -36,13 +36,6 @@ export class FeeService implements IFeeService {
   private readonly logger: Logger;
 
   /**
-   * The service used for caching items from requests.
-   *
-   * @private
-   */
-  private readonly cacheService: CacheService;
-
-  /**
    * Constructor
    *
    * @param mirrorNodeClient
@@ -50,11 +43,10 @@ export class FeeService implements IFeeService {
    * @param logger
    * @param cacheService
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.common = common;
     this.logger = logger;
-    this.cacheService = cacheService;
   }
 
   /**
@@ -121,32 +113,13 @@ export class FeeService implements IFeeService {
         const gasPriceFee = await this.common.gasPrice(requestDetails);
         feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       } else {
-        // once we finish testing and refining Fixed Fee method, we can remove this else block to clean up code
-        const cacheKey = `${constants.CACHE_KEY.FEE_HISTORY}_${blockCount}_${newestBlock}_${rewardPercentiles?.join(
-          '',
-        )}`;
-        const cachedFeeHistory = await this.cacheService.getAsync(cacheKey, constants.ETH_FEE_HISTORY, requestDetails);
-
-        if (cachedFeeHistory) {
-          feeHistory = cachedFeeHistory;
-        } else {
-          feeHistory = await this.getFeeHistory(
-            blockCount,
-            newestBlockNumber,
-            latestBlockNumber,
-            rewardPercentiles,
-            requestDetails,
-          );
-        }
-        if (newestBlock != constants.BLOCK_LATEST && newestBlock != constants.BLOCK_PENDING) {
-          await this.cacheService.set(
-            cacheKey,
-            feeHistory,
-            constants.ETH_FEE_HISTORY,
-            requestDetails,
-            parseInt(constants.ETH_FEE_HISTORY_TTL),
-          );
-        }
+        feeHistory = await this.getFeeHistory(
+          blockCount,
+          newestBlockNumber,
+          latestBlockNumber,
+          rewardPercentiles,
+          requestDetails,
+        );
       }
 
       return feeHistory;

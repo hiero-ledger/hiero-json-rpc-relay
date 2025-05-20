@@ -439,12 +439,12 @@ describe('RPC Server', function () {
         id: '2',
         jsonrpc: '2.0',
         method: RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF,
-        params: [null],
+        params: [],
       });
 
       Assertions.expectedError();
     } catch (error: any) {
-      BaseTest.methodNotFoundCheck(error.response, RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF);
+      BaseTest.unsupportedJsonRpcMethodChecks(error.response);
     }
   });
 

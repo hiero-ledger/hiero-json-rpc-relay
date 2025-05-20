@@ -21,7 +21,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -97,7 +97,7 @@ describe('Open RPC Specification', function () {
 
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -544,6 +544,12 @@ describe('Open RPC Specification', function () {
     const response = await ethImpl.syncing(requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_syncing, response);
+  });
+
+  it('should execute "eth_getProof"', async function () {
+    const response = ethImpl.getProof(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_getProof, response);
   });
 
   it('should execute "net_listening"', function () {

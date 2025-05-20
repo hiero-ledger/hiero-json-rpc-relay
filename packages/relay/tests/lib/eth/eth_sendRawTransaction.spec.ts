@@ -195,6 +195,17 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       );
     });
 
+    it('should return a predefined INVALID_ARGUMENTS when transaction has invalid format', async function () {
+      // signature has been truncated
+      await RelayAssertions.assertRejection(
+        predefined.INVALID_ARGUMENTS('unexpected junk after rlp payload'),
+        ethImpl.sendRawTransaction,
+        false,
+        ethImpl,
+        [constants.INVALID_TRANSACTION, requestDetails],
+      );
+    });
+
     it('should return a computed hash if unable to retrieve EthereumHash from record due to contract revert', async function () {
       const signed = await signTransaction(transaction);
 
