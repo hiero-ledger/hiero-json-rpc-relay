@@ -132,7 +132,7 @@ export class EthImpl implements Eth {
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
-    this.blockService = new BlockService(chain, this.common, mirrorNodeClient, logger);
+    this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
     this.eventEmitter = eventEmitter;
     this.transactionService = new TransactionService(
       cacheService,
@@ -1117,7 +1117,10 @@ export class EthImpl implements Eth {
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
-  public async getBlockReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[]> {
+  public async getBlockReceipts(
+    blockHashOrBlockNumber: string,
+    requestDetails: RequestDetails,
+  ): Promise<ITransactionReceipt[]> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
   }
 
