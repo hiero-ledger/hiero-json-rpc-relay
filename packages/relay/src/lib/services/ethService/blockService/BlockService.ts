@@ -124,7 +124,7 @@ export class BlockService implements IBlockService {
 =======
 
     if (block == null) {
-      return [];
+      throw predefined.RESOURCE_NOT_FOUND(`Block: ${blockHashOrBlockNumber}`);
     }
 
     const blockNumber = block.number;

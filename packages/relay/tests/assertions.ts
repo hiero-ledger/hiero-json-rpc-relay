@@ -24,6 +24,7 @@ export default class RelayAssertions {
         if (!checkMessage) {
           return err.code === error.code;
         }
+        console.log('Message', err.message);
         return err.code === error.code && err.message === error.message;
       },
     );

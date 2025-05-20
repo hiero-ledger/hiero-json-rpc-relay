@@ -6,11 +6,13 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
+import { predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
 import {
   BLOCK_HASH,
@@ -226,16 +228,18 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts.length).to.equal(0);
     });
 
-    it('should return empty array when block is null', async function () {
+    it('should throw RESOURCE_NOT_FOUND error when block is null', async function () {
       const getHistoricalBlockResponseStub = sinon
         .stub(ethImpl['blockService']['common'], 'getHistoricalBlockResponse')
         .resolves(null);
 
-      const receipts = await ethImpl.getBlockReceipts('0x123456', requestDetails);
-
-      expect(receipts).to.exist;
-      expect(receipts).to.be.an('array').that.is.empty;
-      expect(getHistoricalBlockResponseStub.calledOnce).to.be.true;
+      await RelayAssertions.assertRejection(
+        predefined.RESOURCE_NOT_FOUND(`Block: 0x123456`),
+        ethImpl.getBlockReceipts,
+        true,
+        ethImpl,
+        ['0x123456', requestDetails],
+      );
 
       getHistoricalBlockResponseStub.restore();
     });
