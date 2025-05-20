@@ -9,7 +9,7 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
-import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
+import { RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
@@ -21,10 +21,10 @@ import {
   IOpcodeLoggerConfig,
   ITracerConfig,
   MirrorNodeContractResult,
-  ParamType,
   RequestDetails,
   TraceBlockByNumberTxResult,
 } from './types';
+import { rpcParamValidationRules } from './validators';
 
 /**
  * Represents a DebugService for tracing and debugging transactions.
@@ -105,9 +105,9 @@ export class DebugImpl implements Debug {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
-    2: { type: ParamType.TRACER_CONFIG, required: false },
+    0: { type: ['transactionHash'], required: true },
+    1: { type: ['tracerType', 'tracerConfig', 'tracerConfigWrapper'], required: false },
+    2: { type: 'tracerConfig', required: false },
   })
   async traceTransaction(
     transactionIdOrHash: string,
@@ -148,8 +148,8 @@ export class DebugImpl implements Debug {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER, required: true },
-    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
+    0: { type: 'blockNumber', required: true },
+    1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async traceBlockByNumber(

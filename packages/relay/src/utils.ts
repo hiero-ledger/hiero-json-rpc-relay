@@ -163,6 +163,7 @@ export class Utils {
         return 'local';
     }
   }
+
   /**
    * Arranges parameters for an RPC method based on its layout configuration
    *
@@ -191,8 +192,8 @@ export class Utils {
         if (TYPES.tracerType.test(rpcParams[1].tracer)) {
           tracer = rpcParams[1].tracer;
         }
-        if (TYPES.tracerConfig.test(rpcParams[1].tracerConfig)) {
-          tracerConfig = rpcParams[1].tracerConfig;
+        if (TYPES.tracerConfig.test(rpcParams[1].tracerConfig as any)) {
+          tracerConfig = rpcParams[1].tracerConfig as any;
         }
       }
 
