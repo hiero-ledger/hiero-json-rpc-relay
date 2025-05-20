@@ -118,14 +118,16 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
     await relay.pollForValidTransactionReceipt(initialFundsTx.hash);
 
-    const [childTx, blockNumber, balance] = await Promise.all([
-      parentContract.createChild(1),
+    createChildTx = await parentContract.createChild(1);
+    await relay.pollForValidTransactionReceipt(createChildTx.hash);
+
+    // added delay to wait for balances properly settled on MN
+    await Utils.wait(1500);
+
+    const [blockNumber, balance] = await Promise.all([
       accounts[0].wallet.provider?.getBlockNumber(),
       accounts[0].wallet.provider?.getBalance(accounts[0].address),
     ]);
-
-    createChildTx = childTx;
-    await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
     blockNumberAtStartOfTests = blockNumber as number;
     accounts0StartBalance = balance as bigint;
