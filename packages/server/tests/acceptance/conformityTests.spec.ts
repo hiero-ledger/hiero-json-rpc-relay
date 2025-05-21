@@ -320,6 +320,8 @@ async function processFileContent(directory, file, content) {
     ? checkResponseFormat(response.response.data, content.response)
     : isResponseValid(schema, response);
   expect(valid).to.be.true;
+
+  expect(response.response.data).to.be.equal(content.response);
 }
 
 const synthesizeTestCases = function (testCases, updateParamIfNeeded) {
@@ -381,7 +383,7 @@ describe('@api-conformity', async function () {
               directory === 'eth_estimateGas' ||
               directory === 'eth_getProof'
             ) {
-              return;
+            //  return;
             }
             execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
             //Currently, we do not support blobs
