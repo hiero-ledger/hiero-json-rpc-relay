@@ -321,7 +321,7 @@ async function processFileContent(directory, file, content) {
     : isResponseValid(schema, response);
   expect(valid).to.be.true;
   if (response.result) {
-    expect(JSON.parse(response.result)).to.be.equal(content.response);
+    expect(JSON.stringify(response)).to.be.equal(content.response);
   }
 }
 
