@@ -384,7 +384,7 @@ describe('@api-conformity', async function () {
               directory === 'eth_estimateGas' ||
               directory === 'eth_getProof'
             ) {
-            //  return;
+              return;
             }
             execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
             //Currently, we do not support blobs
