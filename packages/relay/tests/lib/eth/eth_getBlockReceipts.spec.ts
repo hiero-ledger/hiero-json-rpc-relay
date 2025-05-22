@@ -67,7 +67,6 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.reset();
   });
 
@@ -248,11 +247,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   describe('Cache behavior', () => {
     let spyCommonGetHistoricalBlockResponse;
 
-    this.beforeEach(() => {
+    beforeEach(() => {
       spyCommonGetHistoricalBlockResponse = sinon.spy(ethImpl.common, 'getHistoricalBlockResponse');
     });
 
-    this.afterEach(() => {
+    afterEach(() => {
       spyCommonGetHistoricalBlockResponse.restore();
     });
 

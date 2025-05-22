@@ -29,6 +29,7 @@
     "test": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
     "test-eth": "nyc ts-mocha --recursive './tests/lib/eth/**/*.spec.ts' --exit",
     "test:eth-get-block-by-number": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetBlockByNumber' --exit",
+    "test:eth-get-block-receipts": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetBlockReceipts' --exit",
     "test:eth-get-block-by-hash": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetBlockByHash' --exit",
     "test:eth-get-block-transaction-count-by-number": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetBlockTransactionCountByNumber' --exit",
     "test:eth-get-block-transaction-count-by-hash": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' -g '@ethGetBlockTransactionCountByHash' --exit",
