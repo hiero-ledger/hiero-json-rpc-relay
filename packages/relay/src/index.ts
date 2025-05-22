@@ -11,6 +11,7 @@ import {
   IGetLogsParams,
   INewFilterParams,
   ITracerConfig,
+  ITransactionReceipt,
   RequestDetails,
 } from './lib/types';
 
@@ -70,7 +71,7 @@ export interface Eth {
 
   getBalance(account: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string>;
 
-  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<Receipt[]>;
+  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[]>;
 
   getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null>;
 

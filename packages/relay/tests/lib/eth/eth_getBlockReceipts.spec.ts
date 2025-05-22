@@ -6,11 +6,13 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
+import { predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
+import RelayAssertions from '../../assertions';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
 import {
   BLOCK_HASH,
@@ -30,8 +32,16 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let currentGasPriceStub: sinon.SinonStub;
 let extractBlockNumberOrTagStub: sinon.SinonStub;
+
+const DEFAULTS: Record<string, any> = {
+  [CONTRACT_RESULTS_WITH_FILTER_URL_2]: defaultContractResults,
+  [CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2]: DEFAULT_ETH_GET_BLOCK_BY_LOGS,
+  [BLOCKS_LIMIT_ORDER_URL]: { blocks: [DEFAULT_BLOCK] },
+  [`blocks/${BLOCK_NUMBER}`]: DEFAULT_BLOCK,
+  [`blocks/${BLOCK_HASH}`]: DEFAULT_BLOCK,
+  ['network/fees']: DEFAULT_NETWORK_FEES,
+};
 
 describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.timeout(10000);
@@ -52,29 +62,25 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
-    currentGasPriceStub = sinon.stub(ethImpl['common'], 'getCurrentGasPriceForBlock').resolves('0x25');
     extractBlockNumberOrTagStub = sinon
       .stub(ethImpl['contractService'], 'extractBlockNumberOrTag')
       .resolves(BLOCK_NUMBER.toString());
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.reset();
   });
 
   this.afterEach(() => {
     getSdkClientStub.restore();
-    currentGasPriceStub.restore();
     extractBlockNumberOrTagStub.restore();
     restMock.resetHandlers();
   });
 
-  function setupStandardResponses() {
-    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify(defaultContractResults));
-    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
-    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+  function setupStandardResponses(overrides: Partial<Record<string, any>> = {}) {
+    Object.entries(DEFAULTS).forEach(([url, body]) => {
+      const toReply = overrides[url] !== undefined ? overrides[url] : body;
+      restMock.onGet(url).reply(200, JSON.stringify(toReply));
+    });
   }
 
   function expectValidReceipt(receipt, contractResult) {
@@ -139,6 +145,31 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       });
     });
 
+    ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'].forEach((status) => {
+      it('should filter out transactions with Hedera-specific validation failures', async function () {
+        const modifiedContractResults = {
+          results: [
+            { ...results[0] }, // Normal transaction
+            { ...results[1], result: status }, // Transaction with a Hedera-specific revert status
+          ],
+          links: { next: null },
+        };
+
+        setupStandardResponses({
+          [CONTRACT_RESULTS_WITH_FILTER_URL_2]: modifiedContractResults,
+        });
+
+        const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+        // Verify only one receipt was returned (the non-reverted one)
+        expect(receipts).to.exist;
+        expect(receipts.length).to.equal(1);
+        expect(receipts[0].transactionHash).to.equal(results[0].hash);
+
+        expectValidReceipt(receipts[0], results[0]);
+      });
+    });
+
     it('should return empty array for block with no transactions', async function () {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ results: [] }));
       restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
@@ -171,14 +202,17 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should return receipts with empty logs arrays when transactions have no matching logs', async function () {
-      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL_2).reply(200, JSON.stringify(defaultContractResultsOnlyHash2));
-      restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2).reply(200, JSON.stringify({ logs: defaultLogs1 }));
-      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [DEFAULT_BLOCK] }));
-      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: defaultContractResultsOnlyHash2,
+        [CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2]: { logs: defaultLogs1 },
+      });
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
       expect(receipts[0].logs.length).to.equal(0);
+      expect(receipts[1].logs.length).to.equal(1);
+      expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
+      expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
     });
   });
 
@@ -192,16 +226,32 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
       expect(receipts.length).to.equal(0);
     });
+
+    it('should throw RESOURCE_NOT_FOUND error when block is null', async function () {
+      const getHistoricalBlockResponseStub = sinon
+        .stub(ethImpl['blockService']['common'], 'getHistoricalBlockResponse')
+        .resolves(null);
+
+      await RelayAssertions.assertRejection(
+        predefined.RESOURCE_NOT_FOUND(`Block: 0x123456`),
+        ethImpl.getBlockReceipts,
+        true,
+        ethImpl,
+        ['0x123456', requestDetails],
+      );
+
+      getHistoricalBlockResponseStub.restore();
+    });
   });
 
   describe('Cache behavior', () => {
     let spyCommonGetHistoricalBlockResponse;
 
-    this.beforeEach(() => {
+    beforeEach(() => {
       spyCommonGetHistoricalBlockResponse = sinon.spy(ethImpl.common, 'getHistoricalBlockResponse');
     });
 
-    this.afterEach(() => {
+    afterEach(() => {
       spyCommonGetHistoricalBlockResponse.restore();
     });
 

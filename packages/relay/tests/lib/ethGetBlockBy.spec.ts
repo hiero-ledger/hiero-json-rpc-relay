@@ -141,7 +141,7 @@ describe('eth_getBlockBy', async function () {
     // @ts-ignore
     ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
     const common = new CommonService(mirrorNodeInstance, logger, cacheService);
-    blockService = new BlockService('0x12a', common, mirrorNodeInstance, logger);
+    blockService = new BlockService(cacheService, '0x12a', common, mirrorNodeInstance, logger);
   });
 
   this.beforeEach(async () => {

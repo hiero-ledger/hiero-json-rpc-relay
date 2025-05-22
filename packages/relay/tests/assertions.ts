@@ -24,6 +24,7 @@ export default class RelayAssertions {
         if (!checkMessage) {
           return err.code === error.code;
         }
+
         return err.code === error.code && err.message === error.message;
       },
     );
