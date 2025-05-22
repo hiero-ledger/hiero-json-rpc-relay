@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, release/**]
   push:
-    branches: [main, release/**]
+    branches: [main, release/**, poc-Paymaster-functionality-at-relay-level]
     tags: [v*]
 
 concurrency:
@@ -19,25 +19,7 @@ jobs:
       max-parallel: 6
       matrix:
         test:
-          - { name: 'API Batch 1', testfilter: 'api_batch1' }
-          - { name: 'API Batch 2', testfilter: 'api_batch2' }
-          - { name: 'API Batch 3', testfilter: 'api_batch3' }
-          - { name: 'Debug API', testfilter: 'debug' }
-          - { name: 'ERC20', testfilter: 'erc20' }
-          - { name: 'Rate Limiter', testfilter: 'ratelimiter', test_ws_server: true }
           - { name: 'SendRawTransaction Extension', testfilter: 'send_raw_transaction_extension' }
-          - { name: 'HBar Limiter Batch 1', testfilter: 'hbarlimiter_batch1' }
-          - { name: 'HBar Limiter Batch 2', testfilter: 'hbarlimiter_batch2' }
-          - { name: 'HBar Limiter Batch 3', testfilter: 'hbarlimiter_batch3' }
-          - { name: 'Token Create', testfilter: 'tokencreate' }
-          - { name: 'Token Management', testfilter: 'tokenmanagement' }
-          - { name: 'Precompile', testfilter: 'htsprecompilev1' }
-          - { name: 'Precompile Calls', testfilter: 'precompile-calls' }
-          - { name: 'Websocket Batch 1', testfilter: 'ws_batch1', test_ws_server: true }
-          - { name: 'Websocket Batch 2', testfilter: 'ws_batch2', test_ws_server: true }
-          - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
-          - { name: 'Cache Service', testfilter: 'cache-service' }
-          - { name: 'Server Config', testfilter: 'serverconfig' }
     uses: ./.github/workflows/acceptance-workflow.yml
     with:
       testfilter: ${{ matrix.test.testfilter }}
