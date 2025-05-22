@@ -2,6 +2,7 @@
 
 // External resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { ConfigServiceTestHelper } from '@hashgraph/json-rpc-config-service/tests/configServiceTestHelper';
 // Other imports
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
@@ -41,7 +42,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const neededAccounts: number = 2;
+    const neededAccounts: number = 3;
     accounts.push(
       ...(await Utils.createMultipleAliasAccounts(
         mirrorNode,
@@ -248,6 +249,115 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
       expect(info).to.exist;
+    });
+  });
+
+  describe('Paymaster', function () {
+    // Common test variables
+    const zeroGasPrice = '0x0';
+    const GAS_PRICE_REF = '0x123456';
+    const MAX_ALLOWANCE = 10000000000; // 100 hbars
+
+    // Helper function to setup paymaster configuration
+    const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_MAX_ALLOWANCE', allowance);
+    };
+
+    // Helper function to create and sign a transaction
+    const createAndSignTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(senderAccount.address, requestId),
+        maxPriorityFeePerGas: zeroGasPrice,
+        maxFeePerGas: zeroGasPrice,
+        gasLimit: defaultGasLimit,
+        to: recipientAddress, // If undefined, creates a contract deployment transaction
+        data: recipientAddress ? undefined : '0x' + '00'.repeat(6144),
+      };
+
+      return senderAccount.wallet.signTransaction(transaction);
+    };
+
+    // Helper function to verify successful transaction execution without balance change
+    const verifySuccessfulTransaction = async (txHash: string, signerAddress: string, initialBalance: bigint) => {
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`, requestId);
+      expect(info).to.exist;
+      expect(info.result).to.equal('SUCCESS');
+
+      const finalBalance = await relay.getBalance(signerAddress, 'latest', requestId);
+      expect(initialBalance).to.be.equal(finalBalance);
+    };
+
+    it('should process zero-fee contract deployment transactions when Paymaster is enabled globally', async function () {
+      // Configure paymaster for all addresses
+      configurePaymaster(true, ['*'], MAX_ALLOWANCE);
+
+      // Record initial balance
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+
+      // Create and execute transaction
+      const signedTx = await createAndSignTransaction(accounts[2]);
+      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should process zero-fee transactions to existing accounts when Paymaster is enabled globally', async function () {
+      configurePaymaster(true, ['*'], MAX_ALLOWANCE);
+
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should process zero-fee transactions when target address is specifically whitelisted', async function () {
+      // Configure paymaster for specific address
+      configurePaymaster(true, [accounts[0].address], MAX_ALLOWANCE);
+
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+
+      await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
+    });
+
+    it('should reject zero-fee transactions when Paymaster is disabled', async function () {
+      configurePaymaster(false, ['*'], MAX_ALLOWANCE);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const error = predefined.GAS_PRICE_TOO_LOW(zeroGasPrice, GAS_PRICE_REF);
+
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+    });
+
+    it('should reject zero-fee transactions when whitelist is empty despite Paymaster being enabled', async function () {
+      configurePaymaster(true, [], MAX_ALLOWANCE);
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const error = predefined.GAS_PRICE_TOO_LOW(zeroGasPrice, GAS_PRICE_REF);
+
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+    });
+
+    it('should return INSUFFICIENT_TX_FEE when Paymaster is enabled but has zero allowance', async function () {
+      configurePaymaster(true, ['*'], 0); // Set allowance to zero
+
+      const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
+      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`, requestId);
+      expect(info).to.exist;
+      expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
     });
   });
 });
