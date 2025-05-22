@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -158,6 +159,14 @@ export class Precheck {
    */
   gasPrice(tx: Transaction, networkGasPriceInWeiBars: number, requestDetails: RequestDetails): void {
     const networkGasPrice = BigInt(networkGasPriceInWeiBars);
+
+    const payMasterEnabled = ConfigService.get('PAYMASTER_ENABLED');
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
+
+    // Paymaster transactions are exempt from gas price precheck
+    if (payMasterEnabled && (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to)))) {
+      return;
+    }
 
     const txGasPrice = BigInt(tx.gasPrice || tx.maxFeePerGas! + tx.maxPriorityFeePerGas!);
 

@@ -623,6 +623,24 @@ const _CONFIG = {
     required: true,
     defaultValue: null,
   },
+  PAYMASTER_ENABLED: {
+    envName: 'PAYMASTER_ENABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  PAYMASTER_WHITELIST: {
+    envName: 'PAYMASTER_WHITELIST',
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
+  PAYMASTER_MAX_ALLOWANCE: {
+    envName: 'PAYMASTER_MAX_ALLOWANCE',
+    type: 'number',
+    required: false,
+    defaultValue: 10000000000, // 100 HBAR
+  },
   RATE_LIMIT_DISABLED: {
     envName: 'RATE_LIMIT_DISABLED',
     type: 'boolean',

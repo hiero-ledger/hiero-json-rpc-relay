@@ -138,11 +138,15 @@ export class SDKClient {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    toAddress?: string,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
     const ethereumTransaction = new EthereumTransaction();
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
+    const payMasterEnabled = ConfigService.get('PAYMASTER_ENABLED');
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
+    const payMasterMaxAllowance = ConfigService.get('PAYMASTER_MAX_ALLOWANCE');
 
     let fileId: FileId | null = null;
 
@@ -170,6 +174,18 @@ export class SDKClient {
       Hbar.fromTinybars(
         Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * constants.MAX_TRANSACTION_FEE_THRESHOLD),
       ),
+    );
+
+    // Paymaster transactions are exempt from gas price precheck
+    if (
+      payMasterEnabled &&
+      (payMasterWhiteList.includes('*') || (toAddress && payMasterWhiteList.includes(toAddress)))
+    ) {
+      ethereumTransaction.setMaxGasAllowanceHbar(Hbar.fromTinybars(payMasterMaxAllowance));
+    }
+
+    this.logger.info(
+      `${requestDetails.formattedConnectionId} THIS IS DEBUGGING LOG - DELETE ME - Paymaster gas allowance set to ${ethereumTransaction.maxGasAllowance}`,
     );
 
     return {

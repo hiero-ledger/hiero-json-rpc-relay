@@ -569,6 +569,7 @@ export class TransactionService implements ITransactionService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       requestDetails,
+      toAddress,
     );
 
     sendRawTransactionError = error;
@@ -738,6 +739,7 @@ export class TransactionService implements ITransactionService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
+    toAddress?: string,
   ): Promise<{
     txSubmitted: boolean;
     submittedTransactionId: string;
@@ -758,6 +760,7 @@ export class TransactionService implements ITransactionService {
           originalCallerAddress,
           networkGasPriceInWeiBars,
           await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+          toAddress,
         );
 
       txSubmitted = true;
