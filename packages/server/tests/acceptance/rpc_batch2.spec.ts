@@ -127,11 +127,12 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
     // This loop is designed to poll for the latest block number until it is correctly updated.
     for (let i = 0; i < 5; i++) {
+      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);    
       if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
+        console.log("Block number updated succesfully")
         break;
       }
       await Utils.wait(1500);
-      blockNumAfterCreateChildTx = await await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
     }
 
     accounts0StartBalance = await relay.call(
