@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import { TracerType } from './lib/constants';
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
