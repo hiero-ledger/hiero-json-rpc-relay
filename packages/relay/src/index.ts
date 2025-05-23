@@ -10,9 +10,9 @@ import {
   IContractCallRequest,
   IGetLogsParams,
   INewFilterParams,
-  ITracerConfig,
   ITransactionReceipt,
   RequestDetails,
+  TransactionTracerConfig,
 } from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
@@ -22,8 +22,7 @@ export { Relay } from './lib/relay';
 export interface Debug {
   traceTransaction: (
     transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
+    tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ) => Promise<any>;
 
