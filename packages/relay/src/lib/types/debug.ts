@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { TracerType } from '../constants';
-import { ICallTracerConfig } from './ITracerConfig';
+import { ICallTracerConfig, IOpcodeLoggerConfig } from './ITracerConfig';
 
 /**
  * Configuration object for block tracing operations.
@@ -11,6 +11,13 @@ export interface BlockTracerConfig {
   tracer: TracerType;
   /** Optional configuration for the call tracer. */
   tracerConfig?: ICallTracerConfig;
+}
+
+export interface TransactionTracerConfig {
+  /** The type of tracer to use for block tracing. */
+  tracer: TracerType;
+  /** Optional configuration for the call tracer. */
+  tracerConfig?: ICallTracerConfig | IOpcodeLoggerConfig;
 }
 
 /**

@@ -174,31 +174,6 @@ export class Utils {
   public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
 
-    if (method.name === 'traceTransaction') {
-      const transactionIdOrHash = rpcParams[0];
-      let tracer: TracerType = TracerType.OpcodeLogger;
-      let tracerConfig: ITracerConfig = {};
-
-      // Second param can be either a TracerType string, or an object for TracerConfig or TracerConfigWrapper
-      if (TYPES.tracerType.test(rpcParams[1])) {
-        tracer = rpcParams[1];
-        if (TYPES.tracerConfig.test(rpcParams[2])) {
-          tracerConfig = rpcParams[2];
-        }
-      } else if (TYPES.tracerConfig.test(rpcParams[1])) {
-        tracerConfig = rpcParams[1];
-      } else if (TYPES.tracerConfigWrapper.test(rpcParams[1])) {
-        if (TYPES.tracerType.test(rpcParams[1].tracer)) {
-          tracer = rpcParams[1].tracer;
-        }
-        if (TYPES.tracerConfig.test(rpcParams[1].tracerConfig)) {
-          tracerConfig = rpcParams[1].tracerConfig;
-        }
-      }
-
-      return [transactionIdOrHash, tracer, tracerConfig, requestDetails];
-    }
-
     // Method only needs requestDetails
     if (layout === RPC_LAYOUT.REQUEST_DETAILS_ONLY) {
       return [requestDetails];

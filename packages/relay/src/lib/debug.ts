@@ -24,6 +24,7 @@ import {
   ParamType,
   RequestDetails,
   TraceBlockByNumberTxResult,
+  TransactionTracerConfig,
 } from './types';
 
 /**
@@ -106,14 +107,16 @@ export class DebugImpl implements Debug {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
-    2: { type: ParamType.TRACER_CONFIG, required: false },
+    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: true },
   })
+<<<<<<< HEAD
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+=======
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+>>>>>>> e4ea585c (improves validation for debug traceTransaction)
   async traceTransaction(
     transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
+    tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
@@ -121,10 +124,18 @@ export class DebugImpl implements Debug {
     }
     try {
       DebugImpl.requireDebugAPIEnabled();
-      if (tracer === TracerType.CallTracer) {
-        return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
-      } else if (tracer === TracerType.OpcodeLogger) {
-        return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
+      if (tracerObject.tracer === TracerType.CallTracer) {
+        return await this.callTracer(
+          transactionIdOrHash,
+          tracerObject.tracerConfig as ICallTracerConfig,
+          requestDetails,
+        );
+      } else if (tracerObject.tracer === TracerType.OpcodeLogger) {
+        return await this.callOpcodeLogger(
+          transactionIdOrHash,
+          tracerObject.tracerConfig as IOpcodeLoggerConfig,
+          requestDetails,
+        );
       }
     } catch (e) {
       throw this.common.genericErrorHandler(e);
