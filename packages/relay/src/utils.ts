@@ -8,10 +8,9 @@ import createHash from 'keccak';
 import { Logger } from 'pino';
 
 import { hexToASCII, prepend0x, strip0x } from './formatters';
-import constants, { TracerType } from './lib/constants';
+import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { ITracerConfig, RequestDetails } from './lib/types';
-import { TYPES } from './lib/validators';
+import { RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
