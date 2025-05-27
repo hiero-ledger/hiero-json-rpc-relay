@@ -47,12 +47,11 @@ export class RateLimiterService {
         this.logger.info(`Using configured rate limit store type: ${type}`);
         return type;
       }
-      this.logger.warn(`Unsupported IP_RATE_LIMIT_STORE value: "${type}". Using REDIS_ENABLED setting.`);
+      this.logger.warn(`Unsupported IP_RATE_LIMIT_STORE value. Using REDIS_ENABLED setting.`);
     }
 
     // Use REDIS if enabled, LRU otherwise
     const storeType = ConfigService.get('REDIS_ENABLED') ? 'REDIS' : 'LRU';
-    this.logger.info(`Using rate limit store type: ${storeType}`);
     return storeType;
   }
 
@@ -101,10 +100,6 @@ export class RateLimiterService {
       const isRateLimited = await this.store.incrementAndCheck(key, limit, this.duration);
 
       if (isRateLimited) {
-        const requestIdPrefix = formatRequestIdMessage(requestId);
-        this.logger.warn(
-          `${requestIdPrefix}Rate limit EXCEEDED for IP ${ip} on method ${methodName}. Limit: ${limit} per ${this.duration}ms. Store: ${storeTypeLabel}`,
-        );
         this.ipRateLimitCounter.labels(methodName, storeTypeLabel).inc();
         return true;
       }
