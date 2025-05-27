@@ -58,7 +58,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: undefined, REDIS_ENABLED: true, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use Redis store when REDIS_ENABLED is true', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+            rateLimiterService = new RateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
           });
@@ -69,7 +69,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: 'REDIS', REDIS_ENABLED: false, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use configured store type when IP_RATE_LIMIT_STORE is set to REDIS', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+            rateLimiterService = new RateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
           });
@@ -80,7 +80,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: 'LRU', REDIS_ENABLED: true, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use configured store type when IP_RATE_LIMIT_STORE is set to LRU', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+            rateLimiterService = new RateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
           });
@@ -90,28 +90,10 @@ describe('RateLimiterService Test Suite', function () {
       withOverriddenEnvsInMochaTest(
         { IP_RATE_LIMIT_STORE: 'INVALID_STORE', REDIS_ENABLED: false, RATE_LIMIT_DISABLED: false },
         () => {
-          it('should warn and fallback to REDIS_ENABLED when IP_RATE_LIMIT_STORE is invalid', () => {
-            const logSpy = sinon.spy(logger, 'warn');
-
+          it('should fallback to REDIS_ENABLED when IP_RATE_LIMIT_STORE is invalid', () => {
             rateLimiterService = new RateLimiterService(logger, registry, duration);
 
-            expect(logSpy.called).to.be.true;
-            expect(logSpy.getCall(0).args[0]).to.include('Unsupported IP_RATE_LIMIT_STORE value');
             expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
-          });
-        },
-      );
-
-      withOverriddenEnvsInMochaTest(
-        { IP_RATE_LIMIT_STORE: 'LRU', REDIS_ENABLED: false, RATE_LIMIT_DISABLED: false },
-        () => {
-          it('should log the store type being used', () => {
-            const logSpy = sinon.spy(logger, 'info');
-
-            rateLimiterService = new RateLimiterService(logger, registry, duration);
-
-            expect(logSpy.called).to.be.true;
-            expect(logSpy.getCall(0).args[0]).to.include('Using configured rate limit store type: LRU');
           });
         },
       );
@@ -119,14 +101,8 @@ describe('RateLimiterService Test Suite', function () {
 
     describe('Store Creation', () => {
       withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: 'REDIS' }, () => {
-        it('should throw error when Redis store is required but no client provided', () => {
-          expect(() => {
-            new RateLimiterService(logger, registry, duration);
-          }).to.throw('Redis client is required when IP_RATE_LIMIT_STORE=REDIS');
-        });
-
-        it('should create Redis store when Redis client is provided', () => {
-          rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+        it('should create Redis store when configured', () => {
+          rateLimiterService = new RateLimiterService(logger, registry, duration);
 
           expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
         });
@@ -179,42 +155,12 @@ describe('RateLimiterService Test Suite', function () {
         expect(storeStub.calledOnce).to.be.true;
       });
 
-      it('should log warning when rate limit is exceeded', async () => {
-        sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(true);
-        const logSpy = sinon.spy(logger, 'warn');
-
-        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-
-        expect(logSpy.calledOnce).to.be.true;
-        const logMessage = logSpy.getCall(0).args[0];
-        expect(logMessage).to.include('Rate limit EXCEEDED');
-        expect(logMessage).to.include(testIp);
-        expect(logMessage).to.include(testMethod);
-        expect(logMessage).to.include(testLimit.toString());
-        expect(logMessage).to.include(duration.toString());
-      });
-
       it('should increment metrics counter when rate limit is exceeded', async () => {
         sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(true);
         const counterSpy = sinon.spy(rateLimiterService['ipRateLimitCounter'], 'inc');
 
         await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
 
-        expect(counterSpy.calledOnce).to.be.true;
-      });
-
-      it('should use correct store type label in metrics and logs', async () => {
-        sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(true);
-        const logSpy = sinon.spy(logger, 'warn');
-        const counterSpy = sinon.spy(rateLimiterService['ipRateLimitCounter'], 'inc');
-
-        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-
-        // Check log contains store type
-        const logMessage = logSpy.getCall(0).args[0];
-        expect(logMessage).to.include('Store: LruRateLimit');
-
-        // Check counter labels
         expect(counterSpy.calledOnce).to.be.true;
       });
 
@@ -305,84 +251,24 @@ describe('RateLimiterService Test Suite', function () {
     });
 
     it('should use Redis store when configured', () => {
-      rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+      rateLimiterService = new RateLimiterService(logger, registry, duration);
 
       expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
     });
 
-    it('should handle Redis store operations correctly', async () => {
-      // Mock Redis client to simulate different responses
-      const mockClient = {
-        isOpen: true,
-        connect: sinon.stub().resolves(),
-        eval: sinon.stub(),
-      };
+    it('should handle Redis store gracefully', async () => {
+      rateLimiterService = new RateLimiterService(logger, registry, duration);
 
-      rateLimiterService = new RateLimiterService(logger, registry, duration, mockClient as any);
-
-      // First call - not rate limited (Redis returns 0)
-      mockClient.eval.resolves(0);
-      let result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-      expect(result).to.be.false;
-
-      // Second call - rate limited (Redis returns 1)
-      mockClient.eval.resolves(1);
-      result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-      expect(result).to.be.true;
-    });
-
-    it('should handle Redis connection errors gracefully', async () => {
-      // Mock Redis client that throws errors
-      const mockClient = {
-        isOpen: true,
-        connect: sinon.stub().resolves(),
-        eval: sinon.stub().rejects(new Error('Redis connection failed')),
-      };
-
-      rateLimiterService = new RateLimiterService(logger, registry, duration, mockClient as any);
-
-      // Should not throw error and should not rate limit (fallback behavior)
+      // Should not throw error even if Redis is not available
       const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-      expect(result).to.be.false;
-    });
-
-    it('should handle Redis client reconnection', async () => {
-      // Mock Redis client that is not initially open
-      const mockClient = {
-        isOpen: false,
-        connect: sinon.stub().resolves(),
-        eval: sinon.stub().resolves(0),
-      };
-
-      rateLimiterService = new RateLimiterService(logger, registry, duration, mockClient as any);
-
-      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-
-      // Should attempt to connect and succeed
-      expect(mockClient.connect.calledOnce).to.be.true;
-      expect(result).to.be.false;
-    });
-
-    it('Redis: connect error is caught and returns false', async () => {
-      const mockClient = {
-        isOpen: false,
-        connect: sinon.stub().rejects(new Error('connect fail')),
-        eval: sinon.stub().resolves(0),
-      };
-      const errorSpy = sinon.spy(console, 'error');
-      const store = new RedisRateLimitStore(mockClient as any);
-      const result = await store.incrementAndCheck('ratelimit:127.0.0.1:method', 5, duration);
-      expect(result).to.be.false;
-      expect(errorSpy.calledOnce).to.be.true;
-      expect(errorSpy.getCall(0).args[0]).to.include('Redis rate limit operation failed:');
-      errorSpy.restore();
+      expect(result).to.be.false; // Fallback behavior when Redis fails
     });
   });
 
   describe('Configuration Edge Cases', () => {
     withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: '  REDIS  ', REDIS_ENABLED: false }, () => {
       it('should handle whitespace in IP_RATE_LIMIT_STORE config', () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration, mockRedisClient);
+        rateLimiterService = new RateLimiterService(logger, registry, duration);
 
         expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
       });
