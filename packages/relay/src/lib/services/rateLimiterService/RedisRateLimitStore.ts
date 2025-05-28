@@ -37,7 +37,7 @@ export class RedisRateLimitStore implements IRateLimitStore {
     this.logger = logger.child({ name: 'redisRateLimitStore' });
 
     const redisUrl = ConfigService.get('REDIS_URL')!;
-    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS') || 500;
+    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
 
     this.redisClient = createClient({
       // @ts-ignore
