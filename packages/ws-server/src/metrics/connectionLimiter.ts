@@ -213,12 +213,12 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(websocket);
   }
 
-  public shouldRateLimitOnMethod(ip, methodName, requestId) {
+  public async shouldRateLimitOnMethod(ip, methodName, requestId) {
     // subcription limits are already covered in this.validateSubscriptionLimit()
     if (methodName === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE || methodName === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)
       return false;
 
     const methodTotalLimit = methodConfiguration[methodName].total;
-    return this.rateLimiter.shouldRateLimit(ip, methodName, methodTotalLimit, requestId);
+    return await this.rateLimiter.shouldRateLimit(ip, methodName, methodTotalLimit, requestId);
   }
 }
