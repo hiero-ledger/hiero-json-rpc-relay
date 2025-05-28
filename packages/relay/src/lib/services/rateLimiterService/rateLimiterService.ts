@@ -10,6 +10,9 @@ import { IRateLimitStore } from '../../types/IRateLimitStore';
 import { LruRateLimitStore } from './LruRateLimitStore';
 import { RedisRateLimitStore } from './RedisRateLimitStore';
 
+/**
+ * Service to apply IP and method-based rate limiting using configurable stores.
+ */
 export class RateLimiterService {
   private store: IRateLimitStore;
   private logger: Logger;
@@ -36,7 +39,9 @@ export class RateLimiterService {
   }
 
   /**
-   * Determines which rate limit store type to use based on configuration
+   * Determines which rate limit store type to use based on configuration.
+   * @private
+   * @returns Store type identifier ('REDIS' or 'LRU').
    */
   private determineStoreType(): string {
     // Check if a specific store type is configured
@@ -50,13 +55,11 @@ export class RateLimiterService {
       this.logger.warn(`Unsupported IP_RATE_LIMIT_STORE value. Using REDIS_ENABLED setting.`);
     }
 
-    // Use REDIS if enabled, LRU otherwise
-    const storeType = ConfigService.get('REDIS_ENABLED') ? 'REDIS' : 'LRU';
-    return storeType;
+    return ConfigService.get('REDIS_ENABLED') ? 'REDIS' : 'LRU';
   }
 
   /**
-   * Creates an appropriate rate limit store instance based on the specified type
+   * Creates an appropriate rate limit store instance based on the specified type.
    */
   private createStore(storeType: string, duration: number): IRateLimitStore {
     switch (storeType) {
@@ -69,7 +72,7 @@ export class RateLimiterService {
   }
 
   /**
-   * Checks if the Redis store is connected (if applicable)
+   * Checks if the Redis store is connected (if applicable).
    */
   async isRedisConnected(): Promise<boolean> {
     if (this.store instanceof RedisRateLimitStore) {
@@ -79,7 +82,7 @@ export class RateLimiterService {
   }
 
   /**
-   * Disconnects from Redis (if applicable)
+   * Disconnects from Redis (if applicable).
    */
   async disconnect(): Promise<void> {
     if (this.store instanceof RedisRateLimitStore) {
@@ -87,6 +90,14 @@ export class RateLimiterService {
     }
   }
 
+  /**
+   * Checks if a request should be rate limited based on IP and method.
+   * @param ip - The client's IP address.
+   * @param methodName - The method being requested.
+   * @param limit - Maximum allowed requests in the current window.
+   * @param requestId - Unique identifier for logging.
+   * @returns True if rate limit is exceeded, false otherwise.
+   */
   async shouldRateLimit(ip: string, methodName: string, limit: number, requestId: string): Promise<boolean> {
     const rateLimitDisabled = ConfigService.get('RATE_LIMIT_DISABLED');
     if (rateLimitDisabled) {
@@ -94,7 +105,7 @@ export class RateLimiterService {
     }
 
     const key = `ratelimit:${ip}:${methodName}`;
-    const storeTypeLabel = this.store.constructor.name.replace('Store', ''); // e.g. RedisRateLimit, LruRateLimit
+    const storeTypeLabel = this.store.constructor.name.replace('Store', '');
 
     try {
       const isRateLimited = await this.store.incrementAndCheck(key, limit, this.duration);
@@ -110,7 +121,6 @@ export class RateLimiterService {
       this.logger.error(
         `${requestIdPrefix}Rate limit store error for IP ${ip} on method ${methodName}. Store: ${storeTypeLabel}. Error: ${error}. Falling back to not rate limiting.`,
       );
-      // On error, don't rate limit to avoid blocking legitimate requests
       return false;
     }
   }
