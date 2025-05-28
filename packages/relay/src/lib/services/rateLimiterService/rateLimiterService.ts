@@ -44,7 +44,6 @@ export class RateLimiterService {
    * @returns Store type identifier ('REDIS' or 'LRU').
    */
   private determineStoreType(): string {
-    // Check if a specific store type is configured
     const configuredStoreType = ConfigService.get('IP_RATE_LIMIT_STORE');
     if (configuredStoreType) {
       const type = configuredStoreType.trim().toUpperCase();
