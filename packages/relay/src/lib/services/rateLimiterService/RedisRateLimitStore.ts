@@ -61,7 +61,7 @@ export class RedisRateLimitStore implements IRateLimitStore {
 
     this.redisClient.on('ready', () => {
       this.connected = Promise.resolve(true);
-      this.logger.info(`Rate limiter connected to Redis server (${redisUrl}) successfully!`);
+      this.logger.info(`Rate limiter connected to Redis server successfully!`);
     });
 
     this.redisClient.on('end', () => {
