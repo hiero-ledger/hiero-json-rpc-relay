@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { IRateLimitStore } from './IRateLimitStore';
+import { IRateLimitStore } from '../../types/IRateLimitStore';
 
 interface DatabaseEntry {
   reset: number;
