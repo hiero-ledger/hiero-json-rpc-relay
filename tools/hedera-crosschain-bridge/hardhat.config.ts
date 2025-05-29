@@ -24,11 +24,9 @@ const config: HardhatUserConfig = {
     hedera: {
       url: process.env.HEDERA_RPC_URL,
       accounts: [process.env.HEDERA_PK || '0x'],
-      chainId: Number(process.env.HEDERA_CHAIN_ID),
     },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL,
-      chainId: Number(process.env.SEPOLIA_CHAIN_ID),
       accounts: [process.env.SEPOLIA_PK || '0x'],
     },
   },
