@@ -255,14 +255,6 @@ describe('RateLimiterService Test Suite', function () {
 
       expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
     });
-
-    // it('should handle Redis store gracefully', async () => {
-    //   rateLimiterService = new RateLimiterService(logger, registry, duration);
-
-    //   // Should not throw error even if Redis is not available
-    //   const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
-    //   expect(result).to.be.false; // Fallback behavior when Redis fails
-    // });
   });
 
   describe('Configuration Edge Cases', () => {
