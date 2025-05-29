@@ -2,7 +2,8 @@
   "name": "hedera-crosschain-bridge",
   "scripts": {
     "deploy-whbar": "hardhat run scripts/deployments/deploy-whbar.ts",
-    "deploy-erc20": "hardhat run scripts/deployments/deploy-erc20.ts"
+    "deploy-erc20": "hardhat run scripts/deployments/deploy-erc20.ts",
+    "deploy-oftAdapter": "hardhat run scripts/deployments/deploy-oft-adapter.ts"
   },
   "license": "Apache-2.0",
   "devDependencies": {
