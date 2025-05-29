@@ -1,0 +1,14 @@
+{
+  "name": "hedera-crosschain-bridge",
+  "scripts": {},
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.98",
+    "@layerzerolabs/lz-v2-utilities": "^3.0.98",
+    "@layerzerolabs/oapp-evm": "^0.3.2",
+    "@layerzerolabs/onft-evm": "^0.2.3",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "dotenv": "^16.5.0",
+    "hardhat": "^2.24.1"
+  }
+}
