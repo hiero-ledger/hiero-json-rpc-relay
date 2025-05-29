@@ -1,6 +1,8 @@
 {
   "name": "hedera-crosschain-bridge",
-  "scripts": {},
+  "scripts": {
+    "deploy-whbar": "hardhat run scripts/deployments/deploy-whbar.ts"
+  },
   "license": "Apache-2.0",
   "devDependencies": {
     "@layerzerolabs/lz-evm-oapp-v2": "^3.0.98",
