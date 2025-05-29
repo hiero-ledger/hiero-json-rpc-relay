@@ -16,7 +16,6 @@ describe('RateLimiterService Test Suite', function () {
   let logger: Logger;
   let registry: Registry;
   let rateLimiterService: RateLimiterService;
-  let mockRedisClient: any;
 
   const duration = 1000;
   const testIp = '127.0.0.1';
@@ -27,13 +26,6 @@ describe('RateLimiterService Test Suite', function () {
   beforeEach(() => {
     logger = pino({ level: 'silent' });
     registry = new Registry();
-
-    // Create a mock Redis client
-    mockRedisClient = {
-      isOpen: true,
-      connect: sinon.stub().resolves(),
-      eval: sinon.stub().resolves(0), // Default: not rate limited
-    };
   });
 
   afterEach(() => {
