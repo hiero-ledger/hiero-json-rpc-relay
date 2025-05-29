@@ -275,4 +275,6 @@ export default {
   ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
 
   NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
+
+  SUPPORTED_STORE_TYPES: ['REDIS', 'LRU'],
 };

@@ -80,10 +80,10 @@ Note: Read more about `DEV_MODE` which provides optimal local and developer test
 
 The following table highlights some initial configuration values to consider
 
-| Config            | Default | Description                                                                                                                                                                                                                                                                                                                 |
-| ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CHAIN_ID`        | `0x12a` | The network chain id. Local and previewnet envs should use `0x12a` (298). Previewnet, Testnet and Mainnet should use `0x129` (297), `0x128` (296) and `0x127` (295) respectively                                                                                                                                            |
-| `HEDERA_NETWORK`  | ``      | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`                                                                                                                                                                            |
+| Config            | Default | Description                                                                                                                                                                                                                                                                                            |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CHAIN_ID`        | `0x12a` | The network chain id. Local and previewnet envs should use `0x12a` (298). Previewnet, Testnet and Mainnet should use `0x129` (297), `0x128` (296) and `0x127` (295) respectively                                                                                                                       |
+| `HEDERA_NETWORK`  | ``      | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`                                                                                                                                                       |
 | `MIRROR_NODE_URL` | ``      | The Mirror Node API endpoint. Official endpoints are Previewnet (https://previewnet.mirrornode.hedera.com), Testnet (https://testnet.mirrornode.hedera.com), Mainnet (https://mainnet-public.mirrornode.hedera.com). See [Mirror Node REST API](https://docs.hedera.com/hedera/sdks-and-apis/rest-api) |
 
 #### Run
@@ -258,6 +258,7 @@ The hedera-json-rpc-relay ships with a metrics endpoint at `/metrics`. Here is a
 Please note that the `/metrics` endpoint is also a default scrape configurations for prometheus. The `job_name` of `kubernetes-pods` is generally deployed as a default with prometheus; in the case where this scrape_config is present metrics will start getting populated by that scrape_config and no other configurations are necessary.
 
 ##### Dashboard
+
 [Grafana JSON Dashboards](https://github.com/hiero-ledger/hiero-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
 
 ##### Admin-specific RPC methods
@@ -265,6 +266,7 @@ Please note that the `/metrics` endpoint is also a default scrape configurations
 - GET `/config` - To provide more transparency and operational insight to the developers, the hiero-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
 
 Expected response:
+
 ```
 {
     "relay": {

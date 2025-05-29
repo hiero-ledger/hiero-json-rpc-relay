@@ -635,6 +635,12 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  IP_RATE_LIMIT_STORE: {
+    envName: 'IP_RATE_LIMIT_STORE',
+    type: 'string',
+    required: false,
+    defaultValue: null,
+  },
   REDIS_RECONNECT_DELAY_MS: {
     envName: 'REDIS_RECONNECT_DELAY_MS',
     type: 'number',

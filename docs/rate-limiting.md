@@ -2,6 +2,16 @@
 
 Rate-limiting middleware for Koa Json Rpc. Use to limit repeated requests to APIs and/or endpoints by IP.
 
+## How It Works
+
+1. On each incoming request, the `RateLimiterService` constructs a key combining the client IP and method name (e.g., `ratelimit:{ip}:{method}`).
+2. It selects a rate limit store backend (LRU or Redis) based on the `IP_RATE_LIMIT_STORE` and `REDIS_ENABLED` environment variables with the possibility to be extended and use a custom store (more info below).
+3. The store's `incrementAndCheck(key, limit, duration)` method is invoked:
+   - **LRU**: maintains counts in an in-memory map and resets them after the configured duration.
+   - **Redis**: uses an atomic Lua script to `INCR` and set `EXPIRE`, ensuring cross-pod consistency.
+4. If the request count exceeds the limit, the service logs a warning, increments the Prometheus counter `rpc_relay_ip_rate_limit`, and `shouldRateLimit` returns `true` (blocking the request).
+5. Setting `RATE_LIMIT_DISABLED=true` bypasses all rate limiting checks globally.
+
 ## Configuration
 
 All rate-limiting options are exposed and can be configured from `.env` .
@@ -22,6 +32,37 @@ RATE_LIMIT_DISABLED = false;
 - **TIER_3_RATE_LIMIT**: - relaxed limiting tier. Default is to `1600` (1600 request per IP).
 - **LIMIT_DURATION**: - reset limit duration. This creates a timestamp, which resets all limits, when it's reached. Default is to `60000` (1 minute).
 - **RATE_LIMIT_DISABLED**: - if set to `true` no rate limiting will be performed.
+
+### Store Selection
+
+You can configure which backend store to use for rate limiting via environment variables:
+
+- **IP_RATE_LIMIT_STORE**: Specifies the rate limit store to use. Valid values:
+  - "LRU": In-memory store (default fallback).
+  - "REDIS": Redis-based store.
+  - Any other custom type if you have implemented a custom store and added it to `SUPPORTED_STORE_TYPES`.
+    If not set, the relay will fall back to using Redis when `REDIS_ENABLED=true`, otherwise it uses LRU.
+- **REDIS_ENABLED**: If `true`, enables Redis-based rate limiting when `IP_RATE_LIMIT_STORE` is not explicitly set. Default: `false`.
+- **REDIS_URL**: The Redis connection URL (e.g. `redis://localhost:6379`). Required when using Redis store.
+
+To extend with a custom store:
+
+1. Implement a class that implements `IRateLimitStore`.
+2. Add your custom store type string to the `SUPPORTED_STORE_TYPES` array in `packages/relay/src/lib/constants.ts`.
+3. Start the relay with `IP_RATE_LIMIT_STORE=MyStore`
+
+   ```ts
+   import { IRateLimitStore } from '@hashgraph/json-rpc-relay/dist/lib/services/rateLimiterService';
+
+   class MyCustomStore implements IRateLimitStore {
+     constructor(options: MyOptions) {
+       /* ... */
+     }
+     async incrementAndCheck(key: string, limit: number, durationMs: number): Promise<boolean> {
+       // custom logic
+     }
+   }
+   ```
 
 The following table highlights each relay endpoint and the TIER associated with it as dictated by [methodConfiguration.ts](/packages/server/src/koaJsonRpc/lib/methodConfiguration.ts)
 

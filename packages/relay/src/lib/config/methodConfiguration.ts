@@ -2,17 +2,11 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
+import { IMethodRateLimitConfiguration } from '../types/IMethodRateLimitConfiguration';
+
 const tier1rateLimit = ConfigService.get('TIER_1_RATE_LIMIT');
 const tier2rateLimit = ConfigService.get('TIER_2_RATE_LIMIT');
 const tier3rateLimit = ConfigService.get('TIER_3_RATE_LIMIT');
-
-export interface IMethodRateLimit {
-  total: number;
-}
-
-export interface IMethodRateLimitConfiguration {
-  [method: string]: IMethodRateLimit;
-}
 
 // total requests per rate limit duration (default ex. 200 request per 60000ms)
 export const methodConfiguration: IMethodRateLimitConfiguration = {
