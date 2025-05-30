@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
 import { main as deployERC20Script } from '../../scripts/deployments/deploy-erc20';
-import { runDeploymentScript } from '../utils/helpers';
+import { runHardhatScript } from '../utils/helpers';
 
 describe('Deploy ERC20 Script Integration Tests', function () {
   this.timeout(120000);
@@ -15,7 +15,7 @@ describe('Deploy ERC20 Script Integration Tests', function () {
 
   describe('Hedera Network Deployment', function () {
     it('should deploy with default parameters', async function () {
-      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-erc20.ts');
+      const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-erc20.ts');
 
       expect(output).to.include('ERC20Mock Deployment Parameters Overview');
       expect(output).to.include('Deploying ERC20Mock contract...');
@@ -25,7 +25,7 @@ describe('Deploy ERC20 Script Integration Tests', function () {
     });
 
     it('should deploy with custom parameters', async function () {
-      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-erc20.ts', {
+      const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-erc20.ts', {
         INITIAL_BALANCE: '5000000',
         DECIMALS: '18',
       });
@@ -38,14 +38,14 @@ describe('Deploy ERC20 Script Integration Tests', function () {
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy with default parameters', async function () {
-      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-erc20.ts');
+      const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-erc20.ts');
 
       expect(output).to.include('ERC20Mock Deployment Parameters Overview');
       expect(output).to.include('etherscan.io');
     });
 
     it('should deploy with custom parameters', async function () {
-      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-erc20.ts', {
+      const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-erc20.ts', {
         INITIAL_BALANCE: '2500000',
         DECIMALS: '6',
       });

@@ -12,7 +12,7 @@ import { ethers } from 'hardhat';
  * @returns Promise that resolves to the output string from the deployment process
  * @throws Error if the deployment process fails (non-zero exit code)
  */
-export async function runDeploymentScript(network: string, pathToScript: string, env?: Record<string, string>) {
+export async function runHardhatScript(network: string, pathToScript: string, env?: Record<string, string>) {
   const deploymentProcess = spawn('npx', ['hardhat', 'run', pathToScript, '--network', network], {
     stdio: ['pipe', 'pipe', 'pipe'],
     cwd: process.cwd(),
