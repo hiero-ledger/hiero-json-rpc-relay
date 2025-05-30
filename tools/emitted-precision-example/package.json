@@ -1,0 +1,23 @@
+{
+  "name": "hardhat-project",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat --network hardhat test"
+  },
+  "devDependencies": {
+    "@hashgraph/hedera-local": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.23.0"
+  },
+  "dependencies": {
+    "@hashgraph/smart-contracts": "github:hashgraph/hedera-smart-contracts#11c5017c1867b3f31012163cdac0aafa4a30b60a",
+    "@openzeppelin/contracts": "^4.9.6"
+  },
+  "overrides": {
+    "elliptic": "^6.6.1",
+    "ws": "^8.17.1",
+    "serialize-javascript": "^6.0.2",
+    "cookie": "^0.7.0"
+  }
+}
