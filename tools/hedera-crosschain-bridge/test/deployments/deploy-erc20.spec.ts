@@ -19,7 +19,7 @@ describe('Deploy ERC20 Script Integration Tests', function () {
 
       expect(output).to.include('ERC20Mock Deployment Parameters Overview');
       expect(output).to.include('Deploying ERC20Mock contract...');
-      expect(output).to.include('Deployment Summary');
+      expect(output).to.include('Execution Summary');
       expect(output).to.include('1000000');
       expect(output).to.include('8');
     });
