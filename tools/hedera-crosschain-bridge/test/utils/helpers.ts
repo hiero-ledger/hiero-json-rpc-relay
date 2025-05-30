@@ -77,8 +77,11 @@ export async function deployContractOnNetwork(
     throw new Error(`Unsupported network: ${network}`);
   }
 
+  console.log(`Deploying ${contractName} on ${network}...`);
   const ContractFactory = await ethers.getContractFactory(contractName, wallet);
   const contract = await ContractFactory.deploy(...params);
   await contract.deployed();
+
+  console.log(`Deployed ${contractName} on ${network} at address: ${contract.address}`);
   return contract.address;
 }
