@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import hre, { ethers } from 'hardhat';
 
-import { getNetworkConfigs, logDeploymentSummary } from '../utils/helpers';
+import { getNetworkConfigs, logExecutionSummary } from '../utils/helpers';
 
 export async function main() {
   const network = hre.network.name;
@@ -28,7 +28,7 @@ export async function main() {
     { key: 'Token Decimals', value: String(decimals) },
   ];
 
-  logDeploymentSummary(deploymentSummaryData, blockExplorerUrl);
+  logExecutionSummary(deploymentSummaryData, blockExplorerUrl);
 
   return whbar;
 }

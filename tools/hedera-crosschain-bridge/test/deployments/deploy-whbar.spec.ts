@@ -2,14 +2,14 @@
 import { expect } from 'chai';
 
 import { main as deployWHBARScript } from '../../scripts/deployments/deploy-whbar';
-import { runDeploymentScript } from '../utils/helpers';
+import { runHardhatScript } from '../utils/helpers';
 
 describe('@deployment-test Deploy WHBAR Script Integration Tests', function () {
   this.timeout(120000);
 
   describe('Hedera Network Deployment', function () {
     it('should deploy WHBAR contract successfully', async function () {
-      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-whbar.ts');
+      const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-whbar.ts');
 
       expect(output).to.include('Deploying WHBAR contract...');
       expect(output).to.include('Deployed WHBAR Contract');
@@ -22,7 +22,7 @@ describe('@deployment-test Deploy WHBAR Script Integration Tests', function () {
     });
 
     it('should deploy with correct WHBAR properties', async function () {
-      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-whbar.ts');
+      const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-whbar.ts');
 
       // Verify WHBAR-specific properties
       expect(output).to.include('Wrapped HBAR');
@@ -33,7 +33,7 @@ describe('@deployment-test Deploy WHBAR Script Integration Tests', function () {
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy WHBAR contract successfully', async function () {
-      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
+      const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
 
       expect(output).to.include('Deploying WHBAR contract...');
       expect(output).to.include('Deployed WHBAR Contract');
@@ -41,7 +41,7 @@ describe('@deployment-test Deploy WHBAR Script Integration Tests', function () {
     });
 
     it('should deploy with correct WHBAR properties', async function () {
-      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
+      const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
 
       // Verify WHBAR-specific properties
       expect(output).to.include('Wrapped HBAR');

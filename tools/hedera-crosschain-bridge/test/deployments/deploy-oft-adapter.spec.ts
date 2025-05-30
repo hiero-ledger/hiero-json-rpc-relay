@@ -43,7 +43,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
   describe('Hedera Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
-      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+      const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
         TOKEN_ADDRESS: hederaTokenAddress,
       });
 
@@ -57,7 +57,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
     it('should fail when TOKEN_ADDRESS is not provided', async function () {
       try {
-        await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+        await runHardhatScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
           TOKEN_ADDRESS: '',
         });
         expect.fail('Should have thrown an error');
@@ -68,7 +68,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
     it('should fail when TOKEN_ADDRESS format is invalid', async function () {
       try {
-        await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+        await runHardhatScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
           TOKEN_ADDRESS: 'invalid-address',
         });
         expect.fail('Should have thrown an error');
@@ -80,7 +80,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
-      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+      const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
         TOKEN_ADDRESS: sepoliaTokenAddress,
       });
 
@@ -92,7 +92,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
     it('should fail when TOKEN_ADDRESS is not provided', async function () {
       try {
-        await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+        await runHardhatScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
           TOKEN_ADDRESS: '',
         });
         expect.fail('Should have thrown an error');
@@ -103,7 +103,7 @@ describe('@deployment-test Deploy OFT Adapter Script Integration Tests', functio
 
     it('should fail when TOKEN_ADDRESS format is invalid', async function () {
       try {
-        await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+        await runHardhatScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
           TOKEN_ADDRESS: 'invalid-address',
         });
         expect.fail('Should have thrown an error');
