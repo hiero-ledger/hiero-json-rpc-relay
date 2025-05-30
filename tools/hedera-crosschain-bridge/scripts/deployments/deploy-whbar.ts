@@ -33,7 +33,6 @@ export async function main() {
   return whbar;
 }
 
-// Only execute when run directly, not when imported
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
