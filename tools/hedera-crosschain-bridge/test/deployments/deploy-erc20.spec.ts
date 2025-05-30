@@ -1,71 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import { spawn } from 'child_process';
-import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
-import hre from 'hardhat';
 
 import { main as deployERC20Script } from '../../scripts/deployments/deploy-erc20';
+import { runDeploymentScript } from '../utils/helpers';
 
 describe('Deploy ERC20 Script Integration Tests', function () {
   this.timeout(120000);
-
-  let deployedContract: Contract;
-  let deployer: any;
-
-  before(async function () {
-    [deployer] = await ethers.getSigners();
-  });
 
   afterEach(function () {
     delete process.env.INITIAL_BALANCE;
     delete process.env.DECIMALS;
   });
 
-  async function runDeploymentScript(network: string, env?: Record<string, string>) {
-    const deploymentProcess = spawn(
-      'npx',
-      ['hardhat', 'run', 'scripts/deployments/deploy-erc20.ts', '--network', network],
-      {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: process.cwd(),
-        env: { ...process.env, ...env },
-      },
-    );
-
-    let output = '';
-    let error = '';
-
-    deploymentProcess.stdout.on('data', (data: Buffer) => {
-      output += data.toString();
-    });
-
-    deploymentProcess.stderr.on('data', (data: Buffer) => {
-      error += data.toString();
-    });
-
-    await new Promise((resolve, reject) => {
-      deploymentProcess.on('close', (code: number) => {
-        if (code === 0) {
-          resolve(code);
-        } else {
-          reject(new Error(`Deployment failed with code ${code}: ${error}`));
-        }
-      });
-    });
-
-    return output;
-  }
-
   describe('Hedera Network Deployment', function () {
-    before(function () {
-      if (hre.network.name !== 'hedera' || !process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
-        this.skip();
-      }
-    });
-
     it('should deploy with default parameters', async function () {
-      const output = await runDeploymentScript('hedera');
+      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-erc20.ts');
 
       expect(output).to.include('ERC20Mock Deployment Parameters Overview');
       expect(output).to.include('Deploying ERC20Mock contract...');
@@ -75,7 +25,7 @@ describe('Deploy ERC20 Script Integration Tests', function () {
     });
 
     it('should deploy with custom parameters', async function () {
-      const output = await runDeploymentScript('hedera', {
+      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-erc20.ts', {
         INITIAL_BALANCE: '5000000',
         DECIMALS: '18',
       });
@@ -88,14 +38,14 @@ describe('Deploy ERC20 Script Integration Tests', function () {
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy with default parameters', async function () {
-      const output = await runDeploymentScript('sepolia');
+      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-erc20.ts');
 
       expect(output).to.include('ERC20Mock Deployment Parameters Overview');
       expect(output).to.include('etherscan.io');
     });
 
     it('should deploy with custom parameters', async function () {
-      const output = await runDeploymentScript('sepolia', {
+      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-erc20.ts', {
         INITIAL_BALANCE: '2500000',
         DECIMALS: '6',
       });

@@ -60,7 +60,6 @@ export async function main() {
   return oftAdapter;
 }
 
-// Only execute when run directly, not when imported
 if (require.main === module) {
   main()
     .then(() => process.exit(0))

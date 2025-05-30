@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import { spawn } from 'child_process';
 import { ethers } from 'hardhat';
 
 import { main as deployOFTAdapterScript } from '../../scripts/deployments/deploy-oft-adapter';
+import { deployContractOnNetwork, runHardhatScript } from '../utils/helpers';
 
 describe('Deploy OFT Adapter Script Integration Tests', function () {
   this.timeout(120000);
@@ -11,38 +11,6 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
   let deployer: any;
   let hederaTokenAddress: string;
   let sepoliaTokenAddress: string;
-
-  // Utility method to deploy ERC20 tokens using Ethers.js v5
-  async function deployERC20Token(network: string): Promise<string> {
-    // Configure provider based on network
-    let provider;
-    let wallet;
-
-    if (network === 'hedera') {
-      if (!process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
-        throw new Error('HEDERA_RPC_URL and HEDERA_PK environment variables are required for Hedera deployment');
-      }
-      provider = new ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL);
-      wallet = new ethers.Wallet(process.env.HEDERA_PK, provider);
-    } else if (network === 'sepolia') {
-      if (!process.env.SEPOLIA_RPC_URL || !process.env.SEPOLIA_PK) {
-        throw new Error('SEPOLIA_RPC_URL and SEPOLIA_PK environment variables are required for Sepolia deployment');
-      }
-      provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-      wallet = new ethers.Wallet(process.env.SEPOLIA_PK, provider);
-    } else {
-      throw new Error(`Unsupported network: ${network}`);
-    }
-
-    // Deploy ERC20Mock contract
-    const initialMint = ethers.utils.parseEther('1000000'); // 1M tokens
-    const decimals = 8;
-
-    const ERC20MockFactory = await ethers.getContractFactory('ERC20Mock', wallet);
-    const erc20Mock = await ERC20MockFactory.deploy(initialMint, decimals);
-    await erc20Mock.deployed();
-    return erc20Mock.address;
-  }
 
   before(async function () {
     [deployer] = await ethers.getSigners();
@@ -53,13 +21,19 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
       // Deploy on Hedera network
       if (process.env.HEDERA_RPC_URL && process.env.HEDERA_PK) {
-        hederaTokenAddress = await deployERC20Token('hedera');
+        hederaTokenAddress = await deployContractOnNetwork('hedera', 'ERC20Mock', [
+          ethers.utils.parseEther('1000000'), // Initial supply of 1M tokens
+          8, // Decimals
+        ]);
         console.log(`Deployed Hedera token at address: ${hederaTokenAddress}`);
       }
 
       // Deploy on Sepolia network
       if (process.env.SEPOLIA_RPC_URL && process.env.SEPOLIA_PK) {
-        sepoliaTokenAddress = await deployERC20Token('sepolia');
+        sepoliaTokenAddress = await deployContractOnNetwork('sepolia', 'ERC20Mock', [
+          ethers.utils.parseEther('1000000'), // Initial supply of 1M tokens
+          8, // Decimals
+        ]);
         console.log(`Deployed Sepolia token at address: ${sepoliaTokenAddress}`);
       }
     } catch (error: any) {
@@ -67,49 +41,11 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
     }
   });
 
-  async function runDeploymentScript(network: string, tokenAddress: string) {
-    const env = {
-      ...process.env,
-      TOKEN_ADDRESS: tokenAddress,
-    };
-
-    const deploymentProcess = spawn(
-      'npx',
-      ['hardhat', 'run', 'scripts/deployments/deploy-oft-adapter.ts', '--network', network],
-      {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: process.cwd(),
-        env,
-      },
-    );
-
-    let output = '';
-    let error = '';
-
-    deploymentProcess.stdout.on('data', (data: Buffer) => {
-      output += data.toString();
-    });
-
-    deploymentProcess.stderr.on('data', (data: Buffer) => {
-      error += data.toString();
-    });
-
-    await new Promise((resolve, reject) => {
-      deploymentProcess.on('close', (code: number) => {
-        if (code === 0) {
-          resolve(code);
-        } else {
-          reject(new Error(`Deployment failed with code ${code}: ${error}`));
-        }
-      });
-    });
-
-    return output;
-  }
-
   describe('Hedera Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
-      const output = await runDeploymentScript('hedera', hederaTokenAddress);
+      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+        TOKEN_ADDRESS: hederaTokenAddress,
+      });
 
       // Verify OFT Adapter-specific properties
       expect(output).to.include(hederaTokenAddress);
@@ -121,7 +57,9 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
     it('should fail when TOKEN_ADDRESS is not provided', async function () {
       try {
-        await runDeploymentScript('hedera', '');
+        await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+          TOKEN_ADDRESS: '',
+        });
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.message).to.include('Token address is required');
@@ -130,7 +68,9 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
     it('should fail when TOKEN_ADDRESS format is invalid', async function () {
       try {
-        await runDeploymentScript('hedera', 'invalid-address');
+        await runDeploymentScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
+          TOKEN_ADDRESS: 'invalid-address',
+        });
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.message).to.include('Invalid token address format');
@@ -140,7 +80,9 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
-      const output = await runDeploymentScript('sepolia', sepoliaTokenAddress);
+      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+        TOKEN_ADDRESS: sepoliaTokenAddress,
+      });
 
       expect(output).to.include('ExampleOFTAdapter Deployment Parameters Overview:');
       expect(output).to.include('Deploying ExampleOFTAdapter contract...');
@@ -150,7 +92,9 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
     it('should fail when TOKEN_ADDRESS is not provided', async function () {
       try {
-        await runDeploymentScript('sepolia', '');
+        await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+          TOKEN_ADDRESS: '',
+        });
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.message).to.include('Token address is required');
@@ -159,7 +103,9 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
 
     it('should fail when TOKEN_ADDRESS format is invalid', async function () {
       try {
-        await runDeploymentScript('sepolia', 'invalid-address');
+        await runDeploymentScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
+          TOKEN_ADDRESS: 'invalid-address',
+        });
         expect.fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.message).to.include('Invalid token address format');

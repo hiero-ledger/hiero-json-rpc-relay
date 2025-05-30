@@ -1,64 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
-import { spawn } from 'child_process';
-import { ethers } from 'hardhat';
-import hre from 'hardhat';
 
 import { main as deployWHBARScript } from '../../scripts/deployments/deploy-whbar';
+import { runDeploymentScript } from '../utils/helpers';
 
 describe('Deploy WHBAR Script Integration Tests', function () {
   this.timeout(120000);
 
-  let deployer: any;
-
-  before(async function () {
-    [deployer] = await ethers.getSigners();
-  });
-
-  async function runDeploymentScript(network: string) {
-    const deploymentProcess = spawn(
-      'npx',
-      ['hardhat', 'run', 'scripts/deployments/deploy-whbar.ts', '--network', network],
-      {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: process.cwd(),
-        env: { ...process.env },
-      },
-    );
-
-    let output = '';
-    let error = '';
-
-    deploymentProcess.stdout.on('data', (data: Buffer) => {
-      output += data.toString();
-    });
-
-    deploymentProcess.stderr.on('data', (data: Buffer) => {
-      error += data.toString();
-    });
-
-    await new Promise((resolve, reject) => {
-      deploymentProcess.on('close', (code: number) => {
-        if (code === 0) {
-          resolve(code);
-        } else {
-          reject(new Error(`Deployment failed with code ${code}: ${error}`));
-        }
-      });
-    });
-
-    return output;
-  }
-
   describe('Hedera Network Deployment', function () {
-    before(function () {
-      if (hre.network.name !== 'hedera' || !process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
-        this.skip();
-      }
-    });
-
     it('should deploy WHBAR contract successfully', async function () {
-      const output = await runDeploymentScript('hedera');
+      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-whbar.ts');
 
       expect(output).to.include('Deploying WHBAR contract...');
       expect(output).to.include('Deployed WHBAR Contract');
@@ -71,7 +22,7 @@ describe('Deploy WHBAR Script Integration Tests', function () {
     });
 
     it('should deploy with correct WHBAR properties', async function () {
-      const output = await runDeploymentScript('hedera');
+      const output = await runDeploymentScript('hedera', 'scripts/deployments/deploy-whbar.ts');
 
       // Verify WHBAR-specific properties
       expect(output).to.include('Wrapped HBAR');
@@ -82,7 +33,7 @@ describe('Deploy WHBAR Script Integration Tests', function () {
 
   describe('Sepolia Network Deployment', function () {
     it('should deploy WHBAR contract successfully', async function () {
-      const output = await runDeploymentScript('sepolia');
+      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
 
       expect(output).to.include('Deploying WHBAR contract...');
       expect(output).to.include('Deployed WHBAR Contract');
@@ -90,7 +41,7 @@ describe('Deploy WHBAR Script Integration Tests', function () {
     });
 
     it('should deploy with correct WHBAR properties', async function () {
-      const output = await runDeploymentScript('sepolia');
+      const output = await runDeploymentScript('sepolia', 'scripts/deployments/deploy-whbar.ts');
 
       // Verify WHBAR-specific properties
       expect(output).to.include('Wrapped HBAR');
