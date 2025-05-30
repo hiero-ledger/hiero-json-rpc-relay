@@ -3,7 +3,7 @@ import hre, { ethers } from 'hardhat';
 
 import { getNetworkConfigs, logDeploymentSummary } from '../utils/helpers';
 
-async function main() {
+export async function main() {
   const network = hre.network.name;
   const [deployer] = await ethers.getSigners();
 
@@ -56,11 +56,16 @@ async function main() {
   ];
 
   logDeploymentSummary(deploymentSummaryData, blockExplorerUrl);
+
+  return oftAdapter;
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Only execute when run directly, not when imported
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
