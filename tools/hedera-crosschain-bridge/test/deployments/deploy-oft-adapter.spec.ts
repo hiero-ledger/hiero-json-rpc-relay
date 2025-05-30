@@ -25,7 +25,6 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
           ethers.utils.parseEther('1000000'), // Initial supply of 1M tokens
           8, // Decimals
         ]);
-        console.log(`Deployed Hedera token at address: ${hederaTokenAddress}`);
       }
 
       // Deploy on Sepolia network
@@ -34,7 +33,6 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
           ethers.utils.parseEther('1000000'), // Initial supply of 1M tokens
           8, // Decimals
         ]);
-        console.log(`Deployed Sepolia token at address: ${sepoliaTokenAddress}`);
       }
     } catch (error: any) {
       console.warn('Could not deploy test tokens', error.message);
