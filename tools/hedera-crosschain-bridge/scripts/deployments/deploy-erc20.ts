@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import hre, { ethers } from 'hardhat';
 
-import { getNetworkConfigs, logDeploymentSummary } from '../utils/helpers';
+import { getNetworkConfigs, logExecutionSummary } from '../utils/helpers';
 
-async function main() {
+export async function main() {
   const network = hre.network.name;
   const [deployer] = await ethers.getSigners();
 
@@ -46,12 +46,16 @@ async function main() {
     { key: 'Deployer Token Balance', value: `${ethers.utils.formatEther(deployerBalance)}` },
   ];
 
-  logDeploymentSummary(deploymentSummaryData, blockExplorerUrl);
+  logExecutionSummary(deploymentSummaryData, blockExplorerUrl);
+
+  return erc20Mock;
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import hre, { ethers } from 'hardhat';
 
-import { getNetworkConfigs, logDeploymentSummary } from '../utils/helpers';
+import { getNetworkConfigs, logExecutionSummary } from '../utils/helpers';
 
-async function main() {
+export async function main() {
   const network = hre.network.name;
   const [deployer] = await ethers.getSigners();
 
@@ -13,7 +13,7 @@ async function main() {
   const { blockExplorerUrl } = networkConfigs;
 
   console.log('Deploying WHBAR contract...');
-  const WHBAR = await ethers.getContractFactory('TEST_WHBAR');
+  const WHBAR = await ethers.getContractFactory('WHBAR');
   const whbar = await WHBAR.deploy();
   await whbar.deployed();
 
@@ -28,12 +28,16 @@ async function main() {
     { key: 'Token Decimals', value: String(decimals) },
   ];
 
-  logDeploymentSummary(deploymentSummaryData, blockExplorerUrl);
+  logExecutionSummary(deploymentSummaryData, blockExplorerUrl);
+
+  return whbar;
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

@@ -46,7 +46,7 @@ INITIAL_BALANCE=5000000 DECIMALS=18 npm run deploy-erc20 -- --network sepolia
 
 **Expected Output**:
 
-1. **Deployment Summary Table**: Contains all raw values for easy copying
+1. **Execution Summary Table**: Contains all raw values for easy copying
 2. **Block Explorer Links Table**: Contains clickable URLs (when block explorer URL is configured)
 
 **Common Issues**:
@@ -83,7 +83,7 @@ TOKEN_ADDRESS=0x1234567890123456789012345678901234567890 npm run deploy-oftAdapt
 
 **Expected Output**:
 
-1. **Deployment Summary Table**: Contains all raw values for easy copying
+1. **Execution Summary Table**: Contains all raw values for easy copying
 2. **Block Explorer Links Table**: Contains clickable URLs (when block explorer URL is configured)
 
 **Common Issues**:
@@ -114,7 +114,7 @@ npm run deploy-whbar -- --network sepolia
 
 The deployment script provides two organized tables for easy reference:
 
-1. **Deployment Summary Table**: Contains all raw values for easy copying
+1. **Execution Summary Table**: Contains all raw values for easy copying
 2. **Block Explorer Links Table**: Contains clickable URLs (when block explorer URL is configured)
 
 **Common Issues**:

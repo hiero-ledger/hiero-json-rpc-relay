@@ -23,11 +23,11 @@ export const getNetworkConfigs = (network: string) => {
 };
 
 /**
- * Creates a deployment summary with raw values table and optional block explorer links table
+ * Creates an execution summary with raw values table and optional block explorer links table
  * @param data - Array of data items with key, value, and optional explorer type
  * @param blockExplorerUrl - Block explorer base URL (optional)
  */
-export const logDeploymentSummary = (
+export const logExecutionSummary = (
   data: Array<{
     key: string;
     value: string;
@@ -36,7 +36,7 @@ export const logDeploymentSummary = (
   blockExplorerUrl?: string,
 ) => {
   // Always show the raw values table
-  console.log('Deployment Summary:');
+  console.log('Execution Summary:');
   const rawValuesTable = data.reduce(
     (acc, { key, value }) => {
       acc[key] = value;
