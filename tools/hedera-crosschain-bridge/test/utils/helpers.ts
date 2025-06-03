@@ -43,6 +43,49 @@ export async function runHardhatScript(network: string, pathToScript: string, en
   return output;
 }
 
+export function getNetworkConfigs(network: string) {
+  if (network === 'hedera') {
+    if (
+      !process.env.HEDERA_RPC_URL ||
+      !process.env.HEDERA_PK ||
+      !process.env.HEDERA_LZ_EID_V2 ||
+      !process.env.HEDERA_LZ_ENDPOINT_V2
+    ) {
+      throw new Error('Missing required environment variables for Hedera network');
+    }
+
+    const networkProvider = new ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL);
+    const networkSigner = new ethers.Wallet(process.env.HEDERA_PK, networkProvider);
+
+    return {
+      lzEID: process.env.HEDERA_LZ_EID_V2,
+      lzEndpointV2: process.env.HEDERA_LZ_ENDPOINT_V2,
+      networkProvider,
+      networkSigner,
+    };
+  } else if (network === 'sepolia') {
+    if (
+      !process.env.SEPOLIA_RPC_URL ||
+      !process.env.SEPOLIA_PK ||
+      !process.env.SEPOLIA_LZ_EID_V2 ||
+      !process.env.SEPOLIA_LZ_ENDPOINT_V2
+    ) {
+      throw new Error('Missing required environment variables for Sepolia network');
+    }
+    const networkProvider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+    const networkSigner = new ethers.Wallet(process.env.SEPOLIA_PK, networkProvider);
+
+    return {
+      lzEID: process.env.SEPOLIA_LZ_EID_V2,
+      lzEndpointV2: process.env.SEPOLIA_LZ_ENDPOINT_V2,
+      networkProvider,
+      networkSigner,
+    };
+  } else {
+    throw new Error(`Unsupported network: ${network}`);
+  }
+}
+
 /**
  * Deploys a smart contract on the specified network.
  *
@@ -52,36 +95,39 @@ export async function runHardhatScript(network: string, pathToScript: string, en
  * @returns Promise that resolves to the deployed contract address
  * @throws Error if required environment variables are missing or network is unsupported
  */
-export async function deployContractOnNetwork(
-  network: string,
-  contractName: string,
-  params: any[] = [],
-): Promise<string> {
-  // Configure provider based on network
-  let provider;
-  let wallet;
+export async function deployContractOnNetwork(network: string, contractName: string, params: any[] = []) {
+  const { networkSigner } = getNetworkConfigs(network);
 
-  if (network === 'hedera') {
-    if (!process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
-      throw new Error('HEDERA_RPC_URL and HEDERA_PK environment variables are required for Hedera deployment');
-    }
-    provider = new ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL);
-    wallet = new ethers.Wallet(process.env.HEDERA_PK, provider);
-  } else if (network === 'sepolia') {
-    if (!process.env.SEPOLIA_RPC_URL || !process.env.SEPOLIA_PK) {
-      throw new Error('SEPOLIA_RPC_URL and SEPOLIA_PK environment variables are required for Sepolia deployment');
-    }
-    provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-    wallet = new ethers.Wallet(process.env.SEPOLIA_PK, provider);
-  } else {
-    throw new Error(`Unsupported network: ${network}`);
-  }
-
-  console.log(`Deploying ${contractName} on ${network}...`);
-  const ContractFactory = await ethers.getContractFactory(contractName, wallet);
+  console.log(`\nDeploying ${contractName} on ${network}...`);
+  const ContractFactory = await ethers.getContractFactory(contractName, networkSigner);
   const contract = await ContractFactory.deploy(...params);
   await contract.deployed();
 
   console.log(`Deployed ${contractName} on ${network} at address: ${contract.address}`);
-  return contract.address;
+  return contract;
+}
+
+export async function setLZPeer(
+  network: string,
+  lzOappContractName: string,
+  sourceAddress: string,
+  targetAddress: string,
+) {
+  const { networkSigner } = getNetworkConfigs(network);
+  const targetNetwork = network === 'hedera' ? 'sepolia' : 'hedera';
+  const { lzEID } = getNetworkConfigs(targetNetwork);
+
+  console.log(
+    `\nSetting LZ peers on ${network} network: sourceAddress=${sourceAddress}, targetAddress=${targetAddress}, lzEID=${lzEID}...`,
+  );
+  const contract = await ethers.getContractAt(lzOappContractName, sourceAddress, networkSigner);
+  const tx = await contract.setPeer(lzEID, '0x' + targetAddress.substring(2, 42).padStart(64, '0'));
+  const receipt = await tx.wait();
+
+  if (!receipt.status) {
+    process.exit('Execution of setPeer failed. Tx hash: ' + tx.hash);
+  }
+
+  console.log(`Peer for network with EID ${lzEID} was successfully set, txHash ${tx.hash}`);
+  return receipt;
 }
