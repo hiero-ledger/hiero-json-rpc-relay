@@ -85,3 +85,45 @@ export async function deployContractOnNetwork(
   console.log(`Deployed ${contractName} on ${network} at address: ${contract.address}`);
   return contract.address;
 }
+
+/**
+ * Executes a smart contract function against specified network.
+ *
+ * @param network - The target network ('hedera' or 'sepolia')
+ * @param contractName - The name of the contract
+ * @param contractAddress - The address of the contract
+ * @param contractFunction - The function we're calling
+ * @param params - Optional array of constructor parameters for the contract
+ * @returns Promise that resolves to contract call response
+ * @throws Error if required environment variables are missing or network is unsupported
+ */
+export async function executeContractCallOnNetwork(
+  network: string,
+  contractName: string,
+  contractAddress: string,
+  contractFunction: string,
+  params: any[] = [],
+): Promise<string> {
+  let wallet;
+
+  if (network === 'hedera') {
+    if (!process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
+      throw new Error('HEDERA_RPC_URL and HEDERA_PK environment variables are required for Hedera deployment');
+    }
+    wallet = new ethers.Wallet(process.env.HEDERA_PK, new ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL));
+  } else if (network === 'sepolia') {
+    if (!process.env.SEPOLIA_RPC_URL || !process.env.SEPOLIA_PK) {
+      throw new Error('SEPOLIA_RPC_URL and SEPOLIA_PK environment variables are required for Sepolia deployment');
+    }
+    wallet = new ethers.Wallet(
+      process.env.SEPOLIA_PK,
+      new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL),
+    );
+  } else {
+    throw new Error(`Unsupported network: ${network}`);
+  }
+
+  console.log(`Executing ${contractFunction} via ${contractName} on ${network}...`);
+  const contract = await ethers.getContractAt(contractName, contractAddress, wallet);
+  return await contract[contractFunction](...params);
+}
