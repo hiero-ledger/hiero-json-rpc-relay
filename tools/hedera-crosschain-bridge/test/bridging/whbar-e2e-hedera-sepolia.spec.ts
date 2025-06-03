@@ -8,7 +8,7 @@ import { deployContractOnNetwork, getNetworkConfigs, setLZPeer } from '../utils/
 describe('@whbar-bridge E2E Test', function () {
   this.timeout(120000);
 
-  it.only('End-to-End WHBAR Bridge Test between Hedera & Sepolia', async function () {
+  it('End-to-End WHBAR Bridge Test between Hedera & Sepolia', async function () {
     const hbarFundingAmount = ethers.utils.parseEther('5');
     const whbarTokenTransferAmount = ethers.utils.parseEther('1');
     const tinybarToWeibar = BigInt(10 ** 10);

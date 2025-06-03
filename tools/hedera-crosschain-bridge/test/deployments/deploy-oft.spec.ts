@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
 
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
@@ -18,13 +19,13 @@ describe('Deploy OFT Script Integration Tests', function () {
 
   ['hedera', 'sepolia'].forEach((network) => {
     let deployer: any;
-    let oftAddress: string;
+    let oft: Contract;
 
     before(async function () {
       [deployer] = await ethers.getSigners();
 
       const networkConfigs = getNetworkConfigs(network);
-      oftAddress = await deployContractOnNetwork(network, 'ExampleOFT', [
+      oft = await deployContractOnNetwork(network, 'ExampleOFT', [
         tokenInfo.name,
         tokenInfo.symbol,
         networkConfigs.lzEndpointAddress,
@@ -48,18 +49,18 @@ describe('Deploy OFT Script Integration Tests', function () {
 
     it(`${network} should return correct properties for deployed OFT`, async function () {
       const [name, symbol, totalSupply, decimals, token] = await Promise.all([
-        executeContractCallOnNetwork(network, 'ExampleOFT', oftAddress, 'name'),
-        executeContractCallOnNetwork(network, 'ExampleOFT', oftAddress, 'symbol'),
-        executeContractCallOnNetwork(network, 'ExampleOFT', oftAddress, 'totalSupply'),
-        executeContractCallOnNetwork(network, 'ExampleOFT', oftAddress, 'decimals'),
-        executeContractCallOnNetwork(network, 'ExampleOFT', oftAddress, 'token'),
+        executeContractCallOnNetwork(network, 'ExampleOFT', oft.address, 'name'),
+        executeContractCallOnNetwork(network, 'ExampleOFT', oft.address, 'symbol'),
+        executeContractCallOnNetwork(network, 'ExampleOFT', oft.address, 'totalSupply'),
+        executeContractCallOnNetwork(network, 'ExampleOFT', oft.address, 'decimals'),
+        executeContractCallOnNetwork(network, 'ExampleOFT', oft.address, 'token'),
       ]);
 
       expect(name).to.equal(tokenInfo.name);
       expect(symbol).to.equal(tokenInfo.symbol);
       expect(totalSupply).to.equal(tokenInfo.totalSupply);
       expect(decimals).to.equal(tokenInfo.decimals);
-      expect(token).to.equal(oftAddress);
+      expect(token).to.equal(oft.address);
     });
   });
 });

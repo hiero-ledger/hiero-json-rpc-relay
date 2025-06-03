@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
 
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
@@ -10,7 +11,7 @@ describe('Deploy HTS Connector Script Integration Tests', function () {
   this.timeout(120000);
 
   let deployer: any;
-  let htsConnectorAddress: string;
+  let htsConnector: Contract;
   const network = 'hedera';
   const tokenName = 'T_NAME';
   const tokenSymbol = 'T_SYMBOL';
@@ -19,7 +20,7 @@ describe('Deploy HTS Connector Script Integration Tests', function () {
     [deployer] = await ethers.getSigners();
 
     const networkConfigs = getNetworkConfigs(network);
-    htsConnectorAddress = await deployContractOnNetwork(network, 'ExampleHTSConnector', [
+    htsConnector = await deployContractOnNetwork(network, 'ExampleHTSConnector', [
       tokenName,
       tokenSymbol,
       networkConfigs.lzEndpointAddress,
@@ -44,7 +45,7 @@ describe('Deploy HTS Connector Script Integration Tests', function () {
   });
 
   it(`${network} should return correct properties for HTS Connector`, async function () {
-    const token = await executeContractCallOnNetwork(network, 'ExampleHTSConnector', htsConnectorAddress, 'token');
+    const token = await executeContractCallOnNetwork(network, 'ExampleHTSConnector', htsConnector.address, 'token');
     expect(token).to.not.be.null;
     expect(token).lengthOf(42);
 
