@@ -17,6 +17,7 @@ import CallerContract from '../contracts/Caller.json';
 import LogsContract from '../contracts/Logs.json';
 
 const directoryPath = path.resolve(__dirname, '../../../../node_modules/execution-apis/tests');
+const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
 
 let currentBlockHash;
 let legacyTransactionAndBlockHash;
@@ -352,8 +353,9 @@ describe('@api-conformity', async function () {
     relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
   });
 
-  describe('@conformity-batch-1 Ethereum execution apis tests', function () {
+  describe.only('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
+    execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
     before(async () => {
       legacyTransactionAndBlockHash = await signAndSendRawTransaction(legacyTransaction);
       transaction2930AndBlockHash = await signAndSendRawTransaction(transaction2930);
@@ -362,33 +364,33 @@ describe('@api-conformity', async function () {
       currentBlockHash = await getLatestBlockHash();
     });
     //Reading the directories within the ethereum execution api repo
-    let directories = fs.readdirSync(directoryPath);
+    let directories = [
+      ...new Set([
+        //  ...fs.readdirSync(directoryPath),
+        ...fs.readdirSync(overwritesDirectoryPath),
+      ]),
+    ];
     const relaySupportedMethodNames = openRpcData.methods.map((method) => method.name);
-
     //Filtering in order to use only the tests for methods we support in our relay
     directories = directories.filter((directory) => relaySupportedMethodNames.includes(directory));
     for (const directory of directories) {
-      const filePath = path.join(directoryPath, directory);
-      if (fs.statSync(filePath).isDirectory()) {
-        const files = fs.readdirSync(path.resolve(directoryPath, directory));
+      const isDir =
+        [path.join(directoryPath, directory), path.join(overwritesDirectoryPath, directory)].filter((path) =>
+          fs.statSync(path).isDirectory(),
+        ).length > 0;
+      if (isDir) {
+        const files = [
+          ...new Set([
+            ...fs.readdirSync(path.resolve(directoryPath, directory)),
+            ...fs.readdirSync(path.resolve(overwritesDirectoryPath, directory)),
+          ]),
+        ];
         for (const file of files) {
           it(`Executing for ${directory} and ${file}`, async () => {
-            //We are excluding these directories, since these tests in execution-apis repos
-            //use set of contracts which are not deployed on our network
-            if (
-              directory === 'eth_getLogs' ||
-              directory === 'eth_call' ||
-              directory === 'eth_estimateGas' ||
-              directory === 'eth_getProof'
-            ) {
-              return;
-            }
-            execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
-            //Currently, we do not support blobs
-            if (file.includes('blob')) {
-              return;
-            }
-            const data = fs.readFileSync(path.resolve(directoryPath, directory, file));
+            const dir = fs.existsSync(path.join(overwritesDirectoryPath, directory, file))
+              ? overwritesDirectoryPath
+              : directoryPath;
+            const data = fs.readFileSync(path.resolve(dir, directory, file));
             const content = splitReqAndRes(data.toString('utf-8'));
             await processFileContent(directory, file, content);
           });
