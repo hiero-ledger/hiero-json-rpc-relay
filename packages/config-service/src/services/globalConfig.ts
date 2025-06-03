@@ -166,6 +166,12 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  DEFAULT_GAS_FEE_IN_WEIBARS: {
+    envName: 'DEFAULT_GAS_FEE_IN_WEIBARS',
+    type: 'number',
+    required: false,
+    defaultValue: 20,
+  },
   DEFAULT_RATE_LIMIT: {
     envName: 'DEFAULT_RATE_LIMIT',
     type: 'number',

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -213,6 +214,31 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts[1].logs.length).to.equal(1);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
+    });
+
+    it('should use default gas fee when getGasPriceInWeibars fails', async function () {
+      setupStandardResponses();
+
+      const getGasPriceInWeibarsStub = sinon
+        .stub(ethImpl['blockService']['common'], 'getGasPriceInWeibars')
+        .rejects(new Error('Network fees unavailable'));
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts).to.exist;
+      expect(receipts.length).to.equal(2);
+
+      expect(getGasPriceInWeibarsStub.calledOnce).to.be.true;
+
+      const expectedDefaultGasFee = numberTo0x(ConfigService.get('DEFAULT_GAS_FEE_IN_WEIBARS'));
+
+      receipts.forEach((receipt, index) => {
+        const contractResult = results[index];
+        expectValidReceipt(receipt, contractResult);
+        expect(receipt.effectiveGasPrice).to.equal(expectedDefaultGasFee);
+      });
+
+      getGasPriceInWeibarsStub.restore();
     });
   });
 

@@ -155,7 +155,14 @@ export class BlockService implements IBlockService {
     }
 
     const receipts: ITransactionReceipt[] = [];
-    const effectiveGas = numberTo0x(await this.common.getGasPriceInWeibars(block.timestamp.from.split('.')[0]));
+    let gasPriceInWeibars;
+    try {
+      gasPriceInWeibars = await this.common.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]);
+    } catch (error) {
+      this.logger.error(`${requestIdPrefix} Failed to retrieve gas price for block ${blockNumber}: ${error}`);
+      gasPriceInWeibars = ConfigService.get('DEFAULT_GAS_FEE_IN_WEIBARS');
+    }
+    const effectiveGas = numberTo0x(gasPriceInWeibars);
 
     const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
 
