@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Validator } from '.';
+import { TracerType } from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
   ICallTracerConfig,
@@ -9,6 +9,7 @@ import {
   IOpcodeLoggerConfig,
   ITracerConfigWrapper,
 } from '../types';
+import { Validator } from '.';
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   blockHashObject: {
@@ -304,5 +305,24 @@ export class OpcodeLoggerConfig extends DefaultValidation<IOpcodeLoggerConfig> {
 export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper> {
   constructor(config: any) {
     super(OBJECTS_VALIDATIONS.tracerConfigWrapper, config);
+  }
+
+  validate() {
+    const valid = super.validate();
+
+    const { tracer, tracerConfig } = this.object;
+
+    if (
+      tracerConfig &&
+      (tracerConfig as ICallTracerConfig).onlyTopCall !== undefined &&
+      tracer !== TracerType.CallTracer
+    ) {
+      throw predefined.INVALID_PARAMETER(
+        1,
+        `'tracerConfig' for ${this.name()} onlyTopCall is only valid when tracer=${TracerType.CallTracer}`,
+      );
+    }
+
+    return valid;
   }
 }
