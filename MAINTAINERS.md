@@ -18,7 +18,7 @@ Maintainers are assigned the following scopes in this repository:
 |----------------------- | --------------- | ----- | ---- | ---------- | ----- | ------------------- |
 | Fernando Paris         | Ferparishuertas |       |      |            |       | Hashgraph           |
 | Nana Essilfie-Conduah  | Nana-EC         |       |      |            |       | Hashgraph           |
-| Luis Mastrangelo       | acuarica        |       |      |            |       | ConsenSys           |
+| Luis Mastrangelo       | acuarica        |       |      |            |       | Hashgraph           |
 | Konstantina Blazhukova | konstantinabl   |       |      |            |       |                     |
 | Logan Nguyen           | quiet-node      |       |      |            |       | Hashgraph           |
 | Simeon Nakov           | simzzz          |       |      |            |       | LimeChain           |
