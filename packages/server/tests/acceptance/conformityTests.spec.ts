@@ -362,7 +362,7 @@ describe('@api-conformity', async function () {
     relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
   });
 
-  describe.only('@conformity-batch-1 Ethereum execution apis tests', function () {
+  describe('@conformity-batch-1 Ethereum execution apis tests', function () {
     this.timeout(240 * 1000);
     execApisOpenRpcData = require('../../../../openrpc_exec_apis.json');
     before(async () => {
