@@ -14,15 +14,15 @@ Maintainers are assigned the following scopes in this repository:
 
 <!-- Please keep this sorted alphabetically by github -->
 
-| Name                   | GitHub ID       | Scope | LFID | Discord ID | Email | Company Affiliation |
-|----------------------- | --------------- | ----- | ---- | ---------- | ----- | ------------------- |
-| Fernando Paris         | Ferparishuertas |       |      |            |       | Hashgraph           |
-| Nana Essilfie-Conduah  | Nana-EC         |       |      |            |       | Hashgraph           |
-| Luis Mastrangelo       | acuarica        |       |      |            |       | Hashgraph           |
-| Konstantina Blazhukova | konstantinabl   |       |      |            |       |                     |
-| Logan Nguyen           | quiet-node      |       |      |            |       | Hashgraph           |
-| Simeon Nakov           | simzzz          |       |      |            |       | LimeChain           |
-| Nikolay Atanasow       | natanasow       |       |      |            |       |                     |
+| Name                   | GitHub ID       | Scope      | LFID | Discord ID | Email | Company Affiliation |
+|----------------------- | --------------- | ---------- | ---- | ---------- | ----- | ------------------- |
+| Fernando Paris         | Ferparishuertas | Maintainer |      |            |       | Hashgraph           |
+| Nana Essilfie-Conduah  | Nana-EC         | Maintainer |      |            |       | Hashgraph           |
+| Luis Mastrangelo       | acuarica        | Maintainer |      |            |       | Hashgraph           |
+| Konstantina Blazhukova | konstantinabl   | Maintainer |      |            |       | LimeChain           |
+| Logan Nguyen           | quiet-node      | Maintainer |      |            |       | Hashgraph           |
+| Simeon Nakov           | simzzz          | Maintainer |      |            |       | LimeChain           |
+| Nikolay Atanasow       | natanasow       | Maintainer |      |            |       | LimeChain           |
 
 ## Emeritus Maintainers
 
