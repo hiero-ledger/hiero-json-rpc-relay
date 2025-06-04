@@ -50,6 +50,8 @@ describe('Debug API Test Suite', async function () {
   const tracerConfigFalse = { onlyTopCall: false };
   const callTracer: TracerType = TracerType.CallTracer;
   const opcodeLogger: TracerType = TracerType.OpcodeLogger;
+  const tracerObjectCallTracerFalse = { tracer: callTracer, tracerConfig: tracerConfigFalse };
+  const tracerObjectCallTracerTrue = { tracer: callTracer, tracerConfig: tracerConfigTrue };
   const CONTRACTS_RESULTS_OPCODES = `contracts/results/${transactionHash}/opcodes`;
   const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
   const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}`;
@@ -360,8 +362,11 @@ describe('Debug API Test Suite', async function () {
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('should successfully debug a transaction', async function () {
-        const tracerObject = { tracer: callTracer, tracerConfig: tracerConfigFalse };
-        const traceTransaction = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+        const traceTransaction = await debugService.traceTransaction(
+          transactionHash,
+          tracerObjectCallTracerFalse,
+          requestDetails,
+        );
         expect(traceTransaction).to.exist;
       });
 
@@ -390,8 +395,11 @@ describe('Debug API Test Suite', async function () {
             ],
           };
 
-          const tracerObject = { tracer: callTracer, tracerConfig: tracerConfigFalse };
-          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
 
           expect(result).to.deep.equal(expectedResult);
         });
@@ -408,9 +416,11 @@ describe('Debug API Test Suite', async function () {
             output: '0x2',
             calls: undefined,
           };
-
-          const tracerObject = { tracer: callTracer, tracerConfig: tracerConfigTrue };
-          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerTrue,
+            requestDetails,
+          );
 
           expect(result).to.deep.equal(expectedResult);
         });
@@ -418,8 +428,11 @@ describe('Debug API Test Suite', async function () {
         it('Should return empty array if no actions found', async function () {
           restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
 
-          const tracerObject = { tracer: callTracer, tracerConfig: tracerConfigFalse };
-          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
 
           expect(result).to.be.null;
         });
@@ -492,10 +505,9 @@ describe('Debug API Test Suite', async function () {
             `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
           );
 
-          const tracerObject = { tracer: callTracer, tracerConfig: tracerConfigTrue };
           await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
             nonExistentTransactionHash,
-            tracerObject,
+            tracerObjectCallTracerTrue,
             requestDetails,
           ]);
         });
