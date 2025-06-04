@@ -2,14 +2,93 @@
 
 This directory contains scripts for deploying smart contracts and system components to blockchain networks. All deployment scripts follow standardized practices to ensure consistency across different environments and use cases.
 
-## Prerequisites
+## Installation
 
-Before running any deployment script, ensure you have:
+All project dependencies will be installed via npm.
 
-1. **Environment Configuration**: Set up your `.env` file based on `.env.example`
-2. **Network Access**: Ensure you have access to the target network's RPC endpoint
-3. **Account Funding**: Verify your deployment account has sufficient funds for gas fees
-4. **Dependencies**: Run `npm install` to install all required dependencies
+```bash
+# Navigate to the project directory
+cd /path/to/hedera-json-rpc-relay/tools/hedera-crosschain-bridge
+
+# Install dependencies
+npm install
+
+# Verify environment setup
+npm run compile
+```
+
+## Environment Setup
+
+### 1. Copy and Configure Environment File
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+### 2. Fill Out Environment Variables
+
+Edit the `.env` file with your network configurations:
+
+```bash
+# =============================================================================
+# HEDERA NETWORK CONFIGURATION
+# =============================================================================
+
+# Hedera Chain ID (e.g. 296 for Hedera Testnet)
+HEDERA_CHAIN_ID=
+
+# Hedera JSON-RPC endpoint URL (e.g. https://testnet.hashio.io/api for Hedera Testnet)
+HEDERA_RPC_URL=
+
+# Hedera account private key
+HEDERA_PK=
+
+# Hedera block explorer URL (e.g. https://hashscan.io/testnet for Hedera Testnet)
+HEDERA_BLOCK_EXPLORER_URL=
+
+# LayerZero V2 Endpoint for Hedera Network (e.g. 0x6EDCE65403992e310A62460808c4b910D972f10f for Hedera Testnet)
+# Find LZ Endpoint V2 at https://docs.layerzero.network/v2/deployments/deployed-contracts
+HEDERA_LZ_ENDPOINT_V2=
+
+# LayerZero Endpoint ID (EID) for Hedera Network (e.g. 40267 for Hedera Testnet)
+# Find LZ EID V2 at https://docs.layerzero.network/v2/deployments/deployed-contracts
+HEDERA_LZ_EID_V2=
+
+# =============================================================================
+# SEPOLIA NETWORK CONFIGURATION
+# =============================================================================
+
+# Sepolia Testnet Chain ID
+SEPOLIA_CHAIN_ID=11155111
+
+# Sepolia JSON-RPC endpoint URL (e.g. https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID)
+SEPOLIA_RPC_URL=
+
+# Sepolia account private key
+SEPOLIA_PK=
+
+# Sepolia block explorer URL
+SEPOLIA_BLOCK_EXPLORER_URL=https://sepolia.etherscan.io
+
+# LayerZero V2 Endpoint for Sepolia Testnet
+SEPOLIA_LZ_ENDPOINT_V2=0x6EDCE65403992e310A62460808c4b910D972f10f
+
+# LayerZero Endpoint ID (EID) for Sepolia Testnet
+SEPOLIA_LZ_EID_V2=40161
+```
+
+**Important**: All configurations are mandatory.
+
+**Useful Links For Configuration**:
+
+- [Hedera Docs](https://docs.hedera.com)
+- [Hedera Portal (Account Creation)](https://portal.hedera.com)
+- [Hedera Faucet](https://portal.hedera.com/faucet)
+- [Sepolia Etherscan](https://sepolia.etherscan.io)
+- [Sepolia Faucet](https://sepoliafaucet.com/)
+- [LayerZero V2 docs](https://docs.layerzero.network/v2/)
+- [LayerZero V2 Endpoints](https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts)
 
 ## Available Deployment Scripts
 
@@ -19,16 +98,6 @@ Deploys a mock ERC20 token contract for testing and development purposes.
 
 **Purpose**: Creates a standard ERC20 token with configurable initial balance and decimals.
 
-**Usage**:
-
-```bash
-npm run deploy-erc20 -- --network hedera
-```
-
-```bash
-npm run deploy-erc20 -- --network sepolia
-```
-
 **Configuration**:
 
 - `INITIAL_BALANCE` (optional): Initial token balance in ether units (default: 1,000,000)
@@ -37,11 +106,21 @@ npm run deploy-erc20 -- --network sepolia
 **Example**:
 
 ```bash
-INITIAL_BALANCE=5000000 DECIMALS=18 npm run deploy-erc20 -- --network hedera
+INITIAL_BALANCE=3000000 DECIMALS=18 npm run deploy-erc20 -- --network hedera
 ```
 
 ```bash
-INITIAL_BALANCE=5000000 DECIMALS=18 npm run deploy-erc20 -- --network sepolia
+INITIAL_BALANCE=3000000 DECIMALS=18 npm run deploy-erc20 -- --network sepolia
+```
+
+**Since the configs are optional, the scripts can be simply run as:**
+
+```bash
+npm run deploy-erc20 -- --network hedera
+```
+
+```bash
+npm run deploy-erc20 -- --network sepolia
 ```
 
 **Expected Output**:
@@ -61,6 +140,10 @@ Deploys an Omnichain Fungible Token (OFT) Adapter contract that wraps existing E
 
 **Purpose**: Creates a LayerZero OFT Adapter to enable cross-chain transfers of existing ERC20 tokens.
 
+**Configuration**:
+
+- `TOKEN_ADDRESS` (required): The address of the existing token to wrap
+
 **Usage**:
 
 ```bash
@@ -70,10 +153,6 @@ TOKEN_ADDRESS=0x... npm run deploy-oftAdapter -- --network hedera
 ```bash
 TOKEN_ADDRESS=0x... npm run deploy-oftAdapter -- --network sepolia
 ```
-
-**Required Parameters**:
-
-- `TOKEN_ADDRESS`: The address of the existing ERC20 token to wrap (required)
 
 **Example**:
 
@@ -98,6 +177,8 @@ Deploys a Wrapped HBAR (WHBAR) contract for testing purposes.
 
 **Purpose**: Creates a test WHBAR token contract that represents wrapped HBAR functionality.
 
+**Configuration**: No additional environment variables required.
+
 **Usage**:
 
 ```bash
@@ -108,8 +189,6 @@ npm run deploy-whbar -- --network hedera
 npm run deploy-whbar -- --network sepolia
 ```
 
-**Configuration**: No additional environment variables required.
-
 **Expected Output**:
 
 The deployment script provides two organized tables for easy reference:
@@ -119,8 +198,9 @@ The deployment script provides two organized tables for easy reference:
 
 **Common Issues**:
 
-- **Gas estimation failure**: WHBAR deployment may require higher gas limits on some networks
-- **Contract verification**: Manual verification may be needed on block explorers
+- **Insufficient funds**: Ensure your account has enough native tokens for gas fees
+- **Network connection**: Verify your RPC URL is accessible and correct
+- **Private key format**: Ensure your private key starts with `0x`
 
 ## Troubleshooting
 
