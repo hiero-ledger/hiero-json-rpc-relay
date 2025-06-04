@@ -143,7 +143,6 @@ async function sendRequestToRelay(request, needError) {
     }
     return response.data;
   } catch (error) {
-    console.error(error);
     if (needError) {
       return error;
     } else {
@@ -348,6 +347,16 @@ const synthesizeTestCases = function (testCases, updateParamIfNeeded) {
   }
 };
 
+const initGenesisData = async function () {
+  for (const data of require('./data/conformity/genesis.json')) {
+    const options = { maxPriorityFeePerGas: gasPrice, maxFeePerGas: gasPrice, gasLimit: gasLimit };
+    options['to'] = data.account ? data.account : null;
+    if (data.balance) options['value'] = `0x${data.balance.toString(16)}`;
+    if (data.bytecode) options['data'] = data.bytecode;
+    await signAndSendRawTransaction({ chainId, from: sendAccountAddress, type: 2, ...options });
+  }
+};
+
 describe('@api-conformity', async function () {
   before(async () => {
     relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
@@ -361,40 +370,27 @@ describe('@api-conformity', async function () {
       transaction2930AndBlockHash = await signAndSendRawTransaction(transaction2930);
       transaction1559AndBlockHash = await signAndSendRawTransaction(transaction1559);
       createContractLegacyTransactionAndBlockHash = await signAndSendRawTransaction(createContractLegacyTransaction);
+      await initGenesisData();
       currentBlockHash = await getLatestBlockHash();
     });
     //Reading the directories within the ethereum execution api repo
-    let directories = [
-      ...new Set([
-        //  ...fs.readdirSync(directoryPath),
-        ...fs.readdirSync(overwritesDirectoryPath),
-      ]),
-    ];
+    let directories = [...new Set([...fs.readdirSync(directoryPath), ...fs.readdirSync(overwritesDirectoryPath)])];
     const relaySupportedMethodNames = openRpcData.methods.map((method) => method.name);
     //Filtering in order to use only the tests for methods we support in our relay
     directories = directories.filter((directory) => relaySupportedMethodNames.includes(directory));
     for (const directory of directories) {
-      const isDir =
-        [path.join(directoryPath, directory), path.join(overwritesDirectoryPath, directory)].filter((path) =>
-          fs.statSync(path).isDirectory(),
-        ).length > 0;
-      if (isDir) {
-        const files = [
-          ...new Set([
-            ...fs.readdirSync(path.resolve(directoryPath, directory)),
-            ...fs.readdirSync(path.resolve(overwritesDirectoryPath, directory)),
-          ]),
-        ];
-        for (const file of files) {
-          it(`Executing for ${directory} and ${file}`, async () => {
-            const dir = fs.existsSync(path.join(overwritesDirectoryPath, directory, file))
-              ? overwritesDirectoryPath
-              : directoryPath;
-            const data = fs.readFileSync(path.resolve(dir, directory, file));
-            const content = splitReqAndRes(data.toString('utf-8'));
-            await processFileContent(directory, file, content);
-          });
-        }
+      const ls = (dir: string) => (fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? fs.readdirSync(dir) : []);
+      const files = [
+        ...new Set([...ls(path.join(directoryPath, directory)), ...ls(path.join(overwritesDirectoryPath, directory))]),
+      ];
+      for (const file of files) {
+        const isCustom = fs.existsSync(path.join(overwritesDirectoryPath, directory, file));
+        it(`Executing for ${directory} and ${file}${isCustom ? ' (overwritten)' : ''}`, async () => {
+          const dir = isCustom ? overwritesDirectoryPath : directoryPath;
+          const data = fs.readFileSync(path.resolve(dir, directory, file));
+          const content = splitReqAndRes(data.toString('utf-8'));
+          await processFileContent(directory, file, content);
+        });
       }
     }
   });
