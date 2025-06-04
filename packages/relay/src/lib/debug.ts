@@ -107,7 +107,7 @@ export class DebugImpl implements Debug {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: true },
+    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
 <<<<<<< HEAD
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
@@ -122,21 +122,24 @@ export class DebugImpl implements Debug {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
+
+    // we currently do not support prestate tracer
+    if (tracerObject?.tracer === TracerType.PrestateTracer) {
+      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
+    }
+
+    //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
+    //and we will still default to opcodeLogger
+    const wrapper = tracerObject ?? {};
+    const tracer = wrapper.tracer ?? TracerType.OpcodeLogger;
+    const tracerConfig = wrapper.tracerConfig ?? {};
+
     try {
       DebugImpl.requireDebugAPIEnabled();
-      if (tracerObject.tracer === TracerType.CallTracer) {
-        return await this.callTracer(
-          transactionIdOrHash,
-          tracerObject.tracerConfig as ICallTracerConfig,
-          requestDetails,
-        );
-      } else if (tracerObject.tracer === TracerType.OpcodeLogger) {
-        return await this.callOpcodeLogger(
-          transactionIdOrHash,
-          tracerObject.tracerConfig as IOpcodeLoggerConfig,
-          requestDetails,
-        );
+      if (tracer === TracerType.CallTracer) {
+        return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
       }
+      return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
