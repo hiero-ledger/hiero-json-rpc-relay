@@ -255,13 +255,12 @@ describe('Utils', () => {
         ['should handle traceTransaction with only transaction hash', [], TracerType.OpcodeLogger, {}],
         [
           'should handle traceTransaction with tracer type as second parameter',
-          [TracerType.CallTracer],
+          [{ tracer: TracerType.CallTracer }],
           TracerType.CallTracer,
-          {},
         ],
         [
           'should handle traceTransaction with tracer type and config',
-          [TracerType.CallTracer, tracerConfig],
+          [{ tracer: TracerType.CallTracer, tracerConfig: tracerConfig }],
           TracerType.CallTracer,
           tracerConfig,
         ],
@@ -312,7 +311,9 @@ describe('Utils', () => {
             [transactionHash, ...(params as any[])],
             requestDetails,
           );
-          expect(result).to.deep.equal([transactionHash, expectedTracer, expectedConfig, requestDetails]);
+          const tracerObject = { tracer: expectedTracer, tracerConfig: expectedConfig };
+
+          expect(result).to.deep.equal([transactionHash, tracerObject, requestDetails]);
         });
       });
     });
