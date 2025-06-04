@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { main as deployWHBARScript } from '../../scripts/deployments/deploy-whbar';
 import { runHardhatScript } from '../utils/helpers';
 
-describe('Deploy WHBAR Script Integration Tests', function () {
+describe('@deployment-test Deploy WHBAR Script Integration Tests', function () {
   this.timeout(120000);
 
   describe('Hedera Network Deployment', function () {

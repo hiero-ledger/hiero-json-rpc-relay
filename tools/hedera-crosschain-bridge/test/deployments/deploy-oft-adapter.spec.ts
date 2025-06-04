@@ -5,12 +5,12 @@ import { ethers } from 'hardhat';
 import { main as deployOFTAdapterScript } from '../../scripts/deployments/deploy-oft-adapter';
 import { deployContractOnNetwork, runHardhatScript } from '../utils/helpers';
 
-describe('Deploy OFT Adapter Script Integration Tests', function () {
+describe('@deployment-test Deploy OFT Adapter Script Integration Tests', function () {
   this.timeout(120000);
 
   let deployer: any;
-  let hederaTokenAddress: string;
-  let sepoliaTokenAddress: string;
+  let hederaTokenAddress: any;
+  let sepoliaTokenAddress: any;
 
   before(async function () {
     [deployer] = await ethers.getSigners();
@@ -42,11 +42,11 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
   describe('Hedera Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
       const output = await runHardhatScript('hedera', 'scripts/deployments/deploy-oft-adapter.ts', {
-        TOKEN_ADDRESS: hederaTokenAddress,
+        TOKEN_ADDRESS: hederaTokenAddress.address,
       });
 
       // Verify OFT Adapter-specific properties
-      expect(output).to.include(hederaTokenAddress);
+      expect(output).to.include(hederaTokenAddress.address);
       expect(output).to.include('Network');
       expect(output).to.include('Token Address');
       expect(output).to.include('LayerZero Endpoint Address');
@@ -79,7 +79,7 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
   describe('Sepolia Network Deployment', function () {
     it('should deploy OFT Adapter contract successfully', async function () {
       const output = await runHardhatScript('sepolia', 'scripts/deployments/deploy-oft-adapter.ts', {
-        TOKEN_ADDRESS: sepoliaTokenAddress,
+        TOKEN_ADDRESS: sepoliaTokenAddress.address,
       });
 
       expect(output).to.include('ExampleOFTAdapter Deployment Parameters Overview:');
@@ -114,7 +114,7 @@ describe('Deploy OFT Adapter Script Integration Tests', function () {
   describe('Script Output Validation', function () {
     it('should return a valid OFT Adapter contract instance with correct properties', async function () {
       //   Set environment variables for the deployment
-      process.env.TOKEN_ADDRESS = hederaTokenAddress;
+      process.env.TOKEN_ADDRESS = hederaTokenAddress.address;
 
       // Call the deployment function directly
       const deployedContract = await deployOFTAdapterScript();

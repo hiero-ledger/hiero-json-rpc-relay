@@ -5,7 +5,7 @@ import { ethers } from 'hardhat';
 import { main as deployERC20Script } from '../../scripts/deployments/deploy-erc20';
 import { runHardhatScript } from '../utils/helpers';
 
-describe('Deploy ERC20 Script Integration Tests', function () {
+describe('@deployment-test Deploy ERC20 Script Integration Tests', function () {
   this.timeout(120000);
 
   afterEach(function () {
