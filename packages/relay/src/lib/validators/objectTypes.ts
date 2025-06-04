@@ -312,6 +312,8 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
 
     const { tracer, tracerConfig } = this.object;
 
+    // we want to accept ICallTracerConfig only if the tracer is callTracer
+    // this config is not valid for opcodeLogger
     if (
       tracerConfig &&
       (tracerConfig as ICallTracerConfig).onlyTopCall !== undefined &&
