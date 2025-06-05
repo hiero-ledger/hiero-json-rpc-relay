@@ -40,7 +40,6 @@ export class RedisRateLimitStore implements IRateLimitStore {
     const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
 
     this.redisClient = createClient({
-      // @ts-ignore
       url: redisUrl,
       socket: {
         reconnectStrategy: (retries: number) => {

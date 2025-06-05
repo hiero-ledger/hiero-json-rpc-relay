@@ -61,7 +61,7 @@ export class LruRateLimitStore implements IRateLimitStore {
     }
   }
 
-  private precheck(ip: string, methodName: string, total: number) {
+  private precheck(ip: string, methodName: string, total: number): void {
     if (!this.checkIpExist(ip)) {
       this.setNewIp(ip);
     }
@@ -71,7 +71,7 @@ export class LruRateLimitStore implements IRateLimitStore {
     }
   }
 
-  private setNewIp(ip: string) {
+  private setNewIp(ip: string): void {
     const entry: DatabaseEntry = {
       reset: Date.now() + this.duration,
       methodInfo: {},
@@ -79,7 +79,7 @@ export class LruRateLimitStore implements IRateLimitStore {
     this.database[ip] = entry;
   }
 
-  private setNewMethod(ip: string, methodName: string, total: number) {
+  private setNewMethod(ip: string, methodName: string, total: number): void {
     const entry: MethodDatabase = {
       methodName: methodName,
       remaining: total,
@@ -104,7 +104,7 @@ export class LruRateLimitStore implements IRateLimitStore {
     return this.database[ip].reset < Date.now();
   }
 
-  private reset(ip: string, methodName: string, total: number) {
+  private reset(ip: string, methodName: string, total: number): void {
     this.database[ip].reset = Date.now() + this.duration;
     for (const [keyMethod] of Object.entries(this.database[ip].methodInfo)) {
       this.database[ip].methodInfo[keyMethod].remaining = this.database[ip].methodInfo[keyMethod].total;
@@ -114,7 +114,7 @@ export class LruRateLimitStore implements IRateLimitStore {
     this.database[ip].methodInfo[methodName].total = total; // also update total if it changed
   }
 
-  private decreaseRemaining(ip: string, methodName: string) {
+  private decreaseRemaining(ip: string, methodName: string): void {
     const currentRemaining = this.database[ip].methodInfo[methodName].remaining;
     this.database[ip].methodInfo[methodName].remaining = currentRemaining > 0 ? currentRemaining - 1 : 0;
   }
