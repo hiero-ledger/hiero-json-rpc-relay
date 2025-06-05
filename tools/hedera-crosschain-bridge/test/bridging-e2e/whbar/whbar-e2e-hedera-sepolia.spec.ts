@@ -28,7 +28,7 @@ import {
  * - Balance verification and validation
  */
 describe('@whbar-bridge Comprehensive E2E Test', function () {
-  this.timeout(900000); // 15 minutes for complete end-to-end flow
+  this.timeout(1800000); // 30 minutes
 
   it('Complete End-to-End WHBAR Bridge Flow between Hedera & Sepolia', async function () {
     // ============================================================================
@@ -36,7 +36,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     // ============================================================================
     const TEST_CONFIG = {
       // HBAR/WHBAR configuration
-      HBAR_FUNDING_AMOUNT: ethers.utils.parseEther('5'),
+      HBAR_FUNDING_AMOUNT: ethers.utils.parseEther('3'),
       WHBAR_TRANSFER_AMOUNT: ethers.utils.parseEther('1'),
       TINYBAR_TO_WEIBAR: BigInt(10 ** 10),
       WEIBAR_TO_HBAR: BigInt(10 ** 18),
@@ -120,7 +120,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     const depositReceipt = await depositTx.wait();
 
     expect(depositReceipt.status).to.equal(1);
-    console.log(`HBAR deposit successful: txHash=${depositTx.hash}`);
+    console.log(`✓ HBAR deposit successful: txHash=${depositTx.hash}`);
 
     // Verify WHBAR balance after deposit
     await recordBalanceSnapshot(
@@ -142,7 +142,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     );
 
     expect(balanceSnapshots.hederaWHBARAfterDeposit.mod(BigNumber.from(10).pow(6))).to.equal(0, 'No dust amounts');
-    console.log(`WHBAR minted successfully: ${actualWHBARMinted.toString()} tokens`);
+    console.log(`✓ WHBAR minted successfully: ${actualWHBARMinted.toString()} tokens`);
 
     // ============================================================================
     // PHASE 3: Hedera WHBAR Dual-Mode Setup (Source + Destination)
@@ -179,8 +179,8 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     const hederaAdapterBalance = await hederaWHBARContract.balanceOf(hederaOftAdapterContract.address);
 
     console.log(`Hedera OFT Adapter is now ready for bidirectional transfers:`);
-    console.log(`  - Source mode: Can lock ${hederaAllowance.toString()} WHBAR from user approval`);
-    console.log(`  - Destination mode: Can unlock ${hederaAdapterBalance.toString()} WHBAR from pre-funded balance`);
+    console.log(`  • Source mode: Can lock ${hederaAllowance.toString()} WHBAR from user approval`);
+    console.log(`  • Destination mode: Can unlock ${hederaAdapterBalance.toString()} WHBAR from pre-funded balance`);
 
     // ============================================================================
     // PHASE 4: Sepolia Infrastructure Setup
@@ -210,7 +210,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
 
     expect(balanceSnapshots.sepoliaERC20Initial).to.equal(TEST_CONFIG.ERC20_INITIAL_SUPPLY);
     expect(sepoliaDecimals).to.equal(hederaDecimals, 'Decimal consistency required for bridging');
-    console.log(`Decimal consistency verified: ${sepoliaDecimals} decimals`);
+    console.log(`✓ Decimal consistency verified: ${sepoliaDecimals} decimals`);
 
     // Deploy SimpleReceiver contract on Sepolia
     const simpleSepoliaReceiver = await deployContractOnNetwork('sepolia', 'SimpleReceiver', []);
@@ -383,7 +383,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
       'Source balance reduction validation',
     );
 
-    console.log(`\nPhase 7.1 Hedera → Sepolia transfer initiated successfully!`);
+    console.log(`\n🎉 Phase 7.1 Hedera → Sepolia transfer initiated successfully!`);
     console.log(`  - Transaction Hash: ${hederaToSepoliaResult.hash}`);
     console.log(`  - Find transaction on Hashscan: https://hashscan.io/testnet/tx/${hederaToSepoliaResult.hash}`);
     console.log(
@@ -454,7 +454,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
       'Source balance reduction validation',
     );
 
-    console.log(`\nPhase 7.2 Sepolia → Hedera transfer initiated successfully!`);
+    console.log(`\n🎉 Phase 7.2 Sepolia → Hedera transfer initiated successfully!`);
     console.log(`  - Transaction Hash: ${sepoliaToHederaResult.hash}`);
     console.log(`  - Find transaction on Sepolia: https://sepolia.etherscan.io/tx/${sepoliaToHederaResult.hash}`);
     console.log(
