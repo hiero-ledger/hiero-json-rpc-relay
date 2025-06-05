@@ -15,10 +15,12 @@ spec:
       {{- include "json-rpc-relay.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         app:  {{ template "json-rpc-relay.name" . }}
         {{- include "json-rpc-relay.selectorLabels" . | nindent 8 }}
@@ -44,7 +46,7 @@ spec:
             name: {{ .Values.ports.name  }}
         livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
         readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
-        resources: {{- toYaml .Values.resources | nindent 12 }}      
+        resources: {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
