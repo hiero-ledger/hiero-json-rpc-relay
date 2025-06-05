@@ -61,7 +61,7 @@ Below are comprehensive tables of all Ethereum JSON-RPC methods and additional n
 
 #### Ethereum JSON-RPC Standard Methods
 
-Below is a comprehensive table of all Ethereum JSON-RPC methods from the [Ethereum JSON-RPC API specification](https://ethereum.github.io/execution-apis/api-documentation/) and [Ethereum JSON-RPC 2.0 specification](https://ethereum.org/en/developers/docs/apis/json-rpc/).
+Below is a comprehensive table of all Ethereum JSON-RPC methods from the [Ethereum JSON-RPC API specification](https://ethereum.github.io/execution-apis/docs/reference/json-rpc-api) and [Ethereum JSON-RPC 2.0 specification](https://ethereum.org/en/developers/docs/apis/json-rpc/).
 
 | Method                                                                                                                                    | Implementation Status                                     | Hedera Nodes                              | Hedera Specifics                                                                                                                          |
 | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
