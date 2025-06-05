@@ -8,4 +8,4 @@ This directory contains various scripts designed to streamline development and d
 
 Smart contract deployment scripts for various blockchain networks. Includes scripts for deploying ERC20 tokens, OFT adapters, and WHBAR tokens across supported networks.
 
-See the [Deployment Guide](./deployments/DEPLOYMENT_GUIDE.md) for detailed documentation, configuration, and troubleshooting guides.
+See the [Deployment Guide](./deployments/README.md) for detailed documentation, configuration, and troubleshooting guides.
