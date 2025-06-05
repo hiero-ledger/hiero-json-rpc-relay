@@ -61,7 +61,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     // Balance tracking for validation
     const balanceSnapshots: { [key: string]: BigNumber } = {};
 
-    console.log('\n=============== Hedera <-> Sepoli Crosschain E2E Bridge Flow Initiated ===============');
+    console.log('\n=============== Hedera <-> Sepolia Crosschain E2E Bridge Flow Initiated ===============');
 
     // ============================================================================
     // PHASE 1: Hedera Infrastructure Setup
@@ -556,6 +556,6 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
 
     console.log(`This test validates the complete WHBAR bridging infrastructure using LayerZero V2.`);
 
-    console.log('\n=============== Hedera <-> Sepoli Crosschain E2E Bridge Flow Comleted ===============');
+    console.log('\n=============== Hedera <-> Sepolia Crosschain E2E Bridge Flow Comleted ===============');
   });
 });
