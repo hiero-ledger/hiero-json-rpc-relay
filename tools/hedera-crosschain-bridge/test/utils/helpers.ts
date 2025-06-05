@@ -3,7 +3,7 @@
 import { addressToBytes32, Options } from '@layerzerolabs/lz-v2-utilities';
 import { expect } from 'chai';
 import { spawn } from 'child_process';
-import { BigNumber } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 
 // Import hre to access ethers via hardhat runtime environment
 const hre = require('hardhat');
@@ -39,9 +39,7 @@ interface TransferResult {
 interface CrossChainTransferConfig {
   sourceNetwork: string;
   destinationNetwork: string;
-  sourceContract: any;
-  destinationContract: any;
-  oftAdapterContract: any;
+  IOFTContract: any;
   transferAmount: BigNumber;
   receiverAddress: string;
   gasLimit: number;
@@ -338,19 +336,19 @@ export function prepareCrossChainTransferParams(config: CrossChainTransferConfig
 /**
  * Gets LayerZero fee quote for cross-chain transfers.
  *
- * @param oftAdapterContract - OFT Adapter contract instance
+ * @param IOFTContract - OFT Adapter contract instance
  * @param transferParams - Transfer parameters
  * @param networkName - Network name for logging
  * @returns Fee quote object with native and LZ token fees
  */
 export async function getLayerZeroFeeQuote(
-  oftAdapterContract: any,
+  IOFTContract: any,
   transferParams: TransferParams,
   networkName: string,
 ): Promise<{ nativeFee: BigNumber; lzTokenFee: BigNumber }> {
   console.log(`Getting LayerZero fee quote for ${networkName} cross-chain transfer...`);
 
-  const feeQuote = await oftAdapterContract.quoteSend(transferParams, false);
+  const feeQuote = await IOFTContract.quoteSend(transferParams, false);
   const { nativeFee, lzTokenFee } = feeQuote;
 
   console.log(`LayerZero fee quote for ${networkName}:`);
@@ -370,7 +368,7 @@ export async function executeCrossChainTransfer(config: CrossChainTransferConfig
   const {
     sourceNetwork,
     destinationNetwork,
-    oftAdapterContract,
+    IOFTContract,
     transferAmount,
     receiverAddress,
     gasLimit,
@@ -387,7 +385,7 @@ export async function executeCrossChainTransfer(config: CrossChainTransferConfig
   const transferParams = prepareCrossChainTransferParams(config);
 
   // Get fee quote
-  const { nativeFee, lzTokenFee } = await getLayerZeroFeeQuote(oftAdapterContract, transferParams, sourceNetwork);
+  const { nativeFee, lzTokenFee } = await getLayerZeroFeeQuote(IOFTContract, transferParams, sourceNetwork);
 
   // Calculate transaction value (different for Hedera vs other networks)
   const txValue =
@@ -398,10 +396,10 @@ export async function executeCrossChainTransfer(config: CrossChainTransferConfig
   console.log(`  • Transaction Value: ${txValue.toString()} ${sourceNetwork === 'hedera' ? 'tinybars' : 'wei'}`);
 
   // Execute transfer
-  const transferTx = await oftAdapterContract.send(
+  const transferTx = await IOFTContract.send(
     transferParams,
     { nativeFee, lzTokenFee },
-    await oftAdapterContract.signer.getAddress(),
+    await IOFTContract.signer.getAddress(),
     { gasLimit: txGasLimit, value: txValue },
   );
 
@@ -484,6 +482,7 @@ export async function waitForTransferCompletion(
  * @param transfers - Array of transfer configurations to monitor
  * @param maxRetries - Maximum number of polling attempts
  * @param retryInterval - Interval between polling attempts in milliseconds
+ * @param tolerance - A permissible tolerance in tokens
  * @returns Object with completion status for each transfer
  */
 export async function waitForMultipleTransfers(
@@ -496,6 +495,7 @@ export async function waitForMultipleTransfers(
   }>,
   maxRetries: number = 30,
   retryInterval: number = 30000,
+  tolerance: BigNumber = BigNumber.from(10).pow(5), // 0.001 tokens tolerance for 8 decimals
 ): Promise<{ [transferName: string]: boolean }> {
   console.log('Waiting for multiple cross-chain transfers to complete...');
 
@@ -503,8 +503,6 @@ export async function waitForMultipleTransfers(
   transfers.forEach((transfer) => {
     completionStatus[transfer.name] = false;
   });
-
-  const tolerance = BigNumber.from(10).pow(5); // 0.001 tokens tolerance for 8 decimals
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -715,3 +713,30 @@ export async function executeContractCallOnNetwork(
   const contract = await ethers.getContractAt(contractName, contractAddress, wallet);
   return await contract[contractFunction](...params);
 }
+
+/**
+ * Test Configuration and Constants
+ */
+export const TEST_CONFIG = {
+  // HBAR/WHBAR configuration
+  HBAR_FUNDING_AMOUNT: ethers.utils.parseEther('3'),
+  WHBAR_TRANSFER_AMOUNT: ethers.utils.parseEther('1'),
+  TINYBAR_TO_WEIBAR: BigInt(10 ** 10),
+  WEIBAR_TO_HBAR: BigInt(10 ** 18),
+
+  // ERC20 configuration (8 decimals matching WHBAR)
+  ERC20_DECIMALS: 8,
+  ERC20_INITIAL_SUPPLY: 5 * 10 ** 8,
+  ERC20_TRANSFER_AMOUNT: 1 * 10 ** 8,
+
+  // Test receiver contracts will be deployed dynamically
+  RECEIVER_ADDRESS_HEDERA: '', // Will be set after deploying SimpleReceiver on Hedera
+  RECEIVER_ADDRESS_SEPOLIA: '', // Will be set after deploying SimpleReceiver on Sepolia
+
+  // LayerZero configuration (optimized for testing)
+  LZ_GAS_LIMIT: 3000000,
+  TX_GAS_LIMIT: 10_000_000,
+
+  // Validation thresholds
+  MINIMUM_TRANSFER_AMOUNT: BigNumber.from(10).pow(6), // 0.01 tokens for 8 decimals
+};
