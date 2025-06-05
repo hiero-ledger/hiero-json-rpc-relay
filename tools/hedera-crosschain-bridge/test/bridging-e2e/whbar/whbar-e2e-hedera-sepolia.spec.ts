@@ -142,7 +142,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     );
 
     expect(balanceSnapshots.hederaWHBARAfterDeposit.mod(BigNumber.from(10).pow(6))).to.equal(0, 'No dust amounts');
-    console.log(`✓ WHBAR minted successfully: ${actualWHBARMinted.toString()} tokens`);
+    console.log(`\✓ WHBAR minted successfully: ${actualWHBARMinted.toString()} tokens`);
 
     // ============================================================================
     // PHASE 3: Hedera WHBAR Dual-Mode Setup (Source + Destination)
@@ -178,7 +178,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     );
     const hederaAdapterBalance = await hederaWHBARContract.balanceOf(hederaOftAdapterContract.address);
 
-    console.log(`Hedera OFT Adapter is now ready for bidirectional transfers:`);
+    console.log(`\nHedera OFT Adapter is now ready for bidirectional transfers:`);
     console.log(`  • Source mode: Can lock ${hederaAllowance.toString()} WHBAR from user approval`);
     console.log(`  • Destination mode: Can unlock ${hederaAdapterBalance.toString()} WHBAR from pre-funded balance`);
 
@@ -277,10 +277,11 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     );
 
     console.log(`Sepolia Signer ERC20 balance after transfer: ${sepoliaSignerBalanceAfterTransfer.toString()} tokens`);
-    console.log(`Sepolia OFT Adapter is now ready for bidirectional transfers:`);
-    console.log(`  - Source mode: Can lock ${sepoliaAllowance.toString()} ERC20 from user approval`);
+
+    console.log(`\nSepolia OFT Adapter is now ready for bidirectional transfers:`);
+    console.log(`  • Source mode: Can lock ${sepoliaAllowance.toString()} ERC20 from user approval`);
     console.log(
-      `  - Destination mode: Can unlock ${sepoliaAdapterPreFundedBalance.toString()} ERC20 from pre-funded balance`,
+      `  • Destination mode: Can unlock ${sepoliaAdapterPreFundedBalance.toString()} ERC20 from pre-funded balance`,
     );
 
     // ============================================================================
@@ -297,7 +298,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
       sepoliaOftAdapterContract.address,
     );
     expect(hederaPeerReceipt.status).to.equal(1);
-    console.log('Hedera → Sepolia LZ peer configured');
+    console.log('\n✓ Hedera → Sepolia LZ peer configured');
 
     // Configure Sepolia → Hedera peer
     console.log('\n--- Phase 6B: Setting up Sepolia → Hedera LZ peer connection ---');
@@ -308,7 +309,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
       hederaOftAdapterContract.address,
     );
     expect(sepoliaPeerReceipt.status).to.equal(1);
-    console.log('Sepolia → Hedera LZ peer configured');
+    console.log('\n✓ Sepolia → Hedera LZ peer configured');
 
     // Validate peer configurations
     await validatePeerConfiguration(
@@ -383,11 +384,11 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
       'Source balance reduction validation',
     );
 
-    console.log(`\n🎉 Phase 7.1 Hedera → Sepolia transfer initiated successfully!`);
-    console.log(`  - Transaction Hash: ${hederaToSepoliaResult.hash}`);
-    console.log(`  - Find transaction on Hashscan: https://hashscan.io/testnet/tx/${hederaToSepoliaResult.hash}`);
+    console.log(`\n🎉 Phase 7.1 Hedera → Sepolia transfer successfully complete!`);
+    console.log(`  • Transaction Hash: ${hederaToSepoliaResult.hash}`);
+    console.log(`  • Find transaction on Hashscan: https://hashscan.io/testnet/tx/${hederaToSepoliaResult.hash}`);
     console.log(
-      `  - Find transaction on LayerZero Scan: https://testnet.layerzeroscan.com/tx/${hederaToSepoliaResult.hash}`,
+      `  • Find transaction on LayerZero Scan: https://testnet.layerzeroscan.com/tx/${hederaToSepoliaResult.hash}`,
     );
 
     // ============================================================================
@@ -455,10 +456,10 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     );
 
     console.log(`\n🎉 Phase 7.2 Sepolia → Hedera transfer initiated successfully!`);
-    console.log(`  - Transaction Hash: ${sepoliaToHederaResult.hash}`);
-    console.log(`  - Find transaction on Sepolia: https://sepolia.etherscan.io/tx/${sepoliaToHederaResult.hash}`);
+    console.log(`  • Transaction Hash: ${sepoliaToHederaResult.hash}`);
+    console.log(`  • Find transaction on Sepolia: https://sepolia.etherscan.io/tx/${sepoliaToHederaResult.hash}`);
     console.log(
-      `  - Find transaction on LayerZero Scan: https://testnet.layerzeroscan.com/tx/${sepoliaToHederaResult.hash}`,
+      `  • Find transaction on LayerZero Scan: https://testnet.layerzeroscan.com/tx/${sepoliaToHederaResult.hash}`,
     );
 
     // ============================================================================
@@ -467,8 +468,8 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     console.log('\n=============== PHASE 8: Receiver Balance Verification After Cross-chain Transfers ===============');
 
     console.log(`\nInitial receiver balances:`);
-    console.log(`  - Sepolia receiver: ${balanceSnapshots.sepoliaReceiverPreTransfer.toString()} WHBAR`);
-    console.log(`  - Hedera receiver: ${balanceSnapshots.hederaReceiverPreTransfer.toString()} WHBAR`);
+    console.log(`  • Sepolia receiver: ${balanceSnapshots.sepoliaReceiverPreTransfer.toString()} WHBAR`);
+    console.log(`  • Hedera receiver: ${balanceSnapshots.hederaReceiverPreTransfer.toString()} WHBAR`);
 
     // Phase 8.1: Wait for both cross-chain transfers to complete
     console.log('\n- Phase 8.1: Waiting for both LayerZero cross-chain transfers to complete...');
