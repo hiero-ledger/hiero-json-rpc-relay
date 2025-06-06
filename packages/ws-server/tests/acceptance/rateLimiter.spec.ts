@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/src/lib/services';
+import { RedisRateLimitStore } from '@hashgraph/json-rpc-relay/src/lib/services/rateLimiterService/RedisRateLimitStore';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/src/lib/types/RequestDetails';
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
@@ -22,6 +24,7 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
   const TEST_METHOD = 'eth_gasPrice';
   const BATCH_METHOD = 'batch_request';
   const REQUEST_ID = 'ws-test-request-123';
+  const requestDetails = new RequestDetails({ requestId: REQUEST_ID, ipAddress: TEST_IP });
 
   before(async function () {
     // Set up Redis configuration for WebSocket testing
@@ -46,27 +49,49 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     // Wait for Redis connections to establish and verify they're connected
     let retries = 10;
     while (retries > 0) {
-      const connectedA = await wsServiceA.isRedisConnected();
-      const connectedB = await wsServiceB.isRedisConnected();
-      if (connectedA && connectedB) {
+      const storeA = wsServiceA.rateLimitStore;
+      const storeB = wsServiceB.rateLimitStore;
+
+      // Check if stores are Redis stores before accessing Redis methods
+      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
+        const connectedA = await storeA.isConnected();
+        const connectedB = await storeB.isConnected();
+        if (connectedA && connectedB) {
+          break;
+        }
+      } else {
+        // If not Redis stores, just break - LRU stores don't need connection setup
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 100));
       retries--;
     }
 
-    // Verify both WebSocket services are connected to Redis
-    const finalConnectedA = await wsServiceA.isRedisConnected();
-    const finalConnectedB = await wsServiceB.isRedisConnected();
-    if (!finalConnectedA || !finalConnectedB) {
-      throw new Error(`Redis connection failed: wsServiceA=${finalConnectedA}, wsServiceB=${finalConnectedB}`);
+    // Verify both WebSocket services are connected to Redis (only if using Redis stores)
+    const storeA = wsServiceA.rateLimitStore;
+    const storeB = wsServiceB.rateLimitStore;
+    if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
+      const finalConnectedA = await storeA.isConnected();
+      const finalConnectedB = await storeB.isConnected();
+      if (!finalConnectedA || !finalConnectedB) {
+        throw new Error(`Redis connection failed: wsServiceA=${finalConnectedA}, wsServiceB=${finalConnectedB}`);
+      }
     }
   });
 
   after(async function () {
     // Clean up WebSocket services and Redis connections
-    await wsServiceA.disconnect();
-    await wsServiceB.disconnect();
+    const storeA = wsServiceA.rateLimitStore;
+    const storeB = wsServiceB.rateLimitStore;
+
+    // Only disconnect if stores are Redis stores
+    if (storeA instanceof RedisRateLimitStore) {
+      await storeA.disconnect();
+    }
+    if (storeB instanceof RedisRateLimitStore) {
+      await storeB.disconnect();
+    }
+
     await redisClient.quit();
 
     // Clean up environment variables
@@ -84,16 +109,20 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
   describe('Shared WebSocket Rate Limiting Between Services', function () {
     it('should share rate limit counters between two WebSocket service instances', async function () {
       // Verify both WebSocket services are using Redis
-      const redisA = await wsServiceA.isRedisConnected();
-      const redisB = await wsServiceB.isRedisConnected();
-      expect(redisA).to.be.true;
-      expect(redisB).to.be.true;
+      const storeA = wsServiceA.rateLimitStore;
+      const storeB = wsServiceB.rateLimitStore;
+      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
+        const redisA = await storeA.isConnected();
+        const redisB = await storeB.isConnected();
+        expect(redisA).to.be.true;
+        expect(redisB).to.be.true;
+      }
 
       let rateLimited = false;
 
       // Make exactly LIMIT requests through wsServiceA to hit the limit
       for (let i = 0; i < LIMIT; i++) {
-        rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+        rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
         expect(rateLimited).to.be.false;
       }
 
@@ -103,22 +132,22 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
       console.log(`Redis key ${key} has value: ${currentCount}`);
 
       // The next request through wsServiceB should be rate limited (shared state)
-      rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimited).to.be.true;
     });
 
     it('should immediately rate limit on wsServiceB after wsServiceA hits the limit', async function () {
       // Hit the rate limit using wsServiceA
       for (let i = 0; i < LIMIT; i++) {
-        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       }
 
       // Next request on wsServiceA should be rate limited
-      const rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.true;
 
       // Next request on wsServiceB should also be rate limited (shared state)
-      const rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimitedB).to.be.true;
     });
 
@@ -132,9 +161,9 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
       // Alternate between services until we hit the limit
       while (!rateLimited && totalRequests < LIMIT * 2) {
         if (totalRequests % 2 === 0) {
-          rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+          rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
         } else {
-          rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+          rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
         }
         totalRequests++;
       }
@@ -147,12 +176,12 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     it('should reset rate limits for both WebSocket services after duration expires', async function () {
       // Hit the rate limit using wsServiceA
       for (let i = 0; i <= LIMIT; i++) {
-        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       }
 
       // Both WebSocket services should be rate limited
-      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
-      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
+      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.true;
       expect(rateLimitedB).to.be.true;
 
@@ -160,8 +189,8 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
       await new Promise((resolve) => setTimeout(resolve, DURATION + 100));
 
       // Both WebSocket services should allow requests again
-      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
-      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
+      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.false;
       expect(rateLimitedB).to.be.false;
     });
@@ -173,30 +202,30 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
       // Make exactly LIMIT batch requests through wsServiceA to hit the limit
       for (let i = 0; i < LIMIT; i++) {
-        rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
+        rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
         expect(rateLimited).to.be.false;
       }
 
       // The next batch request through wsServiceB should be rate limited (shared state)
-      rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
+      rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
       expect(rateLimited).to.be.true;
     });
 
     it('should maintain separate counters for single vs batch requests across WebSocket services', async function () {
       // Hit the limit for single requests using wsServiceA
       for (let i = 0; i <= LIMIT; i++) {
-        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+        await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       }
 
       // Single requests should be rate limited on both services
-      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
-      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
+      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.true;
       expect(rateLimitedB).to.be.true;
 
       // Batch requests should still be allowed on both services (separate counters)
-      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
-      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
+      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
+      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.false;
       expect(rateLimitedB).to.be.false;
     });
@@ -206,21 +235,23 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     it('should maintain separate counters for different IPs across WebSocket services', async function () {
       const IP_A = '192.168.1.100';
       const IP_B = '192.168.1.101';
+      const requestDetailsA = new RequestDetails({ requestId: REQUEST_ID, ipAddress: IP_A });
+      const requestDetailsB = new RequestDetails({ requestId: REQUEST_ID, ipAddress: IP_B });
 
       // Hit the limit for IP_A using wsServiceA
       for (let i = 0; i <= LIMIT; i++) {
-        await wsServiceA.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, REQUEST_ID);
+        await wsServiceA.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, requestDetailsA);
       }
 
       // IP_A should be rate limited on both WebSocket services
-      let rateLimitedA = await wsServiceA.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, REQUEST_ID);
-      let rateLimitedB = await wsServiceB.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, REQUEST_ID);
+      let rateLimitedA = await wsServiceA.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, requestDetailsA);
+      let rateLimitedB = await wsServiceB.shouldRateLimit(IP_A, TEST_METHOD, LIMIT, requestDetailsA);
       expect(rateLimitedA).to.be.true;
       expect(rateLimitedB).to.be.true;
 
       // IP_B should still be allowed on both WebSocket services
-      rateLimitedA = await wsServiceA.shouldRateLimit(IP_B, TEST_METHOD, LIMIT, REQUEST_ID);
-      rateLimitedB = await wsServiceB.shouldRateLimit(IP_B, TEST_METHOD, LIMIT, REQUEST_ID);
+      rateLimitedA = await wsServiceA.shouldRateLimit(IP_B, TEST_METHOD, LIMIT, requestDetailsB);
+      rateLimitedB = await wsServiceB.shouldRateLimit(IP_B, TEST_METHOD, LIMIT, requestDetailsB);
       expect(rateLimitedA).to.be.false;
       expect(rateLimitedB).to.be.false;
     });
@@ -231,18 +262,18 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
       // Hit the limit for METHOD_A using wsServiceA
       for (let i = 0; i <= LIMIT; i++) {
-        await wsServiceA.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, REQUEST_ID);
+        await wsServiceA.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, requestDetails);
       }
 
       // METHOD_A should be rate limited on both WebSocket services
-      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, REQUEST_ID);
-      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, REQUEST_ID);
+      let rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, requestDetails);
+      let rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, METHOD_A, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.true;
       expect(rateLimitedB).to.be.true;
 
       // METHOD_B should still be allowed on both WebSocket services
-      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, METHOD_B, LIMIT, REQUEST_ID);
-      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, METHOD_B, LIMIT, REQUEST_ID);
+      rateLimitedA = await wsServiceA.shouldRateLimit(TEST_IP, METHOD_B, LIMIT, requestDetails);
+      rateLimitedB = await wsServiceB.shouldRateLimit(TEST_IP, METHOD_B, LIMIT, requestDetails);
       expect(rateLimitedA).to.be.false;
       expect(rateLimitedB).to.be.false;
     });
@@ -251,10 +282,14 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
   describe('WebSocket Service Independence and Failover', function () {
     it('should maintain independent Redis connections for WebSocket services', async function () {
       // Both WebSocket services should report connected to Redis
-      const connectedA = await wsServiceA.isRedisConnected();
-      const connectedB = await wsServiceB.isRedisConnected();
-      expect(connectedA).to.be.true;
-      expect(connectedB).to.be.true;
+      const storeA = wsServiceA.rateLimitStore;
+      const storeB = wsServiceB.rateLimitStore;
+      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
+        const connectedA = await storeA.isConnected();
+        const connectedB = await storeB.isConnected();
+        expect(connectedA).to.be.true;
+        expect(connectedB).to.be.true;
+      }
     });
 
     it('should handle concurrent WebSocket requests from both services', async function () {
@@ -265,9 +300,9 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
       const totalRequests = LIMIT;
       for (let i = 0; i < totalRequests; i++) {
         if (i % 2 === 0) {
-          promises.push(wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID));
+          promises.push(wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails));
         } else {
-          promises.push(wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID));
+          promises.push(wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails));
         }
       }
 
@@ -278,7 +313,7 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
       expect(rateLimitedCount).to.equal(0);
 
       // The next request should be rate limited since we've hit the limit
-      const nextRequest = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const nextRequest = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(nextRequest).to.be.true;
     });
   });
@@ -289,41 +324,42 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
       // Use up the single request limit exactly
       for (let i = 0; i < LIMIT; i++) {
-        const rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+        const rateLimited = await wsServiceA.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
         expect(rateLimited).to.be.false;
       }
 
       // Use up the batch request limit exactly
       for (let i = 0; i < LIMIT; i++) {
-        const rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
+        const rateLimited = await wsServiceB.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
         expect(rateLimited).to.be.false;
       }
 
       // Next single request should be rate limited
-      const singleRateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const singleRateLimited = await wsServiceB.shouldRateLimit(TEST_IP, TEST_METHOD, LIMIT, requestDetails);
       expect(singleRateLimited).to.be.true;
 
       // Next batch request should be rate limited
-      const batchRateLimited = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, REQUEST_ID);
+      const batchRateLimited = await wsServiceA.shouldRateLimit(TEST_IP, BATCH_METHOD, LIMIT, requestDetails);
       expect(batchRateLimited).to.be.true;
     });
 
     it('should maintain rate limiting consistency during WebSocket connection handoffs', async function () {
       // Simulate a client switching between WebSocket servers mid-session
       const clientIP = '192.168.1.200';
+      const clientRequestDetails = new RequestDetails({ requestId: REQUEST_ID, ipAddress: clientIP });
 
       // Client makes requests through wsServiceA (use up the limit exactly)
       for (let i = 0; i < LIMIT; i++) {
-        const rateLimited = await wsServiceA.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, REQUEST_ID);
+        const rateLimited = await wsServiceA.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, clientRequestDetails);
         expect(rateLimited).to.be.false;
       }
 
       // Client switches to wsServiceB (connection handoff) - should be rate limited immediately
-      const handoffRequest = await wsServiceB.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const handoffRequest = await wsServiceB.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, clientRequestDetails);
       expect(handoffRequest).to.be.true;
 
       // Any subsequent request should also be rate limited regardless of which service handles it
-      const finalRequest = await wsServiceA.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, REQUEST_ID);
+      const finalRequest = await wsServiceA.shouldRateLimit(clientIP, TEST_METHOD, LIMIT, clientRequestDetails);
       expect(finalRequest).to.be.true;
     });
   });
