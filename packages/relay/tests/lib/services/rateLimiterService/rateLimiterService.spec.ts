@@ -6,22 +6,25 @@ import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { LruRateLimitStore } from '../../../../src/lib/services/rateLimiterService/LruRateLimitStore';
-import { RateLimiterService } from '../../../../src/lib/services/rateLimiterService/rateLimiterService';
+import { IPRateLimiterService } from '../../../../src/lib/services/rateLimiterService/rateLimiterService';
 import { RedisRateLimitStore } from '../../../../src/lib/services/rateLimiterService/RedisRateLimitStore';
+import { RateLimitKey } from '../../../../src/lib/types/rateLimiter';
+import { RequestDetails } from '../../../../src/lib/types/RequestDetails';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
-describe('RateLimiterService Test Suite', function () {
+describe('IPRateLimiterService Test Suite', function () {
   this.timeout(10000);
 
   let logger: Logger;
   let registry: Registry;
-  let rateLimiterService: RateLimiterService;
+  let rateLimiterService: IPRateLimiterService;
 
   const duration = 1000;
   const testIp = '127.0.0.1';
   const testMethod = 'eth_chainId';
   const testLimit = 5;
   const requestId = 'test-request-id';
+  const requestDetails: RequestDetails = { requestId } as RequestDetails;
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });
@@ -41,7 +44,7 @@ describe('RateLimiterService Test Suite', function () {
       });
 
       it('should use LRU store when REDIS_ENABLED is false and no IP_RATE_LIMIT_STORE is set', () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
+        rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
         expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
       });
@@ -50,7 +53,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: undefined, REDIS_ENABLED: true, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use Redis store when REDIS_ENABLED is true', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration);
+            rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
           });
@@ -61,7 +64,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: 'REDIS', REDIS_ENABLED: false, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use configured store type when IP_RATE_LIMIT_STORE is set to REDIS', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration);
+            rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
           });
@@ -72,7 +75,7 @@ describe('RateLimiterService Test Suite', function () {
         { IP_RATE_LIMIT_STORE: 'LRU', REDIS_ENABLED: true, RATE_LIMIT_DISABLED: false },
         () => {
           it('should use configured store type when IP_RATE_LIMIT_STORE is set to LRU', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration);
+            rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
             expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
           });
@@ -82,10 +85,10 @@ describe('RateLimiterService Test Suite', function () {
       withOverriddenEnvsInMochaTest(
         { IP_RATE_LIMIT_STORE: 'INVALID_STORE', REDIS_ENABLED: false, RATE_LIMIT_DISABLED: false },
         () => {
-          it('should fallback to REDIS_ENABLED when IP_RATE_LIMIT_STORE is invalid', () => {
-            rateLimiterService = new RateLimiterService(logger, registry, duration);
-
-            expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
+          it('should throw error when IP_RATE_LIMIT_STORE is invalid', () => {
+            expect(() => new IPRateLimiterService(logger, registry, duration)).to.throw(
+              'Unsupported IP_RATE_LIMIT_STORE value: "INVALID_STORE". Supported values are: REDIS, LRU',
+            );
           });
         },
       );
@@ -94,7 +97,7 @@ describe('RateLimiterService Test Suite', function () {
     describe('Store Creation', () => {
       withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: 'REDIS' }, () => {
         it('should create Redis store when configured', () => {
-          rateLimiterService = new RateLimiterService(logger, registry, duration);
+          rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
           expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
         });
@@ -107,9 +110,9 @@ describe('RateLimiterService Test Suite', function () {
       { RATE_LIMIT_DISABLED: true, IP_RATE_LIMIT_STORE: undefined, REDIS_ENABLED: false },
       () => {
         it('should return false when RATE_LIMIT_DISABLED is true', async () => {
-          rateLimiterService = new RateLimiterService(logger, registry, duration);
+          rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
-          const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+          const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
           expect(result).to.be.false;
         });
       },
@@ -123,25 +126,26 @@ describe('RateLimiterService Test Suite', function () {
       });
 
       beforeEach(() => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
+        rateLimiterService = new IPRateLimiterService(logger, registry, duration);
       });
 
       it('should return false when within rate limits', async () => {
         const storeStub = sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(false);
 
-        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
 
         expect(result).to.be.false;
         expect(storeStub.calledOnce).to.be.true;
-        expect(storeStub.getCall(0).args[0]).to.equal(`ratelimit:${testIp}:${testMethod}`);
+        expect(storeStub.getCall(0).args[0]).to.be.instanceOf(RateLimitKey);
+        expect(storeStub.getCall(0).args[0].toString()).to.equal(`ratelimit:${testIp}:${testMethod}`);
         expect(storeStub.getCall(0).args[1]).to.equal(testLimit);
-        expect(storeStub.getCall(0).args[2]).to.equal(duration);
+        expect(storeStub.getCall(0).args[2]).to.equal(requestDetails);
       });
 
       it('should return true when rate limit is exceeded', async () => {
         const storeStub = sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(true);
 
-        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
 
         expect(result).to.be.true;
         expect(storeStub.calledOnce).to.be.true;
@@ -151,7 +155,7 @@ describe('RateLimiterService Test Suite', function () {
         sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(true);
         const counterSpy = sinon.spy(rateLimiterService['ipRateLimitCounter'], 'inc');
 
-        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
 
         expect(counterSpy.calledOnce).to.be.true;
       });
@@ -159,23 +163,23 @@ describe('RateLimiterService Test Suite', function () {
       it('should handle different IPs independently', async () => {
         const storeStub = sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(false);
 
-        await rateLimiterService.shouldRateLimit('192.168.1.1', testMethod, testLimit, requestId);
-        await rateLimiterService.shouldRateLimit('192.168.1.2', testMethod, testLimit, requestId);
+        await rateLimiterService.shouldRateLimit('192.168.1.1', testMethod, testLimit, requestDetails);
+        await rateLimiterService.shouldRateLimit('192.168.1.2', testMethod, testLimit, requestDetails);
 
         expect(storeStub.calledTwice).to.be.true;
-        expect(storeStub.getCall(0).args[0]).to.equal('ratelimit:192.168.1.1:eth_chainId');
-        expect(storeStub.getCall(1).args[0]).to.equal('ratelimit:192.168.1.2:eth_chainId');
+        expect(storeStub.getCall(0).args[0].toString()).to.equal('ratelimit:192.168.1.1:eth_chainId');
+        expect(storeStub.getCall(1).args[0].toString()).to.equal('ratelimit:192.168.1.2:eth_chainId');
       });
 
       it('should handle different methods independently', async () => {
         const storeStub = sinon.stub(rateLimiterService['store'], 'incrementAndCheck').resolves(false);
 
-        await rateLimiterService.shouldRateLimit(testIp, 'eth_chainId', testLimit, requestId);
-        await rateLimiterService.shouldRateLimit(testIp, 'eth_gasPrice', testLimit, requestId);
+        await rateLimiterService.shouldRateLimit(testIp, 'eth_chainId', testLimit, requestDetails);
+        await rateLimiterService.shouldRateLimit(testIp, 'eth_gasPrice', testLimit, requestDetails);
 
         expect(storeStub.calledTwice).to.be.true;
-        expect(storeStub.getCall(0).args[0]).to.equal('ratelimit:127.0.0.1:eth_chainId');
-        expect(storeStub.getCall(1).args[0]).to.equal('ratelimit:127.0.0.1:eth_gasPrice');
+        expect(storeStub.getCall(0).args[0].toString()).to.equal('ratelimit:127.0.0.1:eth_chainId');
+        expect(storeStub.getCall(1).args[0].toString()).to.equal('ratelimit:127.0.0.1:eth_gasPrice');
       });
     });
   });
@@ -188,23 +192,23 @@ describe('RateLimiterService Test Suite', function () {
     });
 
     beforeEach(() => {
-      rateLimiterService = new RateLimiterService(logger, registry, duration);
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
     });
 
     it('should not rate limit when within limits using LRU store', async () => {
-      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
       expect(result).to.be.false;
     });
 
     it('should rate limit when exceeding limits using LRU store', async () => {
       // Make requests up to the limit
       for (let i = 0; i < testLimit; i++) {
-        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
         expect(result).to.be.false;
       }
 
       // Next request should be rate limited
-      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
       expect(result).to.be.true;
     });
 
@@ -213,25 +217,22 @@ describe('RateLimiterService Test Suite', function () {
 
       // Exhaust the rate limit
       for (let i = 0; i <= testLimit; i++) {
-        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
       }
 
       // Wait for reset
       await new Promise((resolve) => setTimeout(resolve, duration + 100));
 
       // Should not be rate limited after reset
-      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
       expect(result).to.be.false;
     });
 
-    it('invalid key format returns true and logs error', async () => {
+    it('LRU store should handle any valid key format', async () => {
       const store = new LruRateLimitStore(duration);
-      const errorSpy = sinon.spy(console, 'error');
-      const result = await store.incrementAndCheck('bad:key', 5, duration);
-      expect(result).to.be.true;
-      expect(errorSpy.calledOnce).to.be.true;
-      expect(errorSpy.getCall(0).args[0]).to.include('Invalid key format for LruRateLimitStore');
-      errorSpy.restore();
+      const validKey = new RateLimitKey('192.168.1.1', 'eth_chainId');
+      const result = await store.incrementAndCheck(validKey, 5, requestDetails);
+      expect(result).to.be.false; // Should not be rate limited on first request
     });
   });
 
@@ -243,7 +244,7 @@ describe('RateLimiterService Test Suite', function () {
     });
 
     it('should use Redis store when configured', () => {
-      rateLimiterService = new RateLimiterService(logger, registry, duration);
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
       expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
     });
@@ -252,7 +253,7 @@ describe('RateLimiterService Test Suite', function () {
   describe('Configuration Edge Cases', () => {
     withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: '  REDIS  ', REDIS_ENABLED: false }, () => {
       it('should handle whitespace in IP_RATE_LIMIT_STORE config', () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
+        rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
         expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
       });
@@ -260,17 +261,17 @@ describe('RateLimiterService Test Suite', function () {
 
     withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: 'lru', REDIS_ENABLED: true }, () => {
       it('should handle lowercase IP_RATE_LIMIT_STORE config', () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
+        rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
         expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
       });
     });
 
     withOverriddenEnvsInMochaTest({ IP_RATE_LIMIT_STORE: '', REDIS_ENABLED: false }, () => {
-      it('should handle empty string IP_RATE_LIMIT_STORE config', () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
-
-        expect(rateLimiterService['store']).to.be.instanceof(LruRateLimitStore);
+      it('should throw error for empty string IP_RATE_LIMIT_STORE config', () => {
+        expect(() => new IPRateLimiterService(logger, registry, duration)).to.throw(
+          'Unsupported IP_RATE_LIMIT_STORE value: "". Supported values are: REDIS, LRU',
+        );
       });
     });
   });
@@ -280,9 +281,9 @@ describe('RateLimiterService Test Suite', function () {
     { RATE_LIMIT_DISABLED: true, IP_RATE_LIMIT_STORE: undefined, REDIS_ENABLED: false },
     () => {
       it('should not call store.incrementAndCheck when rate limit is disabled', async () => {
-        rateLimiterService = new RateLimiterService(logger, registry, duration);
+        rateLimiterService = new IPRateLimiterService(logger, registry, duration);
         const stub = sinon.stub(rateLimiterService['store'], 'incrementAndCheck');
-        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestId);
+        const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
         expect(result).to.be.false;
         expect(stub.notCalled).to.be.true;
       });

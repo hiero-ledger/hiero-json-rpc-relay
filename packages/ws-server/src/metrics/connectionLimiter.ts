@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { WebSocketError } from '@hashgraph/json-rpc-relay/dist';
 import { methodConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/config/methodConfiguration';
-import { RateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
+import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
@@ -25,7 +25,7 @@ export default class ConnectionLimiter {
   private connectionLimitCounter: Counter;
   private inactivityTTLCounter: Counter;
   private register: Registry;
-  private rateLimiter: RateLimiterService;
+  private rateLimiter: IPRateLimiterService;
 
   constructor(logger: Logger, register: Registry) {
     this.logger = logger;
@@ -71,7 +71,7 @@ export default class ConnectionLimiter {
     });
 
     const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
-    this.rateLimiter = new RateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
+    this.rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
   }
 
   public incrementCounters(ctx) {
@@ -213,12 +213,12 @@ export default class ConnectionLimiter {
     this.startInactivityTTLTimer(websocket);
   }
 
-  public async shouldRateLimitOnMethod(ip, methodName, requestId) {
+  public async shouldRateLimitOnMethod(ip, methodName, requestDetails) {
     // subcription limits are already covered in this.validateSubscriptionLimit()
     if (methodName === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE || methodName === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)
       return false;
 
     const methodTotalLimit = methodConfiguration[methodName].total;
-    return await this.rateLimiter.shouldRateLimit(ip, methodName, methodTotalLimit, requestId);
+    return await this.rateLimiter.shouldRateLimit(ip, methodName, methodTotalLimit, requestDetails);
   }
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RateLimiterService } from '@hashgraph/json-rpc-relay/src/lib/services';
+import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
@@ -10,8 +10,8 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
   this.timeout(30 * 1000); // 30 seconds
 
   let redisClient: RedisClientType;
-  let wsServiceA: RateLimiterService;
-  let wsServiceB: RateLimiterService;
+  let wsServiceA: IPRateLimiterService;
+  let wsServiceB: IPRateLimiterService;
   let logger: pino.Logger;
   let registryA: Registry;
   let registryB: Registry;
@@ -39,9 +39,9 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     registryA = new Registry();
     registryB = new Registry();
 
-    // Create two RateLimiterService instances for WebSocket servers pointing to the same Redis
-    wsServiceA = new RateLimiterService(logger.child({ service: 'WS-A' }), registryA, DURATION);
-    wsServiceB = new RateLimiterService(logger.child({ service: 'WS-B' }), registryB, DURATION);
+    // Create two IPRateLimiterService instances for WebSocket servers pointing to the same Redis
+    wsServiceA = new IPRateLimiterService(logger.child({ service: 'WS-A' }), registryA, DURATION);
+    wsServiceB = new IPRateLimiterService(logger.child({ service: 'WS-B' }), registryB, DURATION);
 
     // Wait for Redis connections to establish and verify they're connected
     let retries = 10;

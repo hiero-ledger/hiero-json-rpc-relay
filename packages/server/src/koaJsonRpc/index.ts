@@ -3,8 +3,8 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { methodConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/config/methodConfiguration';
-import { RateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
-import { IMethodRateLimitConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
+import { MethodRateLimitConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IRequestDetails, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import parse from 'co-body';
 import Koa from 'koa';
@@ -38,11 +38,11 @@ const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 
 export default class KoaJsonRpc {
-  private readonly methodConfig: IMethodRateLimitConfiguration;
+  private readonly methodConfig: MethodRateLimitConfiguration;
   private readonly duration: number = getLimitDuration();
   private readonly defaultRateLimit: number = getDefaultRateLimit();
   private readonly limit: string;
-  private readonly rateLimiter: RateLimiterService;
+  private readonly rateLimiter: IPRateLimiterService;
   private readonly metricsRegistry: Registry;
   private readonly koaApp: Koa<Koa.DefaultState, Koa.DefaultContext>;
   private readonly logger: Logger;
@@ -61,7 +61,7 @@ export default class KoaJsonRpc {
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.logger = logger;
-    this.rateLimiter = new RateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, this.duration);
+    this.rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, this.duration);
     this.metricsRegistry = register;
     this.relay = relay;
 
@@ -172,7 +172,7 @@ export default class KoaJsonRpc {
 
       // check rate limit for method and ip
       const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
-      if (await this.rateLimiter.shouldRateLimit(ip, request.method, methodTotalLimit, this.requestId)) {
+      if (await this.rateLimiter.shouldRateLimit(ip, request.method, methodTotalLimit, this.getRequestDetails())) {
         return jsonResp(request.id, new IPRateLimitExceeded(request.method), undefined);
       }
 
