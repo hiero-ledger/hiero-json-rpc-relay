@@ -231,7 +231,7 @@ describe('IPRateLimiterService Test Suite', function () {
     it('LRU store should handle any valid key format', async () => {
       const store = new LruRateLimitStore(duration);
       const validKey = new RateLimitKey('192.168.1.1', 'eth_chainId');
-      const result = await store.incrementAndCheck(validKey, 5, requestDetails);
+      const result = await store.incrementAndCheck(validKey, 5);
       expect(result).to.be.false; // Should not be rate limited on first request
     });
   });
