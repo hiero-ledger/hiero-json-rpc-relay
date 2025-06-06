@@ -24,6 +24,7 @@ import {
   ParamType,
   RequestDetails,
   TraceBlockByNumberTxResult,
+  TransactionTracerConfig,
 } from './types';
 
 /**
@@ -106,25 +107,35 @@ export class DebugImpl implements Debug {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.COMBINED_TRACER_TYPE, required: false },
-    2: { type: ParamType.TRACER_CONFIG, required: false },
+    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
+  @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   async traceTransaction(
     transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
+    tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
+
+    // we currently do not support prestate tracer
+    if (tracerObject?.tracer === TracerType.PrestateTracer) {
+      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
+    }
+
+    //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
+    //and we will still default to opcodeLogger
+    const wrapper = tracerObject ?? {};
+    const tracer = wrapper.tracer ?? TracerType.OpcodeLogger;
+    const tracerConfig = wrapper.tracerConfig ?? {};
+
     try {
       DebugImpl.requireDebugAPIEnabled();
       if (tracer === TracerType.CallTracer) {
         return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
-      } else if (tracer === TracerType.OpcodeLogger) {
-        return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
       }
+      return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
