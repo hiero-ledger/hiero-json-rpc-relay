@@ -138,7 +138,7 @@ describe('@erc20-hts-bridge E2E Test', function () {
       `  - Find transaction on LayerZero Scan: https://testnet.layerzeroscan.com/tx/${sepoliaToHederaResult.hash}`,
     );
 
-    console.log('\n=============== PHASE 5: Receiver Balance Verification After Cross-Cain Transfers ===============');
+    console.log('\n=============== PHASE 5: Receiver Balance Verification After Cross-Chain Transfers ===============');
     await waitForMultipleTransfers(
       [
         {
