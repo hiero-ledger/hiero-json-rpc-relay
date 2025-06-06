@@ -30,7 +30,7 @@ interface IRegularTransactionReceiptParams {
   from: string;
   logs: Log[];
   receiptResponse: any;
-  to: string;
+  to: string | null;
 }
 
 /**

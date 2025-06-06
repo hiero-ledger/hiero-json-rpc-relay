@@ -45,7 +45,7 @@ export interface ICommonService {
 
   isBlockParamValid(tag: string | null): boolean;
 
-  resolveEvmAddress(address: string, requestDetails: RequestDetails, types?: string[]): Promise<string>;
+  resolveEvmAddress(address: string | null, requestDetails: RequestDetails, types?: string[]): Promise<string | null>;
 
   translateBlockTag(tag: string | null, requestDetails: RequestDetails): Promise<number>;
 

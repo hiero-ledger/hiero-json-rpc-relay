@@ -175,11 +175,45 @@ export class BlockService implements IBlockService {
         }
         return null;
       }
+
+      /**
+       * Handles the correction of transaction receipt `to` field for contract creation transactions.
+       *
+       * This logic addresses a discrepancy between Hedera and standard Ethereum behavior regarding
+       * the `to` field in transaction receipts. When a smart contract is deployed:
+       *
+       * 1. In standard Ethereum JSON-RPC, if the original transaction had a null `to` field
+       *    (contract creation), the transaction receipt also reports a null `to` field.
+       *
+       * 2. Hedera Mirror Node, however, automatically populates the `to` field with the
+       *    address of the newly created contract.
+       *
+       * The code checks if a contract was directly created by the transaction (rather than created by
+       * another contract) by checking if the contract's ID appears in the `created_contract_ids` array.
+       * If so, it resets the `to` field to null to match standard Ethereum JSON-RPC behavior.
+       *
+       * This ensures compatibility with Ethereum tooling that expects standard transaction receipt formats.
+       * The handling covers various scenarios:
+       *
+       * - Direct contract deployment (empty `to` field)
+       * - Contract creation via factory contracts
+       * - Method calls that don't create contracts
+       * - Transactions with populated `to` fields that create child contracts
+       */
+      if (contractResult.created_contract_ids.includes(contractResult.contract_id)) {
+        contractResult.to = null;
+      }
+
       contractResult.logs = logsByHash.get(contractResult.hash) || [];
       const [from, to] = await Promise.all([
         this.common.resolveEvmAddress(contractResult.from, requestDetails),
         this.common.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
+
+      if (!from) {
+        throw new Error(`Failed to resolve from address: ${contractResult.from}`);
+      }
+
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
         from,
