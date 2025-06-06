@@ -149,7 +149,7 @@ export async function deployContractOnNetwork(network: string, contractName: str
   const contract = await ContractFactory.deploy(...params);
   await contract.deployed();
 
-  console.log(`✓ Deployed ${contractName} on ${network} at address: ${contract.address}`);
+  console.log(`✓ ${contractName} deployed on ${network} at address: ${contract.address}`);
   return contract;
 }
 
@@ -163,9 +163,10 @@ export async function setLZPeer(
   const targetNetwork = network === 'hedera' ? 'sepolia' : 'hedera';
   const { lzEID } = getNetworkConfigs(targetNetwork);
 
-  console.log(
-    `\nSetting LZ peers on ${network} network: sourceAddress=${sourceAddress}, targetAddress=${targetAddress}, lzEID=${lzEID}...`,
-  );
+  console.log(`\nSetting LZ peers on ${network} network...`);
+  console.log(`  • Source OFTAdapter Address: ${sourceAddress}`);
+  console.log(`  • Target OFTAdapter Address: ${targetAddress}`);
+  console.log(`  • Target LayerZero EID: ${lzEID}`);
   const contract = await hre.ethers.getContractAt(lzOappContractName, sourceAddress, networkSigner);
   const tx = await contract.setPeer(lzEID, '0x' + targetAddress.substring(2, 42).padStart(64, '0'));
   const receipt = await tx.wait();
@@ -174,7 +175,7 @@ export async function setLZPeer(
     process.exit('Execution of setPeer failed. Tx hash: ' + tx.hash);
   }
 
-  console.log(`✓ Peer for network with EID ${lzEID} was successfully set: txHash=${tx.hash}`);
+  console.log(`✓ Peer for ${network} network with EID ${lzEID} was successfully set: txHash=${tx.hash}`);
   return receipt;
 }
 
@@ -195,7 +196,7 @@ export async function validateContractConfiguration(
   expectedOwner: string,
   networkName: string,
 ): Promise<void> {
-  console.log(`Validating ${networkName} OFTAdapter contract configurations...`);
+  console.log(`\nValidating ${networkName} OFTAdapter contract configurations...`);
 
   const tokenRef = await contract.token();
   const endpoint = await contract.endpoint();
@@ -228,7 +229,7 @@ export async function recordBalanceSnapshot(
   description: string,
 ): Promise<void> {
   snapshots[key] = await contract.balanceOf(address);
-  console.log(`${description}: ${snapshots[key].toString()}`);
+  console.log(`\n${description}: ${snapshots[key].toString()}`);
 }
 
 /**
@@ -251,7 +252,7 @@ export function validateBalanceChange(
   expect(actualBalance.gte(expectedMinimum)).to.be.true;
   expect(actualBalance.lte(expectedMaximum)).to.be.true;
 
-  console.log(`✓ ${description}: Balance validation PASSED (${actualBalance.toString()})`);
+  console.log(`\n✓ ${description}: Balance validation PASSED (${actualBalance.toString()})`);
 }
 
 /**
@@ -300,7 +301,7 @@ export async function preFundAdapter(
   networkName: string,
   tokenName: string,
 ): Promise<void> {
-  console.log(`Pre-funding ${amount.toString()} ${tokenName} tokens to ${networkName} OFT Adapter...`);
+  console.log(`\nPre-funding ${amount.toString()} ${tokenName} tokens to ${networkName} OFT Adapter...`);
 
   const transferTx = await tokenContract.transfer(adapterAddress, amount);
   const transferReceipt = await transferTx.wait();
@@ -348,7 +349,7 @@ export async function getLayerZeroFeeQuote(
   transferParams: TransferParams,
   networkName: string,
 ): Promise<{ nativeFee: BigNumber; lzTokenFee: BigNumber }> {
-  console.log(`Getting LayerZero fee quote for ${networkName} cross-chain transfer...`);
+  console.log(`\nGetting LayerZero fee quote for ${networkName} cross-chain transfer...`);
 
   const feeQuote = await oftAdapterContract.quoteSend(transferParams, false);
   const { nativeFee, lzTokenFee } = feeQuote;
@@ -410,9 +411,7 @@ export async function executeCrossChainTransfer(config: CrossChainTransferConfig
   expect(transferReceipt.status).to.equal(1, `Cross-chain transfer failed on ${sourceNetwork}`);
   expect(transferReceipt.events?.length).to.be.greaterThan(0, 'Should emit transfer events');
 
-  console.log(`✓ Cross-chain transfer initiated successfully!`);
-  console.log(`  • Transaction Hash: ${transferTx.hash}`);
-  console.log(`  • Block Number: ${transferReceipt.blockNumber}`);
+  console.log(`\n✓ Cross-chain transfer initiated successfully!`);
 
   return {
     hash: transferTx.hash,
@@ -508,7 +507,7 @@ export async function waitForMultipleTransfers(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`  Attempt ${attempt}/${maxRetries}: Checking all receiver balances...`);
+      console.log(` • Attempt ${attempt}/${maxRetries}: Checking all receiver balances...`);
 
       // Check each transfer
       for (const transfer of transfers) {
@@ -517,7 +516,7 @@ export async function waitForMultipleTransfers(
           const balanceIncrease = currentBalance.sub(transfer.initialBalance);
 
           console.log(
-            `    ${transfer.name} - Current: ${currentBalance.toString()}, Increase: ${balanceIncrease.toString()}`,
+            `   • ${transfer.name} - Current: ${currentBalance.toString()}, Increase: ${balanceIncrease.toString()}`,
           );
 
           const expectedMinimum = transfer.expectedAmount.sub(tolerance);
@@ -542,7 +541,7 @@ export async function waitForMultipleTransfers(
           .filter(([, completed]) => !completed)
           .map(([name]) => name);
         console.log(
-          `    ⌛ Pending transfers: ${pendingTransfers.join(', ')}... retrying in ${retryInterval / 1000} seconds`,
+          `   ⌛ Pending transfers: ${pendingTransfers.join(', ')}... retrying in ${retryInterval / 1000} seconds`,
         );
         await new Promise((resolve) => setTimeout(resolve, retryInterval));
       }
@@ -581,7 +580,7 @@ export async function validatePeerConfiguration(
   hederaNetworkConfig: NetworkConfig,
   sepoliaNetworkConfig: NetworkConfig,
 ): Promise<void> {
-  console.log('Validating bidirectional peer configuration...');
+  console.log('\nValidating bidirectional peer configuration...');
 
   const hederaPeer = await hederaAdapter.peers(sepoliaNetworkConfig.lzEID);
   const sepoliaPeer = await sepoliaAdapter.peers(hederaNetworkConfig.lzEID);
@@ -643,14 +642,14 @@ export function displayTestSummary(config: {
   // Transfer results
   console.log(`\n💸 Cross-Chain Transfers:`);
   console.log(`  • Hedera → Sepolia: ${transfers.hederaToSepolia.completed ? '✅ COMPLETED' : 'PENDING'}`);
-  console.log(`    - Amount: ${transfers.hederaToSepolia.amount} WHBAR`);
-  console.log(`    - Transaction: https://hashscan.io/testnet/tx/${transfers.hederaToSepolia.hash}`);
-  console.log(`    - LayerZero: https://testnet.layerzeroscan.com/tx/${transfers.hederaToSepolia.hash}`);
+  console.log(`    • Amount: ${transfers.hederaToSepolia.amount} WHBAR`);
+  console.log(`    • Transaction: https://hashscan.io/testnet/tx/${transfers.hederaToSepolia.hash}`);
+  console.log(`    • LayerZero: https://testnet.layerzeroscan.com/tx/${transfers.hederaToSepolia.hash}`);
 
   console.log(`  • Sepolia → Hedera: ${transfers.sepoliaToHedera.completed ? '✅ COMPLETED' : 'PENDING'}`);
-  console.log(`    - Amount: ${transfers.sepoliaToHedera.amount} ERC20`);
-  console.log(`    - Transaction: https://sepolia.etherscan.io/tx/${transfers.sepoliaToHedera.hash}`);
-  console.log(`    - LayerZero: https://testnet.layerzeroscan.com/tx/${transfers.sepoliaToHedera.hash}`);
+  console.log(`    • Amount: ${transfers.sepoliaToHedera.amount} ERC20`);
+  console.log(`    • Transaction: https://sepolia.etherscan.io/tx/${transfers.sepoliaToHedera.hash}`);
+  console.log(`    • LayerZero: https://testnet.layerzeroscan.com/tx/${transfers.sepoliaToHedera.hash}`);
 
   // Balance verification
   console.log(`\n📊 Final Balances:`);
