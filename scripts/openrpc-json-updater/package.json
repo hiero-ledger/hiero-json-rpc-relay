@@ -1,0 +1,10 @@
+{
+  "name": "openrpc-updater",
+  "description": "OpenRPC JSON Updater Tool",
+  "author": "Hedera Team",
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "deep-diff": "^1.0.2"
+  }
+}
