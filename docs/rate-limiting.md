@@ -38,9 +38,9 @@ RATE_LIMIT_DISABLED = false;
 You can configure which backend store to use for rate limiting via environment variables:
 
 - **IP_RATE_LIMIT_STORE**: Specifies the rate limit store to use. Valid values:
-  - "LRU": In-memory store (default fallback).
+  - "LRU": In-memory store.
   - "REDIS": Redis-based store.
-  - Any other custom type if you have implemented a custom store and added it to `SUPPORTED_RATE_LIMIT_STORE_TYPES`.
+  - Any other custom type if you have implemented a custom store and added it to the `RateLimitStoreType` enum.
     If not set, the relay will fall back to using Redis when `REDIS_ENABLED=true`, otherwise it uses LRU.
 - **REDIS_ENABLED**: If `true`, enables Redis-based rate limiting when `IP_RATE_LIMIT_STORE` is not explicitly set. Default: `false`.
 - **REDIS_URL**: The Redis connection URL (e.g. `redis://localhost:6379`). Required when using Redis store.
@@ -48,7 +48,7 @@ You can configure which backend store to use for rate limiting via environment v
 To extend with a custom store:
 
 1. Implement a class that implements `RateLimitStore`.
-2. Add your custom store type string to the `SUPPORTED_RATE_LIMIT_STORE_TYPES` array in `packages/relay/src/lib/constants.ts`.
+2. Add your custom store type string to the `RateLimitStoreType` array in `packages/relay/src/lib/types/rateLimiter.ts`.
 3. Start the relay with `IP_RATE_LIMIT_STORE=MyCustomStore`
 
    ```ts
