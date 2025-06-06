@@ -34,7 +34,7 @@
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
     "chai": "^4.3.6",
-    "ethers": "^5.8.0",
+    "ethers": "^6.13.5",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^10.6.0",
     "shelljs": "^0.8.5",
