@@ -225,7 +225,7 @@ export class Utils {
     signer: ethers.Wallet,
   ): Promise<ethers.Contract> => {
     const factory = new ethers.ContractFactory(abi, bytecode, signer);
-    const contract = await factory.deploy();
+    const contract = await factory.deploy({ gasLimit: 10_000_000 });
     await contract.waitForDeployment();
 
     return contract as ethers.Contract;
