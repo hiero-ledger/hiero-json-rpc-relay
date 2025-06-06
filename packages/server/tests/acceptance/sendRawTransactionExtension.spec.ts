@@ -163,7 +163,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
-          data: '0x' + '00'.repeat(5120),
+          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT - 1024), // 23kb, within the limit
         };
 
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
