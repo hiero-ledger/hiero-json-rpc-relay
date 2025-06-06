@@ -121,7 +121,7 @@ export const getRequestResult = async (
   }
 
   // verify rate limit for method method based on IP
-  if (limiter.shouldRateLimitOnMethod(ctx.ip, request.method, ctx.websocket.requestId)) {
+  if (await limiter.shouldRateLimitOnMethod(ctx.ip, request.method, requestDetails)) {
     return jsonResp(null, new IPRateLimitExceeded(request.method), undefined);
   }
 

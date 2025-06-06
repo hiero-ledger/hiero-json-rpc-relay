@@ -13,3 +13,4 @@ export * from './spendingPlanConfig';
 export * from './registry';
 export * from './validation';
 export * from './debug';
+export * from './rateLimiter';
