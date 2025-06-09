@@ -130,9 +130,8 @@ export class DebugImpl implements Debug {
 
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
-    const wrapper = tracerObject ?? {};
-    const tracer = wrapper.tracer ?? TracerType.OpcodeLogger;
-    const tracerConfig = wrapper.tracerConfig ?? {};
+    const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
+    const tracerConfig = tracerObject?.tracerConfig ?? {};
 
     try {
       DebugImpl.requireDebugAPIEnabled();
