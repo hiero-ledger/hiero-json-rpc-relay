@@ -8,6 +8,7 @@ import {
   deployContractOnNetwork,
   executeCrossChainTransfer,
   getNetworkConfigs,
+  getRandomInt,
   setLZPeer,
   TEST_CONFIG,
   waitForMultipleTransfers,
@@ -31,8 +32,8 @@ describe('@erc20-hts-bridge E2E Test', function () {
 
     // random receiver address, available on both hedera testnet and sepolia
     const randomReceiverAddress = '0xF51c7a9407217911d74e91642dbC58F18E51Deac';
-    const tokenName = `T_NAME_${parseInt(ethers.utils.randomBytes(32))}`;
-    const tokenSymbol = `T_SYMBOL_${parseInt(ethers.utils.randomBytes(32))}`;
+    const tokenName = `T_NAME_${getRandomInt().toString()}`;
+    const tokenSymbol = `T_SYMBOL_${getRandomInt().toString()}`;
     const amount = ethers.BigNumber.from(100);
     const zeroBigNumber = ethers.BigNumber.from(0);
 

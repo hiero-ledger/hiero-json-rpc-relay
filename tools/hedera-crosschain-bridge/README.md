@@ -100,7 +100,7 @@ Create a .env file based on the .env.example file and fill out the configuration
 # Hedera Network Configuration
 HEDERA_CHAIN_ID=
 HEDERA_RPC=
-HEDERA_PK=
+HEDERA_PK= # for HTS-related operations, the deployer account should have enabled "Auto Associations"
 HEDERA_LZ_ENDPOINT_V2=
 HEDERA_LZ_EID_V2=
 

@@ -17,11 +17,17 @@ async function main() {
     throw new Error(`LayerZero endpoint not configured for ${network}`);
   }
 
+  const tokenName = 'T_NAME';
+  const tokenSymbol = 'T_SYMBOL';
   const initialMint = ethers.utils.parseEther(process.env.INITIAL_BALANCE || '1000000'); // Default to 1,000,000 tokens if not specified
   const decimals = process.env.DECIMALS || '8'; // Default to 8 decimals if not specified
   console.log(`OFT Deployment Parameters Overview:`);
   console.table({
     Network: network,
+    'Token Name': tokenName,
+    'Token Symbol': tokenSymbol,
+    'LayerZero Endpoint Address': lzEndpointAddress,
+    'Owner Address': deployer.address,
     'Initial Balance': initialMint.toString(),
     Decimals: decimals,
   });
@@ -29,8 +35,8 @@ async function main() {
   console.log('\nDeploying OFT contract...');
   const exampleOft = await ethers.getContractFactory('ExampleOFT');
   const exampleOftMock = await exampleOft.deploy(
-    'T_NAME',
-    'T_SYMBOL',
+    tokenName,
+    tokenSymbol,
     lzEndpointAddress,
     deployer.address,
     initialMint,

@@ -3,7 +3,7 @@
 import { addressToBytes32, Options } from '@layerzerolabs/lz-v2-utilities';
 import { expect } from 'chai';
 import { spawn } from 'child_process';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 
 // Import hre to access ethers via hardhat runtime environment
 const hre = require('hardhat');
@@ -695,22 +695,34 @@ export async function executeContractCallOnNetwork(
     if (!process.env.HEDERA_RPC_URL || !process.env.HEDERA_PK) {
       throw new Error('HEDERA_RPC_URL and HEDERA_PK environment variables are required for Hedera deployment');
     }
-    wallet = new ethers.Wallet(process.env.HEDERA_PK, new ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL));
+    wallet = new hre.ethers.Wallet(
+      process.env.HEDERA_PK,
+      new hre.ethers.providers.JsonRpcProvider(process.env.HEDERA_RPC_URL),
+    );
   } else if (network === 'sepolia') {
     if (!process.env.SEPOLIA_RPC_URL || !process.env.SEPOLIA_PK) {
       throw new Error('SEPOLIA_RPC_URL and SEPOLIA_PK environment variables are required for Sepolia deployment');
     }
-    wallet = new ethers.Wallet(
+    wallet = new hre.ethers.Wallet(
       process.env.SEPOLIA_PK,
-      new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL),
+      new hre.ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL),
     );
   } else {
     throw new Error(`Unsupported network: ${network}`);
   }
 
   console.log(`Executing ${contractFunction} via ${contractName} on ${network}...`);
-  const contract = await ethers.getContractAt(contractName, contractAddress, wallet);
+  const contract = await hre.ethers.getContractAt(contractName, contractAddress, wallet);
   return await contract[contractFunction](...params);
+}
+
+/**
+ * Get random integer in a range
+ * @param min
+ * @param max
+ */
+export function getRandomInt(min: number = 1, max: number = 999_999): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 /**
@@ -718,8 +730,8 @@ export async function executeContractCallOnNetwork(
  */
 export const TEST_CONFIG = {
   // HBAR/WHBAR configuration
-  HBAR_FUNDING_AMOUNT: ethers.utils.parseEther('3'),
-  WHBAR_TRANSFER_AMOUNT: ethers.utils.parseEther('1'),
+  HBAR_FUNDING_AMOUNT: hre.ethers.utils.parseEther('3'),
+  WHBAR_TRANSFER_AMOUNT: hre.ethers.utils.parseEther('1'),
   TINYBAR_TO_WEIBAR: BigInt(10 ** 10),
   WEIBAR_TO_HBAR: BigInt(10 ** 18),
 

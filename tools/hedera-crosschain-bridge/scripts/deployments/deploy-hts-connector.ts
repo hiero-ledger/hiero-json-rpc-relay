@@ -17,14 +17,20 @@ async function main() {
     throw new Error(`LayerZero endpoint not configured for ${network}`);
   }
 
+  const tokenName = 'T_NAME';
+  const tokenSymbol = 'T_SYMBOL';
   console.log(`HTS Connector Deployment Parameters Overview:`);
   console.table({
     Network: network,
+    'Token Name': tokenName,
+    'Token Symbol': tokenSymbol,
+    'LayerZero Endpoint Address': lzEndpointAddress,
+    'Owner Address': deployer.address,
   });
 
   console.log('\nDeploying HTS Connector contract...');
   const htsConnectorFactory = await ethers.getContractFactory('ExampleHTSConnector');
-  const htsConnector = await htsConnectorFactory.deploy('T_NAME', 'T_SYMBOL', lzEndpointAddress, deployer.address, {
+  const htsConnector = await htsConnectorFactory.deploy(tokenName, tokenSymbol, lzEndpointAddress, deployer.address, {
     gasLimit: 10_000_000,
     value: '30000000000000000000', // 30 hbars
   });

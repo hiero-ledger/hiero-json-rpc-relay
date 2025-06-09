@@ -7,7 +7,7 @@ import { ethers } from 'hardhat';
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
 import { deployContractOnNetwork, executeContractCallOnNetwork, runHardhatScript } from '../utils/helpers';
 
-describe('Deploy OFT Script Integration Tests', function () {
+describe('@deployment-test Deploy OFT Script Integration Tests', function () {
   this.timeout(120000);
 
   const tokenInfo = {

@@ -7,7 +7,7 @@ import { ethers } from 'hardhat';
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
 import { deployContractOnNetwork, executeContractCallOnNetwork, runHardhatScript } from '../utils/helpers';
 
-describe('Deploy HTS Connector Script Integration Tests', function () {
+describe('@deployment-test Deploy HTS Connector Script Integration Tests', function () {
   this.timeout(120000);
 
   let deployer: any;
