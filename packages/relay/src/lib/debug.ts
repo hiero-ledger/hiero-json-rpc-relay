@@ -122,11 +122,6 @@ export class DebugImpl implements Debug {
       this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
 
-    // we currently do not support prestate tracer
-    if (tracerObject?.tracer === TracerType.PrestateTracer) {
-      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
-    }
-
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;

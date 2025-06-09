@@ -312,19 +312,38 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
 
     const { tracer, tracerConfig } = this.object;
 
+    // currently we don't support prestate tracer for traceTransaction
+    if (tracer === TracerType.PrestateTracer) {
+      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
+    }
+
+    if (!tracerConfig) {
+      return valid;
+    }
+
+    const keys = Object.keys(tracerConfig ?? {});
+
+    const callTracerKeys = ['onlyTopCall'];
+    const opcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage'];
+
+    const hasCallTracerKeys = keys.some((k) => callTracerKeys.includes(k));
     // we want to accept ICallTracerConfig only if the tracer is callTracer
-    // this config is not valid for opcodeLogger
-    if (
-      tracerConfig &&
-      (tracerConfig as ICallTracerConfig).onlyTopCall !== undefined &&
-      tracer !== TracerType.CallTracer
-    ) {
+    // this config is not valid for opcodeLogger and vice versa
+    // accept only IOpcodeLoggerConfig with opcodeLogger tracer
+    if (hasCallTracerKeys && tracer !== TracerType.CallTracer) {
       throw predefined.INVALID_PARAMETER(
         1,
-        `'tracerConfig' for ${this.name()} onlyTopCall is only valid when tracer=${TracerType.CallTracer}`,
+        `callTracer 'tracerConfig' for ${this.name()} is only valid when tracer=${TracerType.CallTracer}`,
       );
     }
 
+    const hasOpcodeLoggerKeys = keys.some((k) => opcodeLoggerKeys.includes(k));
+    if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+      throw predefined.INVALID_PARAMETER(
+        1,
+        `opcodeLogger 'tracerConfig' for ${this.name()} is only valid when tracer=${TracerType.OpcodeLogger}`,
+      );
+    }
     return valid;
   }
 }
