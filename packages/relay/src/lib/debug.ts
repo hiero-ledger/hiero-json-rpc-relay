@@ -19,7 +19,6 @@ import {
   EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
-  ITracerConfig,
   MirrorNodeContractResult,
   ParamType,
   RequestDetails,
