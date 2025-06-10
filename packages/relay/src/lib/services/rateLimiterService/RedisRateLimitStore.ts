@@ -2,10 +2,9 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
-import { Counter, Registry } from 'prom-client';
+import { Counter } from 'prom-client';
 import { createClient, RedisClientType } from 'redis';
 
-import { formatRequestIdMessage } from '../../../formatters';
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RateLimitKey, RateLimitStore } from '../../types';
 import { RequestDetails } from '../../types/RequestDetails';
@@ -48,23 +47,10 @@ export class RedisRateLimitStore implements RateLimitStore {
     return 0
   `;
 
-  constructor(logger: Logger, duration: number, register?: Registry) {
+  constructor(logger: Logger, duration: number, rateLimitStoreFailureCounter?: Counter) {
     this.logger = logger.child({ name: 'redis-rate-limit-store' });
     this.duration = duration;
-
-    // Initialize failure metrics counter
-    if (register) {
-      const metricCounterName = 'rpc_relay_rate_limit_store_failures';
-      if (register.getSingleMetric(metricCounterName)) {
-        register.removeSingleMetric(metricCounterName);
-      }
-      this.rateLimitStoreFailureCounter = new Counter({
-        name: metricCounterName,
-        help: 'Rate limit store failure counter',
-        labelNames: ['storeType', 'operation'],
-        registers: [register],
-      });
-    }
+    this.rateLimitStoreFailureCounter = rateLimitStoreFailureCounter;
 
     const redisUrl = ConfigService.get('REDIS_URL')!;
     const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
@@ -131,8 +117,6 @@ export class RedisRateLimitStore implements RateLimitStore {
    * @returns True if rate limit exceeded, false otherwise.
    */
   async incrementAndCheck(key: RateLimitKey, limit: number, requestDetails: RequestDetails): Promise<boolean> {
-    const requestIdPrefix = formatRequestIdMessage(requestDetails.requestId);
-
     try {
       const client = await this.getConnectedClient();
       const durationSeconds = Math.ceil(this.duration / 1000);
@@ -148,7 +132,7 @@ export class RedisRateLimitStore implements RateLimitStore {
 
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `${requestIdPrefix}Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
+        `${requestDetails.formattedRequestId}Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
         error,
       );
 

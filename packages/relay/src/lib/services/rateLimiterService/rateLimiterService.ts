@@ -16,25 +16,37 @@ export class IPRateLimiterService {
   private store: RateLimitStore;
   private logger: Logger;
   private ipRateLimitCounter: Counter;
-  private registry: Registry;
+  private rateLimitStoreFailureCounter: Counter;
 
   constructor(logger: Logger, register: Registry, duration: number) {
     this.logger = logger;
-    this.registry = register;
 
-    const storeType = this.determineStoreType();
-    this.store = this.createStore(storeType, duration);
-
-    const metricCounterName = 'rpc_relay_ip_rate_limit';
-    if (register.getSingleMetric(metricCounterName)) {
-      register.removeSingleMetric(metricCounterName);
+    // Initialize IP rate limit counter
+    const ipRateLimitMetricName = 'rpc_relay_ip_rate_limit';
+    if (register.getSingleMetric(ipRateLimitMetricName)) {
+      register.removeSingleMetric(ipRateLimitMetricName);
     }
     this.ipRateLimitCounter = new Counter({
-      name: metricCounterName,
+      name: ipRateLimitMetricName,
       help: 'Relay IP rate limit counter',
       labelNames: ['methodName', 'storeType'],
       registers: [register],
     });
+
+    // Initialize store failure counter
+    const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';
+    if (register.getSingleMetric(storeFailureMetricName)) {
+      register.removeSingleMetric(storeFailureMetricName);
+    }
+    this.rateLimitStoreFailureCounter = new Counter({
+      name: storeFailureMetricName,
+      help: 'Rate limit store failure counter',
+      labelNames: ['storeType', 'operation'],
+      registers: [register],
+    });
+
+    const storeType = this.determineStoreType();
+    this.store = this.createStore(storeType, duration);
   }
 
   /**
@@ -75,7 +87,7 @@ export class IPRateLimiterService {
   private createStore(storeType: RateLimitStoreType, duration: number): RateLimitStore {
     switch (storeType) {
       case RateLimitStoreType.REDIS:
-        return new RedisRateLimitStore(this.logger, duration, this.registry);
+        return new RedisRateLimitStore(this.logger, duration, this.rateLimitStoreFailureCounter);
       case RateLimitStoreType.LRU:
         return new LruRateLimitStore(duration);
       default:
