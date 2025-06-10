@@ -233,6 +233,8 @@ The deployment script provides two organized tables for easy reference:
 
 ### 5. HTS Connector Deployment (`deploy-hts-connector.ts`)
 
+⚠️ ⚠️ ⚠️ The deployer must have "Auto. Associations" enabled or must execute `npx hardhat run scripts/utils/update-account-associations.ts --network hedera` beforehand. ⚠️ ⚠️ ⚠️
+
 Deploys a HTS Connector contract for testing purposes.
 
 **Purpose**: Creates a test HTS token which is wrapped in a solidity contract.
