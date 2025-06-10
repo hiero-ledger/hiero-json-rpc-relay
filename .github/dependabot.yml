@@ -11,17 +11,33 @@ updates:
       - "/tools/hardhat-viem-example"
       - "/tools/solidity-coverage-example"
       - "/tools/subgraph-example"
-      - "/tools/truffle-example"
       - "/tools/waffle-example"
       - "/tools/wagmi-example"
       - "/tools/web3js-example"
       - "/tools/whbar-hardhat-example"
     schedule:
-      interval: "weekly"
+      interval: "daily"
     open-pull-requests-limit: 20
     labels:
       - "dependencies"
       - "npm"
+
+  - package-ecosystem: "gomod"
+    directories: 
+      - "/tools/golang-example"
+      - "/tools/golang-json-rpc-tests"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "cargo"
+    directories: 
+      - "/tools/alloy-core-rs-example"
+      - "/tools/ethers-rs-example"
+      - "/tools/web3rs-example"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -33,7 +49,9 @@ updates:
       - "github-actions"
     
   - package-ecosystem: "docker"
-    directory: "/"
+    directories: 
+      - "/"
+      - "/tools/whbar-hardhat-example"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
