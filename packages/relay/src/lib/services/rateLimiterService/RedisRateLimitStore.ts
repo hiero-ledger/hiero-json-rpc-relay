@@ -127,7 +127,7 @@ export class RedisRateLimitStore implements RateLimitStore {
       return result === 1;
     } catch (error) {
       if (this.rateLimitStoreFailureCounter) {
-        this.rateLimitStoreFailureCounter.labels('Redis', 'incrementAndCheck').inc();
+        this.rateLimitStoreFailureCounter.labels('Redis', key.method).inc();
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
