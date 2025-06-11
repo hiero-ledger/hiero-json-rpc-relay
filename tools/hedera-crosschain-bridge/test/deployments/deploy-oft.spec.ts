@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
 
+import { constants } from '../../scripts/utils/constants';
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
 import { deployContractOnNetwork, executeContractCallOnNetwork, runHardhatScript } from '../utils/helpers';
 
@@ -11,10 +12,10 @@ describe('@deployment-test Deploy OFT Script Integration Tests', function () {
   this.timeout(120000);
 
   const tokenInfo = {
-    name: 'T_NAME',
-    symbol: 'T_SYMBOL',
+    name: constants.TOKEN_NAME,
+    symbol: constants.TOKEN_SYMBOL,
     totalSupply: 1000000,
-    decimals: 8,
+    decimals: constants.TOKEN_DECIMALS,
   };
 
   ['hedera', 'sepolia'].forEach((network) => {

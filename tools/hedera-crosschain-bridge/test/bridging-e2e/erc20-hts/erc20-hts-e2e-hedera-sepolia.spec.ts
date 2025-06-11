@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
+import { constants } from '../../../scripts/utils/constants';
 import {
   approveTokenForTransfer,
   deployContractOnNetwork,
@@ -32,8 +33,8 @@ describe('@erc20-hts-bridge E2E Test', function () {
 
     // random receiver address, available on both hedera testnet and sepolia
     const randomReceiverAddress = '0xF51c7a9407217911d74e91642dbC58F18E51Deac';
-    const tokenName = `T_NAME_${getRandomInt().toString()}`;
-    const tokenSymbol = `T_SYMBOL_${getRandomInt().toString()}`;
+    const tokenName = `${constants.TOKEN_NAME}_${getRandomInt().toString()}`;
+    const tokenSymbol = `${constants.TOKEN_SYMBOL}_${getRandomInt().toString()}`;
     const amount = ethers.BigNumber.from(100);
     const zeroBigNumber = ethers.BigNumber.from(0);
 
@@ -50,7 +51,7 @@ describe('@erc20-hts-bridge E2E Test', function () {
       hederaNetworkConfigs.lzEndpointV2,
       hederaNetworkConfigs.networkSigner.address,
       {
-        gasLimit: 10_000_000,
+        gasLimit: TEST_CONFIG.TX_GAS_LIMIT,
         value: '30000000000000000000', // 30 hbars
       },
     ]);
@@ -71,8 +72,8 @@ describe('@erc20-hts-bridge E2E Test', function () {
       tokenSymbol,
       sepoliaNetworkConfigs.lzEndpointV2,
       sepoliaNetworkConfigs.networkSigner.address,
-      5 * 10 ** 8,
-      8,
+      5 * 10 ** constants.TOKEN_DECIMALS,
+      constants.TOKEN_DECIMALS,
     ]);
     const sepoliaSignerErc20InitialBalance = await sepoliaOft.balanceOf(sepoliaNetworkConfigs.networkSigner.address);
     console.log(`Sepolia Signer's initial ERC20 balance: ${sepoliaSignerErc20InitialBalance} tokens`);

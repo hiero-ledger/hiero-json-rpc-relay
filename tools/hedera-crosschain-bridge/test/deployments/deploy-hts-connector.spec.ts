@@ -4,8 +4,9 @@ import { expect } from 'chai';
 import { Contract } from 'ethers';
 import { ethers } from 'hardhat';
 
+import { constants } from '../../scripts/utils/constants';
 import { getNetworkConfigs } from '../../scripts/utils/helpers';
-import { deployContractOnNetwork, executeContractCallOnNetwork, runHardhatScript } from '../utils/helpers';
+import { deployContractOnNetwork, executeContractCallOnNetwork, runHardhatScript, TEST_CONFIG } from '../utils/helpers';
 
 describe('@deployment-test Deploy HTS Connector Script Integration Tests', function () {
   this.timeout(120000);
@@ -13,20 +14,18 @@ describe('@deployment-test Deploy HTS Connector Script Integration Tests', funct
   let deployer: any;
   let htsConnector: Contract;
   const network = 'hedera';
-  const tokenName = 'T_NAME';
-  const tokenSymbol = 'T_SYMBOL';
 
   before(async function () {
     [deployer] = await ethers.getSigners();
 
     const networkConfigs = getNetworkConfigs(network);
     htsConnector = await deployContractOnNetwork(network, 'ExampleHTSConnector', [
-      tokenName,
-      tokenSymbol,
+      constants.TOKEN_NAME,
+      constants.TOKEN_SYMBOL,
       networkConfigs.lzEndpointAddress,
       deployer.address,
       {
-        gasLimit: 10_000_000,
+        gasLimit: TEST_CONFIG.TX_GAS_LIMIT,
         value: '30000000000000000000', // 30 hbars
       },
     ]);
@@ -57,9 +56,9 @@ describe('@deployment-test Deploy HTS Connector Script Integration Tests', funct
       tokenWrapper.decimals(),
     ]);
 
-    expect(name).to.equal(tokenName);
-    expect(symbol).to.equal(tokenSymbol);
+    expect(name).to.equal(constants.TOKEN_NAME);
+    expect(symbol).to.equal(constants.TOKEN_SYMBOL);
     expect(totalSupply).to.equal(1000);
-    expect(decimals).to.equal(8);
+    expect(decimals).to.equal(constants.TOKEN_DECIMALS);
   });
 });
