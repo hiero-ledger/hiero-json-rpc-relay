@@ -1,0 +1,20 @@
+{
+  "name": "hedera-crosschain-bridge",
+  "scripts": {
+    "deploy-whbar": "hardhat run scripts/deployments/deploy-whbar.ts",
+    "deploy-erc20": "hardhat run scripts/deployments/deploy-erc20.ts",
+    "deploy-oftAdapter": "hardhat run scripts/deployments/deploy-oft-adapter.ts",
+    "deployment-script-test": "hardhat test --grep @deployment-test",
+    "whbar-e2e-test": "hardhat test --grep @whbar-bridge"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.98",
+    "@layerzerolabs/lz-v2-utilities": "^3.0.98",
+    "@layerzerolabs/oapp-evm": "^0.3.2",
+    "@layerzerolabs/onft-evm": "^0.2.3",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "dotenv": "^16.5.0",
+    "hardhat": "^2.24.1"
+  }
+}
