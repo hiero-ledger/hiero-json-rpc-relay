@@ -505,6 +505,18 @@ export class Utils {
   }
 
   /**
+   * Skips the current test if jumbo transactions are enabled in the configuration.
+   *
+   * @param ctx - The Mocha test context used to skip the test
+   * @returns void
+   */
+  static skipIfJunboTxEnabled(ctx: Mocha.Context): void {
+    if (ConfigService.get('JUMBO_TX_ENABLED')) {
+      ctx.skip();
+    }
+  }
+
+  /**
    * Generates a comment indicating a memory leak detected during tests.
    * @param {string} testTitle The title of the current test.
    * @param {HeapDifferenceStatistics} statsDiff The difference in memory statistics indicating the leak.
