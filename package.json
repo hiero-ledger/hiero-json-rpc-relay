@@ -2,7 +2,7 @@
   "name": "root",
   "version": "0.70.0-SNAPSHOT",
   "devDependencies": {
-    "@hashgraph/hedera-local": "^2.37.0",
+    "@hashgraph/hedera-local": "^2.37.1",
     "@open-rpc/schema-utils-js": "^1.16.1",
     "@types/chai-as-promised": "^7.1.5",
     "@types/co-body": "6.1.0",
