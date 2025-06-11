@@ -127,9 +127,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
     // This loop is designed to poll for the latest block number until it is correctly updated.
     for (let i = 0; i < 5; i++) {
-      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);    
+      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
       if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
-        console.log("Block number updated succesfully")
+        console.log('Block number updated succesfully');
         break;
       }
       await Utils.wait(1500);
@@ -757,7 +757,15 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     let basicContractAddress: string;
 
     async function createNftHTSToken(account) {
-      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+      // @modularized-service: The following statement has been temporarily modified to use `accounts[1]`
+      // instead of the original `accounts[0]`, as a workaround for a known issue related to insufficient payer balance when
+      // using mirror-node@0.131.0 in conjunction with local-node@2.37.1.
+      //
+      // Even though `accounts[0]` has sufficient balance, the transaction fails with an error indicating insufficient payer balance.
+      //
+      // A follow-up issue will be created to track the resolution of this problem, after which this change will be reverted
+      // to restore the use of `accounts[0]`.
+      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[1].wallet);
       const tx = await mainContract.createNonFungibleTokenPublic(account.wallet.address, {
         value: BigInt('30000000000000000000'),
         ...Helper.GAS.LIMIT_5_000_000,
