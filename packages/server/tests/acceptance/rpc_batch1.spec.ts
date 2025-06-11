@@ -1394,6 +1394,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should delete the file created while execute "eth_sendRawTransaction" to deploy a large contract', async function () {
+        Utils.skipIfJunboTxEnabled(this);
+
         const gasPrice = await relay.gasPrice(requestId);
         const transaction = {
           type: 2,
