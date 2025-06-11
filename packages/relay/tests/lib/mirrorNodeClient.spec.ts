@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { BigNumber } from 'bignumber.js';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
@@ -13,9 +14,10 @@ import { MirrorNodeClientError, predefined } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
+chai.use(chaiAsPromised);
 
 describe('MirrorNodeClient', async function () {
   this.timeout(20000);
@@ -37,7 +39,7 @@ describe('MirrorNodeClient', async function () {
       },
       timeout: 20 * 1000,
     });
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
@@ -120,7 +122,7 @@ describe('MirrorNodeClient', async function () {
       domain,
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger.child({ name: `cache` }), registry),
+      CacheService.getInstance(CACHE_LEVEL.L1, registry),
     );
     expect(prodMirrorNodeInstance.restUrl).to.eq(`https://${domain}/api/v1/`);
   });
@@ -1069,7 +1071,7 @@ describe('MirrorNodeClient', async function () {
 
   describe('resolveEntityType', async () => {
     const notFoundAddress = random20BytesAddress();
-    it('returns `contract` when CONTRACTS endpoint returns a result', async () => {
+    it('returns `CONTRACT` when CONTRACTS endpoint returns a result', async () => {
       mock.onGet(`contracts/${mockData.contractEvmAddress}`).reply(200, JSON.stringify(mockData.contract));
       mock
         .onGet(`accounts/${mockData.contractEvmAddress}${noTransactions}`)
@@ -1084,12 +1086,12 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('contract');
+      expect(entityType!.type).to.eq('CONTRACT');
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
     });
 
-    it('returns `account` when CONTRACTS and TOKENS endpoint returns 404 and ACCOUNTS endpoint returns a result', async () => {
+    it('returns `ACCOUNT` when CONTRACTS and TOKENS endpoint returns 404 and ACCOUNTS endpoint returns a result', async () => {
       mock.onGet(`contracts/${mockData.accountEvmAddress}`).reply(404, JSON.stringify(mockData.notFound));
       mock
         .onGet(`accounts/${mockData.accountEvmAddress}${noTransactions}`)
@@ -1104,12 +1106,12 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('account');
+      expect(entityType!.type).to.eq('ACCOUNT');
       expect(entityType!.entity).to.have.property('account');
       expect(entityType!.entity.account).to.eq(mockData.account.account);
     });
 
-    it('returns `token` when CONTRACTS and ACCOUNTS endpoints returns 404 and TOKEN endpoint returns a result', async () => {
+    it('returns `TOKEN` when CONTRACTS and ACCOUNTS endpoints returns 404 and TOKEN endpoint returns a result', async () => {
       mock.onGet(`contracts/${notFoundAddress}`).reply(404, JSON.stringify(mockData.notFound));
       mock.onGet(`accounts/${notFoundAddress}${noTransactions}`).reply(404, JSON.stringify(mockData.notFound));
       mock.onGet(`tokens/${mockData.tokenId}`).reply(200, JSON.stringify(mockData.token));
@@ -1122,7 +1124,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('token');
+      expect(entityType!.type).to.eq('TOKEN');
       expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
     });
 
@@ -1152,7 +1154,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('token');
+      expect(entityType!.type).to.eq('TOKEN');
       expect(entityType!.entity.token_id).to.eq(mockData.tokenId);
     });
 
@@ -1169,7 +1171,7 @@ describe('MirrorNodeClient', async function () {
       expect(entityType).to.exist;
       expect(entityType).to.have.property('type');
       expect(entityType).to.have.property('entity');
-      expect(entityType!.type).to.eq('contract');
+      expect(entityType!.type).to.eq('CONTRACT');
       expect(entityType!.entity).to.have.property('contract_id');
       expect(entityType!.entity.contract_id).to.eq(mockData.contract.contract_id);
     });
@@ -1766,6 +1768,133 @@ describe('MirrorNodeClient', async function () {
       earlierBlock = await mirrorNodeInstance.getEarliestBlock(requestDetails);
       expect(earlierBlock).to.exist;
       expect(earlierBlock.name).to.be.equal(mockData.blocks.blocks[0].name);
+    });
+  });
+
+  describe('getContractState', async () => {
+    const contractAddress = '0x305a8e76ac38fc088132fb780b2171950ff023f7';
+    const contractStatePath = `contracts/${contractAddress}/state?limit=100&order=desc`;
+    const blockEndTimestamp = '1653077541.983983199';
+    const contractStatePathWithTimestamp = `contracts/${contractAddress}/state?timestamp=${blockEndTimestamp}&limit=100&order=desc`;
+
+    const mockContractState = {
+      state: [
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000101',
+          value: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+        },
+        {
+          address: contractAddress,
+          contract_id: '0.0.5001',
+          timestamp: '1653077541.983983199',
+          slot: '0x0000000000000000000000000000000000000000000000000000000000000102',
+          value: '0x9c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b926',
+        },
+      ],
+    };
+
+    it('should fetch contract state for existing contract', async () => {
+      mock.onGet(contractStatePath).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.exist;
+      expect(result.length).to.equal(2);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].slot).to.equal(mockContractState.state[0].slot);
+      expect(result[0].value).to.equal(mockContractState.state[0].value);
+    });
+
+    it('should fetch contract state with blockEndTimestamp', async () => {
+      mock.onGet(contractStatePathWithTimestamp).reply(200, JSON.stringify(mockContractState));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails, blockEndTimestamp);
+      expect(result).to.exist;
+      expect(result.length).to.equal(2);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].timestamp).to.equal(blockEndTimestamp);
+    });
+
+    it('should return empty array when contract state is not found', async () => {
+      mock.onGet(contractStatePath).reply(404, JSON.stringify(mockData.notFound));
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+      expect(result).to.be.empty;
+    });
+
+    it('should throw error for invalid contract address', async () => {
+      const invalidAddress = '0x123';
+      mock.onGet(`contracts/${invalidAddress}/state?limit=100&order=desc`).reply(400, JSON.stringify(null));
+      await expect(mirrorNodeInstance.getContractState(invalidAddress, requestDetails)).to.be.rejectedWith(
+        'Request failed with status code 400',
+      );
+    });
+
+    it('should throw error for server error', async () => {
+      mock.onGet(contractStatePath).reply(500, JSON.stringify({ error: 'Server error' }));
+      await expect(mirrorNodeInstance.getContractState(contractAddress, requestDetails)).to.be.rejectedWith(
+        'Request failed with status code 500',
+      );
+    });
+
+    it('should handle pagination and consolidate results from multiple pages', async () => {
+      // Mock first page with a next link
+      const firstPageResponse = {
+        state: [
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000101',
+            value: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+          },
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000102',
+            value: '0x9c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b926',
+          },
+        ],
+        links: {
+          next: '/api/v1/contracts/results/0x7e08d3df45823dc56298a9a097f8cb9bde2f99c4e114b569a9aff3eb227e4d23/actions?limit=2&order=desc&index=lt:8',
+        },
+      };
+
+      // Mock second page with no next link (final page)
+      const secondPageResponse = {
+        state: [
+          {
+            address: contractAddress,
+            contract_id: '0.0.5001',
+            timestamp: '1653077541.983983199',
+            slot: '0x0000000000000000000000000000000000000000000000000000000000000103',
+            value: '0xac5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b927',
+          },
+        ],
+        links: {
+          next: null,
+        },
+      };
+
+      // Setup mocks for both pages
+      mock.onGet(contractStatePath).reply(200, JSON.stringify(firstPageResponse));
+      mock
+        .onGet(
+          'contracts/results/0x7e08d3df45823dc56298a9a097f8cb9bde2f99c4e114b569a9aff3eb227e4d23/actions?limit=2&order=desc&index=lt:8',
+        )
+        .reply(200, JSON.stringify(secondPageResponse));
+
+      // Call the method
+      const result = await mirrorNodeInstance.getContractState(contractAddress, requestDetails);
+
+      // Verify the results are merged correctly
+      expect(result).to.exist;
+      expect(result.length).to.equal(3);
+      expect(result[0].address).to.equal(contractAddress);
+      expect(result[0].slot).to.equal(firstPageResponse.state[0].slot);
+      expect(result[0].value).to.equal(firstPageResponse.state[0].value);
+      expect(result[2].slot).to.equal(secondPageResponse.state[0].slot);
+      expect(result[2].value).to.equal(secondPageResponse.state[0].value);
     });
   });
 });

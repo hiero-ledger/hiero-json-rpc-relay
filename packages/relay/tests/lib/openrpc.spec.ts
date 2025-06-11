@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { AccountInfo } from '@hashgraph/sdk';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { BigNumber } from 'bignumber.js';
 import { expect } from 'chai';
 import EventEmitter from 'events';
-import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -24,14 +21,13 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import {
   blockHash,
   blockNumber,
-  bytecode,
   contractAddress1,
   contractAddress2,
   contractAddress3,
@@ -101,7 +97,7 @@ describe('Open RPC Specification', function () {
 
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -125,11 +121,11 @@ describe('Open RPC Specification', function () {
       duration,
     );
 
-    clientServiceInstance = new ClientService(logger, registry, cacheService, eventEmitter, hbarLimitService);
+    clientServiceInstance = new ClientService(logger, registry, eventEmitter, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     // @ts-ignore
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', registry, cacheService);
+    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
 
     // mocked data
     mock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify({ blocks: [defaultBlock] }));
@@ -222,10 +218,6 @@ describe('Open RPC Specification', function () {
     mock
       .onPost(`contracts/call`, { ...defaultCallData, estimate: false })
       .reply(200, JSON.stringify({ result: '0x12' }));
-    sdkClientStub.getAccountBalanceInWeiBar.resolves(BigNumber(1000));
-    sdkClientStub.getAccountBalanceInTinyBar.resolves(BigNumber(100000000000));
-    sdkClientStub.getContractByteCode.resolves(Buffer.from(bytecode.replace('0x', ''), 'hex'));
-    sdkClientStub.getAccountInfo.resolves({ ethereumNonce: Long.ONE } as unknown as AccountInfo);
     sdkClientStub.submitEthereumTransaction.resolves();
     mock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     mock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
@@ -284,6 +276,12 @@ describe('Open RPC Specification', function () {
     const response = ethImpl.coinbase(requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_coinbase, response);
+  });
+
+  it('should execute "eth_blobBaseFee"', function () {
+    const response = ethImpl.blobBaseFee(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_blobBaseFee, response);
   });
 
   it('should execute "eth_estimateGas"', async function () {
@@ -446,7 +444,7 @@ describe('Open RPC Specification', function () {
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
 
-    sinon.stub(ethImpl, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    sinon.stub(ethImpl.common, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     const response = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_getTransactionReceipt, response);
@@ -546,6 +544,12 @@ describe('Open RPC Specification', function () {
     const response = await ethImpl.syncing(requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_syncing, response);
+  });
+
+  it('should execute "eth_getProof"', async function () {
+    const response = ethImpl.getProof(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_getProof, response);
   });
 
   it('should execute "net_listening"', function () {

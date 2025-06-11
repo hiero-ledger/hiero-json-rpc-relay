@@ -9,7 +9,6 @@ import { Counter, Registry } from 'prom-client';
 import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
 import constants from '../../constants';
-import { CacheService } from '../cacheService/cacheService';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
@@ -145,14 +144,6 @@ export default class HAPIService {
   private readonly clientResetCounter: Counter;
 
   /**
-   * A service for caching data within the class.
-   * @private
-   * @readonly
-   * @type {CacheService}
-   */
-  private readonly cacheService: CacheService;
-
-  /**
    * @private
    */
   private config: any;
@@ -162,24 +153,16 @@ export default class HAPIService {
    *
    * @param {Logger} logger - The logger instance used for logging.
    * @param {Registry} register - The registry instance for metrics and other services.
-   * @param {CacheService} cacheService - The cache service instance.
    * @param {EventEmitter} eventEmitter - The event emitter instance used for emitting events.
    * @param {HbarLimitService} hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(
-    logger: Logger,
-    register: Registry,
-    cacheService: CacheService,
-    eventEmitter: EventEmitter,
-    hbarLimitService: HbarLimitService,
-  ) {
+  constructor(logger: Logger, register: Registry, eventEmitter: EventEmitter, hbarLimitService: HbarLimitService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = eventEmitter;
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
     this.clientMain = this.initClient(logger, this.hederaNetwork);
 
-    this.cacheService = cacheService;
     this.client = this.initSDKClient(logger);
 
     const currentDateNow = Date.now();
@@ -279,7 +262,6 @@ export default class HAPIService {
     return new SDKClient(
       this.clientMain,
       logger.child({ name: `consensus-node` }),
-      this.cacheService,
       this.eventEmitter,
       this.hbarLimitService,
     );

@@ -1,0 +1,9 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+ffi = true
+remappings = [
+    "@openzeppelin=node_modules/@openzeppelin/",
+    "@layerzerolabs=node_modules/@layerzerolabs/"
+]

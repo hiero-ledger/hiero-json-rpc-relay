@@ -619,6 +619,45 @@
       "response": []
     },
     {
+      "name": "eth_blobBaseFee",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Success\", () => {",
+              "    var response = pm.response.json();",
+              "    pm.expect(response.error.code).to.equal(-32601);",
+              "    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;",
+              "    pm.expect(response.id).to.equal(\"test_id\");",
+              "    pm.expect(response.jsonrpc).to.equal(\"2.0\");",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_blobBaseFee\",\n    \"params\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": ["{{baseUrl}}"]
+        }
+      },
+      "response": []
+    },
+    {
       "name": "unsupported_function",
       "event": [
         {

@@ -24,10 +24,18 @@
       "request": "{\"jsonrpc\":\"2.0\",\"method\":\"trace_anyMethod\",\"params\":[\"0x1\"],\"id\":1}",
       "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Not yet implemented\"}}"
     },
-    "debug_traceBlockByNumber": {
+    "debug_traceBlockByNumber - callTracer": {
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByNumber\",\"params\":[\"0x1\",{\"tracer\":\"callTracer\",\"tracerConfig\":{\"onlyTopCall\":false}}],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":[]}"
+    },
+    "debug_traceBlockByNumber - prestateTracer": {
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByNumber\",\"params\":[\"0x1\",{\"tracer\":\"prestateTracer\"}],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":[]}"
+    },
+    "debug_traceBlockByNumber - invalid params": {
       "status": 400,
-      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByNumber\",\"params\":[\"0x1\"],\"id\":1}",
-      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Not yet implemented\"}}"
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByNumber\",\"params\":[],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}}"
     },
     "debug_anyMethod": {
       "status": 400,

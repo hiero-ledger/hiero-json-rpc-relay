@@ -2,6 +2,7 @@
 
 const { expect } = require('chai');
 const { Web3 } = require('web3');
+require('dotenv').config();
 
 describe('RPC', function () {
   this.timeout(5 * 60000); // 5 minutes
@@ -51,5 +52,14 @@ describe('RPC', function () {
     const res = await contractViewCall(contractAddress);
 
     expect(res).to.be.equal(updatedMsg);
+  });
+
+  it('should NOT throw exception upon empty hex response (0x)', async function () {
+    const web3 = new Web3(new Web3.providers.HttpProvider(process.env.RELAY_ENDPOINT));
+    const result = await web3.eth.call({
+      to: '0x00000000000000000000000000000000002e7a5d', // random non-existed address
+      data: '0x',
+    });
+    expect(result).to.be.equal('0x'); // successfully process empty hex response and throw no exception
   });
 });

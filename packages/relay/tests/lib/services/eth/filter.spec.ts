@@ -10,8 +10,8 @@ import { v4 as uuid } from 'uuid';
 import { predefined } from '../../../../src';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
-import { CommonService, FilterService } from '../../../../src/lib/services/ethService';
+import { CommonService, FilterService } from '../../../../src/lib/services';
+import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import RelayAssertions from '../../../assertions';
 import {
@@ -22,6 +22,7 @@ import {
   toHex,
   withOverriddenEnvsInMochaTest,
 } from '../../../helpers';
+import { generateEthTestEnv } from '../../eth/eth-helpers';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
@@ -33,7 +34,6 @@ let cacheService: CacheService;
 
 describe('Filter API Test Suite', async function () {
   this.timeout(10000);
-
   const requestDetails = new RequestDetails({ requestId: uuid(), ipAddress: '0.0.0.0' });
   const filterObject = {
     toBlock: 'latest',
@@ -63,7 +63,7 @@ describe('Filter API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
+    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),

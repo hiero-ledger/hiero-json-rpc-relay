@@ -11,6 +11,11 @@ import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
+type SubscriptionId = string | undefined;
+export interface SubscriptionResponse extends IJsonRpcResponse {
+  result: SubscriptionId;
+}
+
 import { SubscriptionService } from '../service/subscriptionService';
 import {
   areSubscriptionsEnabled,
@@ -27,7 +32,7 @@ import { ISharedParams } from './jsonRpcController';
  * @param {string} event - The event name to subscribe to (e.g., "newHeads").
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
  * @param {Logger} logger - The logger object used for logging subscription information.
- * @returns {string | undefined} Returns the subscription ID.
+ * @returns {SubscriptionId} Returns the subscription ID.
  */
 const subscribeToNewHeads = (
   filters: any,
@@ -35,7 +40,7 @@ const subscribeToNewHeads = (
   event: string,
   logger: Logger,
   subscriptionService: SubscriptionService,
-): string | undefined => {
+): SubscriptionId => {
   const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, filters);
   logger.info(`Subscribed to newHeads, subscriptionId: ${subscriptionId}`);
   return subscriptionId;
@@ -51,7 +56,7 @@ const subscribeToNewHeads = (
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
  * @param {any} logger - The logger object used for logging subscription information.
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
- * @returns {{ response: any; subscriptionId: any }} Returns an object containing the response and subscription ID.
+ * @returns {SubscriptionResponse} Returns an object containing the response and subscription ID.
  */
 const handleEthSubscribeNewHeads = (
   filters: any,
@@ -61,7 +66,7 @@ const handleEthSubscribeNewHeads = (
   logger: Logger,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
-): IJsonRpcResponse => {
+): SubscriptionResponse => {
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
   if (!wsNewHeadsEnabled) {
@@ -72,7 +77,7 @@ const handleEthSubscribeNewHeads = (
   }
 
   const subscriptionId = subscribeToNewHeads(filters, ctx, event, logger, subscriptionService);
-  return jsonResp(request.id, null, subscriptionId);
+  return jsonResp(request.id, null, subscriptionId) as SubscriptionResponse;
 };
 
 /**
@@ -86,7 +91,7 @@ const handleEthSubscribeNewHeads = (
  * @param {Relay} relay - The relay object used for managing WebSocket subscriptions.
  * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the MirrorNode API.
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
- * @returns {{ response: any; subscriptionId: any }} Returns an object containing the response and subscription ID.
+ * @returns {Promise<SubscriptionResponse>} Returns an object containing the response and subscription ID.
  */
 const handleEthSubscribeLogs = async (
   filters: any,
@@ -96,7 +101,7 @@ const handleEthSubscribeLogs = async (
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
   subscriptionService: SubscriptionService,
-): Promise<IJsonRpcResponse> => {
+): Promise<SubscriptionResponse> => {
   const validFiltersObject = constructValidLogSubscriptionFilter(filters);
 
   await validateSubscribeEthLogsParams(validFiltersObject, mirrorNodeClient, requestDetails);
@@ -108,7 +113,7 @@ const handleEthSubscribeLogs = async (
     throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
   }
   const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, validFiltersObject);
-  return jsonResp(request.id, null, subscriptionId);
+  return jsonResp(request.id, null, subscriptionId) as SubscriptionResponse;
 };
 
 /**
@@ -123,7 +128,7 @@ const handleEthSubscribeLogs = async (
  * @param {ConnectionLimiter} args.limiter - The limiter object for managing connection subscriptions.
  * @param {Logger} args.logger - The logger object for logging messages and events.
  * @param {RequestDetails} args.requestDetails - The request details for logging and tracking.
- * @returns {Promise<any>} Returns a promise that resolves with the subscription response.
+ * @returns {Promise<SubscriptionResponse>} Returns a promise that resolves with the subscription response.
  */
 export const handleEthSubscribe = async ({
   ctx,

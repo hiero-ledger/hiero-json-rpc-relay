@@ -36,6 +36,15 @@ describe('RPC', function () {
     expect(res).to.be.equal('initial_msg');
   });
 
+  it('should NOT throw exception upon empty hex response (0x)', async function () {
+    const provider = new hre.ethers.getDefaultProvider(process.env.RELAY_ENDPOINT);
+    const result = await provider.call({
+      to: '0x00000000000000000000000000000000002e7a5d', // random non-existed address
+      data: '0x',
+    });
+    expect(result).to.be.equal('0x'); // successfully process empty hex response and throw no exception
+  });
+
   it('should be able to make a contract call', async function () {
     const msg = 'updated_msg';
     await hre.run('contract-call', { contractAddress, msg });

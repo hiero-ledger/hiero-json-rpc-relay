@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { LogsBloomUtils } from '../../src/logsBloomUtils';
 import { keccak256, ZeroAddress } from 'ethers';
-import { EthImpl } from '../../src/lib/eth';
+
 import { strip0x } from '../../src/formatters';
+import constants from '../../src/lib/constants';
+import { LogsBloomUtils } from '../../src/logsBloomUtils';
 
 describe('LogsBloomUtils', () => {
   describe('buildLogsBloom', () => {
@@ -42,38 +43,40 @@ describe('LogsBloomUtils', () => {
       '000000000000100000000000000000000000000000000000000000000000000000400000000000000000300000000040000000000000000' +
       '0000000000000000000000080000000000001000000000000000000000000000000000000000000000000001000000';
 
+    const emptyBloom = constants.EMPTY_BLOOM;
+
     it('should be able to generate emptyBloom if passed address is undefined', () => {
       // @ts-ignore
       const res = LogsBloomUtils.buildLogsBloom(undefined, topics);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if passed address is null', () => {
       // @ts-ignore
       const res = LogsBloomUtils.buildLogsBloom(null, topics);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if passed topics value is undefined', () => {
       // @ts-ignore
       const res = LogsBloomUtils.buildLogsBloom(address, undefined);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if passed topics value is null', () => {
       // @ts-ignore
       const res = LogsBloomUtils.buildLogsBloom(address, null);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if address is empty', () => {
       const res = LogsBloomUtils.buildLogsBloom('', topics);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if there are no logs', () => {
       const res = LogsBloomUtils.buildLogsBloom(address, []);
-      expect(EthImpl.emptyBloom).to.equal(res);
+      expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate logsBloom of transfer event', () => {

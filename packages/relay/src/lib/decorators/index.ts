@@ -3,3 +3,4 @@
 export * from './rpcMethod.decorator';
 export * from './rpcParamValidationRules.decorator';
 export * from './rpcParamLayoutConfig.decorator';
+export * from './cache.decorator';

@@ -1,6 +1,6 @@
 {
   "name": "root",
-  "version": "0.68.0-SNAPSHOT",
+  "version": "0.69.0-SNAPSHOT",
   "devDependencies": {
     "@hashgraph/hedera-local": "^2.32.5",
     "@open-rpc/schema-utils-js": "^1.16.1",
@@ -25,7 +25,6 @@
     "eslint-plugin-import": "^2.28.1",
     "eslint-plugin-n": "^15.7.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "ethereum-waffle": "^4.0.7",
     "husky": "^8.0.3",
     "ioredis": "^5.3.2",
     "lint-staged": "^15.2.9",
@@ -69,6 +68,8 @@
     "acceptancetest:cache-service": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@cache-service' --exit",
     "acceptancetest:rpc_api_schema_conformity": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@api-conformity' --exit",
     "acceptancetest:serverconfig": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
+    "acceptancetest:send_raw_transaction_extension": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
+    "acceptancetest:debug": "nyc ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
     "build": "npx lerna run build",
     "build-and-test": "npx lerna run build && npx lerna run test",
     "build:docker": "docker build . -t ${npm_package_name}",
@@ -97,14 +98,15 @@
     "lerna": "^8.1.9",
     "pino": "^7.11.0",
     "pino-pretty": "^7.6.1",
-    "pnpm": "^9.15.4",
+    "pnpm": "^10.0.0",
     "prom-client": "^14.0.1",
     "redis": "^4.7.0"
   },
   "overrides": {
     "protobufjs": "^7.2.4",
     "semver": "^7.5.3",
-    "elliptic": "^6.6.1"
+    "elliptic": "^6.6.1",
+    "mocha": "10.8.2"
   },
   "lint-staged": {
     "packages/**/src/**/*.ts": [

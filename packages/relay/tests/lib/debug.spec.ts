@@ -4,17 +4,24 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import pino from 'pino';
-import { Registry } from 'prom-client';
+import { register, Registry } from 'prom-client';
+import sinon from 'sinon';
 
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import { IOpcodesResponse } from '../../src/lib/clients/models/IOpcodesResponse';
-import { TracerType } from '../../src/lib/constants';
+import constants, { TracerType } from '../../src/lib/constants';
+import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
+import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
+import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
+import { CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
-import { CommonService } from '../../src/lib/services/ethService';
+import HAPIService from '../../src/lib/services/hapiService/hapiService';
+import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -23,12 +30,12 @@ chai.use(chaiAsPromised);
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
 
-let restMock: typeof MockAdapter;
-let web3Mock: typeof MockAdapter;
+let restMock: MockAdapter;
+let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
 let cacheService: CacheService;
-
+let hapiServiceInstance: HAPIService;
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
 
@@ -52,6 +59,7 @@ describe('Debug API Test Suite', async function () {
   const CONTRACT_BY_ADDRESS2 = `contracts/${contractAddress2}`;
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
+  const BLOCKS_ENDPOINT = 'blocks';
 
   const opcodeLoggerConfigs = [
     {
@@ -253,12 +261,28 @@ describe('Debug API Test Suite', async function () {
       registry,
       cacheService,
     );
+    const duration = constants.HBAR_RATE_LIMIT_DURATION;
+    const eventEmitter = new EventEmitter();
+
+    const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
+    const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
+    const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
+    const hbarLimitService = new HbarLimitService(
+      hbarSpendingPlanRepository,
+      evmAddressHbarSpendingPlanRepository,
+      ipAddressHbarSpendingPlanRepository,
+      logger,
+      register,
+      duration,
+    );
+    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
+
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(mirrorNodeInstance, logger, cacheService);
-    debugService = new DebugImpl(mirrorNodeInstance, logger, common);
+    // Create the debug service
+    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
   });
 
   describe('debug_traceTransaction', async function () {
@@ -398,6 +422,19 @@ describe('Debug API Test Suite', async function () {
 
           expect(result).to.deep.equal(expectedResult);
         });
+
+        it('Should return empty array if no actions found', async function () {
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            callTracer,
+            tracerConfigFalse,
+            requestDetails,
+          );
+
+          expect(result).to.be.null;
+        });
       });
 
       describe('opcodeLogger', async function () {
@@ -498,6 +535,587 @@ describe('Debug API Test Suite', async function () {
             const address = await debugService.resolveAddress(accountAddress, requestDetails);
             expect(address).to.eq(accountAddress);
           });
+        });
+      });
+    });
+  });
+
+  describe('debug_traceBlockByNumber', async function () {
+    const blockNumber = '0x123';
+    const blockNumberInDecimal = 291;
+    const blockResponse = {
+      number: blockNumberInDecimal,
+      timestamp: {
+        from: '1696438000.000000000',
+        to: '1696438020.000000000',
+      },
+    };
+    const contractResult1 = {
+      hash: '0xabc123',
+      result: 'SUCCESS',
+    };
+    const contractResult2 = {
+      hash: '0xdef456',
+      result: 'SUCCESS',
+    };
+    const contractResultWrongNonce = {
+      hash: '0xghi789',
+      result: 'WRONG_NONCE',
+    };
+    const callTracerResult1 = {
+      type: 'CREATE',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x1',
+      output: '0x2',
+    };
+    const callTracerResult2 = {
+      type: 'CALL',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x91b1c451777122afc9b83f9b96160d7e59847ad7',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x3',
+      output: '0x4',
+    };
+    const prestateTracerResult1 = {
+      '0xc37f417fa09933335240fca72dd257bfbde9c275': {
+        balance: '0x100000000',
+        nonce: 2,
+        code: '0x',
+        storage: {},
+      },
+    };
+    const prestateTracerResult2 = {
+      '0x91b1c451777122afc9b83f9b96160d7e59847ad7': {
+        balance: '0x200000000',
+        nonce: 1,
+        code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        storage: {
+          '0x0': '0x1',
+          '0x1': '0x2',
+        },
+      },
+    };
+
+    beforeEach(() => {
+      sinon.restore();
+      restMock.reset();
+      web3Mock.reset();
+      cacheService.clear(requestDetails);
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByNumber,
+          true,
+          debugService,
+          [blockNumber, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should throw RESOURCE_NOT_FOUND if block is not found', async function () {
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(null);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        try {
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+          expect.fail('Expected the traceBlockByNumber to throw an error but it did not');
+        } catch (error) {
+          expect(error.code).to.equal(predefined.RESOURCE_NOT_FOUND().code);
+          expect(error.message).to.include(`Block ${blockNumber} not found`);
+        }
+      });
+
+      it('should return empty array if no contract results are found for the block', async function () {
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array').that.is.empty;
+      });
+
+      it('should return cached result if available', async function () {
+        const cachedResult = [{ txHash: '0xabc123', result: callTracerResult1 }];
+
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        sinon.stub(cacheService, 'getAsync').resolves(cachedResult);
+
+        const result = await debugService.traceBlockByNumber(
+          blockNumber,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.deep.equal(cachedResult);
+      });
+
+      describe('with CallTracer', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+        });
+
+        it('should trace block with CallTracer and filter out WRONG_NONCE results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+        });
+
+        it('should use default CallTracer when no tracer is specified', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(debugService, 'callTracer').resolves(callTracerResult1);
+
+          // Pass undefined with type assertion for the second parameter
+          // In the implementation, undefined tracerObject triggers default behavior (using CallTracer)
+          // TypeScript requires type assertion since the parameter is normally required
+          const result = await debugService.traceBlockByNumber(blockNumber, undefined as any, requestDetails);
+
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+        });
+      });
+
+      describe('with PrestateTracer', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+        });
+
+        it('should trace block with PrestateTracer and filter out WRONG_NONCE results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
+
+          sinon
+            .stub(debugService, 'prestateTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult2);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: prestateTracerResult2 });
+        });
+      });
+
+      it('should handle error scenarios', async function () {
+        const jsonRpcError = predefined.INTERNAL_ERROR('Test error');
+
+        const getHistoricalBlockResponseStub = sinon.stub().throws(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        const genericErrorHandlerStub = sinon.stub().returns(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
+
+        await RelayAssertions.assertRejection(jsonRpcError, debugService.traceBlockByNumber, true, debugService, [
+          blockNumber,
+          { tracer: TracerType.CallTracer },
+          requestDetails,
+        ]);
+      });
+    });
+  });
+
+  describe('prestateTracer', async function () {
+    const mockTimestamp = '1696438011.462526383';
+    const contractId = '0.0.1033';
+    const accountId = '0.0.1016';
+    const contractEvmAddress = '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b';
+    const accountEvmAddress = '0xc37f417fa09933335240fca72dd257bfbde9c275';
+    const contractAddress = '0x0000000000000000000000000000000000000409';
+    const accountAddress = '0x00000000000000000000000000000000000003f8';
+
+    const actionsResponseMock = [
+      {
+        call_depth: 0,
+        call_operation_type: 'CREATE',
+        call_type: 'CREATE',
+        caller: accountId,
+        caller_type: 'ACCOUNT',
+        from: accountAddress,
+        gas: 247000,
+        gas_used: 77324,
+        index: 0,
+        input: '0x',
+        recipient: contractId,
+        recipient_type: 'CONTRACT',
+        result_data: '0x',
+        result_data_type: 'OUTPUT',
+        timestamp: mockTimestamp,
+        to: contractAddress,
+        value: 0,
+      },
+      {
+        call_depth: 1,
+        call_operation_type: 'CREATE',
+        call_type: 'CREATE',
+        caller: contractId,
+        caller_type: 'CONTRACT',
+        from: contractAddress,
+        gas: 189733,
+        gas_used: 75,
+        index: 1,
+        input: '0x',
+        recipient: '0.0.1034',
+        recipient_type: 'CONTRACT',
+        result_data: '0x',
+        result_data_type: 'OUTPUT',
+        timestamp: mockTimestamp,
+        to: '0x000000000000000000000000000000000000040a',
+        value: 0,
+      },
+    ];
+
+    const contractEntityMock = {
+      type: constants.TYPE_CONTRACT,
+      entity: {
+        contract_id: contractId,
+        evm_address: contractEvmAddress,
+        runtime_bytecode: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        nonce: 1,
+      },
+    };
+
+    const accountEntityMock = {
+      type: constants.TYPE_ACCOUNT,
+      entity: {
+        evm_address: accountEvmAddress,
+        ethereum_nonce: 2,
+        balance: {
+          balance: '100000000',
+        },
+      },
+    };
+
+    const contractBalanceMock = {
+      balances: [
+        {
+          account: contractId,
+          balance: '200000000',
+        },
+      ],
+    };
+
+    const contractStateMock = [
+      {
+        address: contractAddress,
+        slot: '0x0',
+        value: '0x1',
+      },
+      {
+        address: contractAddress,
+        slot: '0x1',
+        value: '0x2',
+      },
+    ];
+
+    const expectedResult = {
+      [contractEvmAddress]: {
+        balance: '0x200000000',
+        nonce: 1,
+        code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        storage: {
+          '0x0': '0x1',
+          '0x1': '0x2',
+        },
+      },
+      [accountEvmAddress]: {
+        balance: '0x100000000',
+        nonce: 2,
+        code: '0x',
+        storage: {},
+      },
+    };
+
+    beforeEach(() => {
+      sinon.restore();
+      restMock.reset();
+      web3Mock.reset();
+      cacheService.clear(requestDetails);
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should fetch and format prestate data for a transaction', async function () {
+        // Set up stubs
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        expect(result).to.deep.equal(expectedResult);
+      });
+
+      it('should filter actions based on onlyTopCall=true parameter', async function () {
+        // Set up stubs
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        // With onlyTopCall=true, it should only include top-level actions (call_depth=0)
+        const result = await debugService.prestateTracer(transactionHash, true, requestDetails);
+
+        expect(Object.keys(result).length).to.be.at.least(1);
+        expect(result).to.have.property(accountEvmAddress);
+        expect(result[accountEvmAddress]).to.deep.equal({
+          balance: '0x100000000',
+          nonce: 2,
+          code: '0x',
+          storage: {},
+        });
+      });
+
+      it('should return cached results when available', async function () {
+        // Create stubs that return expected data AND track calls
+        const getContractsResultsActionsStub = sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        const resolveEntityTypeStub = sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        const getBalanceAtTimestampStub = sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        const getContractStateStub = sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractStateMock);
+
+        // First call should fetch from API
+        const firstResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        // Verify the first result is correct
+        expect(firstResult).to.deep.equal(expectedResult);
+
+        // Verify that the methods were called during the first request
+        expect(getContractsResultsActionsStub.called).to.be.true;
+        expect(resolveEntityTypeStub.called).to.be.true;
+
+        // Reset call counts for the stubs
+        getContractsResultsActionsStub.resetHistory();
+        resolveEntityTypeStub.resetHistory();
+        getBalanceAtTimestampStub.resetHistory();
+        getContractStateStub.resetHistory();
+
+        // Second call should use cache
+        const secondResult = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        // Results should be identical
+        expect(secondResult).to.deep.equal(firstResult);
+
+        // Verify that the methods were NOT called during the second request
+        expect(getContractsResultsActionsStub.called).to.be.false;
+        expect(resolveEntityTypeStub.called).to.be.false;
+        expect(getBalanceAtTimestampStub.called).to.be.false;
+        expect(getContractStateStub.called).to.be.false;
+      });
+
+      it('should handle empty actions array', async function () {
+        // Set up empty actions response
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves([]);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        expect(result).to.deep.equal({});
+      });
+
+      it('should return empty array when the transaction hash is not found', async function () {
+        // Create a separate DebugImpl instance just for this test
+        const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+
+        // Mock the API call to throw the expected error
+        restMock.onGet(`contracts/results/${nonExistentTransactionHash}/actions`).reply(
+          404,
+          JSON.stringify({
+            _status: {
+              messages: [{ message: 'Not found' }],
+            },
+          }),
+        );
+
+        // Make sure no sinon stubs interfere
+        const getContractsResultsActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
+        getContractsResultsActionsStub.callThrough(); // Let it use the original method which will hit the mock
+
+        // The test should now properly throw the expected error
+        const result = await isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails);
+        expect(result).to.deep.equal({});
+      });
+
+      it('should handle entity resolution errors', async function () {
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            throw new Error('Failed to resolve contract');
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        expect(Object.keys(result)).to.have.lengthOf(1);
+        expect(result).to.have.property(accountEvmAddress);
+        expect(result).to.not.have.property(contractEvmAddress);
+
+        expect(result[accountEvmAddress]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
+      });
+
+      it('should handle entities without EVM address', async function () {
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return { ...contractEntityMock, entity: { ...contractEntityMock.entity, evm_address: null } };
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(sinon.match.any, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+        expect(Object.keys(result)).to.have.lengthOf(1);
+        expect(result).to.have.property(accountEvmAddress);
+
+        expect(result[accountEvmAddress]).to.deep.equal({
+          balance: '0x100000000',
+          nonce: 2,
+          code: '0x',
+          storage: {},
         });
       });
     });

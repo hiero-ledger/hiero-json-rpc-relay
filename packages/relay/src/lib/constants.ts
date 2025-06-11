@@ -24,10 +24,9 @@ enum CACHE_KEY {
   GET_BLOCK = 'getBlock',
   GET_CONTRACT = 'getContract',
   GET_CONTRACT_RESULT = 'getContractResult',
-  GET_TINYBAR_GAS_FEE = 'getTinyBarGasFee',
-  NETWORK_FEES = 'network_fees',
   RESOLVE_ENTITY_TYPE = 'resolveEntityType',
-  SYNTHETIC_LOG_TRANSACTION_HASH = 'syntheticLogTransactionHash',
+  DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber',
+  PRESTATE_TRACER = 'prestateTracer',
 }
 
 enum CACHE_TTL {
@@ -47,6 +46,7 @@ export enum TracerType {
   CallTracer = 'callTracer',
   // Opcode logger executes a transaction and emits the opcodes  and context at every step
   OpcodeLogger = 'opcodeLogger',
+  PrestateTracer = 'prestateTracer',
 }
 
 export enum CallType {
@@ -75,13 +75,10 @@ export default {
   CACHE_KEY,
   CACHE_TTL,
   DEFAULT_TINY_BAR_GAS: 72, // (853454 / 1000) * (1 / 12)
-  ETH_FUNCTIONALITY_CODE: 84,
-  EXCHANGE_RATE_FILE_ID: '0.0.112',
-  FEE_SCHEDULE_FILE_ID: '0.0.111',
 
-  TYPE_CONTRACT: 'contract',
-  TYPE_ACCOUNT: 'account',
-  TYPE_TOKEN: 'token',
+  TYPE_CONTRACT: 'CONTRACT',
+  TYPE_ACCOUNT: 'ACCOUNT',
+  TYPE_TOKEN: 'TOKEN',
 
   DEFAULT_FEE_HISTORY_MAX_RESULTS: 10,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE: 100,
@@ -116,7 +113,6 @@ export default {
   ETH_FEE_HISTORY_TTL: `${CACHE_TTL.HALF_HOUR}`,
   TRANSACTION_ID_REGEX: /\d{1}\.\d{1}\.\d{1,10}\@\d{1,10}\.\d{1,9}/,
 
-  LONG_ZERO_PREFIX: '0x000000000000',
   CHAIN_IDS: {
     mainnet: 0x127,
     testnet: 0x128,
@@ -182,6 +178,9 @@ export default {
 
   SUCCESS: 'SUCCESS',
 
+  // signature has been truncated
+  INVALID_TRANSACTION:
+    '0xf8748201280585800e8dfc0085800e8dfc00832dc6c094aca85ef7e1fce27079bbf99b60fcf6fd19b99b248502540be40080c001a0210446cfb671c3174392410d52fa3cd58723d8417e40cc67c6225b8f7e3ff693a02674b392846c59f783ea96655d39560956dd987051972064a5d853cea0b6f6d711',
   // @source: Related constants below can be found at https://github.com/Arachnid/deterministic-deployment-proxy?tab=readme-ov-file#latest-outputs
   DETERMINISTIC_DEPLOYER_TRANSACTION:
     '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
@@ -227,6 +226,7 @@ export default {
   EVENTS: {
     EXECUTE_TRANSACTION: 'execute_transaction',
     EXECUTE_QUERY: 'execute_query',
+    ETH_EXECUTION: 'eth_execution',
   },
 
   EXECUTION_MODE: {
@@ -236,4 +236,43 @@ export default {
   },
 
   MAX_TRANSACTION_FEE_THRESHOLD: ConfigService.get('MAX_TRANSACTION_FEE_THRESHOLD'),
+  SEND_RAW_TRANSACTION_SIZE_LIMIT: ConfigService.get('SEND_RAW_TRANSACTION_SIZE_LIMIT'),
+  CONTRACT_CODE_SIZE_LIMIT: ConfigService.get('CONTRACT_CODE_SIZE_LIMIT'),
+  CALL_DATA_SIZE_LIMIT: ConfigService.get('CALL_DATA_SIZE_LIMIT'),
+
+  INVALID_EVM_INSTRUCTION: '0xfe',
+  EMPTY_BLOOM: '0x' + '0'.repeat(512),
+  ZERO_HEX: '0x0',
+  ZERO_ADDRESS_HEX: '0x' + '0'.repeat(40),
+  EMPTY_ARRAY_HEX: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347',
+  ZERO_HEX_8_BYTE: '0x0000000000000000',
+  ZERO_HEX_32_BYTE: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  EMPTY_HEX: '0x',
+  ONE_HEX: '0x1',
+  TWO_HEX: '0x2',
+  ONE_TWO_THREE_FOUR_HEX: '0x1234',
+  HTS_ADDRESS: '0x0000000000000000000000000000000000000167',
+  DEFAULT_GAS_USED_RATIO: 0.5,
+
+  BLOCK_LATEST: 'latest',
+  BLOCK_EARLIEST: 'earliest',
+  BLOCK_PENDING: 'pending',
+  BLOCK_SAFE: 'safe',
+  BLOCK_FINALIZED: 'finalized',
+  BLOCK_HASH_LENGTH: 66,
+
+  ETH_FEE_HISTORY: 'eth_feeHistory',
+  ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',
+  ETH_GET_TRANSACTION_COUNT_BY_HASH: 'eth_getTransactionCountByHash',
+  ETH_GET_TRANSACTION_COUNT_BY_NUMBER: 'eth_getTransactionCountByNumber',
+  ETH_GAS_PRICE: 'eth_gasPrice',
+  ETH_ESTIMATE_GAS: 'eth_estimateGas',
+  ETH_CALL: 'eth_call',
+  ETH_GET_BALANCE: 'eth_getBalance',
+  ETH_GET_CODE: 'eth_getCode',
+  ETH_GET_TRANSACTION_COUNT: 'eth_getTransactionCount',
+  ETH_GET_TRANSACTION_RECEIPT: 'eth_GetTransactionReceipt',
+  ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
+
+  NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
 };

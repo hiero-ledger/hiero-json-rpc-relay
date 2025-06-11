@@ -13,7 +13,7 @@ import { JsonRpcError, predefined } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { Precheck } from '../../src/lib/precheck';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import {
   blobVersionedHash,
   contractAddress1,
@@ -57,7 +57,6 @@ describe('Precheck', async function () {
   const txWithZeroValue =
     '0xf86380843b9aca00825208940000000000000000000000000000000000000000808025a04e557f2008ff383df9a21919860939f60f4c27b9c845b89021ae2a79be4f6790a002f86d6dcefd2ffec72bf4d427091e7375acb6707e49d99893173cbc03515fd6';
   const parsedTxWithZeroValue = ethers.Transaction.from(txWithZeroValue);
-
   const defaultGasPrice = 720_000_000_000;
   const defaultGasLimit = 1_000_000;
   const defaultChainId = Number('0x12a');
@@ -91,7 +90,7 @@ describe('Precheck', async function () {
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger.child({ name: `cache` }), registry),
+      CacheService.getInstance(CACHE_LEVEL.L1, registry),
       instance,
     );
     precheck = new Precheck(mirrorNodeInstance, logger, '0x12a');
@@ -236,7 +235,6 @@ describe('Precheck', async function () {
             await precheck.gasLimit(parsedTx, requestDetails);
             expectedError();
           } catch (e: any) {
-            console.log(e);
             expect(e).to.exist;
             expect(e.code).to.eq(errorCode);
             expect(e.message).to.contain(message);
@@ -659,37 +657,199 @@ describe('Precheck', async function () {
     });
   });
 
-  describe('hexToBytes', async function () {
-    it('should convert a hex string to bytes', () => {
-      const hexString = 'aabbccddeeff';
-      const result = precheck.hexToBytes(hexString);
+  describe('transactionSize', async function () {
+    const defaultTx = {
+      value: ONE_TINYBAR_IN_WEI_HEX,
+      gasPrice: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      chainId: defaultChainId,
+      nonce: 5,
+      to: contractAddress1,
+    };
 
-      expect(Array.from(result)).to.deep.equal([170, 187, 204, 221, 238, 255]);
+    it('should accept transactions within size limit', async () => {
+      // undersizedTx = data is set to size limit - approx 1 KB for other fields => within size limit
+      const undersizedTx = {
+        ...defaultTx,
+        data: '0x' + '00'.repeat(constants.SEND_RAW_TRANSACTION_SIZE_LIMIT - 1024),
+      };
+      const signedTx = await signTransaction(undersizedTx);
+      const tx = ethers.Transaction.from(signedTx);
+      expect(() => precheck.transactionSize(tx)).not.to.throw();
     });
 
-    it('should fail if passed 0x', () => {
-      const hexString = '0x';
-      let error;
+    it('should reject transactions exceeding size limit', async () => {
+      // oversizedTx = data is set to size limit + bytes for other fields => exceeds size limit
+      const oversizedTx = {
+        ...defaultTx,
+        data: '0x' + '00'.repeat(constants.SEND_RAW_TRANSACTION_SIZE_LIMIT),
+      };
+
+      const signedTx = await signTransaction(oversizedTx);
+      const tx = ethers.Transaction.from(signedTx);
+
       try {
-        precheck.hexToBytes(hexString);
-      } catch (e) {
-        error = e;
+        precheck.transactionSize(tx);
+        expect('Transaction should have been rejected');
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.TRANSACTION_SIZE_LIMIT_EXCEEDED(
+          (tx.serialized.length - 2) / 2,
+          constants.SEND_RAW_TRANSACTION_SIZE_LIMIT,
+        );
+        expect(error).to.deep.equal(expectedError);
       }
-      expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal('Error invoking RPC: Hex cannot be 0x');
-      expect(error.code).to.equal(-32603);
+    });
+  });
+
+  describe('callDataSize', function () {
+    const defaultTx = {
+      value: ONE_TINYBAR_IN_WEI_HEX,
+      gasPrice: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      chainId: defaultChainId,
+      nonce: 5,
+      to: contractAddress1,
+    };
+
+    // Helper function to create a transaction with specified data
+    const createTransaction = async (data: string) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        ...defaultTx,
+        from: wallet.address,
+        data: data,
+      };
+
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    it('should accept transactions with call data size within limit', async () => {
+      // Create data that is within the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT - 1);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
     });
 
-    it('should fail if passed empty string', () => {
-      let error;
+    it('should accept transactions with call data size at the limit', async () => {
+      // Create data that is exactly at the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
+    });
+
+    it('should reject transactions with call data size exceeding limit', async () => {
+      // Create data that exceeds the limit
+      const data = '0x' + '00'.repeat(constants.CALL_DATA_SIZE_LIMIT + 1);
+
+      const tx = await createTransaction(data);
+
       try {
-        precheck.hexToBytes('');
-      } catch (e) {
-        error = e;
+        precheck.callDataSize(tx);
+        expect('Transaction should have been rejected').to.be.false;
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.CALL_DATA_SIZE_LIMIT_EXCEEDED(
+          (tx.data.length - 2) / 2,
+          constants.CALL_DATA_SIZE_LIMIT,
+        );
+        expect(error).to.deep.equal(expectedError);
       }
-      expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal('Error invoking RPC: Passed hex an empty string');
-      expect(error.code).to.equal(-32603);
+    });
+
+    it('should handle empty data', async () => {
+      const tx = await createTransaction('0x');
+
+      expect(() => precheck.callDataSize(tx)).not.to.throw();
+    });
+  });
+
+  describe('contractCodeSize', function () {
+    const defaultTx = {
+      value: ONE_TINYBAR_IN_WEI_HEX,
+      gasPrice: defaultGasPrice,
+      gasLimit: defaultGasLimit,
+      chainId: defaultChainId,
+      nonce: 5,
+    };
+
+    // Helper function to create a transaction with specified data and to address
+    const createTransaction = async (data: string, to?: string) => {
+      const wallet = ethers.Wallet.createRandom();
+      const txParams = {
+        ...defaultTx,
+        from: wallet.address,
+        data: data,
+      };
+
+      if (to) {
+        txParams['to'] = to;
+      }
+
+      const signed = await wallet.signTransaction(txParams);
+      return ethers.Transaction.from(signed);
+    };
+
+    it('should accept contract creation with code size within limit', async () => {
+      // Create data that is within the limit
+      const dataSize = constants.CONTRACT_CODE_SIZE_LIMIT - 1;
+      const data = '0x' + '00'.repeat(dataSize);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.contractCodeSize(tx)).not.to.throw();
+    });
+
+    it('should accept contract creation with code size at the limit', async () => {
+      // Create data that is exactly at the limit
+      const dataSize = constants.CONTRACT_CODE_SIZE_LIMIT;
+      const data = '0x' + '00'.repeat(dataSize);
+
+      const tx = await createTransaction(data);
+
+      expect(() => precheck.contractCodeSize(tx)).not.to.throw();
+    });
+
+    it('should reject contract creation with code size exceeding limit', async () => {
+      // Create data that exceeds the limit
+      const dataSize = constants.CONTRACT_CODE_SIZE_LIMIT + 1;
+      const data = '0x' + '00'.repeat(dataSize);
+
+      const tx = await createTransaction(data);
+
+      try {
+        precheck.contractCodeSize(tx);
+        expect('Transaction should have been rejected');
+      } catch (error) {
+        expect(error).to.be.an.instanceOf(JsonRpcError);
+        const expectedError = predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(
+          dataSize,
+          constants.CONTRACT_CODE_SIZE_LIMIT,
+        );
+        expect(error).to.deep.equal(expectedError);
+      }
+    });
+
+    it('should not check code size for regular transactions (with to address)', async () => {
+      // Create data that exceeds the limit but has a to address
+      const dataSize = constants.CONTRACT_CODE_SIZE_LIMIT + 1;
+      const data = '0x' + '00'.repeat(dataSize);
+
+      const tx = await createTransaction(data, contractAddress1);
+
+      // Should not throw even though data size exceeds limit
+      expect(() => precheck.contractCodeSize(tx)).not.to.throw();
+    });
+
+    it('should handle empty data for contract creation', async () => {
+      const tx = await createTransaction('0x');
+
+      expect(() => precheck.contractCodeSize(tx)).not.to.throw();
     });
   });
 
@@ -780,6 +940,20 @@ describe('Precheck', async function () {
       mock.onGet(`accounts/${parsedTx.to}${transactionsPostFix}`).reply(200, JSON.stringify(mirrorAccountTo));
 
       expect(async () => await precheck.receiverAccount(parsedTx, requestDetails)).not.to.throw;
+    });
+  });
+
+  describe('parseRawTransaction', async function () {
+    it('should successfully parse a valid transaction string', function () {
+      const parsedTx = Precheck.parseRawTransaction(parsedTxWithMatchingChainId);
+      expect(parsedTx).to.be.instanceOf(Transaction);
+      expect(parsedTx.chainId).to.equal(BigInt(298));
+    });
+
+    it('should throw INVALID_ARGUMENTS for invalid RLP', function () {
+      expect(() => Precheck.parseRawTransaction(constants.INVALID_TRANSACTION)).to.throw(
+        'Invalid arguments: unexpected junk after rlp payload',
+      );
     });
   });
 });

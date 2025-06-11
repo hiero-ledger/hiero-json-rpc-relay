@@ -4,7 +4,8 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import { EthImpl } from '@hashgraph/json-rpc-relay/dist/lib/eth';
+import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -71,7 +72,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   const FEE_SCHEDULE_FILE_CONTENT_UPDATED =
     '0a280a0a08541a061a0440a8953a0a0a08061a061a0440889d2d0a0a08071a061a0440b0b63c120208011200'; // Eth gas = 953000
 
-  let blockNumberAtStartOfTests = 0;
+  let blockNumAfterCreateChildTx = 0;
 
   const signSendAndConfirmTransaction = async (transaction, accounts, requestId) => {
     const signedTx = await accounts.wallet.signTransaction(transaction);
@@ -117,17 +118,28 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
     await relay.pollForValidTransactionReceipt(initialFundsTx.hash);
 
-    const [childTx, blockNumber, balance] = await Promise.all([
-      parentContract.createChild(1),
-      accounts[0].wallet.provider?.getBlockNumber(),
-      accounts[0].wallet.provider?.getBalance(accounts[0].address),
-    ]);
+    createChildTx = await parentContract.createChild(1);
+    const createChildTxReceipt = await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
-    createChildTx = childTx;
-    await relay.pollForValidTransactionReceipt(createChildTx.hash);
+    const blockNumBeforeCreateChildTx = parseInt(createChildTxReceipt.blockNumber, 16);
+    blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
 
-    blockNumberAtStartOfTests = blockNumber as number;
-    accounts0StartBalance = balance as bigint;
+    // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
+    // This loop is designed to poll for the latest block number until it is correctly updated.
+    for (let i = 0; i < 5; i++) {
+      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);    
+      if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
+        console.log("Block number updated succesfully")
+        break;
+      }
+      await Utils.wait(1500);
+    }
+
+    accounts0StartBalance = await relay.call(
+      RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+      [accounts[0].address, 'latest'],
+      requestId,
+    );
 
     htsAddress = Utils.idToEvmAddress(tokenId.toString());
     await Promise.all([
@@ -199,14 +211,17 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         ],
         requestId,
       );
-      const gasPriceDeviation = parseFloat((Number(EthImpl.gasTxBaseCost) * 0.2).toString());
+      const gasTxBaseCost = numberTo0x(Constants.TX_BASE_COST);
+      const gasPriceDeviation = parseFloat((Number(gasTxBaseCost) * 0.2).toString());
       expect(res).to.contain('0x');
-      expect(parseInt(res)).to.be.lessThan(Number(EthImpl.gasTxBaseCost) * (1 + gasPriceDeviation));
-      expect(parseInt(res)).to.be.greaterThan(Number(EthImpl.gasTxBaseCost) * (1 - gasPriceDeviation));
+      expect(parseInt(res)).to.be.lessThan(Number(gasTxBaseCost) * (1 + gasPriceDeviation));
+      expect(parseInt(res)).to.be.greaterThan(Number(gasTxBaseCost) * (1 - gasPriceDeviation));
     });
 
     it('@release should execute "eth_estimateGas" hollow account creation', async function () {
       const hollowAccount = ethers.Wallet.createRandom();
+      const minGasTxHollowAccountCreation = numberTo0x(Constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
+
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS,
         [
@@ -218,7 +233,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         requestId,
       );
       expect(res).to.contain('0x');
-      expect(Number(res)).to.be.greaterThanOrEqual(Number(EthImpl.minGasTxHollowAccountCreation));
+      expect(Number(res)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
     });
 
     it('should execute "eth_estimateGas" with to, from, value and gas filed', async function () {
@@ -540,11 +555,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('@release should execute "eth_getBalance" with block number in the last 15 minutes for account that has performed contract deploys/calls', async function () {
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
-        [accounts[0].address, numberTo0x(blockNumberAtStartOfTests)],
+        [accounts[0].address, blockNumAfterCreateChildTx],
         requestId,
       );
-      const balanceAtBlock = BigInt(accounts0StartBalance);
-      expect(res).to.eq(`0x${balanceAtBlock.toString(16)}`);
+      expect(res).to.eq(accounts0StartBalance);
     });
 
     it('@release should correctly execute "eth_getBalance" with block number in the last 15 minutes with several txs around that time', async function () {
@@ -703,6 +717,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_COINBASE, [], requestId);
     });
 
+    it('should not support "eth_blobBaseFee"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_BLOB_BASE_FEE, [], requestId);
+    });
+
     it('should not support "eth_sendTransaction"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_SEND_TRANSACTION, [], requestId);
     });
@@ -724,13 +742,16 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         await relay.callUnsupported(method, [], requestId);
       }
     });
+
+    it('should not support "eth_getProof"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF, [], requestId);
+    });
   });
 
   describe('eth_getCode', () => {
     let mainContract: ethers.Contract;
     let mainContractAddress: string;
     let NftHTSTokenContractAddress: string;
-    let redirectBytecode: string;
     let blockBeforeContractCreation: number;
     let basicContract: ethers.Contract;
     let basicContractAddress: string;
@@ -770,14 +791,12 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getCode" for hts token', async function () {
-      const tokenAddress = NftHTSTokenContractAddress.slice(2);
-      redirectBytecode = `6080604052348015600f57600080fd5b506000610167905077618dc65e${tokenAddress}600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033`;
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE,
         [NftHTSTokenContractAddress, 'latest'],
         requestId,
       );
-      expect(res).to.equal(redirectBytecode);
+      expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(NftHTSTokenContractAddress));
     });
 
     it('@release should return empty bytecode for HTS token when a block earlier than the token creation is passed', async function () {
@@ -787,7 +806,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [NftHTSTokenContractAddress, earlierBlock],
         requestId,
       );
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(constants.EMPTY_HEX);
     });
 
     it('@release should return empty bytecode for contract when a block earlier than the contract creation is passed', async function () {
@@ -797,7 +816,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [mainContractAddress, earlierBlock],
         requestId,
       );
-      expect(res).to.equal(EthImpl.emptyHex);
+      expect(res).to.equal(constants.EMPTY_HEX);
     });
 
     it('@release should execute "eth_getCode" for contract evm_address', async function () {
@@ -816,19 +835,19 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         [Address.NON_EXISTING_ADDRESS, 'latest'],
         requestId,
       );
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(constants.EMPTY_HEX);
     });
 
     it('should return 0x0 for account evm_address on eth_getCode', async function () {
       const evmAddress = Utils.idToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [evmAddress, 'latest'], requestId);
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(constants.EMPTY_HEX);
     });
 
     it('should return 0x0 for account alias on eth_getCode', async function () {
       const alias = Utils.idToEvmAddress(accounts[2].accountId.toString());
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [alias, 'latest'], requestId);
-      expect(res).to.eq(EthImpl.emptyHex);
+      expect(res).to.eq(constants.EMPTY_HEX);
     });
 
     // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619
@@ -1203,6 +1222,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       );
     });
   });
+
   describe('Formats of addresses in Transaction and Receipt results', () => {
     const getTxData = async (hash) => {
       const txByHash = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash], requestId);

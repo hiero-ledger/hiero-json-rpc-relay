@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import WebSocket from 'ws';
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { expect } from 'chai';
 import { WebSocketProvider } from 'ethers';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import WebSocket from 'ws';
+
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 
 export class WsTestHelper {
@@ -16,9 +17,9 @@ export class WsTestHelper {
       await wsProvider.send(methodName, params);
       expect(true).to.eq(false);
     } catch (error: any) {
-      if (error.info) error = error.info;
-      expect(error.error).to.exist;
-      expect(error.error.code).to.be.oneOf([-32602, -32603]);
+      const errorToCheck = error.info || error;
+      expect(errorToCheck.error).to.exist;
+      expect(errorToCheck.error.code).to.be.oneOf([-32000, -32602, -32603]);
     }
   }
 
@@ -54,7 +55,7 @@ export class WsTestHelper {
     const response = await WsTestHelper.sendRequestToStandardWebSocket(method, params);
     WsTestHelper.assertJsonRpcObject(response);
     expect(response.error).to.exist;
-    expect(response.error.code).to.be.oneOf([-32602, -32603]);
+    expect(response.error.code).to.be.oneOf([-32000, -32602, -32603]);
   }
 
   static assertJsonRpcObject(obj: any) {
@@ -91,7 +92,7 @@ export class WsTestHelper {
    * });
    */
   static overrideEnvsInMochaDescribe(envs: NodeJS.Dict<any>) {
-    let envsToReset: NodeJS.Dict<string> = {};
+    const envsToReset: NodeJS.Dict<string> = {};
 
     const overrideEnv = (key: string, value: any) => {
       if (value === undefined) {

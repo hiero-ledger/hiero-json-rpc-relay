@@ -5,7 +5,15 @@ import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
-import { IContractCallRequest, IGetLogsParams, INewFilterParams, ITracerConfig, RequestDetails } from './lib/types';
+import {
+  BlockTracerConfig,
+  IContractCallRequest,
+  IGetLogsParams,
+  INewFilterParams,
+  ITracerConfig,
+  ITransactionReceipt,
+  RequestDetails,
+} from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
 
@@ -18,6 +26,12 @@ export interface Debug {
     tracerConfig: ITracerConfig,
     requestDetails: RequestDetails,
   ) => Promise<any>;
+
+  traceBlockByNumber(
+    blockNumber: string,
+    tracerObject: BlockTracerConfig,
+    requestDetails: RequestDetails,
+  ): Promise<any>;
 }
 
 export interface Web3 {
@@ -45,6 +59,8 @@ export interface Eth {
 
   coinbase(requestDetails: RequestDetails): JsonRpcError;
 
+  blobBaseFee(requestDetails: RequestDetails): JsonRpcError;
+
   estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
@@ -55,7 +71,7 @@ export interface Eth {
 
   getBalance(account: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string>;
 
-  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<Receipt[]>;
+  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[]>;
 
   getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null>;
 
@@ -65,7 +81,7 @@ export interface Eth {
 
   getBlockTransactionCountByNumber(blockNum: string, requestDetails: RequestDetails): Promise<string | null>;
 
-  getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string>;
+  getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string | null>;
 
   chainId(requestDetails: RequestDetails): string;
 
@@ -152,4 +168,6 @@ export interface Eth {
   syncing(requestDetails: RequestDetails): Promise<boolean>;
 
   accounts(requestDetails: RequestDetails): Array<any>;
+
+  getProof(requestDetails: RequestDetails): JsonRpcError;
 }

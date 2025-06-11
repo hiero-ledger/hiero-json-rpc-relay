@@ -39,10 +39,8 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
   const requestId = 'sendRawTransactionTest_ws-server';
   const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
 
-  let tx: any,
-    sendHbarToProxyContractDeployerTx: any,
-    accounts: AliasAccount[] = [],
-    ethersWsProvider: WebSocketProvider;
+  let tx: any, sendHbarToProxyContractDeployerTx: any, ethersWsProvider: WebSocketProvider;
+  const accounts: AliasAccount[] = [];
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -112,6 +110,17 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       expect(fromAccountInfo.evm_address).to.eq(accounts[0].address.toLowerCase());
     });
 
+    it(`Should fail eth_sendRawTransaction on Standard Web Socket when transaction has invalid format`, async () => {
+      const response = await WsTestHelper.sendRequestToStandardWebSocket(
+        METHOD_NAME,
+        [constants.INVALID_TRANSACTION],
+        1000,
+      );
+
+      expect(response.error.code).to.eq(-32000);
+      expect(response.error.message).to.contain('unexpected junk after rlp payload');
+    });
+
     it(`Should execute eth_sendRawTransaction on Standard Web Socket for the deterministic deployment transaction`, async () => {
       // send gas money to the proxy deployer
       sendHbarToProxyContractDeployerTx.nonce = await global.relay.getAccountNonce(accounts[0].address);
@@ -176,6 +185,16 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
 
       expect(txReceipt.to).to.eq(accounts[2].address.toLowerCase());
       expect(fromAccountInfo.evm_address).to.eq(accounts[1].address.toLowerCase());
+    });
+
+    it(`Should fail eth_sendRawTransaction on Ethers Web Socket Provider when transaction has invalid format`, async () => {
+      try {
+        await ethersWsProvider.send(METHOD_NAME, [constants.INVALID_TRANSACTION]);
+        expect.fail('Should have thrown an error');
+      } catch ({ error }) {
+        expect(error.code).to.eq(-32000);
+        expect(error.message).to.contain('unexpected junk after rlp payload');
+      }
     });
 
     it(`Should execute eth_sendRawTransaction on Ethers Web Socket Provider for the deterministic deployment transaction`, async () => {

@@ -18,7 +18,7 @@ This is a standard JSON-RPC 2.0 feature. For more information, see the [JSON-RPC
 2. **BATCH_REQUESTS_MAX_SIZE:** If the batch request is enabled, this is the maximum number of requests allowed in a batch request, default value is `100`.
 3. **WS_BATCH_REQUESTS_ENABLED:** Flag to enable `batch requests` on the websocket, it can be `true` or `false`, default value is `false`
 4. **WS_BATCH_REQUESTS_MAX_SIZE:** If the batch request is enabled, this is the maximum number of requests allowed in a batch request, default value is `20`.
-5. **BATCH_REQUESTS_DISALLOWED_METHODS:** A list of methods that are not allowed to be part of a batch request. default: (debug_traceTransaction,eth_getFilterLogs,eth_uninstallFilter,eth_newFilter,eth_newPendingTransactionFilter,eth_newBlockFilter)
+5. **BATCH_REQUESTS_DISALLOWED_METHODS:** A list of methods that are not allowed to be part of a batch request. default: (debug_traceTransaction,debug_traceBlockByNumber,eth_getFilterLogs,eth_uninstallFilter,eth_newFilter,eth_newPendingTransactionFilter,eth_newBlockFilter)
 
 ## Implementation
 

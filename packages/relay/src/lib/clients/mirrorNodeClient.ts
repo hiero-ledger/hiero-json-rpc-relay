@@ -15,7 +15,6 @@ import { formatRequestIdMessage, formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { EthImpl } from '../eth';
 import { CacheService } from '../services/cacheService/cacheService';
 import {
   IContractCallRequest,
@@ -28,6 +27,7 @@ import {
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
+import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
 
@@ -505,9 +505,18 @@ export class MirrorNodeClient {
     }
   }
 
-  public async getAccount(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async getAccount(
+    idOrAliasOrEvmAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+    timestamp?: string,
+  ) {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    this.setQueryParam(queryParamObject, 'transactions', 'false');
+    const queryParams = this.getQueryParams(queryParamObject);
     return this.get(
-      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}?transactions=false`,
+      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}${queryParams}`,
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
       requestDetails,
       retries,
@@ -622,7 +631,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails) {
+  public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
     const cachedResponse: any = await this.cacheService.getAsync(
       cachedLabel,
@@ -664,9 +673,18 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
+  public async getContract(
+    contractIdOrAddress: string,
+    requestDetails: RequestDetails,
+    retries?: number,
+    timestamp?: string,
+  ) {
+    const queryParamObject = {};
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    const queryParams = this.getQueryParams(queryParamObject);
+
     return this.get(
-      `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}`,
+      `${MirrorNodeClient.GET_CONTRACT_ENDPOINT}${contractIdOrAddress}${queryParams}`,
       MirrorNodeClient.GET_CONTRACT_ENDPOINT,
       requestDetails,
       retries,
@@ -757,7 +775,7 @@ export class MirrorNodeClient {
       response != undefined &&
       response.transaction_index != undefined &&
       response.block_number != undefined &&
-      response.block_hash != EthImpl.emptyHex &&
+      response.block_hash != constants.EMPTY_HEX &&
       response.result === 'SUCCESS'
     ) {
       await this.cacheService.set(
@@ -814,7 +832,7 @@ export class MirrorNodeClient {
             contractObject &&
             (contractObject.transaction_index == null ||
               contractObject.block_number == null ||
-              contractObject.block_hash == EthImpl.emptyHex)
+              contractObject.block_hash == constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {
@@ -880,10 +898,14 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getContractsResultsActions(transactionIdOrHash: string, requestDetails: RequestDetails): Promise<any> {
-    return this.get(
+  public async getContractsResultsActions(
+    transactionIdOrHash: string,
+    requestDetails: RequestDetails,
+  ): Promise<ContractAction[]> {
+    return this.getPaginatedResults(
       `${this.getContractResultsActionsByTransactionIdPath(transactionIdOrHash)}`,
       MirrorNodeClient.GET_CONTRACTS_RESULTS_ACTIONS,
+      'actions',
       requestDetails,
     );
   }
@@ -1001,7 +1023,7 @@ export class MirrorNodeClient {
             (log.transaction_index == null ||
               log.block_number == null ||
               log.index == null ||
-              log.block_hash === EthImpl.emptyHex)
+              log.block_hash === constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {
@@ -1198,6 +1220,29 @@ export class MirrorNodeClient {
     return this.getContractResultsByAddress(address, requestDetails, contractResultsParams, limitOrderParams);
   }
 
+  public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string) {
+    const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
+      constants.MIRROR_NODE_QUERY_LIMIT,
+      constants.ORDER.DESC,
+    );
+    const queryParamObject = {};
+
+    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
+    this.setLimitOrderParams(queryParamObject, limitOrderParams);
+    const queryParams = this.getQueryParams(queryParamObject);
+    const apiEndpoint = MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT.replace(
+      MirrorNodeClient.ADDRESS_PLACEHOLDER,
+      address,
+    );
+
+    return this.getPaginatedResults(
+      `${apiEndpoint}${queryParams}`,
+      MirrorNodeClient.CONTRACT_ADDRESS_STATE_ENDPOINT,
+      'state',
+      requestDetails,
+    );
+  }
+
   public async getContractStateByAddressAndSlot(
     address: string,
     slot: string,
@@ -1326,7 +1371,7 @@ export class MirrorNodeClient {
   }
 
   setQueryParam(queryParamObject, key, value) {
-    if (key && value !== undefined) {
+    if (key && value != undefined && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
       }
@@ -1353,8 +1398,11 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     searchableTypes: any[] = [constants.TYPE_CONTRACT, constants.TYPE_ACCOUNT, constants.TYPE_TOKEN],
     retries?: number,
+    timestamp?: string,
   ) {
-    const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}`;
+    const cachedLabel = `${constants.CACHE_KEY.RESOLVE_ENTITY_TYPE}_${entityIdentifier}${
+      timestamp ? `_${timestamp}` : ''
+    }`;
     const cachedResponse: { type: string; entity: any } | undefined = await this.cacheService.getAsync(
       cachedLabel,
       callerName,
@@ -1372,10 +1420,11 @@ export class MirrorNodeClient {
         }),
       );
 
-    if (searchableTypes.find((t) => t === constants.TYPE_CONTRACT)) {
-      const contract = await this.getContract(entityIdentifier, requestDetails, retries).catch(() => {
+    if (searchableTypes.includes(constants.TYPE_CONTRACT)) {
+      const contract = await this.getContract(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
         return null;
       });
+
       if (contract) {
         const response = {
           type: constants.TYPE_CONTRACT,
@@ -1389,27 +1438,32 @@ export class MirrorNodeClient {
     let data;
     try {
       const promises = [
-        searchableTypes.find((t) => t === constants.TYPE_ACCOUNT)
+        searchableTypes.includes(constants.TYPE_ACCOUNT)
           ? buildPromise(
-              this.getAccount(entityIdentifier, requestDetails, retries).catch(() => {
+              this.getAccount(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
                 return null;
               }),
             )
           : Promise.reject(),
       ];
 
-      // only add long zero evm addresses for tokens as they do not refer to actual contract addresses but rather encoded entity nums
-      if (entityIdentifier.startsWith(constants.LONG_ZERO_PREFIX)) {
-        promises.push(
-          searchableTypes.find((t) => t === constants.TYPE_TOKEN)
-            ? buildPromise(
-                this.getTokenById(`0.0.${parseInt(entityIdentifier, 16)}`, requestDetails, retries).catch(() => {
-                  return null;
-                }),
-              )
-            : Promise.reject(),
-        );
-      }
+      const toEntityId = (address: string) => {
+        address = address.slice(2);
+        const shardNum = address.slice(0, 8);
+        const realmNum = address.slice(8, 24);
+        const accountNum = address.slice(24);
+        return `${parseInt(shardNum, 16)}.${parseInt(realmNum, 16)}.${parseInt(accountNum, 16)}`;
+      };
+
+      promises.push(
+        searchableTypes.includes(constants.TYPE_TOKEN)
+          ? buildPromise(
+              this.getTokenById(toEntityId(entityIdentifier), requestDetails, retries).catch(() => {
+                return null;
+              }),
+            )
+          : Promise.reject(),
+      );
 
       // maps the promises with indices of the promises array
       // because there is no such method as Promise.anyWithIndex in js

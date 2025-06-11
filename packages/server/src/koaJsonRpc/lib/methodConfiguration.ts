@@ -43,6 +43,9 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   eth_coinbase: {
     total: tier2rateLimit,
   },
+  eth_blobBaseFee: {
+    total: tier2rateLimit,
+  },
   eth_estimateGas: {
     total: tier2rateLimit,
   },
@@ -169,7 +172,13 @@ export const methodConfiguration: IMethodRateLimitConfiguration = {
   debug_traceTransaction: {
     total: tier1rateLimit,
   },
+  debug_traceBlockByNumber: {
+    total: tier1rateLimit,
+  },
   batch_request: {
     total: tier1rateLimit,
+  },
+  eth_getProof: {
+    total: tier2rateLimit,
   },
 };
