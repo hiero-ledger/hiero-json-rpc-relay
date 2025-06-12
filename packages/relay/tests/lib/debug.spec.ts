@@ -19,12 +19,12 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
 import { CommonService } from '../../src/lib/services';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
+import { generateEthTestEnv } from './eth/eth-helpers';
 chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
@@ -34,11 +34,11 @@ let restMock: MockAdapter;
 let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
-let cacheService: CacheService;
 let hapiServiceInstance: HAPIService;
+
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
-
+  const { cacheService } = generateEthTestEnv(true);
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
   const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
   const nonExistentTransactionHash = '0xb8a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
@@ -253,7 +253,6 @@ describe('Debug API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
@@ -283,6 +282,10 @@ describe('Debug API Test Suite', async function () {
 
     // Create the debug service
     debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+  });
+
+  this.beforeEach(() => {
+    cacheService.clear(requestDetails);
   });
 
   describe('debug_traceTransaction', async function () {
