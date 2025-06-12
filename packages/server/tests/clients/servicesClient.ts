@@ -497,6 +497,11 @@ export default class ServicesClient {
       .setTokenName(args.tokenName)
       .setTokenSymbol(args.symbol)
       .setExpirationTime(expiration)
+      // @modularized-service: The following line `.setAutoRenewPeriod(2592000)` is added as a temporary workaround for a known issue
+      // affecting sdk-js and Consensus Node versions >= 0.62.0.
+      // The issue is tracked at: https://github.com/hiero-ledger/hiero-sdk-js/issues/3159
+      // A follow-up PR will remove this workaround once the underlying issue is resolved.
+      .setAutoRenewPeriod(2592000) // 30 days
       .setDecimals(18)
       .setTreasuryAccountId(AccountId.fromString(args.treasuryAccountId))
       .setInitialSupply(args.initialSupply)
