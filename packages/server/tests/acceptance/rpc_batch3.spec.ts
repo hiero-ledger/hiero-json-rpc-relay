@@ -794,7 +794,18 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         );
       });
 
-      it('should NOT allow eth_call to process IHRC719.isAssociated() method', async () => {
+      // @modularized-service: This test is currently skipped due to behavior observed with
+      // local-node@2.37.1, where the Mirror Node is running modularized services and the `isAssociated()` method
+      // appears to be functioning correctly.
+      //
+      // The test now fails with the following error:
+      // AssertionError: expected promise to be rejected but it was fulfilled with false.
+      //
+      // We are skipping this test temporarily until it is confirmed whether the `isAssociated()` method is
+      // unsupported or its behavior has changed in the modularized Mirror Node.
+      //
+      // A follow-up PR will be created to investigate and either update the test accordingly or remove it if no longer valid.
+      it.skip('should NOT allow eth_call to process IHRC719.isAssociated() method', async () => {
         const selectorsList = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
         expect(selectorsList.length).to.eq(0);
 
