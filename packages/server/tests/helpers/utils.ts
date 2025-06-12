@@ -268,7 +268,14 @@ export class Utils {
     mirrorNode: MirrorClient,
     creator: AliasAccount,
     requestId: string,
-    balanceInTinyBar: string = '1000000000', //10 HBAR
+
+    // @modularized-service-issue: the balanceInTinyBar is raised to 15 HBAR instead of the original 10 HBAR,
+    // as a workaround for a known issue related to insufficient payer balance when using mirror-node@0.131.0
+    // in conjunction with local-node@2.37.1.
+    //
+    // A follow-up issue will be created to track the resolution of this problem, after which this change will be reverted
+    // to restore the use of `1000000000`, 10 HBAR.
+    balanceInTinyBar: string = '1500000000', //15 HBAR
   ): Promise<AliasAccount> => {
     const signer = creator.wallet;
     const accountBalance = Utils.tinyBarsToWeibars(balanceInTinyBar);
