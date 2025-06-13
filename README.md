@@ -270,7 +270,7 @@ Expected response:
 ```
 {
     "relay": {
-        "version": "0.67.0-SNAPSHOT",
+        "version": "0.70.0-SNAPSHOT",
         "config": {
             "CHAIN_ID": "0x128",
             "CLIENT_TRANSPORT_SECURITY": "false",
