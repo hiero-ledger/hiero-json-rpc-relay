@@ -1141,4 +1141,22 @@ export class EthImpl implements Eth {
     }
     return predefined.UNSUPPORTED_METHOD;
   }
+
+  /**
+   * Always returns UNSUPPORTED_METHOD error.
+   *
+   * @rpcMethod Exposed as eth_createAccessList RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
+   *
+   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
+   * @returns {JsonRpcError} An error indicating the method is not supported
+   */
+  @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  createAccessList(requestDetails: RequestDetails): JsonRpcError {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`${requestDetails.formattedRequestId} createAccessList()`);
+    }
+    return predefined.UNSUPPORTED_METHOD;
+  }
 }

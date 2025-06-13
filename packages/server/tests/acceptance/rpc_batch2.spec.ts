@@ -127,9 +127,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
     // This loop is designed to poll for the latest block number until it is correctly updated.
     for (let i = 0; i < 5; i++) {
-      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);    
+      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
       if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
-        console.log("Block number updated succesfully")
+        console.log('Block number updated succesfully');
         break;
       }
       await Utils.wait(1500);
@@ -745,6 +745,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should not support "eth_getProof"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF, [], requestId);
+    });
+
+    it('should not support "eth_createAccessList"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_CREATE_ACCESS_LIST, [], requestId);
     });
   });
 

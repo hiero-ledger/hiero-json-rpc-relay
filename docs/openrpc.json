@@ -1244,6 +1244,14 @@
       "result": {
         "$ref": "#/components/schemas/unsupportedError"
       }
+    },
+    {
+      "name": "eth_createAccessList",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "result": {
+        "$ref": "#/components/schemas/unsupportedError"
+      }
     }
   ],
   "components": {
