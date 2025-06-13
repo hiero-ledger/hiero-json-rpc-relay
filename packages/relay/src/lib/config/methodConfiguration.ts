@@ -175,4 +175,7 @@ export const methodConfiguration: MethodRateLimitConfiguration = {
   eth_getProof: {
     total: tier2rateLimit,
   },
+  eth_createAccessList: {
+    total: tier2rateLimit,
+  },
 };

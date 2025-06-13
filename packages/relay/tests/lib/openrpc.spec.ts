@@ -552,6 +552,12 @@ describe('Open RPC Specification', function () {
     validateResponseSchema(methodsResponseSchema.eth_getProof, response);
   });
 
+  it('should execute "eth_createAccessList"', async function () {
+    const response = ethImpl.createAccessList(requestDetails);
+
+    validateResponseSchema(methodsResponseSchema.eth_createAccessList, response);
+  });
+
   it('should execute "net_listening"', function () {
     const response = relay.net().listening();
 
