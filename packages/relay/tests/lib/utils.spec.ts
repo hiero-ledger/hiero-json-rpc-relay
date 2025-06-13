@@ -252,67 +252,34 @@ describe('Utils', () => {
 
       // Define test cases as [testName, params, expectedTracer, expectedConfig]
       const testCases = [
-        ['should handle traceTransaction with only transaction hash', [], TracerType.OpcodeLogger, {}],
-        [
-          'should handle traceTransaction with tracer type as second parameter',
-          [TracerType.CallTracer],
-          TracerType.CallTracer,
-          {},
-        ],
-        [
-          'should handle traceTransaction with tracer type and config',
-          [TracerType.CallTracer, tracerConfig],
-          TracerType.CallTracer,
-          tracerConfig,
-        ],
-        [
-          'should handle traceTransaction with tracerConfig as second parameter',
-          [tracerConfig],
-          TracerType.OpcodeLogger,
-          tracerConfig,
-        ],
-        [
-          'should handle traceTransaction with tracerConfigWrapper as second parameter',
-          [
-            {
-              tracer: TracerType.CallTracer,
-              tracerConfig: tracerConfig,
-            },
-          ],
-          TracerType.CallTracer,
-          tracerConfig,
-        ],
-        [
-          'should handle traceTransaction with partial tracerConfigWrapper (only tracer)',
-          [
-            {
-              tracer: TracerType.CallTracer,
-            },
-          ],
-          TracerType.CallTracer,
-          {},
-        ],
-        [
-          'should handle traceTransaction with partial tracerConfigWrapper (only tracerConfig)',
-          [
-            {
-              tracerConfig,
-            },
-          ],
-          TracerType.OpcodeLogger,
-          tracerConfig,
-        ],
+        {
+          name: 'should handle traceTransaction with only transaction hash',
+          params: [],
+          expected: [transactionHash, requestDetails],
+        },
+        {
+          name: 'should handle traceTransaction with tracerConfigWrapper as second parameter',
+          params: [{ tracer: TracerType.CallTracer, tracerConfig: tracerConfig }],
+          expected: [transactionHash, { tracer: TracerType.CallTracer, tracerConfig: tracerConfig }, requestDetails],
+        },
+        {
+          name: 'should handle traceTransaction with partial tracerConfigWrapper (only tracer)',
+          params: [{ tracer: TracerType.CallTracer }],
+          expected: [transactionHash, { tracer: TracerType.CallTracer }, requestDetails],
+        },
+        {
+          name: 'should handle traceTransaction with empty tracerConfig',
+          params: [{ tracer: TracerType.CallTracer, tracerConfig: {} }],
+          expected: [transactionHash, { tracer: TracerType.CallTracer, tracerConfig: {} }, requestDetails],
+        },
       ];
 
       // Loop through test cases and create tests
-      testCases.forEach(([testName, params, expectedTracer, expectedConfig]) => {
-        it(testName as string, () => {
-          const result = Utils.arrangeRpcParams(
-            traceTransactionMethod,
-            [transactionHash, ...(params as any[])],
-            requestDetails,
-          );
-          expect(result).to.deep.equal([transactionHash, expectedTracer, expectedConfig, requestDetails]);
+      testCases.forEach(({ name, params, expected }) => {
+        it(name, () => {
+          const result = Utils.arrangeRpcParams(traceTransactionMethod, [transactionHash, ...params], requestDetails);
+
+          expect(result).to.deep.equal(expected);
         });
       });
     });
