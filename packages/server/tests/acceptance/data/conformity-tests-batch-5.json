@@ -34,5 +34,9 @@
   "eth_mining": {
     "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_mining\",\"params\":[]}",
     "response": "{\"result\":false,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
+  },
+  "eth_getBlockReceipts": {
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockReceipts\",\"params\":[\"0x20718245\"]}",
+    "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   }
 }

@@ -821,6 +821,40 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           ['0x', requestIdPrefix],
         ]);
       });
+
+      it('should execute "eth_getBlockReceipts" with contract deployment transaction showing null to field', async function () {
+        const contractDeployment = await Utils.deployContract(
+          basicContract.abi,
+          basicContract.bytecode,
+          accounts[0].wallet,
+        );
+        const deploymentTransaction = contractDeployment.deploymentTransaction();
+        if (!deploymentTransaction) {
+          throw new Error('Deployment transaction is null');
+        }
+
+        const deploymentReceipt = await relay.pollForValidTransactionReceipt(deploymentTransaction.hash);
+
+        const deploymentBlock = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH,
+          [deploymentReceipt.blockHash, false],
+          requestIdPrefix,
+        );
+
+        const res = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          [deploymentBlock.hash],
+          requestIdPrefix,
+        );
+
+        const deploymentReceiptInBlock = res.find((receipt) => receipt.transactionHash === deploymentTransaction.hash);
+
+        expect(deploymentReceiptInBlock).to.exist;
+        expect(deploymentReceiptInBlock).to.have.property('to');
+        expect(deploymentReceiptInBlock.to).to.be.null;
+        expect(deploymentReceiptInBlock.contractAddress).to.not.be.null;
+        expect(deploymentReceiptInBlock.contractAddress).to.equal(contractDeployment.target);
+      });
     });
 
     describe('Transaction related RPC Calls', () => {
