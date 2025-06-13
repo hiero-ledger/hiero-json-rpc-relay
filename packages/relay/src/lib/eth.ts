@@ -1108,7 +1108,7 @@ export class EthImpl implements Eth {
    *
    * @param {string } blockHashOrBlockNumber The block hash, block number, or block tag
    * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
+   * @returns {Promise<ITransactionReceipt[] | null>} Array of transaction receipts for the block or null if block not found
    */
   @rpcMethod
   @rpcParamValidationRules({
@@ -1120,7 +1120,7 @@ export class EthImpl implements Eth {
   public async getBlockReceipts(
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt[]> {
+  ): Promise<ITransactionReceipt[] | null> {
     return await this.blockService.getBlockReceipts(blockHashOrBlockNumber, requestDetails);
   }
 

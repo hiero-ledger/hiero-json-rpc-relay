@@ -227,18 +227,14 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts.length).to.equal(0);
     });
 
-    it('should throw RESOURCE_NOT_FOUND error when block is null', async function () {
+    it('should return null when block is not found', async function () {
       const getHistoricalBlockResponseStub = sinon
         .stub(ethImpl['blockService']['common'], 'getHistoricalBlockResponse')
         .resolves(null);
 
-      await RelayAssertions.assertRejection(
-        predefined.RESOURCE_NOT_FOUND(`Block: 0x123456`),
-        ethImpl.getBlockReceipts,
-        true,
-        ethImpl,
-        ['0x123456', requestDetails],
-      );
+      const result = await ethImpl.getBlockReceipts('0x123456', requestDetails);
+
+      expect(result).to.be.null;
 
       getHistoricalBlockResponseStub.restore();
     });

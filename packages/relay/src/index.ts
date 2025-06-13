@@ -71,7 +71,7 @@ export interface Eth {
 
   getBalance(account: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string>;
 
-  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[]>;
+  getBlockReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<ITransactionReceipt[] | null>;
 
   getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null>;
 

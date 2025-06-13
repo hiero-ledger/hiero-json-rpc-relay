@@ -821,6 +821,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           ['0x', requestIdPrefix],
         ]);
       });
+
+      it('should return null for "eth_getBlockReceipts" when block is not found', async function () {
+        const res = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          [Address.NON_EXISTING_BLOCK_HASH],
+          requestIdPrefix,
+        );
+        expect(res).to.be.null;
+      });
     });
 
     describe('Transaction related RPC Calls', () => {
