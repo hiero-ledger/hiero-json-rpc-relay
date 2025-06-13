@@ -108,11 +108,8 @@ export class DebugImpl implements Debug {
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
     1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
-<<<<<<< HEAD
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
-=======
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
->>>>>>> e4ea585c (improves validation for debug traceTransaction)
   async traceTransaction(
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,

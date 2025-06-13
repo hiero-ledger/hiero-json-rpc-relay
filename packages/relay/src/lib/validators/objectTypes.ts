@@ -321,12 +321,13 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
       return valid;
     }
 
-    const keys = Object.keys(tracerConfig ?? {});
+    const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
+    const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
 
-    const callTracerKeys = ['onlyTopCall'];
-    const opcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage'];
+    const configKeys = Object.keys(tracerConfig);
+    const hasCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
+    const hasOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
 
-    const hasCallTracerKeys = keys.some((k) => callTracerKeys.includes(k));
     // we want to accept ICallTracerConfig only if the tracer is callTracer
     // this config is not valid for opcodeLogger and vice versa
     // accept only IOpcodeLoggerConfig with opcodeLogger tracer
@@ -337,7 +338,6 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
       );
     }
 
-    const hasOpcodeLoggerKeys = keys.some((k) => opcodeLoggerKeys.includes(k));
     if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
       throw predefined.INVALID_PARAMETER(
         1,
