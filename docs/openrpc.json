@@ -1065,28 +1065,10 @@
           "description": "The hash of the transaction to trace."
         },
         {
-          "name": "tracer",
-          "required": false,
-          "schema": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TracerType"
-              },
-              {
-                "$ref": "#/components/schemas/TracerConfig"
-              },
-              {
-                "$ref": "#/components/schemas/TracerConfigWrapper"
-              }
-            ]
-          },
-          "description": "Specifies the type of tracer or configuration object for the tracer."
-        },
-        {
           "name": "tracerConfig",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/TracerConfig"
+            "$ref": "#/components/schemas/TracerConfigWrapper"
           },
           "description": "Configuration object for the tracer."
         }
