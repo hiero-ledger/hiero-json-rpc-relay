@@ -326,7 +326,7 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
     // we want to accept ICallTracerConfig only if the tracer is callTracer
     // this config is not valid for opcodeLogger and vice versa
     // accept only IOpcodeLoggerConfig with opcodeLogger tracer
-    if (hasCallTracerKeys && tracer !== TracerType.CallTracer) {
+    if (hasCallTracerKeys && tracer === TracerType.OpcodeLogger) {
       throw predefined.INVALID_PARAMETER(
         1,
         `callTracer 'tracerConfig' for ${this.name()} is only valid when tracer=${TracerType.CallTracer}`,

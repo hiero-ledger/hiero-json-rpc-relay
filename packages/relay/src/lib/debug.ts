@@ -108,13 +108,17 @@ export class DebugImpl implements Debug {
     0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
     1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
   async traceTransaction(
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
+    if (tracerObject?.tracer === TracerType.PrestateTracer) {
+      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
+    }
+
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
@@ -165,6 +169,8 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
+    this.logger.info(`blockNumber: ${blockNumber}`);
+    this.logger.info(`tracerObject: ${JSON.stringify(tracerObject)}`);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
         `${

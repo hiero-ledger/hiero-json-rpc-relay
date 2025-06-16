@@ -2609,7 +2609,10 @@ describe('RPC Server', function () {
           await testClient.post('/', {
             jsonrpc: '2.0',
             method: 'debug_traceTransaction',
-            params: [contractHash1, { enableMemory: 'must be a boolean' }],
+            params: [
+              contractHash1,
+              { tracer: TracerType.OpcodeLogger, tracerConfig: { enableMemory: 'must be a boolean' } },
+            ],
             id: '2',
           });
 
@@ -2618,7 +2621,9 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             error.response,
             Validator.ERROR_CODE,
-            `Invalid parameter 'enableMemory' for OpcodeLoggerConfig: ${Validator.TYPES.boolean.error}, value: must be a boolean`,
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
+              enableMemory: 'must be a boolean',
+            })}`,
           );
         }
       });
@@ -2628,7 +2633,10 @@ describe('RPC Server', function () {
           await testClient.post('/', {
             jsonrpc: '2.0',
             method: 'debug_traceTransaction',
-            params: [contractHash1, { disableStack: 'must be a boolean' }],
+            params: [
+              contractHash1,
+              { tracer: TracerType.OpcodeLogger, tracerConfig: { disableStack: 'must be a boolean' } },
+            ],
             id: '2',
           });
 
@@ -2637,7 +2645,9 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             error.response,
             Validator.ERROR_CODE,
-            `Invalid parameter 'disableStack' for OpcodeLoggerConfig: ${Validator.TYPES.boolean.error}, value: must be a boolean`,
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
+              disableStack: 'must be a boolean',
+            })}`,
           );
         }
       });
@@ -2647,7 +2657,10 @@ describe('RPC Server', function () {
           await testClient.post('/', {
             jsonrpc: '2.0',
             method: 'debug_traceTransaction',
-            params: [contractHash1, { disableStorage: 'must be a boolean' }],
+            params: [
+              contractHash1,
+              { tracer: TracerType.OpcodeLogger, tracerConfig: { disableStorage: 'must be a boolean' } },
+            ],
             id: '2',
           });
 
@@ -2656,7 +2669,9 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             error.response,
             Validator.ERROR_CODE,
-            `Invalid parameter 'disableStorage' for OpcodeLoggerConfig: ${Validator.TYPES.boolean.error}, value: must be a boolean`,
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
+              disableStorage: 'must be a boolean',
+            })}`,
           );
         }
       });
@@ -2704,7 +2719,7 @@ describe('RPC Server', function () {
           await testClient.post('/', {
             jsonrpc: '2.0',
             method: 'debug_traceTransaction',
-            params: [contractHash1, TracerType.CallTracer, { invalidProperty: true }],
+            params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: { invalidProperty: true } }],
             id: '2',
           });
 
@@ -2713,7 +2728,9 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             error.response,
             Validator.ERROR_CODE,
-            `Invalid parameter 2: ${Validator.TYPES.tracerConfig.error}, value: ${JSON.stringify({
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${
+              Validator.TYPES.tracerConfig.error
+            }, value: ${JSON.stringify({
               invalidProperty: true,
             })}`,
           );
@@ -2962,17 +2979,12 @@ describe('RPC Server', function () {
       });
 
       it('should execute with valid block number and PrestateTracer', async () => {
-        let response;
-        try {
-          response = await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceBlockByNumber',
-            params: [blockNumberHex, { tracer: TracerType.PrestateTracer }],
-            id: '2',
-          });
-        } catch (error: any) {
-          console.log('Errrooor ----->', error.response.data);
-        }
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.PrestateTracer }],
+          id: '2',
+        });
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
