@@ -350,7 +350,7 @@ const initGenesisData = async function () {
     const options = { maxPriorityFeePerGas: gasPrice, maxFeePerGas: gasPrice, gasLimit: gasLimit };
     options['to'] = data.account ? data.account : null;
     if (data.balance) options['value'] = `0x${data.balance.toString(16)}`;
-    if (data.bytecode) options['data'] = data.bytecode;
+    if (data.data) options['data'] = data.data;
     await signAndSendRawTransaction({ chainId, from: sendAccountAddress, type: 2, ...options });
   }
 };
