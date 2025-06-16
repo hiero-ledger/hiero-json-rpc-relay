@@ -312,11 +312,6 @@ export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper>
 
     const { tracer, tracerConfig } = this.object;
 
-    // currently we don't support prestate tracer for traceTransaction
-    if (tracer === TracerType.PrestateTracer) {
-      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
-    }
-
     if (!tracerConfig) {
       return valid;
     }
