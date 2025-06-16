@@ -11,7 +11,6 @@ import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
-import { JsonRpcError } from '@hashgraph/json-rpc-relay/src';
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
