@@ -331,22 +331,11 @@ export class TransactionService implements ITransactionService {
 
   /**
    * Emits an Ethereum execution event with transaction details
-   * @param parsedTx The parsed transaction object
-   * @param originalCallerAddress The address of the original caller
-   * @param toAddress The destination address
    * @param requestDetails The request details for logging and tracking
    */
-  private emitEthExecutionEvent(
-    parsedTx: EthersTransaction,
-    originalCallerAddress: string,
-    toAddress: string,
-    requestDetails: RequestDetails,
-  ): void {
+  private emitEthExecutionEvent(requestDetails: RequestDetails): void {
     this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
       method: constants.ETH_SEND_RAW_TRANSACTION,
-      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-      from: originalCallerAddress,
-      to: toAddress,
       requestDetails: requestDetails,
     });
   }
@@ -560,9 +549,8 @@ export class TransactionService implements ITransactionService {
 
     const requestIdPrefix = requestDetails.formattedRequestId;
     const originalCallerAddress = parsedTx.from?.toString() || '';
-    const toAddress = parsedTx.to?.toString() || '';
 
-    this.emitEthExecutionEvent(parsedTx, originalCallerAddress, toAddress, requestDetails);
+    this.emitEthExecutionEvent(requestDetails);
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,

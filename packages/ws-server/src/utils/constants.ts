@@ -36,7 +36,6 @@ export const WS_CONSTANTS = {
   connectionDuration: {
     name: 'rpc_websocket_connection_duration_seconds',
     help: 'Histogram of WebSocket connection duration in seconds',
-    labelNames: ['connectionID'],
     buckets: [1, 5, 10, 30, 60, 300, 600, 1800, 3600, 7200, 18000, 43200, 86400], // s (seconds)
   },
   messageDuration: {
