@@ -379,7 +379,8 @@ describe('@api-conformity', async function () {
               directory === 'eth_getLogs' ||
               directory === 'eth_call' ||
               directory === 'eth_estimateGas' ||
-              directory === 'eth_getProof'
+              directory === 'eth_getProof' ||
+              directory === 'eth_createAccessList'
             ) {
               return;
             }

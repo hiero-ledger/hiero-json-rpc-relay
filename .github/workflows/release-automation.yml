@@ -62,6 +62,8 @@ jobs:
         uses: step-security/ghaction-import-gpg@a7c87df2279f2bf2e69ba8289dfbf35fe05a4e08 # v1.0.0
         with:
           git_commit_gpgsign: true
+          git_committer_email: ${{ vars.GIT_USER_EMAIL }}
+          git_committer_name: ${{ vars.GIT_USER_NAME }}
           git_tag_gpgsign: true
           git_user_signingkey: true
           gpg_private_key: ${{ secrets.GPG_KEY_CONTENTS }}
