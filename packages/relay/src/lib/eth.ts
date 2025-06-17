@@ -268,9 +268,6 @@ export class EthImpl implements Eth {
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
       this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
         method: constants.ETH_ESTIMATE_GAS,
-        functionSelector: callData!.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH),
-        from: transaction.from || '',
-        to: transaction.to || '',
         requestDetails: requestDetails,
       });
     }
@@ -986,9 +983,6 @@ export class EthImpl implements Eth {
 
     this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
       method: 'eth_call',
-      functionSelector: callData?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-      from: call.from || '',
-      to: call.to || '',
       requestDetails: requestDetails,
     });
 

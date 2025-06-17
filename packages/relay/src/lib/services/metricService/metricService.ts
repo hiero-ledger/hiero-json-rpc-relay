@@ -117,7 +117,7 @@ export default class MetricService {
     });
 
     this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
-      this.ethExecutionsCounter.labels(args.method, args.functionSelector, args.from, args.to).inc();
+      this.ethExecutionsCounter.labels(args.method).inc();
     });
   }
 
@@ -262,7 +262,7 @@ export default class MetricService {
     return new Counter({
       name: metricCounterName,
       help: `Relay ${metricCounterName} function`,
-      labelNames: ['method', 'function', 'from', 'to'],
+      labelNames: ['method'],
       registers: [register],
     });
   }

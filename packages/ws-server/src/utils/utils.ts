@@ -48,7 +48,7 @@ export const handleConnectionClose = async (
   const durationInSeconds = endTime[0] + endTime[1] / 1e9; // Convert duration to seconds
 
   // Update the connection duration histogram with the calculated duration
-  wsMetricRegistry.getHistogram('connectionDuration').labels(ctx.websocket.id).observe(durationInSeconds);
+  wsMetricRegistry.getHistogram('connectionDuration').observe(durationInSeconds);
 
   // terminate connection
   ctx.websocket.terminate();

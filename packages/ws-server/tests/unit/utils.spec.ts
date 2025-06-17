@@ -183,10 +183,7 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should update the connection duration histogram', async () => {
-      const labelsStub = wsMetricRegistryStub.getHistogram('connectionDuration').labels as sinon.SinonStub;
-      const observeSpy = labelsStub().observe as sinon.SinonSpy;
-
-      expect(labelsStub.calledWith(ctxStub.websocket.id)).to.be.true;
+      const observeSpy = wsMetricRegistryStub.getHistogram('connectionDuration').observe as sinon.SinonSpy;
       expect(observeSpy.calledOnce).to.be.true;
     });
 

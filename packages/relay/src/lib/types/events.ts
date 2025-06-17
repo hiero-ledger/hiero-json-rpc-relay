@@ -27,8 +27,5 @@ export interface IExecuteQueryEventPayload {
 
 export interface IEthExecutionEventPayload {
   method: string;
-  functionSelector: string;
-  from: string;
-  to: string;
   requestDetails: RequestDetails;
 }
