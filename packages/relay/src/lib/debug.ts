@@ -116,7 +116,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (tracerObject?.tracer === TracerType.PrestateTracer) {
-      throw predefined.INTERNAL_ERROR('Prestate tracer is not yet supported on debug_traceTransaction');
+      throw predefined.INVALID_PARAMETER(1, 'Prestate tracer is not yet supported on debug_traceTransaction');
     }
 
     if (this.logger.isLevelEnabled('trace')) {
@@ -169,8 +169,6 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
-    this.logger.info(`blockNumber: ${blockNumber}`);
-    this.logger.info(`tracerObject: ${JSON.stringify(tracerObject)}`);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
         `${
