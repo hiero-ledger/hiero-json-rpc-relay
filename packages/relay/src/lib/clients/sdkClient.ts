@@ -172,6 +172,8 @@ export class SDKClient {
       ),
     );
 
+    ethereumTransaction.setMaxGasAllowanceHbar(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'));
+
     return {
       fileId,
       txResponse: await this.executeTransaction(
