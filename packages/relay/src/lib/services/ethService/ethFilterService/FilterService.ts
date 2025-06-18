@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
-import { generateRandomHex } from '../../../../formatters';
+import { generateRandomHex, toHash32 } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -278,7 +278,7 @@ export class FilterService implements IFilterService {
         : await this.common.getLatestBlockNumber(requestDetails),
     );
 
-    const result = blockResponse?.blocks?.map((r) => r.hash) || [];
+    const result = blockResponse?.blocks?.map((r) => toHash32(r.hash)) || [];
 
     return { result, latestBlockNumber };
   }
