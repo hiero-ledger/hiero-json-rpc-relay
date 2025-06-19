@@ -46,6 +46,9 @@ const methodResponseHistogram = new Histogram({
   buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 30000, 40000, 50000, 60000], // ms (milliseconds)
 });
 
+// enable proxy support to trust proxy-added headers for client IP detection
+app.getKoaApp().proxy = true;
+
 // set cors
 app.getKoaApp().use(cors());
 
