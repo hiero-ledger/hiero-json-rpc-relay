@@ -40,8 +40,17 @@ describe('RPC Server', function () {
   let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
+  overrideEnvsInMochaDescribe({
+    RATE_LIMIT_DISABLED: true,
+  });
+
   before(function () {
+    // Set up spy BEFORE requiring the server module to catch the constructor call
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
+
+    // Clear the module cache to ensure a fresh server instance
+    delete require.cache[require.resolve('../../src/server')];
+
     app = require('../../src/server').default;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
@@ -53,6 +62,7 @@ describe('RPC Server', function () {
   });
 
   after(function () {
+    populatePreconfiguredSpendingPlansSpy.restore();
     testServer.close((err) => {
       if (err) {
         console.error(err);
