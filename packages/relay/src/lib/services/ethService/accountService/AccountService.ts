@@ -296,12 +296,12 @@ export class AccountService implements IAccountService {
    * Queries mirror node for best effort and falls back to consensus node for contracts until HIP 729 is implemented.
    *
    * @param {string} address The account address
-   * @param {string | null} blockNumOrTag Possible values are earliest/pending/latest or hex
+   * @param {string} blockNumOrTag Possible values are earliest/pending/latest or hex
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
   public async getTransactionCount(
     address: string,
-    blockNumOrTag: string | null,
+    blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
