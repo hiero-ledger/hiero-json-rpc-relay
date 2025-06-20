@@ -10,9 +10,5 @@ export interface IAccountService {
     requestDetails: RequestDetails,
   ) => Promise<string | JsonRpcError>;
 
-  getBalance: (
-    account: string,
-    blockNumberOrTagOrHash: string | null,
-    requestDetails: RequestDetails,
-  ) => Promise<string>;
+  getBalance: (account: string, blockNumberOrTagOrHash: string, requestDetails: RequestDetails) => Promise<string>;
 }
