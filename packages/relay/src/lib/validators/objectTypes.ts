@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Validator } from '.';
+import { TracerType } from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import {
   ICallTracerConfig,
@@ -9,6 +9,7 @@ import {
   IOpcodeLoggerConfig,
   ITracerConfigWrapper,
 } from '../types';
+import { Validator } from '.';
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   blockHashObject: {
@@ -304,5 +305,40 @@ export class OpcodeLoggerConfig extends DefaultValidation<IOpcodeLoggerConfig> {
 export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper> {
   constructor(config: any) {
     super(OBJECTS_VALIDATIONS.tracerConfigWrapper, config);
+  }
+
+  validate() {
+    const valid = super.validate();
+
+    const { tracer, tracerConfig } = this.object;
+
+    if (!tracerConfig) {
+      return valid;
+    }
+
+    const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
+    const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
+
+    const configKeys = Object.keys(tracerConfig);
+    const hasCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
+    const hasOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
+
+    // we want to accept ICallTracerConfig only if the tracer is callTracer
+    // this config is not valid for opcodeLogger and vice versa
+    // accept only IOpcodeLoggerConfig with opcodeLogger tracer
+    if (hasCallTracerKeys && tracer === TracerType.OpcodeLogger) {
+      throw predefined.INVALID_PARAMETER(
+        1,
+        `callTracer 'tracerConfig' for ${this.name()} is only valid when tracer=${TracerType.CallTracer}`,
+      );
+    }
+
+    if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+      throw predefined.INVALID_PARAMETER(
+        1,
+        `opcodeLogger 'tracerConfig' for ${this.name()} is only valid when tracer=${TracerType.OpcodeLogger}`,
+      );
+    }
+    return valid;
   }
 }

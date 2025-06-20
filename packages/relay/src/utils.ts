@@ -8,10 +8,9 @@ import createHash from 'keccak';
 import { Logger } from 'pino';
 
 import { hexToASCII, prepend0x, strip0x } from './formatters';
-import constants, { TracerType } from './lib/constants';
+import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { ITracerConfig, RequestDetails } from './lib/types';
-import { TYPES } from './lib/validators';
+import { RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
@@ -173,31 +172,6 @@ export class Utils {
    */
   public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
-
-    if (method.name === 'traceTransaction') {
-      const transactionIdOrHash = rpcParams[0];
-      let tracer: TracerType = TracerType.OpcodeLogger;
-      let tracerConfig: ITracerConfig = {};
-
-      // Second param can be either a TracerType string, or an object for TracerConfig or TracerConfigWrapper
-      if (TYPES.tracerType.test(rpcParams[1])) {
-        tracer = rpcParams[1];
-        if (TYPES.tracerConfig.test(rpcParams[2])) {
-          tracerConfig = rpcParams[2];
-        }
-      } else if (TYPES.tracerConfig.test(rpcParams[1])) {
-        tracerConfig = rpcParams[1];
-      } else if (TYPES.tracerConfigWrapper.test(rpcParams[1])) {
-        if (TYPES.tracerType.test(rpcParams[1].tracer)) {
-          tracer = rpcParams[1].tracer;
-        }
-        if (TYPES.tracerConfig.test(rpcParams[1].tracerConfig)) {
-          tracerConfig = rpcParams[1].tracerConfig;
-        }
-      }
-
-      return [transactionIdOrHash, tracer, tracerConfig, requestDetails];
-    }
 
     // Method only needs requestDetails
     if (layout === RPC_LAYOUT.REQUEST_DETAILS_ONLY) {

@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-
-import { TracerType } from './lib/constants';
 import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
@@ -10,9 +8,9 @@ import {
   IContractCallRequest,
   IGetLogsParams,
   INewFilterParams,
-  ITracerConfig,
   ITransactionReceipt,
   RequestDetails,
+  TransactionTracerConfig,
 } from './lib/types';
 
 export { JsonRpcError, predefined, MirrorNodeClientError, WebSocketError };
@@ -22,8 +20,7 @@ export { Relay } from './lib/relay';
 export interface Debug {
   traceTransaction: (
     transactionIdOrHash: string,
-    tracer: TracerType,
-    tracerConfig: ITracerConfig,
+    tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ) => Promise<any>;
 

@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { TracerType } from '../constants';
-import { ICallTracerConfig } from './ITracerConfig';
+import { ICallTracerConfig, ITracerConfig } from './ITracerConfig';
 
 /**
  * Configuration object for block tracing operations.
  */
-export interface BlockTracerConfig {
-  /** The type of tracer to use for block tracing. */
+interface TracerConfig<T extends ITracerConfig = ITracerConfig> {
+  /** The type of tracer to use for tracing. */
   tracer: TracerType;
-  /** Optional configuration for the call tracer. */
-  tracerConfig?: ICallTracerConfig;
+  /** Optional configuration for the tracer. */
+  tracerConfig?: T;
 }
+
+// Public exports
+export type BlockTracerConfig = TracerConfig<ICallTracerConfig>;
+export type TransactionTracerConfig = TracerConfig<ITracerConfig>;
 
 /**
  * Represents the state of an entity during a trace operation.
