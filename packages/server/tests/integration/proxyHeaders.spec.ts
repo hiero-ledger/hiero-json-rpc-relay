@@ -5,15 +5,21 @@ import Axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
 import Koa from 'koa';
+import { pino } from 'pino';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 
-import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
+import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../relay/tests/helpers';
 import RelayCalls from '../../tests/helpers/constants';
 
 describe('X-Forwarded-For Header Integration Tests', function () {
+  const logger = pino({ level: 'silent' });
+
+  // Use in-memory Redis server for CI compatibility
+  useInMemoryRedisServer(logger, 6380);
+
   // Test with rate limiting enabled and a low limit to make testing easier
   overrideEnvsInMochaDescribe({
     RATE_LIMIT_DISABLED: false,
