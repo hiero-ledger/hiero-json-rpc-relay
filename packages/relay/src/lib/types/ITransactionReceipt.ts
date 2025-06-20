@@ -14,7 +14,7 @@ export interface ITransactionReceipt {
   logsBloom: string;
   root: string;
   status: string;
-  to: string;
+  to: string | null;
   transactionHash: string;
   transactionIndex: string | null;
   type: string | null;
