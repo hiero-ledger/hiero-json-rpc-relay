@@ -49,6 +49,59 @@ const methodResponseHistogram = new Histogram({
 // enable proxy support to trust proxy-added headers for client IP detection
 app.getKoaApp().proxy = true;
 
+// Middleware to parse RFC 7239 Forwarded header and make it compatible with Koa's X-Forwarded-For parsing
+app.getKoaApp().use(async (ctx, next) => {
+  // Only process if X-Forwarded-For doesn't exist but Forwarded does
+  if (!ctx.request.headers['x-forwarded-for'] && ctx.request.headers['forwarded']) {
+    const forwardedHeader = ctx.request.headers['forwarded'] as string;
+
+    // Parse the Forwarded header to extract the client IP
+    // Format: Forwarded: for="192.168.1.1";by="10.0.0.1", for="203.0.113.1";by="10.0.0.2"
+    const clientIp = parseForwardedHeader(forwardedHeader);
+
+    if (clientIp) {
+      // Set X-Forwarded-For so Koa can parse it normally
+      ctx.request.headers['x-forwarded-for'] = clientIp;
+    }
+  }
+
+  await next();
+});
+
+/**
+ * Parse RFC 7239 Forwarded header to extract the original client IP
+ * @param forwardedHeader - The Forwarded header value
+ * @returns The client IP address or null if not found
+ */
+function parseForwardedHeader(forwardedHeader: string): string | null {
+  try {
+    // Split by comma to handle multiple forwarded entries
+    const entries = forwardedHeader.split(',');
+
+    // Take the first entry (original client)
+    const firstEntry = entries[0]?.trim();
+    if (!firstEntry) return null;
+
+    // Extract the 'for' parameter value
+    // Matches: for="192.168.1.1" or for=[2001:db8::1] or for=192.168.1.1
+    const forMatch = firstEntry.match(/for=(?:"([^"]+)"|(\[[^\]]+\])|([^;,\s]+))/i);
+    if (!forMatch) return null;
+
+    // Get the IP from whichever capture group matched
+    let ip = forMatch[1] || forMatch[2] || forMatch[3];
+
+    // Remove brackets from IPv6 addresses for X-Forwarded-For compatibility
+    if (ip?.startsWith('[') && ip.endsWith(']')) {
+      ip = ip.slice(1, -1);
+    }
+
+    return ip || null;
+  } catch (error) {
+    // If parsing fails, return null to avoid breaking the request
+    return null;
+  }
+}
+
 // set cors
 app.getKoaApp().use(cors());
 
