@@ -123,7 +123,9 @@ const generateCacheKey = (methodName: string, args: IArgument[]) => {
     if (value?.constructor?.name != 'RequestDetails') {
       if (value && typeof value === 'object') {
         for (const [key, innerValue] of Object.entries(value)) {
-          cacheKey += `_${key}_${innerValue}`;
+          const serializedValue =
+            typeof innerValue === 'object' && innerValue !== null ? JSON.stringify(innerValue) : innerValue;
+          cacheKey += `_${key}_${serializedValue}`;
         }
         continue;
       }
