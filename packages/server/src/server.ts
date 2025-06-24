@@ -105,10 +105,15 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
     const char = firstEntry[valueStart];
 
     if (char === '"') {
-      // Quoted value: for="192.168.1.1"
+      // Quoted value: for="192.168.1.1" or for="[2001:db8::1]"
       const closeQuoteIndex = firstEntry.indexOf('"', valueStart + 1);
       if (closeQuoteIndex === -1) return null;
       ip = firstEntry.substring(valueStart + 1, closeQuoteIndex);
+
+      // Handle IPv6 in brackets within quotes: for="[2001:db8::1]"
+      if (ip.startsWith('[') && ip.endsWith(']')) {
+        ip = ip.substring(1, ip.length - 1);
+      }
     } else if (char === '[') {
       // IPv6 in brackets: for=[2001:db8::1]
       const closeBracketIndex = firstEntry.indexOf(']', valueStart + 1);
