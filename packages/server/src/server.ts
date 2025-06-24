@@ -70,11 +70,22 @@ app.getKoaApp().use(async (ctx, next) => {
 
 /**
  * Parse RFC 7239 Forwarded header to extract the original client IP
+ *
+ * This function safely parses the Forwarded header without using regex to avoid
+ * ReDoS (Regular Expression Denial of Service) vulnerabilities. It includes
+ * input length limits and basic validation to prevent malicious input from
+ * causing performance issues.
+ *
  * @param forwardedHeader - The Forwarded header value
  * @returns The client IP address or null if not found
  */
 function parseForwardedHeader(forwardedHeader: string): string | null {
   try {
+    // Limit input length to prevent DoS attacks
+    if (forwardedHeader.length > 1000) {
+      return null;
+    }
+
     // Split by comma to handle multiple forwarded entries
     const entries = forwardedHeader.split(',');
 
@@ -82,20 +93,52 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
     const firstEntry = entries[0]?.trim();
     if (!firstEntry) return null;
 
-    // Extract the 'for' parameter value
-    // Matches: for="192.168.1.1" or for=[2001:db8::1] or for=192.168.1.1
-    const forMatch = firstEntry.match(/for=(?:"([^"]+)"|(\[[^\]]+\])|([^;,\s]+))/i);
-    if (!forMatch) return null;
+    // Find the 'for=' parameter using safe string parsing
+    const forIndex = firstEntry.toLowerCase().indexOf('for=');
+    if (forIndex === -1) return null;
 
-    // Get the IP from whichever capture group matched
-    let ip = forMatch[1] || forMatch[2] || forMatch[3];
+    // Extract the value after 'for='
+    const valueStart = forIndex + 4; // Length of 'for='
+    if (valueStart >= firstEntry.length) return null;
 
-    // Remove brackets from IPv6 addresses for X-Forwarded-For compatibility
-    if (ip?.startsWith('[') && ip.endsWith(']')) {
-      ip = ip.slice(1, -1);
+    let ip: string;
+    const char = firstEntry[valueStart];
+
+    if (char === '"') {
+      // Quoted value: for="192.168.1.1"
+      const closeQuoteIndex = firstEntry.indexOf('"', valueStart + 1);
+      if (closeQuoteIndex === -1) return null;
+      ip = firstEntry.substring(valueStart + 1, closeQuoteIndex);
+    } else if (char === '[') {
+      // IPv6 in brackets: for=[2001:db8::1]
+      const closeBracketIndex = firstEntry.indexOf(']', valueStart + 1);
+      if (closeBracketIndex === -1) return null;
+      ip = firstEntry.substring(valueStart + 1, closeBracketIndex);
+    } else {
+      // Unquoted value: for=192.168.1.1
+      let endIndex = valueStart;
+      while (endIndex < firstEntry.length) {
+        const c = firstEntry[endIndex];
+        if (c === ';' || c === ',' || c === ' ' || c === '\t') {
+          break;
+        }
+        endIndex++;
+      }
+      ip = firstEntry.substring(valueStart, endIndex);
     }
 
-    return ip || null;
+    // Basic validation: ensure we have a non-empty result
+    if (!ip || ip.length === 0 || ip.length > 45) {
+      // Max IPv6 length is 45 chars
+      return null;
+    }
+
+    // Basic IP format validation (very permissive)
+    if (!/^[a-fA-F0-9:.]+$/.test(ip)) {
+      return null;
+    }
+
+    return ip;
   } catch (error) {
     // If parsing fails, return null to avoid breaking the request
     return null;
