@@ -437,19 +437,7 @@ describe('Debug API Test Suite', async function () {
       });
 
       describe('opcodeLogger', async function () {
-        withOverriddenEnvsInMochaTest({ OPCODE_LOGGER_ENABLED: undefined }, () => {
-          it('should throw UNSUPPORTED_METHOD', async function () {
-            await RelayAssertions.assertRejection(
-              predefined.UNSUPPORTED_METHOD,
-              debugService.traceTransaction,
-              true,
-              debugService,
-              [transactionHash, callTracer, tracerConfigFalse, requestDetails],
-            );
-          });
-        });
-
-        withOverriddenEnvsInMochaTest({ OPCODE_LOGGER_ENABLED: false }, () => {
+        withOverriddenEnvsInMochaTest({ OPCODELOGGER_ENABLED: false }, () => {
           it('should throw UNSUPPORTED_METHOD', async function () {
             await RelayAssertions.assertRejection(
               predefined.UNSUPPORTED_METHOD,
