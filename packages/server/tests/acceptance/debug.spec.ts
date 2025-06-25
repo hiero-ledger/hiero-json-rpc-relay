@@ -53,17 +53,23 @@ describe('@debug API Acceptance Tests', function () {
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
 
   const TRACER_CONFIGS = {
-    CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, onlyTopCall: false },
-    CALL_TRACER_TOP_ONLY: { tracer: TracerType.CallTracer, onlyTopCall: true },
+    CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+    CALL_TRACER_TOP_ONLY: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } },
     PRESTATE_TRACER: { tracer: TracerType.PrestateTracer },
-    PRESTATE_TRACER_TOP_ONLY: { tracer: TracerType.PrestateTracer, onlyTopCall: true },
+    PRESTATE_TRACER_TOP_ONLY: { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
     PRESTATE_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.PrestateTracer, onlyTopCall: false },
     OPCODE_LOGGER: { tracer: TracerType.OpcodeLogger },
-    OPCODE_WITH_MEMORY: { tracer: TracerType.OpcodeLogger, enableMemory: true },
-    OPCODE_WITH_MEMORY_AND_STACK: { tracer: TracerType.OpcodeLogger, enableMemory: true, enableStack: true },
-    OPCODE_WITH_STACK: { tracer: TracerType.OpcodeLogger, disableStack: true },
-    OPCODE_WITH_STORAGE: { tracer: TracerType.OpcodeLogger, disableStorage: true },
-    OPCODE_WITH_MEMORY_AND_STORAGE: { tracer: TracerType.OpcodeLogger, enableMemory: true, disableStorage: true },
+    OPCODE_WITH_MEMORY: { tracer: TracerType.OpcodeLogger, tracerConfig: { enableMemory: true } },
+    OPCODE_WITH_MEMORY_AND_STACK: {
+      tracer: TracerType.OpcodeLogger,
+      tracerConfig: { enableMemory: true, enableStack: true },
+    },
+    OPCODE_WITH_STACK: { tracer: TracerType.OpcodeLogger, tracerConfig: { disableStack: true } },
+    OPCODE_WITH_STORAGE: { tracer: TracerType.OpcodeLogger, tracerConfig: { disableStorage: true } },
+    OPCODE_WITH_MEMORY_AND_STORAGE: {
+      tracer: TracerType.OpcodeLogger,
+      tracerConfig: { enableMemory: true, disableStorage: true },
+    },
   };
 
   before(async () => {
