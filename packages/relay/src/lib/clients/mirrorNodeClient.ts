@@ -323,6 +323,20 @@ export class MirrorNodeClient {
     return `${baseUrl}${MirrorNodeClient.API_V1_POST_FIX}`;
   }
 
+  /**
+   * Formats an IP address for RFC 7239 Forwarded header compliance.
+   * IPv6 addresses are wrapped in brackets as required by the specification.
+   * @param ip - The IP address to format
+   * @returns The RFC 7239 compliant formatted IP address
+   */
+  private formatIpForForwardedHeader(ip: string): string {
+    // IPv6 addresses must be wrapped in brackets per RFC 7239
+    if (ip.includes(':') && !ip.startsWith('[')) {
+      return `[${ip}]`;
+    }
+    return ip;
+  }
+
   private async request<T>(
     path: string,
     pathLabel: string,
@@ -340,6 +354,12 @@ export class MirrorNodeClient {
         },
         signal: controller.signal,
       };
+
+      // Add Forwarded header with client IP if available
+      if (requestDetails.ipAddress && requestDetails.ipAddress.trim() !== '') {
+        const formattedClientIp = this.formatIpForForwardedHeader(requestDetails.ipAddress);
+        axiosRequestConfig.headers!['Forwarded'] = `for="${formattedClientIp}"`;
+      }
 
       // request specific config for axios-retry
       if (retries != null) {

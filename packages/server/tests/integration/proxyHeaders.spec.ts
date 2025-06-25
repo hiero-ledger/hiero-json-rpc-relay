@@ -11,10 +11,14 @@ import { ConfigServiceTestHelper } from '../../../config-service/tests/configSer
 
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 
-import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../relay/tests/helpers';
+import {
+  overrideEnvsInMochaDescribe,
+  useInMemoryRedisServer,
+  withOverriddenEnvsInMochaTest,
+} from '../../../relay/tests/helpers';
 import RelayCalls from '../../tests/helpers/constants';
 
-describe('X-Forwarded-For Header Integration Tests', function () {
+describe('Proxy Headers Integration Tests', function () {
   const logger = pino({ level: 'silent' });
 
   // Use in-memory Redis server for CI compatibility
@@ -36,6 +40,12 @@ describe('X-Forwarded-For Header Integration Tests', function () {
   const TEST_IP_C = '192.168.3.100';
   const TEST_IP_D = '192.168.4.100';
   const TEST_IP_E = '192.168.5.100';
+  const TEST_IP_F = '192.168.6.100';
+  const TEST_IP_G = '192.168.7.100';
+  const TEST_IP_H = '192.168.8.100';
+  const TEST_IP_I = '192.168.9.100';
+  const TEST_IP_J = '192.168.10.100';
+  const TEST_IPV6 = '2001:db8::1';
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
   before(function () {
@@ -85,6 +95,14 @@ describe('X-Forwarded-For Header Integration Tests', function () {
 
   async function makeRequestWithoutForwardedIP(id: string = '1') {
     return testClient.post('/', createRequestWithIP(id, ''));
+  }
+
+  async function makeRequestWithForwardedHeader(forwardedValue: string, id: string = '1') {
+    return testClient.post('/', createRequestWithIP(id, ''), {
+      headers: {
+        Forwarded: forwardedValue,
+      },
+    });
   }
 
   it('should use X-Forwarded-For header IP for rate limiting when app.proxy is true', async function () {
@@ -218,5 +236,146 @@ describe('X-Forwarded-For Header Integration Tests', function () {
       expect(error.response.status).to.eq(429);
       expect(error.response.data.error.code).to.eq(-32605);
     }
+  });
+
+  describe('Forwarded Header Tests', function () {
+    it('should parse RFC 7239 Forwarded header with quoted IP and use for rate limiting', async function () {
+      // Test with quoted IP format: for="192.168.6.100"
+      const forwardedHeader = `for="${TEST_IP_F}"`;
+
+      // Make requests up to the rate limit
+      for (let i = 1; i <= 3; i++) {
+        const response = await makeRequestWithForwardedHeader(forwardedHeader, `f${i}`);
+        expect(response.status).to.eq(200);
+        expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      }
+
+      // The next request should be rate limited
+      try {
+        await makeRequestWithForwardedHeader(forwardedHeader, 'f4');
+        expect.fail('Expected rate limit to be exceeded for Forwarded header IP');
+      } catch (error: any) {
+        expect(error.response.status).to.eq(429);
+        expect(error.response.data.error.code).to.eq(-32605);
+      }
+    });
+
+    it('should parse Forwarded header with unquoted IP', async function () {
+      // Test with unquoted IP format: for=192.168.7.100
+      const forwardedHeader = `for=${TEST_IP_G}`;
+
+      // Make requests up to the rate limit
+      for (let i = 1; i <= 3; i++) {
+        const response = await makeRequestWithForwardedHeader(forwardedHeader, `g${i}`);
+        expect(response.status).to.eq(200);
+        expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      }
+
+      // The next request should be rate limited
+      try {
+        await makeRequestWithForwardedHeader(forwardedHeader, 'g4');
+        expect.fail('Expected rate limit to be exceeded for unquoted Forwarded IP');
+      } catch (error: any) {
+        expect(error.response.status).to.eq(429);
+        expect(error.response.data.error.code).to.eq(-32605);
+      }
+    });
+
+    it('should parse Forwarded header with IPv6 address in brackets', async function () {
+      // Test with IPv6 format: for="[2001:db8::1]"
+      const forwardedHeader = `for="[${TEST_IPV6}]"`;
+
+      // Make requests up to the rate limit
+      for (let i = 1; i <= 3; i++) {
+        const response = await makeRequestWithForwardedHeader(forwardedHeader, `ipv6_${i}`);
+        expect(response.status).to.eq(200);
+        expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      }
+
+      // The next request should be rate limited
+      try {
+        await makeRequestWithForwardedHeader(forwardedHeader, 'ipv6_4');
+        expect.fail('Expected rate limit to be exceeded for IPv6 Forwarded IP');
+      } catch (error: any) {
+        expect(error.response.status).to.eq(429);
+        expect(error.response.data.error.code).to.eq(-32605);
+      }
+    });
+
+    it('should handle multiple entries in Forwarded header (use first IP)', async function () {
+      // Test with multiple forwarded entries - should use the first one
+      const forwardedHeader = `for="${TEST_IP_H}";by="10.0.0.1", for="203.0.113.1";by="10.0.0.2"`;
+
+      // Make requests up to the rate limit
+      for (let i = 1; i <= 3; i++) {
+        const response = await makeRequestWithForwardedHeader(forwardedHeader, `h${i}`);
+        expect(response.status).to.eq(200);
+        expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      }
+
+      // The next request should be rate limited based on first IP (TEST_IP_H)
+      try {
+        await makeRequestWithForwardedHeader(forwardedHeader, 'h4');
+        expect.fail('Expected rate limit to be exceeded for first IP in Forwarded header');
+      } catch (error: any) {
+        expect(error.response.status).to.eq(429);
+        expect(error.response.data.error.code).to.eq(-32605);
+      }
+    });
+
+    it('should not override X-Forwarded-For when both headers are present', async function () {
+      // When both X-Forwarded-For and Forwarded are present, X-Forwarded-For should take precedence
+      const forwardedHeader = `for="${TEST_IP_I}"`;
+
+      // Make requests with both headers - should be rate limited by X-Forwarded-For IP (TEST_IP_J)
+      for (let i = 1; i <= 3; i++) {
+        const response = await testClient.post('/', createRequestWithIP(`j${i}`, TEST_IP_J), {
+          headers: {
+            'X-Forwarded-For': TEST_IP_J,
+            Forwarded: forwardedHeader,
+          },
+        });
+        expect(response.status).to.eq(200);
+        expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+      }
+
+      // Should be rate limited based on X-Forwarded-For IP (TEST_IP_J), not Forwarded IP (TEST_IP_I)
+      try {
+        await testClient.post('/', createRequestWithIP('j4', TEST_IP_J), {
+          headers: {
+            'X-Forwarded-For': TEST_IP_J,
+            Forwarded: forwardedHeader,
+          },
+        });
+        expect.fail('Expected rate limit to be exceeded for X-Forwarded-For IP');
+      } catch (error: any) {
+        expect(error.response.status).to.eq(429);
+        expect(error.response.data.error.code).to.eq(-32605);
+      }
+
+      // Verify that the Forwarded header IP (TEST_IP_I) is not rate limited
+      const response = await makeRequestWithForwardedHeader(forwardedHeader, 'i1');
+      expect(response.status).to.eq(200);
+      expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+    });
+
+    withOverriddenEnvsInMochaTest({ RATE_LIMIT_DISABLED: 'true' }, () => {
+      it('should handle malformed Forwarded header gracefully', async function () {
+        // Test with malformed Forwarded header - should fall back to actual client IP
+        // Rate limiting disabled for this test to avoid conflicts with other tests using actual client IP
+        const malformedHeaders = [
+          'invalid_format',
+          'for=',
+          'for=""',
+          'proto=https', // No 'for' parameter
+        ];
+
+        for (const malformedHeader of malformedHeaders) {
+          const response = await makeRequestWithForwardedHeader(malformedHeader, '1');
+          expect(response.status).to.eq(200);
+          expect(response.data.result).to.be.equal(ConfigService.get('CHAIN_ID'));
+        }
+      });
+    });
   });
 });
