@@ -159,7 +159,6 @@ export default class MetricService {
           executionMode: constants.EXECUTION_MODE.TRANSACTION,
           transactionId,
           txConstructorName,
-          callerName,
           cost: transactionFee,
           gasUsed,
           interactingEntity,
@@ -174,7 +173,6 @@ export default class MetricService {
           executionMode: constants.EXECUTION_MODE.RECORD,
           transactionId,
           txConstructorName,
-          callerName,
           cost: txRecordChargeAmount,
           gasUsed: 0,
           interactingEntity,
@@ -205,7 +203,6 @@ export default class MetricService {
     executionMode,
     transactionId,
     txConstructorName,
-    callerName,
     cost,
     gasUsed,
     status,
@@ -214,7 +211,7 @@ export default class MetricService {
   }: IExecuteQueryEventPayload): Promise<void> => {
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}, cost=${cost} tinybars`,
+        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
       );
     }
 
