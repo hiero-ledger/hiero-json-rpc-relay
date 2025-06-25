@@ -196,7 +196,6 @@ export default class MetricService {
    * @param {string} payload.callerName - The name of the entity calling the transaction.
    * @param {number} payload.cost - The cost of the transaction in tinybars.
    * @param {number} payload.gasUsed - The amount of gas used during the transaction.
-   * @param {string} payload.interactingEntity - The entity interacting with the transaction.
    * @param {string} payload.status - The entity interacting with the transaction.
    * @param {string} payload.requestDetails - The request details for logging and tracking.
    * @param {string | undefined} payload.originalCallerAddress - The address of the original caller making the request.
@@ -209,7 +208,6 @@ export default class MetricService {
     callerName,
     cost,
     gasUsed,
-    interactingEntity,
     status,
     requestDetails,
     originalCallerAddress,
@@ -221,7 +219,7 @@ export default class MetricService {
     }
 
     await this.hbarLimitService.addExpense(cost, originalCallerAddress ?? '', requestDetails);
-    this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed, callerName, interactingEntity);
+    this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed);
   };
 
   /**
@@ -235,7 +233,7 @@ export default class MetricService {
     return new Histogram({
       name: metricHistogramCost,
       help: 'Relay consensusnode mode type status cost histogram',
-      labelNames: ['mode', 'type', 'status', 'caller', 'interactingEntity'],
+      labelNames: ['mode', 'type', 'status'],
       registers: [register],
     });
   }
@@ -251,7 +249,7 @@ export default class MetricService {
     return new Histogram({
       name: metricHistogramGasFee,
       help: 'Relay consensusnode mode type status gas fee histogram',
-      labelNames: ['mode', 'type', 'status', 'caller', 'interactingEntity'],
+      labelNames: ['mode', 'type', 'status'],
       registers: [register],
     });
   }
@@ -275,21 +273,11 @@ export default class MetricService {
    * @param {string} status - The status of the transaction.
    * @param {number} cost - The cost of the transaction in tinybars.
    * @param {number} gas - The gas used by the transaction.
-   * @param {string} caller - The name of the caller executing the transaction.
-   * @param {string} interactingEntity - The entity interacting with the transaction.
    * @returns {void}
    */
-  private captureMetrics = (
-    mode: string,
-    type: string,
-    status: string,
-    cost: number,
-    gas: number,
-    caller: string,
-    interactingEntity: string,
-  ): void => {
-    this.consensusNodeClientHistogramCost.labels(mode, type, status, caller, interactingEntity).observe(cost);
-    this.consensusNodeClientHistogramGasFee.labels(mode, type, status, caller, interactingEntity).observe(gas);
+  private captureMetrics = (mode: string, type: string, status: string, cost: number, gas: number): void => {
+    this.consensusNodeClientHistogramCost.labels(mode, type, status).observe(cost);
+    this.consensusNodeClientHistogramGasFee.labels(mode, type, status).observe(gas);
   };
 
   /**
