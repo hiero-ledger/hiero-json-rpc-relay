@@ -16,6 +16,7 @@ import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
+import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -37,6 +38,10 @@ describe('@debug API Acceptance Tests', function () {
   let reverterContract: ethers.Contract;
   let reverterContractAddress: string;
   let deploymentBlockNumber: number;
+  let parentContract: ethers.Contract;
+  let parentContractAddress: string;
+  let createChildTx: ethers.ContractTransactionResponse;
+  let mirrorContractDetails: any;
 
   const PURE_METHOD_CALL_DATA = '0xb2e0100c';
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
@@ -44,6 +49,7 @@ describe('@debug API Acceptance Tests', function () {
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
+  const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
 
   before(async () => {
     requestId = Utils.generateRequestId();
@@ -380,6 +386,322 @@ describe('@debug API Acceptance Tests', function () {
         predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
         requestId,
       );
+    });
+  });
+
+  describe('debug_traceTransaction', () => {
+    const PARENT_CONTRACT_CREATE_CHILD_CALL_DATA =
+      '0x0419eca50000000000000000000000000000000000000000000000000000000000000001';
+    before(async () => {
+      // Deploy the Parent contract for testing transactions with internal calls
+      parentContract = await Utils.deployContract(
+        parentContractJson.abi,
+        parentContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      parentContractAddress = parentContract.target as string;
+
+      // Send some ether to the parent contract
+      const response = await accounts[0].wallet.sendTransaction({
+        to: parentContractAddress,
+        value: ethers.parseEther('1'),
+      });
+      await relay.pollForValidTransactionReceipt(response.hash);
+
+      // Call createChild to create a transaction with internal calls
+      // @ts-ignore
+      createChildTx = await parentContract.createChild(1);
+
+      const receipt = await relay.pollForValidTransactionReceipt(createChildTx.hash);
+      console.log(createChildTx.hash);
+      console.log('receipt', receipt);
+      // Get contract result details from mirror node
+      mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`, requestId);
+      mirrorContractDetails.from = accounts[0].address;
+    });
+
+    describe('Call Tracer', () => {
+      it('should trace a transaction using CallTracer with onlyTopCall=false', async function () {
+        // Call debug_traceTransaction with CallTracer (default config)
+        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        console.log('result', result);
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('type', 'CALL');
+        expect(result).to.have.property('from');
+        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
+        expect(result).to.have.property('to');
+        expect(result.to.toLowerCase()).to.equal(parentContractAddress.toLowerCase());
+        expect(result).to.have.property('value');
+        expect(result).to.have.property('gas');
+        expect(result).to.have.property('gasUsed');
+        expect(result).to.have.property('input', PARENT_CONTRACT_CREATE_CHILD_CALL_DATA);
+        expect(result).to.have.property('output');
+        expect(result).to.have.property('calls');
+      });
+
+      it('should trace a transaction using CallTracer with onlyTopCall=true', async function () {
+        // Call debug_traceTransaction with CallTracer (default config)
+        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        console.log('result 2', result);
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('type', 'CALL');
+        expect(result).to.have.property('from');
+        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
+        expect(result).to.have.property('to');
+        expect(result.to.toLowerCase()).to.equal(parentContractAddress.toLowerCase());
+        expect(result).to.have.property('value');
+        expect(result).to.have.property('gas');
+        expect(result).to.have.property('gasUsed');
+        expect(result).to.have.property('input', PARENT_CONTRACT_CREATE_CHILD_CALL_DATA);
+        expect(result).to.have.property('output');
+        expect(result).to.not.have.property('calls');
+      });
+    });
+
+    describe('OpcodeLogger', () => {
+      it('@release should trace a successful transaction using OpcodeLogger (default when no tracer specified)', async function () {
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash], requestId);
+
+        // Validate response structure for OpcodeLogger
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('gas');
+        expect(result).to.have.property('failed');
+        expect(result).to.have.property('returnValue');
+        expect(result).to.have.property('structLogs');
+        expect(result.structLogs).to.be.an('array');
+
+        // Check that structLogs contains opcode information
+        if (result.structLogs.length > 0) {
+          const firstLog = result.structLogs[0];
+          expect(firstLog).to.have.property('pc');
+          expect(firstLog).to.have.property('op');
+          expect(firstLog).to.have.property('gas');
+          expect(firstLog).to.have.property('gasCost');
+          expect(firstLog).to.have.property('depth');
+        }
+      });
+
+      it('@release should trace a successful transaction using OpcodeLogger explicitly', async function () {
+        const tracerConfig = { tracer: TracerType.OpcodeLogger };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('gas');
+        expect(result).to.have.property('failed');
+        expect(result).to.have.property('returnValue');
+        expect(result).to.have.property('structLogs');
+        expect(result.structLogs).to.be.an('array');
+      });
+
+      it('@release should trace using OpcodeLogger with custom config (enableMemory=true)', async function () {
+        const tracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { enableMemory: true },
+        };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('structLogs');
+
+        // With enableMemory=true, memory field should be present in struct logs
+        if (result.structLogs.length > 0) {
+          const logsWithMemory = result.structLogs.filter((log) => log.memory);
+          expect(logsWithMemory.length).to.be.greaterThan(0);
+        }
+      });
+
+      it('@release should trace using OpcodeLogger with custom config (disableStack=true)', async function () {
+        const tracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { disableStack: true },
+        };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('structLogs');
+
+        // With disableStack=true, stack field should not be present in struct logs
+        if (result.structLogs.length > 0) {
+          const logsWithStack = result.structLogs.filter((log) => log.stack);
+          expect(logsWithStack.length).to.equal(0);
+        }
+      });
+
+      it('@release should trace using OpcodeLogger with custom config (disableStorage=true)', async function () {
+        const tracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { disableStorage: true },
+        };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('structLogs');
+
+        // With disableStorage=true, storage field should not be present in struct logs
+        if (result.structLogs.length > 0) {
+          const logsWithStorage = result.structLogs.filter((log) => log.storage);
+          expect(logsWithStorage.length).to.equal(0);
+        }
+      });
+
+      it('@release should trace using OpcodeLogger with custom config (enableMemory=true, disableStorage=true)', async function () {
+        const tracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { enableMemory: true, disableStorage: true },
+        };
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('structLogs');
+      });
+    });
+
+    describe('Edge Cases - Parameter Validation', () => {
+      it('should fail with MISSING_REQUIRED_PARAMETER when transaction hash is missing', async function () {
+        await relay.callFailing(DEBUG_TRACE_TRANSACTION, [], predefined.MISSING_REQUIRED_PARAMETER(0), requestId);
+      });
+
+      it('should fail with INVALID_PARAMETER when given an invalid transaction hash format', async function () {
+        const invalidHash = '0xinvalidhash';
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [invalidHash],
+          predefined.INVALID_PARAMETER(
+            0,
+            'The value passed is not valid: 0xinvalidhash. Expected Expected 0x prefixed string representing the hash (32 bytes) of a transaction OR Expected a transaction ID string in the format "shard.realm.num-sss-nnn" where sss are seconds and nnn are nanoseconds',
+          ),
+          requestId,
+        );
+      });
+
+      it('should fail with RESOURCE_NOT_FOUND for non-existent transaction hash and no tracer', async function () {
+        const nonExistentHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [nonExistentHash],
+          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
+          requestId,
+        );
+      });
+
+      it.only('should fail with RESOURCE_NOT_FOUND for non-existent transaction hash with tracer', async function () {
+        const nonExistentHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee';
+        const tracer = {
+          tracer: TracerType.CallTracer,
+          tracerConfig: { onlyTopCall: true },
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [nonExistentHash, tracer],
+          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when using PrestateTracer', async function () {
+        const tracerConfig = { tracer: TracerType.PrestateTracer };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, tracerConfig],
+          predefined.INVALID_PARAMETER(1, 'Prestate tracer is not yet supported on debug_traceTransaction'),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when given an invalid tracer type', async function () {
+        const invalidTracerConfig = { tracer: 'InvalidTracer' };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when given invalid TracerConfig for CallTracer', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.CallTracer,
+          tracerConfig: { onlyTopCall: 'invalid' },
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER("'tracerConfig' for TracerConfigWrapper", 'Expected TracerConfig'),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when given invalid TracerConfig for OpcodeLogger', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { enableMemory: 'invalid' },
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER("'tracerConfig' for TracerConfigWrapper", 'Expected TracerConfig'),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when using CallTracer config with OpcodeLogger tracer', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: { onlyTopCall: true }, // CallTracer config with OpcodeLogger tracer
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER(
+            1,
+            "callTracer 'tracerConfig' for TracerConfigWrapper is only valid when tracer=callTracer",
+          ),
+          requestId,
+        );
+      });
+
+      it('should fail with INVALID_PARAMETER when using OpcodeLogger config with CallTracer tracer', async function () {
+        const invalidTracerConfig = {
+          tracer: TracerType.CallTracer,
+          tracerConfig: { enableMemory: true }, // OpcodeLogger config with CallTracer tracer
+        };
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidTracerConfig],
+          predefined.INVALID_PARAMETER(
+            1,
+            "opcodeLogger 'tracerConfig' for TracerConfigWrapper is only valid when tracer=opcodeLogger",
+          ),
+          requestId,
+        );
+      });
+
+      it('should fail with UNSUPPORTED_METHOD error when DEBUG_API_ENABLED is false', async function () {
+        // Store original value
+        const originalDebugApiEnabled = ConfigService.get('DEBUG_API_ENABLED');
+
+        // Set DEBUG_API_ENABLED to false
+        ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
+
+        try {
+          const tracerConfig = { tracer: TracerType.CallTracer };
+
+          // Should return UNSUPPORTED_METHOD error
+          await relay.callFailing(
+            DEBUG_TRACE_TRANSACTION,
+            [createChildTx.hash, tracerConfig],
+            predefined.UNSUPPORTED_METHOD,
+            requestId,
+          );
+        } finally {
+          // Restore original value
+          ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', originalDebugApiEnabled);
+        }
+      });
     });
   });
 });
