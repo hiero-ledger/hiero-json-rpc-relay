@@ -18,6 +18,7 @@ import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
+import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
@@ -50,6 +51,20 @@ describe('@debug API Acceptance Tests', function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
+
+  const TRACER_CONFIGS = {
+    CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, onlyTopCall: false },
+    CALL_TRACER_TOP_ONLY: { tracer: TracerType.CallTracer, onlyTopCall: true },
+    PRESTATE_TRACER: { tracer: TracerType.PrestateTracer },
+    PRESTATE_TRACER_TOP_ONLY: { tracer: TracerType.PrestateTracer, onlyTopCall: true },
+    PRESTATE_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.PrestateTracer, onlyTopCall: false },
+    OPCODE_LOGGER: { tracer: TracerType.OpcodeLogger },
+    OPCODE_WITH_MEMORY: { tracer: TracerType.OpcodeLogger, enableMemory: true },
+    OPCODE_WITH_MEMORY_AND_STACK: { tracer: TracerType.OpcodeLogger, enableMemory: true, enableStack: true },
+    OPCODE_WITH_STACK: { tracer: TracerType.OpcodeLogger, disableStack: true },
+    OPCODE_WITH_STORAGE: { tracer: TracerType.OpcodeLogger, disableStorage: true },
+    OPCODE_WITH_MEMORY_AND_STORAGE: { tracer: TracerType.OpcodeLogger, enableMemory: true, disableStorage: true },
+  };
 
   before(async () => {
     requestId = Utils.generateRequestId();
@@ -130,10 +145,12 @@ describe('@debug API Acceptance Tests', function () {
       const txTrace = result.find((trace) => trace.txHash === transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
-      expect(txTrace.result.type).to.equal('CALL');
-      expect(txTrace.result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
-      expect(txTrace.result.to.toLowerCase()).to.equal(basicContractAddress.toLowerCase());
-      expect(txTrace.result.input).to.equal(BASIC_CONTRACT_PING_CALL_DATA);
+      Assertions.validateCallTracerResult(
+        txTrace.result,
+        BASIC_CONTRACT_PING_CALL_DATA,
+        accounts[0].address,
+        basicContractAddress,
+      );
     });
 
     it('@release should trace a block containing a failing transaction using CallTracer', async function () {
@@ -168,12 +185,12 @@ describe('@debug API Acceptance Tests', function () {
 
       // Find our transaction in the result
       const txTrace = result.find((trace) => trace.txHash === transactionHash);
-      expect(txTrace).to.exist;
-      expect(txTrace.result).to.exist;
-      expect(txTrace.result.type).to.equal('CALL');
-      expect(txTrace.result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
-      expect(txTrace.result.to.toLowerCase()).to.equal(reverterContractAddress.toLowerCase());
-      expect(txTrace.result.input).to.equal(PURE_METHOD_CALL_DATA);
+      Assertions.validateCallTracerResult(
+        txTrace.result,
+        PURE_METHOD_CALL_DATA,
+        accounts[0].address,
+        reverterContractAddress,
+      );
       expect(txTrace.result.error).to.exist; // There should be an error field for the reverted transaction
       expect(txTrace.result.revertReason).to.exist; // There should be a revert reason
     });
@@ -203,8 +220,11 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with PrestateTracer
-      const tracerConfig = { tracer: TracerType.PrestateTracer };
-      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, tracerConfig], requestId);
+      const result = await relay.call(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER],
+        requestId,
+      );
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -221,10 +241,7 @@ describe('@debug API Acceptance Tests', function () {
       // For each address in the result, check it has the expected fields
       for (const address of keys) {
         const state = txTrace.result[address];
-        expect(state).to.have.property('balance');
-        expect(state).to.have.property('nonce');
-        expect(state).to.have.property('code');
-        expect(state).to.have.property('storage');
+        Assertions.validatePrestateTracerResult(state);
       }
     });
 
@@ -251,14 +268,16 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // First trace with onlyTopCall=false (default)
-      const fullTracerConfig = { tracer: TracerType.PrestateTracer, onlyTopCall: false };
-      const fullResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, fullTracerConfig], requestId);
+      const fullResult = await relay.call(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE],
+        requestId,
+      );
 
       // Then trace with onlyTopCall=true
-      const topCallTracerConfig = { tracer: TracerType.PrestateTracer, onlyTopCall: true };
       const topCallResult = await relay.call(
         DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, topCallTracerConfig],
+        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
         requestId,
       );
 
@@ -290,10 +309,7 @@ describe('@debug API Acceptance Tests', function () {
       // Each address should have the standard fields
       for (const address of topCallAddresses) {
         const state = topCallTxTrace.result[address];
-        expect(state).to.have.property('balance');
-        expect(state).to.have.property('nonce');
-        expect(state).to.have.property('code');
-        expect(state).to.have.property('storage');
+        Assertions.validatePrestateTracerResult(state);
       }
     });
 
@@ -325,10 +341,9 @@ describe('@debug API Acceptance Tests', function () {
 
       if (!hasTransactions) {
         // Found a block without transactions
-        const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
         const result = await relay.call(
           DEBUG_TRACE_BLOCK_BY_NUMBER,
-          [numberTo0x(blockNumberToTest), tracerConfig],
+          [numberTo0x(blockNumberToTest), TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
           requestId,
         );
 
@@ -348,12 +363,10 @@ describe('@debug API Acceptance Tests', function () {
       ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
 
       try {
-        const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
-
         // Should return UNSUPPORTED_METHOD error
         await relay.callFailing(
           DEBUG_TRACE_BLOCK_BY_NUMBER,
-          [numberTo0x(deploymentBlockNumber), tracerConfig],
+          [numberTo0x(deploymentBlockNumber), TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
           predefined.UNSUPPORTED_METHOD,
           requestId,
         );
@@ -364,12 +377,10 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     it('should fail with INVALID_PARAMETER when given an invalid block number', async function () {
-      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
-
       // Invalid block number format
       await relay.callFailing(
         DEBUG_TRACE_BLOCK_BY_NUMBER,
-        ['invalidBlockNumber', tracerConfig],
+        ['invalidBlockNumber', TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
         predefined.INVALID_PARAMETER(
           '0',
           'Expected 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"',
@@ -412,9 +423,8 @@ describe('@debug API Acceptance Tests', function () {
       // @ts-ignore
       createChildTx = await parentContract.createChild(1);
 
-      const receipt = await relay.pollForValidTransactionReceipt(createChildTx.hash);
-      console.log(createChildTx.hash);
-      console.log('receipt', receipt);
+      await relay.pollForValidTransactionReceipt(createChildTx.hash);
+
       // Get contract result details from mirror node
       mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`, requestId);
       mirrorContractDetails.from = accounts[0].address;
@@ -423,41 +433,35 @@ describe('@debug API Acceptance Tests', function () {
     describe('Call Tracer', () => {
       it('should trace a transaction using CallTracer with onlyTopCall=false', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
-        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+          requestId,
+        );
 
-        console.log('result', result);
-        expect(result).to.be.an('object');
-        expect(result).to.have.property('type', 'CALL');
-        expect(result).to.have.property('from');
-        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
-        expect(result).to.have.property('to');
-        expect(result.to.toLowerCase()).to.equal(parentContractAddress.toLowerCase());
-        expect(result).to.have.property('value');
-        expect(result).to.have.property('gas');
-        expect(result).to.have.property('gasUsed');
-        expect(result).to.have.property('input', PARENT_CONTRACT_CREATE_CHILD_CALL_DATA);
-        expect(result).to.have.property('output');
+        Assertions.validateCallTracerResult(
+          result,
+          PARENT_CONTRACT_CREATE_CHILD_CALL_DATA,
+          accounts[0].address,
+          parentContractAddress,
+        );
         expect(result).to.have.property('calls');
       });
 
       it('should trace a transaction using CallTracer with onlyTopCall=true', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
-        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
+          requestId,
+        );
 
-        console.log('result 2', result);
-        expect(result).to.be.an('object');
-        expect(result).to.have.property('type', 'CALL');
-        expect(result).to.have.property('from');
-        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
-        expect(result).to.have.property('to');
-        expect(result.to.toLowerCase()).to.equal(parentContractAddress.toLowerCase());
-        expect(result).to.have.property('value');
-        expect(result).to.have.property('gas');
-        expect(result).to.have.property('gasUsed');
-        expect(result).to.have.property('input', PARENT_CONTRACT_CREATE_CHILD_CALL_DATA);
-        expect(result).to.have.property('output');
+        Assertions.validateCallTracerResult(
+          result,
+          PARENT_CONTRACT_CREATE_CHILD_CALL_DATA,
+          accounts[0].address,
+          parentContractAddress,
+        );
         expect(result).to.not.have.property('calls');
       });
     });
@@ -467,12 +471,7 @@ describe('@debug API Acceptance Tests', function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash], requestId);
 
         // Validate response structure for OpcodeLogger
-        expect(result).to.be.an('object');
-        expect(result).to.have.property('gas');
-        expect(result).to.have.property('failed');
-        expect(result).to.have.property('returnValue');
-        expect(result).to.have.property('structLogs');
-        expect(result.structLogs).to.be.an('array');
+        Assertions.validateOpcodeLoggerResult(result);
 
         // Check that structLogs contains opcode information
         if (result.structLogs.length > 0) {
@@ -486,23 +485,21 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace a successful transaction using OpcodeLogger explicitly', async function () {
-        const tracerConfig = { tracer: TracerType.OpcodeLogger };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.OPCODE_LOGGER],
+          requestId,
+        );
 
-        expect(result).to.be.an('object');
-        expect(result).to.have.property('gas');
-        expect(result).to.have.property('failed');
-        expect(result).to.have.property('returnValue');
-        expect(result).to.have.property('structLogs');
-        expect(result.structLogs).to.be.an('array');
+        Assertions.validateOpcodeLoggerResult(result);
       });
 
       it('@release should trace using OpcodeLogger with custom config (enableMemory=true)', async function () {
-        const tracerConfig = {
-          tracer: TracerType.OpcodeLogger,
-          tracerConfig: { enableMemory: true },
-        };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_MEMORY],
+          requestId,
+        );
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -515,11 +512,11 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (disableStack=true)', async function () {
-        const tracerConfig = {
-          tracer: TracerType.OpcodeLogger,
-          tracerConfig: { disableStack: true },
-        };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_STACK],
+          requestId,
+        );
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -532,11 +529,11 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (disableStorage=true)', async function () {
-        const tracerConfig = {
-          tracer: TracerType.OpcodeLogger,
-          tracerConfig: { disableStorage: true },
-        };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_STORAGE],
+          requestId,
+        );
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -549,11 +546,11 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (enableMemory=true, disableStorage=true)', async function () {
-        const tracerConfig = {
-          tracer: TracerType.OpcodeLogger,
-          tracerConfig: { enableMemory: true, disableStorage: true },
-        };
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, tracerConfig], requestId);
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_MEMORY_AND_STORAGE],
+          requestId,
+        );
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -590,23 +587,18 @@ describe('@debug API Acceptance Tests', function () {
 
       it('should fail with RESOURCE_NOT_FOUND for non-existent transaction hash with tracer', async function () {
         const nonExistentHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee';
-        const tracer = {
-          tracer: TracerType.CallTracer,
-          tracerConfig: { onlyTopCall: true },
-        };
         await relay.callFailing(
           DEBUG_TRACE_TRANSACTION,
-          [nonExistentHash, tracer],
+          [nonExistentHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
           predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
           requestId,
         );
       });
 
       it('should fail with INVALID_PARAMETER when using PrestateTracer', async function () {
-        const tracerConfig = { tracer: TracerType.PrestateTracer };
         await relay.callFailing(
           DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, tracerConfig],
+          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER],
           predefined.INVALID_PARAMETER(1, 'Prestate tracer is not yet supported on debug_traceTransaction'),
           requestId,
         );
@@ -688,7 +680,7 @@ describe('@debug API Acceptance Tests', function () {
         ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
 
         try {
-          const tracerConfig = { tracer: TracerType.CallTracer };
+          const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
 
           // Should return UNSUPPORTED_METHOD error
           await relay.callFailing(

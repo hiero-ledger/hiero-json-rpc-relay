@@ -454,4 +454,44 @@ export default class Assertions {
     const delta = tolerance * expected;
     expect(actual).to.be.approximately(expected, delta);
   }
+
+  /**
+   * Validates the result from a Call Tracer debug trace
+   * @param {any} result - The result object from the Call Tracer
+   * @param {string} expectedInput - The expected input data for the call
+   * @param {string} expectedFrom - The expected 'from' address of the call
+   * @param {string} expectedTo - The expected 'to' address of the call
+   */
+  static validateCallTracerResult(result: any, expectedInput: string, expectedFrom: string, expectedTo: string) {
+    expect(result).to.be.an('object');
+    expect(result).to.have.property('type', 'CALL');
+    expect(result.from.toLowerCase()).to.equal(expectedFrom.toLowerCase());
+    expect(result.to.toLowerCase()).to.equal(expectedTo.toLowerCase());
+    expect(result).to.have.property('value');
+    expect(result).to.have.property('gas');
+    expect(result).to.have.property('gasUsed');
+    expect(result).to.have.property('input', expectedInput);
+    expect(result).to.have.property('output');
+  }
+
+  /**
+   * Validates the result from an Opcode Logger debug trace
+   * @param {any} result - The result object from the Opcode Logger
+   */
+  static validateOpcodeLoggerResult(result: any) {
+    expect(result).to.be.an('object');
+    expect(result).to.have.property('gas');
+    expect(result).to.have.property('failed');
+    expect(result).to.have.property('returnValue');
+    expect(result).to.have.property('structLogs');
+    expect(result.structLogs).to.be.an('array');
+  }
+
+  static validatePrestateTracerResult(state: any) {
+    expect(state).to.be.an('object');
+    expect(state).to.have.property('balance');
+    expect(state).to.have.property('nonce');
+    expect(state).to.have.property('code');
+    expect(state).to.have.property('storage');
+  }
 }
