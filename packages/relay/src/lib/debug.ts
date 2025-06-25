@@ -133,6 +133,10 @@ export class DebugImpl implements Debug {
       if (tracer === TracerType.CallTracer) {
         return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
       }
+
+      if (!ConfigService.get('OPCODELOGGER_ENABLED')) {
+        throw predefined.UNSUPPORTED_METHOD;
+      }
       return await this.callOpcodeLogger(transactionIdOrHash, tracerConfig as IOpcodeLoggerConfig, requestDetails);
     } catch (e) {
       throw this.common.genericErrorHandler(e);

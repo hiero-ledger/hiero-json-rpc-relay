@@ -593,6 +593,12 @@ const _CONFIG = {
     required: true,
     defaultValue: null,
   },
+  OPCODELOGGER_ENABLED: {
+    envName: 'OPCODELOGGER_ENABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   OPERATOR_ID_ETH_SENDRAWTRANSACTION: {
     envName: 'OPERATOR_ID_ETH_SENDRAWTRANSACTION',
     type: 'string',
