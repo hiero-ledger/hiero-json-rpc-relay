@@ -136,17 +136,14 @@ export default class MetricService {
    * @returns {Promise<void>} - A promise that resolves when the transaction metrics have been captured.
    */
   public async captureTransactionMetrics({
-    callerName,
     transactionId,
     txConstructorName,
     operatorAccountId,
-    interactingEntity,
     requestDetails,
     originalCallerAddress,
   }: IExecuteTransactionEventPayload): Promise<void> {
     const transactionRecordMetrics = await this.getTransactionRecordMetrics(
       transactionId,
-      callerName,
       txConstructorName,
       operatorAccountId,
       requestDetails,
@@ -161,7 +158,6 @@ export default class MetricService {
           txConstructorName,
           cost: transactionFee,
           gasUsed,
-          interactingEntity,
           status,
           requestDetails,
           originalCallerAddress,
@@ -175,7 +171,6 @@ export default class MetricService {
           txConstructorName,
           cost: txRecordChargeAmount,
           gasUsed: 0,
-          interactingEntity,
           status,
           requestDetails,
           originalCallerAddress,
@@ -191,7 +186,6 @@ export default class MetricService {
    * @param {string} payload.executionMode - The mode of the execution (TRANSACTION, QUERY, RECORD).
    * @param {string} payload.transactionId - The unique identifier for the transaction.
    * @param {string} payload.txConstructorName - The name of the transaction constructor.
-   * @param {string} payload.callerName - The name of the entity calling the transaction.
    * @param {number} payload.cost - The cost of the transaction in tinybars.
    * @param {number} payload.gasUsed - The amount of gas used during the transaction.
    * @param {string} payload.status - The entity interacting with the transaction.
@@ -283,7 +277,6 @@ export default class MetricService {
    * consensus node via the SDK client or from the mirror node.
    *
    * @param {string} transactionId - The ID of the transaction for which metrics are being retrieved.
-   * @param {string} callerName - The name of the caller requesting the metrics.
    * @param {string} txConstructorName - The name of the transaction constructor.
    * @param {string} operatorAccountId - The account ID of the operator.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
@@ -291,7 +284,6 @@ export default class MetricService {
    */
   private async getTransactionRecordMetrics(
     transactionId: string,
-    callerName: string,
     txConstructorName: string,
     operatorAccountId: string,
     requestDetails: RequestDetails,
@@ -303,7 +295,6 @@ export default class MetricService {
       if (defaultToConsensusNode) {
         return await this.sdkClient.getTransactionRecordMetrics(
           transactionId,
-          callerName,
           txConstructorName,
           operatorAccountId,
           requestDetails,
@@ -311,7 +302,6 @@ export default class MetricService {
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,
-          callerName,
           txConstructorName,
           operatorAccountId,
           requestDetails,
