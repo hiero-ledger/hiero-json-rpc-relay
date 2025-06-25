@@ -588,7 +588,7 @@ describe('@debug API Acceptance Tests', function () {
         );
       });
 
-      it.only('should fail with RESOURCE_NOT_FOUND for non-existent transaction hash with tracer', async function () {
+      it('should fail with RESOURCE_NOT_FOUND for non-existent transaction hash with tracer', async function () {
         const nonExistentHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee';
         const tracer = {
           tracer: TracerType.CallTracer,
