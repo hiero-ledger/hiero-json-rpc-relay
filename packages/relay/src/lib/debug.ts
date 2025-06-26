@@ -410,6 +410,13 @@ export class DebugImpl implements Debug {
         requestDetails,
         options,
       );
+
+      if (!response) {
+        throw predefined.RESOURCE_NOT_FOUND(
+          `Failed to retrieve contract results for transaction ${transactionIdOrHash}`,
+        );
+      }
+
       return await this.formatOpcodesResult(response, options);
     } catch (e) {
       throw this.common.genericErrorHandler(e);
