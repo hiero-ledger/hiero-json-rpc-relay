@@ -29,7 +29,7 @@ on:
       maxAttempts:
         required: false
         type: number
-        default: 3
+        default: 1
     secrets:
       operator_key:
         description: 'The ED25519, ECDSA, or DER encoded private key of the operator'
