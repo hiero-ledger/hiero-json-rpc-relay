@@ -1,0 +1,138 @@
+
+name: OpenRPC JSON Updater
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/openrpc.json'
+  workflow_dispatch:
+
+jobs:
+  clone-and-build-execution-apis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout execution-apis repo
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        with:
+          ref: main
+          repository: 'ethereum/execution-apis'
+          path: 'execution-apis'
+
+      - name: Use Node.js TLS 20
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./execution-apis
+
+      - name: Build project
+        run: npm run build
+        working-directory: ./execution-apis
+
+      - name: Upload openrpc.json as an artifact
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: openrpc
+          path: ./execution-apis/refs-openrpc.json
+
+  update-openrpc:
+    runs-on: ubuntu-latest
+    needs: clone-and-build-execution-apis
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        with:
+          ref: 'main'
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Download openrpc.json artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openrpc
+          path: ./downloaded-artifacts/
+
+      - name: Copy generated openrpc.json to scripts directory
+        run: |
+          mkdir -p scripts/openrpc-json-updater
+          cp ./downloaded-artifacts/refs-openrpc.json scripts/openrpc-json-updater/original-openrpc.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: scripts/openrpc-json-updater
+        run: npm install
+
+      - name: Generate comparison report
+        id: generate-report
+        working-directory: scripts/openrpc-json-updater
+        run: |
+          REPORT_OUTPUT=$(node cli.js --original ./original-openrpc.json --modified ../../docs/openrpc.json)
+          echo "REPORT_OUTPUT<<EOF" >> $GITHUB_ENV
+          echo "$REPORT_OUTPUT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      # This workflow automatically creates PRs when the OpenRPC JSON file differs from the upstream source.
+      # PRs are only created when actual changes are detected (SKIP_PR=false), ensuring that
+      # maintainers can review and approve schema updates before they're merged into the main branch.
+      # This provides a safety mechanism for tracking OpenRPC specification changes over time.
+      - name: Perform merge
+        id: merge
+        working-directory: scripts/openrpc-json-updater
+        run: |
+          MERGE_OUTPUT=$(node cli.js --merge --original ./original-openrpc.json --modified ../../docs/openrpc.json)
+          MERGE_EXIT_CODE=$?
+          echo "$MERGE_OUTPUT"
+
+          if [ $MERGE_EXIT_CODE -eq 0 ]; then
+            if [[ "$MERGE_OUTPUT" =~ No\ differences\ found\ after\ merge ]]; then
+              echo "No differences found. Skipping PR creation."
+              echo "SKIP_PR=true" >> $GITHUB_ENV
+              exit 0
+            elif [[ "$MERGE_OUTPUT" == *"Merge completed"* ]]; then
+              echo "Successfully updated openrpc.json"
+              echo "SKIP_PR=false" >> $GITHUB_ENV
+            else
+              echo "Unexpected output. Output was: $MERGE_OUTPUT"
+              exit 1
+            fi
+          else
+            echo "Failed to update file. Output was: $MERGE_OUTPUT"
+            exit 1
+          fi
+
+      - name: Generate unique branch name
+        id: branch-name
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          UNIQUE_BRANCH="update-openrpc-${TIMESTAMP}"
+          echo "UNIQUE_BRANCH=${UNIQUE_BRANCH}" >> $GITHUB_ENV
+          echo "Generated unique branch name: ${UNIQUE_BRANCH}"
+
+      - name: Create Pull Request
+        if: env.SKIP_PR != 'true'
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          commit-message: Update OpenRPC JSON
+          title: 'Update OpenRPC JSON'
+          body: |
+            # OpenRPC JSON Update
+
+            This PR updates the OpenRPC JSON specification with the latest changes from Ethereum JSON-RPC specification.
+
+            ## Comparison Report
+            ```
+            ${{ env.REPORT_OUTPUT }}
+            ```
+          branch: ${{ env.UNIQUE_BRANCH }}
+          base: 'main'
+          add-paths: docs/openrpc.json
+          delete-branch: true
