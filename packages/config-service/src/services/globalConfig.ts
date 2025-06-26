@@ -392,7 +392,7 @@ const _CONFIG = {
     envName: 'HBAR_RATE_LIMIT_TINYBAR',
     type: 'number',
     required: false,
-    defaultValue: 800_000_000_000, // 8000 hbar
+    defaultValue: 25_000_000_000, // 250 hbar
   },
   HEDERA_NETWORK: {
     envName: 'HEDERA_NETWORK',
