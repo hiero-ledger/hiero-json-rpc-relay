@@ -907,7 +907,7 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} address - The account address for which to retrieve the transaction count.
-   * @param {string | null} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
+   * @param {string} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction count in hexadecimal format or a JsonRpcError.
    */
@@ -921,7 +921,7 @@ export class EthImpl implements Eth {
   })
   async getTransactionCount(
     address: string,
-    blockNumOrTag: string | null,
+    blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     return this.accountService.getTransactionCount(address, blockNumOrTag, requestDetails);
