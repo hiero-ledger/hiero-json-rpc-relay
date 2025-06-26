@@ -343,6 +343,36 @@
       }
     },
     {
+      "name": "eth_getBlockReceipts",
+      "summary": "Returns the receipts of a block by number or hash.",
+      "params": [
+        {
+          "name": "Block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Receipts information",
+        "schema": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "title": "Receipts information",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ReceiptInfo"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
       "name": "eth_getBlockTransactionCountByHash",
       "summary": "Returns the number of transactions in a block from a block matching the given block hash.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
@@ -1356,6 +1386,10 @@
         },
         "required": ["from", "gas", "input"]
       },
+      "notFound": {
+        "title": "Not Found (null)",
+        "type": "null"
+      },
       "Block": {
         "title": "Block object",
         "type": "object",
@@ -1508,7 +1542,7 @@
         ]
       },
       "BlockNumberOrTagOrHash": {
-        "title": "Block number or tag",
+        "title": "Block number, tag, or block hash",
         "oneOf": [
           {
             "title": "Block number",
@@ -1885,7 +1919,7 @@
       },
       "ReceiptInfo": {
         "type": "object",
-        "title": "Receipt info",
+        "title": "Receipt information",
         "required": [
           "blockHash",
           "blockNumber",
@@ -1898,7 +1932,12 @@
           "transactionIndex",
           "effectiveGasPrice"
         ],
+        "additionalProperties": false,
         "properties": {
+          "type": {
+            "title": "type",
+            "$ref": "#/components/schemas/byte"
+          },
           "transactionHash": {
             "title": "transaction hash",
             "$ref": "#/components/schemas/hash32"
@@ -1922,7 +1961,16 @@
           "to": {
             "title": "to",
             "description": "Address of the receiver or null in a contract creation transaction.",
-            "$ref": "#/components/schemas/address"
+            "oneOf": [
+              {
+                "title": "Contract Creation (null)",
+                "type": "null"
+              },
+              {
+                "title": "Recipient Address",
+                "$ref": "#/components/schemas/address"
+              }
+            ]
           },
           "cumulativeGasUsed": {
             "title": "cumulative gas used",
@@ -1937,7 +1985,15 @@
           "contractAddress": {
             "title": "contract address",
             "description": "The contract address created, if the transaction was a contract creation, otherwise null.",
-            "$ref": "#/components/schemas/address"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/address"
+              },
+              {
+                "title": "Null",
+                "type": "null"
+              }
+            ]
           },
           "logs": {
             "title": "logs",
@@ -1953,7 +2009,7 @@
           "root": {
             "title": "state root",
             "description": "The post-transaction state root. Only specified for transactions included before the Byzantium upgrade.",
-            "$ref": "#/components/schemas/bytes32"
+            "$ref": "#/components/schemas/hash32"
           },
           "status": {
             "title": "status",
@@ -1962,7 +2018,7 @@
           },
           "effectiveGasPrice": {
             "title": "effective gas price",
-            "description": "The actual value per gas deducted from the senders account. Before EIP-1559, this is equal to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).",
+            "description": "The actual value per gas deducted from the sender's account. Before EIP-1559, this is equal to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).",
             "$ref": "#/components/schemas/uint"
           }
         }
