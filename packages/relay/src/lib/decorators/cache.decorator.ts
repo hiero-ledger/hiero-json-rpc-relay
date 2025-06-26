@@ -49,7 +49,8 @@ const shouldSkipCachingForSingleParams = (args: IArgument[], params: CacheSingle
       return true;
     }
 
-    // do not cache optional parameters like 'blockNumber' on 'eth_getStorageAt'
+    // do not cache when a parameter is missing or undefined
+    // this handles cases where optional parameters are not provided
     if (!Object.prototype.hasOwnProperty.call(args, item.index) || args[item.index] === undefined) {
       return true;
     }

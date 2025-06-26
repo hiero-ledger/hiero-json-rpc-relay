@@ -671,7 +671,7 @@ export class EthImpl implements Eth {
    *
    * @param {string} address - The Ethereum address to get the storage value from
    * @param {string} slot - The storage slot to get the value from
-   * @param {string | null} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
+   * @param {string} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the storage value as a hexadecimal string
    */
@@ -679,7 +679,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.HEX64, required: true },
-    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
+    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
@@ -688,7 +688,7 @@ export class EthImpl implements Eth {
   async getStorageAt(
     address: string,
     slot: string,
-    blockNumberOrTagOrHash: string | null,
+    blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
     return this.contractService.getStorageAt(address, slot, blockNumberOrTagOrHash, requestDetails);

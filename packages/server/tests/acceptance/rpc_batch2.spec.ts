@@ -971,46 +971,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(storageValBeforeChange).to.eq(beginStorageVal);
     });
 
-    it('should execute "eth_getStorageAt" request to get current state changes without passing block', async function () {
-      const BEGIN_EXPECTED_STORAGE_VAL = '0x000000000000000000000000000000000000000000000000000000000000000f';
-      const END_EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
-
-      const beginStorageVal = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT,
-        [storageContractAddress, '0x0000000000000000000000000000000000000000000000000000000000000000'],
-        requestId,
-      );
-      expect(beginStorageVal).to.eq(BEGIN_EXPECTED_STORAGE_VAL);
-
-      const gasPrice = await relay.gasPrice(requestId);
-      const transaction = {
-        value: 0,
-        gasLimit: 50000,
-        chainId: Number(CHAIN_ID),
-        to: storageContractAddress,
-        nonce: await relay.getAccountNonce(accounts[1].address),
-        gasPrice: gasPrice,
-        data: STORAGE_CONTRACT_UPDATE,
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-        type: 2,
-      };
-
-      const signedTx = await accounts[1].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-      await relay.pollForValidTransactionReceipt(transactionHash);
-
-      // wait for the transaction to propogate to mirror node
-      await new Promise((r) => setTimeout(r, 4000));
-
-      const storageVal = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT,
-        [storageContractAddress, '0x0000000000000000000000000000000000000000000000000000000000000000'],
-        requestId,
-      );
-      expect(storageVal).to.eq(END_EXPECTED_STORAGE_VAL);
-    });
-
     it('should execute "eth_getStorageAt" request to get current state changes with passing specific block', async function () {
       const EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
 

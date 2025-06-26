@@ -35,7 +35,7 @@ export interface IContractService {
   getStorageAt: (
     address: string,
     slot: string,
-    blockNumberOrTagOrHash: string | null,
+    blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ) => Promise<string>;
 
