@@ -2808,7 +2808,6 @@ describe('SdkClient', async function () {
 
       const transactionRecordMetrics = await sdkClient.getTransactionRecordMetrics(
         transactionId.toString(),
-        mockedCallerName,
         mockedConstructorName,
         accountId.toString(),
         requestDetails,
@@ -2827,7 +2826,6 @@ describe('SdkClient', async function () {
       try {
         await sdkClient.getTransactionRecordMetrics(
           transactionId.toString(),
-          mockedCallerName,
           mockedConstructorName,
           accountId.toString(),
           requestDetails,

@@ -387,10 +387,8 @@ export class SDKClient {
           executionMode: constants.EXECUTION_MODE.QUERY,
           transactionId: query.paymentTransactionId?.toString(),
           txConstructorName: queryConstructorName,
-          callerName,
           cost: queryCost,
           gasUsed: 0,
-          interactingEntity,
           status,
           requestDetails,
           originalCallerAddress,
@@ -487,11 +485,9 @@ export class SDKClient {
       if (transactionId?.length) {
         this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
           transactionId,
-          callerName,
           requestDetails,
           txConstructorName,
           operatorAccountId: this.clientMain.operatorAccountId!.toString(),
-          interactingEntity,
           originalCallerAddress,
         } as IExecuteTransactionEventPayload);
       }
@@ -558,11 +554,9 @@ export class SDKClient {
           if (transactionResponse.transactionId) {
             this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
               transactionId: transactionResponse.transactionId.toString(),
-              callerName,
               requestDetails,
               txConstructorName,
               operatorAccountId: this.clientMain.operatorAccountId!.toString(),
-              interactingEntity,
               originalCallerAddress,
             } as IExecuteTransactionEventPayload);
           }
@@ -736,7 +730,6 @@ export class SDKClient {
    */
   public async getTransactionRecordMetrics(
     transactionId: string,
-    callerName: string,
     txConstructorName: string,
     operatorAccountId: string,
     requestDetails: RequestDetails,
@@ -747,7 +740,7 @@ export class SDKClient {
     try {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Get transaction record via consensus node: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}`,
+          `${requestDetails.formattedRequestId} Get transaction record via consensus node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
         );
       }
 
@@ -769,7 +762,7 @@ export class SDKClient {
       const sdkClientError = new SDKClientError(e, e.message);
       this.logger.warn(
         e,
-        `${requestDetails.formattedRequestId} Error raised during TransactionRecordQuery: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}, recordStatus=${sdkClientError.status} (${sdkClientError.status._code}), cost=${transactionFee}, gasUsed=${gasUsed}`,
+        `${requestDetails.formattedRequestId} Error raised during TransactionRecordQuery: transactionId=${transactionId}, txConstructorName=${txConstructorName}, recordStatus=${sdkClientError.status} (${sdkClientError.status._code}), cost=${transactionFee}, gasUsed=${gasUsed}`,
       );
       throw sdkClientError;
     }

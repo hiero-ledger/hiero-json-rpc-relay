@@ -16,10 +16,8 @@ export interface IExecuteQueryEventPayload {
   executionMode: string;
   transactionId: string;
   txConstructorName: string;
-  callerName: string;
   cost: number;
   gasUsed: number;
-  interactingEntity: string;
   status: string;
   requestDetails: RequestDetails;
   originalCallerAddress: string | undefined;

@@ -1575,7 +1575,6 @@ export class MirrorNodeClient {
    * Retrieves and processes transaction record metrics from the mirror node based on the provided transaction ID.
    *
    * @param {string} transactionId - The ID of the transaction for which the record is being retrieved.
-   * @param {string} callerName - The name of the caller requesting the transaction record.
    * @param {string} txConstructorName - The name of the transaction constructor associated with the transaction.
    * @param {string} operatorAccountId - The account ID of the operator, used to calculate transaction fees.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
@@ -1584,7 +1583,6 @@ export class MirrorNodeClient {
    */
   public async getTransactionRecordMetrics(
     transactionId: string,
-    callerName: string,
     txConstructorName: string,
     operatorAccountId: string,
     requestDetails: RequestDetails,
@@ -1593,7 +1591,7 @@ export class MirrorNodeClient {
 
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${formattedRequestId} Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}`,
+        `${formattedRequestId} Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
       );
     }
 
@@ -1611,7 +1609,7 @@ export class MirrorNodeClient {
     );
 
     if (!transactionRecords) {
-      const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}.`;
+      const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}.`;
       throw new MirrorNodeClientError({ message: notFoundMessage }, MirrorNodeClientError.statusCodes.NOT_FOUND);
     }
 

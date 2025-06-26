@@ -1576,7 +1576,6 @@ describe('MirrorNodeClient', async function () {
 
       const transactionRecordMetrics = await mirrorNodeInstance.getTransactionRecordMetrics(
         mockedTransactionId,
-        mockedCallerName,
         mockedConstructorName,
         operatorAcocuntId,
         requestDetails,
@@ -1591,7 +1590,6 @@ describe('MirrorNodeClient', async function () {
       try {
         await mirrorNodeInstance.getTransactionRecordMetrics(
           mockedTransactionId,
-          mockedCallerName,
           mockedConstructorName,
           operatorAcocuntId,
           requestDetails,
@@ -1599,7 +1597,7 @@ describe('MirrorNodeClient', async function () {
 
         expect.fail('should have thrown an error');
       } catch (error) {
-        const notFoundMessage = `No transaction record retrieved: transactionId=${mockedTransactionId}, txConstructorName=${mockedConstructorName}, callerName=${mockedCallerName}.`;
+        const notFoundMessage = `No transaction record retrieved: transactionId=${mockedTransactionId}, txConstructorName=${mockedConstructorName}.`;
         const expectedError = new MirrorNodeClientError(
           { message: notFoundMessage },
           MirrorNodeClientError.statusCodes.NOT_FOUND,
