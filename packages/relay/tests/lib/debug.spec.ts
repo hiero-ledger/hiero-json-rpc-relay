@@ -34,7 +34,6 @@ let restMock: MockAdapter;
 let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
-let hapiServiceInstance: HAPIService;
 
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
@@ -61,7 +60,6 @@ describe('Debug API Test Suite', async function () {
   const CONTRACT_BY_ADDRESS2 = `contracts/${contractAddress2}`;
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
-  const BLOCKS_ENDPOINT = 'blocks';
 
   const opcodeLoggerConfigs = [
     {
@@ -276,7 +274,7 @@ describe('Debug API Test Suite', async function () {
       register,
       duration,
     );
-    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+    new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
@@ -439,6 +437,18 @@ describe('Debug API Test Suite', async function () {
       });
 
       describe('opcodeLogger', async function () {
+        withOverriddenEnvsInMochaTest({ OPCODELOGGER_ENABLED: false }, () => {
+          it('should throw UNSUPPORTED_METHOD', async function () {
+            await RelayAssertions.assertRejection(
+              predefined.UNSUPPORTED_METHOD,
+              debugService.traceTransaction,
+              true,
+              debugService,
+              [transactionHash, callTracer, tracerConfigFalse, requestDetails],
+            );
+          });
+        });
+
         for (const config of opcodeLoggerConfigs) {
           const opcodeLoggerParams = Object.keys(config)
             .map((key) => `${key}=${config[key]}`)
