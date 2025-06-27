@@ -4,8 +4,8 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import { __test__, cache } from '../../../dist/lib/decorators';
-import { CacheService } from '../../../dist/lib/services/cacheService/cacheService';
+import { __test__, cache } from '../../../src/lib/decorators';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../src/lib/types';
 
 describe('cache decorator', () => {
@@ -229,10 +229,7 @@ describe('cache decorator', () => {
     });
 
     it('should ignore arguments with constructor name "RequestDetails"', () => {
-      const mockRequestDetails = {
-        constructor: { name: 'RequestDetails' },
-        someField: 'shouldBeIgnored',
-      };
+      const mockRequestDetails = new RequestDetails({ requestId: '1', ipAddress: '127.0.0.1' });
       const args = [mockRequestDetails, 'earliest'];
 
       const result = __test__.__private.generateCacheKey('eth_call', args);
