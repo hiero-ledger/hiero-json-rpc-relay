@@ -117,7 +117,7 @@ const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedPara
  */
 const generateCacheKey = (methodName: string, args: unknown[]) => {
   let cacheKey: string = methodName;
-  for (const [, value] of Object.entries(args)) {
+  for (const value of args) {
     if (value?.constructor?.name != 'RequestDetails') {
       if (value && typeof value === 'object') {
         cacheKey += `_${JSON.stringify(value)}`;
