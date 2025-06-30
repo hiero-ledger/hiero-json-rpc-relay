@@ -57,7 +57,7 @@ describe('@debug API Acceptance Tests', function () {
     CALL_TRACER_TOP_ONLY: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } },
     PRESTATE_TRACER: { tracer: TracerType.PrestateTracer },
     PRESTATE_TRACER_TOP_ONLY: { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
-    PRESTATE_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.PrestateTracer, onlyTopCall: false },
+    PRESTATE_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
     OPCODE_LOGGER: { tracer: TracerType.OpcodeLogger },
     OPCODE_WITH_MEMORY: { tracer: TracerType.OpcodeLogger, tracerConfig: { enableMemory: true } },
     OPCODE_WITH_MEMORY_AND_STACK: {
@@ -141,8 +141,11 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
-      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, tracerConfig], requestId);
+      const result = await relay.call(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [blockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+        requestId,
+      );
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -183,8 +186,11 @@ describe('@debug API Acceptance Tests', function () {
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const tracerConfig = { tracer: TracerType.CallTracer, onlyTopCall: false };
-      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, tracerConfig], requestId);
+      const result = await relay.call(
+        DEBUG_TRACE_BLOCK_BY_NUMBER,
+        [blockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+        requestId,
+      );
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -276,7 +282,7 @@ describe('@debug API Acceptance Tests', function () {
       // First trace with onlyTopCall=false (default)
       const fullResult = await relay.call(
         DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE],
+        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
         requestId,
       );
 
@@ -396,7 +402,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     it('should fail with INVALID_PARAMETER when given an invalid tracer configuration', async function () {
-      const invalidTracerConfig = { tracer: 'InvalidTracer', onlyTopCall: false };
+      const invalidTracerConfig = { tracer: 'InvalidTracer', tracerConfig: { onlyTopCall: false } };
       await relay.callFailing(
         DEBUG_TRACE_BLOCK_BY_NUMBER,
         [numberTo0x(deploymentBlockNumber), invalidTracerConfig],

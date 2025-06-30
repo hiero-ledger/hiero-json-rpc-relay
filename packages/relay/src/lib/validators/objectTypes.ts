@@ -102,7 +102,7 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   tracerConfigWrapper: {
     name: 'TracerConfigWrapper',
     failOnEmpty: true,
-    failOnUnexpectedParams: false,
+    failOnUnexpectedParams: true,
     properties: {
       tracer: {
         type: 'tracerType',
