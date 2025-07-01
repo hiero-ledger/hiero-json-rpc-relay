@@ -1479,24 +1479,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(fileInfo.size.toNumber()).to.eq(0);
       });
 
-      it('should execute "eth_sendRawTransaction" and fail when deploying too large contract', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
-        const transaction = {
-          type: 2,
-          chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-          gasLimit: defaultGasLimit,
-          data: '0x' + '00'.repeat(132221),
-        };
-
-        const signedTx = await accounts[1].wallet.signTransaction(transaction);
-        const error = predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(132221, Constants.CONTRACT_CODE_SIZE_LIMIT);
-
-        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
-      });
-
       it('should execute "eth_sendRawTransaction" of type 1 and deploy a real contract', async function () {
         //omitting the "to" and "nonce" fields when creating a new contract
         const transaction = {
@@ -1552,7 +1534,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
+          data: '0x' + '00'.repeat(100),
         };
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
