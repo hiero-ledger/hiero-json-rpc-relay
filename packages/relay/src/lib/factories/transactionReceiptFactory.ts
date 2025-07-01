@@ -30,7 +30,7 @@ interface IRegularTransactionReceiptParams {
   from: string;
   logs: Log[];
   receiptResponse: any;
-  to: string;
+  to: string | null;
 }
 
 /**
@@ -68,15 +68,43 @@ class TransactionReceiptFactory {
   /**
    * Creates a regular transaction receipt from mirror node contract result data
    *
+   * Handles the correction of transaction receipt `to` field for contract creation transactions.
+   *
+   * This logic addresses a discrepancy between Hedera and standard Ethereum behavior regarding
+   * the `to` field in transaction receipts. When a smart contract is deployed:
+   *
+   * 1. In standard Ethereum JSON-RPC, if the original transaction had a null `to` field
+   *    (contract creation), the transaction receipt also reports a null `to` field.
+   *
+   * 2. Hedera Mirror Node, however, automatically populates the `to` field with the
+   *    address of the newly created contract.
+   *
+   * The code checks if a contract was directly created by the transaction (rather than created by
+   * another contract) by checking if the contract's ID appears in the `created_contract_ids` array.
+   * If so, it resets the `to` field to null to match standard Ethereum JSON-RPC behavior.
+   *
+   * This ensures compatibility with Ethereum tooling that expects standard transaction receipt formats.
+   * The handling covers various scenarios:
+   *
+   * - Direct contract deployment (empty `to` field)
+   * - Contract creation via factory contracts
+   * - Method calls that don't create contracts
+   * - Transactions with populated `to` fields that create child contracts
+   *
    * @param params Parameters required to create a regular transaction receipt
    * @param resolveEvmAddressFn Function to resolve EVM addresses
    * @returns {ITransactionReceipt} Transaction receipt for the regular transaction
    */
   public static createRegularReceipt(params: IRegularTransactionReceiptParams): ITransactionReceipt {
-    const { receiptResponse, effectiveGas, from, logs, to } = params;
+    const { receiptResponse, effectiveGas, from, logs } = params;
+    let { to } = params;
 
     // Determine contract address if it exists
     const contractAddress = TransactionReceiptFactory.getContractAddressFromReceipt(receiptResponse);
+
+    if (receiptResponse.created_contract_ids.includes(receiptResponse.contract_id)) {
+      to = null;
+    }
 
     // Create the receipt object
     const receipt: ITransactionReceipt = {

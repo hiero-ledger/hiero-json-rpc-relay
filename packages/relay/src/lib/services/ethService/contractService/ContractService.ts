@@ -288,14 +288,14 @@ export class ContractService implements IContractService {
    *
    * @param {string} address - The address of the storage
    * @param {string} slot - The slot index (hex string)
-   * @param {string | null} blockNumberOrTagOrHash - Block number, tag, or hash
+   * @param {string} blockNumberOrTagOrHash - Block number, tag, or hash
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} The value at the given storage position
    */
   public async getStorageAt(
     address: string,
     slot: string,
-    blockNumberOrTagOrHash: string | null,
+    blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
