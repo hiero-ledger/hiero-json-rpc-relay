@@ -2,7 +2,6 @@
 
 // External resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { ConfigServiceTestHelper } from '@hashgraph/json-rpc-config-service/tests/configServiceTestHelper';
 import { predefined } from '@hashgraph/json-rpc-relay';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
@@ -11,6 +10,7 @@ import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
 
+import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 import RelayCall from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
@@ -367,27 +367,6 @@ describe('@debug API Acceptance Tests', function () {
       }
     });
 
-    it('should fail with UNSUPPORTED_METHOD error when DEBUG_API_ENABLED is false', async function () {
-      // Store original value
-      const originalDebugApiEnabled = ConfigService.get('DEBUG_API_ENABLED');
-
-      // Set DEBUG_API_ENABLED to false
-      ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
-
-      try {
-        // Should return UNSUPPORTED_METHOD error
-        await relay.callFailing(
-          DEBUG_TRACE_BLOCK_BY_NUMBER,
-          [numberTo0x(deploymentBlockNumber), TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
-          predefined.UNSUPPORTED_METHOD,
-          requestId,
-        );
-      } finally {
-        // Restore original value
-        ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', originalDebugApiEnabled);
-      }
-    });
-
     it('should fail with INVALID_PARAMETER when given an invalid block number', async function () {
       // Invalid block number format
       await relay.callFailing(
@@ -683,28 +662,60 @@ describe('@debug API Acceptance Tests', function () {
           requestId,
         );
       });
+    });
 
-      it('should fail with UNSUPPORTED_METHOD error when DEBUG_API_ENABLED is false', async function () {
-        // Store original value
-        const originalDebugApiEnabled = ConfigService.get('DEBUG_API_ENABLED');
+    describe('when DEBUG_API_ENABLED is false', () => {
+      let originalDebugApiEnabled: boolean;
+      let transactionHash: string;
+      let deploymentBlockNumber: string;
 
-        // Set DEBUG_API_ENABLED to false
+      before(async () => {
+        const transaction = {
+          to: basicContractAddress,
+          from: accounts[0].address,
+          gasLimit: numberTo0x(3_000_000),
+          chainId: Number(CHAIN_ID),
+          type: 2,
+          maxFeePerGas: await relay.gasPrice(requestId),
+          maxPriorityFeePerGas: await relay.gasPrice(requestId),
+          data: BASIC_CONTRACT_PING_CALL_DATA,
+          nonce: await relay.getAccountNonce(accounts[0].address, requestId),
+        };
+
+        const signedTx = await accounts[0].wallet.signTransaction(transaction);
+        transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+
+        // Wait for transaction to be processed
+        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+        deploymentBlockNumber = receipt.blockNumber;
+        console.log('receipt', receipt);
+        console.log('deploymentBlockNumber', deploymentBlockNumber);
+        originalDebugApiEnabled = ConfigService.get('DEBUG_API_ENABLED');
         ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
+      });
 
-        try {
-          const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+      after(() => {
+        ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', originalDebugApiEnabled);
+      });
 
-          // Should return UNSUPPORTED_METHOD error
-          await relay.callFailing(
-            DEBUG_TRACE_TRANSACTION,
-            [createChildTx.hash, tracerConfig],
-            predefined.UNSUPPORTED_METHOD,
-            requestId,
-          );
-        } finally {
-          // Restore original value
-          ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', originalDebugApiEnabled);
-        }
+      it('should fail debug_traceBlockByNumber with UNSUPPORTED_METHOD', async function () {
+        await relay.callFailing(
+          DEBUG_TRACE_BLOCK_BY_NUMBER,
+          [deploymentBlockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+          predefined.UNSUPPORTED_METHOD,
+          requestId,
+        );
+      });
+
+      it('should fail debug_traceTransaction with UNSUPPORTED_METHOD', async function () {
+        const tracerConfig = { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [transactionHash, tracerConfig],
+          predefined.UNSUPPORTED_METHOD,
+          requestId,
+        );
       });
     });
   });
