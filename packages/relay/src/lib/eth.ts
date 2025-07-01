@@ -671,7 +671,7 @@ export class EthImpl implements Eth {
    *
    * @param {string} address - The Ethereum address to get the storage value from
    * @param {string} slot - The storage slot to get the value from
-   * @param {string | null} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
+   * @param {string} blockNumberOrTagOrHash - The block number or tag or hash to get the storage value from
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the storage value as a hexadecimal string
    */
@@ -679,7 +679,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ParamType.ADDRESS, required: true },
     1: { type: ParamType.HEX64, required: true },
-    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
+    2: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: true },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
@@ -688,7 +688,7 @@ export class EthImpl implements Eth {
   async getStorageAt(
     address: string,
     slot: string,
-    blockNumberOrTagOrHash: string | null,
+    blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
     return this.contractService.getStorageAt(address, slot, blockNumberOrTagOrHash, requestDetails);
@@ -907,7 +907,7 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} address - The account address for which to retrieve the transaction count.
-   * @param {string | null} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
+   * @param {string} blockNumOrTag - Possible values are 'earliest', 'pending', 'latest', or a block hash in hexadecimal format.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction count in hexadecimal format or a JsonRpcError.
    */
@@ -921,7 +921,7 @@ export class EthImpl implements Eth {
   })
   async getTransactionCount(
     address: string,
-    blockNumOrTag: string | null,
+    blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     return this.accountService.getTransactionCount(address, blockNumOrTag, requestDetails);

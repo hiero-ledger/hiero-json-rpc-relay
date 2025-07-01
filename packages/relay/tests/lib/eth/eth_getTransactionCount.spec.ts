@@ -90,20 +90,18 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
   });
 
-  it('should return 0x0 nonce for no block consideration with not found acoount', async () => {
+  it('should return 0x0 nonce for latest block with not found account', async () => {
     restMock.onGet(contractPath).reply(404, JSON.stringify(mockData.notFound));
     restMock.onGet(accountPath).reply(404, JSON.stringify(mockData.notFound));
-    // @ts-ignore
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, null, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'latest', requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(constants.ZERO_HEX);
   });
 
-  it('should return latest nonce for no block consideration but valid account', async () => {
+  it('should return latest nonce for latest block but valid account', async () => {
     restMock.onGet(contractPath).reply(404, JSON.stringify(mockData.notFound));
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
-    // @ts-ignore
-    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, null, requestDetails);
+    const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, 'latest', requestDetails);
     expect(nonce).to.exist;
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });

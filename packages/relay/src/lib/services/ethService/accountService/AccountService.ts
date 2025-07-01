@@ -296,12 +296,12 @@ export class AccountService implements IAccountService {
    * Queries mirror node for best effort and falls back to consensus node for contracts until HIP 729 is implemented.
    *
    * @param {string} address The account address
-   * @param {string | null} blockNumOrTag Possible values are earliest/pending/latest or hex
+   * @param {string} blockNumOrTag Possible values are earliest/pending/latest or hex
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
   public async getTransactionCount(
     address: string,
-    blockNumOrTag: string | null,
+    blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -320,26 +320,21 @@ export class AccountService implements IAccountService {
     }
 
     const blockNum = Number(blockNumOrTag);
-    if (blockNumOrTag) {
-      if (blockNum === 0 || blockNum === 1) {
-        // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
-        return constants.ZERO_HEX;
-      } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-        // if latest or pending, get latest ethereumNonce from mirror node account API
-        nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
-        nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
-      } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {
-        nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
-      } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
-        nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
-      } else {
-        // return a '-39001: Unknown block' error per api-spec
-        throw predefined.UNKNOWN_BLOCK();
-      }
-    } else {
-      // if no block consideration, get latest ethereumNonce from mirror node if account or from consensus node is contract until HIP 729 is implemented
+    if (blockNum === 0 || blockNum === 1) {
+      // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
+      return constants.ZERO_HEX;
+    } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
+      // if latest or pending, get latest ethereumNonce from mirror node account API
       nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
+    } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
+      nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
+    } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {
+      nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
+    } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
+      nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
+    } else {
+      // return a '-39001: Unknown block' error per api-spec
+      throw predefined.UNKNOWN_BLOCK();
     }
 
     const cacheTtl =

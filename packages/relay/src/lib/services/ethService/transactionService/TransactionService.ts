@@ -432,6 +432,7 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
+
     const transactionReceiptParams: IRegularTransactionReceiptParams = {
       effectiveGas,
       from,

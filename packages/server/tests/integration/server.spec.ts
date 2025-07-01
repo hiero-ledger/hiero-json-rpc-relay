@@ -2016,22 +2016,18 @@ describe('RPC Server', function () {
         }
       });
 
-      it('validates parameter 2 is valid block tag', async function () {
+      it('validates parameter 2 exists', async function () {
         try {
           await testClient.post('/', {
             id: '2',
             jsonrpc: '2.0',
             method: RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT,
-            params: ['0x0000000000000000000000000000000000000001', '0x1', 'newest'],
+            params: ['0x0000000000000000000000000000000000000001', '0x1'],
           });
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(
-            error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 2: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
-          );
+          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 2');
         }
       });
     });
