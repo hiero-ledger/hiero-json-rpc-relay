@@ -63,7 +63,6 @@ export class Precheck {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
-    this.contractCodeSize(parsedTx);
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx, requestDetails);
@@ -380,23 +379,6 @@ export class Precheck {
       // When `receiver_sig_required` is set to true, the receiver's account must sign all incoming transactions.
       if (verifyAccount && verifyAccount.receiver_sig_required) {
         throw predefined.RECEIVER_SIGNATURE_ENABLED;
-      }
-    }
-  }
-
-  /**
-   * Validates that the contract code size is within the allowed limit.
-   * This check is only performed for contract creation transactions (where tx.to is null).
-   * This limits contract code size to prevent excessive gas consumption.
-   *
-   * @param {Transaction} tx - The transaction to validate.
-   * @throws {JsonRpcError} If the contract code size exceeds the configured limit.
-   */
-  contractCodeSize(tx: Transaction): void {
-    if (!tx.to) {
-      const contractCodeSize = tx.data.replace('0x', '').length / 2;
-      if (contractCodeSize > constants.CONTRACT_CODE_SIZE_LIMIT) {
-        throw predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(contractCodeSize, constants.CONTRACT_CODE_SIZE_LIMIT);
       }
     }
   }
