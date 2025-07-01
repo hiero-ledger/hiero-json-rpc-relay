@@ -91,8 +91,6 @@ describe('Metric Service', function () {
     )!;
 
     expect(gasMetricObject.metricName).to.eq(metricHistogramGasFeeSumTitle);
-    expect(gasMetricObject.labels.caller).to.eq(mockedCallerName);
-    expect(gasMetricObject.labels.interactingEntity).to.eq(mockedInteractingEntity);
     expect(gasMetricObject.value).to.eq(
       mockedConsensusNodeTransactionRecord.contractFunctionResult?.gasUsed.toNumber(),
     );
@@ -108,8 +106,6 @@ describe('Metric Service', function () {
         );
       });
       expect(txRecordFeeMetricObject?.metricName).to.eq(metricHistogramCostSumTitle);
-      expect(txRecordFeeMetricObject?.labels.caller).to.eq(mockedCallerName);
-      expect(txRecordFeeMetricObject?.labels.interactingEntity).to.eq(mockedInteractingEntity);
       expect(txRecordFeeMetricObject?.value).to.eq(expectedTxRecordFee);
     }
 
@@ -117,8 +113,6 @@ describe('Metric Service', function () {
       return metric.labels.mode === executionMode && metric.metricName === metricHistogramCostSumTitle;
     });
     expect(transactionFeeMetricObject?.metricName).to.eq(metricHistogramCostSumTitle);
-    expect(transactionFeeMetricObject?.labels.caller).to.eq(mockedCallerName);
-    expect(transactionFeeMetricObject?.labels.interactingEntity).to.eq(mockedInteractingEntity);
     expect(transactionFeeMetricObject?.value).to.eq(mockedTxFee);
   };
 
@@ -281,10 +275,8 @@ describe('Metric Service', function () {
       executionMode: constants.EXECUTION_MODE.QUERY,
       transactionId: mockedTransactionId,
       txConstructorName: mockedConstructorName,
-      callerName: mockedCallerName,
       cost: mockedTxFee,
       gasUsed: mockedGasUsed,
-      interactingEntity: mockedInteractingEntity,
       status: 'SUCCESS',
       requestDetails,
       originalCallerAddress: mockedOriginalCallerAddress,
