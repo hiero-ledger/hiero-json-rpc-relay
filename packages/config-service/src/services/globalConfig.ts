@@ -148,12 +148,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 50_000_000,
   },
-  CONTRACT_CODE_SIZE_LIMIT: {
-    envName: 'CONTRACT_CODE_SIZE_LIMIT',
-    type: 'number',
-    required: false,
-    defaultValue: 24576, // 24KB
-  },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     envName: 'CONTRACT_QUERY_TIMEOUT_RETRIES',
     type: 'number',
