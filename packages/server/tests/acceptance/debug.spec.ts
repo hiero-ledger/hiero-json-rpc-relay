@@ -14,7 +14,6 @@ import { ConfigServiceTestHelper } from '../../../config-service/tests/configSer
 import RelayCall from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
-import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
@@ -47,8 +46,6 @@ describe('@debug API Acceptance Tests', function () {
   const PURE_METHOD_CALL_DATA = '0xb2e0100c';
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
 
-  const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
-  const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
 
