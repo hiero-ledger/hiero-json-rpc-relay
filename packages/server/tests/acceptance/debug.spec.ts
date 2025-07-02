@@ -31,7 +31,7 @@ describe('@debug API Acceptance Tests', function () {
   const requestDetails = new RequestDetails({ requestId: 'debug_test', ipAddress: '0.0.0.0' });
 
   // @ts-ignore
-  const { mirrorNode, relay }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient } = global;
+  const { mirrorNode, relay }: { mirrorNode: MirrorClient; relay: RelayClient } = global;
 
   let requestId: string;
   let basicContract: ethers.Contract;
@@ -119,23 +119,14 @@ describe('@debug API Acceptance Tests', function () {
   describe('debug_traceBlockByNumber', () => {
     it('@release should trace a block containing successful transactions using CallTracer', async function () {
       // Create a transaction that will be included in the next block
-      const transaction = {
-        to: basicContractAddress,
-        from: accounts[0].address,
-        gasLimit: numberTo0x(3_000_000),
-        chainId: Number(CHAIN_ID),
-        type: 2,
-        maxFeePerGas: await relay.gasPrice(requestId),
-        maxPriorityFeePerGas: await relay.gasPrice(requestId),
-        data: BASIC_CONTRACT_PING_CALL_DATA,
-        nonce: await relay.getAccountNonce(accounts[0].address, requestId),
-      };
-
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-
-      // Wait for transaction to be processed
-      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+        requestId,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
@@ -151,7 +142,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === transactionHash);
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
       Assertions.validateCallTracerResult(
@@ -164,23 +155,14 @@ describe('@debug API Acceptance Tests', function () {
 
     it('@release should trace a block containing a failing transaction using CallTracer', async function () {
       // Create a transaction that will revert
-      const transaction = {
-        to: reverterContractAddress,
-        from: accounts[0].address,
-        gasLimit: numberTo0x(3_000_000),
-        chainId: Number(CHAIN_ID),
-        type: 2,
-        maxFeePerGas: await relay.gasPrice(requestId),
-        maxPriorityFeePerGas: await relay.gasPrice(requestId),
-        data: PURE_METHOD_CALL_DATA, // This will cause a revert
-        nonce: await relay.getAccountNonce(accounts[0].address, requestId),
-      };
-
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-
-      // Wait for transaction to be processed
-      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      const transaction = await Utils.buildTransaction(
+        relay,
+        reverterContractAddress,
+        accounts[0].address,
+        PURE_METHOD_CALL_DATA,
+        requestId,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
@@ -196,7 +178,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === transactionHash);
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
       Assertions.validateCallTracerResult(
         txTrace.result,
         PURE_METHOD_CALL_DATA,
@@ -209,24 +191,14 @@ describe('@debug API Acceptance Tests', function () {
 
     it('@release should trace a block using PrestateTracer', async function () {
       // Create a transaction that will be included in the next block
-      const transaction = {
-        to: basicContractAddress,
-        from: accounts[0].address,
-        value: ONE_TINYBAR, // Adding value to see state changes
-        gasLimit: numberTo0x(3_000_000),
-        chainId: Number(CHAIN_ID),
-        type: 2,
-        maxFeePerGas: await relay.gasPrice(requestId),
-        maxPriorityFeePerGas: await relay.gasPrice(requestId),
-        data: BASIC_CONTRACT_PING_CALL_DATA,
-        nonce: await relay.getAccountNonce(accounts[0].address, requestId),
-      };
-
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-
-      // Wait for transaction to be processed
-      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+        requestId,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
@@ -242,7 +214,7 @@ describe('@debug API Acceptance Tests', function () {
       expect(result.length).to.be.at.least(1);
 
       // Find our transaction in the result
-      const txTrace = result.find((trace) => trace.txHash === transactionHash);
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
       expect(txTrace).to.exist;
       expect(txTrace.result).to.exist;
 
@@ -259,24 +231,15 @@ describe('@debug API Acceptance Tests', function () {
 
     it('should trace a block using PrestateTracer with onlyTopCall=true', async function () {
       // Create a transaction that calls a contract which might make internal calls
-      const transaction = {
-        to: basicContractAddress,
-        from: accounts[0].address,
-        value: ONE_TINYBAR,
-        gasLimit: numberTo0x(3_000_000),
-        chainId: Number(CHAIN_ID),
-        type: 2,
-        maxFeePerGas: await relay.gasPrice(requestId),
-        maxPriorityFeePerGas: await relay.gasPrice(requestId),
-        data: BASIC_CONTRACT_PING_CALL_DATA,
-        nonce: await relay.getAccountNonce(accounts[0].address, requestId),
-      };
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+        requestId,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
 
-      const signedTx = await accounts[0].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-
-      // Wait for transaction to be processed
-      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
       const blockNumber = receipt.blockNumber;
 
       // First trace with onlyTopCall=false (default)
@@ -298,8 +261,8 @@ describe('@debug API Acceptance Tests', function () {
       expect(topCallResult).to.be.an('array');
 
       // Find our transaction in both results
-      const fullTxTrace = fullResult.find((trace) => trace.txHash === transactionHash);
-      const topCallTxTrace = topCallResult.find((trace) => trace.txHash === transactionHash);
+      const fullTxTrace = fullResult.find((trace) => trace.txHash === receipt.transactionHash);
+      const topCallTxTrace = topCallResult.find((trace) => trace.txHash === receipt.transactionHash);
 
       expect(fullTxTrace).to.exist;
       expect(topCallTxTrace).to.exist;
@@ -670,26 +633,17 @@ describe('@debug API Acceptance Tests', function () {
       let deploymentBlockNumber: string;
 
       before(async () => {
-        const transaction = {
-          to: basicContractAddress,
-          from: accounts[0].address,
-          gasLimit: numberTo0x(3_000_000),
-          chainId: Number(CHAIN_ID),
-          type: 2,
-          maxFeePerGas: await relay.gasPrice(requestId),
-          maxPriorityFeePerGas: await relay.gasPrice(requestId),
-          data: BASIC_CONTRACT_PING_CALL_DATA,
-          nonce: await relay.getAccountNonce(accounts[0].address, requestId),
-        };
+        const transaction = await Utils.buildTransaction(
+          relay,
+          basicContractAddress,
+          accounts[0].address,
+          BASIC_CONTRACT_PING_CALL_DATA,
+          requestId,
+        );
+        const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
 
-        const signedTx = await accounts[0].wallet.signTransaction(transaction);
-        transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-
-        // Wait for transaction to be processed
-        const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
         deploymentBlockNumber = receipt.blockNumber;
-        console.log('receipt', receipt);
-        console.log('deploymentBlockNumber', deploymentBlockNumber);
+        transactionHash = receipt.transactionHash;
         originalDebugApiEnabled = ConfigService.get('DEBUG_API_ENABLED');
         ConfigServiceTestHelper.dynamicOverride('DEBUG_API_ENABLED', false);
       });
