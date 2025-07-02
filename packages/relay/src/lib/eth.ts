@@ -34,7 +34,6 @@ import {
   ITransactionReceipt,
   RequestDetails,
 } from './types';
-import { ParamType } from './types/validation';
 import { rpcParamValidationRules } from './validators';
 
 /**

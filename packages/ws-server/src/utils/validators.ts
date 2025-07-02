@@ -6,6 +6,11 @@ import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { validateEthSubscribeLogsParamObject } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 
+interface EthSubscribeLogsParams {
+  address?: string | string[];
+  topics?: any[];
+}
+
 /**
  * Validates whether the provided address corresponds to a contract or token type.
  * Throws an error if the address is not a valid contract or token type or does not exist.
@@ -43,7 +48,7 @@ const validateIsContractOrTokenAddress = async (
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
  */
 export const validateSubscribeEthLogsParams = async (
-  filters: unknown,
+  filters: EthSubscribeLogsParams,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
 ) => {

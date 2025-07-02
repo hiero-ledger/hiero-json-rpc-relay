@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { TracerType } from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import { validateObject } from './utils';
 
@@ -220,7 +221,7 @@ export function validateSchema(schema: IObjectSchema, object: any) {
   return validateObject(object, schema);
 }
 
-export function validateEthSubscribeLogsParamObject(param: any): asserts param is { address: string } {
+export function validateEthSubscribeLogsParamObject(param: any): boolean {
   const schema = OBJECTS_VALIDATIONS.ethSubscribeLogsParams;
   const valid = validateSchema(schema, param);
   // Check if the address is an array and has a length of 0
@@ -229,5 +230,40 @@ export function validateEthSubscribeLogsParamObject(param: any): asserts param i
     throw predefined.MISSING_REQUIRED_PARAMETER(`'address' for ${schema.name}`);
   }
 
-  // return valid;
+  return valid;
+}
+
+export function validateTracerConfigWrapper(param: any): boolean {
+  const schema = OBJECTS_VALIDATIONS.tracerConfigWrapper;
+  const valid = validateSchema(schema, param);
+  const { tracer, tracerConfig } = param;
+
+  if (!tracerConfig) {
+    return valid;
+  }
+
+  const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
+  const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
+
+  const configKeys = Object.keys(tracerConfig);
+  const hasCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
+  const hasOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
+
+  // we want to accept ICallTracerConfig only if the tracer is callTracer
+  // this config is not valid for opcodeLogger and vice versa
+  // accept only IOpcodeLoggerConfig with opcodeLogger tracer
+  if (hasCallTracerKeys && tracer === TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `callTracer 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.CallTracer}`,
+    );
+  }
+
+  if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `opcodeLogger 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.OpcodeLogger}`,
+    );
+  }
+  return valid;
 }
