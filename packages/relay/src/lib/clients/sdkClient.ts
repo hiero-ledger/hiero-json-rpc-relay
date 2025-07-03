@@ -42,8 +42,6 @@ import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
 
-const _ = require('lodash');
-
 export class SDKClient {
   /**
    * The client to use for connecting to the main consensus network. The account
@@ -419,6 +417,10 @@ export class SDKClient {
     originalCallerAddress: string,
     estimatedTxFee?: number,
   ): Promise<TransactionResponse> {
+    if (ConfigService.get('READ_ONLY')) {
+      throw predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
+    }
+
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
     let transactionResponse: TransactionResponse | null = null;

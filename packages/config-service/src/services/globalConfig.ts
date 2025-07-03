@@ -602,7 +602,7 @@ const _CONFIG = {
   OPERATOR_ID_MAIN: {
     envName: 'OPERATOR_ID_MAIN',
     type: 'string',
-    required: true,
+    required: false,
     defaultValue: null,
   },
   OPERATOR_KEY_ETH_SENDRAWTRANSACTION: {
@@ -620,7 +620,7 @@ const _CONFIG = {
   OPERATOR_KEY_MAIN: {
     envName: 'OPERATOR_KEY_MAIN',
     type: 'string',
-    required: true,
+    required: false,
     defaultValue: null,
   },
   RATE_LIMIT_DISABLED: {
@@ -640,6 +640,12 @@ const _CONFIG = {
     type: 'string',
     required: false,
     defaultValue: null,
+  },
+  READ_ONLY: {
+    envName: 'READ_ONLY',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
   },
   REDIS_RECONNECT_DELAY_MS: {
     envName: 'REDIS_RECONNECT_DELAY_MS',
