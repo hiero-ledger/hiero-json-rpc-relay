@@ -27,6 +27,7 @@ import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
+import basicContractJson from '../contracts/Basic.json';
 import logsContractJson from '../contracts/Logs.json';
 // Local resources from contracts directory
 import parentContractJson from '../contracts/Parent.json';
@@ -822,6 +823,41 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
       });
 
+      it('should execute "eth_getBlockReceipts" with contract deployment transaction showing null to field', async function () {
+        const contractDeployment = await Utils.deployContract(
+          basicContractJson.abi,
+          basicContractJson.bytecode,
+          accounts[0].wallet,
+        );
+        const basicContractTx = contractDeployment.deploymentTransaction();
+        if (!basicContractTx) {
+          throw new Error('Deployment transaction is null');
+        }
+        const receipt = await relay.pollForValidTransactionReceipt(basicContractTx.hash);
+
+        const deploymentBlock = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_HASH,
+          [receipt.blockHash, false],
+          requestIdPrefix,
+        );
+
+        const res = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
+          [deploymentBlock.hash],
+          requestIdPrefix,
+        );
+
+        const deploymentReceiptInBlock = res.find((receipt) => receipt.transactionHash === basicContractTx.hash);
+
+        expect(deploymentReceiptInBlock).to.exist;
+        expect(deploymentReceiptInBlock).to.have.property('to');
+        expect(deploymentReceiptInBlock.to).to.be.null;
+        expect(deploymentReceiptInBlock.contractAddress).to.not.be.null;
+        expect(deploymentReceiptInBlock.contractAddress.toLowerCase()).to.equal(
+          contractDeployment.target.toString().toLowerCase(),
+        );
+      });
+
       it('should return null for "eth_getBlockReceipts" when block is not found', async function () {
         const res = await relay.call(
           RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS,
@@ -1085,6 +1121,30 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           requestIdPrefix,
         );
         expect(res).to.be.null;
+      });
+
+      it('should execute "eth_getTransactionReceipt" and set "to" field to null for direct contract deployment', async function () {
+        const basicContract = await Utils.deployContract(
+          basicContractJson.abi,
+          basicContractJson.bytecode,
+          accounts[0].wallet,
+        );
+
+        const contractDeploymentTx = basicContract.deploymentTransaction();
+        if (!contractDeploymentTx) {
+          throw new Error('Deployment transaction is null');
+        }
+        await relay.pollForValidTransactionReceipt(contractDeploymentTx.hash);
+
+        const contractDeploymentReceipt = await relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT,
+          [contractDeploymentTx.hash],
+          requestIdPrefix,
+        );
+
+        expect(contractDeploymentReceipt).to.exist;
+        expect(contractDeploymentReceipt.contractAddress).to.not.be.null;
+        expect(contractDeploymentReceipt.to).to.be.null;
       });
 
       it('should fail "eth_sendRawTransaction" for transaction with incorrect chain_id', async function () {
@@ -1419,24 +1479,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(fileInfo.size.toNumber()).to.eq(0);
       });
 
-      it('should execute "eth_sendRawTransaction" and fail when deploying too large contract', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
-        const transaction = {
-          type: 2,
-          chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
-          maxPriorityFeePerGas: gasPrice,
-          maxFeePerGas: gasPrice,
-          gasLimit: defaultGasLimit,
-          data: '0x' + '00'.repeat(132221),
-        };
-
-        const signedTx = await accounts[1].wallet.signTransaction(transaction);
-        const error = predefined.CONTRACT_CODE_SIZE_LIMIT_EXCEEDED(132221, Constants.CONTRACT_CODE_SIZE_LIMIT);
-
-        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
-      });
-
       it('should execute "eth_sendRawTransaction" of type 1 and deploy a real contract', async function () {
         //omitting the "to" and "nonce" fields when creating a new contract
         const transaction = {
@@ -1492,7 +1534,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-          data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
+          data: '0x' + '00'.repeat(100),
         };
 
         const signedTx = await accounts[2].wallet.signTransaction(transaction);

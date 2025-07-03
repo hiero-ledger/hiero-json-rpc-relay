@@ -315,8 +315,10 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     }
   });
 
-  it('valid receipt on cache match', async function() {
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT.replace('eth_', '')}_${defaultDetailedContractResultByHash.hash}`;
+  it('valid receipt on cache match', async function () {
+    const cacheKey = `${constants.CACHE_KEY.ETH_GET_TRANSACTION_RECEIPT.replace('eth_', '')}_${
+      defaultDetailedContractResultByHash.hash
+    }`;
     const cacheReceipt = {
       blockHash: defaultDetailedContractResultByHash.block_hash,
       blockNumber: defaultDetailedContractResultByHash.block_number,
@@ -351,5 +353,22 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt.to).to.eq(cacheReceipt.to);
     expect(receipt.transactionHash).to.eq(cacheReceipt.transactionHash);
     expect(receipt.transactionIndex).to.eq(cacheReceipt.transactionIndex);
+  });
+
+  it('should handle receipt with null "to" field', async function () {
+    const contractResultWithNullTo = {
+      ...defaultDetailedContractResultByHash,
+      to: null,
+    };
+
+    const uniqueTxHash = '0x17cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}`).reply(200, JSON.stringify(contractResultWithNullTo));
+    restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
+    stubBlockAndFeesFunc(sandbox);
+
+    const receipt = await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
+    expect(receipt).to.exist;
+    expect(receipt?.to).to.be.null;
   });
 });

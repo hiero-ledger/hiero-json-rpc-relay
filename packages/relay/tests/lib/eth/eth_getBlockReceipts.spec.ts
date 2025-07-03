@@ -214,6 +214,108 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
     });
+
+    it('should handle null to field for contract creation transactions', async function () {
+      const contractCreationResults = {
+        results: [
+          {
+            ...results[0],
+            to: null,
+            created_contract_ids: ['0.0.1234'],
+            contract_id: '0.0.1234',
+            address: '0xnewlyCreatedContractAddress',
+          },
+        ],
+        links: { next: null },
+      };
+
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractCreationResults,
+      });
+
+      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts).to.exist;
+      expect(receipts.length).to.equal(1);
+      expect(receipts[0].from).to.equal('0xresolvedFromAddress');
+      expect(receipts[0].to).to.equal(null);
+      expect(receipts[0].contractAddress).to.not.equal(null);
+
+      expect(resolveEvmAddressStub.calledWith(undefined, sinon.match.any)).to.be.false;
+
+      resolveEvmAddressStub.restore();
+    });
+
+    it('should set to field to null when contract is in created_contract_ids', async function () {
+      const contractId = '0.0.1234';
+      const contractCreationResults = {
+        results: [
+          {
+            ...results[0],
+            to: '0xoriginalToAddress',
+            created_contract_ids: [contractId],
+            contract_id: contractId,
+          },
+        ],
+        links: { next: null },
+      };
+
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractCreationResults,
+      });
+
+      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
+      resolveEvmAddressStub.withArgs(undefined, sinon.match.any).resolves(null);
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts).to.exist;
+      expect(receipts.length).to.equal(1);
+      expect(receipts[0].from).to.equal('0xresolvedFromAddress');
+      expect(receipts[0].to).to.equal(null);
+
+      resolveEvmAddressStub.restore();
+    });
+
+    it('should keep original to field when contract is not in created_contract_ids', async function () {
+      const contractId = '0.0.1234';
+      const differentContractId = '0.0.5678';
+      const originalToAddress = '0xoriginalToAddress';
+      const resolvedToAddress = '0xresolvedToAddress';
+
+      const contractResults = {
+        results: [
+          {
+            ...results[0],
+            to: originalToAddress,
+            created_contract_ids: [differentContractId],
+            contract_id: contractId,
+          },
+        ],
+        links: { next: null },
+      };
+
+      setupStandardResponses({
+        [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractResults,
+      });
+
+      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
+      resolveEvmAddressStub.withArgs(originalToAddress, sinon.match.any).resolves(resolvedToAddress);
+
+      const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
+
+      expect(receipts).to.exist;
+      expect(receipts.length).to.equal(1);
+      expect(receipts[0].from).to.equal('0xresolvedFromAddress');
+      expect(receipts[0].to).to.equal(resolvedToAddress);
+
+      resolveEvmAddressStub.restore();
+    });
   });
 
   describe('Error cases', () => {

@@ -480,6 +480,30 @@ export class Utils {
     });
   }
 
+  static async getReceipt(relay: RelayClient, transactionProps: object, requestId: string, wallet: ethers.Wallet) {
+    const signedTx = await wallet.signTransaction(transactionProps);
+    const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+
+    // Wait for transaction to be processed
+    const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+    return receipt;
+  }
+
+  static async buildTransaction(relay: RelayClient, to: string, from: string, data: string, requestId: string) {
+    const chainId = ConfigService.get('CHAIN_ID');
+    return {
+      to,
+      from,
+      gasLimit: numberTo0x(3_000_000),
+      chainId: chainId,
+      type: 2,
+      maxFeePerGas: await relay.gasPrice(requestId),
+      maxPriorityFeePerGas: await relay.gasPrice(requestId),
+      data,
+      nonce: await relay.getAccountNonce(from),
+    };
+  }
+
   /**
    * Generates a comment indicating a memory leak detected during tests.
    * @param {string} testTitle The title of the current test.
