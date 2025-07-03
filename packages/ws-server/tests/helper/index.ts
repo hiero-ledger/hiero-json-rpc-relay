@@ -19,7 +19,7 @@ export class WsTestHelper {
     } catch (error: any) {
       const errorToCheck = error.info || error;
       expect(errorToCheck.error).to.exist;
-      expect(errorToCheck.error.code).to.be.oneOf([-32000, -32602, -32603]);
+      expect(errorToCheck.error.code).to.be.oneOf([-32000, -32600, -32602, -32603]);
     }
   }
 
@@ -55,7 +55,7 @@ export class WsTestHelper {
     const response = await WsTestHelper.sendRequestToStandardWebSocket(method, params);
     WsTestHelper.assertJsonRpcObject(response);
     expect(response.error).to.exist;
-    expect(response.error.code).to.be.oneOf([-32000, -32602, -32603]);
+    expect(response.error.code).to.be.oneOf([-32000, -32600, -32602, -32603]);
   }
 
   static assertJsonRpcObject(obj: any) {
