@@ -26,10 +26,6 @@ on:
       relayTag:
         required: false
         type: string
-      maxAttempts:
-        required: false
-        type: number
-        default: 3
     secrets:
       operator_key:
         description: 'The ED25519, ECDSA, or DER encoded private key of the operator'
@@ -95,11 +91,7 @@ jobs:
         run: docker stop json-rpc-relay json-rpc-relay-ws
 
       - name: Run acceptance tests
-        uses: step-security/retry@2ab886c0de89f68f146c9b43f53e61abc59c46dc # v3.0.1
-        with:
-          max_attempts: ${{ inputs.maxAttempts }}
-          timeout_minutes: 30
-          command: |
+        run: |
             if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
               echo "Overriding OPERATOR_KEY_MAIN with the secret value"
               export OPERATOR_KEY_MAIN="$OPERATOR_KEY"

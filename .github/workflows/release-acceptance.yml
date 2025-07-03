@@ -75,11 +75,7 @@ jobs:
         run: npm install @hashgraph/hedera-local -g        
 
       - name: Run acceptance tests
-        uses: step-security/retry@2ab886c0de89f68f146c9b43f53e61abc59c46dc # v3.0.1
-        with:
-          max_attempts: 3
-          timeout_minutes: 20
-          command: npm run acceptancetest:release
+        run: npm run acceptancetest:release
 
       - name: Run hedera local
         run: hedera restart -d

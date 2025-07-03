@@ -28,7 +28,6 @@ jobs:
       testfilter: release_light
       envfile: ${{ inputs.network }}Acceptance.env
       operator_id: ${{ inputs.operator_id }}
-      maxAttempts: 1
     secrets:
       operator_key: ${{ inputs.operator_key }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
