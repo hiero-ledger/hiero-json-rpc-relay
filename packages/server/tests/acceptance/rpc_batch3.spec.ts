@@ -2192,4 +2192,84 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       );
     });
   });
+
+  describe('Validate length of the rpc parameters array', async function () {
+    const testClient = Axios.create({
+      baseURL: 'http://localhost:' + ConfigService.get('E2E_SERVER_PORT'),
+      responseType: 'json' as const,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      timeout: 30 * 1000,
+    });
+
+    const generateTest = (method, params) => {
+      it(method, async () => {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method,
+            params,
+          });
+
+          Assertions.expectedError();
+        } catch (e: any) {
+          expect(e.response.status).to.equal(400);
+          Assertions.jsonRpcError(e.response.data.error, predefined.INVALID_REQUEST);
+        }
+      });
+    };
+
+    const TEST_SUITES = {
+      eth_getBalance: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getCode: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getBlockByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', false, null],
+      eth_getBlockByNumber: ['0x4cc9a7', false, null],
+      eth_getBlockTransactionCountByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getBlockTransactionCountByNumber: ['0x4cc9a779', null],
+      eth_getTransactionByBlockHashAndIndex: [
+        '0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99',
+        '0x1',
+        null,
+      ],
+      eth_getTransactionByBlockNumberAndIndex: ['0x4cc9a77', '0x1', null],
+      eth_getTransactionCount: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x13455', null],
+      eth_sendRawTransaction: [
+        '0xf86a018203e882520894f17f52151ebef6c7334fad080c5704d77216b732896c6b935b8bbd400000801ba093129415f03b4794fd1512e79ee7f097e4271f66721020f8407aac92179893a5a0451b875d89721ec98be55201092980b0a87bb1c48507fccb86da713596b2a09e',
+        null,
+      ],
+      eth_call: [
+        {
+          to: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          data: '0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE',
+        },
+        'latest',
+        null,
+      ],
+      eth_getTransactionByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getTransactionReceipt: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getLogs: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getBlockReceipts: ['0x5661236', null],
+      eth_newFilter: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getFilterLogs: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_getFilterChanges: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_uninstallFilter: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+    };
+
+    for (const [method, params] of Object.entries(TEST_SUITES)) {
+      generateTest(method, params);
+    }
+  });
 });
