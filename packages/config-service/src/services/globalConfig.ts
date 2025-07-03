@@ -629,6 +629,12 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  READ_ONLY: {
+    envName: 'READ_ONLY',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   REDIS_ENABLED: {
     envName: 'REDIS_ENABLED',
     type: 'boolean',
@@ -640,12 +646,6 @@ const _CONFIG = {
     type: 'string',
     required: false,
     defaultValue: null,
-  },
-  READ_ONLY: {
-    envName: 'READ_ONLY',
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
   },
   REDIS_RECONNECT_DELAY_MS: {
     envName: 'REDIS_RECONNECT_DELAY_MS',
