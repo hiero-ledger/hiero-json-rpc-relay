@@ -13,7 +13,7 @@ concurrency:
 
 permissions:
   contents: read
-    
+
 jobs:
   subgraph-workflow:
     runs-on: hiero-smart-contracts-linux-medium
@@ -43,7 +43,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Run local node
-        run: npx hedera start -d  
+        run: npx hedera start -d
         timeout-minutes: 5
 
       - name: Compile contracts
@@ -51,11 +51,13 @@ jobs:
 
       - name: Deploy and interact with contracts
         run: npx hardhat prepare
-      
+
       - name: Generate types
         run: npm run graph-codegen
 
       - name: Start local graph-node
+        env:
+          IPFS_PROFILE: test
         run: npm run graph-local -- --detach
 
       - name: Sleep for 20 seconds
