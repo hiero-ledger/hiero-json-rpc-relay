@@ -217,91 +217,89 @@ describe('Validator', async () => {
     });
   });
 
-  // describe('validates Filter Object type correctly', async () => {
-  //   const validation = { 0: { type: 'filter', required: true } };
-  //   const error = TYPES['filter'].error;
-  //   const object = OBJECTS_VALIDATIONS.FilterObject.name;
+  describe('validates Filter Object type correctly', async () => {
+    const validation = { 0: { type: 'filter', required: true } };
+    const error = TYPES['filter'].error;
+    const name = 'FilterObject';
 
-  //   it('throws an error if the param is not an Object', async () => {
-  //     expect(() => validateParams(['0x1'], validation)).to.throw(expectInvalidParam(0, error, '0x1'));
-  //     expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
-  //     expect(() => validateParams([[]], validation)).to.throw(expectInvalidParam(0, error, ''));
-  //     expect(() => validateParams([true], validation)).to.throw(expectInvalidParam(0, error, 'true'));
-  //   });
+    it('throws an error if the param is not an Object', async () => {
+      expect(() => validateParams(['0x1'], validation)).to.throw(expectInvalidParam(0, error, '0x1'));
+      expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
+      expect(() => validateParams([[]], validation)).to.throw(expectInvalidParam(0, error, ''));
+      expect(() => validateParams([true], validation)).to.throw(expectInvalidParam(0, error, 'true'));
+    });
 
-  //   it('throws an error if both blockHash and fromBlock/toBlock are used', async () => {
-  //     expect(() =>
-  //       validateParams(
-  //         [{ blockHash: '0xdec54931fcfe053f3ffec90c1f7fd20158420b415054f15a4d16b63c528f70a8', fromBlock: 'latest' }],
-  //         validation,
-  //       ),
-  //     ).to.throw(expectInvalidParam(0, "Can't use both blockHash and toBlock/fromBlock"));
-  //   });
+    it('throws an error if both blockHash and fromBlock/toBlock are used', async () => {
+      expect(() =>
+        validateParams(
+          [{ blockHash: '0xdec54931fcfe053f3ffec90c1f7fd20158420b415054f15a4d16b63c528f70a8', fromBlock: 'latest' }],
+          validation,
+        ),
+      ).to.throw(expectInvalidParam(0, "Can't use both blockHash and toBlock/fromBlock"));
+    });
 
-  //   it('throws an error if the Filter Object properties are the wrong type', async () => {
-  //     expect(() => validateParams([{ blockHash: 123 }], validation)).to.throw(
-  //       expectInvalidObject('blockHash', Constants.BLOCK_HASH_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ toBlock: 123 }], validation)).to.throw(
-  //       expectInvalidObject('toBlock', Constants.BLOCK_NUMBER_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ fromBlock: 123 }], validation)).to.throw(
-  //       expectInvalidObject('fromBlock', Constants.BLOCK_NUMBER_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ address: '0x1' }], validation)).to.throw(
-  //       expectInvalidObject('address', TYPES.addressFilter.error, object, '0x1'),
-  //     );
-  //     expect(() => validateParams([{ topics: {} }], validation)).to.throw(
-  //       expectInvalidObject('topics', TYPES.topics.error, object, '{}'),
-  //     );
-  //     expect(() => validateParams([{ topics: [123] }], validation)).to.throw(
-  //       expectInvalidObject('topics', TYPES.topics.error, object, '[123]'),
-  //     );
-  //   });
+    it('throws an error if the Filter Object properties are the wrong type', async () => {
+      expect(() => validateParams([{ blockHash: 123 }], validation)).to.throw(
+        expectInvalidObject('blockHash', Constants.BLOCK_HASH_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ toBlock: 123 }], validation)).to.throw(
+        expectInvalidObject('toBlock', Constants.BLOCK_NUMBER_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ fromBlock: 123 }], validation)).to.throw(
+        expectInvalidObject('fromBlock', Constants.BLOCK_NUMBER_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ address: '0x1' }], validation)).to.throw(
+        expectInvalidObject('address', TYPES.addressFilter.error, name, '0x1'),
+      );
+      expect(() => validateParams([{ topics: {} }], validation)).to.throw(
+        expectInvalidObject('topics', TYPES.topics.error, name, '{}'),
+      );
+      expect(() => validateParams([{ topics: [123] }], validation)).to.throw(
+        expectInvalidObject('topics', TYPES.topics.error, name, '[123]'),
+      );
+    });
 
-  //   it('does not throw an error for correct values', async () => {
-  //     expect(
-  //       validateParams(
-  //         [{ blockHash: '0xdec54931fcfe053f3ffec90c1f7fd20158420b415054f15a4d16b63c528f70a8' }],
-  //         validation,
-  //       ),
-  //     ).to.eq(undefined);
-  //     expect(validateParams([{ toBlock: '0x2' }], validation)).to.eq(undefined);
-  //     expect(validateParams([{ toBlock: 'latest' }], validation)).to.eq(undefined);
-  //     expect(validateParams([{ fromBlock: '0x1' }], validation)).to.eq(undefined);
-  //     expect(validateParams([{ fromBlock: 'earliest' }], validation)).to.eq(undefined);
-  //     expect(validateParams([{ address: '0x4422E9088662c44604189B2aA3ae8eE282fceBB7' }], validation)).to.eq(
-  //       undefined,
-  //     );
-  //     expect(
-  //       validateParams(
-  //         [{ address: ['0x4422E9088662c44604189B2aA3ae8eE282fceBB7', '0x4422E9088662c44604189B2aA3ae8eE282fceBB8'] }],
-  //         validation,
-  //       ),
-  //     ).to.eq(undefined);
-  //     expect(
-  //       validateParams(
-  //         [{ topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'] }],
-  //         validation,
-  //       ),
-  //     ).to.eq(undefined);
-  //     expect(
-  //       validateParams(
-  //         [
-  //           {
-  //             topics: [
-  //               [
-  //                 '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
-  //                 '0xea443924a9fba8d643a00daf0a7956ebc37fa4e9da82f07f80c34f0f5217edf9',
-  //               ],
-  //             ],
-  //           },
-  //         ],
-  //         validation,
-  //       ),
-  //     ).to.eq(undefined);
-  //   });
-  // });
+    it('does not throw an error for correct values', async () => {
+      expect(
+        validateParams(
+          [{ blockHash: '0xdec54931fcfe053f3ffec90c1f7fd20158420b415054f15a4d16b63c528f70a8' }],
+          validation,
+        ),
+      ).to.eq(undefined);
+      expect(validateParams([{ toBlock: '0x2' }], validation)).to.eq(undefined);
+      expect(validateParams([{ toBlock: 'latest' }], validation)).to.eq(undefined);
+      expect(validateParams([{ fromBlock: '0x1' }], validation)).to.eq(undefined);
+      expect(validateParams([{ fromBlock: 'earliest' }], validation)).to.eq(undefined);
+      expect(validateParams([{ address: '0x4422E9088662c44604189B2aA3ae8eE282fceBB7' }], validation)).to.eq(undefined);
+      expect(
+        validateParams(
+          [{ address: ['0x4422E9088662c44604189B2aA3ae8eE282fceBB7', '0x4422E9088662c44604189B2aA3ae8eE282fceBB8'] }],
+          validation,
+        ),
+      ).to.eq(undefined);
+      expect(
+        validateParams(
+          [{ topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'] }],
+          validation,
+        ),
+      ).to.eq(undefined);
+      expect(
+        validateParams(
+          [
+            {
+              topics: [
+                [
+                  '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+                  '0xea443924a9fba8d643a00daf0a7956ebc37fa4e9da82f07f80c34f0f5217edf9',
+                ],
+              ],
+            },
+          ],
+          validation,
+        ),
+      ).to.eq(undefined);
+    });
+  });
 
   describe('validates topics type correctly', async () => {
     const validation = { 0: { type: 'topics' } };
@@ -485,48 +483,48 @@ describe('Validator', async () => {
     });
   });
 
-  // describe('validates Transaction Object type correctly', async () => {
-  //   const validation = { 0: { type: 'transaction', required: true } };
-  //   const error = TYPES['transaction'].error;
-  //   const object = OBJECTS_VALIDATIONS.transactionObject.name;
+  describe('validates Transaction Object type correctly', async () => {
+    const validation = { 0: { type: 'transaction', required: true } };
+    const error = TYPES['transaction'].error;
+    const name = 'ТransactionObject';
 
-  //   it('throws an error if the param is not an Object', async () => {
-  //     expect(() => validateParams(['string'], validation)).to.throw(expectInvalidParam(0, error, 'string'));
-  //     expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
-  //     expect(() => validateParams([[]], validation)).to.throw(expectInvalidParam(0, error, ''));
-  //     expect(() => validateParams([true], validation)).to.throw(expectInvalidParam(0, error, 'true'));
-  //   });
+    it('throws an error if the param is not an Object', async () => {
+      expect(() => validateParams(['string'], validation)).to.throw(expectInvalidParam(0, error, 'string'));
+      expect(() => validateParams([123], validation)).to.throw(expectInvalidParam(0, error, '123'));
+      expect(() => validateParams([[]], validation)).to.throw(expectInvalidParam(0, error, ''));
+      expect(() => validateParams([true], validation)).to.throw(expectInvalidParam(0, error, 'true'));
+    });
 
-  //   it('throws an error if the Transaction Object properties are the wrong type', async () => {
-  //     expect(() => validateParams([{ from: '0x1234' }], validation)).to.throw(
-  //       expectInvalidObject('from', Constants.ADDRESS_ERROR, object, '0x1234'),
-  //     );
-  //     expect(() => validateParams([{ to: '0x1234' }], validation)).to.throw(
-  //       expectInvalidObject('to', Constants.ADDRESS_ERROR, object, '0x1234'),
-  //     );
-  //     expect(() => validateParams([{ gas: 123 }], validation)).to.throw(
-  //       expectInvalidObject('gas', Constants.DEFAULT_HEX_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ gasPrice: 123 }], validation)).to.throw(
-  //       expectInvalidObject('gasPrice', Constants.DEFAULT_HEX_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ maxPriorityFeePerGas: 123 }], validation)).to.throw(
-  //       expectInvalidObject('maxPriorityFeePerGas', Constants.DEFAULT_HEX_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ maxFeePerGas: 123 }], validation)).to.throw(
-  //       expectInvalidObject('maxFeePerGas', Constants.DEFAULT_HEX_ERROR, object, '123'),
-  //     );
-  //     expect(() => validateParams([{ value: '123456' }], validation)).to.throw(
-  //       expectInvalidObject('value', Constants.DEFAULT_HEX_ERROR, object, '123456'),
-  //     );
-  //     expect(() => validateParams([{ data: '123456' }], validation)).to.throw(
-  //       expectInvalidObject('data', Constants.EVEN_HEX_ERROR, object, '123456'),
-  //     );
-  //     expect(() => validateParams([{ data: '0x1234567' }], validation)).to.throw(
-  //       expectInvalidObject('data', Constants.EVEN_HEX_ERROR, object, '0x1234567'),
-  //     );
-  //   });
-  // });
+    it('throws an error if the Transaction Object properties are the wrong type', async () => {
+      expect(() => validateParams([{ from: '0x1234' }], validation)).to.throw(
+        expectInvalidObject('from', Constants.ADDRESS_ERROR, name, '0x1234'),
+      );
+      expect(() => validateParams([{ to: '0x1234' }], validation)).to.throw(
+        expectInvalidObject('to', Constants.ADDRESS_ERROR, name, '0x1234'),
+      );
+      expect(() => validateParams([{ gas: 123 }], validation)).to.throw(
+        expectInvalidObject('gas', Constants.DEFAULT_HEX_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ gasPrice: 123 }], validation)).to.throw(
+        expectInvalidObject('gasPrice', Constants.DEFAULT_HEX_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ maxPriorityFeePerGas: 123 }], validation)).to.throw(
+        expectInvalidObject('maxPriorityFeePerGas', Constants.DEFAULT_HEX_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ maxFeePerGas: 123 }], validation)).to.throw(
+        expectInvalidObject('maxFeePerGas', Constants.DEFAULT_HEX_ERROR, name, '123'),
+      );
+      expect(() => validateParams([{ value: '123456' }], validation)).to.throw(
+        expectInvalidObject('value', Constants.DEFAULT_HEX_ERROR, name, '123456'),
+      );
+      expect(() => validateParams([{ data: '123456' }], validation)).to.throw(
+        expectInvalidObject('data', Constants.EVEN_HEX_ERROR, name, '123456'),
+      );
+      expect(() => validateParams([{ data: '0x1234567' }], validation)).to.throw(
+        expectInvalidObject('data', Constants.EVEN_HEX_ERROR, name, '0x1234567'),
+      );
+    });
+  });
 
   describe('validates transactionHash type correctly', async () => {
     const validation = { 0: { type: 'transactionHash' } };
@@ -786,44 +784,44 @@ describe('Validator', async () => {
     });
   });
 
-  // describe('validates validateObject with transaction object', async () => {
-  //   const transactionFilterObject = new TransactionObject({
-  //     from: '0xdd94180d1c8e069fc7e6760d5bf7dee477fe617b',
-  //     gasPrice: '0x0',
-  //     value: '0x0',
-  //     data: null,
-  //   });
+  describe('validates validateObject with transaction object', async () => {
+    const transactionFilterObject = {
+      from: '0xdd94180d1c8e069fc7e6760d5bf7dee477fe617b',
+      gasPrice: '0x0',
+      value: '0x0',
+      data: null,
+    };
 
-  //   it('returns true when transaction data is null and is nullable is true', async () => {
-  //     const result = validateObject(transactionFilterObject.object, {
-  //       ...OBJECTS_VALIDATIONS.transaction,
-  //       properties: {
-  //         ...OBJECTS_VALIDATIONS.transaction.properties,
-  //         data: {
-  //           type: 'hex',
-  //           nullable: true,
-  //         },
-  //       },
-  //     });
+    it('returns true when transaction data is null and is nullable is true', async () => {
+      const result = validateObject(transactionFilterObject, {
+        ...OBJECTS_VALIDATIONS.transaction,
+        properties: {
+          ...OBJECTS_VALIDATIONS.transaction.properties,
+          data: {
+            type: 'hex',
+            nullable: true,
+          },
+        },
+      });
 
-  //     expect(result).to.be.true;
-  //   });
+      expect(result).to.be.true;
+    });
 
-  //   it('throws an error if Transaction Object data param is null and isNullable is false', async () => {
-  //     expect(() =>
-  //       validateObject(transactionFilterObject.object, {
-  //         ...OBJECTS_VALIDATIONS.transaction,
-  //         properties: {
-  //           ...OBJECTS_VALIDATIONS.transaction.properties,
-  //           data: {
-  //             type: 'hex',
-  //             nullable: false,
-  //           },
-  //         },
-  //       }),
-  //     ).to.throw(expectInvalidObject('data', 'Expected 0x prefixed hexadecimal value', 'TransactionObject', 'null'));
-  //   });
-  // });
+    it('throws an error if Transaction Object data param is null and isNullable is false', async () => {
+      expect(() =>
+        validateObject(transactionFilterObject, {
+          ...OBJECTS_VALIDATIONS.transaction,
+          properties: {
+            ...OBJECTS_VALIDATIONS.transaction.properties,
+            data: {
+              type: 'hex',
+              nullable: false,
+            },
+          },
+        }),
+      ).to.throw(expectInvalidObject('data', 'Expected 0x prefixed hexadecimal value', 'TransactionObject', 'null'));
+    });
+  });
 
   describe('validates isValidAndNonNullableParam', async () => {
     it('returns false if transaction data is undefined and isnullable is true', async () => {
