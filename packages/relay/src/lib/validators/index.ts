@@ -6,7 +6,7 @@ import { validateParam } from './utils';
 
 export function validateParams(params: any[], indexes: IMethodValidation) {
   if (params.length > Object.keys(indexes).length) {
-    throw predefined.INVALID_REQUEST;
+    throw predefined.INVALID_PARAMETERS;
   }
 
   for (const index of Object.keys(indexes)) {

@@ -2218,7 +2218,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         } catch (e: any) {
           const res = e.response;
           expect(res.status).to.equal(400);
-          Assertions.jsonRpcError(res.data.error, predefined.INVALID_REQUEST);
+          Assertions.jsonRpcError(res.data.error, predefined.INVALID_PARAMETERS);
         }
       });
     };
