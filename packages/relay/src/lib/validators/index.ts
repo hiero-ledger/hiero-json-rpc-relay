@@ -18,6 +18,11 @@ export interface IParamValidation {
    * Whether the parameter is required
    */
   required: boolean;
+
+  /**
+   * The error message to return if the parameter is invalid
+   */
+  errorMessage?: string;
 }
 
 /**
@@ -64,7 +69,7 @@ export function validateParams(params: any[], indexes: { [index: number]: IParam
   }
 }
 
-function validateParam(index: number | string, param: any, validation: IParamValidation): void {
+export function validateParam(index: number | string, param: any, validation: IParamValidation): void {
   const paramType = Array.isArray(validation.type)
     ? validation.type.map((type) => TYPES[type])
     : TYPES[validation.type];
@@ -98,4 +103,6 @@ function validateParam(index: number | string, param: any, validation: IParamVal
 }
 
 export { TYPES } from './types';
+export { OBJECTS_VALIDATIONS } from './objectTypes';
 export { validateEthSubscribeLogsParamObject } from './objectTypes';
+export * as Constants from './constants';

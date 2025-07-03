@@ -679,7 +679,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'address', required: true },
     1: { type: 'hex64', required: true },
-    2: { type: ['blockNumber', 'blockHash'], required: false },
+    2: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
