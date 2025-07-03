@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
 import { expect } from 'chai';
 
-import * as Constants from '../../../src/lib/validators/constants';
 import { OBJECTS_VALIDATIONS, TracerType, TransactionObject, Validator } from '../../../src/lib/validators';
+import * as Constants from '../../../src/lib/validators/constants';
 
 describe('Validator', async () => {
   function expectInvalidParam(index: number | string, message: string, paramValue?: string) {
@@ -778,6 +779,12 @@ describe('Validator', async () => {
       expect(() => Validator.validateParams(['0x4422E9088662'], validation)).to.throw(
         "Error invoking RPC: Missing or unsupported param type 'undefined'",
       );
+    });
+
+    it('throws an error if passed params are more than defined validations', async () => {
+      const validation = { 0: { type: 'boolean' } };
+
+      expect(() => Validator.validateParams(['true', null], validation)).to.throw('Invalid params');
     });
 
     it('throws an error if validation type is unknown', async () => {
