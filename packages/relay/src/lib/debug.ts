@@ -106,7 +106,7 @@ export class DebugImpl implements Debug {
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'transactionHash', required: true },
-    1: { type: 'tracerConfigWrapper', required: true },
+    1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
