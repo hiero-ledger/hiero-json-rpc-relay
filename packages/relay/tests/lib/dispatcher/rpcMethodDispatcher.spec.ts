@@ -387,7 +387,7 @@ describe('RpcMethodDispatcher', () => {
   describe('End-to-end dispatch tests', () => {
     it('should handle INVALID_PARAMETERS error properly', async () => {
       validateParamsStub.throws(predefined.INVALID_PARAMETERS);
-      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = { 0: { type: 'boolean' } };
+      operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = { 0: { type: 'boolean' } };
 
       const result = await dispatcher.dispatch(TEST_METHOD_NAME, ['false', null], TEST_REQUEST_DETAILS);
       expect(result).to.be.instanceOf(JsonRpcError);
