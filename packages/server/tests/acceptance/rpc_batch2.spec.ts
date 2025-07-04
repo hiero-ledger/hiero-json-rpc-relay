@@ -605,6 +605,40 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       const manuallyCalculatedBalanceAtTx1Block = BigInt(initialBalance) + BigInt(ONE_TINYBAR);
       expect(BigInt(balanceAtTx1Block).toString()).to.eq(manuallyCalculatedBalanceAtTx1Block.toString());
     });
+
+    it('should return an error when the second parameter is missing in eth_getBalance', async function () {
+      await expect(
+        relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+          [Address.NON_EXISTING_ADDRESS],
+          Utils.formatRequestIdMessage(requestId),
+        ),
+      ).to.eventually.be.rejected.and.satisfy((err: any) => {
+        try {
+          const body = JSON.parse(err?.info?.responseBody || '{}');
+          return body?.error?.message?.includes('Missing value for required parameter');
+        } catch {
+          return false;
+        }
+      }, 'Expected error message to include "Missing value for required parameter"');
+    });
+
+    it('should return an error when null is provided as the second parameter in eth_getBalance', async function () {
+      await expect(
+        relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_BALANCE,
+          [Address.NON_EXISTING_ADDRESS, null],
+          Utils.formatRequestIdMessage(requestId),
+        ),
+      ).to.eventually.be.rejected.and.satisfy((err: any) => {
+        try {
+          const body = JSON.parse(err?.info?.responseBody || '{}');
+          return body?.error?.message?.includes('Invalid parameter 1: The value passed is not valid: null.');
+        } catch {
+          return false;
+        }
+      }, 'Expected error message to include "Invalid parameter 1: The value passed is not valid: null."');
+    });
   });
 
   describe('@release Hardcoded RPC Endpoints', () => {
