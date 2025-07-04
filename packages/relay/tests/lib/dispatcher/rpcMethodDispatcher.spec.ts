@@ -52,7 +52,7 @@ describe('RpcMethodDispatcher', () => {
 
     // Set up args rearrangement mock
     arrangeRpcParamsStub = sinon.stub(Utils, 'arrangeRpcParams');
-    arrangeRpcParamsStub.callsFake((method, params, requestDetails) => {
+    arrangeRpcParamsStub.callsFake((method) => {
       if (method.name === 'functionStub') {
         return TEST_PARAMS_REARRANGED;
       }
