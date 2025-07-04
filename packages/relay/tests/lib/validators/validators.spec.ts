@@ -486,7 +486,7 @@ describe('Validator', async () => {
   describe('validates Transaction Object type correctly', async () => {
     const validation = { 0: { type: 'transaction', required: true } };
     const error = TYPES['transaction'].error;
-    const name = 'ТransactionObject';
+    const name = 'TransactionObject';
 
     it('throws an error if the param is not an Object', async () => {
       expect(() => validateParams(['string'], validation)).to.throw(expectInvalidParam(0, error, 'string'));
