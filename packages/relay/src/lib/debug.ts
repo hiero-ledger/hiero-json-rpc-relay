@@ -9,7 +9,7 @@ import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
-import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig, rpcParamValidationRules } from './decorators';
+import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
@@ -20,11 +20,11 @@ import {
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   MirrorNodeContractResult,
-  ParamType,
   RequestDetails,
   TraceBlockByNumberTxResult,
   TransactionTracerConfig,
 } from './types';
+import { rpcParamValidationRules } from './validators';
 
 /**
  * Represents a DebugService for tracing and debugging transactions.
@@ -105,8 +105,8 @@ export class DebugImpl implements Debug {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.TRANSACTION_HASH_OR_ID, required: true },
-    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
+    0: { type: 'transactionHash', required: true },
+    1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1))
@@ -161,8 +161,8 @@ export class DebugImpl implements Debug {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: ParamType.BLOCK_NUMBER, required: true },
-    1: { type: ParamType.TRACER_CONFIG_WRAPPER, required: false },
+    0: { type: 'blockNumber', required: true },
+    1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {

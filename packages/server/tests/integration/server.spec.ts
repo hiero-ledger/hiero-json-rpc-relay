@@ -9,8 +9,10 @@ import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
-import { Validator } from '@hashgraph/json-rpc-relay/dist/lib/validators';
-import * as Constants from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import { Constants, TYPES } from '@hashgraph/json-rpc-relay/dist/lib/validators';
+
+import serverTestConstants from '../helpers/constants';
+const { ERROR_CODE } = serverTestConstants;
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
@@ -807,7 +809,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -822,7 +824,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, 'Expected TransactionObject, value: 0x0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, 'Expected TransactionObject, value: 0x0');
         }
       });
 
@@ -839,8 +841,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'to' for TransactionObject: ${Validator.ADDRESS_ERROR}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 'to' for TransactionObject: ${Constants.ADDRESS_ERROR}, value: 0x1`,
           );
         }
       });
@@ -858,8 +860,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'from' for TransactionObject: ${Validator.ADDRESS_ERROR}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 'from' for TransactionObject: ${Constants.ADDRESS_ERROR}, value: 0x1`,
           );
         }
       });
@@ -877,8 +879,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'gas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'gas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -896,8 +898,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'gasPrice' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'gasPrice' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -915,8 +917,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'maxPriorityFeePerGas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'maxPriorityFeePerGas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -934,8 +936,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'maxFeePerGas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'maxFeePerGas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -953,8 +955,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'value' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'value' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -972,8 +974,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'data' for TransactionObject: ${Validator.EVEN_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'data' for TransactionObject: ${Constants.EVEN_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -991,8 +993,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.BLOCK_NUMBER_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
           );
         }
       });
@@ -1010,8 +1012,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.BLOCK_NUMBER_ERROR}, value: newest`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.BLOCK_NUMBER_ERROR}, value: newest`,
           );
         }
       });
@@ -1029,7 +1031,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1044,7 +1046,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, Validator.ADDRESS_ERROR + ', value: 0x0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, Constants.ADDRESS_ERROR + ', value: 0x0');
         }
       });
 
@@ -1059,7 +1061,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1076,7 +1078,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1095,7 +1097,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1114,7 +1116,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1131,8 +1133,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.ADDRESS_ERROR}, value: 0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.ADDRESS_ERROR}, value: 0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35`,
           );
         }
       });
@@ -1148,7 +1150,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1165,7 +1167,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1184,7 +1186,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1203,7 +1205,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1220,8 +1222,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: 1`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: 1`,
           );
         }
       });
@@ -1239,8 +1241,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: newest`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: newest`,
           );
         }
       });
@@ -1256,7 +1258,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1273,7 +1275,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: Expected boolean type, value: true`,
           );
         }
@@ -1292,7 +1294,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1309,8 +1311,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_HASH_ERROR}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_HASH_ERROR}, value: 0x1`,
           );
         }
       });
@@ -1326,7 +1328,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1343,7 +1345,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: Expected boolean type, value: true`,
           );
         }
@@ -1362,7 +1364,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1379,8 +1381,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.ADDRESS_ERROR}, value: 0x0001`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.ADDRESS_ERROR}, value: 0x0001`,
           );
         }
       });
@@ -1396,7 +1398,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1413,7 +1415,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1432,7 +1434,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -1451,7 +1453,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1466,7 +1468,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, 'Expected TransactionObject, value: 0x0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, 'Expected TransactionObject, value: 0x0');
         }
       });
 
@@ -1483,8 +1485,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'to' for TransactionObject: ${Validator.ADDRESS_ERROR}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 'to' for TransactionObject: ${Constants.ADDRESS_ERROR}, value: 0x1`,
           );
         }
       });
@@ -1502,8 +1504,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'from' for TransactionObject: ${Validator.ADDRESS_ERROR}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 'from' for TransactionObject: ${Constants.ADDRESS_ERROR}, value: 0x1`,
           );
         }
       });
@@ -1521,8 +1523,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'gas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'gas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1540,8 +1542,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'gasPrice' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'gasPrice' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1559,8 +1561,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'maxPriorityFeePerGas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'maxPriorityFeePerGas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1578,8 +1580,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'maxFeePerGas' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'maxFeePerGas' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1597,8 +1599,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'value' for TransactionObject: ${Validator.DEFAULT_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'value' for TransactionObject: ${Constants.DEFAULT_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1616,8 +1618,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'data' for TransactionObject: ${Validator.EVEN_HEX_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'data' for TransactionObject: ${Constants.EVEN_HEX_ERROR}, value: 123`,
           );
         }
       });
@@ -1635,8 +1637,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.BLOCK_PARAMS_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: 123`,
           );
         }
       });
@@ -1654,8 +1656,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.BLOCK_PARAMS_ERROR}, value: newest`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.BLOCK_PARAMS_ERROR}, value: newest`,
           );
         }
       });
@@ -1673,8 +1675,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'blockHash' for BlockHashObject: ${Validator.BLOCK_HASH_ERROR}, value: 0x123`,
+            ERROR_CODE,
+            `Invalid parameter 'blockHash' for BlockHashObject: ${Constants.BLOCK_HASH_ERROR}, value: 0x123`,
           );
         }
       });
@@ -1692,8 +1694,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'blockNumber' for BlockNumberObject: ${Validator.BLOCK_NUMBER_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'blockNumber' for BlockNumberObject: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
           );
         }
       });
@@ -1711,7 +1713,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1728,8 +1730,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.DEFAULT_HEX_ERROR}, value: f868`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.DEFAULT_HEX_ERROR}, value: f868`,
           );
         }
       });
@@ -1747,7 +1749,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1762,7 +1764,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
     });
@@ -1779,7 +1781,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1794,7 +1796,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1809,11 +1811,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(
-            error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 2: Expected Array, value: {}`,
-          );
+          BaseTest.invalidParamError(error.response, ERROR_CODE, `Invalid parameter 2: Expected Array, value: {}`);
         }
       });
     });
@@ -1830,7 +1828,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1847,8 +1845,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_HASH_ERROR}, value: 0x1234`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_HASH_ERROR}, value: 0x1234`,
           );
         }
       });
@@ -1866,7 +1864,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1883,8 +1881,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: 1234`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: 1234`,
           );
         }
       });
@@ -1902,8 +1900,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: newest`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: newest`,
           );
         }
       });
@@ -1921,7 +1919,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -1938,8 +1936,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.ADDRESS_ERROR}, value: 0000000000000000000000000000000000000001`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.ADDRESS_ERROR}, value: 0000000000000000000000000000000000000001`,
           );
         }
       });
@@ -1955,7 +1953,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -1972,8 +1970,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.HASH_ERROR}, value: 1234`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.HASH_ERROR}, value: 1234`,
           );
         }
       });
@@ -1991,7 +1989,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 2: The value passed is not valid: 123. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -2010,7 +2008,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 2: The value passed is not valid: newest. ${Constants.BLOCK_NUMBER_ERROR} OR ${Constants.BLOCK_HASH_ERROR}`,
           );
         }
@@ -2027,7 +2025,8 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 2');
+          console.log(error);
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 2');
         }
       });
     });
@@ -2044,7 +2043,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -2061,8 +2060,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_HASH_ERROR}, value: 0x1a2b3c`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_HASH_ERROR}, value: 0x1a2b3c`,
           );
         }
       });
@@ -2078,7 +2077,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -2095,8 +2094,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.DEFAULT_HEX_ERROR}, value: 08`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.DEFAULT_HEX_ERROR}, value: 08`,
           );
         }
       });
@@ -2114,7 +2113,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -2131,8 +2130,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
           );
         }
       });
@@ -2150,8 +2149,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: newest`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: newest`,
           );
         }
       });
@@ -2167,7 +2166,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 1');
         }
       });
 
@@ -2184,8 +2183,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 1: ${Validator.DEFAULT_HEX_ERROR}, value: 08`,
+            ERROR_CODE,
+            `Invalid parameter 1: ${Constants.DEFAULT_HEX_ERROR}, value: 08`,
           );
         }
       });
@@ -2205,8 +2204,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: ${Validator.TYPES['filter'].error}, value: 0x1`,
+            ERROR_CODE,
+            `Invalid parameter 0: ${TYPES['filter'].error}, value: 0x1`,
           );
         }
       });
@@ -2224,7 +2223,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 0: Can't use both blockHash and toBlock/fromBlock`,
           );
         }
@@ -2243,8 +2242,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'blockHash' for FilterObject: ${Validator.BLOCK_HASH_ERROR}, value: 0x123`,
+            ERROR_CODE,
+            `Invalid parameter 'blockHash' for FilterObject: ${Constants.BLOCK_HASH_ERROR}, value: 0x123`,
           );
         }
       });
@@ -2262,8 +2261,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'toBlock' for FilterObject: ${Validator.BLOCK_NUMBER_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'toBlock' for FilterObject: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
           );
         }
       });
@@ -2281,8 +2280,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'fromBlock' for FilterObject: ${Validator.BLOCK_NUMBER_ERROR}, value: 123`,
+            ERROR_CODE,
+            `Invalid parameter 'fromBlock' for FilterObject: ${Constants.BLOCK_NUMBER_ERROR}, value: 123`,
           );
         }
       });
@@ -2300,8 +2299,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'address' for FilterObject: ${Validator.TYPES.addressFilter.error}, value: 0x012345`,
+            ERROR_CODE,
+            `Invalid parameter 'address' for FilterObject: ${TYPES.addressFilter.error}, value: 0x012345`,
           );
         }
       });
@@ -2319,8 +2318,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'topics' for FilterObject: ${Validator.TYPES['topics'].error}, value: {}`,
+            ERROR_CODE,
+            `Invalid parameter 'topics' for FilterObject: ${TYPES['topics'].error}, value: {}`,
           );
         }
       });
@@ -2338,8 +2337,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'topics' for FilterObject: ${Validator.TYPES['topics'].error}, value: [123]`,
+            ERROR_CODE,
+            `Invalid parameter 'topics' for FilterObject: ${TYPES['topics'].error}, value: [123]`,
           );
         }
       });
@@ -2357,8 +2356,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'topics' for FilterObject: ${Validator.TYPES['topics'].error}, value: [[123]]`,
+            ERROR_CODE,
+            `Invalid parameter 'topics' for FilterObject: ${TYPES['topics'].error}, value: [[123]]`,
           );
         }
       });
@@ -2562,7 +2561,7 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          BaseTest.invalidParamError(error.response, Validator.ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
+          BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 0');
         }
       });
 
@@ -2579,8 +2578,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 0: The value passed is not valid: invalidHash. ${Validator.TRANSACTION_HASH_ERROR} OR ${Validator.TRANSACTION_ID_ERROR}`,
+            ERROR_CODE,
+            `Invalid parameter 0: The value passed is not valid: invalidHash. ${Constants.TRANSACTION_HASH_ERROR}`,
           );
         }
       });
@@ -2598,7 +2597,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 1: Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig, value: invalidTracerType`,
           );
         }
@@ -2617,7 +2616,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
               invalidConfig: true,
             })}`,
@@ -2641,7 +2640,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
               enableMemory: 'must be a boolean',
             })}`,
@@ -2665,7 +2664,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
               disableStack: 'must be a boolean',
             })}`,
@@ -2689,7 +2688,7 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 'tracerConfig' for TracerConfigWrapper: Expected TracerConfig, value: ${JSON.stringify({
               disableStorage: 'must be a boolean',
             })}`,
@@ -2710,8 +2709,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
+            ERROR_CODE,
+            `Invalid parameter 'tracer' for TracerConfigWrapper: ${TYPES.tracerType.error}, value: invalidTracerType`,
           );
         }
       });
@@ -2729,8 +2728,8 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
-            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: invalidTracerConfig`,
+            ERROR_CODE,
+            `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${TYPES.tracerConfig.error}, value: invalidTracerConfig`,
           );
         }
       });
@@ -2748,9 +2747,9 @@ describe('RPC Server', function () {
         } catch (error: any) {
           BaseTest.invalidParamError(
             error.response,
-            Validator.ERROR_CODE,
+            ERROR_CODE,
             `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${
-              Validator.TYPES.tracerConfig.error
+              TYPES.tracerConfig.error
             }, value: ${JSON.stringify({
               invalidProperty: true,
             })}`,
@@ -3114,7 +3113,7 @@ describe('RPC Server', function () {
           [],
           400,
           BaseTest.invalidParamError.bind(BaseTest),
-          Validator.ERROR_CODE,
+          ERROR_CODE,
           MISSING_PARAM_ERROR + ' 0',
         );
       });
@@ -3124,8 +3123,8 @@ describe('RPC Server', function () {
           ['not-a-block-number'],
           400,
           BaseTest.invalidParamError.bind(BaseTest),
-          Validator.ERROR_CODE,
-          `Invalid parameter 0: ${Validator.BLOCK_NUMBER_ERROR}, value: not-a-block-number`,
+          ERROR_CODE,
+          `Invalid parameter 0: ${Constants.BLOCK_NUMBER_ERROR}, value: not-a-block-number`,
         );
       });
 
@@ -3134,8 +3133,8 @@ describe('RPC Server', function () {
           [blockNumberHex, { tracer: 'invalidTracerType' }],
           400,
           BaseTest.invalidParamError.bind(BaseTest),
-          Validator.ERROR_CODE,
-          `Invalid parameter 'tracer' for TracerConfigWrapper: ${Validator.TYPES.tracerType.error}, value: invalidTracerType`,
+          ERROR_CODE,
+          `Invalid parameter 'tracer' for TracerConfigWrapper: ${TYPES.tracerType.error}, value: invalidTracerType`,
         );
       });
 
@@ -3144,8 +3143,8 @@ describe('RPC Server', function () {
           [blockNumberHex, { tracer: TracerType.CallTracer, tracerConfig: 'not-an-object' }],
           400,
           BaseTest.invalidParamError.bind(BaseTest),
-          Validator.ERROR_CODE,
-          `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${Validator.TYPES.tracerConfig.error}, value: not-an-object`,
+          ERROR_CODE,
+          `Invalid parameter 'tracerConfig' for TracerConfigWrapper: ${TYPES.tracerConfig.error}, value: not-an-object`,
         );
       });
 
