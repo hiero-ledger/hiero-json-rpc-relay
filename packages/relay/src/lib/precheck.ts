@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -168,10 +169,10 @@ export class Precheck {
     const passes = txGasPrice >= networkGasPrice || Precheck.isDeterministicDeploymentTransaction(tx);
 
     if (!passes) {
-      if (constants.GAS_PRICE_TINY_BAR_BUFFER) {
+      if (ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER')) {
         // Check if failure is within buffer range (Often it's by 1 tinybar) as network gasprice calculation can change slightly.
         // e.g gasPrice=1450000000000, requiredGasPrice=1460000000000, in which case we should allow users to go through and let the network check
-        const txGasPriceWithBuffer = txGasPrice + BigInt(constants.GAS_PRICE_TINY_BAR_BUFFER);
+        const txGasPriceWithBuffer = txGasPrice + BigInt(ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER'));
         if (txGasPriceWithBuffer >= networkGasPrice) {
           return;
         }
