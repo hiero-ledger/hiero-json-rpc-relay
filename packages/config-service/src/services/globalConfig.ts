@@ -602,7 +602,7 @@ const _CONFIG = {
   OPERATOR_ID_MAIN: {
     envName: 'OPERATOR_ID_MAIN',
     type: 'string',
-    required: true,
+    required: false,
     defaultValue: null,
   },
   OPERATOR_KEY_ETH_SENDRAWTRANSACTION: {
@@ -620,11 +620,17 @@ const _CONFIG = {
   OPERATOR_KEY_MAIN: {
     envName: 'OPERATOR_KEY_MAIN',
     type: 'string',
-    required: true,
+    required: false,
     defaultValue: null,
   },
   RATE_LIMIT_DISABLED: {
     envName: 'RATE_LIMIT_DISABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  READ_ONLY: {
+    envName: 'READ_ONLY',
     type: 'boolean',
     required: false,
     defaultValue: false,

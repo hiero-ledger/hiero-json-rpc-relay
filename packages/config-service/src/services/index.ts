@@ -62,6 +62,8 @@ export class ConfigService {
     for (const name in this.envs) {
       logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
     }
+
+    this.validateReadOnlyMode();
   }
 
   /**
@@ -95,18 +97,7 @@ export class ConfigService {
    * @throws Error if a required configuration value is missing.
    */
   public static get<K extends ConfigKey>(name: K): GetTypeOfConfigKey<K> {
-    const configEntry = GlobalConfig.ENTRIES[name];
-    let value = this.getInstance().envs[name] == undefined ? configEntry?.defaultValue : this.getInstance().envs[name];
-
-    if (value == undefined && configEntry?.required) {
-      throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
-    }
-
-    if (name === 'CHAIN_ID' && value !== undefined) {
-      value = `0x${Number(value).toString(16)}`;
-    }
-
-    return value as GetTypeOfConfigKey<K>;
+    return this.getInstance().get(name);
   }
 
   /**
@@ -123,5 +114,40 @@ export class ConfigService {
     }
 
     return maskedEnvs;
+  }
+
+  private validateReadOnlyMode() {
+    const vars = ['OPERATOR_ID_MAIN', 'OPERATOR_KEY_MAIN'] as const;
+    if (this.get('READ_ONLY')) {
+      logger.info('Relay is in READ_ONLY mode. It will not send transactions.');
+      vars.forEach((varName) => {
+        if (this.get(varName)) {
+          logger.warn(
+            `Relay is in READ_ONLY mode, but ${varName} is set. The Relay will not be able to send transactions.`,
+          );
+        }
+      });
+    } else {
+      vars.forEach((varName) => {
+        if (!this.get(varName)) {
+          throw new Error(`Configuration error: ${varName} is mandatory for Relay operations in Read-Write mode.`);
+        }
+      });
+    }
+  }
+
+  private get<K extends ConfigKey>(name: K): GetTypeOfConfigKey<K> {
+    const configEntry = GlobalConfig.ENTRIES[name];
+    let value = this.envs[name] == undefined ? configEntry?.defaultValue : this.envs[name];
+
+    if (value == undefined && configEntry?.required) {
+      throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
+    }
+
+    if (name === 'CHAIN_ID' && value !== undefined) {
+      value = `0x${Number(value).toString(16)}`;
+    }
+
+    return value as GetTypeOfConfigKey<K>;
   }
 }

@@ -128,16 +128,13 @@ export class Utils {
    * @returns {Operator | null} The operator credentials or null if not found
    */
   public static getOperator(logger: Logger, type: string | null = null): Operator | null {
-    let operatorId: string;
-    let operatorKey: string;
-
-    if (type === 'eth_sendRawTransaction') {
-      operatorId = ConfigService.get('OPERATOR_ID_ETH_SENDRAWTRANSACTION') as string;
-      operatorKey = ConfigService.get('OPERATOR_KEY_ETH_SENDRAWTRANSACTION') as string;
-    } else {
-      operatorId = ConfigService.get('OPERATOR_ID_MAIN');
-      operatorKey = ConfigService.get('OPERATOR_KEY_MAIN');
-    }
+    const [operatorId, operatorKey] =
+      type === 'eth_sendRawTransaction'
+        ? [
+            ConfigService.get('OPERATOR_ID_ETH_SENDRAWTRANSACTION'),
+            ConfigService.get('OPERATOR_KEY_ETH_SENDRAWTRANSACTION'),
+          ]
+        : [ConfigService.get('OPERATOR_ID_MAIN'), ConfigService.get('OPERATOR_KEY_MAIN')];
 
     if (!operatorId || !operatorKey) {
       logger.warn(`Invalid operatorId or operatorKey for ${type ?? 'main'} client.`);

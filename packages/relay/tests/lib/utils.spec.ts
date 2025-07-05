@@ -157,34 +157,6 @@ describe('Utils', () => {
         },
       );
     });
-
-    withOverriddenEnvsInMochaTest(
-      {
-        OPERATOR_ID_MAIN: accountId,
-        OPERATOR_KEY_MAIN: null,
-      },
-      () => {
-        it('should throw error if OPERATOR_KEY_MAIN is missing', () => {
-          expect(() => Utils.getOperator(logger)).to.throw(
-            'Configuration error: OPERATOR_KEY_MAIN is a mandatory configuration for relay operation.',
-          );
-        });
-      },
-    );
-
-    withOverriddenEnvsInMochaTest(
-      {
-        OPERATOR_ID_MAIN: null,
-        OPERATOR_KEY_MAIN: privateKeys[0].keyValue,
-      },
-      () => {
-        it('should throw error if OPERATOR_ID_MAIN is missing', () => {
-          expect(() => Utils.getOperator(logger)).to.throw(
-            'Configuration error: OPERATOR_ID_MAIN is a mandatory configuration for relay operation.',
-          );
-        });
-      },
-    );
   });
 
   describe('getNetworkNameByChainId', () => {
