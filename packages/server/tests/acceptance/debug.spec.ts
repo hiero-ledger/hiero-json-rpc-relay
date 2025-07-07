@@ -520,7 +520,7 @@ describe('@debug API Acceptance Tests', function () {
           [invalidHash],
           predefined.INVALID_PARAMETER(
             0,
-            'The value passed is not valid: 0xinvalidhash. Expected Expected 0x prefixed string representing the hash (32 bytes) of a transaction OR Expected a transaction ID string in the format "shard.realm.num-sss-nnn" where sss are seconds and nnn are nanoseconds',
+            'Expected Expected 0x prefixed string representing the hash (32 bytes) of a transaction, value: 0xinvalidhash',
           ),
           requestId,
         );
