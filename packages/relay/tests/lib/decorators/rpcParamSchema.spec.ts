@@ -4,12 +4,7 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
-import {
-  IParamValidation,
-  RPC_PARAM_VALIDATION_RULES_KEY,
-  rpcParamValidationRules,
-  validateParam,
-} from '../../../src/lib/validators';
+import { IParamValidation, RPC_PARAM_VALIDATION_RULES_KEY, rpcParamValidationRules } from '../../../src/lib/validators';
 import * as validator from '../../../src/lib/validators';
 
 describe('rpcParamValidationRules decorator', () => {
@@ -75,11 +70,11 @@ describe('rpcParamValidationRules decorator', () => {
 
   describe('Schema validation integration', () => {
     // Mock validation function for testing
-    let validateParamStub: sinon.SinonStub;
+    let validateParamsStub: sinon.SinonStub;
 
     beforeEach(() => {
       // Create a stub for the validateParam function from validators/utils
-      validateParamStub = sinon.stub(validator, 'validateParam');
+      validateParamsStub = sinon.stub(validator, 'validateParams');
     });
 
     it('should allow schema retrieval for validation', () => {
@@ -103,17 +98,10 @@ describe('rpcParamValidationRules decorator', () => {
 
       // Validate using the schema
       const params = ['0xaddress', '0xblock'];
-
-      // Simulate validation with the schema
-      for (const [index, param] of params.entries()) {
-        if (schema[index]) {
-          validateParam(index, param, schema[index]);
-        }
-      }
+      validator.validateParams(params, schema);
 
       // Verify our validation stub was called with correct parameters
-      expect(validateParamStub.calledWith(0, '0xaddress', schema[0])).to.be.true;
-      expect(validateParamStub.calledWith(1, '0xblock', schema[1])).to.be.true;
+      expect(validateParamsStub.calledWith(['0xaddress', '0xblock'], schema)).to.be.true;
     });
   });
 

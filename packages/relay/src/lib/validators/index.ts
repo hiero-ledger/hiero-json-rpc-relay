@@ -69,7 +69,7 @@ export function validateParams(params: any[], indexes: { [index: number]: IParam
   }
 }
 
-export function validateParam(index: number | string, param: any, validation: IParamValidation): void {
+function validateParam(index: number | string, param: any, validation: IParamValidation): void {
   const paramType = Array.isArray(validation.type)
     ? validation.type.map((type) => TYPES[type])
     : TYPES[validation.type];
