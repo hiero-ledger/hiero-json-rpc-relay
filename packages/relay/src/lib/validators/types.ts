@@ -153,7 +153,7 @@ export const TYPES = {
   },
 } satisfies {
   [paramTypeName: string]: {
-    test: (param: unknown) => boolean;
+    test: (param: any) => boolean;
     error: string;
   };
 };
