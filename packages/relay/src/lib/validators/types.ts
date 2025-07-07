@@ -3,7 +3,7 @@
 import { predefined } from '../errors/JsonRpcError';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
 import * as Constants from './constants';
-import { OBJECTS_VALIDATIONS, validateSchema } from './objectTypes';
+import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
 
 export const TYPES = {
@@ -145,7 +145,7 @@ export const TYPES = {
   tracerConfigWrapper: {
     test: (param: any): param is ITracerConfigWrapper => {
       if (param && typeof param === 'object') {
-        return validateSchema(OBJECTS_VALIDATIONS.tracerConfigWrapper, param);
+        return validateTracerConfigWrapper(param);
       }
       return false;
     },

@@ -202,17 +202,15 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
 };
 
 export function validateSchema(schema: IObjectSchema, object: any) {
+  const expectedParams = Object.keys(schema.properties);
+  const actualParams = Object.keys(object);
   if (schema.failOnUnexpectedParams) {
-    const expectedParams = Object.keys(schema.properties);
-    const actualParams = Object.keys(object);
     const unknownParam = actualParams.find((param) => !expectedParams.includes(param));
     if (unknownParam) {
       throw predefined.INVALID_PARAMETER(`'${unknownParam}' for ${schema.name}`, `Unknown parameter`);
     }
   }
   if (schema.deleteUnknownProperties) {
-    const expectedParams = Object.keys(schema.properties);
-    const actualParams = Object.keys(object);
     const unknownParams = actualParams.filter((param) => !expectedParams.includes(param));
     for (const param of unknownParams) {
       delete object[param];
