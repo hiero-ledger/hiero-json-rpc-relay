@@ -2579,7 +2579,7 @@ describe('RPC Server', function () {
           BaseTest.invalidParamError(
             error.response,
             ERROR_CODE,
-            `Invalid parameter 0: The value passed is not valid: invalidHash. ${Constants.TRANSACTION_HASH_ERROR}`,
+            `Invalid parameter 0: ${Constants.TRANSACTION_HASH_ERROR}, value: invalidHash`,
           );
         }
       });
@@ -3301,6 +3301,8 @@ class BaseTest {
   static invalidParamError(response: any, code: number, message: string) {
     expect(response.status).to.eq(400);
     expect(response.statusText).to.eq('Bad Request');
+    console.log('response', response);
+    console.log('message', message);
     this.errorResponseChecks(response, code, message);
   }
 
