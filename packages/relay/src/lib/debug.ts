@@ -115,10 +115,6 @@ export class DebugImpl implements Debug {
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
-    if (tracerObject?.tracer === TracerType.PrestateTracer) {
-      throw predefined.INVALID_PARAMETER(1, 'Prestate tracer is not yet supported on debug_traceTransaction');
-    }
-
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
     }
@@ -132,6 +128,11 @@ export class DebugImpl implements Debug {
       DebugImpl.requireDebugAPIEnabled();
       if (tracer === TracerType.CallTracer) {
         return await this.callTracer(transactionIdOrHash, tracerConfig as ICallTracerConfig, requestDetails);
+      }
+
+      if (tracer === TracerType.PrestateTracer) {
+        const onlyTopCall = (tracerObject?.tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
+        return await this.prestateTracer(transactionIdOrHash, onlyTopCall, requestDetails);
       }
 
       if (!ConfigService.get('OPCODELOGGER_ENABLED')) {

@@ -417,6 +417,71 @@ describe('@debug API Acceptance Tests', function () {
       });
     });
 
+    describe('PrestateTracer', () => {
+      it('should trace a transaction using PrestateTracer', async function () {
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER],
+          requestId,
+        );
+
+        expect(result).to.be.an('object');
+        expect(Object.keys(result).length).to.be.at.least(1);
+
+        // Check that the result contains prestate information for at least the contract and sender
+        const keys = Object.keys(result);
+        expect(keys.length).to.be.at.least(2);
+
+        // For each address in the result, check it has the expected fields
+        for (const address of keys) {
+          const state = result[address];
+          Assertions.validatePrestateTracerResult(state);
+        }
+      });
+
+      it('should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
+          requestId,
+        );
+
+        expect(result).to.be.an('object');
+        expect(Object.keys(result).length).to.be.at.least(1);
+
+        // Check that the result contains prestate information for at least the contract and sender
+        const keys = Object.keys(result);
+        expect(keys.length).to.be.at.least(2);
+
+        // For each address in the result, check it has the expected fields
+        for (const address of keys) {
+          const state = result[address];
+          Assertions.validatePrestateTracerResult(state);
+        }
+      });
+
+      it('should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
+        const result = await relay.call(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE],
+          requestId,
+        );
+
+        expect(result).to.be.an('object');
+        expect(Object.keys(result).length).to.be.at.least(1);
+
+        // Check that the result contains prestate information for at least the contract and sender
+        const keys = Object.keys(result);
+        expect(keys.length).to.be.at.least(2);
+
+        // For each address in the result, check it has the expected fields
+        for (const address of keys) {
+          const state = result[address];
+          Assertions.validatePrestateTracerResult(state);
+        }
+      });
+    });
+
     describe('OpcodeLogger', () => {
       it('@release should trace a successful transaction using OpcodeLogger (default when no tracer specified)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash], requestId);
@@ -542,15 +607,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [nonExistentHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
           predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
-          requestId,
-        );
-      });
-
-      it('should fail with INVALID_PARAMETER when using PrestateTracer', async function () {
-        await relay.callFailing(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER],
-          predefined.INVALID_PARAMETER(1, 'Prestate tracer is not yet supported on debug_traceTransaction'),
           requestId,
         );
       });
