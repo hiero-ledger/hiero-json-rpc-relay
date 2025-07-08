@@ -2507,6 +2507,28 @@ describe('RPC Server', function () {
         ).to.not.throw;
       });
 
+      it('should execute with PrestateTracer type and valid PrestateTracerConfig', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.PrestateTracer }],
+            id: 1,
+          }),
+        ).to.not.throw;
+      });
+
+      it('should execute with PrestateTracer type and onlyTopCall option', async () => {
+        expect(
+          await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
+            id: 1,
+          }),
+        ).to.not.throw;
+      });
+
       it('should execute with valid hash', async () => {
         expect(
           await testClient.post('/', {
