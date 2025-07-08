@@ -40,7 +40,7 @@ describe('ConfigService tests', async function () {
     { OPERATOR_ID_MAIN: '0.0.123', OPERATOR_KEY_MAIN: undefined },
   ].forEach((env) => {
     const key = env.OPERATOR_ID_MAIN === undefined ? 'OPERATOR_ID_MAIN' : 'OPERATOR_KEY_MAIN';
-    it(`should prevent the Relay from starting when \`${key}\` is missing in Read-Only mode`, async () => {
+    it(`should prevent the Relay from starting when \`${key}\` is missing in Read-Write mode`, async () => {
       const envBefore = process.env;
       process.env = { ...process.env, READ_ONLY: 'false', ...env };
 
@@ -50,6 +50,20 @@ describe('ConfigService tests', async function () {
       expect(() => ConfigService.get(undefined as unknown as ConfigKey)).to.throw(
         `Configuration error: ${key} is mandatory for Relay operations in Read-Write mode.`,
       );
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+      process.env = envBefore;
+    });
+
+    it(`should start the Relay even when \`${key}\` is missing in Read-Only mode`, async () => {
+      const envBefore = process.env;
+      process.env = { ...process.env, READ_ONLY: 'true', ...env };
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+
+      expect(ConfigService.get('READ_ONLY')).to.be.true;
 
       // @ts-expect-error: The operand of a 'delete' operator must be optional
       delete ConfigService.instance;
