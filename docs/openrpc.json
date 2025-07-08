@@ -1563,7 +1563,7 @@
       "TracerType": {
         "title": "Tracer type",
         "type": "string",
-        "enum": ["callTracer", "opcodeLogger"]
+        "enum": ["callTracer", "opcodeLogger", "prestateTracer"]
       },
       "TracerConfigWrapper": {
         "title": "Tracer config wrapper",
