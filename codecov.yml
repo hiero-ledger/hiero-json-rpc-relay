@@ -2,7 +2,7 @@
 comment:
   layout: "diff, flags, files"
   behavior: new # deletes old comment and posts a new one
-  require_changes: false
+  require_changes: true
 
 coverage:
   status:
