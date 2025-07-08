@@ -43,7 +43,6 @@ export const TYPES = {
     test: (param: any) => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
         if (Object.prototype.hasOwnProperty.call(param, 'blockHash')) {
-          // if (param.hasOwnProperty('blockHash')) {
           return validateSchema(OBJECTS_VALIDATIONS.blockHashObject, param);
         }
         return validateSchema(OBJECTS_VALIDATIONS.blockNumberObject, param);
