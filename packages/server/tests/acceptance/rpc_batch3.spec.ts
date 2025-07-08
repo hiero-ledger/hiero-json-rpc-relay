@@ -769,17 +769,9 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       expect(res).to.eq(RESULT_TRUE);
     });
 
-    describe('eth_call with force-to-consensus-by-selector logic', () => {
-      // context: The `IHRC719.isAssociated()` function is a new feature which is, at the moment, fully supported only by the Consensus node and not yet by the Mirror node.
-      // Since `IHRC719.isAssociated()` is a view function, requests for this function are typically directed to the Mirror node by default.
-      // This acceptance test ensures that the new force-to-consensus-by-selector logic correctly routes requests for `IHRC719.isAssociated()`
-      // through the Consensus node rather than the Mirror node when using the `eth_call` endpoint.
-
-      let initialEthCallSelectorsAlwaysToConsensus: any, hrc719Contract: ethers.Contract;
-
+    describe('eth_call for IHRC719.isAssociated method', () => {
+      let hrc719Contract: ethers.Contract;
       before(async () => {
-        initialEthCallSelectorsAlwaysToConsensus = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-
         hrc719Contract = await Utils.deployContract(
           HRC719ContractJson.abi,
           HRC719ContractJson.bytecode,
@@ -787,32 +779,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         );
       });
 
-      after(() => {
-        ConfigServiceTestHelper.dynamicOverride(
-          'ETH_CALL_CONSENSUS_SELECTORS',
-          initialEthCallSelectorsAlwaysToConsensus,
-        );
-      });
-
-      it('should NOT allow eth_call to process IHRC719.isAssociated() method', async () => {
-        const selectorsList = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-        expect(selectorsList.length).to.eq(0);
-
-        // If the selector for `isAssociated` is not included in `ETH_CALL_CONSENSUS_SELECTORS`, the request will fail with a `CALL_EXCEPTION` error code.
-        await expect(hrc719Contract.isAssociated(tokenAddress)).to.eventually.be.rejected.and.have.property(
-          'code',
-          'CALL_EXCEPTION',
-        );
-      });
-
       it('should allow eth_call to successfully process IHRC719.isAssociated() method', async () => {
-        const isAssociatedSelector = (await hrc719Contract.isAssociated.populateTransaction(tokenAddress)).data.slice(
-          2,
-          10,
-        );
-
-        // Add the selector for isAssociated to ETH_CALL_CONSENSUS_SELECTORS to ensure isAssociated() passes
-        ConfigServiceTestHelper.dynamicOverride('ETH_CALL_CONSENSUS_SELECTORS', [isAssociatedSelector]);
         const isAssociatedResult = await hrc719Contract.isAssociated(tokenAddress);
         expect(isAssociatedResult).to.be.false; // associate status of the token with the caller
       });

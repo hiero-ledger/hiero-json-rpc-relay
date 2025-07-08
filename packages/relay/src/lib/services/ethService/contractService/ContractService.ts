@@ -821,17 +821,10 @@ export class ContractService implements IContractService {
     blockNumberOrTag: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const selector = getFunctionSelector(call.data || '0x');
-
-    // When eth_call is invoked with a selector listed in specialSelectors, it will be routed through the consensus node, regardless of ETH_CALL_DEFAULT_TO_CONSENSUS_NODE.
-    // note: this feature is a workaround for when a feature is supported by consensus node but not yet by mirror node.
-    const specialSelectors = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-    const shouldForceToConsensus = selector !== '' && specialSelectors.includes(selector);
-
     // ETH_CALL_DEFAULT_TO_CONSENSUS_NODE = false enables the use of Mirror node
     const shouldDefaultToConsensus = ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE');
 
-    if (shouldForceToConsensus || shouldDefaultToConsensus) {
+    if (shouldDefaultToConsensus) {
       return await this.callConsensusNode(call, gas, requestDetails);
     }
 

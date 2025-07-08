@@ -214,12 +214,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
-  ETH_CALL_CONSENSUS_SELECTORS: {
-    envName: 'ETH_CALL_CONSENSUS_SELECTORS',
-    type: 'strArray',
-    required: false,
-    defaultValue: [],
-  },
   ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: {
     envName: 'ETH_CALL_DEFAULT_TO_CONSENSUS_NODE',
     type: 'boolean',
