@@ -489,6 +489,100 @@ describe('Debug API Test Suite', async function () {
         }
       });
 
+      describe('prestateTracer', async function () {
+        const prestateTracer: TracerType = TracerType.PrestateTracer;
+        const mockPrestateResult = {
+          '0xc37f417fa09933335240fca72dd257bfbde9c275': {
+            balance: '0x100000000',
+            nonce: 2,
+            code: '0x',
+            storage: {},
+          },
+          '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b': {
+            balance: '0x200000000',
+            nonce: 1,
+            code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+            storage: {
+              '0x0': '0x1',
+              '0x1': '0x2',
+            },
+          },
+        };
+
+        beforeEach(() => {
+          sinon.stub(debugService, 'prestateTracer').resolves(mockPrestateResult);
+        });
+
+        afterEach(() => {
+          sinon.restore();
+        });
+
+        it('should successfully trace transaction with prestateTracer', async function () {
+          const tracerObject = { tracer: prestateTracer };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+          expect(result).to.be.an('object');
+          expect(Object.keys(result)).to.have.lengthOf(2);
+
+          for (const address of Object.keys(result)) {
+            expect(result[address]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
+            expect(result[address].nonce).to.be.a('number');
+            expect(result[address].code).to.exist;
+            expect(result[address].storage).to.be.an('object');
+          }
+        });
+
+        it('should trace transaction with prestateTracer and onlyTopCall=true', async function () {
+          const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: true } };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+
+          // Verify that prestateTracer was called with onlyTopCall=true
+          const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
+          expect(prestateTracerStub.calledOnce).to.be.true;
+          expect(prestateTracerStub.calledWith(transactionHash, true, requestDetails)).to.be.true;
+        });
+
+        it('should trace transaction with prestateTracer and onlyTopCall=false (default)', async function () {
+          const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: false } };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+
+          // Verify that prestateTracer was called with onlyTopCall=false
+          const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
+          expect(prestateTracerStub.calledOnce).to.be.true;
+          expect(prestateTracerStub.calledWith(transactionHash, false, requestDetails)).to.be.true;
+        });
+
+        it('should handle empty prestate result', async function () {
+          const emptyResult = {};
+          (debugService.prestateTracer as sinon.SinonStub).resolves(emptyResult);
+
+          const tracerObject = { tracer: prestateTracer };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(emptyResult);
+          expect(result).to.be.an('object');
+          expect(Object.keys(result)).to.have.lengthOf(0);
+        });
+
+        it('should propagate errors from prestateTracer', async function () {
+          const expectedError = predefined.RESOURCE_NOT_FOUND('Failed to retrieve contract results');
+          (debugService.prestateTracer as sinon.SinonStub).rejects(expectedError);
+
+          const tracerObject = { tracer: prestateTracer };
+
+          await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
+            transactionHash,
+            tracerObject,
+            requestDetails,
+          ]);
+        });
+      });
+
       describe('Invalid scenarios', async function () {
         let notFound: { _status: { messages: { message: string }[] } };
 
