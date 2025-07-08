@@ -16,7 +16,6 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { EventEmitter } from 'events';
 import pino from 'pino';
-import { Counter } from 'prom-client';
 import sinon, { useFakeTimers } from 'sinon';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
@@ -453,6 +452,19 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
           expect(resultingHash).to.equal(ethereumHash);
         });
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
+      it('should throw `UNSUPPORTED_OPERATION` when Relay is in Read-Only mode', async function () {
+        const signed = await signTransaction({ ...transaction, value: '0x1234567890' });
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode'),
+          ethImpl.sendRawTransaction,
+          false,
+          ethImpl,
+          [signed, requestDetails],
+        );
       });
     });
   });
