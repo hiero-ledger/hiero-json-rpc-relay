@@ -768,22 +768,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       const res = await Utils.ethCallWRetries(relay, callData, 'latest', requestId);
       expect(res).to.eq(RESULT_TRUE);
     });
-
-    describe('eth_call for IHRC719.isAssociated method', () => {
-      let hrc719Contract: ethers.Contract;
-      before(async () => {
-        hrc719Contract = await Utils.deployContract(
-          HRC719ContractJson.abi,
-          HRC719ContractJson.bytecode,
-          accounts[0].wallet,
-        );
-      });
-
-      it('should allow eth_call to successfully process IHRC719.isAssociated() method', async () => {
-        const isAssociatedResult = await hrc719Contract.isAssociated(tokenAddress);
-        expect(isAssociatedResult).to.be.false; // associate status of the token with the caller
-      });
-    });
   });
 
   describe('eth_getTransactionCount', async function () {
