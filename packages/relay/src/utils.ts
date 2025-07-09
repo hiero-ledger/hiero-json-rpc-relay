@@ -30,6 +30,12 @@ export class Utils {
     return gasPrice;
   };
 
+  public static readonly testFunction = (gasPrice: number): number => {
+    gasPrice += Math.round((gasPrice / constants.TINYBAR_TO_WEIBAR_COEF) * 5644);
+
+    return gasPrice;
+  };
+
   /**
    * @param operatorMainKey
    * @returns PrivateKey
