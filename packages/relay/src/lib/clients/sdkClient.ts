@@ -417,10 +417,6 @@ export class SDKClient {
     originalCallerAddress: string,
     estimatedTxFee?: number,
   ): Promise<TransactionResponse> {
-    if (ConfigService.get('READ_ONLY')) {
-      throw predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
-    }
-
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
     let transactionResponse: TransactionResponse | null = null;
