@@ -1095,7 +1095,7 @@ export class EthImpl implements Eth {
   }
 
   /**
-   * Gets all transaction receipts for a block by block hash or block number.
+   * Gets all transaction receipts for a block by block hash or block number..
    *
    * @rpcMethod Exposed as eth_getBlockReceipts RPC endpoint
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
