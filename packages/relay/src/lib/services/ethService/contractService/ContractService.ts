@@ -806,7 +806,7 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Routes the call to either consensus or mirror node based on configuration and selector.
+   * Routes the call to either consensus or mirror node based on configuration.
    *
    * @param {IContractCallRequest} call - The call request
    * @param {number | null} gas - The gas limit
