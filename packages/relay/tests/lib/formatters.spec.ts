@@ -942,7 +942,7 @@ describe('Formatters', () => {
     });
 
     it('should handle tinybarsToWeibars excessive value error', () => {
-      const excessiveValue = constants.TOTAL_SUPPLY_TINYBARS + 1;
+      const excessiveValue = constants.TOTAL_SUPPLY_TINYBARS * 1.1;
       expect(() => tinybarsToWeibars(excessiveValue, false)).to.throw(
         Error,
         'Value cannot be more than the total supply of tinybars in the blockchain',
