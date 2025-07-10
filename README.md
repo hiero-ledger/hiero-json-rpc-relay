@@ -2,14 +2,14 @@
 
 # Hedera JSON RPC Relay
 
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hiero-ledger/hiero-json-rpc-relay/badge)](https://scorecard.dev/viewer/?uri=github.com/hiero-ledger/hiero-json-rpc-relay)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/10697/badge)](https://bestpractices.coreinfrastructure.org/projects/10697)
 [![Build](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions)
 [![Release](https://img.shields.io/github/v/release/hiero-ledger/hiero-json-rpc-relay)](https://github.com/hiero-ledger/hiero-json-rpc-relay/releases)
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
 [![RPC API Methods](https://img.shields.io/badge/websocket-docs-green.svg)](docs/live-events-api.md)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://hedera.com/discord)
 [![Made With](https://img.shields.io/badge/made_with-typescript-blue)](https://github.com/hiero-ledger/hiero-json-rpc-relay/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hiero-ledger/hiero-json-rpc-relay/badge)](https://scorecard.dev/viewer/?uri=github.com/hiero-ledger/hiero-json-rpc-relay)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/10697/badge)](https://bestpractices.coreinfrastructure.org/projects/10697)
 [![License](https://img.shields.io/badge/license-apache2-blue.svg)](LICENSE)
 
 </div>
