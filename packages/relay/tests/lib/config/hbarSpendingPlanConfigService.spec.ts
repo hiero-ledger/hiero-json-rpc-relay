@@ -105,6 +105,38 @@ describe('HbarSpendingPlanConfigService', function () {
       expect(plan.spendingHistory).to.have.lengthOf(0);
       expect(plan.amountSpent).to.equal(0);
     });
+
+    it('should handle undefined spendingHistory and amountSpent fields', function () {
+      const planData = {
+        id: 'test-plan-4',
+        subscriptionTier: SubscriptionTier.BASIC,
+        createdAt: new Date(),
+        active: true,
+      } as any; // Use 'as any' to test runtime behavior when properties are undefined
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
+
+    it('should handle null spendingHistory and amountSpent fields', function () {
+      const planData = {
+        id: 'test-plan-5',
+        subscriptionTier: SubscriptionTier.EXTENDED,
+        spendingHistory: null,
+        amountSpent: null,
+        createdAt: new Date(),
+        active: true,
+      } as any; // Use 'as any' to test runtime behavior when properties are null
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
   });
 
   const tests = (hbarSpendingPlansConfigEnv: string) => {

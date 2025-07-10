@@ -736,6 +736,11 @@ describe('Formatters', () => {
         const hexErrorMessage = signature + message;
         expect(decodeErrorMessage(hexErrorMessage)).to.equal('Some error message');
       });
+
+      it('should handle malformed hex error message gracefully', () => {
+        const malformedHex = '0x08c379a0000000000000000000000000000000000000000000000000000000000000002';
+        expect(decodeErrorMessage(malformedHex)).to.equal('');
+      });
     });
   });
 
@@ -859,6 +864,56 @@ describe('Formatters', () => {
       expect(() => tinybarsToWeibars(excessiveValue, true)).to.throw(
         Error,
         'Value cannot be more than the total supply of tinybars in the blockchain',
+      );
+    });
+
+    it('should handle edge case values correctly', () => {
+      expect(tinybarsToWeibars(constants.TOTAL_SUPPLY_TINYBARS, false)).to.eql(
+        constants.TOTAL_SUPPLY_TINYBARS * constants.TINYBAR_TO_WEIBAR_COEF,
+      );
+    });
+  });
+
+  describe('Additional Edge Cases', () => {
+    it('should handle getFunctionSelector with short input', () => {
+      expect(getFunctionSelector('0x123')).to.eq('123');
+      expect(getFunctionSelector('abc')).to.eq('abc');
+    });
+
+    it('should handle getFunctionSelector with exactly 8 characters', () => {
+      expect(getFunctionSelector('0x12345678')).to.eq('12345678');
+      expect(getFunctionSelector('abcdefgh')).to.eq('abcdefgh');
+    });
+
+    it('should handle isValidEthereumAddress with various falsy values', () => {
+      expect(isValidEthereumAddress('')).to.equal(false);
+      expect(isValidEthereumAddress('0x')).to.equal(false);
+      expect(isValidEthereumAddress('not-an-address')).to.equal(false);
+    });
+
+    it('should handle toNullableBigNumber with various input types', () => {
+      expect(toNullableBigNumber('0x123')).to.equal('291');
+      expect(toNullableBigNumber('456')).to.equal('456');
+      expect(toNullableBigNumber(null)).to.equal(null);
+      expect(toNullableBigNumber(undefined as any)).to.equal(null);
+      expect(toNullableBigNumber(123 as any)).to.equal(null);
+    });
+
+    it('should handle formatTransactionId regex validation', () => {
+      expect(formatTransactionId('invalid-format')).to.eq(null);
+      expect(formatTransactionId('0.0.2@')).to.eq(null);
+      expect(formatTransactionId('@1234567890.123456789')).to.eq(null);
+    });
+
+    it('should handle formatTransactionIdWithoutQueryParams with empty result', () => {
+      expect(formatTransactionIdWithoutQueryParams('invalid?nonce=1')).to.eq(null);
+      expect(formatTransactionIdWithoutQueryParams('?nonce=1')).to.eq(null);
+    });
+
+    it('should handle parseNumericEnvVar error throwing scenarios', () => {
+      expect(() => parseNumericEnvVar('NONEXISTENT_VAR', 'NONEXISTENT_CONSTANT')).to.throw(
+        Error,
+        "Unable to parse numeric env var: 'NONEXISTENT_VAR', constant: 'NONEXISTENT_CONSTANT'",
       );
     });
   });
