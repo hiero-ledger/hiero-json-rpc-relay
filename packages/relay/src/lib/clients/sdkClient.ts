@@ -172,6 +172,10 @@ export class SDKClient {
       ),
     );
 
+    // If the authorized fee from the Ethereum sender is insufficient, the payer of the transaction is charged up to the maxGasAllowance.
+    // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
+    ethereumTransaction.setMaxGasAllowanceHbar(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'));
+
     return {
       fileId,
       txResponse: await this.executeTransaction(

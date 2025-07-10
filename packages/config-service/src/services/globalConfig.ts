@@ -442,6 +442,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 15_000_000,
   },
+  MAX_GAS_ALLOWANCE_HBAR: {
+    envName: 'MAX_GAS_ALLOWANCE_HBAR',
+    type: 'number',
+    required: false,
+    defaultValue: 0,
+  },
   MEMWATCH_ENABLED: {
     envName: 'MEMWATCH_ENABLED',
     type: 'boolean',
