@@ -440,6 +440,71 @@ describe('@ethCall Eth Call spec', async function () {
         'Error invoking RPC: Invalid contractCallResponse from consensus-node: undefined',
       );
     });
+
+    it('should handle SDKClientError in callConsensusNode', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const sdkError = new Error('SDK Client Error');
+      sdkError.name = 'SDKClientError';
+      (sdkError as any).statusCode = 500;
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(sdkError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(-32603);
+      expect((result as JsonRpcError).message).to.contain('SDK Client Error');
+    });
+
+    it('should return JsonRpcError as-is if already a JsonRpcError in callConsensusNode', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const jsonRpcError = predefined.CONTRACT_REVERT('Test revert', '0x1234');
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(jsonRpcError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(jsonRpcError.code);
+      expect((result as JsonRpcError).message).to.equal(jsonRpcError.message);
+    });
+
+    it('should handle generic error in callConsensusNode and return INTERNAL_ERROR', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const genericError = new Error('Generic error');
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(genericError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(-32603);
+      expect((result as JsonRpcError).message).to.contain('Generic error');
+    });
   });
 
   describe('eth_call using mirror node', async function () {
@@ -768,6 +833,41 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const result = await contractService.call(callData, 'latest', requestDetails);
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
+    });
+
+    it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
+      const result = await contractService['extractBlockNumberOrTag'](null, requestDetails);
+      expect(result).to.be.null;
+    });
+
+    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
+      try {
+        await contractService['extractBlockNumberOrTag']({}, requestDetails);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32000);
+        expect(error.message).to.contain('neither block nor hash specified');
+      }
+    });
+
+    it('should handle invalid contract address in validateContractAddress', async function () {
+      const invalidAddress = '0xinvalid';
+
+      try {
+        await contractService.call(
+          {
+            from: ACCOUNT_ADDRESS_1,
+            to: invalidAddress,
+            data: CONTRACT_CALL_DATA,
+          },
+          'latest',
+          requestDetails,
+        );
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32012);
+        expect(error.message).to.contain(`Invalid Contract Address: ${invalidAddress}`);
+      }
     });
 
     async function mockContractCall(

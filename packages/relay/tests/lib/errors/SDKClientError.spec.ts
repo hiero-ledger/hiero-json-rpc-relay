@@ -104,4 +104,78 @@ describe('SDKClientError', () => {
     const error = new SDKClientError({}, undefined, undefined, nodeId);
     expect(error.nodeAccountId).to.equal(nodeId);
   });
+
+  it('should use e.message when e.status._code exists, ignoring provided message parameter', () => {
+    const errorWithStatus = { status: { _code: 123 }, message: 'Error from status object' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithStatus, customMessage);
+
+    expect(error.message).to.equal('Error from status object');
+    expect(error.message).to.not.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.true;
+  });
+
+  it('should identify invalid contract ID when message contains Status.InvalidContractId string', () => {
+    const invalidContractMessage = `Some error containing ${Status.InvalidContractId.toString()} in the message`;
+    const error = new SDKClientError({ status: Status.Unknown, message: invalidContractMessage });
+
+    expect(error.isInvalidContractId()).to.be.true;
+    expect(error.isValidNetworkError()).to.be.true;
+  });
+
+  it('should handle transactionId parameter in constructor', () => {
+    const testTransactionId = '0.0.123@1234567890.123456789';
+    const error = new SDKClientError({}, 'Test message', testTransactionId);
+
+    expect(error.transactionId).to.equal(testTransactionId);
+  });
+
+  it('should handle empty transactionId parameter', () => {
+    const error = new SDKClientError({}, 'Test message', '');
+
+    expect(error.transactionId).to.equal('');
+  });
+
+  it('should handle undefined transactionId parameter', () => {
+    const error = new SDKClientError({}, 'Test message', undefined);
+
+    expect(error.transactionId).to.equal('');
+  });
+
+  it('should use provided message when e.status._code is falsy', () => {
+    const errorWithoutStatusCode = { status: { _code: 0 }, message: 'Error message' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithoutStatusCode, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+  });
+
+  it('should handle error object without status property', () => {
+    const errorWithoutStatus = { message: 'Error without status' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithoutStatus, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should not identify invalid contract ID when not a valid network error', () => {
+    const error = new SDKClientError({}, 'Some error message');
+
+    expect(error.isInvalidContractId()).to.be.false;
+    expect(error.isValidNetworkError()).to.be.false;
+  });
+
+  it('should identify invalid contract ID when message includes Status.InvalidContractId string but not valid network error', () => {
+    const invalidContractMessage = `Error containing ${Status.InvalidContractId.toString()}`;
+    const error = new SDKClientError({}, invalidContractMessage);
+
+    expect(error.isInvalidContractId()).to.be.false; // Should be false because it's not a valid network error
+    expect(error.isValidNetworkError()).to.be.false;
+  });
 });
