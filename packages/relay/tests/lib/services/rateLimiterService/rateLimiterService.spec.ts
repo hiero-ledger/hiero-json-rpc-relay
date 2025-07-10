@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { Logger, pino } from 'pino';
 import { Registry } from 'prom-client';
+import * as redis from 'redis';
 import * as sinon from 'sinon';
 
 import { LruRateLimitStore } from '../../../../src/lib/services/rateLimiterService/LruRateLimitStore';
@@ -256,7 +257,7 @@ describe('IPRateLimiterService Test Suite', function () {
         eval: sinon.stub(),
         quit: sinon.stub(),
       });
-      sinon.replace(require('redis'), 'createClient', createClientStub);
+      sinon.replace(redis, 'createClient', createClientStub);
 
       rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
@@ -276,7 +277,7 @@ describe('IPRateLimiterService Test Suite', function () {
         quit: sinon.stub(),
       };
       const createClientStub = sinon.stub().returns(mockRedisClient);
-      sinon.replace(require('redis'), 'createClient', createClientStub);
+      sinon.replace(redis, 'createClient', createClientStub);
 
       rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 

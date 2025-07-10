@@ -4,10 +4,12 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { expect } from 'chai';
 import { Logger, pino } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { createClient, RedisClientType } from 'redis';
+import { RedisClientType } from 'redis';
+import * as redis from 'redis';
 import * as sinon from 'sinon';
 
 import { RedisCacheError } from '../../../../src/lib/errors/RedisCacheError';
+import * as RedisCacheErrorModule from '../../../../src/lib/errors/RedisCacheError';
 import { RedisRateLimitStore } from '../../../../src/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../src/lib/types/rateLimiter';
 import { RequestDetails } from '../../../../src/lib/types/RequestDetails';
@@ -47,7 +49,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
     // Stub the createClient function
     createClientStub = sinon.stub().returns(mockRedisClient);
-    sinon.replace(require('redis'), 'createClient', createClientStub);
+    sinon.replace(redis, 'createClient', createClientStub);
 
     // Stub ConfigService
     configServiceStub = sinon.stub(ConfigService, 'get');
@@ -150,7 +152,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         fullError: 'Full Redis error message',
       };
       const redisCacheErrorStub = sinon.stub().returns(mockRedisCacheError);
-      sinon.replace(require('../../../../src/lib/errors/RedisCacheError'), 'RedisCacheError', redisCacheErrorStub);
+      sinon.replace(RedisCacheErrorModule, 'RedisCacheError', redisCacheErrorStub);
 
       const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
 
