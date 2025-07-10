@@ -35,7 +35,6 @@ describe('SDKClientError', () => {
 
   it('should correctly identify invalid contract ID by message', () => {
     const error = new SDKClientError({ status: Status.Unknown, message: 'INVALID_CONTRACT_ID' });
-    console.log(Status.InvalidContractId.toString());
     expect(error.isInvalidContractId()).to.be.true;
   });
 
@@ -177,5 +176,55 @@ describe('SDKClientError', () => {
 
     expect(error.isInvalidContractId()).to.be.false; // Should be false because it's not a valid network error
     expect(error.isValidNetworkError()).to.be.false;
+  });
+
+  it('should not identify timeout exceeded when message is null', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: null });
+    expect(error.isTimeoutExceeded()).to.be.false;
+  });
+
+  it('should not identify timeout exceeded when message does not contain timeout text', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'some other error' });
+    expect(error.isTimeoutExceeded()).to.be.false;
+  });
+
+  it('should not identify connection dropped when message is null', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: null });
+    expect(error.isConnectionDropped()).to.be.false;
+  });
+
+  it('should not identify connection dropped when message does not contain connection text', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'some other error' });
+    expect(error.isConnectionDropped()).to.be.false;
+  });
+
+  it('should not identify invalid account ID when status code is different', () => {
+    const error = new SDKClientError({ status: Status.InvalidContractId, message: 'Different error' });
+    expect(error.isInvalidAccountId()).to.be.false;
+  });
+
+  it('should not identify contract deletion when status code is different', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Different error' });
+    expect(error.isContractDeleted()).to.be.false;
+  });
+
+  it('should not identify insufficient tx fee when status code is different', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Different error' });
+    expect(error.isInsufficientTxFee()).to.be.false;
+  });
+
+  it('should not identify contract revert execution when status code is different', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Different error' });
+    expect(error.isContractRevertExecuted()).to.be.false;
+  });
+
+  it('should not identify timeout exceeded when status code is not Unknown', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'timeout exceeded' });
+    expect(error.isTimeoutExceeded()).to.be.false;
+  });
+
+  it('should not identify connection dropped when status code is not Unknown', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Connection dropped' });
+    expect(error.isConnectionDropped()).to.be.false;
   });
 });
