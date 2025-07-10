@@ -547,6 +547,11 @@ describe('Formatters', () => {
       const value = '0x7FFFFFFFFFFFFFFF';
       expect(weibarHexToTinyBarInt(value)).to.eq(922337203);
     });
+
+    it('should round up fractional weibar values to 1 tinybar', () => {
+      const value = '0x1';
+      expect(weibarHexToTinyBarInt(value)).to.eq(1);
+    });
   });
 
   describe('valid ethereum address', () => {
@@ -741,6 +746,16 @@ describe('Formatters', () => {
         const malformedHex = '0x08c379a0000000000000000000000000000000000000000000000000000000000000002';
         expect(decodeErrorMessage(malformedHex)).to.equal('');
       });
+
+      it('should handle non-hex message by returning as-is', () => {
+        const nonHexMessage = 'Simple error message without hex';
+        expect(decodeErrorMessage(nonHexMessage)).to.equal(nonHexMessage);
+      });
+
+      it('should handle message that starts with 0x but is malformed', () => {
+        const malformedMessage = '0xinvalid';
+        expect(decodeErrorMessage(malformedMessage)).to.equal('');
+      });
     });
   });
 
@@ -874,7 +889,7 @@ describe('Formatters', () => {
     });
   });
 
-  describe('Additional Edge Cases', () => {
+  describe('Additional Edge Cases - Targeted Coverage', () => {
     it('should handle getFunctionSelector with short input', () => {
       expect(getFunctionSelector('0x123')).to.eq('123');
       expect(getFunctionSelector('abc')).to.eq('abc');
@@ -899,22 +914,62 @@ describe('Formatters', () => {
       expect(toNullableBigNumber(123 as any)).to.equal(null);
     });
 
-    it('should handle formatTransactionId regex validation', () => {
+    it('should handle formatTransactionId regex validation - precise failing cases', () => {
+      // These should specifically fail the TRANSACTION_ID_REGEX: /\d{1}\.\d{1}\.\d{1,10}\@\d{1,10}\.\d{1,9}/
       expect(formatTransactionId('invalid-format')).to.eq(null);
       expect(formatTransactionId('0.0.2@')).to.eq(null);
       expect(formatTransactionId('@1234567890.123456789')).to.eq(null);
+      expect(formatTransactionId('')).to.eq(null);
+      expect(formatTransactionId('0.0.2-1234567890.123456789')).to.eq(null); // missing @
     });
 
-    it('should handle formatTransactionIdWithoutQueryParams with empty result', () => {
+    it('should handle formatTransactionIdWithoutQueryParams with null formatTransactionId result', () => {
+      // These should cause formatTransactionId to return null, which should make formatTransactionIdWithoutQueryParams return null
       expect(formatTransactionIdWithoutQueryParams('invalid?nonce=1')).to.eq(null);
       expect(formatTransactionIdWithoutQueryParams('?nonce=1')).to.eq(null);
+      expect(formatTransactionIdWithoutQueryParams('')).to.eq(null);
     });
 
-    it('should handle parseNumericEnvVar error throwing scenarios', () => {
+    it('should handle parseNumericEnvVar with completely invalid constant', () => {
       expect(() => parseNumericEnvVar('NONEXISTENT_VAR', 'NONEXISTENT_CONSTANT')).to.throw(
         Error,
         "Unable to parse numeric env var: 'NONEXISTENT_VAR', constant: 'NONEXISTENT_CONSTANT'",
       );
+    });
+
+    it('should handle tinybarsToWeibars negative value error when allowNegativeValues is false', () => {
+      expect(() => tinybarsToWeibars(-1, false)).to.throw(Error, 'Invalid value - cannot pass negative number');
+    });
+
+    it('should handle tinybarsToWeibars excessive value error', () => {
+      const excessiveValue = constants.TOTAL_SUPPLY_TINYBARS + 1;
+      expect(() => tinybarsToWeibars(excessiveValue, false)).to.throw(
+        Error,
+        'Value cannot be more than the total supply of tinybars in the blockchain',
+      );
+    });
+
+    it('should test hashNumber function indirectly through numberTo0x', () => {
+      // The hashNumber function is used internally by numberTo0x
+      expect(numberTo0x(255)).to.equal('0xff');
+      expect(numberTo0x(0)).to.equal('0x0');
+      expect(numberTo0x(16)).to.equal('0x10');
+    });
+
+    it('should test formatRequestIdMessage with pre-formatted request ID', () => {
+      const preFormattedId = '[Request ID: test-id]';
+      expect(formatRequestIdMessage(preFormattedId)).to.eq(preFormattedId);
+    });
+
+    it('should test formatRequestIdMessage with unformatted request ID', () => {
+      const unformattedId = 'simple-id';
+      expect(formatRequestIdMessage(unformattedId)).to.eq('[Request ID: simple-id]');
+    });
+
+    it('should test various falsy inputs for formatRequestIdMessage', () => {
+      expect(formatRequestIdMessage(undefined)).to.eq('');
+      expect(formatRequestIdMessage('')).to.eq('');
+      expect(formatRequestIdMessage(null as any)).to.eq('');
     });
   });
 });

@@ -227,4 +227,53 @@ describe('SDKClientError', () => {
     const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Connection dropped' });
     expect(error.isConnectionDropped()).to.be.false;
   });
+
+  it('should handle status object with falsy _code property', () => {
+    const errorWithZeroCode = { status: { _code: 0 }, message: 'Error with zero code' };
+    const customMessage = 'Custom message for zero code';
+
+    const error = new SDKClientError(errorWithZeroCode, customMessage);
+
+    expect(error.message).to.equal(customMessage); // Should use custom message since _code is falsy
+    expect(error.isValidNetworkError()).to.be.false; // Should be false since _code is falsy
+    expect(error.status).to.equal(Status.Unknown); // Should default to Unknown
+  });
+
+  it('should handle status object with null _code property', () => {
+    const errorWithNullCode = { status: { _code: null }, message: 'Error with null code' };
+    const customMessage = 'Custom message for null code';
+
+    const error = new SDKClientError(errorWithNullCode, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should identify invalid contract ID when valid network error AND message contains InvalidContractId string', () => {
+    const invalidContractMessage = `Some error containing ${Status.InvalidContractId.toString()} in the message`;
+    const error = new SDKClientError({ status: Status.InsufficientTxFee, message: invalidContractMessage });
+
+    expect(error.isInvalidContractId()).to.be.true; // Should be true: valid network error AND message contains string
+    expect(error.isValidNetworkError()).to.be.true;
+  });
+
+  it('should handle empty error object with message parameter', () => {
+    const error = new SDKClientError({}, 'Test message');
+
+    expect(error.message).to.equal('Test message');
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should handle error object with status but no _code property', () => {
+    const errorWithStatusButNoCode = { status: {}, message: 'Error message' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithStatusButNoCode, customMessage);
+
+    expect(error.message).to.equal(customMessage); // Should use custom message since status._code is undefined
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
 });
