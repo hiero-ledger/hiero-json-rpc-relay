@@ -325,7 +325,7 @@ describe('SDKClientError', () => {
 
     const error = new SDKClientError(errorWithNullMessage, customMessage);
 
-    expect(error.message).to.equal(null); // Should use e.message (null) since status._code is truthy
+    expect(error.message).to.equal('null');
     expect(error.isValidNetworkError()).to.be.true;
   });
 
@@ -335,7 +335,7 @@ describe('SDKClientError', () => {
 
     const error = new SDKClientError(errorWithUndefinedMessage, customMessage);
 
-    expect(error.message).to.equal(undefined); // Should use e.message (undefined) since status._code is truthy
+    expect(error.message).to.equal('');
     expect(error.isValidNetworkError()).to.be.true;
   });
 
