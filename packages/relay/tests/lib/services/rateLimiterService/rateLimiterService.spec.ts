@@ -248,6 +248,42 @@ describe('IPRateLimiterService Test Suite', function () {
 
       expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
     });
+
+    it('should handle Redis connection failures gracefully (fail-open behavior)', async () => {
+      const createClientStub = sinon.stub().returns({
+        connect: sinon.stub().rejects(new Error('Redis connection failed')),
+        on: sinon.stub(),
+        eval: sinon.stub(),
+        quit: sinon.stub(),
+      });
+      sinon.replace(require('redis'), 'createClient', createClientStub);
+
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
+
+      // Wait for connection promise to resolve
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Should not rate limit when Redis is unavailable (fail-open behavior)
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
+      expect(result).to.be.false;
+    });
+
+    it('should handle Redis operation failures gracefully (fail-open behavior)', async () => {
+      const mockRedisClient = {
+        connect: sinon.stub().resolves(),
+        on: sinon.stub(),
+        eval: sinon.stub().rejects(new Error('Redis operation failed')),
+        quit: sinon.stub(),
+      };
+      const createClientStub = sinon.stub().returns(mockRedisClient);
+      sinon.replace(require('redis'), 'createClient', createClientStub);
+
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
+
+      // Should not rate limit when Redis operations fail (fail-open behavior)
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
+      expect(result).to.be.false;
+    });
   });
 
   describe('Configuration Edge Cases', () => {

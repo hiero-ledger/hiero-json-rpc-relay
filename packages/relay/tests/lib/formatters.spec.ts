@@ -34,6 +34,16 @@ import { CommonService } from '../../src/lib/services';
 import { overrideEnvsInMochaDescribe } from '../helpers';
 
 describe('Formatters', () => {
+  describe('hashNumber', () => {
+    it('should convert number to hex string with 0x prefix', () => {
+      // This tests the hashNumber function
+      // Since hashNumber is not exported, we test it through functions that use it
+      expect(numberTo0x(15)).to.equal('0xf');
+      expect(numberTo0x(255)).to.equal('0xff');
+      expect(numberTo0x(0)).to.equal('0x0');
+    });
+  });
+
   describe('formatRequestIdMessage', () => {
     const exampleRequestId = '46530e63-e33a-4f42-8e44-b125f99f1a9b';
     const expectedFormattedId = '[Request ID: 46530e63-e33a-4f42-8e44-b125f99f1a9b]';
@@ -50,6 +60,16 @@ describe('Formatters', () => {
 
     it('Should return an empty string if undefined is passed in', () => {
       const result = formatRequestIdMessage(undefined);
+      expect(result).to.eq('');
+    });
+
+    it('Should return an empty string if null is passed in', () => {
+      const result = formatRequestIdMessage(null as any);
+      expect(result).to.eq('');
+    });
+
+    it('Should return an empty string if empty string is passed in', () => {
+      const result = formatRequestIdMessage('');
       expect(result).to.eq('');
     });
   });
@@ -103,6 +123,14 @@ describe('Formatters', () => {
     it('should return null on empty', () => {
       expect(formatTransactionId('')).to.eq(null);
     });
+
+    it('should return null for malformed input without @ symbol', () => {
+      expect(formatTransactionId('0.0.2-1234567890.123456789')).to.eq(null);
+    });
+
+    it('should return null for input with invalid timestamp format', () => {
+      expect(formatTransactionId('0.0.2@invalid.timestamp')).to.eq(null);
+    });
   });
 
   describe('formatTransactionIdWithoutQueryParams', () => {
@@ -120,6 +148,14 @@ describe('Formatters', () => {
 
     it('should return null on empty', () => {
       expect(formatTransactionIdWithoutQueryParams('')).to.eq(null);
+    });
+
+    it('should return null for malformed input without @ symbol', () => {
+      expect(formatTransactionIdWithoutQueryParams('0.0.2-1234567890.123456789?nonce=1')).to.eq(null);
+    });
+
+    it('should return null for input with invalid timestamp format', () => {
+      expect(formatTransactionIdWithoutQueryParams('0.0.2@invalid.timestamp?nonce=1')).to.eq(null);
     });
   });
 
@@ -167,6 +203,18 @@ describe('Formatters', () => {
       }).to.throw(
         Error,
         "Unable to parse numeric env var: 'TEST_ONLY_ENV_VAR_NONNUMERICSTRING', constant: 'FOO_BAR'",
+        'throws when unable to parse both',
+      );
+      expect(value).to.be.undefined;
+    });
+
+    it('should throw when fallback constant is also non-parseable', () => {
+      let value: any = undefined;
+      expect(function () {
+        value = parseNumericEnvVar('TEST_ONLY_ENV_VAR_UNDEFINED', 'INVALID_CONSTANT');
+      }).to.throw(
+        Error,
+        "Unable to parse numeric env var: 'TEST_ONLY_ENV_VAR_UNDEFINED', constant: 'INVALID_CONSTANT'",
         'throws when unable to parse both',
       );
       expect(value).to.be.undefined;
@@ -445,6 +493,18 @@ describe('Formatters', () => {
         '0x9af1252ea00af08c2ebc78f35a6071a3736795dc53027ea746d710c46b0ef011dc4460630cf109972dafa76c4a56f530';
       expect(toNullableBigNumber(bigNumberString)).to.equal(new BN(bigNumberString).toString());
     });
+
+    it('should return null for undefined input', () => {
+      expect(toNullableBigNumber(undefined as any)).to.equal(null);
+    });
+
+    it('should return null for non-string input', () => {
+      expect(toNullableBigNumber(123 as any)).to.equal(null);
+    });
+
+    it('should convert decimal string to BigNumber', () => {
+      expect(toNullableBigNumber('123456789')).to.equal('123456789');
+    });
   });
 
   describe('toNullIfEmptyHex', () => {
@@ -453,6 +513,16 @@ describe('Formatters', () => {
     });
     it('should return value for non-nullable input', () => {
       const value = '2911';
+      expect(toNullIfEmptyHex(value)).to.equal(value);
+    });
+
+    it('should return value for hex with content', () => {
+      const value = '0x123abc';
+      expect(toNullIfEmptyHex(value)).to.equal(value);
+    });
+
+    it('should return value for non-hex string', () => {
+      const value = 'some string';
       expect(toNullIfEmptyHex(value)).to.equal(value);
     });
   });
@@ -527,6 +597,12 @@ describe('Formatters', () => {
     it('should return false for an address with a null value', () => {
       const address = null;
       expect(isValidEthereumAddress(address)).to.equal(false);
+    });
+
+    it('should return false for falsy address values', () => {
+      expect(isValidEthereumAddress(false as any)).to.equal(false);
+      expect(isValidEthereumAddress(0 as any)).to.equal(false);
+      expect(isValidEthereumAddress(NaN as any)).to.equal(false);
     });
   });
 
@@ -767,6 +843,23 @@ describe('Formatters', () => {
 
     it('should return the negative number if allowNegativeValues flag is set to true', () => {
       expect(tinybarsToWeibars(-10, true)).to.eql(-10);
+    });
+
+    it('should throw error for negative values when allowNegativeValues is false', () => {
+      expect(() => tinybarsToWeibars(-1, false)).to.throw(Error, 'Invalid value - cannot pass negative number');
+      expect(() => tinybarsToWeibars(-100, false)).to.throw(Error, 'Invalid value - cannot pass negative number');
+    });
+
+    it('should throw error when value exceeds total supply', () => {
+      const excessiveValue = constants.TOTAL_SUPPLY_TINYBARS * 2;
+      expect(() => tinybarsToWeibars(excessiveValue, false)).to.throw(
+        Error,
+        'Value cannot be more than the total supply of tinybars in the blockchain',
+      );
+      expect(() => tinybarsToWeibars(excessiveValue, true)).to.throw(
+        Error,
+        'Value cannot be more than the total supply of tinybars in the blockchain',
+      );
     });
   });
 });

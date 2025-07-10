@@ -177,6 +177,282 @@ describe('@ethCall Eth Call spec', async function () {
     });
   });
 
+  describe('eth_call using consensus node', async function () {
+    overrideEnvsInMochaDescribe({ ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: true });
+
+    it('eth_call with no gas', async function () {
+      restMock.onGet(`contracts/${ACCOUNT_ADDRESS_1}`).reply(404);
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      sdkClientStub.submitContractCallQueryWithRetry.resolves({
+        asBytes: function () {
+          return Uint8Array.of(0);
+        },
+      } as unknown as ContractFunctionResult);
+      const result = await contractService.call(
+        {
+          from: ACCOUNT_ADDRESS_1,
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+        },
+        'latest',
+        requestDetails,
+      );
+      sinon.assert.calledWith(
+        sdkClientStub.submitContractCallQueryWithRetry,
+        CONTRACT_ADDRESS_2,
+        CONTRACT_CALL_DATA,
+        400_000,
+        ACCOUNT_ADDRESS_1,
+        'eth_call',
+      );
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with no data', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      sdkClientStub.submitContractCallQueryWithRetry.resolves({
+        asBytes: function () {
+          return Uint8Array.of(0);
+        },
+      } as unknown as ContractFunctionResult);
+
+      const result = await contractService.call(
+        {
+          from: ACCOUNT_ADDRESS_1,
+          to: CONTRACT_ADDRESS_2,
+          gas: MAX_GAS_LIMIT_HEX,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      sinon.assert.calledWith(
+        sdkClientStub.submitContractCallQueryWithRetry,
+        CONTRACT_ADDRESS_2,
+        undefined,
+        MAX_GAS_LIMIT,
+        ACCOUNT_ADDRESS_1,
+        'eth_call',
+      );
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with no "from" address', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: undefined,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      sdkClientStub.submitContractCallQueryWithRetry.resolves({
+        asBytes: function () {
+          return Uint8Array.of(0);
+        },
+      } as unknown as ContractFunctionResult);
+
+      const result = await contractService.call(callData, 'latest', requestDetails);
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call with a bad "from" address', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: '0x00000000000000000000000000000000000000',
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      const result = await contractService.call(callData, 'latest', requestDetails);
+
+      expect((result as JsonRpcError).code).to.equal(-32014);
+      expect((result as JsonRpcError).message).to.equal(
+        `Non Existing Account Address: ${callData.from}. Expected an Account Address.`,
+      );
+    });
+
+    it('eth_call with all fields', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      sdkClientStub.submitContractCallQueryWithRetry.resolves({
+        asBytes: function () {
+          return Uint8Array.of(0);
+        },
+      } as unknown as ContractFunctionResult);
+
+      const result = await contractService.call(ETH_CALL_REQ_ARGS, 'latest', requestDetails);
+
+      sinon.assert.calledWith(
+        sdkClientStub.submitContractCallQueryWithRetry,
+        CONTRACT_ADDRESS_2,
+        CONTRACT_CALL_DATA,
+        MAX_GAS_LIMIT,
+        ACCOUNT_ADDRESS_1,
+        'eth_call',
+      );
+      expect(result).to.equal('0x00');
+    });
+
+    //Return once the value, then it's being fetched from cache. After the loop we reset the sdkClientStub, so that it returns nothing, if we get an error in the next request that means that the cache was cleared.
+    it('eth_call should cache the response for 200ms', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      sdkClientStub.submitContractCallQueryWithRetry.resolves({
+        asBytes: function () {
+          return Uint8Array.of(0);
+        },
+      } as unknown as ContractFunctionResult);
+
+      for (let index = 0; index < 3; index++) {
+        const result = await contractService.call(
+          {
+            from: ACCOUNT_ADDRESS_1,
+            to: CONTRACT_ADDRESS_2,
+            data: CONTRACT_CALL_DATA,
+            gas: MAX_GAS_LIMIT_HEX,
+          },
+          'latest',
+          requestDetails,
+        );
+        expect(result).to.equal('0x00');
+        await new Promise((r) => setTimeout(r, 50));
+      }
+
+      await new Promise((r) => setTimeout(r, 200));
+
+      const expectedError = predefined.INVALID_CONTRACT_ADDRESS(CONTRACT_ADDRESS_2);
+      sdkClientStub.submitContractCallQueryWithRetry.throws(expectedError);
+      const call: string | JsonRpcError = await contractService.call(ETH_CALL_REQ_ARGS, 'latest', requestDetails);
+
+      expect((call as JsonRpcError).code).to.equal(expectedError.code);
+      expect((call as JsonRpcError).message).to.equal(expectedError.message);
+    });
+
+    it('SDK returns a precheck error', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      sdkClientStub.submitContractCallQueryWithRetry.throws(
+        predefined.CONTRACT_REVERT(defaultErrorMessageText, defaultErrorMessageHex),
+      );
+
+      const result = await contractService.call(ETH_CALL_REQ_ARGS, 'latest', requestDetails);
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(3);
+      expect((result as JsonRpcError).message).to.equal(`execution reverted: ${defaultErrorMessageText}`);
+      expect((result as JsonRpcError).data).to.equal(defaultErrorMessageHex);
+    });
+
+    it('eth_call with wrong `to` field', async function () {
+      const args = [
+        {
+          from: CONTRACT_ADDRESS_1,
+          to: WRONG_CONTRACT_ADDRESS,
+          data: CONTRACT_CALL_DATA,
+          gas: MAX_GAS_LIMIT_HEX,
+        },
+        'latest',
+        requestDetails,
+      ];
+
+      await RelayAssertions.assertRejection(
+        predefined.INVALID_CONTRACT_ADDRESS(WRONG_CONTRACT_ADDRESS),
+        ethImpl.call,
+        false,
+        ethImpl,
+        args,
+      );
+    });
+
+    it('eth_call throws internal error when consensus node times out and submitContractCallQueryWithRetry returns undefined', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      sdkClientStub.submitContractCallQueryWithRetry.resolves(undefined);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(-32603);
+      expect((result as JsonRpcError).message).to.equal(
+        'Error invoking RPC: Invalid contractCallResponse from consensus-node: undefined',
+      );
+    });
+
+    it('should handle SDKClientError in callConsensusNode', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const sdkError = new Error('SDK Client Error');
+      sdkError.name = 'SDKClientError';
+      (sdkError as any).statusCode = 500;
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(sdkError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(-32603);
+      expect((result as JsonRpcError).message).to.contain('SDK Client Error');
+    });
+
+    it('should return JsonRpcError as-is if already a JsonRpcError in callConsensusNode', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const jsonRpcError = predefined.CONTRACT_REVERT('Test revert', '0x1234');
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(jsonRpcError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(jsonRpcError.code);
+      expect((result as JsonRpcError).message).to.equal(jsonRpcError.message);
+    });
+
+    it('should handle generic error in callConsensusNode and return INTERNAL_ERROR', async function () {
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+
+      const genericError = new Error('Generic error');
+      sdkClientStub.submitContractCallQueryWithRetry.rejects(genericError);
+
+      const result = await contractService.call(
+        {
+          to: CONTRACT_ADDRESS_2,
+          data: CONTRACT_CALL_DATA,
+          gas: 5_000_000,
+        },
+        'latest',
+        requestDetails,
+      );
+
+      expect(result).to.exist;
+      expect((result as JsonRpcError).code).to.equal(-32603);
+      expect((result as JsonRpcError).message).to.contain('Generic error');
+    });
+  });
+
   describe('eth_call using mirror node', async function () {
     const defaultCallData = {
       gas: 400000,
@@ -500,6 +776,41 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const result = await contractService.call(callData, 'latest', requestDetails);
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
+    });
+
+    it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
+      const result = await contractService['extractBlockNumberOrTag'](null, requestDetails);
+      expect(result).to.be.null;
+    });
+
+    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
+      try {
+        await contractService['extractBlockNumberOrTag']({}, requestDetails);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32000);
+        expect(error.message).to.contain('neither block nor hash specified');
+      }
+    });
+
+    it('should handle invalid contract address in validateContractAddress', async function () {
+      const invalidAddress = '0xinvalid';
+
+      try {
+        await contractService.call(
+          {
+            from: ACCOUNT_ADDRESS_1,
+            to: invalidAddress,
+            data: CONTRACT_CALL_DATA,
+          },
+          'latest',
+          requestDetails,
+        );
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32012);
+        expect(error.message).to.contain(`Invalid Contract Address: ${invalidAddress}`);
+      }
     });
 
     async function mockContractCall(

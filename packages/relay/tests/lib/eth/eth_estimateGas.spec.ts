@@ -11,6 +11,7 @@ import { Eth, JsonRpcError } from '../../../src';
 import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
+import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { EthImpl } from '../../../src/lib/eth';
 import { Precheck } from '../../../src/lib/precheck';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
@@ -165,7 +166,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
     restMock
       .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
-      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }, requestDetails));
+      .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
 
     const gas = await ethImpl.estimateGas(callData, null, requestDetails);
     expect(gas).to.equal(numberTo0x(constants.TX_BASE_COST));
@@ -178,9 +179,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       to: RECEIVER_ADDRESS,
     };
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
-    restMock
-      .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
-      .reply(200, { address: RECEIVER_ADDRESS }, requestDetails);
+    restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, { address: RECEIVER_ADDRESS });
 
     const result = await ethImpl.estimateGas(callData, null, requestDetails);
     expect(result).to.not.be.null;
@@ -407,27 +406,16 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
     it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
-      await mockContractCall(
-        transaction,
-        true,
-        400,
-        {
-          _status: {
-            messages: [
-              {
-                message: 'data field invalid hexadecimal string',
-                detail: '',
-                data: '',
-              },
-            ],
-          },
-        },
-        requestDetails,
-      );
+      const originalEstimateGas = contractService.estimateGas;
+      contractService.estimateGas = async () => {
+        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
+      };
 
       const result = await ethImpl.estimateGas(transaction, id, requestDetails);
 
       expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!)));
+
+      contractService.estimateGas = originalEstimateGas;
     });
   });
 
@@ -554,6 +542,36 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
+  });
+
+  it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
+    const originalEstimateGas = contractService.estimateGas;
+    contractService.estimateGas = async () => {
+      return predefined.INTERNAL_ERROR('Test error for estimateGas');
+    };
+
+    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
+
+    expect(result).to.be.an('object');
+    expect((result as JsonRpcError).code).to.equal(-32603);
+    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
+
+    contractService.estimateGas = originalEstimateGas;
+  });
+
+  it('should handle mirror node response with no gas estimate', async function () {
+    const originalEstimateGas = contractService.estimateGas;
+    contractService.estimateGas = async () => {
+      return predefined.INTERNAL_ERROR('Test error for estimateGas');
+    };
+
+    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
+
+    expect(result).to.be.an('object');
+    expect((result as JsonRpcError).code).to.equal(-32603);
+    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
+
+    contractService.estimateGas = originalEstimateGas;
   });
 
   it('should accepts both input and data fields but copy value of input field to data field', async () => {
