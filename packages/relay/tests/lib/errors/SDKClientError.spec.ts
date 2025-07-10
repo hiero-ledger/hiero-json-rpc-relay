@@ -276,4 +276,126 @@ describe('SDKClientError', () => {
     expect(error.isValidNetworkError()).to.be.false;
     expect(error.status).to.equal(Status.Unknown);
   });
+
+  it('should handle null error object', () => {
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(null, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should handle undefined error object', () => {
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(undefined, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should handle error object with null status', () => {
+    const errorWithNullStatus = { status: null, message: 'Error message' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithNullStatus, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should handle error object with undefined status', () => {
+    const errorWithUndefinedStatus = { status: undefined, message: 'Error message' };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithUndefinedStatus, customMessage);
+
+    expect(error.message).to.equal(customMessage);
+    expect(error.isValidNetworkError()).to.be.false;
+    expect(error.status).to.equal(Status.Unknown);
+  });
+
+  it('should handle error object with valid status._code but null e.message', () => {
+    const errorWithNullMessage = { status: { _code: 123 }, message: null };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithNullMessage, customMessage);
+
+    expect(error.message).to.equal(null); // Should use e.message (null) since status._code is truthy
+    expect(error.isValidNetworkError()).to.be.true;
+  });
+
+  it('should handle error object with valid status._code but undefined e.message', () => {
+    const errorWithUndefinedMessage = { status: { _code: 123 }, message: undefined };
+    const customMessage = 'Custom error message';
+
+    const error = new SDKClientError(errorWithUndefinedMessage, customMessage);
+
+    expect(error.message).to.equal(undefined); // Should use e.message (undefined) since status._code is truthy
+    expect(error.isValidNetworkError()).to.be.true;
+  });
+
+  it('should test isInvalidContractId with null message', () => {
+    const error = new SDKClientError({ status: { _code: 123 }, message: null });
+    expect(error.isInvalidContractId()).to.be.false; // this.message is null, so includes() will return false
+  });
+
+  it('should test isInvalidContractId with undefined message', () => {
+    const error = new SDKClientError({ status: { _code: 123 }, message: undefined });
+    expect(error.isInvalidContractId()).to.be.false; // this.message is undefined, so includes() will return false
+  });
+
+  it('should test isTimeoutExceeded with statusCode NOT equal to Unknown', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'timeout exceeded' });
+    expect(error.isTimeoutExceeded()).to.be.false; // First condition fails, short-circuit
+  });
+
+  it('should test isTimeoutExceeded with statusCode equal to Unknown but message null', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: null });
+    expect(error.isTimeoutExceeded()).to.be.false; // Second condition fails (null?.includes returns undefined)
+  });
+
+  it('should test isTimeoutExceeded with statusCode equal to Unknown but message undefined', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: undefined });
+    expect(error.isTimeoutExceeded()).to.be.false; // Second condition fails (undefined?.includes returns undefined)
+  });
+
+  it('should test isTimeoutExceeded with statusCode equal to Unknown and message contains timeout', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'timeout exceeded' });
+    expect(error.isTimeoutExceeded()).to.be.true; // Both conditions true
+  });
+
+  it('should test isTimeoutExceeded with statusCode equal to Unknown and message does not contain timeout', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'some other error' });
+    expect(error.isTimeoutExceeded()).to.be.false; // Second condition fails
+  });
+
+  it('should test isConnectionDropped with statusCode NOT equal to Unknown', () => {
+    const error = new SDKClientError({ status: Status.InvalidAccountId, message: 'Connection dropped' });
+    expect(error.isConnectionDropped()).to.be.false; // First condition fails, short-circuit
+  });
+
+  it('should test isConnectionDropped with statusCode equal to Unknown but message null', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: null });
+    expect(error.isConnectionDropped()).to.be.false; // Second condition fails (null?.includes returns undefined)
+  });
+
+  it('should test isConnectionDropped with statusCode equal to Unknown but message undefined', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: undefined });
+    expect(error.isConnectionDropped()).to.be.false; // Second condition fails (undefined?.includes returns undefined)
+  });
+
+  it('should test isConnectionDropped with statusCode equal to Unknown and message contains connection text', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'Connection dropped' });
+    expect(error.isConnectionDropped()).to.be.true; // Both conditions true
+  });
+
+  it('should test isConnectionDropped with statusCode equal to Unknown and message does not contain connection text', () => {
+    const error = new SDKClientError({ status: Status.Unknown, message: 'some other error' });
+    expect(error.isConnectionDropped()).to.be.false; // Second condition fails
+  });
 });
