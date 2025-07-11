@@ -314,6 +314,22 @@ describe('Filter API Test Suite', async function () {
         ),
       ).to.eq(true);
     });
+
+    it('should throw INVALID_BLOCK_RANGE when validateBlockRange returns false', async function () {
+      // Mock a scenario where validateBlockRange returns false (e.g., when blocks don't exist)
+      restMock
+        .onGet(`${BLOCK_BY_NUMBER_QUERY}/999999`)
+        .reply(404, { _status: { messages: [{ message: 'Not found' }] } });
+      restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify({ blocks: [{ ...defaultBlock, number: 1000 }] }));
+
+      await RelayAssertions.assertRejection(
+        predefined.INVALID_BLOCK_RANGE,
+        filterService.newFilter,
+        true,
+        filterService,
+        [{ fromBlock: '0xf423f', toBlock: 'latest' }, requestDetails], // 999999 in hex
+      );
+    });
   });
 
   describe('eth_uninstallFilter', async function () {
@@ -654,6 +670,31 @@ describe('Filter API Test Suite', async function () {
 
       const blocks = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(blocks).to.be.empty;
+    });
+
+    it('should throw UNSUPPORTED_METHOD for unsupported filter type in getFilterChanges', async function () {
+      // Create a filter with an unsupported type directly in cache
+      const unsupportedFilterId = '0x1112299';
+      const cacheKey = `${constants.CACHE_KEY.FILTERID}_${unsupportedFilterId}`;
+      await cacheService.set(
+        cacheKey,
+        {
+          type: 'UNSUPPORTED_TYPE', // This type is not in supportedTypes array
+          params: {},
+          lastQueried: null,
+        },
+        filterService.ethGetFilterChanges,
+        requestDetails,
+        constants.FILTER.TTL,
+      );
+
+      await RelayAssertions.assertRejection(
+        predefined.UNSUPPORTED_METHOD,
+        filterService.getFilterChanges,
+        true,
+        filterService,
+        [unsupportedFilterId, requestDetails],
+      );
     });
   });
 });

@@ -230,5 +230,137 @@ describe('Errors', () => {
         expect(error.data).to.eq(errCode.toString());
       });
     });
+
+    describe('predefined.IP_RATE_LIMIT_EXCEEDED', () => {
+      it('Constructs correctly with method name', () => {
+        const methodName = 'eth_getBalance';
+        const error = predefined.IP_RATE_LIMIT_EXCEEDED(methodName);
+        expect(error.code).to.eq(-32605);
+        expect(error.message).to.eq(`IP Rate limit exceeded on ${methodName}`);
+      });
+
+      it('Constructs correctly with different method name', () => {
+        const methodName = 'eth_call';
+        const error = predefined.IP_RATE_LIMIT_EXCEEDED(methodName);
+        expect(error.code).to.eq(-32605);
+        expect(error.message).to.eq(`IP Rate limit exceeded on ${methodName}`);
+      });
+    });
+
+    describe('predefined.REQUEST_BEYOND_HEAD_BLOCK', () => {
+      it('Constructs correctly with requested and latest block numbers', () => {
+        const requested = 1000;
+        const latest = 500;
+        const error = predefined.REQUEST_BEYOND_HEAD_BLOCK(requested, latest);
+        expect(error.code).to.eq(-32000);
+        expect(error.message).to.eq(`Request beyond head block: requested ${requested}, head ${latest}`);
+      });
+
+      it('Constructs correctly with different block numbers', () => {
+        const requested = 2500;
+        const latest = 2000;
+        const error = predefined.REQUEST_BEYOND_HEAD_BLOCK(requested, latest);
+        expect(error.code).to.eq(-32000);
+        expect(error.message).to.eq(`Request beyond head block: requested ${requested}, head ${latest}`);
+      });
+    });
+
+    describe('predefined.NON_EXISTING_CONTRACT', () => {
+      it('Constructs correctly with valid address', () => {
+        const address = '0x1234567890abcdef1234567890abcdef12345678';
+        const error = predefined.NON_EXISTING_CONTRACT(address);
+        expect(error.code).to.eq(-32013);
+        expect(error.message).to.eq(`Non Existing Contract Address: ${address}. Expected a Contract or Token Address.`);
+      });
+
+      it('Constructs correctly with empty address', () => {
+        const address = '';
+        const error = predefined.NON_EXISTING_CONTRACT(address);
+        expect(error.code).to.eq(-32013);
+        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
+      });
+
+      it('Constructs correctly with null address', () => {
+        const address = null;
+        const error = predefined.NON_EXISTING_CONTRACT(address);
+        expect(error.code).to.eq(-32013);
+        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
+      });
+
+      it('Constructs correctly with undefined address', () => {
+        const address = undefined;
+        const error = predefined.NON_EXISTING_CONTRACT(address);
+        expect(error.code).to.eq(-32013);
+        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
+      });
+    });
+
+    describe('predefined.UNSUPPORTED_HISTORICAL_EXECUTION', () => {
+      it('Constructs correctly with block identifier', () => {
+        const blockId = 'earliest';
+        const error = predefined.UNSUPPORTED_HISTORICAL_EXECUTION(blockId);
+        expect(error.code).to.eq(-32609);
+        expect(error.message).to.eq(`Unsupported historical block identifier encountered: ${blockId}`);
+      });
+
+      it('Constructs correctly with different block identifier', () => {
+        const blockId = '0x123abc';
+        const error = predefined.UNSUPPORTED_HISTORICAL_EXECUTION(blockId);
+        expect(error.code).to.eq(-32609);
+        expect(error.message).to.eq(`Unsupported historical block identifier encountered: ${blockId}`);
+      });
+    });
+
+    describe('predefined.UNSUPPORTED_OPERATION', () => {
+      it('Constructs correctly with operation message', () => {
+        const message = 'This operation is not supported in this version';
+        const error = predefined.UNSUPPORTED_OPERATION(message);
+        expect(error.code).to.eq(-32610);
+        expect(error.message).to.eq(`Unsupported operation. ${message}`);
+      });
+
+      it('Constructs correctly with different operation message', () => {
+        const message = 'Feature disabled in current configuration';
+        const error = predefined.UNSUPPORTED_OPERATION(message);
+        expect(error.code).to.eq(-32610);
+        expect(error.message).to.eq(`Unsupported operation. ${message}`);
+      });
+    });
+
+    describe('predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED', () => {
+      it('Constructs correctly with amount and max values', () => {
+        const amount = 150;
+        const max = 100;
+        const error = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+        expect(error.code).to.eq(-32203);
+        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      });
+
+      it('Constructs correctly with different amount and max values', () => {
+        const amount = 250;
+        const max = 200;
+        const error = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+        expect(error.code).to.eq(-32203);
+        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      });
+    });
+
+    describe('predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED', () => {
+      it('Constructs correctly with amount and max values', () => {
+        const amount = 25;
+        const max = 20;
+        const error = predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+        expect(error.code).to.eq(-32206);
+        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      });
+
+      it('Constructs correctly with different amount and max values', () => {
+        const amount = 50;
+        const max = 30;
+        const error = predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+        expect(error.code).to.eq(-32206);
+        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      });
+    });
   });
 });
