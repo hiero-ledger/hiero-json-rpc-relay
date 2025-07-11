@@ -120,6 +120,19 @@ describe('Utils', () => {
       { keyFormat: 'DER', keyValue: PrivateKey.generateED25519().toStringDer() },
     ];
 
+    withOverriddenEnvsInMochaTest(
+      {
+        OPERATOR_ID_MAIN: false,
+        OPERATOR_KEY_MAIN: false,
+      },
+      () => {
+        it('should return null for invalid operator id or key', () => {
+          const operator = Utils.getOperator(logger);
+          expect(operator).to.be.null;
+        });
+      },
+    );
+
     privateKeys.forEach(({ keyFormat, keyValue }) => {
       withOverriddenEnvsInMochaTest(
         {
