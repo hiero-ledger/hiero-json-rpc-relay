@@ -806,7 +806,7 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Routes the call to either consensus or mirror node based on configuration.
+   * Routes the call to mirror node.
    *
    * @param {IContractCallRequest} call - The call request
    * @param {number | null} gas - The gas limit
@@ -821,13 +821,6 @@ export class ContractService implements IContractService {
     blockNumberOrTag: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    // ETH_CALL_DEFAULT_TO_CONSENSUS_NODE = false enables the use of Mirror node
-    const shouldDefaultToConsensus = ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE');
-
-    if (shouldDefaultToConsensus) {
-      return await this.callConsensusNode(call, gas, requestDetails);
-    }
-
     return await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
   }
 

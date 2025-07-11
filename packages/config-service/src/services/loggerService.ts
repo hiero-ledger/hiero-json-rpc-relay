@@ -5,7 +5,6 @@ import { GlobalConfig } from './globalConfig';
 export class LoggerService {
   public static readonly SENSITIVE_FIELDS = [
     GlobalConfig.ENTRIES.OPERATOR_KEY_MAIN.envName,
-    GlobalConfig.ENTRIES.OPERATOR_KEY_ETH_SENDRAWTRANSACTION.envName,
     GlobalConfig.ENTRIES.GITHUB_TOKEN.envName,
     GlobalConfig.ENTRIES.GH_ACCESS_TOKEN.envName,
   ];

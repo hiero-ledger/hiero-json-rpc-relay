@@ -527,43 +527,40 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
             expect(res).to.eq(basicContractJson.deployedBytecode);
           });
 
-          // value is processed only when eth_call goes through the mirror node
-          if (!ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE')) {
-            it('010 Should call msgValue', async function () {
-              const callData = {
-                ...defaultCallData,
-                data: '0xddf363d7',
-                value: ONE_THOUSAND_TINYBARS,
-              };
+          it('010 Should call msgValue', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: ONE_THOUSAND_TINYBARS,
+            };
 
-              const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
-              expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
-            });
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+            expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
+          });
 
-            // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
-            xit('011 Should fail when calling msgValue with more value than available balance', async function () {
-              const callData = {
-                ...defaultCallData,
-                data: '0xddf363d7',
-                value: '0x3e80000000',
-              };
-              const errorType = predefined.CONTRACT_REVERT();
-              const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId];
+          // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
+          xit('011 Should fail when calling msgValue with more value than available balance', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: '0x3e80000000',
+            };
+            const errorType = predefined.CONTRACT_REVERT();
+            const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId];
 
-              await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
-            });
+            await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
+          });
 
-            it("012 should work for wrong 'from' field", async function () {
-              const callData = {
-                from: '0x0000000000000000000000000000000000000000',
-                to: callerAddress,
-                data: '0x0ec1551d',
-              };
+          it("012 should work for wrong 'from' field", async function () {
+            const callData = {
+              from: '0x0000000000000000000000000000000000000000',
+              to: callerAddress,
+              data: '0x0ec1551d',
+            };
 
-              const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
-              expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
-            });
-          }
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
         });
       }
     });
