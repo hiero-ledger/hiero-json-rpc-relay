@@ -368,19 +368,19 @@ const _CONFIG = {
     envName: 'HBAR_RATE_LIMIT_BASIC',
     type: 'number',
     required: false,
-    defaultValue: 1_120_000_000, // 11.2 hbar
+    defaultValue: 300_000_000, // 3 hbar
   },
   HBAR_RATE_LIMIT_EXTENDED: {
     envName: 'HBAR_RATE_LIMIT_EXTENDED',
     type: 'number',
     required: false,
-    defaultValue: 3_200_000_000, // 32 hbar
+    defaultValue: 100_000_000, // 1 hbar
   },
   HBAR_RATE_LIMIT_PRIVILEGED: {
     envName: 'HBAR_RATE_LIMIT_PRIVILEGED',
     type: 'number',
     required: false,
-    defaultValue: 8_000_000_000, // 80 hbar
+    defaultValue: 270_000_000, // 2.7 hbar
   },
   HBAR_RATE_LIMIT_DURATION: {
     envName: 'HBAR_RATE_LIMIT_DURATION',
