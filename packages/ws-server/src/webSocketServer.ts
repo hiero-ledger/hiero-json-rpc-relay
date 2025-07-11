@@ -237,4 +237,4 @@ process.on('uncaughtException', (err) => {
   logger.error(err, 'Uncaught Exception!');
 });
 
-export { app, httpApp };
+export { app, httpApp, relay, logger };
