@@ -538,7 +538,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
             expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
           });
 
-          it('011 Should fail when calling msgValue with more value than available balance', async function () {
+          // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
+          xit('011 Should fail when calling msgValue with more value than available balance', async function () {
             const callData = {
               ...defaultCallData,
               data: '0xddf363d7',

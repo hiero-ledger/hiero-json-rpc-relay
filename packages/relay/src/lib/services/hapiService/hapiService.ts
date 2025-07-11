@@ -271,10 +271,9 @@ export default class HAPIService {
    * Configure Client
    * @param {Logger} logger
    * @param {string} hederaNetwork
-   * @param {string | null} type
    * @returns Client
    */
-  private initClient(logger: Logger, hederaNetwork: string, type: string | null = null): Client {
+  private initClient(logger: Logger, hederaNetwork: string): Client {
     let client: Client;
     if (hederaNetwork in constants.CHAIN_IDS) {
       client = Client.forName(hederaNetwork);
@@ -282,7 +281,7 @@ export default class HAPIService {
       client = Client.forNetwork(JSON.parse(hederaNetwork));
     }
 
-    const operator = Utils.getOperator(logger, type);
+    const operator = Utils.getOperator(logger);
     if (operator) {
       client.setOperator(operator.accountId, operator.privateKey);
     }
