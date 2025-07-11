@@ -329,4 +329,14 @@ export class Relay {
   mirrorClient(): MirrorNodeClient {
     return this.mirrorNodeClient;
   }
+
+  async ensureOperatorHasBalance() {
+    if (!ConfigService.get('READ_ONLY')) {
+      const operator = this.clientMain.operatorAccountId!.toString();
+      const balance = await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails);
+      if (BigInt(balance) === BigInt(0)) {
+        throw new Error(`Operator account \`${operator}\` has no balance`);
+      }
+    }
+  }
 }
