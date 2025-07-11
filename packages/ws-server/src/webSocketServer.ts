@@ -3,6 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
@@ -38,7 +39,10 @@ const relay = new Relay(logger, register);
 const subscriptionService = new SubscriptionService(relay, logger, register);
 
 const mirrorNodeClient = relay.mirrorClient();
-const limiter = new ConnectionLimiter(logger, register);
+
+const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
+const rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
+const limiter = new ConnectionLimiter(logger, register, rateLimiter);
 const wsMetricRegistry = new WsMetricRegistry(register);
 
 const pingInterval = ConfigService.get('WS_PING_INTERVAL');
