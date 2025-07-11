@@ -214,12 +214,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
-  ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: {
-    envName: 'ETH_CALL_DEFAULT_TO_CONSENSUS_NODE',
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
-  },
   ETH_FEE_HISTORY_FIXED: {
     envName: 'ETH_FEE_HISTORY_FIXED',
     type: 'boolean',
@@ -587,22 +581,10 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
-  OPERATOR_ID_ETH_SENDRAWTRANSACTION: {
-    envName: 'OPERATOR_ID_ETH_SENDRAWTRANSACTION',
-    type: 'string',
-    required: false,
-    defaultValue: null,
-  },
   OPERATOR_ID_MAIN: {
     envName: 'OPERATOR_ID_MAIN',
     type: 'string',
     required: true,
-    defaultValue: null,
-  },
-  OPERATOR_KEY_ETH_SENDRAWTRANSACTION: {
-    envName: 'OPERATOR_KEY_ETH_SENDRAWTRANSACTION',
-    type: 'string',
-    required: false,
     defaultValue: null,
   },
   OPERATOR_KEY_FORMAT: {

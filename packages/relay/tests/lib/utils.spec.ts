@@ -123,25 +123,6 @@ describe('Utils', () => {
     privateKeys.forEach(({ keyFormat, keyValue }) => {
       withOverriddenEnvsInMochaTest(
         {
-          OPERATOR_ID_ETH_SENDRAWTRANSACTION: accountId,
-          OPERATOR_KEY_ETH_SENDRAWTRANSACTION: keyValue,
-          OPERATOR_KEY_FORMAT: keyFormat,
-        },
-        () => {
-          it(`should return operator credentials for "eth_sendRawTransaction" client type`, () => {
-            const operator = Utils.getOperator(logger, 'eth_sendRawTransaction');
-
-            expect(operator).to.not.be.null;
-            expect(operator?.accountId.toString()).to.equal(accountId);
-            expect(operator?.privateKey).to.deep.equal(Utils.createPrivateKeyBasedOnFormat(keyValue));
-          });
-        },
-      );
-    });
-
-    privateKeys.forEach(({ keyFormat, keyValue }) => {
-      withOverriddenEnvsInMochaTest(
-        {
           OPERATOR_ID_MAIN: accountId,
           OPERATOR_KEY_MAIN: keyValue,
           OPERATOR_KEY_FORMAT: keyFormat,
