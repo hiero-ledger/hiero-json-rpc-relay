@@ -27,11 +27,12 @@ export default class ConnectionLimiter {
   private register: Registry;
   private rateLimiter: IPRateLimiterService;
 
-  constructor(logger: Logger, register: Registry) {
+  constructor(logger: Logger, register: Registry, rateLimiter: IPRateLimiterService) {
     this.logger = logger;
     this.register = register;
     this.connectedClients = 0;
     this.clientIps = {};
+    this.rateLimiter = rateLimiter;
 
     this.register.removeSingleMetric(WS_CONSTANTS.connLimiter.activeConnectionsMetric.name);
     this.activeConnectionsGauge = new Gauge({
@@ -69,9 +70,6 @@ export default class ConnectionLimiter {
       help: WS_CONSTANTS.connLimiter.inactivityTTLLimitMetric.help,
       registers: [register],
     });
-
-    const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
-    this.rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
   }
 
   public incrementCounters(ctx) {
@@ -172,7 +170,7 @@ export default class ConnectionLimiter {
   }
 
   // Starts a timeout timer that closes the connection
-  public startInactivityTTLTimer(websocket) {
+  private startInactivityTTLTimer(websocket) {
     const maxInactivityTTL = ConfigService.get('WS_MAX_INACTIVITY_TTL');
     websocket.inactivityTTL = setTimeout(() => {
       if (websocket.readyState !== 3) {
