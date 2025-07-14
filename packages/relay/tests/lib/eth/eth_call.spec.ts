@@ -84,13 +84,11 @@ describe('@ethCall Eth Call spec', async function () {
   });
 
   describe('eth_call precheck failures', async function () {
-    let callConsensusNodeSpy: sinon.SinonSpy;
     let callMirrorNodeSpy: sinon.SinonSpy;
     let sandbox: sinon.SinonSandbox;
 
     beforeEach(() => {
       sandbox = sinon.createSandbox();
-      callConsensusNodeSpy = sandbox.spy(contractService, 'callConsensusNode');
       callMirrorNodeSpy = sandbox.spy(contractService, 'callMirrorNode');
     });
 
@@ -135,7 +133,6 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
       assert(callMirrorNodeSpy.calledOnce);
-      assert(callConsensusNodeSpy.notCalled);
     });
 
     it('to field is not a contract or token', async function () {

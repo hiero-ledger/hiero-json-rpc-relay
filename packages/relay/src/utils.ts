@@ -127,8 +127,8 @@ export class Utils {
    * @returns {Operator | null} The operator credentials or null if not found
    */
   public static getOperator(logger: Logger): Operator | null {
-    const operatorId: string = ConfigService.get('OPERATOR_ID_MAIN');
-    const operatorKey: string = ConfigService.get('OPERATOR_KEY_MAIN');
+    const operatorId = ConfigService.get('OPERATOR_ID_MAIN');
+    const operatorKey = ConfigService.get('OPERATOR_KEY_MAIN');
 
     if (!operatorId || !operatorKey) {
       logger.warn(`Invalid operatorId or operatorKey for main client.`);
