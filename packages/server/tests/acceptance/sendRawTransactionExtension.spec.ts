@@ -2,6 +2,7 @@
 
 // External resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { ConfigServiceTestHelper } from '@hashgraph/json-rpc-config-service/tests/configServiceTestHelper';
 // Other imports
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
@@ -178,6 +179,28 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
       expect(info).to.exist;
+    });
+  });
+
+  describe('Read-Only mode', function () {
+    it('@release should fail to execute "eth_sendRawTransaction" in Read-Only mode', async function () {
+      const readOnly = ConfigService.get('READ_ONLY');
+      ConfigServiceTestHelper.dynamicOverride('READ_ONLY', true);
+
+      const transaction = {
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: 1234,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        data: '0x00',
+      };
+
+      const signedTx = await accounts[1].wallet.signTransaction(transaction);
+      const error = predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
+      await Assertions.assertPredefinedRpcError(error, sendRawTransaction, false, relay, [signedTx, requestDetails]);
+
+      ConfigServiceTestHelper.dynamicOverride('READ_ONLY', readOnly);
     });
   });
 });

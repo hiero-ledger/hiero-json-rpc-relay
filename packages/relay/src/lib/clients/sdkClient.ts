@@ -42,8 +42,6 @@ import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
 
-const _ = require('lodash');
-
 export class SDKClient {
   /**
    * The client to use for connecting to the main consensus network. The account
