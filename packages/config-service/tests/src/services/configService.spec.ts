@@ -16,21 +16,59 @@ describe('ConfigService tests', async function () {
     process.env = {};
 
     // fake invalid env file
-    // @ts-ignore
+    // @ts-expect-error: The operand of a 'delete' operator must be optional
     delete ConfigService.instance;
-    // @ts-ignore
+    // @ts-expect-error: Property 'envFileName' is private and only accessible within class 'ConfigService'
     ConfigService.envFileName = 'invalid';
 
-    // @ts-ignore
-    expect(() => ConfigService.getInstance()).to.throw();
+    // @ts-expect-error: Property 'getInstance' is private and only accessible within class 'ConfigService'
+    expect(() => ConfigService.getInstance()).to.throw(
+      /Configuration error: [A-Z_]+ is a mandatory configuration for relay operation./,
+    );
 
     // reset normal behaviour
-    // @ts-ignore
+    // @ts-expect-error: The operand of a 'delete' operator must be optional
     delete ConfigService.instance;
-    // @ts-ignore
+    // @ts-expect-error: Property 'envFileName' is private and only accessible within class 'ConfigService'
     ConfigService.envFileName = '.env';
 
     process.env = envBefore;
+  });
+
+  [
+    { OPERATOR_ID_MAIN: undefined, OPERATOR_KEY_MAIN: '0x1234567890' },
+    { OPERATOR_ID_MAIN: '0.0.123', OPERATOR_KEY_MAIN: undefined },
+  ].forEach((env) => {
+    const key = env.OPERATOR_ID_MAIN === undefined ? 'OPERATOR_ID_MAIN' : 'OPERATOR_KEY_MAIN';
+    it(`should prevent the Relay from starting when \`${key}\` is missing in Read-Write mode`, async () => {
+      const envBefore = process.env;
+      process.env = { ...process.env, READ_ONLY: 'false', ...env };
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+
+      expect(() => ConfigService.get(undefined as unknown as ConfigKey)).to.throw(
+        `Configuration error: ${key} is mandatory for Relay operations in Read-Write mode.`,
+      );
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+      process.env = envBefore;
+    });
+
+    it(`should start the Relay even when \`${key}\` is missing in Read-Only mode`, async () => {
+      const envBefore = process.env;
+      process.env = { ...process.env, READ_ONLY: 'true', ...env };
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+
+      expect(ConfigService.get('READ_ONLY')).to.be.true;
+
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
+      delete ConfigService.instance;
+      process.env = envBefore;
+    });
   });
 
   it('should be able to get existing env var', async () => {
@@ -62,7 +100,7 @@ describe('ConfigService tests', async function () {
       'GET_RECORD_DEFAULT_TO_CONSENSUS_NODE',
       'E2E_RELAY_HOST',
       'ETH_CALL_ACCEPTED_ERRORS',
-    ] as ConfigKey[];
+    ] as const;
 
     targetKeys.forEach((targetKey) => {
       const result = ConfigService.get(targetKey);
@@ -90,7 +128,7 @@ describe('ConfigService tests', async function () {
       // Reset the ConfigService singleton instance to force a new initialization
       // This is necessary because ConfigService caches the env values when first instantiated,
       // so we need to clear that cache to test with our new CHAIN_ID value
-      // @ts-ignore - accessing private property for testing
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
       delete ConfigService.instance;
       expect(ConfigService.get('CHAIN_ID')).to.equal(expected);
     };
@@ -103,7 +141,7 @@ describe('ConfigService tests', async function () {
       testChainId('0xhedera', '0xNaN'); // invalid number
     } finally {
       process.env = originalEnv;
-      // @ts-ignore - accessing private property for testing
+      // @ts-expect-error: The operand of a 'delete' operator must be optional
       delete ConfigService.instance;
     }
   });

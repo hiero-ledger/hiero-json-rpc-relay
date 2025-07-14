@@ -16,7 +16,6 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { EventEmitter } from 'events';
 import pino from 'pino';
-import { Counter } from 'prom-client';
 import sinon, { useFakeTimers } from 'sinon';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
@@ -184,14 +183,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
     it('should return a predefined GAS_LIMIT_TOO_HIGH instead of NUMERIC_FAULT as precheck exception', async function () {
       // tx with 'gasLimit: BigNumber { value: "30678687678687676876786786876876876000" }'
-      const txHash =
+      const tx =
         '0x02f881820128048459682f0086014fa0186f00901714801554cbe52dd95512bedddf68e09405fba803be258049a27b820088bab1cad205887185174876e80080c080a0cab3f53602000c9989be5787d0db637512acdd2ad187ce15ba83d10d9eae2571a07802515717a5a1c7d6fa7616183eb78307b4657d7462dbb9e9deca820dd28f62';
       await RelayAssertions.assertRejection(
         predefined.GAS_LIMIT_TOO_HIGH(null, null),
         ethImpl.sendRawTransaction,
         false,
         ethImpl,
-        [txHash, requestDetails],
+        [tx, requestDetails],
       );
     });
 
@@ -452,6 +451,33 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
           expect(resultingHash).to.equal(ethereumHash);
+        });
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
+      [false, true].forEach((useAsyncTxProcessing) => {
+        withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: useAsyncTxProcessing }, () => {
+          [
+            { title: 'ill-formatted', transaction: constants.INVALID_TRANSACTION },
+            {
+              title: 'failed precheck',
+              transaction:
+                '0x02f881820128048459682f0086014fa0186f00901714801554cbe52dd95512bedddf68e09405fba803be258049a27b820088bab1cad205887185174876e80080c080a0cab3f53602000c9989be5787d0db637512acdd2ad187ce15ba83d10d9eae2571a07802515717a5a1c7d6fa7616183eb78307b4657d7462dbb9e9deca820dd28f62',
+            },
+            { title: 'valid', transaction },
+          ].forEach(({ title, transaction }) => {
+            it(`should throw \`UNSUPPORTED_OPERATION\` when Relay is in Read-Only mode for a '${title}' transaction`, async function () {
+              const signed = typeof transaction === 'string' ? transaction : await signTransaction(transaction);
+              await RelayAssertions.assertRejection(
+                predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode'),
+                ethImpl.sendRawTransaction,
+                false,
+                ethImpl,
+                [signed, requestDetails],
+              );
+            });
+          });
         });
       });
     });

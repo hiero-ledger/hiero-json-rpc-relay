@@ -262,6 +262,10 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
    */
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    if (ConfigService.get('READ_ONLY')) {
+      throw predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
+    }
+
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
