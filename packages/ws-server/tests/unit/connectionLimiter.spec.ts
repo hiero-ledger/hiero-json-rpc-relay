@@ -13,13 +13,11 @@ import { WS_CONSTANTS } from '../../src/utils/constants';
 function createMockContext({
   connections = 0,
   ip = '127.0.0.1',
-  ipCount = 0,
   ipCounted = false,
   subscriptions = 0,
 }: {
   connections?: number;
   ip?: string;
-  ipCount?: number;
   ipCounted?: boolean;
   subscriptions?: number;
 } = {}): MockContext {
