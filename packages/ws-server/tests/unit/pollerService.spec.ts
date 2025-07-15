@@ -45,6 +45,7 @@ describe('PollerService', async function () {
   let relayImplStub: sinon.SinonStubbedInstance<Relay>;
   let ethImplStub: sinon.SinonStubbedInstance<EthImpl>;
   let poller: PollerService;
+  let pollSpy: sinon.SinonSpy;
   let sandbox: sinon.SinonSandbox;
   let loggerInfoSpy: sinon.SinonSpy;
   let clock: sinon.SinonFakeTimers;
@@ -84,6 +85,7 @@ describe('PollerService', async function () {
     };
 
     loggerInfoSpy = sandbox.spy(logger, 'info');
+    pollSpy = sandbox.spy(poller, 'poll');
   });
 
   afterEach(() => {
@@ -93,24 +95,35 @@ describe('PollerService', async function () {
   });
 
   describe('add', () => {
-    it('should add a new poll and start polling', () => {
+    it('should add a new poll and start polling', async () => {
       const callback = sinon.stub();
       expect(poller.isPolling()).to.be.false;
 
       poller.add(logsTag, callback);
-
+      await clock.tickAsync(2000);
       expect(poller.hasPoll(logsTag)).to.be.true;
       expect(poller.isPolling()).to.be.true;
       expect(loggerInfoSpy.calledWith(`Poller: Tag ${logsTag} added to polling list`)).to.be.true;
       expect(loggerInfoSpy.calledWith(`Poller: Starting polling with interval=1000`)).to.be.true;
       expect(activePollsGaugeSpy.inc.calledOnce).to.be.true;
+      expect(pollSpy.called).to.be.true;
+      expect(
+        ethImplStub.getLogs.calledWith({
+          blockHash: null,
+          fromBlock: '0x1b177b',
+          toBlock: 'latest',
+          address: '0x23f5e49569A835d7bf9AefD30e4f60CdD570f225',
+          topics: ['0xc8b501cbd8e69c98c535894661d25839eb035b096adfde2bba416f04cc7ce987'],
+        }),
+      ).to.be.true;
     });
 
-    it('should add a newHeads poll', () => {
+    it('should add a newHeads poll', async () => {
       const callback = sinon.stub();
       poller.add(newHeadsTag, callback);
-
+      await clock.tickAsync(2000);
       expect(activeNewHeadsPollsGaugeSpy.inc.calledOnce).to.be.true;
+      expect(ethImplStub.getBlockByNumber.calledWith('latest', false)).to.be.true;
     });
 
     it('should not add a poll if it already exists', () => {
@@ -161,7 +174,6 @@ describe('PollerService', async function () {
   describe('start/stop', () => {
     it('should start and stop polling via timers', async () => {
       const callback = sinon.stub();
-      const pollSpy = sandbox.spy(poller, 'poll');
       poller.add(logsTag, callback);
       expect(poller.isPolling()).to.be.true;
 
