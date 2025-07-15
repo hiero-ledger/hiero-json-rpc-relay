@@ -4,7 +4,6 @@ import { WebSocketError } from '@hashgraph/json-rpc-relay/dist';
 import * as methodConfigModule from '@hashgraph/json-rpc-relay/dist/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { expect } from 'chai';
-import { time } from 'console';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
@@ -42,7 +41,6 @@ function createMockContext({
 describe('Connection Limiter', function () {
   let configServiceStub: sinon.SinonStub;
   let connectionLimiter: ConnectionLimiter;
-  let methodConfigStub: sinon.SinonStub;
   let mockLogger: any;
   let mockRegistry: Registry;
   let rateLimiterStub: sinon.SinonStub;
@@ -68,14 +66,6 @@ describe('Connection Limiter', function () {
     configServiceStub.withArgs('IP_RATE_LIMIT_STORE').returns('LRU');
 
     const rateLimiter = new IPRateLimiterService(mockLogger, mockRegistry, 9000);
-
-    methodConfigStub = sinon.stub(methodConfigModule, 'methodConfiguration').value({
-      eth_call: { total: 100 },
-      eth_getBalance: { total: 50 },
-      eth_getLogs: { total: 25 },
-      eth_subscribe: { total: 10 },
-      eth_unsubscribe: { total: 10 },
-    });
 
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
     connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);
