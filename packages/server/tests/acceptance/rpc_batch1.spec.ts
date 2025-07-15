@@ -1565,7 +1565,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               nonce: await relay.getAccountNonce(accounts[2].wallet.address, requestId),
               gasPrice: 0,
               gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-              data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
+              data: '0x00',
             };
             const signedTx = await accounts[2].wallet.signTransaction(transaction);
             const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
@@ -1589,7 +1589,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               maxPriorityFeePerGas: 0,
               maxFeePerGas: 0,
               gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-              data: '0x' + '00'.repeat(Constants.CONTRACT_CODE_SIZE_LIMIT),
+              data: '0x00',
             };
             const signedTx = await accounts[2].wallet.signTransaction(transaction);
             const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
