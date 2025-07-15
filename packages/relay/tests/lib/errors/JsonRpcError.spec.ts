@@ -212,56 +212,45 @@ describe('Errors', () => {
     });
 
     describe('predefined.MIRROR_NODE_UPSTREAM_FAIL', () => {
-      it('Constructs correctly with error code and message', () => {
-        const errCode = 500;
-        const errMessage = 'Internal Server Error';
-        const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
-        expect(error.code).to.eq(-32020);
-        expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
-        expect(error.data).to.eq(errCode.toString());
-      });
+      const testCases = [
+        { errCode: 500, errMessage: 'Internal Server Error' },
+        { errCode: 404, errMessage: 'Not Found' },
+      ];
 
-      it('Constructs correctly with different error code and message', () => {
-        const errCode = 404;
-        const errMessage = 'Not Found';
-        const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
-        expect(error.code).to.eq(-32020);
-        expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
-        expect(error.data).to.eq(errCode.toString());
+      testCases.forEach(({ errCode, errMessage }) => {
+        it(`Constructs correctly with error code ${errCode} and message "${errMessage}"`, () => {
+          const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
+          expect(error.code).to.eq(-32020);
+          expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
+          expect(error.data).to.eq(errCode.toString());
+        });
       });
     });
 
     describe('predefined.IP_RATE_LIMIT_EXCEEDED', () => {
-      it('Constructs correctly with method name', () => {
-        const methodName = 'eth_getBalance';
-        const error = predefined.IP_RATE_LIMIT_EXCEEDED(methodName);
-        expect(error.code).to.eq(-32605);
-        expect(error.message).to.eq(`IP Rate limit exceeded on ${methodName}`);
-      });
+      const testCases = ['eth_getBalance', 'eth_call'];
 
-      it('Constructs correctly with different method name', () => {
-        const methodName = 'eth_call';
-        const error = predefined.IP_RATE_LIMIT_EXCEEDED(methodName);
-        expect(error.code).to.eq(-32605);
-        expect(error.message).to.eq(`IP Rate limit exceeded on ${methodName}`);
+      testCases.forEach((methodName) => {
+        it(`Constructs correctly with method name: ${methodName}`, () => {
+          const error = predefined.IP_RATE_LIMIT_EXCEEDED(methodName);
+          expect(error.code).to.eq(-32605);
+          expect(error.message).to.eq(`IP Rate limit exceeded on ${methodName}`);
+        });
       });
     });
 
     describe('predefined.REQUEST_BEYOND_HEAD_BLOCK', () => {
-      it('Constructs correctly with requested and latest block numbers', () => {
-        const requested = 1000;
-        const latest = 500;
-        const error = predefined.REQUEST_BEYOND_HEAD_BLOCK(requested, latest);
-        expect(error.code).to.eq(-32000);
-        expect(error.message).to.eq(`Request beyond head block: requested ${requested}, head ${latest}`);
-      });
+      const testCases = [
+        { requested: 1000, latest: 500 },
+        { requested: 2500, latest: 2000 },
+      ];
 
-      it('Constructs correctly with different block numbers', () => {
-        const requested = 2500;
-        const latest = 2000;
-        const error = predefined.REQUEST_BEYOND_HEAD_BLOCK(requested, latest);
-        expect(error.code).to.eq(-32000);
-        expect(error.message).to.eq(`Request beyond head block: requested ${requested}, head ${latest}`);
+      testCases.forEach(({ requested, latest }) => {
+        it(`Constructs correctly with requested ${requested} and latest ${latest}`, () => {
+          const error = predefined.REQUEST_BEYOND_HEAD_BLOCK(requested, latest);
+          expect(error.code).to.eq(-32000);
+          expect(error.message).to.eq(`Request beyond head block: requested ${requested}, head ${latest}`);
+        });
       });
     });
 
@@ -273,93 +262,75 @@ describe('Errors', () => {
         expect(error.message).to.eq(`Non Existing Contract Address: ${address}. Expected a Contract or Token Address.`);
       });
 
-      it('Constructs correctly with empty address', () => {
-        const address = '';
-        const error = predefined.NON_EXISTING_CONTRACT(address);
-        expect(error.code).to.eq(-32013);
-        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
-      });
+      const invalidAddresses: any[] = [
+        { address: '', description: 'empty string' },
+        { address: null, description: 'null' },
+        { address: undefined, description: 'undefined' },
+      ];
 
-      it('Constructs correctly with null address', () => {
-        const address = null;
-        const error = predefined.NON_EXISTING_CONTRACT(address);
-        expect(error.code).to.eq(-32013);
-        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
-      });
-
-      it('Constructs correctly with undefined address', () => {
-        const address = undefined;
-        const error = predefined.NON_EXISTING_CONTRACT(address);
-        expect(error.code).to.eq(-32013);
-        expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
+      invalidAddresses.forEach(({ address, description }) => {
+        it(`Constructs correctly with ${description} address`, () => {
+          const error = predefined.NON_EXISTING_CONTRACT(address);
+          expect(error.code).to.eq(-32013);
+          expect(error.message).to.eq(`Non Existing Contract Address: ${address}.`);
+        });
       });
     });
 
     describe('predefined.UNSUPPORTED_HISTORICAL_EXECUTION', () => {
-      it('Constructs correctly with block identifier', () => {
-        const blockId = 'earliest';
-        const error = predefined.UNSUPPORTED_HISTORICAL_EXECUTION(blockId);
-        expect(error.code).to.eq(-32609);
-        expect(error.message).to.eq(`Unsupported historical block identifier encountered: ${blockId}`);
-      });
+      const testCases = ['earliest', '0x123abc'];
 
-      it('Constructs correctly with different block identifier', () => {
-        const blockId = '0x123abc';
-        const error = predefined.UNSUPPORTED_HISTORICAL_EXECUTION(blockId);
-        expect(error.code).to.eq(-32609);
-        expect(error.message).to.eq(`Unsupported historical block identifier encountered: ${blockId}`);
+      testCases.forEach((blockId) => {
+        it(`Constructs correctly with block identifier: ${blockId}`, () => {
+          const error = predefined.UNSUPPORTED_HISTORICAL_EXECUTION(blockId);
+          expect(error.code).to.eq(-32609);
+          expect(error.message).to.eq(`Unsupported historical block identifier encountered: ${blockId}`);
+        });
       });
     });
 
     describe('predefined.UNSUPPORTED_OPERATION', () => {
-      it('Constructs correctly with operation message', () => {
-        const message = 'This operation is not supported in this version';
-        const error = predefined.UNSUPPORTED_OPERATION(message);
-        expect(error.code).to.eq(-32610);
-        expect(error.message).to.eq(`Unsupported operation. ${message}`);
-      });
+      const testCases = [
+        'This operation is not supported in this version',
+        'Feature disabled in current configuration',
+      ];
 
-      it('Constructs correctly with different operation message', () => {
-        const message = 'Feature disabled in current configuration';
-        const error = predefined.UNSUPPORTED_OPERATION(message);
-        expect(error.code).to.eq(-32610);
-        expect(error.message).to.eq(`Unsupported operation. ${message}`);
+      testCases.forEach((message) => {
+        it(`Constructs correctly with operation message: "${message}"`, () => {
+          const error = predefined.UNSUPPORTED_OPERATION(message);
+          expect(error.code).to.eq(-32610);
+          expect(error.message).to.eq(`Unsupported operation. ${message}`);
+        });
       });
     });
 
     describe('predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED', () => {
-      it('Constructs correctly with amount and max values', () => {
-        const amount = 150;
-        const max = 100;
-        const error = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
-        expect(error.code).to.eq(-32203);
-        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
-      });
+      const testCases = [
+        { amount: 150, max: 100 },
+        { amount: 250, max: 200 },
+      ];
 
-      it('Constructs correctly with different amount and max values', () => {
-        const amount = 250;
-        const max = 200;
-        const error = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
-        expect(error.code).to.eq(-32203);
-        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      testCases.forEach(({ amount, max }) => {
+        it(`Constructs correctly with amount ${amount} and max ${max}`, () => {
+          const error = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+          expect(error.code).to.eq(-32203);
+          expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+        });
       });
     });
 
     describe('predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED', () => {
-      it('Constructs correctly with amount and max values', () => {
-        const amount = 25;
-        const max = 20;
-        const error = predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
-        expect(error.code).to.eq(-32206);
-        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
-      });
+      const testCases = [
+        { amount: 25, max: 20 },
+        { amount: 50, max: 30 },
+      ];
 
-      it('Constructs correctly with different amount and max values', () => {
-        const amount = 50;
-        const max = 30;
-        const error = predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
-        expect(error.code).to.eq(-32206);
-        expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+      testCases.forEach(({ amount, max }) => {
+        it(`Constructs correctly with amount ${amount} and max ${max}`, () => {
+          const error = predefined.WS_BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(amount, max);
+          expect(error.code).to.eq(-32206);
+          expect(error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+        });
       });
     });
   });

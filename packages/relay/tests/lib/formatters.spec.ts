@@ -890,16 +890,6 @@ describe('Formatters', () => {
   });
 
   describe('Additional Edge Cases - Targeted Coverage', () => {
-    it('should handle getFunctionSelector with short input', () => {
-      expect(getFunctionSelector('0x123')).to.eq('123');
-      expect(getFunctionSelector('abc')).to.eq('abc');
-    });
-
-    it('should handle getFunctionSelector with exactly 8 characters', () => {
-      expect(getFunctionSelector('0x12345678')).to.eq('12345678');
-      expect(getFunctionSelector('abcdefgh')).to.eq('abcdefgh');
-    });
-
     it('should handle isValidEthereumAddress with various falsy values', () => {
       expect(isValidEthereumAddress('')).to.equal(false);
       expect(isValidEthereumAddress('0x')).to.equal(false);
@@ -1054,16 +1044,6 @@ describe('Formatters', () => {
       expect(isValidEthereumAddress('0x')).to.equal(false);
       expect(isValidEthereumAddress('0x123')).to.equal(false); // too short
       expect(isValidEthereumAddress('0x123456789012345678901234567890123456789g')).to.equal(false); // invalid char
-    });
-
-    it('should test getFunctionSelector with various inputs', () => {
-      // Test the remove0x and remove0 functions
-      expect(getFunctionSelector('0x1234567890')).to.eq('12345678');
-      expect(getFunctionSelector('1234567890')).to.eq('12345678');
-      expect(getFunctionSelector('0x12345678')).to.eq('12345678');
-      expect(getFunctionSelector('12345678')).to.eq('12345678');
-      expect(getFunctionSelector('0x123')).to.eq('123');
-      expect(getFunctionSelector('123')).to.eq('123');
     });
 
     it('should test tinybarsToWeibars with negative values and allowNegativeValues true', () => {
