@@ -7,9 +7,9 @@ import WsMetricRegistry from '../../src/metrics/wsMetricRegistry';
 import { WS_CONSTANTS } from '../../src/utils/constants';
 
 describe('WsMetricRegistry', function () {
-  let wsMetricRegistry: WsMetricRegistry;
   let mockRegistry: Registry;
   let removeSingleMetricStub: sinon.SinonStub;
+  let wsMetricRegistry: WsMetricRegistry;
 
   beforeEach(() => {
     mockRegistry = new Registry();
@@ -103,7 +103,6 @@ describe('WsMetricRegistry', function () {
       const connectionDuration = wsMetricRegistry.getHistogram('connectionDuration');
       const messageDuration = wsMetricRegistry.getHistogram('messageDuration');
 
-      // These should not throw errors
       expect(() => connectionDuration.observe(1.5)).to.not.throw();
       expect(() => messageDuration.labels('eth_call').observe(100)).to.not.throw();
     });

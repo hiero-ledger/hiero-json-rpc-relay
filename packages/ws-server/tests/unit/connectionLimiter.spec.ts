@@ -11,16 +11,43 @@ import sinon from 'sinon';
 import ConnectionLimiter from '../../src/metrics/connectionLimiter';
 import { WS_CONSTANTS } from '../../src/utils/constants';
 
+function createMockContext({
+  connections = 0,
+  ip = '127.0.0.1',
+  ipCount = 0,
+  ipCounted = false,
+  subscriptions = 0,
+}: {
+  connections?: number;
+  ip?: string;
+  ipCount?: number;
+  ipCounted?: boolean;
+  subscriptions?: number;
+} = {}): MockContext {
+  const websocket: MockWebsocket = {
+    id: 'test-connection-id',
+    send: sinon.stub(),
+    close: sinon.stub(),
+    inactivityTTL: undefined,
+    ipCounted,
+    subscriptions,
+  };
+  return {
+    websocket,
+    request: { ip },
+    app: { server: { _connections: connections } },
+  };
+}
+
 describe('Connection Limiter', function () {
+  let configServiceStub: sinon.SinonStub;
   let connectionLimiter: ConnectionLimiter;
+  let methodConfigStub: sinon.SinonStub;
   let mockLogger: any;
   let mockRegistry: Registry;
-  let configServiceStub: sinon.SinonStub;
   let rateLimiterStub: sinon.SinonStub;
-  let methodConfigStub: sinon.SinonStub;
 
   beforeEach(() => {
-    // Mock logger
     mockLogger = {
       info: sinon.stub(),
       debug: sinon.stub(),
@@ -29,11 +56,9 @@ describe('Connection Limiter', function () {
       child: sinon.stub().returnsThis(),
     };
 
-    // Mock registry
     mockRegistry = new Registry();
     sinon.stub(mockRegistry, 'removeSingleMetric');
 
-    // Mock ConfigService
     configServiceStub = sinon.stub(ConfigService, 'get');
     configServiceStub.withArgs('WS_CONNECTION_LIMIT').returns(100);
     configServiceStub.withArgs('WS_CONNECTION_LIMIT_PER_IP').returns(10);
@@ -43,7 +68,7 @@ describe('Connection Limiter', function () {
     configServiceStub.withArgs('IP_RATE_LIMIT_STORE').returns('LRU');
 
     const rateLimiter = new IPRateLimiterService(mockLogger, mockRegistry, 9000);
-    // Mock methodConfiguration
+
     methodConfigStub = sinon.stub(methodConfigModule, 'methodConfiguration').value({
       eth_call: { total: 100 },
       eth_getBalance: { total: 50 },
@@ -51,7 +76,7 @@ describe('Connection Limiter', function () {
       eth_subscribe: { total: 10 },
       eth_unsubscribe: { total: 10 },
     });
-    // Mock IPRateLimiterService
+
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
     connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);
   });
@@ -62,37 +87,18 @@ describe('Connection Limiter', function () {
 
   describe('applyLimits', function () {
     it('should close connection when total connection limit is exceeded', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-      };
+      const ctx = createMockContext({ connections: 101 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-        app: {
-          server: {
-            _connections: 101, // Exceeds the limit of 100
-          },
-        },
-      };
-
-      // Set up the connection limiter state
       connectionLimiter['connectedClients'] = 101;
+      connectionLimiter.applyLimits(ctx);
 
-      // Act
-      connectionLimiter.applyLimits(mockContext);
-
-      // Assert
       sinon.assert.calledWith(
         mockLogger.info,
         'Closing connection test-connection-id due to exceeded maximum connections (max_con=100)',
       );
 
       sinon.assert.calledWith(
-        mockWebsocket.send,
+        ctx.websocket.send,
         JSON.stringify({
           jsonrpc: '2.0',
           error: {
@@ -108,45 +114,27 @@ describe('Connection Limiter', function () {
       );
 
       sinon.assert.calledWith(
-        mockWebsocket.close,
+        ctx.websocket.close,
         WebSocketError.CONNECTION_LIMIT_EXCEEDED.code,
         WebSocketError.CONNECTION_LIMIT_EXCEEDED.message,
       );
     });
 
     it('should close connection when per-IP connection limit is exceeded', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-      };
+      const ctx = createMockContext({ connections: 50, ip: '127.0.0.1' });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-        app: {
-          server: {
-            _connections: 50, // Within total limit
-          },
-        },
-      };
-
-      // Set up the connection limiter state
       connectionLimiter['connectedClients'] = 50;
       connectionLimiter['clientIps']['127.0.0.1'] = 11; // Exceeds per-IP limit of 10
 
-      // Act
-      connectionLimiter.applyLimits(mockContext);
+      connectionLimiter.applyLimits(ctx);
 
-      // Assert
       sinon.assert.calledWith(
         mockLogger.info,
         'Closing connection test-connection-id due to exceeded maximum connections from a single IP: address 127.0.0.1 - 11 connections. (max_con=10)',
       );
 
       sinon.assert.calledWith(
-        mockWebsocket.send,
+        ctx.websocket.send,
         JSON.stringify({
           jsonrpc: '2.0',
           error: {
@@ -162,78 +150,52 @@ describe('Connection Limiter', function () {
       );
 
       sinon.assert.calledWith(
-        mockWebsocket.close,
+        ctx.websocket.close,
         WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.code,
         WebSocketError.CONNECTION_IP_LIMIT_EXCEEDED.message,
       );
     });
 
     it('should start inactivity TTL timer when connection is within limits', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-      };
+      const ctx = createMockContext({ connections: 50, ip: '127.0.0.1' });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-        app: {
-          server: {
-            _connections: 50, // Within total limit
-          },
-        },
-      };
-
-      // Set up the connection limiter state
       connectionLimiter['connectedClients'] = 50;
       connectionLimiter['clientIps']['127.0.0.1'] = 5; // Within per-IP limit
 
-      // Spy on the startInactivityTTLTimer method
       const startInactivityTTLTimerSpy = sinon.spy(connectionLimiter, 'startInactivityTTLTimer' as any);
 
-      // Act
-      connectionLimiter.applyLimits(mockContext);
+      connectionLimiter.applyLimits(ctx);
 
-      // Assert
-      sinon.assert.calledWith(startInactivityTTLTimerSpy, mockWebsocket);
-      sinon.assert.notCalled(mockWebsocket.send);
-      sinon.assert.notCalled(mockWebsocket.close);
+      sinon.assert.calledWith(startInactivityTTLTimerSpy, ctx.websocket);
+      sinon.assert.notCalled(ctx.websocket.send);
+      sinon.assert.notCalled(ctx.websocket.close);
     });
   });
 
   describe('shouldRateLimitOnMethod', function () {
     it('should return false for eth_subscribe method', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = WS_CONSTANTS.METHODS.ETH_SUBSCRIBE;
       const requestDetails = { requestId: 'test-request' };
 
-      // Act
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
-      // Assert
       expect(result).to.be.false;
       sinon.assert.notCalled(rateLimiterStub);
     });
 
     it('should return false for eth_unsubscribe method', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE;
       const requestDetails = { requestId: 'test-request' };
 
-      // Act
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
-      // Assert
       expect(result).to.be.false;
       sinon.assert.notCalled(rateLimiterStub);
     });
 
     it('should call shouldRateLimit for other methods', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = 'eth_call';
       const requestDetails = { requestId: 'test-request' };
@@ -241,16 +203,13 @@ describe('Connection Limiter', function () {
 
       rateLimiterStub.resolves(false);
 
-      // Act
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
-      // Assert
       expect(result).to.be.false;
       sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
 
     it('should return true when rate limit is exceeded', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = 'eth_getBalance';
       const requestDetails = { requestId: 'test-request' };
@@ -258,16 +217,13 @@ describe('Connection Limiter', function () {
 
       rateLimiterStub.resolves(true);
 
-      // Act
       const result = await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
-      // Assert
       expect(result).to.be.true;
       sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
 
     it('should use correct method limit from methodConfiguration', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = 'eth_getLogs';
       const requestDetails = { requestId: 'test-request' };
@@ -275,22 +231,18 @@ describe('Connection Limiter', function () {
 
       rateLimiterStub.resolves(false);
 
-      // Act
       await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
 
-      // Assert
       sinon.assert.calledOnceWithExactly(rateLimiterStub, ip, methodName, expectedLimit, requestDetails);
     });
 
     it('should handle methods not in methodConfiguration', async function () {
-      // Arrange
       const ip = '127.0.0.1';
       const methodName = 'unknown_method';
       const requestDetails = { requestId: 'test-request' };
 
       rateLimiterStub.resolves(false);
 
-      // Act & Assert - This should throw an error when trying to access methodConfiguration[methodName].total
       try {
         await connectionLimiter.shouldRateLimitOnMethod(ip, methodName, requestDetails);
         expect.fail('Should have thrown an error for unknown method');
@@ -323,49 +275,21 @@ describe('Connection Limiter', function () {
 
   describe('incrementCounters', function () {
     it('should increment ip counter for existing ip', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-      };
-
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-        app: {
-          server: {
-            _connections: 10,
-          },
-        },
-      };
+      const ctx = createMockContext({ connections: 10, ip: '127.0.0.1' });
 
       connectionLimiter['clientIps'] = { '127.0.0.1': 2 };
 
-      connectionLimiter.incrementCounters(mockContext);
+      connectionLimiter.incrementCounters(ctx);
 
       expect(connectionLimiter['clientIps']['127.0.0.1']).to.eq(3);
     });
 
     it('should set ip counter for new ip', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-      };
-
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.2' },
-        app: {
-          server: {
-            _connections: 10,
-          },
-        },
-      };
+      const ctx = createMockContext({ connections: 10, ip: '127.0.0.2' });
 
       connectionLimiter['clientIps'] = { '127.0.0.1': 2 };
 
-      connectionLimiter.incrementCounters(mockContext);
+      connectionLimiter.incrementCounters(ctx);
 
       expect(connectionLimiter['clientIps']['127.0.0.2']).to.eq(1);
       expect(connectionLimiter['clientIps']['127.0.0.1']).to.eq(2);
@@ -374,48 +298,23 @@ describe('Connection Limiter', function () {
 
   describe('decrementCounts', function () {
     it('should decrement ip counter for existing ip', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-        ipCounted: true,
-      };
-
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-      };
+      const ctx = createMockContext({ connections: 10, ip: '127.0.0.1', ipCounted: true });
 
       connectionLimiter['connectedClients'] = 10;
       connectionLimiter['clientIps'] = { '127.0.0.1': 2 };
 
-      connectionLimiter.decrementCounters(mockContext);
+      connectionLimiter.decrementCounters(ctx);
 
       expect(connectionLimiter['clientIps']['127.0.0.1']).to.eq(1);
       expect(connectionLimiter['connectedClients']).to.eq(9);
     });
 
     it('should set ip counter for new ip', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        send: sinon.stub(),
-        close: sinon.stub(),
-        ipCounted: true,
-      };
-
-      const mockContext = {
-        websocket: mockWebsocket,
-        request: { ip: '127.0.0.1' },
-        app: {
-          server: {
-            _connections: 10,
-          },
-        },
-      };
+      const ctx = createMockContext({ connections: 10, ip: '127.0.0.1', ipCounted: true });
 
       connectionLimiter['clientIps'] = { '127.0.0.1': 1 };
 
-      connectionLimiter.decrementCounters(mockContext);
+      connectionLimiter.decrementCounters(ctx);
 
       expect(connectionLimiter['clientIps']['127.0.0.1']).to.eq(undefined);
     });
@@ -438,68 +337,37 @@ describe('Connection Limiter', function () {
     });
 
     it('should increment subscription count from 0', function () {
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        subscriptions: 0,
-      };
+      const ctx = createMockContext({ subscriptions: 0 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-      };
+      connectionLimiter.incrementSubs(ctx);
 
-      connectionLimiter.incrementSubs(mockContext);
-
-      expect(mockContext.websocket.subscriptions).to.eq(1);
+      expect(ctx.websocket.subscriptions).to.eq(1);
     });
   });
 
   describe('decrementSubs', function () {
     it('should decrement subscription count by 1 by default', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        subscriptions: 5,
-      };
+      const ctx = createMockContext({ subscriptions: 5 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-      };
+      connectionLimiter.decrementSubs(ctx);
 
-      connectionLimiter.decrementSubs(mockContext);
-
-      expect(mockContext.websocket.subscriptions).to.eq(4);
+      expect(ctx.websocket.subscriptions).to.eq(4);
     });
 
     it('should decrement subscription count by specified amount', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        subscriptions: 10,
-      };
+      const ctx = createMockContext({ subscriptions: 10 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-      };
+      connectionLimiter.decrementSubs(ctx, 3);
 
-      connectionLimiter.decrementSubs(mockContext, 3);
-
-      expect(mockContext.websocket.subscriptions).to.eq(7);
+      expect(ctx.websocket.subscriptions).to.eq(7);
     });
 
     it('should decrement subscription count to 0', function () {
-      // Arrange
-      const mockWebsocket = {
-        id: 'test-connection-id',
-        subscriptions: 1,
-      };
+      const ctx = createMockContext({ subscriptions: 1 });
 
-      const mockContext = {
-        websocket: mockWebsocket,
-      };
+      connectionLimiter.decrementSubs(ctx);
 
-      connectionLimiter.decrementSubs(mockContext);
-
-      expect(mockContext.websocket.subscriptions).to.eq(0);
+      expect(ctx.websocket.subscriptions).to.eq(0);
     });
   });
 });
