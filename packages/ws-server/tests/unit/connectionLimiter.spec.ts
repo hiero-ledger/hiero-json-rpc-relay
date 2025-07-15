@@ -202,6 +202,9 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getBalance';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 50;
+      methodConfigModule.methodConfiguration = {
+        eth_getBalance: { total: 50 },
+      };
 
       rateLimiterStub.resolves(true);
 
@@ -216,6 +219,9 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getLogs';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 25;
+      methodConfigModule.methodConfiguration = {
+        eth_getLogs: { total: 25 },
+      };
 
       rateLimiterStub.resolves(false);
 
