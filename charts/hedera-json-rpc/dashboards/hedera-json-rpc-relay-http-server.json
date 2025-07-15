@@ -4639,23 +4639,23 @@
               },
               {
                 "color": "#EAB839",
-                "value": 150
+                "value": 5
               },
               {
                 "color": "yellow",
-                "value": 300
+                "value": 10
               },
               {
                 "color": "orange",
-                "value": 900
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 3000
+                "value": 100
               },
               {
                 "color": "semi-dark-red",
-                "value": 7500
+                "value": 250
               }
             ]
           }
@@ -4717,19 +4717,19 @@
               },
               {
                 "color": "yellow",
-                "value": 300
+                "value": 10
               },
               {
                 "color": "orange",
-                "value": 900
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 3000
+                "value": 100
               },
               {
                 "color": "semi-dark-red",
-                "value": 7500
+                "value": 250
               }
             ]
           }
@@ -4829,19 +4829,19 @@
               },
               {
                 "color": "yellow",
-                "value": 300
+                "value": 10
               },
               {
                 "color": "orange",
-                "value": 900
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 3000
+                "value": 100
               },
               {
                 "color": "semi-dark-red",
-                "value": 7500
+                "value": 250
               }
             ]
           },
@@ -4902,19 +4902,19 @@
               },
               {
                 "color": "yellow",
-                "value": 300
+                "value": 10
               },
               {
                 "color": "orange",
-                "value": 900
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 3000
+                "value": 100
               },
               {
                 "color": "semi-dark-red",
-                "value": 7500
+                "value": 250
               }
             ]
           }
@@ -5014,19 +5014,19 @@
               },
               {
                 "color": "yellow",
-                "value": 300
+                "value": 10
               },
               {
                 "color": "orange",
-                "value": 900
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 3000
+                "value": 100
               },
               {
                 "color": "semi-dark-red",
-                "value": 7500
+                "value": 250
               }
             ]
           },
@@ -5382,11 +5382,11 @@
                   },
                   {
                     "color": "#EAB839",
-                    "value": 9000
+                    "value": 50
                   },
                   {
                     "color": "semi-dark-red",
-                    "value": 10000
+                    "value": 100
                   }
                 ]
               }

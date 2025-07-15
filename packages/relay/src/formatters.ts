@@ -253,11 +253,6 @@ const isHex = (value: string): boolean => {
   return hexRegex.test(value);
 };
 
-const getFunctionSelector = (data?: string): string => {
-  if (!data) return '';
-  return data.replace(/^0x/, '').substring(0, 8);
-};
-
 const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = false) => {
   if (value && value < 0) {
     // negative amount can be received only by CONTRACT_NEGATIVE_VALUE revert
@@ -301,7 +296,6 @@ export {
   isValidEthereumAddress,
   isHex,
   ASCIIToHex,
-  getFunctionSelector,
   mapKeysAndValues,
   tinybarsToWeibars,
 };

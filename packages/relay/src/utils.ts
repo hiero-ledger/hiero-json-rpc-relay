@@ -124,20 +124,14 @@ export class Utils {
   /**
    * Gets operator credentials based on the provided type.
    * @param {Logger} logger - The logger instance
-   * @param {string | null} type - The type of operator (e.g. 'eth_sendRawTransaction')
    * @returns {Operator | null} The operator credentials or null if not found
    */
-  public static getOperator(logger: Logger, type: string | null = null): Operator | null {
-    const [operatorId, operatorKey] =
-      type === 'eth_sendRawTransaction'
-        ? [
-            ConfigService.get('OPERATOR_ID_ETH_SENDRAWTRANSACTION'),
-            ConfigService.get('OPERATOR_KEY_ETH_SENDRAWTRANSACTION'),
-          ]
-        : [ConfigService.get('OPERATOR_ID_MAIN'), ConfigService.get('OPERATOR_KEY_MAIN')];
+  public static getOperator(logger: Logger): Operator | null {
+    const operatorId = ConfigService.get('OPERATOR_ID_MAIN');
+    const operatorKey = ConfigService.get('OPERATOR_KEY_MAIN');
 
     if (!operatorId || !operatorKey) {
-      logger.warn(`Invalid operatorId or operatorKey for ${type ?? 'main'} client.`);
+      logger.warn(`Invalid operatorId or operatorKey for main client.`);
       return null;
     }
 

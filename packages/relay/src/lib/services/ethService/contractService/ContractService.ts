@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import crypto from 'crypto';
 import { Logger } from 'pino';
 
 import {
@@ -12,12 +11,10 @@ import {
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
 } from '../../../../formatters';
-import { getFunctionSelector } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
-import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
 import { Precheck } from '../../../precheck';
 import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
@@ -132,7 +129,7 @@ export class ContractService implements IContractService {
       const gas = this.getCappedBlockGasLimit(call.gas?.toString(), requestDetails);
       await this.contractCallFormat(call, requestDetails);
 
-      const result = await this.routeAndExecuteCall(call, gas, blockNumberOrTag, requestDetails);
+      const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(`${requestDetails.formattedRequestId} eth_call response: ${JSON.stringify(result)}`);
       }
@@ -334,73 +331,6 @@ export class ContractService implements IContractService {
   }
 
   /**
-   * Caches the response from a successful call.
-   *
-   * @param {IContractCallRequest} call - The original call request
-   * @param {string} response - The response to cache
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {Promise<void>}
-   * @private
-   */
-  private async cacheResponse(
-    call: IContractCallRequest,
-    response: string,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
-    const data = call.data
-      ? crypto
-          .createHash('sha1')
-          .update(call.data || '0x')
-          .digest('hex')
-      : null; // NOSONAR
-    const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
-    const ethCallCacheTtl = parseNumericEnvVar('ETH_CALL_CACHE_TTL', 'ETH_CALL_CACHE_TTL_DEFAULT');
-    await this.cacheService.set(cacheKey, response, constants.ETH_CALL, requestDetails, ethCallCacheTtl);
-  }
-
-  /**
-   * Execute a contract call query to the consensus node
-   *
-   * @param {IContractCallRequest} call - The call data
-   * @param {number | null} gas - The gas limit
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | JsonRpcError>} The call result or error
-   */
-  private async callConsensusNode(
-    call: IContractCallRequest,
-    gas: number | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-
-    try {
-      gas = gas ?? Number.parseInt(this.defaultGas);
-
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" using consensus-node.`,
-          call.to,
-          gas,
-          call.data,
-          call.from,
-        );
-      }
-
-      await this.validateAddresses(call);
-      const cachedResponse = await this.tryGetCachedResponse(call, requestDetails);
-      if (cachedResponse != undefined) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`${requestIdPrefix} eth_call returned cached response: ${cachedResponse}`);
-        }
-        return cachedResponse;
-      }
-      return await this.executeConsensusNodeCall(call, gas, requestDetails);
-    } catch (e: any) {
-      return this.handleConsensusNodeError(e, requestDetails);
-    }
-  }
-
-  /**
    * Makes a contract call via the Mirror Node.
    *
    * @param {IContractCallRequest} call - The call data
@@ -490,42 +420,6 @@ export class ContractService implements IContractService {
     await this.contractCallFormat(transaction, requestDetails);
     const callData = { ...transaction, estimate: true };
     return this.mirrorNodeClient.postContractCall(callData, requestDetails);
-  }
-
-  /**
-   * Executes the consensus node call and handles the response.
-   *
-   * @param {IContractCallRequest} call - The call request
-   * @param {number} gas - The gas limit
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {Promise<string | JsonRpcError>} The call result or error
-   * @private
-   */
-  private async executeConsensusNodeCall(
-    call: IContractCallRequest,
-    gas: number,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const contractCallResponse = await this.hapiService
-      .getSDKClient()
-      .submitContractCallQueryWithRetry(
-        call.to as string,
-        call.data as string,
-        gas,
-        call.from as string,
-        constants.ETH_CALL,
-        requestDetails,
-      );
-
-    if (!contractCallResponse) {
-      return predefined.INTERNAL_ERROR(
-        `Invalid contractCallResponse from consensus-node: ${JSON.stringify(contractCallResponse)}`,
-      );
-    }
-
-    const formattedCallResponse = prepend0x(Buffer.from(contractCallResponse.asBytes()).toString('hex'));
-    await this.cacheResponse(call, formattedCallResponse, requestDetails);
-    return formattedCallResponse;
   }
 
   /**
@@ -632,27 +526,6 @@ export class ContractService implements IContractService {
     return gas;
   }
 
-  /**
-   * Handles errors from consensus node calls.
-   *
-   * @param {any} e - The error to handle
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {string | JsonRpcError} The appropriate error response
-   * @private
-   */
-  private handleConsensusNodeError(e: any, requestDetails: RequestDetails): string | JsonRpcError {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    this.logger.error(e, `${requestIdPrefix} Failed to successfully submit contractCallQuery`);
-
-    if (e instanceof JsonRpcError) {
-      return e;
-    }
-
-    if (e instanceof SDKClientError) {
-      this.hapiService.decrementErrorCounter(e.statusCode);
-    }
-    return predefined.INTERNAL_ERROR(e.message.toString());
-  }
   /**
    * Handles specific mirror node client errors.
    *
@@ -803,72 +676,5 @@ export class ContractService implements IContractService {
       estimate: false,
       ...(block !== null ? { block } : {}),
     };
-  }
-
-  /**
-   * Routes the call to either consensus or mirror node based on configuration.
-   *
-   * @param {IContractCallRequest} call - The call request
-   * @param {number | null} gas - The gas limit
-   * @param {string | null} blockNumberOrTag - The block number or tag
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {Promise<string | JsonRpcError>} The call result
-   * @private
-   */
-  private async routeAndExecuteCall(
-    call: IContractCallRequest,
-    gas: number | null,
-    blockNumberOrTag: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    // ETH_CALL_DEFAULT_TO_CONSENSUS_NODE = false enables the use of Mirror node
-    const shouldDefaultToConsensus = ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE');
-
-    if (shouldDefaultToConsensus) {
-      return await this.callConsensusNode(call, gas, requestDetails);
-    }
-
-    return await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
-  }
-
-  /**
-   * Attempts to retrieve a cached response for the call.
-   *
-   * @param {IContractCallRequest} call - The call request
-   * @param {RequestDetails} requestDetails - The request details
-   * @returns {Promise<string | undefined>} The cached response if found
-   * @private
-   */
-  private async tryGetCachedResponse(
-    call: IContractCallRequest,
-    requestDetails: RequestDetails,
-  ): Promise<string | undefined> {
-    const data = call.data
-      ? crypto
-          .createHash('sha1')
-          .update(call.data || '0x')
-          .digest('hex')
-      : null; // NOSONAR
-    const cacheKey = `${constants.CACHE_KEY.ETH_CALL}:${call.from || ''}.${call.to}.${data}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_CALL, requestDetails);
-
-    return cachedResponse === null ? undefined : cachedResponse;
-  }
-
-  /**
-   * Validates the from and to addresses in the call request.
-   *
-   * @param {IContractCallRequest} call - The call request to validate
-   * @returns {Promise<void>}
-   * @private
-   */
-  private async validateAddresses(call: IContractCallRequest): Promise<void> {
-    if (call.from && !isValidEthereumAddress(call.from)) {
-      throw predefined.NON_EXISTING_ACCOUNT(call.from);
-    }
-
-    if (!isValidEthereumAddress(call.to)) {
-      throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
-    }
   }
 }

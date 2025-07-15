@@ -10,7 +10,6 @@ import {
   formatRequestIdMessage,
   formatTransactionId,
   formatTransactionIdWithoutQueryParams,
-  getFunctionSelector,
   hexToASCII,
   isHex,
   isValidEthereumAddress,
@@ -687,26 +686,6 @@ describe('Formatters', () => {
       const byteArray = new Uint8Array([0xff, 0xff, 0xff]);
       const result = toHexString(byteArray);
       expect(result).to.eq('ffffff');
-    });
-  });
-
-  describe('getFunctionSelector', () => {
-    it('should return an empty string when input is an empty string or undefined', () => {
-      const result = getFunctionSelector('');
-      expect(result).to.eq('');
-
-      const undefinedResult = getFunctionSelector(undefined);
-      expect(undefinedResult).to.eq('');
-    });
-
-    it('should return the first 8 characters of a valid hex string without "0x"', () => {
-      const result = getFunctionSelector('1234567890abcdef');
-      expect(result).to.eq('12345678');
-    });
-
-    it('should return the first 8 characters of a valid hex string starting with "0x"', () => {
-      const result = getFunctionSelector('0x1234567890abcdef');
-      expect(result).to.eq('12345678');
     });
   });
 
