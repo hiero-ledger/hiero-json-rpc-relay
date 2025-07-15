@@ -336,9 +336,9 @@ export class Relay {
     const operator = this.clientMain.operatorAccountId!.toString();
     const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
     if (balance === BigInt(0)) {
-      throw new Error(`Operator account \`${operator}\` has no balance`);
+      throw new Error(`Operator account '${operator}' has no balance`);
     } else {
-      this.logger.info(`Operator account \`${operator}\` has balance: ${balance}`);
+      this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
     }
   }
 }
