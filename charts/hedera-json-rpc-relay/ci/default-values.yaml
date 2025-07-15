@@ -5,6 +5,7 @@ config:
   MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com'
   OPERATOR_ID_MAIN: ""
   OPERATOR_KEY_MAIN: ""
+  READ_ONLY: true
 
 image:
   registry: registry:5001
