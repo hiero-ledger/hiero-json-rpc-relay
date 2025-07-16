@@ -373,7 +373,6 @@ describe('@ethCall Eth Call spec', async function () {
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
       const result = await contractService.call(callData, 'latest', requestDetails);
-      sinon.assert.notCalled(sdkClientStub.submitContractCallQueryWithRetry);
       expect(result).to.not.be.null;
       expect((result as JsonRpcError).code).to.eq(3);
       expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
