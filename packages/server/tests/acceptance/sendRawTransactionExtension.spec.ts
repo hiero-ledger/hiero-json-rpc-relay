@@ -42,7 +42,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const neededAccounts: number = 2;
+    const neededAccounts: number = 3;
     accounts.push(
       ...(await Utils.createMultipleAliasAccounts(
         mirrorNode,
