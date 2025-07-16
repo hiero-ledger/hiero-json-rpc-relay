@@ -62,6 +62,17 @@ describe('RedisRateLimitStore Test Suite', function () {
   });
 
   describe('Constructor Tests', () => {
+    it('should create RedisRateLimitStore and set up event listeners', () => {
+      mockRedisClient.connect.resolves();
+
+      new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+
+      expect(createClientStub.calledOnce).to.be.true;
+      expect(mockRedisClient.on.calledWith('ready')).to.be.true;
+      expect(mockRedisClient.on.calledWith('end')).to.be.true;
+      expect(mockRedisClient.on.calledWith('error')).to.be.true;
+    });
+
     it('should create RedisRateLimitStore with successful connection', async () => {
       mockRedisClient.connect.resolves();
 
@@ -69,9 +80,6 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       expect(createClientStub.calledOnce).to.be.true;
       expect(mockRedisClient.connect.calledOnce).to.be.true;
-      expect(mockRedisClient.on.calledWith('ready')).to.be.true;
-      expect(mockRedisClient.on.calledWith('end')).to.be.true;
-      expect(mockRedisClient.on.calledWith('error')).to.be.true;
       expect(await store.isConnected()).to.be.true;
     });
 
@@ -79,18 +87,28 @@ describe('RedisRateLimitStore Test Suite', function () {
       const connectionError = new Error('Redis connection failed');
       mockRedisClient.connect.rejects(connectionError);
 
-      const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const testLogger = pino({ level: 'error' });
 
-      // Wait for connection promise to resolve
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
 
-      expect(await store.isConnected()).to.be.false;
+      const loggerErrorSpy = sinon.spy(store['logger'], 'error');
+
+      const isConnected = await store.isConnected();
+
+      expect(isConnected).to.be.false;
+      expect(loggerErrorSpy.calledOnce).to.be.true;
+      expect(loggerErrorSpy.getCall(0).args[0]).to.equal(connectionError);
+      expect(loggerErrorSpy.getCall(0).args[1]).to.equal('Rate limiter Redis connection could not be established!');
     });
 
     it('should handle reconnection strategy', () => {
       mockRedisClient.connect.resolves();
 
-      new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const testLogger = pino({ level: 'warn' });
+
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
+
+      const loggerWarnSpy = sinon.spy(store['logger'], 'warn');
 
       const createClientCall = createClientStub.getCall(0);
       const config = createClientCall.args[0];
@@ -100,36 +118,54 @@ describe('RedisRateLimitStore Test Suite', function () {
       // Test reconnection strategy
       const reconnectDelay = config.socket.reconnectStrategy(3);
       expect(reconnectDelay).to.equal(3000); // 3 retries * 1000ms delay
+      expect(loggerWarnSpy.calledOnce).to.be.true;
+      expect(loggerWarnSpy.calledWith('Rate limiter Redis reconnection attempt #3. Delay: 3000ms')).to.be.true;
     });
 
     it('should handle Redis ready event', async () => {
       mockRedisClient.connect.resolves();
 
-      const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const testLogger = pino({ level: 'info' });
+
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
+
+      const loggerInfoSpy = sinon.spy(store['logger'], 'info');
 
       // Simulate ready event
       const readyHandler = mockRedisClient.on.getCalls().find((call) => call.args[0] === 'ready')?.args[1];
       readyHandler?.();
 
       expect(await store.isConnected()).to.be.true;
+      expect(loggerInfoSpy.calledOnce).to.be.true;
+      expect(loggerInfoSpy.calledWith('Rate limiter connected to Redis server successfully!')).to.be.true;
     });
 
     it('should handle Redis end event', async () => {
       mockRedisClient.connect.resolves();
 
-      const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const testLogger = pino({ level: 'info' });
+
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
+
+      const loggerInfoSpy = sinon.spy(store['logger'], 'info');
 
       // Simulate end event
       const endHandler = mockRedisClient.on.getCalls().find((call) => call.args[0] === 'end')?.args[1];
       endHandler?.();
 
       expect(await store.isConnected()).to.be.false;
+      expect(loggerInfoSpy.calledOnce).to.be.true;
+      expect(loggerInfoSpy.calledWith('Rate limiter disconnected from Redis server!')).to.be.true;
     });
 
     it('should handle Redis error event with socket closed error', async () => {
       mockRedisClient.connect.resolves();
 
-      const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const testLogger = pino({ level: 'error' });
+
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
+
+      const loggerErrorSpy = sinon.spy(store['logger'], 'error');
 
       // Create a mock error that would be considered socket closed
       const socketError = new Error('Socket closed');
@@ -138,32 +174,39 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       // Simulate error event
       const errorHandler = mockRedisClient.on.getCalls().find((call) => call.args[0] === 'error')?.args[1];
-      errorHandler?.(socketError);
+      errorHandler?.(redisCacheError);
 
       expect(await store.isConnected()).to.be.false;
+      expect(loggerErrorSpy.calledOnce).to.be.true;
+      const logCall = loggerErrorSpy.getCall(0);
+      expect(logCall.args[0]).to.equal('Rate limiter Redis error: RedisCacheError: Socket closed');
     });
 
     it('should handle Redis error event with non-socket error', async () => {
       mockRedisClient.connect.resolves();
+
+      const testLogger = pino({ level: 'error' });
 
       // Mock RedisCacheError to return false for isSocketClosed
       const mockRedisCacheError = {
         isSocketClosed: sinon.stub().returns(false),
         fullError: 'Full Redis error message',
       };
-      const redisCacheErrorStub = sinon.stub().returns(mockRedisCacheError);
-      sinon.replace(RedisCacheErrorModule, 'RedisCacheError', redisCacheErrorStub);
+      const redisCacheErrorStub = sinon.stub(RedisCacheErrorModule, 'RedisCacheError').returns(mockRedisCacheError);
 
-      const store = new RedisRateLimitStore(logger, testDuration, rateLimitStoreFailureCounter);
+      const store = new RedisRateLimitStore(testLogger, testDuration, rateLimitStoreFailureCounter);
 
-      // Create a mock error that would not be considered socket closed
-      const redisError = new Error('Redis server error');
+      const loggerErrorSpy = sinon.spy(store['logger'], 'error');
 
       // Simulate error event
       const errorHandler = mockRedisClient.on.getCalls().find((call) => call.args[0] === 'error')?.args[1];
-      errorHandler?.(redisError);
+      errorHandler?.(new Error('Redis error'));
 
       expect(await store.isConnected()).to.be.false;
+      expect(loggerErrorSpy.calledOnce).to.be.true;
+      expect(loggerErrorSpy.getCall(0).args[0]).to.equal('Rate limiter Redis error: Full Redis error message');
+
+      redisCacheErrorStub.restore();
     });
   });
 
