@@ -141,6 +141,9 @@ export class SDKClient {
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
     const ethereumTransaction = new EthereumTransaction();
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
+    const payMasterEnabled = ConfigService.get('PAYMASTER_ENABLED');
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
+    const payMasterMaxAllowance = ConfigService.get('PAYMASTER_MAX_ALLOWANCE');
 
     let fileId: FileId | null = null;
 
@@ -169,6 +172,13 @@ export class SDKClient {
         Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * constants.MAX_TRANSACTION_FEE_THRESHOLD),
       ),
     );
+
+    if (
+      payMasterEnabled &&
+      (payMasterWhiteList.includes('*') || (interactingEntity && payMasterWhiteList.includes(interactingEntity)))
+    ) {
+      ethereumTransaction.setMaxGasAllowanceHbar(Hbar.fromTinybars(payMasterMaxAllowance));
+    }
 
     return {
       fileId,
