@@ -28,7 +28,7 @@ export const RPC_LAYOUT = {
 };
 
 /**
- * Decorator for specifying the parameter layout of an RPC method which is different from the standard layout
+ * Legacy decorator for specifying the parameter layout of an RPC method which is different from the standard layout
  *
  * This decorator defines how RPC parameters should be arranged when passed to the method.
  *
@@ -55,5 +55,36 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
   return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
     descriptor.value[RPC_PARAM_LAYOUT_KEY] = layout;
     return descriptor;
+  };
+}
+
+/**
+ * TypeScript 5+ standard decorator for specifying the parameter layout of an RPC method.
+ * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
+ *
+ * This decorator attaches metadata to methods to configure how parameters should be arranged
+ * when the method is called via RPC.
+ *
+ * @param config - Either a string identifier for built-in layouts or a transform function
+ * @returns A method decorator
+ *
+ * @example
+ * ```typescript
+ * class EthImpl {
+ *   @rpcParamLayoutConfigStandard(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+ *   listening(): boolean {
+ *     return false;
+ *   }
+ * }
+ * ```
+ */
+export function rpcParamLayoutConfigStandard(config: string | ParamTransformFn) {
+  return function (target: any, context: ClassMethodDecoratorContext): void {
+    if (context.kind !== 'method') {
+      throw new Error(`@rpcParamLayoutConfigStandard can only be applied to methods, received: ${context.kind}`);
+    }
+
+    // Attach parameter layout configuration to the method
+    (target as any)[RPC_PARAM_LAYOUT_KEY] = config;
   };
 }
