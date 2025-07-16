@@ -11,7 +11,7 @@ import { IPRateLimiterService } from '../../../../src/lib/services/rateLimiterSe
 import { RedisRateLimitStore } from '../../../../src/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../src/lib/types/rateLimiter';
 import { RequestDetails } from '../../../../src/lib/types/RequestDetails';
-import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
+import { createMockRedisClient, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('IPRateLimiterService Test Suite', function () {
   this.timeout(10000);
@@ -251,12 +251,8 @@ describe('IPRateLimiterService Test Suite', function () {
     });
 
     it('should handle Redis connection failures gracefully (fail-open behavior)', async () => {
-      const createClientStub = sinon.stub().returns({
-        connect: sinon.stub().rejects(new Error('Redis connection failed')),
-        on: sinon.stub(),
-        eval: sinon.stub(),
-        quit: sinon.stub(),
-      });
+      const mockRedisClient = createMockRedisClient({ connectRejects: true });
+      const createClientStub = sinon.stub().returns(mockRedisClient);
       sinon.replace(redis, 'createClient', createClientStub);
 
       rateLimiterService = new IPRateLimiterService(logger, registry, duration);
@@ -270,12 +266,7 @@ describe('IPRateLimiterService Test Suite', function () {
     });
 
     it('should handle Redis operation failures gracefully (fail-open behavior)', async () => {
-      const mockRedisClient = {
-        connect: sinon.stub().resolves(),
-        on: sinon.stub(),
-        eval: sinon.stub().rejects(new Error('Redis operation failed')),
-        quit: sinon.stub(),
-      };
+      const mockRedisClient = createMockRedisClient({ evalRejects: true });
       const createClientStub = sinon.stub().returns(mockRedisClient);
       sinon.replace(redis, 'createClient', createClientStub);
 
