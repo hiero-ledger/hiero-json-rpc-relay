@@ -22,7 +22,6 @@ import {
   toHex,
   withOverriddenEnvsInMochaTest,
 } from '../../../helpers';
-import { generateEthTestEnv } from '../../eth/eth-helpers';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
@@ -526,9 +525,21 @@ describe('Filter API Test Suite', async function () {
         200,
         JSON.stringify({
           blocks: [
-            { ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' },
-            { ...defaultBlock, number: defaultBlock.number + 2, hash: '0x2' },
-            { ...defaultBlock, number: defaultBlock.number + 3, hash: '0x3' },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 1,
+              hash: '0x10x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c',
+            },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 2,
+              hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+            },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 3,
+              hash: '0xdeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebabe',
+            },
           ],
         }),
       );
@@ -546,12 +557,14 @@ describe('Filter API Test Suite', async function () {
       );
 
       const result = await filterService.getFilterChanges(existingFilterId, requestDetails);
-
       expect(result).to.exist;
       expect(result.length).to.eq(3, 'returns correct number of blocks');
-      expect(result[0]).to.eq('0x1', 'result is in ascending order');
-      expect(result[1]).to.eq('0x2');
-      expect(result[2]).to.eq('0x3');
+      expect(result[0]).to.eq(
+        '0x10x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
+        'result is in ascending order',
+      );
+      expect(result[1]).to.eq('0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456789');
+      expect(result[2]).to.eq('0xdeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebab');
 
       const secondResult = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(secondResult).to.exist;
