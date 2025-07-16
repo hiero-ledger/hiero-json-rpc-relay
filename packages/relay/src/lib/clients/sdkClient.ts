@@ -2,11 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
-  AccountId,
   Client,
-  ContractCallQuery,
-  ContractFunctionResult,
-  ContractId,
   EthereumTransaction,
   EthereumTransactionData,
   ExchangeRate,
@@ -129,7 +125,7 @@ export class SDKClient {
    * @returns {Promise<{ txResponse: TransactionResponse; fileId: FileId | null }>}
    * @throws {SDKClientError} Throws an error if no file ID is created or if the preemptive fee check fails.
    */
-  async submitEthereumTransaction(
+  public async submitEthereumTransaction(
     transactionBuffer: Uint8Array,
     callerName: string,
     requestDetails: RequestDetails,
@@ -184,96 +180,6 @@ export class SDKClient {
   }
 
   /**
-   * Submits a contract call query to a smart contract on the Hedera network.
-   * @param {string} to - The address of the contract to call, in either Solidity or EVM format.
-   * @param {string} data - The encoded function parameters for the contract call, in hexadecimal format.
-   * @param {number} gas - The amount of gas to use for the contract call.
-   * @param {string} from - The address of the sender in EVM format.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<ContractFunctionResult>} The result of the contract function call.
-   * @throws {SDKClientError} Throws an SDK client error if the contract call query fails.
-   */
-  async submitContractCallQuery(
-    to: string,
-    data: string,
-    gas: number,
-    from: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<ContractFunctionResult> {
-    const contract = SDKClient.prune0x(to);
-    const contractId = contract.startsWith('00000000000')
-      ? ContractId.fromSolidityAddress(contract)
-      : ContractId.fromEvmAddress(0, 0, contract);
-
-    const contractCallQuery = new ContractCallQuery().setContractId(contractId).setGas(gas);
-
-    // data is optional and can be omitted in which case fallback function will be employed
-    if (data) {
-      contractCallQuery.setFunctionParameters(Buffer.from(SDKClient.prune0x(data), 'hex'));
-    }
-
-    if (from) {
-      contractCallQuery.setSenderAccountId(AccountId.fromEvmAddress(0, 0, from));
-    }
-
-    if (this.clientMain.operatorAccountId !== null) {
-      contractCallQuery.setPaymentTransactionId(TransactionId.generate(this.clientMain.operatorAccountId));
-    }
-
-    return this.executeQuery(contractCallQuery, this.clientMain, callerName, to, requestDetails, from);
-  }
-
-  /**
-   * Submits a contract call query with retries in case of timeout errors.
-   * @param {string} to - The address of the contract to call.
-   * @param {string} data - The data to send with the contract call.
-   * @param {number} gas - The amount of gas to use for the contract call.
-   * @param {string} from - The address from which the contract call is made.
-   * @param {string} callerName - The name of the caller for logging purposes.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<ContractFunctionResult>} The result of the contract function call.
-   * @throws {JsonRpcError} Throws an error if the error is a JSON-RPC error.
-   * @throws {SDKClientError} Throws an SDK client error if the error is not a timeout error or if the retries are exhausted.
-   */
-  async submitContractCallQueryWithRetry(
-    to: string,
-    data: string,
-    gas: number,
-    from: string,
-    callerName: string,
-    requestDetails: RequestDetails,
-  ): Promise<ContractFunctionResult> {
-    let retries = 0;
-    let resp;
-    while (ConfigService.get('CONTRACT_QUERY_TIMEOUT_RETRIES') > retries) {
-      try {
-        resp = await this.submitContractCallQuery(to, data, gas, from, callerName, requestDetails);
-        return resp;
-      } catch (e: any) {
-        const sdkClientError = new SDKClientError(e, e.message);
-        if (sdkClientError.isTimeoutExceeded()) {
-          const delay = retries * 1000;
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `${requestDetails.formattedRequestId} Contract call query failed with status ${sdkClientError.message}. Retrying again after ${delay} ms ...`,
-            );
-          }
-          retries++;
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
-        if (e instanceof JsonRpcError) {
-          throw e;
-        }
-        throw sdkClientError;
-      }
-    }
-    return resp;
-  }
-
-  /**
    * Increases the query cost and retries the query execution if the initial attempt fails due to insufficient transaction fees.
    * @param {Query<any>} query - The query to be executed.
    * @param {Hbar} baseCost - The base cost of the query.
@@ -284,7 +190,7 @@ export class SDKClient {
    * @returns {Promise<{resp: any, cost: Hbar}>} The response of the query execution and the cost used.
    * @throws Will throw an error if the maximum number of retries is exceeded or if the error is not due to insufficient transaction fees.
    */
-  async increaseCostAndRetryExecution(
+  private async increaseCostAndRetryExecution(
     query: Query<any>,
     baseCost: Hbar,
     client: Client,
@@ -326,7 +232,7 @@ export class SDKClient {
    * @throws {Error} Throws an error if the query fails or if rate limits are exceeded.
    * @template T - The type of the query response.
    */
-  async executeQuery<T>(
+  private async executeQuery<T>(
     query: Query<T>,
     client: Client,
     callerName: string,
@@ -408,7 +314,7 @@ export class SDKClient {
    * @returns {Promise<TransactionResponse>} - A promise that resolves to the transaction response.
    * @throws {SDKClientError} - Throws if an error occurs during transaction execution.
    */
-  async executeTransaction(
+  private async executeTransaction(
     transaction: Transaction,
     callerName: string,
     interactingEntity: string,
@@ -505,7 +411,7 @@ export class SDKClient {
    * @returns {Promise<void>} - A promise that resolves when the batch execution is complete.
    * @throws {SDKClientError} - Throws if an error occurs during batch transaction execution.
    */
-  async executeAllTransaction(
+  private async executeAllTransaction(
     transaction: FileAppendTransaction,
     callerName: string,
     interactingEntity: string,
@@ -575,7 +481,7 @@ export class SDKClient {
    * @returns {Promise<FileId | null>} A promise that resolves to the created file ID or null if the creation failed.
    * @throws Will throw an error if the created file is empty or if any transaction fails during execution.
    */
-  async createFile(
+  private async createFile(
     callData: Uint8Array,
     client: Client,
     requestDetails: RequestDetails,
@@ -672,7 +578,7 @@ export class SDKClient {
    * @returns {Promise<void>} - A promise that resolves when the operation is complete.
    * @throws {any} - Throws an error if the file deletion fails.
    */
-  async deleteFile(
+  public async deleteFile(
     fileId: FileId,
     requestDetails: RequestDetails,
     callerName: string,
@@ -775,7 +681,7 @@ export class SDKClient {
    * @param {string} accountId - The ID of the account for which the transfer sum is to be calculated.
    * @returns {number} The total sum of transfer amounts for the specified account, in tinybars.
    */
-  public getTransferAmountSumForAccount(transactionRecord: TransactionRecord, accountId: string): number {
+  private getTransferAmountSumForAccount(transactionRecord: TransactionRecord, accountId: string): number {
     return transactionRecord.transfers
       .filter((transfer) => transfer.accountId.toString() === accountId && transfer.amount.isNegative())
       .reduce((acc, transfer) => {
@@ -789,19 +695,9 @@ export class SDKClient {
    * @param {number} exchangeRate - The exchange rate in cents used to convert the transaction query cost.
    * @returns {number} - The transaction record query cost in tinybars.
    */
-  public calculateTxRecordChargeAmount(exchangeRate: ExchangeRate): number {
+  private calculateTxRecordChargeAmount(exchangeRate: ExchangeRate): number {
     const exchangeRateInCents = exchangeRate.exchangeRateInCents;
     const hbarToTinybar = Hbar.from(1, HbarUnit.Hbar).toTinybars().toNumber();
     return Math.round((constants.NETWORK_FEES_IN_CENTS.TRANSACTION_GET_RECORD / exchangeRateInCents) * hbarToTinybar);
-  }
-
-  /**
-   * Removes the '0x' prefix from a string if it exists.
-   * @private
-   * @param {string} input - The input string to be pruned.
-   * @returns {string} The input string without the '0x' prefix.
-   */
-  private static prune0x(input: string): string {
-    return input.startsWith('0x') ? input.substring(2) : input;
   }
 }
