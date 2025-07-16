@@ -54,6 +54,115 @@ describe('MirrorNodeClient', async function () {
     await cacheService.clear(requestDetails);
   });
 
+  describe('Forwarded Header', () => {
+    const testAccount = '0.0.123';
+    const mockAccountResponse = { account: testAccount };
+
+    it('should add Forwarded header with IPv4 address', async () => {
+      const ipv4Address = '192.168.1.1';
+      const requestDetailsWithIPv4 = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: ipv4Address,
+      });
+
+      mock.onGet(`accounts/${testAccount}${noTransactions}`).reply(function (config) {
+        expect(config.headers!['Forwarded']).to.equal(`for="${ipv4Address}"`);
+        return [200, JSON.stringify(mockAccountResponse)];
+      });
+
+      const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv4);
+      expect(result).to.exist;
+      expect(result.account).to.equal(testAccount);
+    });
+
+    it('should add Forwarded header with IPv6 address wrapped in brackets', async () => {
+      const ipv6Address = '2001:db8::1';
+      const expectedForwardedValue = `for="[${ipv6Address}]"`;
+      const requestDetailsWithIPv6 = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: ipv6Address,
+      });
+
+      mock.onGet(`accounts/${testAccount}${noTransactions}`).reply(function (config) {
+        expect(config.headers!['Forwarded']).to.equal(expectedForwardedValue);
+        return [200, JSON.stringify(mockAccountResponse)];
+      });
+
+      const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv6);
+      expect(result).to.exist;
+      expect(result.account).to.equal(testAccount);
+    });
+
+    it('should not add Forwarded header when IP address is empty', async () => {
+      const requestDetailsWithoutIP = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: '',
+      });
+
+      mock.onGet(`accounts/${testAccount}${noTransactions}`).reply(function (config) {
+        expect(config.headers).to.not.have.property('Forwarded');
+        return [200, JSON.stringify(mockAccountResponse)];
+      });
+
+      const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithoutIP);
+      expect(result).to.exist;
+      expect(result.account).to.equal(testAccount);
+    });
+
+    it('should not add Forwarded header when IP address is null', async () => {
+      const requestDetailsWithoutIP = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: '',
+      });
+
+      mock.onGet(`accounts/${testAccount}${noTransactions}`).reply(function (config) {
+        expect(config.headers).to.not.have.property('Forwarded');
+        return [200, JSON.stringify(mockAccountResponse)];
+      });
+
+      const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithoutIP);
+      expect(result).to.exist;
+      expect(result!.account).to.equal(testAccount);
+    });
+
+    it('should add Forwarded header for POST requests', async () => {
+      const ipv4Address = '10.0.0.1';
+      const requestDetailsWithIP = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: ipv4Address,
+      });
+      const mockCallData = { data: 'test' };
+      const mockResponse = { result: '0x123' };
+
+      mock.onPost('contracts/call', mockCallData).reply(function (config) {
+        expect(config.headers!['Forwarded']).to.equal(`for="${ipv4Address}"`);
+        return [200, JSON.stringify(mockResponse)];
+      });
+
+      const result = await mirrorNodeInstance.postContractCall(mockCallData, requestDetailsWithIP);
+      expect(result).to.exist;
+      expect(result!.result).to.equal(mockResponse.result);
+    });
+
+    it('should not modify IPv6 address that already has brackets', async () => {
+      const ipv6AddressWithBrackets = '[2001:db8::1]';
+      const expectedForwardedValue = `for="${ipv6AddressWithBrackets}"`;
+      const requestDetailsWithIPv6 = new RequestDetails({
+        requestId: 'testRequest',
+        ipAddress: ipv6AddressWithBrackets,
+      });
+
+      mock.onGet(`accounts/${testAccount}${noTransactions}`).reply(function (config) {
+        expect(config.headers!['Forwarded']).to.equal(expectedForwardedValue);
+        return [200, JSON.stringify(mockAccountResponse)];
+      });
+
+      const result = await mirrorNodeInstance.getAccount(testAccount, requestDetailsWithIPv6);
+      expect(result).to.exist;
+      expect(result.account).to.equal(testAccount);
+    });
+  });
+
   describe('handleError', async () => {
     const CONTRACT_CALL_ENDPOINT = 'contracts/call';
     const nullResponseCodes = [404];
@@ -1467,7 +1576,6 @@ describe('MirrorNodeClient', async function () {
 
       const transactionRecordMetrics = await mirrorNodeInstance.getTransactionRecordMetrics(
         mockedTransactionId,
-        mockedCallerName,
         mockedConstructorName,
         operatorAcocuntId,
         requestDetails,
@@ -1482,7 +1590,6 @@ describe('MirrorNodeClient', async function () {
       try {
         await mirrorNodeInstance.getTransactionRecordMetrics(
           mockedTransactionId,
-          mockedCallerName,
           mockedConstructorName,
           operatorAcocuntId,
           requestDetails,
@@ -1490,7 +1597,7 @@ describe('MirrorNodeClient', async function () {
 
         expect.fail('should have thrown an error');
       } catch (error) {
-        const notFoundMessage = `No transaction record retrieved: transactionId=${mockedTransactionId}, txConstructorName=${mockedConstructorName}, callerName=${mockedCallerName}.`;
+        const notFoundMessage = `No transaction record retrieved: transactionId=${mockedTransactionId}, txConstructorName=${mockedConstructorName}.`;
         const expectedError = new MirrorNodeClientError(
           { message: notFoundMessage },
           MirrorNodeClientError.statusCodes.NOT_FOUND,

@@ -148,12 +148,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 50_000_000,
   },
-  CONTRACT_CODE_SIZE_LIMIT: {
-    envName: 'CONTRACT_CODE_SIZE_LIMIT',
-    type: 'number',
-    required: false,
-    defaultValue: 24576, // 24KB
-  },
   CONTRACT_QUERY_TIMEOUT_RETRIES: {
     envName: 'CONTRACT_QUERY_TIMEOUT_RETRIES',
     type: 'number',
@@ -219,18 +213,6 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 200,
-  },
-  ETH_CALL_CONSENSUS_SELECTORS: {
-    envName: 'ETH_CALL_CONSENSUS_SELECTORS',
-    type: 'strArray',
-    required: false,
-    defaultValue: [],
-  },
-  ETH_CALL_DEFAULT_TO_CONSENSUS_NODE: {
-    envName: 'ETH_CALL_DEFAULT_TO_CONSENSUS_NODE',
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
   },
   ETH_FEE_HISTORY_FIXED: {
     envName: 'ETH_FEE_HISTORY_FIXED',
@@ -368,19 +350,19 @@ const _CONFIG = {
     envName: 'HBAR_RATE_LIMIT_BASIC',
     type: 'number',
     required: false,
-    defaultValue: 1_120_000_000, // 11.2 hbar
+    defaultValue: 300_000_000, // 3 hbar
   },
   HBAR_RATE_LIMIT_EXTENDED: {
     envName: 'HBAR_RATE_LIMIT_EXTENDED',
     type: 'number',
     required: false,
-    defaultValue: 3_200_000_000, // 32 hbar
+    defaultValue: 100_000_000, // 1 hbar
   },
   HBAR_RATE_LIMIT_PRIVILEGED: {
     envName: 'HBAR_RATE_LIMIT_PRIVILEGED',
     type: 'number',
     required: false,
-    defaultValue: 8_000_000_000, // 80 hbar
+    defaultValue: 270_000_000, // 2.7 hbar
   },
   HBAR_RATE_LIMIT_DURATION: {
     envName: 'HBAR_RATE_LIMIT_DURATION',
@@ -392,7 +374,7 @@ const _CONFIG = {
     envName: 'HBAR_RATE_LIMIT_TINYBAR',
     type: 'number',
     required: false,
-    defaultValue: 800_000_000_000, // 8000 hbar
+    defaultValue: 25_000_000_000, // 250 hbar
   },
   HEDERA_NETWORK: {
     envName: 'HEDERA_NETWORK',
@@ -593,20 +575,14 @@ const _CONFIG = {
     required: true,
     defaultValue: null,
   },
-  OPERATOR_ID_ETH_SENDRAWTRANSACTION: {
-    envName: 'OPERATOR_ID_ETH_SENDRAWTRANSACTION',
-    type: 'string',
+  OPCODELOGGER_ENABLED: {
+    envName: 'OPCODELOGGER_ENABLED',
+    type: 'boolean',
     required: false,
-    defaultValue: null,
+    defaultValue: true,
   },
   OPERATOR_ID_MAIN: {
     envName: 'OPERATOR_ID_MAIN',
-    type: 'string',
-    required: true,
-    defaultValue: null,
-  },
-  OPERATOR_KEY_ETH_SENDRAWTRANSACTION: {
-    envName: 'OPERATOR_KEY_ETH_SENDRAWTRANSACTION',
     type: 'string',
     required: false,
     defaultValue: null,
@@ -620,11 +596,17 @@ const _CONFIG = {
   OPERATOR_KEY_MAIN: {
     envName: 'OPERATOR_KEY_MAIN',
     type: 'string',
-    required: true,
+    required: false,
     defaultValue: null,
   },
   RATE_LIMIT_DISABLED: {
     envName: 'RATE_LIMIT_DISABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  READ_ONLY: {
+    envName: 'READ_ONLY',
     type: 'boolean',
     required: false,
     defaultValue: false,
@@ -634,6 +616,12 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  IP_RATE_LIMIT_STORE: {
+    envName: 'IP_RATE_LIMIT_STORE',
+    type: 'string',
+    required: false,
+    defaultValue: null,
   },
   REDIS_RECONNECT_DELAY_MS: {
     envName: 'REDIS_RECONNECT_DELAY_MS',

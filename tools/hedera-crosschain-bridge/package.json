@@ -5,10 +5,14 @@
     "deploy-erc20": "hardhat run scripts/deployments/deploy-erc20.ts",
     "deploy-oftAdapter": "hardhat run scripts/deployments/deploy-oft-adapter.ts",
     "deployment-script-test": "hardhat test --grep @deployment-test",
-    "whbar-e2e-test": "hardhat test --grep @whbar-bridge"
+    "whbar-e2e-test": "hardhat test --grep @whbar-bridge",
+    "deploy-oft": "hardhat run scripts/deployments/deploy-oft.ts",
+    "deploy-hts-connector": "hardhat run scripts/deployments/deploy-hts-connector.ts",
+    "erc20-hts-e2e-test": "hardhat test --grep @erc20-hts-bridge"
   },
   "license": "Apache-2.0",
   "devDependencies": {
+    "@hashgraph/sdk": "^2.66.0",
     "@layerzerolabs/lz-evm-oapp-v2": "^3.0.98",
     "@layerzerolabs/lz-v2-utilities": "^3.0.98",
     "@layerzerolabs/oapp-evm": "^0.3.2",

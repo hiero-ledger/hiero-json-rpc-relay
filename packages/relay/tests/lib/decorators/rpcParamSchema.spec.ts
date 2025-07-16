@@ -4,12 +4,8 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import sinon from 'sinon';
 
-import {
-  RPC_PARAM_VALIDATION_RULES_KEY,
-  rpcParamValidationRules,
-} from '../../../src/lib/decorators/rpcParamValidationRules.decorator';
-import { IParamValidation, ParamType } from '../../../src/lib/types';
-import * as validatorUtils from '../../../src/lib/validators/utils';
+import { IParamValidation, RPC_PARAM_VALIDATION_RULES_KEY, rpcParamValidationRules } from '../../../src/lib/validators';
+import * as validator from '../../../src/lib/validators';
 
 describe('rpcParamValidationRules decorator', () => {
   // Reset sinon after each test
@@ -21,8 +17,8 @@ describe('rpcParamValidationRules decorator', () => {
     class TestClass {
       // @ts-ignore
       @rpcParamValidationRules({
-        0: { type: ParamType.ADDRESS, required: true },
-        1: { type: ParamType.BLOCK_NUMBER, required: false },
+        0: { type: 'address', required: true },
+        1: { type: 'blockNumber', required: false },
       })
       addressAndBlockMethod(address: string, blockNumber?: string) {
         return `${address}-${blockNumber || 'latest'}`;
@@ -30,8 +26,8 @@ describe('rpcParamValidationRules decorator', () => {
 
       // @ts-ignore
       @rpcParamValidationRules({
-        0: { type: ParamType.TRANSACTION_HASH, required: true },
-        1: { type: ParamType.BOOLEAN, required: false, errorMessage: 'Custom error message' },
+        0: { type: 'transactionHash', required: true },
+        1: { type: 'boolean', required: false, errorMessage: 'Custom error message' },
       })
       customErrorMethod(txHash: string, fullTx: boolean = false) {
         return `${txHash}-${fullTx}`;
@@ -51,14 +47,14 @@ describe('rpcParamValidationRules decorator', () => {
     it('should add RPC_PARAM_VALIDATION_RULES_KEY to decorated methods', () => {
       const addressSchema = testInstance.addressAndBlockMethod[RPC_PARAM_VALIDATION_RULES_KEY];
       expect(addressSchema).to.be.an('object');
-      expect(addressSchema[0].type).to.equal(ParamType.ADDRESS);
+      expect(addressSchema[0].type).to.equal('address');
       expect(addressSchema[0].required).to.be.true;
-      expect(addressSchema[1].type).to.equal(ParamType.BLOCK_NUMBER);
+      expect(addressSchema[1].type).to.equal('blockNumber');
       expect(addressSchema[1].required).to.be.false;
 
       const customSchema = testInstance.customErrorMethod[RPC_PARAM_VALIDATION_RULES_KEY];
       expect(customSchema).to.be.an('object');
-      expect(customSchema[0].type).to.equal(ParamType.TRANSACTION_HASH);
+      expect(customSchema[0].type).to.equal('transactionHash');
       expect(customSchema[1].errorMessage).to.equal('Custom error message');
 
       expect(testInstance.regularMethod[RPC_PARAM_VALIDATION_RULES_KEY]).to.be.undefined;
@@ -74,19 +70,19 @@ describe('rpcParamValidationRules decorator', () => {
 
   describe('Schema validation integration', () => {
     // Mock validation function for testing
-    let validateParamStub: sinon.SinonStub;
+    let validateParamsStub: sinon.SinonStub;
 
     beforeEach(() => {
       // Create a stub for the validateParam function from validators/utils
-      validateParamStub = sinon.stub(validatorUtils, 'validateParam');
+      validateParamsStub = sinon.stub(validator, 'validateParams');
     });
 
     it('should allow schema retrieval for validation', () => {
       class TestValidationClass {
         // @ts-ignore
         @rpcParamValidationRules({
-          0: { type: ParamType.ADDRESS, required: true },
-          1: { type: ParamType.BLOCK_NUMBER, required: false },
+          0: { type: 'address', required: true },
+          1: { type: 'blockNumber', required: false },
         })
         testMethod(address: string, blockNumber?: string) {
           return `${address}-${blockNumber || 'latest'}`;
@@ -102,26 +98,19 @@ describe('rpcParamValidationRules decorator', () => {
 
       // Validate using the schema
       const params = ['0xaddress', '0xblock'];
-
-      // Simulate validation with the schema
-      for (const [index, param] of params.entries()) {
-        if (schema[index]) {
-          validatorUtils.validateParam(index, param, schema[index]);
-        }
-      }
+      validator.validateParams(params, schema);
 
       // Verify our validation stub was called with correct parameters
-      expect(validateParamStub.calledWith(0, '0xaddress', schema[0])).to.be.true;
-      expect(validateParamStub.calledWith(1, '0xblock', schema[1])).to.be.true;
+      expect(validateParamsStub.calledWith(['0xaddress', '0xblock'], schema)).to.be.true;
     });
   });
 
   describe('Schema structure', () => {
     it('should support various parameter types', () => {
       const schema: Record<number, IParamValidation> = {
-        0: { type: ParamType.ADDRESS, required: true },
-        1: { type: ParamType.BLOCK_NUMBER_OR_HASH, required: false },
-        2: { type: ParamType.HEX, required: true, errorMessage: 'Must be hex' },
+        0: { type: 'address', required: true },
+        1: { type: ['blockNumber', 'blockHash'], required: false },
+        2: { type: 'hex', required: true, errorMessage: 'Must be hex' },
       };
 
       class TestTypeClass {
@@ -136,14 +125,14 @@ describe('rpcParamValidationRules decorator', () => {
       const appliedSchema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
 
       // Verify all schema properties were correctly applied
-      expect(appliedSchema[0].type).to.equal(ParamType.ADDRESS);
-      expect(appliedSchema[1].type).to.equal(ParamType.BLOCK_NUMBER_OR_HASH);
-      expect(appliedSchema[2].type).to.equal(ParamType.HEX);
+      expect(appliedSchema[0].type).to.equal('address');
+      expect(appliedSchema[1].type).to.deep.equal(['blockNumber', 'blockHash']);
+      expect(appliedSchema[2].type).to.equal('hex');
       expect(appliedSchema[2].errorMessage).to.equal('Must be hex');
     });
 
     it('should support custom type strings', () => {
-      const customType = 'custom|type|string';
+      const customType = ['custom', 'type', 'string'];
 
       class TestCustomTypeClass {
         // @ts-ignore
@@ -174,7 +163,7 @@ describe('rpcParamValidationRules decorator', () => {
         @mockDecorator
         // @ts-ignore
         @rpcParamValidationRules({
-          0: { type: ParamType.ADDRESS, required: true },
+          0: { type: 'address', required: true },
         })
         testMethod(address: string) {
           return address;

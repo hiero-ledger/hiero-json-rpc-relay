@@ -6,7 +6,7 @@ import { RequestDetails } from '../../../types';
 export interface IAccountService {
   getTransactionCount: (
     address: string,
-    blockNumOrTag: string | null,
+    blockNumOrTag: string,
     requestDetails: RequestDetails,
   ) => Promise<string | JsonRpcError>;
 

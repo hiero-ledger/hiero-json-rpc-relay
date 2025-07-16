@@ -91,8 +91,6 @@ describe('Metric Service', function () {
     )!;
 
     expect(gasMetricObject.metricName).to.eq(metricHistogramGasFeeSumTitle);
-    expect(gasMetricObject.labels.caller).to.eq(mockedCallerName);
-    expect(gasMetricObject.labels.interactingEntity).to.eq(mockedInteractingEntity);
     expect(gasMetricObject.value).to.eq(
       mockedConsensusNodeTransactionRecord.contractFunctionResult?.gasUsed.toNumber(),
     );
@@ -108,8 +106,6 @@ describe('Metric Service', function () {
         );
       });
       expect(txRecordFeeMetricObject?.metricName).to.eq(metricHistogramCostSumTitle);
-      expect(txRecordFeeMetricObject?.labels.caller).to.eq(mockedCallerName);
-      expect(txRecordFeeMetricObject?.labels.interactingEntity).to.eq(mockedInteractingEntity);
       expect(txRecordFeeMetricObject?.value).to.eq(expectedTxRecordFee);
     }
 
@@ -117,8 +113,6 @@ describe('Metric Service', function () {
       return metric.labels.mode === executionMode && metric.metricName === metricHistogramCostSumTitle;
     });
     expect(transactionFeeMetricObject?.metricName).to.eq(metricHistogramCostSumTitle);
-    expect(transactionFeeMetricObject?.labels.caller).to.eq(mockedCallerName);
-    expect(transactionFeeMetricObject?.labels.interactingEntity).to.eq(mockedInteractingEntity);
     expect(transactionFeeMetricObject?.value).to.eq(mockedTxFee);
   };
 
@@ -281,10 +275,8 @@ describe('Metric Service', function () {
       executionMode: constants.EXECUTION_MODE.QUERY,
       transactionId: mockedTransactionId,
       txConstructorName: mockedConstructorName,
-      callerName: mockedCallerName,
       cost: mockedTxFee,
       gasUsed: mockedGasUsed,
-      interactingEntity: mockedInteractingEntity,
       status: 'SUCCESS',
       requestDetails,
       originalCallerAddress: mockedOriginalCallerAddress,
@@ -322,15 +314,9 @@ describe('Metric Service', function () {
 
   describe('ethExecutionsCounter', () => {
     const mockedMethod = 'eth_sendRawTransaction';
-    const mockedFunctionSelector = '0x12345678';
-    const mockedFrom = '0x1234567890123456789012345678901234567890';
-    const mockedTo = '0x0987654321098765432109876543210987654321';
 
     const mockedEthExecutionEventPayload = {
       method: mockedMethod,
-      functionSelector: mockedFunctionSelector,
-      from: mockedFrom,
-      to: mockedTo,
       requestDetails,
     };
 
@@ -339,14 +325,7 @@ describe('Metric Service', function () {
       const counterBefore = await metricService['ethExecutionsCounter'].get();
 
       // Find the initial value for our specific labels, or use 0 if not found
-      const initialValue =
-        counterBefore.values.find(
-          (metric) =>
-            metric.labels.method === mockedMethod &&
-            metric.labels.function === mockedFunctionSelector &&
-            metric.labels.from === mockedFrom &&
-            metric.labels.to === mockedTo,
-        )?.value || 0;
+      const initialValue = counterBefore.values.find((metric) => metric.labels.method === mockedMethod)?.value || 0;
 
       eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, mockedEthExecutionEventPayload);
 
@@ -354,13 +333,7 @@ describe('Metric Service', function () {
       const counterAfter = await metricService['ethExecutionsCounter'].get();
 
       // Find the value for our specific labels after the event
-      const metricValue = counterAfter.values.find(
-        (metric) =>
-          metric.labels.method === mockedMethod &&
-          metric.labels.function === mockedFunctionSelector &&
-          metric.labels.from === mockedFrom &&
-          metric.labels.to === mockedTo,
-      )?.value;
+      const metricValue = counterAfter.values.find((metric) => metric.labels.method === mockedMethod)?.value;
 
       expect(metricValue).to.eq(initialValue + 1);
     });

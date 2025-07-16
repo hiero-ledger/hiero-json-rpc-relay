@@ -205,27 +205,6 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
       // verify slot value
     });
 
-    // Block number is a required param, this should not work and should be removed when/if validations are added.
-    // Instead, the relay should return `missing value for required argument <argumentIndex> error`.
-    it('eth_getStorageAt with match null block', async function () {
-      // mirror node request mocks
-      restMock
-        .onGet(
-          `contracts/${CONTRACT_ADDRESS_1}/state?slot=${DEFAULT_CURRENT_CONTRACT_STATE.state[0].slot}&limit=100&order=desc`,
-        )
-        .reply(200, JSON.stringify(DEFAULT_CURRENT_CONTRACT_STATE));
-
-      const result = await ethImpl.getStorageAt(
-        CONTRACT_ADDRESS_1,
-        defaultDetailedContractResults.state_changes[0].slot,
-        null,
-        requestDetails,
-      );
-      confirmResult(result);
-
-      // verify slot value
-    });
-
     it('eth_getStorageAt should throw a predefined RESOURCE_NOT_FOUND when block not found', async function () {
       restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(null));
 

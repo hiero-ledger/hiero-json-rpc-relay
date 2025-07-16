@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
-import { EthSubscribeLogsParamsObject } from '@hashgraph/json-rpc-relay/dist/lib/validators';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { validateEthSubscribeLogsParamObject } from '@hashgraph/json-rpc-relay/dist/lib/validators';
+
+interface EthSubscribeLogsParams {
+  address?: string | string[];
+  topics?: any[];
+}
 
 /**
  * Validates whether the provided address corresponds to a contract or token type.
@@ -43,24 +48,23 @@ const validateIsContractOrTokenAddress = async (
  * @param {RequestDetails} requestDetails - The request details for logging and tracking.
  */
 export const validateSubscribeEthLogsParams = async (
-  filters: any,
+  filters: EthSubscribeLogsParams,
   mirrorNodeClient: MirrorNodeClient,
   requestDetails: RequestDetails,
 ) => {
   // validate address exists and is correct length and type
   // validate topics if exists and is array and each one is correct length and type
   // @todo: move EthSubscribeLogsParamsObject to ws-server package
-  const ethSubscribeLogsParams = new EthSubscribeLogsParamsObject(filters);
-  ethSubscribeLogsParams.validate();
+  validateEthSubscribeLogsParamObject(filters);
 
   // validate address or addresses are an existing smart contract
-  if (ethSubscribeLogsParams.object.address) {
-    if (Array.isArray(ethSubscribeLogsParams.object.address)) {
-      for (const address of ethSubscribeLogsParams.object.address) {
+  if (filters.address) {
+    if (Array.isArray(filters.address)) {
+      for (const address of filters.address) {
         await validateIsContractOrTokenAddress(address, mirrorNodeClient, requestDetails);
       }
     } else {
-      await validateIsContractOrTokenAddress(ethSubscribeLogsParams.object.address, mirrorNodeClient, requestDetails);
+      await validateIsContractOrTokenAddress(filters.address, mirrorNodeClient, requestDetails);
     }
   }
 };

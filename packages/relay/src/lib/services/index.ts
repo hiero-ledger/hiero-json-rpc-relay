@@ -11,3 +11,7 @@ export * from './ethService/blockService/IBlockService';
 export * from './ethService/contractService/ContractService';
 export * from './ethService/contractService/IContractService';
 export * from './ethService/transactionService/TransactionService';
+export * from '../types/rateLimiter';
+export * from './rateLimiterService/LruRateLimitStore';
+export * from './rateLimiterService/RedisRateLimitStore';
+export * from './rateLimiterService/rateLimiterService';

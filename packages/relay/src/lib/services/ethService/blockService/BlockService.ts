@@ -121,12 +121,12 @@ export class BlockService implements IBlockService {
    *
    * @param {string} blockHashOrBlockNumber The block hash, block number, or block tag
    * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<Receipt[]>} Array of transaction receipts for the block
+   * @returns {Promise<Receipt[] | null>} Array of transaction receipts for the block or null if block not found
    */
   public async getBlockReceipts(
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
-  ): Promise<ITransactionReceipt[]> {
+  ): Promise<ITransactionReceipt[] | null> {
     const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
@@ -135,14 +135,7 @@ export class BlockService implements IBlockService {
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
 
     if (block == null) {
-      throw predefined.RESOURCE_NOT_FOUND(`Block: ${blockHashOrBlockNumber}`);
-    }
-
-    const blockNumber = block.number;
-    const cacheKey = `${constants.CACHE_KEY.ETH_GET_BLOCK_RECEIPTS}_${blockNumber}`;
-    const cachedResponse = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BLOCK_RECEIPTS, requestDetails);
-    if (cachedResponse) {
-      return cachedResponse;
+      return null;
     }
 
     const paramTimestamp: IContractResultsParams = {
@@ -175,11 +168,13 @@ export class BlockService implements IBlockService {
         }
         return null;
       }
+
       contractResult.logs = logsByHash.get(contractResult.hash) || [];
       const [from, to] = await Promise.all([
         this.common.resolveEvmAddress(contractResult.from, requestDetails),
-        this.common.resolveEvmAddress(contractResult.to, requestDetails),
+        contractResult.to === null ? null : this.common.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
+
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
         from,

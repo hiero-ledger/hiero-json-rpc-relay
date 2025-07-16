@@ -11,6 +11,7 @@ import {
   preFundAdapter,
   recordBalanceSnapshot,
   setLZPeer,
+  TEST_CONFIG,
   validateBalanceChange,
   validateContractConfiguration,
   validatePeerConfiguration,
@@ -31,33 +32,6 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
   this.timeout(1800000); // 30 minutes
 
   it('Complete End-to-End WHBAR Bridge Flow between Hedera & Sepolia', async function () {
-    // ============================================================================
-    // Test Configuration and Constants
-    // ============================================================================
-    const TEST_CONFIG = {
-      // HBAR/WHBAR configuration
-      HBAR_FUNDING_AMOUNT: ethers.utils.parseEther('3'),
-      WHBAR_TRANSFER_AMOUNT: ethers.utils.parseEther('1'),
-      TINYBAR_TO_WEIBAR: BigInt(10 ** 10),
-      WEIBAR_TO_HBAR: BigInt(10 ** 18),
-
-      // ERC20 configuration (8 decimals matching WHBAR)
-      ERC20_DECIMALS: 8,
-      ERC20_INITIAL_SUPPLY: 5 * 10 ** 8,
-      ERC20_TRANSFER_AMOUNT: 1 * 10 ** 8,
-
-      // Test receiver contracts will be deployed dynamically
-      RECEIVER_ADDRESS_HEDERA: '', // Will be set after deploying SimpleReceiver on Hedera
-      RECEIVER_ADDRESS_SEPOLIA: '', // Will be set after deploying SimpleReceiver on Sepolia
-
-      // LayerZero configuration (optimized for testing)
-      LZ_GAS_LIMIT: 3000000,
-      TX_GAS_LIMIT: 10_000_000,
-
-      // Validation thresholds
-      MINIMUM_TRANSFER_AMOUNT: BigNumber.from(10).pow(6), // 0.01 tokens for 8 decimals
-    };
-
     // Balance tracking for validation
     const balanceSnapshots: { [key: string]: BigNumber } = {};
 
@@ -355,9 +329,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     const hederaToSepoliaResult = await executeCrossChainTransfer({
       sourceNetwork: 'hedera',
       destinationNetwork: 'sepolia',
-      sourceContract: hederaWHBARContract,
-      destinationContract: sepoliaERC20Contract,
-      oftAdapterContract: hederaOftAdapterContract,
+      IOFTContract: hederaOftAdapterContract,
       transferAmount: whbarTransferAmount,
       receiverAddress: TEST_CONFIG.RECEIVER_ADDRESS_SEPOLIA,
       gasLimit: TEST_CONFIG.LZ_GAS_LIMIT,
@@ -427,9 +399,7 @@ describe('@whbar-bridge Comprehensive E2E Test', function () {
     const sepoliaToHederaResult = await executeCrossChainTransfer({
       sourceNetwork: 'sepolia',
       destinationNetwork: 'hedera',
-      sourceContract: sepoliaERC20Contract,
-      destinationContract: hederaWHBARContract,
-      oftAdapterContract: sepoliaOftAdapterContract,
+      IOFTContract: sepoliaOftAdapterContract,
       transferAmount: erc20TransferAmount,
       receiverAddress: TEST_CONFIG.RECEIVER_ADDRESS_HEDERA,
       gasLimit: TEST_CONFIG.LZ_GAS_LIMIT,

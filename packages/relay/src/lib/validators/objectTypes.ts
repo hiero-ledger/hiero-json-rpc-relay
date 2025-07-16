@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Validator } from '.';
+import { TracerType } from '../constants';
 import { predefined } from '../errors/JsonRpcError';
-import {
-  ICallTracerConfig,
-  IObjectSchema,
-  IObjectValidation,
-  IOpcodeLoggerConfig,
-  ITracerConfigWrapper,
-} from '../types';
+import { validateObject } from './utils';
+
+export type IObjectSchema = {
+  name: string;
+  properties: {
+    [prop: string]: IObjectParamSchema;
+  };
+  failOnEmpty?: boolean;
+  failOnUnexpectedParams?: boolean;
+  deleteUnknownProperties?: boolean;
+};
+
+type IObjectParamSchema = {
+  type: string;
+  nullable: boolean;
+  required?: boolean;
+};
 
 export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   blockHashObject: {
@@ -101,7 +111,7 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   tracerConfigWrapper: {
     name: 'TracerConfigWrapper',
     failOnEmpty: true,
-    failOnUnexpectedParams: false,
+    failOnUnexpectedParams: true,
     properties: {
       tracer: {
         type: 'tracerType',
@@ -191,118 +201,67 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
   },
 };
 
-export class DefaultValidation<T extends object = any> implements IObjectValidation<T> {
-  private readonly _object: T;
-  protected readonly schema: IObjectSchema;
-
-  constructor(schema: IObjectSchema, object: T) {
-    this.schema = schema;
-    this._object = object;
-  }
-
-  get object(): T {
-    return this._object;
-  }
-
-  validate() {
-    if (this.schema.failOnUnexpectedParams) {
-      this.checkForUnexpectedParams();
-    }
-    if (this.schema.deleteUnknownProperties) {
-      this.deleteUnknownProperties();
-    }
-    return Validator.validateObject(this.object, this.schema);
-  }
-
-  name() {
-    return this.schema.name;
-  }
-
-  checkForUnexpectedParams() {
-    const expectedParams = Object.keys(this.schema.properties);
-    const actualParams = Object.keys(this.object);
+export function validateSchema(schema: IObjectSchema, object: any) {
+  const expectedParams = Object.keys(schema.properties);
+  const actualParams = Object.keys(object);
+  if (schema.failOnUnexpectedParams) {
     const unknownParam = actualParams.find((param) => !expectedParams.includes(param));
     if (unknownParam) {
-      throw predefined.INVALID_PARAMETER(`'${unknownParam}' for ${this.schema.name}`, `Unknown parameter`);
+      throw predefined.INVALID_PARAMETER(`'${unknownParam}' for ${schema.name}`, `Unknown parameter`);
     }
   }
-
-  deleteUnknownProperties() {
-    const expectedParams = Object.keys(this.schema.properties);
-    const actualParams = Object.keys(this.object);
+  if (schema.deleteUnknownProperties) {
     const unknownParams = actualParams.filter((param) => !expectedParams.includes(param));
     for (const param of unknownParams) {
-      delete this.object[param];
+      delete object[param];
     }
   }
+  return validateObject(object, schema);
 }
 
-export class TransactionObject extends DefaultValidation {
-  constructor(transaction: any) {
-    super(OBJECTS_VALIDATIONS.transaction, transaction);
+export function validateEthSubscribeLogsParamObject(param: any): boolean {
+  const schema = OBJECTS_VALIDATIONS.ethSubscribeLogsParams;
+  const valid = validateSchema(schema, param);
+  // Check if the address is an array and has a length of 0
+  // address and is not an empty array
+  if (valid && Array.isArray(param.address) && param.address.length === 0 && schema.properties.address.required) {
+    throw predefined.MISSING_REQUIRED_PARAMETER(`'address' for ${schema.name}`);
   }
+
+  return valid;
 }
 
-export class FilterObject extends DefaultValidation {
-  constructor(filter: any) {
-    super(OBJECTS_VALIDATIONS.filter, filter);
-  }
+export function validateTracerConfigWrapper(param: any): boolean {
+  const schema = OBJECTS_VALIDATIONS.tracerConfigWrapper;
+  const valid = validateSchema(schema, param);
+  const { tracer, tracerConfig } = param;
 
-  validate() {
-    if (this.object.blockHash && (this.object.toBlock || this.object.fromBlock)) {
-      throw predefined.INVALID_PARAMETER(0, "Can't use both blockHash and toBlock/fromBlock");
-    }
-    return super.validate();
-  }
-}
-
-export class BlockHashObject extends DefaultValidation {
-  constructor(param: any) {
-    super(OBJECTS_VALIDATIONS.blockHashObject, param);
-  }
-}
-
-export class BlockNumberObject extends DefaultValidation {
-  constructor(param: any) {
-    super(OBJECTS_VALIDATIONS.blockNumberObject, param);
-  }
-}
-
-export class EthSubscribeLogsParamsObject extends DefaultValidation {
-  constructor(param: any) {
-    super(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, param);
-  }
-
-  validate() {
-    const valid = super.validate();
-    // address and is not an empty array
-    if (
-      valid &&
-      Array.isArray(this.object.address) &&
-      this.object.address.length === 0 &&
-      OBJECTS_VALIDATIONS.ethSubscribeLogsParams.properties.address.required
-    ) {
-      throw predefined.MISSING_REQUIRED_PARAMETER(`'address' for ${this.schema.name}`);
-    }
-
+  if (!tracerConfig) {
     return valid;
   }
-}
 
-export class CallTracerConfig extends DefaultValidation<ICallTracerConfig> {
-  constructor(config: any) {
-    super(OBJECTS_VALIDATIONS.callTracerConfig, config);
-  }
-}
+  const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
+  const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
 
-export class OpcodeLoggerConfig extends DefaultValidation<IOpcodeLoggerConfig> {
-  constructor(config: any) {
-    super(OBJECTS_VALIDATIONS.opcodeLoggerConfig, config);
-  }
-}
+  const configKeys = Object.keys(tracerConfig);
+  const hasCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
+  const hasOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
 
-export class TracerConfigWrapper extends DefaultValidation<ITracerConfigWrapper> {
-  constructor(config: any) {
-    super(OBJECTS_VALIDATIONS.tracerConfigWrapper, config);
+  // we want to accept ICallTracerConfig only if the tracer is callTracer
+  // this config is not valid for opcodeLogger and vice versa
+  // accept only IOpcodeLoggerConfig with opcodeLogger tracer
+  if (hasCallTracerKeys && tracer === TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `callTracer 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.CallTracer}`,
+    );
   }
+
+  if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `opcodeLogger 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.OpcodeLogger}`,
+    );
+  }
+  return valid;
 }

@@ -323,6 +323,20 @@ export class MirrorNodeClient {
     return `${baseUrl}${MirrorNodeClient.API_V1_POST_FIX}`;
   }
 
+  /**
+   * Formats an IP address for RFC 7239 Forwarded header compliance.
+   * IPv6 addresses are wrapped in brackets as required by the specification.
+   * @param ip - The IP address to format
+   * @returns The RFC 7239 compliant formatted IP address
+   */
+  private formatIpForForwardedHeader(ip: string): string {
+    // IPv6 addresses must be wrapped in brackets per RFC 7239
+    if (ip.includes(':') && !ip.startsWith('[')) {
+      return `[${ip}]`;
+    }
+    return ip;
+  }
+
   private async request<T>(
     path: string,
     pathLabel: string,
@@ -340,6 +354,12 @@ export class MirrorNodeClient {
         },
         signal: controller.signal,
       };
+
+      // Add Forwarded header with client IP if available
+      if (requestDetails.ipAddress && requestDetails.ipAddress.trim() !== '') {
+        const formattedClientIp = this.formatIpForForwardedHeader(requestDetails.ipAddress);
+        axiosRequestConfig.headers!['Forwarded'] = `for="${formattedClientIp}"`;
+      }
 
       // request specific config for axios-retry
       if (retries != null) {
@@ -1555,7 +1575,6 @@ export class MirrorNodeClient {
    * Retrieves and processes transaction record metrics from the mirror node based on the provided transaction ID.
    *
    * @param {string} transactionId - The ID of the transaction for which the record is being retrieved.
-   * @param {string} callerName - The name of the caller requesting the transaction record.
    * @param {string} txConstructorName - The name of the transaction constructor associated with the transaction.
    * @param {string} operatorAccountId - The account ID of the operator, used to calculate transaction fees.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
@@ -1564,7 +1583,6 @@ export class MirrorNodeClient {
    */
   public async getTransactionRecordMetrics(
     transactionId: string,
-    callerName: string,
     txConstructorName: string,
     operatorAccountId: string,
     requestDetails: RequestDetails,
@@ -1573,7 +1591,7 @@ export class MirrorNodeClient {
 
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${formattedRequestId} Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}`,
+        `${formattedRequestId} Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
       );
     }
 
@@ -1591,7 +1609,7 @@ export class MirrorNodeClient {
     );
 
     if (!transactionRecords) {
-      const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}.`;
+      const notFoundMessage = `No transaction record retrieved: transactionId=${transactionId}, txConstructorName=${txConstructorName}.`;
       throw new MirrorNodeClientError({ message: notFoundMessage }, MirrorNodeClientError.statusCodes.NOT_FOUND);
     }
 

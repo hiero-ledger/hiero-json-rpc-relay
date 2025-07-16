@@ -75,6 +75,8 @@ The project includes comprehensive test suites for both supported use cases:
 
 ### HTS Bridge Testing (`hts-bridge-test.js`)
 
+⚠️ ⚠️ ⚠️ The deployer must have "Auto. Associations" enabled or must execute `npx hardhat run scripts/utils/update-account-associations.ts --network hedera` beforehand. ⚠️ ⚠️ ⚠️
+
 1. Deploy ERC20 token on Sepolia
 2. Deploy HTSConnector on Hedera (creates HTS token)
 3. Approve HTSConnector to manage HTS tokens
@@ -100,7 +102,7 @@ Create a .env file based on the .env.example file and fill out the configuration
 # Hedera Network Configuration
 HEDERA_CHAIN_ID=
 HEDERA_RPC=
-HEDERA_PK=
+HEDERA_PK= # for HTS-related operations, the deployer account should have enabled "Auto Associations"
 HEDERA_LZ_ENDPOINT_V2=
 HEDERA_LZ_EID_V2=
 

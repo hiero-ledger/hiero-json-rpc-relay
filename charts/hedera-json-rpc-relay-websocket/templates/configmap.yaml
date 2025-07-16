@@ -7,6 +7,10 @@ metadata:
     {{ include "json-rpc-relay-ws.labels" . | nindent 4 }}
 data:
   {{- range $key, $value := .Values.config }}
-    {{ $key }}: {{ if typeIs "float64" $value }}{{ $value | int64 | quote }}{{ else }}{{ $value | quote }}{{ end }}
+    {{- if eq $key "HEDERA_NETWORK" }}
+      {{ $key }}: {{ if typeIs "string" $value}} {{ $value | lower | quote }} {{else}} {{ printf "{%s}" (tpl (join "," $value | trimPrefix "[" | trimSuffix "]") $) | squote }} {{end}}
+    {{- else }}
+      {{ $key }}: {{ if typeIs "float64" $value }}{{ $value | int64 | quote }}{{ else }}{{ $value | quote }}{{ end }}
+    {{- end }}
   {{- end }}
   {{- include "json-rpc-relay-ws.redis-config" . | nindent 2 }}

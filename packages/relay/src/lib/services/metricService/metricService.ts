@@ -117,7 +117,7 @@ export default class MetricService {
     });
 
     this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
-      this.ethExecutionsCounter.labels(args.method, args.functionSelector, args.from, args.to).inc();
+      this.ethExecutionsCounter.labels(args.method).inc();
     });
   }
 
@@ -136,17 +136,14 @@ export default class MetricService {
    * @returns {Promise<void>} - A promise that resolves when the transaction metrics have been captured.
    */
   public async captureTransactionMetrics({
-    callerName,
     transactionId,
     txConstructorName,
     operatorAccountId,
-    interactingEntity,
     requestDetails,
     originalCallerAddress,
   }: IExecuteTransactionEventPayload): Promise<void> {
     const transactionRecordMetrics = await this.getTransactionRecordMetrics(
       transactionId,
-      callerName,
       txConstructorName,
       operatorAccountId,
       requestDetails,
@@ -159,10 +156,8 @@ export default class MetricService {
           executionMode: constants.EXECUTION_MODE.TRANSACTION,
           transactionId,
           txConstructorName,
-          callerName,
           cost: transactionFee,
           gasUsed,
-          interactingEntity,
           status,
           requestDetails,
           originalCallerAddress,
@@ -174,10 +169,8 @@ export default class MetricService {
           executionMode: constants.EXECUTION_MODE.RECORD,
           transactionId,
           txConstructorName,
-          callerName,
           cost: txRecordChargeAmount,
           gasUsed: 0,
-          interactingEntity,
           status,
           requestDetails,
           originalCallerAddress,
@@ -193,10 +186,8 @@ export default class MetricService {
    * @param {string} payload.executionMode - The mode of the execution (TRANSACTION, QUERY, RECORD).
    * @param {string} payload.transactionId - The unique identifier for the transaction.
    * @param {string} payload.txConstructorName - The name of the transaction constructor.
-   * @param {string} payload.callerName - The name of the entity calling the transaction.
    * @param {number} payload.cost - The cost of the transaction in tinybars.
    * @param {number} payload.gasUsed - The amount of gas used during the transaction.
-   * @param {string} payload.interactingEntity - The entity interacting with the transaction.
    * @param {string} payload.status - The entity interacting with the transaction.
    * @param {string} payload.requestDetails - The request details for logging and tracking.
    * @param {string | undefined} payload.originalCallerAddress - The address of the original caller making the request.
@@ -206,22 +197,20 @@ export default class MetricService {
     executionMode,
     transactionId,
     txConstructorName,
-    callerName,
     cost,
     gasUsed,
-    interactingEntity,
     status,
     requestDetails,
     originalCallerAddress,
   }: IExecuteQueryEventPayload): Promise<void> => {
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, callerName=${callerName}, cost=${cost} tinybars`,
+        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
       );
     }
 
     await this.hbarLimitService.addExpense(cost, originalCallerAddress ?? '', requestDetails);
-    this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed, callerName, interactingEntity);
+    this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed);
   };
 
   /**
@@ -235,7 +224,7 @@ export default class MetricService {
     return new Histogram({
       name: metricHistogramCost,
       help: 'Relay consensusnode mode type status cost histogram',
-      labelNames: ['mode', 'type', 'status', 'caller', 'interactingEntity'],
+      labelNames: ['mode', 'type', 'status'],
       registers: [register],
     });
   }
@@ -251,7 +240,7 @@ export default class MetricService {
     return new Histogram({
       name: metricHistogramGasFee,
       help: 'Relay consensusnode mode type status gas fee histogram',
-      labelNames: ['mode', 'type', 'status', 'caller', 'interactingEntity'],
+      labelNames: ['mode', 'type', 'status'],
       registers: [register],
     });
   }
@@ -262,7 +251,7 @@ export default class MetricService {
     return new Counter({
       name: metricCounterName,
       help: `Relay ${metricCounterName} function`,
-      labelNames: ['method', 'function', 'from', 'to'],
+      labelNames: ['method'],
       registers: [register],
     });
   }
@@ -275,21 +264,11 @@ export default class MetricService {
    * @param {string} status - The status of the transaction.
    * @param {number} cost - The cost of the transaction in tinybars.
    * @param {number} gas - The gas used by the transaction.
-   * @param {string} caller - The name of the caller executing the transaction.
-   * @param {string} interactingEntity - The entity interacting with the transaction.
    * @returns {void}
    */
-  private captureMetrics = (
-    mode: string,
-    type: string,
-    status: string,
-    cost: number,
-    gas: number,
-    caller: string,
-    interactingEntity: string,
-  ): void => {
-    this.consensusNodeClientHistogramCost.labels(mode, type, status, caller, interactingEntity).observe(cost);
-    this.consensusNodeClientHistogramGasFee.labels(mode, type, status, caller, interactingEntity).observe(gas);
+  private captureMetrics = (mode: string, type: string, status: string, cost: number, gas: number): void => {
+    this.consensusNodeClientHistogramCost.labels(mode, type, status).observe(cost);
+    this.consensusNodeClientHistogramGasFee.labels(mode, type, status).observe(gas);
   };
 
   /**
@@ -298,7 +277,6 @@ export default class MetricService {
    * consensus node via the SDK client or from the mirror node.
    *
    * @param {string} transactionId - The ID of the transaction for which metrics are being retrieved.
-   * @param {string} callerName - The name of the caller requesting the metrics.
    * @param {string} txConstructorName - The name of the transaction constructor.
    * @param {string} operatorAccountId - The account ID of the operator.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
@@ -306,7 +284,6 @@ export default class MetricService {
    */
   private async getTransactionRecordMetrics(
     transactionId: string,
-    callerName: string,
     txConstructorName: string,
     operatorAccountId: string,
     requestDetails: RequestDetails,
@@ -318,7 +295,6 @@ export default class MetricService {
       if (defaultToConsensusNode) {
         return await this.sdkClient.getTransactionRecordMetrics(
           transactionId,
-          callerName,
           txConstructorName,
           operatorAccountId,
           requestDetails,
@@ -326,7 +302,6 @@ export default class MetricService {
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,
-          callerName,
           txConstructorName,
           operatorAccountId,
           requestDetails,

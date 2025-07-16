@@ -49,6 +49,7 @@ const ETH_ENDPOINTS = {
   NET_PEER_COUNT: 'net_peerCount',
   ETH_SIGN_TYPED_DATA: 'eth_signTypedData',
   ETH_GET_PROOF: 'eth_getProof',
+  ETH_CREATE_ACCESS_LIST: 'eth_createAccessList',
   ETH_NEW_FILTER: 'eth_newFilter',
   ETH_NEW_BLOCK_FILTER: 'eth_newBlockFilter',
   ETH_NEW_PENDING_TRANSACTION_FILTER: 'eth_newPendingTransactionFilter',
@@ -164,6 +165,7 @@ const TINYBAR_TO_WEIBAR_COEF = 10_000_000_000;
 
 const CALL_EXCEPTION = 'CALL_EXCEPTION';
 const FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE = 100;
+const ERROR_CODE = -32602;
 
 export default {
   ETH_ENDPOINTS,
@@ -183,4 +185,5 @@ export default {
   TINYBAR_TO_WEIBAR_COEF,
   METRICS,
   FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE,
+  ERROR_CODE,
 };

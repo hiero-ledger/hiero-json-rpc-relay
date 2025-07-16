@@ -19,12 +19,12 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
 import { CommonService } from '../../src/lib/services';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
+import { generateEthTestEnv } from './eth/eth-helpers';
 chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
@@ -34,11 +34,10 @@ let restMock: MockAdapter;
 let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
-let cacheService: CacheService;
-let hapiServiceInstance: HAPIService;
+
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
-
+  const { cacheService } = generateEthTestEnv(true);
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
   const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
   const nonExistentTransactionHash = '0xb8a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
@@ -50,6 +49,8 @@ describe('Debug API Test Suite', async function () {
   const tracerConfigFalse = { onlyTopCall: false };
   const callTracer: TracerType = TracerType.CallTracer;
   const opcodeLogger: TracerType = TracerType.OpcodeLogger;
+  const tracerObjectCallTracerFalse = { tracer: callTracer, tracerConfig: tracerConfigFalse };
+  const tracerObjectCallTracerTrue = { tracer: callTracer, tracerConfig: tracerConfigTrue };
   const CONTRACTS_RESULTS_OPCODES = `contracts/results/${transactionHash}/opcodes`;
   const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
   const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}`;
@@ -59,7 +60,6 @@ describe('Debug API Test Suite', async function () {
   const CONTRACT_BY_ADDRESS2 = `contracts/${contractAddress2}`;
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
-  const BLOCKS_ENDPOINT = 'blocks';
 
   const opcodeLoggerConfigs = [
     {
@@ -253,7 +253,6 @@ describe('Debug API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger.child({ name: `cache` }), registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
@@ -275,7 +274,7 @@ describe('Debug API Test Suite', async function () {
       register,
       duration,
     );
-    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+    new HAPIService(logger, registry, eventEmitter, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
@@ -283,6 +282,10 @@ describe('Debug API Test Suite', async function () {
 
     // Create the debug service
     debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+  });
+
+  this.beforeEach(() => {
+    cacheService.clear(requestDetails);
   });
 
   describe('debug_traceTransaction', async function () {
@@ -359,8 +362,7 @@ describe('Debug API Test Suite', async function () {
       it('should successfully debug a transaction', async function () {
         const traceTransaction = await debugService.traceTransaction(
           transactionHash,
-          callTracer,
-          tracerConfigFalse,
+          tracerObjectCallTracerFalse,
           requestDetails,
         );
         expect(traceTransaction).to.exist;
@@ -393,8 +395,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceTransaction(
             transactionHash,
-            callTracer,
-            tracerConfigFalse,
+            tracerObjectCallTracerFalse,
             requestDetails,
           );
 
@@ -415,8 +416,7 @@ describe('Debug API Test Suite', async function () {
           };
           const result = await debugService.traceTransaction(
             transactionHash,
-            callTracer,
-            tracerConfigTrue,
+            tracerObjectCallTracerTrue,
             requestDetails,
           );
 
@@ -428,8 +428,7 @@ describe('Debug API Test Suite', async function () {
 
           const result = await debugService.traceTransaction(
             transactionHash,
-            callTracer,
-            tracerConfigFalse,
+            tracerObjectCallTracerFalse,
             requestDetails,
           );
 
@@ -438,6 +437,18 @@ describe('Debug API Test Suite', async function () {
       });
 
       describe('opcodeLogger', async function () {
+        withOverriddenEnvsInMochaTest({ OPCODELOGGER_ENABLED: false }, () => {
+          it('should throw UNSUPPORTED_METHOD', async function () {
+            await RelayAssertions.assertRejection(
+              predefined.UNSUPPORTED_METHOD,
+              debugService.traceTransaction,
+              true,
+              debugService,
+              [transactionHash, callTracer, tracerConfigFalse, requestDetails],
+            );
+          });
+        });
+
         for (const config of opcodeLoggerConfigs) {
           const opcodeLoggerParams = Object.keys(config)
             .map((key) => `${key}=${config[key]}`)
@@ -469,12 +480,107 @@ describe('Debug API Test Suite', async function () {
                 })),
               };
 
-              const result = await debugService.traceTransaction(transactionHash, opcodeLogger, config, requestDetails);
+              const tracerObject = { tracer: opcodeLogger, tracerConfig: config };
+              const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
 
               expect(result).to.deep.equal(expectedResult);
             });
           });
         }
+      });
+
+      describe('prestateTracer', async function () {
+        const prestateTracer: TracerType = TracerType.PrestateTracer;
+        const mockPrestateResult = {
+          '0xc37f417fa09933335240fca72dd257bfbde9c275': {
+            balance: '0x100000000',
+            nonce: 2,
+            code: '0x',
+            storage: {},
+          },
+          '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b': {
+            balance: '0x200000000',
+            nonce: 1,
+            code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+            storage: {
+              '0x0': '0x1',
+              '0x1': '0x2',
+            },
+          },
+        };
+
+        beforeEach(() => {
+          sinon.stub(debugService, 'prestateTracer').resolves(mockPrestateResult);
+        });
+
+        afterEach(() => {
+          sinon.restore();
+        });
+
+        it('should successfully trace transaction with prestateTracer', async function () {
+          const tracerObject = { tracer: prestateTracer };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+          expect(result).to.be.an('object');
+          expect(Object.keys(result)).to.have.lengthOf(2);
+
+          for (const address of Object.keys(result)) {
+            expect(result[address]).to.have.all.keys(['balance', 'nonce', 'code', 'storage']);
+            expect(result[address].nonce).to.be.a('number');
+            expect(result[address].code).to.exist;
+            expect(result[address].storage).to.be.an('object');
+          }
+        });
+
+        it('should trace transaction with prestateTracer and onlyTopCall=true', async function () {
+          const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: true } };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+
+          // Verify that prestateTracer was called with onlyTopCall=true
+          const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
+          expect(prestateTracerStub.calledOnce).to.be.true;
+          expect(prestateTracerStub.calledWith(transactionHash, true, requestDetails)).to.be.true;
+        });
+
+        it('should trace transaction with prestateTracer and onlyTopCall=false (default)', async function () {
+          const tracerObject = { tracer: prestateTracer, tracerConfig: { onlyTopCall: false } };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(mockPrestateResult);
+
+          // Verify that prestateTracer was called with onlyTopCall=false
+          const prestateTracerStub = debugService.prestateTracer as sinon.SinonStub;
+          expect(prestateTracerStub.calledOnce).to.be.true;
+          expect(prestateTracerStub.calledWith(transactionHash, false, requestDetails)).to.be.true;
+        });
+
+        it('should handle empty prestate result', async function () {
+          const emptyResult = {};
+          (debugService.prestateTracer as sinon.SinonStub).resolves(emptyResult);
+
+          const tracerObject = { tracer: prestateTracer };
+          const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+          expect(result).to.deep.equal(emptyResult);
+          expect(result).to.be.an('object');
+          expect(Object.keys(result)).to.have.lengthOf(0);
+        });
+
+        it('should propagate errors from prestateTracer', async function () {
+          const expectedError = predefined.RESOURCE_NOT_FOUND('Failed to retrieve contract results');
+          (debugService.prestateTracer as sinon.SinonStub).rejects(expectedError);
+
+          const tracerObject = { tracer: prestateTracer };
+
+          await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
+            transactionHash,
+            tracerObject,
+            requestDetails,
+          ]);
+        });
       });
 
       describe('Invalid scenarios', async function () {
@@ -505,8 +611,7 @@ describe('Debug API Test Suite', async function () {
 
           await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
             nonExistentTransactionHash,
-            callTracer,
-            tracerConfigTrue,
+            tracerObjectCallTracerTrue,
             requestDetails,
           ]);
         });

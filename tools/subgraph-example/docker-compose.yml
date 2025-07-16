@@ -36,6 +36,8 @@ services:
       - "5001:5001"
     volumes:
       - ./data/ipfs:/data/ipfs
+    environment:
+      - IPFS_PROFILE
   postgres:
     image: postgres@sha256:7f29c02ba9eeff4de9a9f414d803faa0e6fe5e8d15ebe217e3e418c82e652b35 # 17.4-bookworm
     ports:

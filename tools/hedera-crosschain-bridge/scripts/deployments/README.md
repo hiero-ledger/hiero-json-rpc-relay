@@ -202,6 +202,63 @@ The deployment script provides two organized tables for easy reference:
 - **Network connection**: Verify your RPC URL is accessible and correct
 - **Private key format**: Ensure your private key starts with `0x`
 
+### 4. OFT Deployment (`deploy-oft.ts`)
+
+Deploys an OFT contract for testing purposes.
+
+**Purpose**: Creates an omnichain fungible token that can be transferred across multiple chains.
+
+**Usage**:
+
+```bash
+npm run deploy-oft -- --network hedera
+```
+
+```bash
+npm run deploy-oft -- --network sepolia
+```
+
+**Configuration**: No additional environment variables required.
+
+**Expected Output**:
+
+The deployment script provides two organized tables for easy reference:
+
+1. **Deployment Summary Table**: Contains all raw values for easy copying
+2. **Block Explorer Links Table**: Contains clickable URLs (when block explorer URL is configured)
+
+**Common Issues**:
+
+- **Contract verification**: Manual verification may be needed on block explorers
+
+### 5. HTS Connector Deployment (`deploy-hts-connector.ts`)
+
+⚠️ ⚠️ ⚠️ The deployer must have "Auto. Associations" enabled or must execute `npx hardhat run scripts/utils/update-account-associations.ts --network hedera` beforehand. ⚠️ ⚠️ ⚠️
+
+Deploys a HTS Connector contract for testing purposes.
+
+**Purpose**: Creates a test HTS token which is wrapped in a solidity contract.
+
+**Usage**:
+
+```bash
+npm run deploy-hts-connector -- --network hedera
+```
+
+**Configuration**: No additional environment variables required.
+
+**Expected Output**:
+
+The deployment script provides two organized tables for easy reference:
+
+1. **Deployment Summary Table**: Contains all raw values for easy copying
+2. **Block Explorer Links Table**: Contains clickable URLs (when block explorer URL is configured)
+
+**Common Issues**:
+
+- **Gas estimation failure**: HTS deployment may require a hardcoded gas limit due to an inaccurate gas estimation
+- **Contract verification**: Manual verification may be needed on block explorers
+
 ## Troubleshooting
 
 ### Common Error Messages

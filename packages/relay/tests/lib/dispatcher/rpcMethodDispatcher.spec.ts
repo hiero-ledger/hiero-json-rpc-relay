@@ -5,13 +5,12 @@ import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
 import sinon from 'sinon';
 
-import { RPC_PARAM_VALIDATION_RULES_KEY } from '../../../src/lib/decorators';
 import { RpcMethodDispatcher } from '../../../src/lib/dispatcher/rpcMethodDispatcher';
 import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
 import { RequestDetails, RpcMethodRegistry } from '../../../src/lib/types';
-import { Validator } from '../../../src/lib/validators';
+import * as Validator from '../../../src/lib/validators';
 import { Utils } from '../../../src/utils';
 
 chai.use(chaiAsPromised);
@@ -53,7 +52,7 @@ describe('RpcMethodDispatcher', () => {
 
     // Set up args rearrangement mock
     arrangeRpcParamsStub = sinon.stub(Utils, 'arrangeRpcParams');
-    arrangeRpcParamsStub.callsFake((method, params, requestDetails) => {
+    arrangeRpcParamsStub.callsFake((method) => {
       if (method.name === 'functionStub') {
         return TEST_PARAMS_REARRANGED;
       }
@@ -118,7 +117,7 @@ describe('RpcMethodDispatcher', () => {
     it('should validate parameters when schema exists', () => {
       // Set up validation schema
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+      operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       (dispatcher as any).precheckRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
@@ -128,7 +127,7 @@ describe('RpcMethodDispatcher', () => {
 
     it('should skip validation when no schema exists', () => {
       // Ensure there's no validation schema
-      delete operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
+      delete operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY];
 
       (dispatcher as any).precheckRpcMethod(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
 
@@ -386,6 +385,15 @@ describe('RpcMethodDispatcher', () => {
   });
 
   describe('End-to-end dispatch tests', () => {
+    it('should handle INVALID_PARAMETERS error properly', async () => {
+      validateParamsStub.throws(predefined.INVALID_PARAMETERS);
+      operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = { 0: { type: 'boolean' } };
+
+      const result = await dispatcher.dispatch(TEST_METHOD_NAME, ['false', null], TEST_REQUEST_DETAILS);
+      expect(result).to.be.instanceOf(JsonRpcError);
+      expect(result.code).to.equal(predefined.INVALID_PARAMETERS.code);
+    });
+
     it('should handle registered methods with and without parameter validation', async () => {
       // Test with no schema
       let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
@@ -395,7 +403,7 @@ describe('RpcMethodDispatcher', () => {
       // Test with schema
       validateParamsStub.reset();
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+      operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.equal(TEST_RESULT);
@@ -423,7 +431,7 @@ describe('RpcMethodDispatcher', () => {
       //   Validation error
       validateParamsStub.throws(predefined.INVALID_PARAMETERS);
       const validationRules = { 0: { type: 'string', required: true } };
-      operationHandler[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+      operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
 
       let result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
       expect(result).to.be.instanceOf(JsonRpcError);
@@ -431,7 +439,7 @@ describe('RpcMethodDispatcher', () => {
 
       // Execution error
       validateParamsStub.reset();
-      delete operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
+      delete operationHandler[Validator.RPC_PARAM_VALIDATION_RULES_KEY];
       operationHandler.rejects(new Error('Execution failed'));
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);

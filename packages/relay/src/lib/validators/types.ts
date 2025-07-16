@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { predefined } from '../errors/JsonRpcError';
+import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
 import * as Constants from './constants';
-import { CallTracerConfig, OpcodeLoggerConfig, TracerConfigWrapper, Validator } from '.';
-import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper, ITypeValidation } from '../types';
+import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
+import { validateArray } from './utils';
 
-export const TYPES: { [key: string]: ITypeValidation } = {
+export const TYPES = {
   address: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param),
+    test: (param) => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param),
     error: Constants.ADDRESS_ERROR,
   },
   addressFilter: {
     test: (param: string | string[]) => {
       return Array.isArray(param)
-        ? Validator.validateArray(param.flat(), 'address')
+        ? validateArray(param.flat(), 'address')
         : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
   array: {
     test: (param: any, innerType?: any) => {
-      return Array.isArray(param) ? Validator.validateArray(param, innerType) : false;
+      return Array.isArray(param) ? validateArray(param, innerType) : false;
     },
     error: 'Expected Array',
   },
@@ -40,10 +42,10 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   blockParams: {
     test: (param: any) => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        if (param.hasOwnProperty('blockHash')) {
-          return new Validator.BlockHashObject(param).validate();
+        if (Object.prototype.hasOwnProperty.call(param, 'blockHash')) {
+          return validateSchema(OBJECTS_VALIDATIONS.blockHashObject, param);
         }
-        return new Validator.BlockNumberObject(param).validate();
+        return validateSchema(OBJECTS_VALIDATIONS.blockNumberObject, param);
       }
       return (
         (/^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(param) && Number.MAX_SAFE_INTEGER >= Number(param)) ||
@@ -55,7 +57,10 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   filter: {
     test: (param: any) => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        return new Validator.FilterObject(param).validate();
+        if (param.blockHash && (param.toBlock || param.fromBlock)) {
+          throw predefined.INVALID_PARAMETER(0, "Can't use both blockHash and toBlock/fromBlock");
+        }
+        return validateSchema(OBJECTS_VALIDATIONS.filter, param);
       }
 
       return false;
@@ -80,14 +85,14 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   },
   topics: {
     test: (param: string[] | string[][]) => {
-      return Array.isArray(param) ? Validator.validateArray(param.flat(), 'topicHash') : false;
+      return Array.isArray(param) ? validateArray(param.flat(), 'topicHash') : false;
     },
     error: `Expected an array or array of arrays containing ${Constants.HASH_ERROR} of a topic`,
   },
   transaction: {
     test: (param: any) => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        return new Validator.TransactionObject(param).validate();
+        return validateSchema(OBJECTS_VALIDATIONS.transaction, param);
       }
 
       return false;
@@ -97,10 +102,6 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   transactionHash: {
     test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param),
     error: Constants.TRANSACTION_HASH_ERROR,
-  },
-  transactionId: {
-    test: (param: string) => new RegExp(Constants.TRANSACTION_ID_REGEX).test(param),
-    error: Constants.TRANSACTION_ID_ERROR,
   },
   tracerType: {
     test: (param: any): param is Constants.TracerType =>
@@ -113,7 +114,7 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   callTracerConfig: {
     test: (param: any): param is ICallTracerConfig => {
       if (param && typeof param === 'object') {
-        return new CallTracerConfig(param).validate();
+        return validateSchema(OBJECTS_VALIDATIONS.callTracerConfig, param);
       }
       return false;
     },
@@ -122,7 +123,7 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   opcodeLoggerConfig: {
     test: (param: any): param is IOpcodeLoggerConfig => {
       if (param && typeof param === 'object') {
-        return new OpcodeLoggerConfig(param).validate();
+        return validateSchema(OBJECTS_VALIDATIONS.opcodeLoggerConfig, param);
       }
       return false;
     },
@@ -143,10 +144,15 @@ export const TYPES: { [key: string]: ITypeValidation } = {
   tracerConfigWrapper: {
     test: (param: any): param is ITracerConfigWrapper => {
       if (param && typeof param === 'object') {
-        return new TracerConfigWrapper(param).validate();
+        return validateTracerConfigWrapper(param);
       }
       return false;
     },
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
+} satisfies {
+  [paramTypeName: string]: {
+    test: (param: any) => boolean;
+    error: string;
+  };
 };

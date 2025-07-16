@@ -127,9 +127,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     // Note: There is currently a caching solution for eth_blockNumber that stores the block number.
     // This loop is designed to poll for the latest block number until it is correctly updated.
     for (let i = 0; i < 5; i++) {
-      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);    
+      blockNumAfterCreateChildTx = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
       if (blockNumAfterCreateChildTx > blockNumBeforeCreateChildTx) {
-        console.log("Block number updated succesfully")
+        console.log('Block number updated succesfully');
         break;
       }
       await Utils.wait(1500);
@@ -746,6 +746,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('should not support "eth_getProof"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_GET_PROOF, [], requestId);
     });
+
+    it('should not support "eth_createAccessList"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_CREATE_ACCESS_LIST, [], requestId);
+    });
   });
 
   describe('eth_getCode', () => {
@@ -965,46 +969,6 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
       expect(latestStorageVal).to.eq(END_EXPECTED_STORAGE_VAL);
       expect(storageValBeforeChange).to.eq(beginStorageVal);
-    });
-
-    it('should execute "eth_getStorageAt" request to get current state changes without passing block', async function () {
-      const BEGIN_EXPECTED_STORAGE_VAL = '0x000000000000000000000000000000000000000000000000000000000000000f';
-      const END_EXPECTED_STORAGE_VAL = '0x0000000000000000000000000000000000000000000000000000000000000008';
-
-      const beginStorageVal = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT,
-        [storageContractAddress, '0x0000000000000000000000000000000000000000000000000000000000000000'],
-        requestId,
-      );
-      expect(beginStorageVal).to.eq(BEGIN_EXPECTED_STORAGE_VAL);
-
-      const gasPrice = await relay.gasPrice(requestId);
-      const transaction = {
-        value: 0,
-        gasLimit: 50000,
-        chainId: Number(CHAIN_ID),
-        to: storageContractAddress,
-        nonce: await relay.getAccountNonce(accounts[1].address),
-        gasPrice: gasPrice,
-        data: STORAGE_CONTRACT_UPDATE,
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-        type: 2,
-      };
-
-      const signedTx = await accounts[1].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
-      await relay.pollForValidTransactionReceipt(transactionHash);
-
-      // wait for the transaction to propogate to mirror node
-      await new Promise((r) => setTimeout(r, 4000));
-
-      const storageVal = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_STORAGE_AT,
-        [storageContractAddress, '0x0000000000000000000000000000000000000000000000000000000000000000'],
-        requestId,
-      );
-      expect(storageVal).to.eq(END_EXPECTED_STORAGE_VAL);
     });
 
     it('should execute "eth_getStorageAt" request to get current state changes with passing specific block', async function () {

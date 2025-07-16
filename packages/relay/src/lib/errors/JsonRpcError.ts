@@ -289,11 +289,6 @@ export const predefined = {
       code: -32201,
       message: `Oversized data: call data size ${actualSize}, call data size limit ${expectedSize}`,
     }),
-  CONTRACT_CODE_SIZE_LIMIT_EXCEEDED: (actualSize: number, expectedSize: number) =>
-    new JsonRpcError({
-      code: -32201,
-      message: `Oversized data: contract code size ${actualSize}, contract code size limit ${expectedSize}`,
-    }),
   BATCH_REQUESTS_DISABLED: new JsonRpcError({
     code: -32202,
     message: 'Batch requests are disabled',

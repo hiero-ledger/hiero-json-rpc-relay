@@ -262,6 +262,10 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
    */
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    if (ConfigService.get('READ_ONLY')) {
+      throw predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
+    }
+
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
@@ -331,22 +335,11 @@ export class TransactionService implements ITransactionService {
 
   /**
    * Emits an Ethereum execution event with transaction details
-   * @param parsedTx The parsed transaction object
-   * @param originalCallerAddress The address of the original caller
-   * @param toAddress The destination address
    * @param requestDetails The request details for logging and tracking
    */
-  private emitEthExecutionEvent(
-    parsedTx: EthersTransaction,
-    originalCallerAddress: string,
-    toAddress: string,
-    requestDetails: RequestDetails,
-  ): void {
+  private emitEthExecutionEvent(requestDetails: RequestDetails): void {
     this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
       method: constants.ETH_SEND_RAW_TRANSACTION,
-      functionSelector: parsedTx.data?.substring(0, constants.FUNCTION_SELECTOR_CHAR_LENGTH) || '',
-      from: originalCallerAddress,
-      to: toAddress,
       requestDetails: requestDetails,
     });
   }
@@ -443,6 +436,7 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(receiptResponse.from, requestDetails),
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
+
     const transactionReceiptParams: IRegularTransactionReceiptParams = {
       effectiveGas,
       from,
@@ -560,9 +554,8 @@ export class TransactionService implements ITransactionService {
 
     const requestIdPrefix = requestDetails.formattedRequestId;
     const originalCallerAddress = parsedTx.from?.toString() || '';
-    const toAddress = parsedTx.to?.toString() || '';
 
-    this.emitEthExecutionEvent(parsedTx, originalCallerAddress, toAddress, requestDetails);
+    this.emitEthExecutionEvent(requestDetails);
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,

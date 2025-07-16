@@ -527,43 +527,40 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
             expect(res).to.eq(basicContractJson.deployedBytecode);
           });
 
-          // value is processed only when eth_call goes through the mirror node
-          if (!ConfigService.get('ETH_CALL_DEFAULT_TO_CONSENSUS_NODE')) {
-            it('010 Should call msgValue', async function () {
-              const callData = {
-                ...defaultCallData,
-                data: '0xddf363d7',
-                value: ONE_THOUSAND_TINYBARS,
-              };
+          it('010 Should call msgValue', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: ONE_THOUSAND_TINYBARS,
+            };
 
-              const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
-              expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
-            });
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+            expect(res).to.eq('0x00000000000000000000000000000000000000000000000000000000000003e8');
+          });
 
-            // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
-            xit('011 Should fail when calling msgValue with more value than available balance', async function () {
-              const callData = {
-                ...defaultCallData,
-                data: '0xddf363d7',
-                value: '0x3e80000000',
-              };
-              const errorType = predefined.CONTRACT_REVERT();
-              const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId];
+          // test is pending until fallback workflow to consensus node is removed, because this flow works when calling to consensus
+          xit('011 Should fail when calling msgValue with more value than available balance', async function () {
+            const callData = {
+              ...defaultCallData,
+              data: '0xddf363d7',
+              value: '0x3e80000000',
+            };
+            const errorType = predefined.CONTRACT_REVERT();
+            const args = [RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId];
 
-              await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
-            });
+            await Assertions.assertPredefinedRpcError(errorType, relay.call, true, relay, args);
+          });
 
-            it("012 should work for wrong 'from' field", async function () {
-              const callData = {
-                from: '0x0000000000000000000000000000000000000000',
-                to: callerAddress,
-                data: '0x0ec1551d',
-              };
+          it("012 should work for wrong 'from' field", async function () {
+            const callData = {
+              from: '0x0000000000000000000000000000000000000000',
+              to: callerAddress,
+              data: '0x0ec1551d',
+            };
 
-              const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
-              expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
-            });
-          }
+            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+          });
         });
       }
     });
@@ -767,55 +764,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
       const res = await Utils.ethCallWRetries(relay, callData, 'latest', requestId);
       expect(res).to.eq(RESULT_TRUE);
-    });
-
-    describe('eth_call with force-to-consensus-by-selector logic', () => {
-      // context: The `IHRC719.isAssociated()` function is a new feature which is, at the moment, fully supported only by the Consensus node and not yet by the Mirror node.
-      // Since `IHRC719.isAssociated()` is a view function, requests for this function are typically directed to the Mirror node by default.
-      // This acceptance test ensures that the new force-to-consensus-by-selector logic correctly routes requests for `IHRC719.isAssociated()`
-      // through the Consensus node rather than the Mirror node when using the `eth_call` endpoint.
-
-      let initialEthCallSelectorsAlwaysToConsensus: any, hrc719Contract: ethers.Contract;
-
-      before(async () => {
-        initialEthCallSelectorsAlwaysToConsensus = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-
-        hrc719Contract = await Utils.deployContract(
-          HRC719ContractJson.abi,
-          HRC719ContractJson.bytecode,
-          accounts[0].wallet,
-        );
-      });
-
-      after(() => {
-        ConfigServiceTestHelper.dynamicOverride(
-          'ETH_CALL_CONSENSUS_SELECTORS',
-          initialEthCallSelectorsAlwaysToConsensus,
-        );
-      });
-
-      it('should NOT allow eth_call to process IHRC719.isAssociated() method', async () => {
-        const selectorsList = ConfigService.get('ETH_CALL_CONSENSUS_SELECTORS');
-        expect(selectorsList.length).to.eq(0);
-
-        // If the selector for `isAssociated` is not included in `ETH_CALL_CONSENSUS_SELECTORS`, the request will fail with a `CALL_EXCEPTION` error code.
-        await expect(hrc719Contract.isAssociated(tokenAddress)).to.eventually.be.rejected.and.have.property(
-          'code',
-          'CALL_EXCEPTION',
-        );
-      });
-
-      it('should allow eth_call to successfully process IHRC719.isAssociated() method', async () => {
-        const isAssociatedSelector = (await hrc719Contract.isAssociated.populateTransaction(tokenAddress)).data.slice(
-          2,
-          10,
-        );
-
-        // Add the selector for isAssociated to ETH_CALL_CONSENSUS_SELECTORS to ensure isAssociated() passes
-        ConfigServiceTestHelper.dynamicOverride('ETH_CALL_CONSENSUS_SELECTORS', [isAssociatedSelector]);
-        const isAssociatedResult = await hrc719Contract.isAssociated(tokenAddress);
-        expect(isAssociatedResult).to.be.false; // associate status of the token with the caller
-      });
     });
   });
 
@@ -2191,5 +2139,86 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         [signedTx, requestId],
       );
     });
+  });
+
+  describe('Validate length of the rpc parameters array', async function () {
+    const testClient = Axios.create({
+      baseURL: 'http://localhost:' + ConfigService.get('E2E_SERVER_PORT'),
+      responseType: 'json' as const,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      timeout: 30 * 1000,
+    });
+
+    const generateTest = (method, params) => {
+      it(method, async () => {
+        try {
+          await testClient.post('/', {
+            id: '2',
+            jsonrpc: '2.0',
+            method,
+            params,
+          });
+
+          Assertions.expectedError();
+        } catch (e: any) {
+          const res = e.response;
+          expect(res.status).to.equal(400);
+          Assertions.jsonRpcError(res.data.error, predefined.INVALID_PARAMETERS);
+        }
+      });
+    };
+
+    const TEST_SUITES = {
+      eth_getBalance: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getCode: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x140d78a', null],
+      eth_getBlockByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', false, null],
+      eth_getBlockByNumber: ['0x4cc9a7', false, null],
+      eth_getBlockTransactionCountByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getBlockTransactionCountByNumber: ['0x4cc9a779', null],
+      eth_getTransactionByBlockHashAndIndex: [
+        '0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99',
+        '0x1',
+        null,
+      ],
+      eth_getTransactionByBlockNumberAndIndex: ['0x4cc9a77', '0x1', null],
+      eth_getTransactionCount: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x13455', null],
+      eth_sendRawTransaction: [
+        '0xf86a018203e882520894f17f52151ebef6c7334fad080c5704d77216b732896c6b935b8bbd400000801ba093129415f03b4794fd1512e79ee7f097e4271f66721020f8407aac92179893a5a0451b875d89721ec98be55201092980b0a87bb1c48507fccb86da713596b2a09e',
+        null,
+      ],
+      eth_call: [
+        {
+          to: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          data: '0x70a082310000000000000000000000006E0d01A76C3Cf4288372a29124A26D4353EE51BE',
+        },
+        'latest',
+        null,
+      ],
+      eth_getTransactionByHash: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getTransactionReceipt: ['0x4cc9a77780cf0e6d0dc75373bf00e3437db450ede45cb51b5da936fb46342c99', null],
+      eth_getLogs: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getBlockReceipts: ['0x5661236', null],
+      eth_newFilter: [
+        {
+          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        },
+        null,
+      ],
+      eth_getFilterLogs: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_getFilterChanges: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+      eth_uninstallFilter: ['0xdf2a59ba81f4f052230c9992443cb801', null],
+    };
+
+    for (const [method, params] of Object.entries(TEST_SUITES)) {
+      generateTest(method, params);
+    }
   });
 });
