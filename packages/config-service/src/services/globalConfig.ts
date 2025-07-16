@@ -166,12 +166,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
-  DEV_MODE: {
-    envName: 'DEV_MODE',
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
-  },
   DISABLE_ADMIN_NAMESPACE: {
     envName: 'DISABLE_ADMIN_NAMESPACE',
     type: 'boolean',
@@ -514,12 +508,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 0,
   },
-  MIRROR_NODE_RETRIES_DEVMODE: {
-    envName: 'MIRROR_NODE_RETRIES_DEVMODE',
-    type: 'number',
-    required: false,
-    defaultValue: 5,
-  },
   MIRROR_NODE_RETRY_CODES: {
     envName: 'MIRROR_NODE_RETRY_CODES',
     type: 'strArray',
@@ -531,12 +519,6 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 2000,
-  },
-  MIRROR_NODE_RETRY_DELAY_DEVMODE: {
-    envName: 'MIRROR_NODE_RETRY_DELAY_DEVMODE',
-    type: 'number',
-    required: false,
-    defaultValue: 200,
   },
   MIRROR_NODE_REQUEST_RETRY_COUNT: {
     envName: 'MIRROR_NODE_REQUEST_RETRY_COUNT',

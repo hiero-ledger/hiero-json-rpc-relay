@@ -59,7 +59,6 @@ export class CommonService implements ICommonService {
   /**
    * public constants
    */
-  public static readonly isDevMode = ConfigService.get('DEV_MODE');
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
 
   private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');

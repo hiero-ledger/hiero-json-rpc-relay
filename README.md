@@ -78,8 +78,6 @@ The JSON RPC Relay offers multiple environment variable configuration porperties
 More details can be found at [Configuration](/docs/configuration.md)
 As in the case of a fully deployed relay the acceptance tests utilize the `.env` file. See the [Configuration](#configuration) for setup details.
 
-Note: Read more about `DEV_MODE` which provides optimal local and developer testing configurations [here](docs/dev-mode.md)
-
 The following table highlights some initial configuration values to consider
 
 | Config            | Default | Description                                                                                                                                                                                                                                                                                            |

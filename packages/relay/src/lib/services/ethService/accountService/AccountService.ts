@@ -347,16 +347,6 @@ export class AccountService implements IAccountService {
   }
 
   /**
-   *
-   * @param tag
-   * @private
-   */
-  private static shouldUseCacheForBalance(tag: string | null): boolean {
-    // should only cache balance when is Not latest or pending and is not in dev mode
-    return !CommonService.blockTagIsLatestOrPendingStrict(tag) && !ConfigService.get('DEV_MODE');
-  }
-
-  /**
    * Gets the most recent block number and timestamp.to which represents the block finality.
    */
   private async blockNumberTimestamp(
