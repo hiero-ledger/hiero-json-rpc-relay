@@ -23,32 +23,32 @@ describe('WsMetricRegistry', function () {
   });
 
   describe('constructor', function () {
-    it('should initialize all counter metrics', function () {
-      const counterMetrics = [
-        'methodsCounter',
-        'methodsCounterByIp',
-        'totalMessageCounter',
-        'totalOpenedConnections',
-        'totalClosedConnections',
-      ];
+    const counterMetrics = [
+      'methodsCounter',
+      'methodsCounterByIp',
+      'totalMessageCounter',
+      'totalOpenedConnections',
+      'totalClosedConnections',
+    ] as const;
 
-      counterMetrics.forEach((metric) => {
+    counterMetrics.forEach((metric) => {
+      it(`should initialize the ${metric} counter metric`, function () {
         sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
       });
     });
 
-    it('should initialize all histogram metrics', function () {
-      const histogramMetrics = ['connectionDuration', 'messageDuration'];
+    const histogramMetrics = ['connectionDuration', 'messageDuration'] as const;
 
-      histogramMetrics.forEach((metric) => {
+    histogramMetrics.forEach((metric) => {
+      it(`should initialize the ${metric} histogram metric`, function () {
         sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
       });
     });
 
-    it('should initialize all gauge metrics', function () {
-      const gaugeMetrics = ['cpuUsageGauge', 'memoryUsageGauge'];
+    const gaugeMetrics = ['cpuUsageGauge', 'memoryUsageGauge'] as const;
 
-      gaugeMetrics.forEach((metric) => {
+    gaugeMetrics.forEach((metric) => {
+      it(`should initialize the ${metric} gauge metric`, function () {
         sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
       });
     });
