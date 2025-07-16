@@ -1,12 +1,21 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directories: 
+    directories:
       - "/"
+      - "/packages/*"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 20
+    labels:
+      - "dependencies"
+      - "npm"
+
+  - package-ecosystem: "npm"
+    directories: 
       - "/dapp-example"
       - "/docs/examples"
       - "/k6"
-      - "/packages/*"
       - "/tools/hardhat-example"
       - "/tools/hardhat-viem-example"
       - "/tools/solidity-coverage-example"
@@ -15,8 +24,9 @@ updates:
       - "/tools/wagmi-example"
       - "/tools/web3js-example"
       - "/tools/whbar-hardhat-example"
+      - "/tools/hedera-crosschain-bridge"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     open-pull-requests-limit: 20
     labels:
       - "dependencies"
