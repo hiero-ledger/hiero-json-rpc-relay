@@ -467,52 +467,6 @@ describe('SdkClient', async function () {
     });
   });
 
-  describe.skip('submitEthereumTransaction with Jumbo Transaction Behaviors', () => {
-    const FILE_APPEND_CHUNK_SIZE = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
-    const mockedCallerName = 'caller_name';
-    const randomAccountAddress = random20BytesAddress();
-    const mockedNetworkGasPrice = 710000;
-    const mockedExchangeRateIncents = 12;
-
-    const accountId = AccountId.fromString('0.0.1234');
-    const transactionId = TransactionId.generate(accountId);
-    const fileId = FileId.fromString('0.0.1234');
-    const transactionReceipt = { fileId, status: Status.Success };
-
-    // Base transaction properties
-    const defaultTx = {
-      value: '0x5',
-      gasPrice: '0x3b9aca00',
-      gasLimit: '0x100000',
-      chainId: 0x12a,
-      nonce: 5,
-      to: '0x0000000000000000000000000000000000001f41',
-    };
-
-    // Create transaction buffer of specified size
-    const createTransactionBuffer = async (size: number) => {
-      const tx = {
-        ...defaultTx,
-        data: '0x' + '00'.repeat(size),
-      };
-      const signedTx = await signTransaction(tx);
-      return Buffer.from(signedTx.substring(2), 'hex');
-    };
-
-    // Simplified mock response
-
-    let hbarLimitServiceMock: sinon.SinonMock;
-
-    beforeEach(() => {
-      hbarLimitServiceMock = sinon.mock(hbarLimitService);
-    });
-
-    afterEach(() => {
-      hbarLimitServiceMock.verify();
-      sinon.restore();
-    });
-  });
-
   describe('HBAR Limiter', async () => {
     const FILE_APPEND_CHUNK_SIZE = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
     const MAX_CHUNKS = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
