@@ -45,12 +45,15 @@ export function rpcMethod(_target: any, _propertyKey: string, descriptor: Proper
  *   }
  * }
  * ```
+ *
+ * @param target - The prototype of the class
+ * @param context - The context of the method
+ * @returns void
  */
 export function rpcMethodStandard(target: any, context: ClassMethodDecoratorContext): void {
   if (context.kind !== 'method') {
     throw new Error(`@rpcMethodStandard can only be applied to methods, received: ${context.kind}`);
   }
 
-  // Mark the method as RPC-enabled
   (target as any)[RPC_METHOD_KEY] = true;
 }
