@@ -185,6 +185,7 @@ export default class KoaJsonRpc {
         return jsonResp(request.id, null, result);
       }
     } catch (err) {
+      /* istanbul ignore next: this catch block covers programmatic errors and should not happen */
       return jsonResp(request.id, new InternalError(err), undefined);
     }
   }

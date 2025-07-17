@@ -25,7 +25,7 @@ describe('RpcErrors', () => {
     });
 
     it('should set data as undefined if not provided', () => {
-      const error = new JsonRpcError('Test message', -32000);
+      const error = new JsonRpcError('Test message', -32000, undefined);
       expect(error.message).to.equal('Test message');
       expect(error.code).to.equal(-32000);
       expect(error.data).to.be.undefined;
