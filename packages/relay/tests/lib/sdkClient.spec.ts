@@ -4,14 +4,12 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import {
   AccountId,
   Client,
-  ContractCallQuery,
   EthereumTransaction,
   ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
   FileDeleteTransaction,
   FileId,
-  FileInfo,
   FileInfoQuery,
   Hbar,
   Query,
@@ -24,7 +22,6 @@ import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
 import EventEmitter from 'events';
-import { create } from 'lodash';
 import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
