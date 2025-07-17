@@ -27,6 +27,7 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
+import { JsonRpcError, predefined } from '../../src';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -40,6 +41,7 @@ import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import MetricService from '../../src/lib/services/metricService/metricService';
 import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
+import RelayAssertions from '../assertions';
 import {
   calculateTxRecordChargeAmount,
   overrideEnvsInMochaDescribe,
@@ -238,10 +240,14 @@ describe('SdkClient', async function () {
       }) as unknown as TransactionResponse;
 
     let hbarLimitServiceMock: sinon.SinonMock;
+    let setEthereumDataStub: sinon.SinonSpy;
+    let setCallDataFileIdStub: sinon.SinonSpy;
 
     beforeEach(() => {
       sinon.restore();
       hbarLimitServiceMock = sinon.mock(hbarLimitService);
+      setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
+      setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
     });
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: true }, () => {
@@ -251,8 +257,6 @@ describe('SdkClient', async function () {
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse());
-        const setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
-        const setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
@@ -267,7 +271,6 @@ describe('SdkClient', async function () {
           mockedExchangeRateIncents,
         );
 
-        // Verify behaviors
         expect(createFileStub.called).to.be.false;
         expect(setEthereumDataStub.called).to.be.true;
         expect(setCallDataFileIdStub.called).to.be.false;
@@ -284,8 +287,6 @@ describe('SdkClient', async function () {
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse());
-        const setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
-        const setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
@@ -317,9 +318,6 @@ describe('SdkClient', async function () {
           .resolves(getMockedTransactionResponse());
         //const executeAllTransactionStub = sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
         //const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery').resolves({ size: { isZero: () => false } });
-
-        const setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
-        const setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
@@ -386,9 +384,6 @@ describe('SdkClient', async function () {
         const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery').resolves({
           size: { isZero: () => false, toString: () => '1000' },
         });
-
-        const setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
-        const setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
 
         // Mock HBAR limit service
         hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
@@ -1283,6 +1278,28 @@ describe('SdkClient', async function () {
       // Assert - Verify FileInfoQuery configuration
       expect(setFileIdSpy.calledWith(fileId), 'FileInfoQuery setFileId should be called with correct fileId').to.be
         .true;
+    });
+
+    it('should thrown an error on grpcTimeout', async () => {
+      executeQueryStub.restore();
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const deleteFileStub = sinon.stub(FileInfoQuery.prototype, 'execute');
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      deleteFileStub.rejects({ status: { _code: 17 }, message: 'Transaction Record Not Found' });
+
+      try {
+        await sdkClient.deleteFile(
+          fileId,
+          requestDetails,
+          mockedCallerName,
+          mockedInteractingEntity,
+          randomAccountAddress,
+        );
+      } catch (error: any) {
+        expect(error.code).to.equal(-32010);
+        expect(error.message).to.equal('Request timeout. Please try again.');
+      }
     });
   });
 });
