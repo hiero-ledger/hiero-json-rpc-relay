@@ -180,47 +180,6 @@ export class SDKClient {
   }
 
   /**
-   * Increases the query cost and retries the query execution if the initial attempt fails due to insufficient transaction fees.
-   * @param {Query<any>} query - The query to be executed.
-   * @param {Hbar} baseCost - The base cost of the query.
-   * @param {Client} client - The client to use for executing the query.
-   * @param {number} maxRetries - The maximum number of retries allowed.
-   * @param {number} currentRetry - The current retry attempt number.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<{resp: any, cost: Hbar}>} The response of the query execution and the cost used.
-   * @throws Will throw an error if the maximum number of retries is exceeded or if the error is not due to insufficient transaction fees.
-   */
-  private async increaseCostAndRetryExecution(
-    query: Query<any>,
-    baseCost: Hbar,
-    client: Client,
-    maxRetries: number,
-    currentRetry: number,
-    requestDetails: RequestDetails,
-  ): Promise<{ resp: any; cost: Hbar }> {
-    const baseMultiplier = constants.QUERY_COST_INCREMENTATION_STEP;
-    const multiplier = Math.pow(baseMultiplier, currentRetry);
-
-    const cost = Hbar.fromTinybars(baseCost._valueInTinybar.multipliedBy(multiplier).toFixed(0));
-
-    try {
-      const resp = await query.setQueryPayment(cost).execute(client);
-      return { resp, cost };
-    } catch (e: any) {
-      const sdkClientError = new SDKClientError(e, e.message);
-      if (maxRetries > currentRetry && sdkClientError.isInsufficientTxFee()) {
-        const newRetry = currentRetry + 1;
-        this.logger.info(
-          `${requestDetails.formattedRequestId} Retrying query execution with increased cost, retry number: ${newRetry}`,
-        );
-        return await this.increaseCostAndRetryExecution(query, baseCost, client, maxRetries, newRetry, requestDetails);
-      }
-
-      throw e;
-    }
-  }
-
-  /**
    * Executes a Hedera query and handles potential errors.
    * @param {Query<T>} query - The Hedera query to execute.
    * @param {Client} client - The Hedera client to use for the query.
@@ -236,7 +195,6 @@ export class SDKClient {
     query: Query<T>,
     client: Client,
     callerName: string,
-    interactingEntity: string,
     requestDetails: RequestDetails,
     originalCallerAddress?: string,
   ): Promise<T> {
@@ -249,20 +207,11 @@ export class SDKClient {
     this.logger.info(`${requestIdPrefix} Execute ${queryConstructorName} query.`);
 
     try {
-      if (query.paymentTransactionId) {
-        const baseCost = await query.getCost(this.clientMain);
-        const res = await this.increaseCostAndRetryExecution(query, baseCost, client, 3, 0, requestDetails);
-        queryResponse = res.resp;
-        queryCost = res.cost.toTinybars().toNumber();
-      } else {
-        queryResponse = await query.execute(client);
-        queryCost = query._queryPayment?.toTinybars().toNumber();
-      }
-
+      queryResponse = await query.execute(client);
+      queryCost = query._queryPayment?.toTinybars().toNumber();
       status = Status.Success.toString();
-
       this.logger.info(
-        `${requestIdPrefix} Successfully execute ${queryConstructorName} query: paymentTransactionId=${query.paymentTransactionId}, callerName=${callerName}, cost=${queryCost} tinybars`,
+        `${requestIdPrefix} Successfully execute ${queryConstructorName} query: callerName=${callerName}, cost=${queryCost} tinybars`,
       );
       return queryResponse;
     } catch (e: any) {
@@ -280,7 +229,7 @@ export class SDKClient {
 
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestIdPrefix} Fail to execute ${queryConstructorName} query: paymentTransactionId=${query.paymentTransactionId}, callerName=${callerName}, status=${sdkClientError.status}(${sdkClientError.status._code}), cost=${queryCost} tinybars`,
+          `${requestIdPrefix} Fail to execute ${queryConstructorName} callerName=${callerName}, status=${sdkClientError.status}(${sdkClientError.status._code}), cost=${queryCost} tinybars`,
         );
       }
 
@@ -548,7 +497,6 @@ export class SDKClient {
         new FileInfoQuery().setFileId(fileId),
         this.clientMain,
         callerName,
-        interactingEntity,
         requestDetails,
         originalCallerAddress,
       );
@@ -604,7 +552,6 @@ export class SDKClient {
         new FileInfoQuery().setFileId(fileId),
         this.clientMain,
         callerName,
-        interactingEntity,
         requestDetails,
         originalCallerAddress,
       );

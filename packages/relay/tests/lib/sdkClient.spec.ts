@@ -11,6 +11,7 @@ import {
   FileCreateTransaction,
   FileDeleteTransaction,
   FileId,
+  FileInfo,
   FileInfoQuery,
   Hbar,
   Query,
@@ -23,6 +24,7 @@ import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
 import EventEmitter from 'events';
+import { create } from 'lodash';
 import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
@@ -34,6 +36,7 @@ import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { SDKClientError } from '../../src/lib/errors/SDKClientError';
 import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -96,7 +99,7 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
+    sdkClient = new SDKClient(client, logger, eventEmitter, hbarLimitService);
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -123,93 +126,6 @@ describe('SdkClient', async function () {
 
   beforeEach(() => {
     mock = new MockAdapter(instance);
-  });
-
-  describe.skip('increaseCostAndRetryExecution', async () => {
-    let queryStub: sinon.SinonStub, contractCallQuery: ContractCallQuery;
-    const successResponse = '0x00001';
-    const costTinybars = 1000;
-    const baseCost = Hbar.fromTinybars(costTinybars);
-
-    beforeEach(() => {
-      contractCallQuery = new ContractCallQuery()
-        .setContractId('0.0.1010')
-        .setPaymentTransactionId(TransactionId.generate(client.operatorAccountId!));
-      queryStub = sinon.stub(contractCallQuery, 'execute');
-    });
-
-    it('executes the query', async () => {
-      queryStub.returns(successResponse);
-      const { resp, cost } = await sdkClient.increaseCostAndRetryExecution(
-        contractCallQuery,
-        baseCost,
-        client,
-        3,
-        0,
-        requestDetails,
-      );
-      expect(resp).to.eq(successResponse);
-      expect(cost.toTinybars().toNumber()).to.eq(costTinybars);
-      expect(queryStub.callCount).to.eq(1);
-    });
-
-    it('increases the cost when INSUFFICIENT_TX_FEE is thrown', async () => {
-      queryStub.onCall(0).throws({
-        status: Status.InsufficientTxFee,
-      });
-
-      queryStub.onCall(1).returns(successResponse);
-      const { resp, cost } = await sdkClient.increaseCostAndRetryExecution(
-        contractCallQuery,
-        baseCost,
-        client,
-        3,
-        0,
-        requestDetails,
-      );
-      expect(resp).to.eq(successResponse);
-      expect(cost.toTinybars().toNumber()).to.eq(costTinybars * constants.QUERY_COST_INCREMENTATION_STEP);
-      expect(queryStub.callCount).to.eq(2);
-    });
-
-    it('increases the cost when INSUFFICIENT_TX_FEE is thrown on every repeat', async () => {
-      queryStub.onCall(0).throws({
-        status: Status.InsufficientTxFee,
-      });
-
-      queryStub.onCall(1).throws({
-        status: Status.InsufficientTxFee,
-      });
-
-      queryStub.onCall(2).returns(successResponse);
-
-      const { resp, cost } = await sdkClient.increaseCostAndRetryExecution(
-        contractCallQuery,
-        baseCost,
-        client,
-        3,
-        0,
-        requestDetails,
-      );
-      expect(resp).to.eq(successResponse);
-      expect(cost.toTinybars().toNumber()).to.eq(
-        Math.floor(costTinybars * Math.pow(constants.QUERY_COST_INCREMENTATION_STEP, 2)),
-      );
-      expect(queryStub.callCount).to.eq(3);
-    });
-
-    it('is repeated at most 4 times', async () => {
-      try {
-        queryStub.throws({
-          status: Status.InsufficientTxFee,
-        });
-
-        await sdkClient.increaseCostAndRetryExecution(contractCallQuery, baseCost, client, 3, 0, requestDetails);
-      } catch (e: any) {
-        expect(queryStub.callCount).to.eq(4);
-        expect(e.status).to.eq(Status.InsufficientTxFee);
-      }
-    });
   });
 
   describe('HAPIService', async () => {
@@ -367,7 +283,7 @@ describe('SdkClient', async function () {
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
       it('should not create a file when size <= fileAppendChunkSize', async () => {
         // Setup mocks
-        const createFileStub = sinon.stub(sdkClient, 'createFile');
+        const createFileStub = sinon.stub(sdkClient as any, 'createFile');
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse());
@@ -533,21 +449,20 @@ describe('SdkClient', async function () {
 
       it('throws an error when createFile returns null', async () => {
         sinon.stub(sdkClient as any, 'createFile').resolves(null);
-        const buffer = new Uint8Array(chunkSize + 1);
+        const buffer = await createTransactionBuffer(chunkSize + 1);
 
-        try {
-          await sdkClient.submitEthereumTransaction(
+        expect(
+          sdkClient.submitEthereumTransaction(
             buffer,
             callerName,
             requestDetails,
             originalCallerAddress,
             networkGasPrice,
             exchangeRate,
-          );
-          expect.fail('Expected SDKClientError when createFile returns null');
-        } catch (err: any) {
-          expect(err.message).to.match(/No fileId created for transaction/);
-        }
+          ),
+        ).to.be.rejectedWith(
+          new SDKClientError({}, `${requestDetails.formattedRequestId} No fileId created for transaction. `),
+        );
       });
     });
   });
@@ -1052,32 +967,12 @@ describe('SdkClient', async function () {
         new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
         client,
         mockedCallerName,
-        mockedInteractingEntity,
         requestDetails,
       );
 
       expect(result).to.equal(fileInfo);
       expect(queryStub.called).to.be.true;
       expect(queryCostStub.called).to.be.false;
-    });
-
-    it('should execute FileInfoQuery (with paymentTransactionId) and add expenses to limiter', async () => {
-      const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
-      const queryCostStub = sinon.stub(Query.prototype, 'getCost').resolves(Hbar.fromTinybars(defaultTransactionFee));
-
-      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
-
-      const result = await sdkClient.executeQuery(
-        new FileInfoQuery().setFileId(fileId).setPaymentTransactionId(transactionId),
-        client,
-        mockedCallerName,
-        mockedInteractingEntity,
-        requestDetails,
-      );
-
-      expect(result).to.equal(fileInfo);
-      expect(queryStub.called).to.be.true;
-      expect(queryCostStub.called).to.be.true;
     });
 
     it('should execute EthereumTransaction and add expenses to limiter', async () => {
@@ -1229,6 +1124,214 @@ describe('SdkClient', async function () {
 
       const transactionFee = sdkClient.getTransferAmountSumForAccount(mockedTxRecord, accountId);
       expect(transactionFee).to.eq(defaultTransactionFee);
+    });
+  });
+
+  describe('deleteFile', () => {
+    const fileId = FileId.fromString('0.0.1234');
+    const mockedCallerName = 'deleteFileTest';
+    const mockedInteractingEntity = '0.0.5678';
+    const randomAccountAddress = random20BytesAddress();
+    const accountId = AccountId.fromString('0.0.1234');
+    const transactionId = TransactionId.generate(accountId);
+    const transactionReceipt = { fileId, status: Status.Success };
+
+    // Mock function to create a transaction response
+    const getMockedTransactionResponse = () =>
+      ({
+        nodeId: accountId,
+        transactionHash: Uint8Array.from([1, 2, 3, 4]),
+        transactionId,
+        getReceipt: () => Promise.resolve(transactionReceipt),
+        getRecord: () =>
+          Promise.resolve({
+            receipt: transactionReceipt,
+            contractFunctionResult: { gasUsed: Long.fromNumber(10000) },
+          }),
+      }) as unknown as TransactionResponse;
+
+    let executeTransactionStub: sinon.SinonStub;
+    let executeQueryStub: sinon.SinonStub;
+    let loggerWarnStub: sinon.SinonStub;
+    let loggerTraceStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      executeTransactionStub = sinon.stub(sdkClient as any, 'executeTransaction');
+      executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+      loggerWarnStub = sinon.stub(logger, 'warn');
+      loggerTraceStub = sinon.stub(logger, 'trace');
+      sinon.stub(logger, 'isLevelEnabled').returns(true);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should successfully delete a file and verify deletion', async () => {
+      // Arrange
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const mockFileInfo = { isDeleted: true };
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      executeQueryStub.resolves(mockFileInfo);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify executeTransaction call for FileDeleteTransaction
+      expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
+      const executeTransactionArgs = executeTransactionStub.firstCall.args;
+      expect(executeTransactionArgs[0], 'First arg should be FileDeleteTransaction').to.be.instanceOf(
+        FileDeleteTransaction,
+      );
+      expect(executeTransactionArgs[1], 'Second arg should be callerName').to.equal(mockedCallerName);
+      expect(executeTransactionArgs[2], 'Third arg should be interactingEntity').to.equal(mockedInteractingEntity);
+      expect(executeTransactionArgs[3], 'Fourth arg should be requestDetails').to.equal(requestDetails);
+      expect(executeTransactionArgs[4], 'Fifth arg should be false (shouldThrowHbarLimit)').to.be.false;
+      expect(executeTransactionArgs[5], 'Sixth arg should be originalCallerAddress').to.equal(randomAccountAddress);
+
+      // Assert - Verify executeQuery call for FileInfoQuery
+      expect(executeQueryStub.calledOnce, 'executeQuery should be called once').to.be.true;
+      const executeQueryArgs = executeQueryStub.firstCall.args;
+      expect(executeQueryArgs[0], 'First arg should be FileInfoQuery').to.be.instanceOf(FileInfoQuery);
+      expect(executeQueryArgs[1], 'Second arg should be client instance').to.equal(sdkClient.getMainClientInstance());
+      expect(executeQueryArgs[2], 'Third arg should be callerName').to.equal(mockedCallerName);
+      expect(executeQueryArgs[3], 'Fifth arg should be requestDetails').to.equal(requestDetails);
+      expect(executeQueryArgs[4], 'Sixth arg should be originalCallerAddress').to.equal(randomAccountAddress);
+
+      // Assert - Verify successful deletion logging
+      expect(loggerTraceStub.called, 'logger.trace should be called for successful deletion').to.be.true;
+      expect(loggerTraceStub.firstCall.args[0]).to.include(`Deleted file with fileId: ${fileId}`);
+      expect(loggerWarnStub.called, 'logger.warn should not be called on success').to.be.false;
+    });
+
+    it('should warn when file deletion verification fails', async () => {
+      // Arrange
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const mockFileInfo = { isDeleted: false };
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      executeQueryStub.resolves(mockFileInfo);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify warning is logged when file is not deleted
+      expect(loggerWarnStub.calledOnce, 'logger.warn should be called when deletion fails').to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include(`Fail to delete file with fileId: ${fileId}`);
+      expect(loggerTraceStub.called, 'logger.trace should not be called on failure').to.be.false;
+    });
+
+    it('should handle and log errors during file deletion', async () => {
+      // Arrange
+      const errorMessage = 'Transaction execution failed';
+      const error = new Error(errorMessage);
+
+      executeTransactionStub.rejects(error);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify error handling
+      expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
+      expect(executeQueryStub.called, 'executeQuery should not be called when transaction fails').to.be.false;
+      expect(loggerWarnStub.calledOnce, 'logger.warn should be called for error').to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include(errorMessage);
+    });
+
+    it('should handle errors during file info query', async () => {
+      // Arrange
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const queryError = new Error('Query execution failed');
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      executeQueryStub.rejects(queryError);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify both methods were called and error was logged
+      expect(executeTransactionStub.calledOnce, 'executeTransaction should be called').to.be.true;
+      expect(executeQueryStub.calledOnce, 'executeQuery should be called').to.be.true;
+      expect(loggerWarnStub.calledOnce, 'logger.warn should be called for query error').to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include('Query execution failed');
+    });
+
+    it('should configure FileDeleteTransaction correctly', async () => {
+      // Arrange
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const mockFileInfo = { isDeleted: true };
+      const setFileIdSpy = sinon.spy(FileDeleteTransaction.prototype, 'setFileId');
+      const setMaxTransactionFeeSpy = sinon.spy(FileDeleteTransaction.prototype, 'setMaxTransactionFee');
+      const freezeWithSpy = sinon.spy(FileDeleteTransaction.prototype, 'freezeWith');
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      executeQueryStub.resolves(mockFileInfo);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify FileDeleteTransaction configuration
+      expect(setFileIdSpy.calledWith(fileId), 'setFileId should be called with correct fileId').to.be.true;
+      expect(setMaxTransactionFeeSpy.calledOnce, 'setMaxTransactionFee should be called').to.be.true;
+      expect(setMaxTransactionFeeSpy.firstCall.args[0].toTinybars().toNumber(), 'Max fee should be 2 HBAR').to.equal(
+        200000000,
+      );
+      expect(freezeWithSpy.calledWith(sdkClient.getMainClientInstance()), 'freezeWith should be called with client').to
+        .be.true;
+    });
+
+    it('should configure FileInfoQuery correctly', async () => {
+      // Arrange
+      const mockTransactionResponse = getMockedTransactionResponse();
+      const mockFileInfo = { isDeleted: true };
+      const setFileIdSpy = sinon.spy(FileInfoQuery.prototype, 'setFileId');
+
+      executeTransactionStub.resolves(mockTransactionResponse);
+      executeQueryStub.resolves(mockFileInfo);
+
+      // Act
+      await sdkClient.deleteFile(
+        fileId,
+        requestDetails,
+        mockedCallerName,
+        mockedInteractingEntity,
+        randomAccountAddress,
+      );
+
+      // Assert - Verify FileInfoQuery configuration
+      expect(setFileIdSpy.calledWith(fileId), 'FileInfoQuery setFileId should be called with correct fileId').to.be
+        .true;
     });
   });
 });
