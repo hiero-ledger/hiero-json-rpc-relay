@@ -220,9 +220,6 @@ export class SDKClient {
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = sdkClientError.status.toString();
 
-      if (e instanceof PrecheckStatusError && e.contractFunctionResult?.errorMessage) {
-        throw predefined.CONTRACT_REVERT(e.contractFunctionResult.errorMessage);
-      }
       if (sdkClientError.isGrpcTimeout()) {
         throw predefined.REQUEST_TIMEOUT;
       }
