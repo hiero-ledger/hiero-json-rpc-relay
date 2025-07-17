@@ -76,7 +76,7 @@ export function rpcParamValidationRules(validationRules: Record<number, IParamVa
  * @returns Method decorator function
  */
 export function rpcParamValidationRulesStandard(validationRules: Record<number, IParamValidation>) {
-  return function (target: any, context: ClassMethodDecoratorContext): void {
+  return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
     if (context.kind !== 'method') {
       throw new Error(`@rpcParamValidationRulesStandard can only be applied to methods, received: ${context.kind}`);
     }

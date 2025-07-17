@@ -100,7 +100,7 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
  *   @cacheStandard(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cacheStandard(cacheService: CacheService, options: CacheOptions = {}) {
-  return function (target: any, context: ClassMethodDecoratorContext): void {
+  return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
     if (context.kind !== 'method') {
       throw new Error(`@cacheStandard can only be applied to methods, received: ${context.kind}`);
     }

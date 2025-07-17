@@ -83,7 +83,7 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfigStandard(layout: string | ParamTransformFn) {
-  return function (target: any, context: ClassMethodDecoratorContext): void {
+  return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
     if (context.kind !== 'method') {
       throw new Error(`@rpcParamLayoutConfigStandard can only be applied to methods, received: ${context.kind}`);
     }
