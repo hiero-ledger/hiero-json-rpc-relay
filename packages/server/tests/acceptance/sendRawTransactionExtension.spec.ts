@@ -212,7 +212,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
-      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_MAX_ALLOWANCE', allowance);
+      ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
     };
 
     const createAndSignTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {

@@ -593,12 +593,6 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  PAYMASTER_MAX_ALLOWANCE: {
-    envName: 'PAYMASTER_MAX_ALLOWANCE',
-    type: 'number',
-    required: false,
-    defaultValue: 10000000000, // 100 HBAR
-  },
   PAYMASTER_WHITELIST: {
     envName: 'PAYMASTER_WHITELIST',
     type: 'strArray',
