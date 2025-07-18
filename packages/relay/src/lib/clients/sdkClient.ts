@@ -29,7 +29,7 @@ import {
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
-import { weibarHexToTinyBarInt } from '../../formatters';
+import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { HbarLimitService } from '../services/hbarLimitService';
 import {
@@ -174,7 +174,7 @@ export class SDKClient {
     if (
       ConfigService.get('PAYMASTER_ENABLED') &&
       (payMasterWhiteList.includes('*') ||
-        (interactingEntity && payMasterWhiteList.includes(interactingEntity.toLowerCase())))
+        (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
     ) {
       ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
     }
