@@ -59,7 +59,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
   });
 
@@ -67,13 +67,13 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
 
     // next call should use cache
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, {});
 
-    const resBalanceCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalanceCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalanceCached).to.equal(resBalance);
 
     // Third call should return new number using mirror node
@@ -91,7 +91,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     // expire cache, instead of waiting for ttl we clear it to simulate expiry faster.
     await cacheService.clear(requestDetails);
 
-    const resBalanceNew = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalanceNew = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(newBalanceHex).to.equal(resBalanceNew);
   });
 
@@ -162,7 +162,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(200, JSON.stringify(null));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(constants.ZERO_HEX);
   });
 
@@ -170,11 +170,11 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
-    const resNoCache = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resNoCache = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
 
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, NOT_FOUND_RES);
 
-    const resCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resNoCache).to.equal(DEF_HEX_BALANCE);
     expect(resCached).to.equal(DEF_HEX_BALANCE);
   });
