@@ -161,25 +161,19 @@ export class Precheck {
 
     const txGasPrice = BigInt(tx.gasPrice || tx.maxFeePerGas! + tx.maxPriorityFeePerGas!);
 
-    const payMasterEnabled = ConfigService.get('PAYMASTER_ENABLED');
-    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
-
-    // Paymaster transactions are exempt from gas price precheck
-    if (payMasterEnabled && (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to)))) {
-      return;
-    }
-
     // **notice: Pass gasPrice precheck if txGasPrice is greater than the minimum network's gas price value,
     //          OR if the transaction is the deterministic deployment transaction (a special case),
-    //          OR in case of fully subsidized transactions where gasPrice was set 0 by the user and the provider set a gas allowance
+    //          OR paymaster is used for fully subsidized transactions where gasPrice was set 0 by the user and the provider set a gas allowance
     // **explanation: The deterministic deployment transaction is pre-signed with a gasPrice value of only 10 hbars,
     //                which is lower than the minimum gas price value in all Hedera network environments. Therefore,
     //                this special case is exempt from the precheck in the Relay, and the gas price logic will be resolved at the Services level.
     //                The same is true for fully subsidized transactions, where the precheck about the gasPrice is not needed anymore.
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
     const passes =
       txGasPrice >= networkGasPrice ||
       Precheck.isDeterministicDeploymentTransaction(tx) ||
-      (txGasPrice === BigInt(0) && ConfigService.get('MAX_GAS_ALLOWANCE_HBAR') > 0);
+      (ConfigService.get('PAYMASTER_ENABLED') &&
+        (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to))));
 
     if (!passes) {
       if (ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER')) {
