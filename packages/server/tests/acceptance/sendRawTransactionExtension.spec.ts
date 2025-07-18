@@ -207,7 +207,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('Paymaster', function () {
     const zeroGasPrice = '0x0';
     const GAS_PRICE_REF = '0x123456';
-    const MAX_ALLOWANCE = 10000000000; // 100 hbars
+    const MAX_ALLOWANCE = 100;
 
     const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
