@@ -57,3 +57,34 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
     return descriptor;
   };
 }
+
+/**
+ * TypeScript 5+ standard decorator for specifying the parameter layout of an RPC method.
+ *
+ * This decorator defines how RPC parameters should be arranged when passed to the method.
+ *
+ * @example
+ * ```typescript
+ * // Method that only needs requestDetails
+ * @rpcMethod
+ * @rpcParamSpecialLayout(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+ * blockNumber(requestDetails: RequestDetails): Promise<string> {
+ *   // Implementation
+ * }
+ *
+ * // Method with specific parameter transformations
+ * @rpcMethod
+ * @rpcParamSpecialLayout(RPC_LAYOUT.custom(params => [params[0], params[1]]))
+ * estimateGas(transaction: IContractCallRequest, _blockParam: string | null, requestDetails: RequestDetails,): Promise<string | JsonRpcError> {
+ *   // Implementation
+ * }
+ * ```
+ *
+ * @param layout - Parameter layout specification
+ */
+export function rpcParamLayoutConfigStandard(layout: string | ParamTransformFn) {
+  return function (target: any, _context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
+    // Attach parameter layout configuration to the method
+    target[RPC_PARAM_LAYOUT_KEY] = layout;
+  };
+}
