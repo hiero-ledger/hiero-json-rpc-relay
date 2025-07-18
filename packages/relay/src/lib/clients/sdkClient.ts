@@ -173,8 +173,7 @@ export class SDKClient {
     const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
     if (
       ConfigService.get('PAYMASTER_ENABLED') &&
-      (payMasterWhiteList.incluincludesdes('*') ||
-        (interactingEntity && payMasterWhiteList.includes(interactingEntity)))
+      (payMasterWhiteList.includes('*') || (interactingEntity && payMasterWhiteList.includes(interactingEntity)))
     ) {
       ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
     }
