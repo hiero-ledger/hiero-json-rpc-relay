@@ -5,6 +5,7 @@ import {
   AccountId,
   Client,
   EthereumTransaction,
+  EthereumTransactionData,
   ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
@@ -316,12 +317,9 @@ describe('SdkClient', async function () {
         const executeTransactionStub = sinon
           .stub(sdkClient as any, 'executeTransaction')
           .resolves(getMockedTransactionResponse());
-        //const executeAllTransactionStub = sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
-        //const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery').resolves({ size: { isZero: () => false } });
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
-        // Execute with large transaction buffer
         const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
         const sendRawTransactionResult = await sdkClient.submitEthereumTransaction(
           largeTransactionBuffer,
@@ -332,10 +330,11 @@ describe('SdkClient', async function () {
           mockedExchangeRateIncents,
         );
 
+        const callData = EthereumTransactionData.fromBytes(largeTransactionBuffer).callData;
         // Verify createFile is called with correct arguments
         expect(createFileStub.calledOnce).to.be.true;
         const createFileArgs = createFileStub.firstCall.args;
-        expect(createFileArgs[0]).to.be.instanceOf(Uint8Array); // callData
+        expect(createFileArgs[0]).to.equal(callData).and.to.be.instanceOf(Uint8Array); // callData
         expect(createFileArgs[1]).to.equal(sdkClient.getMainClientInstance()); // client
         expect(createFileArgs[2]).to.equal(requestDetails); // requestDetails
         expect(createFileArgs[3]).to.equal(mockedCallerName); // callerName
@@ -364,8 +363,6 @@ describe('SdkClient', async function () {
 
         // Note: createFile internally calls executeTransaction, executeAllTransaction, and executeQuery
         // but we're stubbing createFile itself, so those won't be called in this test.
-        // If you want to test the full integration, you could remove the createFile stub
-        // and let it call through to the other stubs.
       });
 
       it('should test full integration flow when creating a file with size > fileAppendChunkSize', async () => {
@@ -439,11 +436,37 @@ describe('SdkClient', async function () {
         expect(sendRawTransactionResult.txResponse).to.exist;
       });
 
+      it('should fail when file info query size is zero', async () => {
+        const mockReceipt = { fileId, status: Status.Success };
+        const mockTransactionResponse = {
+          ...getMockedTransactionResponse(),
+          getReceipt: sinon.stub().resolves(mockReceipt),
+        };
+
+        sinon.stub(sdkClient as any, 'executeTransaction').resolves(mockTransactionResponse);
+        sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
+        const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+        executeQueryStub.resolves({ size: { isZero: () => true, toString: () => '0' } });
+        hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
+
+        const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
+        await expect(
+          sdkClient.submitEthereumTransaction(
+            largeTransactionBuffer,
+            mockedCallerName,
+            requestDetails,
+            randomAccountAddress,
+            mockedNetworkGasPrice,
+            mockedExchangeRateIncents,
+          ),
+        ).to.be.rejectedWith(SDKClientError, 'Created file is empty.');
+      });
+
       it('throws an error when createFile returns null', async () => {
         sinon.stub(sdkClient as any, 'createFile').resolves(null);
         const buffer = await createTransactionBuffer(chunkSize + 1);
 
-        expect(
+        await expect(
           sdkClient.submitEthereumTransaction(
             buffer,
             callerName,
@@ -452,9 +475,7 @@ describe('SdkClient', async function () {
             networkGasPrice,
             exchangeRate,
           ),
-        ).to.be.rejectedWith(
-          new SDKClientError({}, `${requestDetails.formattedRequestId} No fileId created for transaction. `),
-        );
+        ).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
       });
     });
   });
