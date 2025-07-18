@@ -204,6 +204,19 @@ describe('MirrorNodeClient', async function () {
         }
       });
     }
+
+    it('should gracefully handle HTML error responses', async () => {
+      // Simulate Mirror Node returning HTML error page
+      mock
+        .onGet('accounts')
+        .reply(
+          502,
+          `<!DOCTYPE html><html><head><title>502 Server Error</title></head><body>Error: Server Error</body></html>`,
+        );
+      await expect(mirrorNodeInstance.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith('Request failed with status code 502')
+        .and.have.property('statusCode', 502);
+    });
   });
 
   it('Can extract the account number out of an account pagination next link url', async () => {
