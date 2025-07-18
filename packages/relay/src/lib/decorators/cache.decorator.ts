@@ -32,7 +32,7 @@ interface CacheOptions {
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
  * and `skipNamedParams` (for object args).
  *
- * Legacy decorator for TypeScript 4.x with --experimentalDecorators.
+ * Decorator for TypeScript 4.x with --experimentalDecorators.
  * For TypeScript 5+ standard decorators, use @cacheStandard instead.
  *
  * @param cacheService - The caching service used to store and retrieve cache entries.
@@ -101,41 +101,30 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
  */
 export function cacheStandard(cacheService: CacheService, options: CacheOptions = {}) {
   return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
-    if (context.kind !== 'method') {
-      throw new Error(`@cacheStandard can only be applied to methods, received: ${context.kind}`);
-    }
-
     const methodName = String(context.name);
 
-    // Use addInitializer to replace the method implementation with cached version
     context.addInitializer(function (this: any) {
-      const originalMethod = this[context.name as string | symbol];
-
-      // Replace the method with the cached version
-      this[context.name as string | symbol] = async function (this: any, ...args: unknown[]) {
+      this[context.name as string | symbol] = async function (...args: unknown[]) {
         const requestDetails = extractRequestDetails(args);
         const cacheKey = generateCacheKey(methodName, args);
 
         const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+        if (cachedResponse) return cachedResponse;
 
-        const result = await originalMethod.apply(this, args);
+        const result = await target.apply(this, args);
         if (
           result &&
-          !shouldSkipCachingForSingleParams(args, options?.skipParams) &&
-          !shouldSkipCachingForNamedParams(args, options?.skipNamedParams)
+          !shouldSkipCachingForSingleParams(args, options.skipParams) &&
+          !shouldSkipCachingForNamedParams(args, options.skipNamedParams)
         ) {
           await cacheService.set(
             cacheKey,
             result,
             methodName,
             requestDetails,
-            options?.ttl ?? ConfigService.get('CACHE_TTL'),
+            options.ttl ?? ConfigService.get('CACHE_TTL'),
           );
         }
-
         return result;
       };
     });

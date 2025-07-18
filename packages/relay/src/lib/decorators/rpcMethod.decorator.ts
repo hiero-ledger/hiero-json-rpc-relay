@@ -7,7 +7,7 @@
 export const RPC_METHOD_KEY = 'hedera-rpc-method';
 
 /**
- * Legacy decorator that marks a class method as an RPC method (TypeScript 4.x with --experimentalDecorators).
+ * Decorator that marks a class method as an RPC method (TypeScript 4.x with --experimentalDecorators).
  * When applied to a method, it marks that method as available for RPC invocation.
  *
  * For TypeScript 5+ standard decorators, use @rpcMethodStandard instead.
@@ -50,10 +50,6 @@ export function rpcMethod(_target: any, _propertyKey: string, descriptor: Proper
  * @param context - The context of the method
  * @returns void
  */
-export function rpcMethodStandard(target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
-  if (context.kind !== 'method') {
-    throw new Error(`@rpcMethodStandard can only be applied to methods, received: ${context.kind}`);
-  }
-
-  (target as any)[RPC_METHOD_KEY] = true;
+export function rpcMethodStandard(target: any, _context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
+  target[RPC_METHOD_KEY] = true;
 }

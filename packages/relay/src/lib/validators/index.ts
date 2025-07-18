@@ -31,7 +31,7 @@ export interface IParamValidation {
 export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules';
 
 /**
- * Legacy decorator that defines a schema for validating RPC method parameters
+ * Decorator that defines a schema for validating RPC method parameters
  *
  * @example
  * ```typescript
@@ -82,7 +82,7 @@ export function rpcParamValidationRulesStandard(validationRules: Record<number, 
     }
 
     // Store validation rules directly on the function as a property
-    (target as any)[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+    target[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
   };
 }
 

@@ -28,7 +28,7 @@ export const RPC_LAYOUT = {
 };
 
 /**
- * Legacy decorator for specifying the parameter layout of an RPC method which is different from the standard layout
+ * Decorator for specifying the parameter layout of an RPC method which is different from the standard layout
  *
  * This decorator defines how RPC parameters should be arranged when passed to the method.
  *
@@ -83,12 +83,8 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfigStandard(layout: string | ParamTransformFn) {
-  return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
-    if (context.kind !== 'method') {
-      throw new Error(`@rpcParamLayoutConfigStandard can only be applied to methods, received: ${context.kind}`);
-    }
-
+  return function (target: any, _context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
     // Attach parameter layout configuration to the method
-    (target as any)[RPC_PARAM_LAYOUT_KEY] = layout;
+    target[RPC_PARAM_LAYOUT_KEY] = layout;
   };
 }
