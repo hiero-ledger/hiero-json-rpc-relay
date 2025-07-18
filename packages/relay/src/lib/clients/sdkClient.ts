@@ -170,10 +170,11 @@ export class SDKClient {
       ),
     );
 
-    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
     if (
       ConfigService.get('PAYMASTER_ENABLED') &&
-      (payMasterWhiteList.includes('*') || (interactingEntity && payMasterWhiteList.includes(interactingEntity)))
+      (payMasterWhiteList.includes('*') ||
+        (interactingEntity && payMasterWhiteList.includes(interactingEntity.toLowerCase())))
     ) {
       ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
     }
