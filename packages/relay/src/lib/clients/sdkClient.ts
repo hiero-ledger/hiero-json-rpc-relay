@@ -29,7 +29,7 @@ import {
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
-import { weibarHexToTinyBarInt } from '../../formatters';
+import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { HbarLimitService } from '../services/hbarLimitService';
 import {
@@ -170,9 +170,14 @@ export class SDKClient {
       ),
     );
 
-    // If the authorized fee from the Ethereum sender is insufficient, the payer of the transaction is charged up to the maxGasAllowance.
-    // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
-    ethereumTransaction.setMaxGasAllowanceHbar(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'));
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+    if (
+      ConfigService.get('PAYMASTER_ENABLED') &&
+      (payMasterWhiteList.includes('*') ||
+        (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
+    ) {
+      ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
+    }
 
     return {
       fileId,
