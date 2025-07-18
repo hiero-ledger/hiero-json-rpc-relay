@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { Logger, pino } from 'pino';
 import { Registry } from 'prom-client';
+import * as redis from 'redis';
 import * as sinon from 'sinon';
 
 import { LruRateLimitStore } from '../../../../src/lib/services/rateLimiterService/LruRateLimitStore';
@@ -10,7 +11,7 @@ import { IPRateLimiterService } from '../../../../src/lib/services/rateLimiterSe
 import { RedisRateLimitStore } from '../../../../src/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../src/lib/types/rateLimiter';
 import { RequestDetails } from '../../../../src/lib/types/RequestDetails';
-import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
+import { createMockRedisClient, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('IPRateLimiterService Test Suite', function () {
   this.timeout(10000);
@@ -247,6 +248,33 @@ describe('IPRateLimiterService Test Suite', function () {
       rateLimiterService = new IPRateLimiterService(logger, registry, duration);
 
       expect(rateLimiterService['store']).to.be.instanceof(RedisRateLimitStore);
+    });
+
+    it('should handle Redis connection failures gracefully (fail-open behavior)', async () => {
+      const mockRedisClient = createMockRedisClient({ connectRejects: true });
+      const createClientStub = sinon.stub().returns(mockRedisClient);
+      sinon.replace(redis, 'createClient', createClientStub);
+
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
+
+      // Wait for connection promise to resolve
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Should not rate limit when Redis is unavailable (fail-open behavior)
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
+      expect(result).to.be.false;
+    });
+
+    it('should handle Redis operation failures gracefully (fail-open behavior)', async () => {
+      const mockRedisClient = createMockRedisClient({ evalRejects: true });
+      const createClientStub = sinon.stub().returns(mockRedisClient);
+      sinon.replace(redis, 'createClient', createClientStub);
+
+      rateLimiterService = new IPRateLimiterService(logger, registry, duration);
+
+      // Should not rate limit when Redis operations fail (fail-open behavior)
+      const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
+      expect(result).to.be.false;
     });
   });
 

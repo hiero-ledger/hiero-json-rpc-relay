@@ -143,7 +143,7 @@ export class SDKClient {
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
     const payMasterEnabled = ConfigService.get('PAYMASTER_ENABLED');
     const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
-    const payMasterMaxAllowance = ConfigService.get('PAYMASTER_MAX_ALLOWANCE');
+    const payMasterMaxAllowance = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
 
     let fileId: FileId | null = null;
 
@@ -177,7 +177,7 @@ export class SDKClient {
       payMasterEnabled &&
       (payMasterWhiteList.includes('*') || (interactingEntity && payMasterWhiteList.includes(interactingEntity)))
     ) {
-      ethereumTransaction.setMaxGasAllowanceHbar(Hbar.fromTinybars(payMasterMaxAllowance));
+      ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(payMasterMaxAllowance, HbarUnit.Hbar));
     }
 
     return {

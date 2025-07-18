@@ -68,7 +68,6 @@ config:
   # ========== OTHER SETTINGS ==========
   # CLIENT_TRANSPORT_SECURITY:
   # USE_ASYNC_TX_PROCESSING:
-  # DEV_MODE:
   # LOG_LEVEL: 'trace'
 
 # Redis integration - these settings override any manually configured Redis settings
