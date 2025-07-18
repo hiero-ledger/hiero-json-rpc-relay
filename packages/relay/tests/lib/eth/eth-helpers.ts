@@ -36,7 +36,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
   const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
-  // @ts-ignore
   const mirrorNodeInstance = new MirrorNodeClient(
     ConfigService.get('MIRROR_NODE_URL'),
     logger.child({ name: `mirror-node` }),
@@ -44,9 +43,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     cacheService,
   );
 
-  // @ts-ignore
   const restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
-  // @ts-ignore
   const web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
   const duration = constants.HBAR_RATE_LIMIT_DURATION;
