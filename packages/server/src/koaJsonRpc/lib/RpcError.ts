@@ -40,13 +40,11 @@ export class InvalidParams extends JsonRpcError {
 }
 
 export class InternalError extends JsonRpcError {
-  constructor(err) {
-    let message;
-    if (err && err.message) {
-      message = err.message;
-    } else {
-      message = 'Internal error';
-    }
+  /**
+   * @param err The error object that caused this `InternalError`.
+   */
+  constructor(err: unknown) {
+    const message = err && typeof err === 'object' && 'message' in err ? err.message : 'Internal error';
     super(message, -32603, undefined);
   }
 }
