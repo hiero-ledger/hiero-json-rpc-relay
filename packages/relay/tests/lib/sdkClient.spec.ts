@@ -28,7 +28,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { JsonRpcError, predefined } from '../../src';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -42,7 +41,6 @@ import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import MetricService from '../../src/lib/services/metricService/metricService';
 import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
-import RelayAssertions from '../assertions';
 import {
   calculateTxRecordChargeAmount,
   overrideEnvsInMochaDescribe,
@@ -194,16 +192,12 @@ describe('SdkClient', async function () {
 
   describe('submitEthereumTransaction', () => {
     const accountId = AccountId.fromString('0.0.1234');
-    const callerName = 'unit_test_caller';
     const chunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
-    const exchangeRate = 10;
     const FILE_APPEND_CHUNK_SIZE = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
     const fileId = FileId.fromString('0.0.1234');
     const mockedCallerName = 'caller_name';
     const mockedExchangeRateIncents = 12;
     const mockedNetworkGasPrice = 710000;
-    const networkGasPrice = 1000;
-    const originalCallerAddress = '0xdeadbeef';
     const randomAccountAddress = random20BytesAddress();
     const transactionId = TransactionId.generate(accountId);
     const transactionReceipt = { fileId, status: Status.Success };
@@ -216,6 +210,17 @@ describe('SdkClient', async function () {
       chainId: 0x12a,
       nonce: 5,
       to: '0x0000000000000000000000000000000000001f41',
+    };
+
+    const callSubmit = (buffer: Buffer) => {
+      return sdkClient.submitEthereumTransaction(
+        buffer,
+        mockedCallerName,
+        requestDetails,
+        randomAccountAddress,
+        mockedNetworkGasPrice,
+        mockedExchangeRateIncents,
+      );
     };
 
     const createTransactionBuffer = async (size: number) => {
@@ -243,17 +248,20 @@ describe('SdkClient', async function () {
     let hbarLimitServiceMock: sinon.SinonMock;
     let setEthereumDataStub: sinon.SinonSpy;
     let setCallDataFileIdStub: sinon.SinonSpy;
+    let smallBuffer: Buffer;
+    let largeBuffer: Buffer;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       sinon.restore();
       hbarLimitServiceMock = sinon.mock(hbarLimitService);
       setEthereumDataStub = sinon.spy(EthereumTransaction.prototype, 'setEthereumData');
       setCallDataFileIdStub = sinon.spy(EthereumTransaction.prototype, 'setCallDataFileId');
+      smallBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE - 500);
+      largeBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
     });
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: true }, () => {
       it('should not create a file when JUMBO_TX_ENABLED is true, regardless of transaction size', async () => {
-        // Setup mocks
         const createFileStub = sinon.stub(sdkClient, 'createFile');
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
@@ -261,16 +269,7 @@ describe('SdkClient', async function () {
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
-        // Execute with large transaction buffer
-        const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
-        const sendRawTransactionResult = await sdkClient.submitEthereumTransaction(
-          largeTransactionBuffer,
-          mockedCallerName,
-          requestDetails,
-          randomAccountAddress,
-          mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
-        );
+        const sendRawTransactionResult = await callSubmit(largeBuffer);
 
         expect(createFileStub.called).to.be.false;
         expect(setEthereumDataStub.called).to.be.true;
@@ -283,7 +282,6 @@ describe('SdkClient', async function () {
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
       it('should not create a file when size <= fileAppendChunkSize', async () => {
-        // Setup mocks
         const createFileStub = sinon.stub(sdkClient as any, 'createFile');
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
@@ -291,18 +289,8 @@ describe('SdkClient', async function () {
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
-        // Execute with small transaction buffer
-        const smallTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE - 500);
-        const sendRawTransactionResult = await sdkClient.submitEthereumTransaction(
-          smallTransactionBuffer,
-          mockedCallerName,
-          requestDetails,
-          randomAccountAddress,
-          mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
-        );
+        const sendRawTransactionResult = await callSubmit(smallBuffer);
 
-        // Verify behaviors
         expect(createFileStub.called).to.be.false;
         expect(setEthereumDataStub.called).to.be.true;
         expect(setCallDataFileIdStub.called).to.be.false;
@@ -312,7 +300,6 @@ describe('SdkClient', async function () {
       });
 
       it('should create a file when size > fileAppendChunkSize', async () => {
-        // Setup mocks for all internal methods
         const createFileStub = sinon.stub(sdkClient as any, 'createFile').resolves(fileId);
         const executeTransactionStub = sinon
           .stub(sdkClient as any, 'executeTransaction')
@@ -320,21 +307,12 @@ describe('SdkClient', async function () {
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
 
-        const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
-        const sendRawTransactionResult = await sdkClient.submitEthereumTransaction(
-          largeTransactionBuffer,
-          mockedCallerName,
-          requestDetails,
-          randomAccountAddress,
-          mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
-        );
+        const sendRawTransactionResult = await callSubmit(largeBuffer);
 
-        const callData = EthereumTransactionData.fromBytes(largeTransactionBuffer).callData;
-        // Verify createFile is called with correct arguments
+        const callData = EthereumTransactionData.fromBytes(largeBuffer).callData;
         expect(createFileStub.calledOnce).to.be.true;
         const createFileArgs = createFileStub.firstCall.args;
-        expect(createFileArgs[0]).to.equal(callData).and.to.be.instanceOf(Uint8Array); // callData
+        expect(createFileArgs[0]).to.deep.equal(callData).and.to.be.instanceOf(Uint8Array); // callData
         expect(createFileArgs[1]).to.equal(sdkClient.getMainClientInstance()); // client
         expect(createFileArgs[2]).to.equal(requestDetails); // requestDetails
         expect(createFileArgs[3]).to.equal(mockedCallerName); // callerName
@@ -385,16 +363,8 @@ describe('SdkClient', async function () {
         // Mock HBAR limit service
         hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
 
-        // Execute with large transaction buffer
-        const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
-        const sendRawTransactionResult = await sdkClient.submitEthereumTransaction(
-          largeTransactionBuffer,
-          mockedCallerName,
-          requestDetails,
-          randomAccountAddress,
-          mockedNetworkGasPrice,
-          mockedExchangeRateIncents,
-        );
+        // Execute with large buffer
+        const sendRawTransactionResult = await callSubmit(largeBuffer);
 
         // Verify executeTransaction was called multiple times:
         // 1. For FileCreateTransaction (in createFile)
@@ -449,33 +419,14 @@ describe('SdkClient', async function () {
         executeQueryStub.resolves({ size: { isZero: () => true, toString: () => '0' } });
         hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
 
-        const largeTransactionBuffer = await createTransactionBuffer(FILE_APPEND_CHUNK_SIZE + 500);
-        await expect(
-          sdkClient.submitEthereumTransaction(
-            largeTransactionBuffer,
-            mockedCallerName,
-            requestDetails,
-            randomAccountAddress,
-            mockedNetworkGasPrice,
-            mockedExchangeRateIncents,
-          ),
-        ).to.be.rejectedWith(SDKClientError, 'Created file is empty.');
+        // Execute and expect failure
+        await expect(callSubmit(largeBuffer)).to.be.rejectedWith(SDKClientError, 'Created file is empty.');
       });
 
       it('throws an error when createFile returns null', async () => {
         sinon.stub(sdkClient as any, 'createFile').resolves(null);
         const buffer = await createTransactionBuffer(chunkSize + 1);
-
-        await expect(
-          sdkClient.submitEthereumTransaction(
-            buffer,
-            callerName,
-            requestDetails,
-            originalCallerAddress,
-            networkGasPrice,
-            exchangeRate,
-          ),
-        ).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
+        await expect(callSubmit(buffer)).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
       });
     });
   });
