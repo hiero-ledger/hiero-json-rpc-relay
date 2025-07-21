@@ -26,8 +26,6 @@ type StringTypeToActualType<Tstr extends string> = Tstr extends 'string'
   ? boolean
   : Tstr extends 'number'
   ? number
-  : Tstr extends 'addrArray'
-  ? string[]
   : Tstr extends 'strArray'
   ? string[]
   : Tstr extends 'numArray'
@@ -70,7 +68,7 @@ export type GetTypeOfConfigKey<K extends string> = CanBeUndefined<K> extends tru
  */
 export interface ConfigProperty {
   envName: string; // Environment variable name
-  type: 'string' | 'number' | 'boolean' | 'addrArray' | 'strArray' | 'numArray'; // Updated types
+  type: 'string' | 'number' | 'boolean' | 'strArray' | 'numArray'; // Updated types
   required: boolean; // Whether the property is required
   defaultValue: string | number | boolean | readonly string[] | readonly number[] | null; // Default value (if any)
 }
@@ -597,7 +595,7 @@ const _CONFIG = {
   },
   PAYMASTER_WHITELIST: {
     envName: 'PAYMASTER_WHITELIST',
-    type: 'addrArray',
+    type: 'strArray',
     required: false,
     defaultValue: [],
   },

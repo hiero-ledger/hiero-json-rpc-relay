@@ -195,18 +195,6 @@ describe('ValidationService tests', async function () {
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.type).to.equal('strArray');
     });
 
-    it('should cast addr array type', async () => {
-      const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.envName]: `["${RANDOM_ADDRESS_1}", "${RANDOM_ADDRESS_2}"]`,
-      });
-
-      expect(castedEnvs[GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.envName]).to.deep.equal([
-        RANDOM_ADDRESS_1,
-        RANDOM_ADDRESS_2,
-      ]);
-      expect(GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.type).to.equal('addrArray');
-    });
-
     it('should cast number array type', async () => {
       const castedEnvs = ValidationService.typeCasting({
         [GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.envName]: '[21, 50]',
