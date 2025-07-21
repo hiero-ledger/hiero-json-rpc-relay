@@ -1277,7 +1277,7 @@ describe('SdkClient', async function () {
 
   describe('getTransactionRecordMetrics', () => {
     const operatorAccountId = '0.0.1234';
-    const txId = 'test-tx-id';
+    const txId = '0.0.34776@1753096664.508922388';
     const txConstructorName = 'TestTx';
     const fakeGasUsed = Long.fromNumber(999);
 
