@@ -378,19 +378,16 @@ export class MirrorNodeClient {
             (data) => {
               // if the data is not valid, just return it to stick to the current behaviour
               if (data) {
-                if (
-                  typeof data === 'string' &&
-                  (data.trim().startsWith('<html') ||
-                    data.trim().startsWith('<!DOCTYPE html') ||
-                    data.trim().startsWith('<'))
-                ) {
-                  // Most likely HTML error response from the remote server.
-                  // Return raw data so response can be processed properly by subsequent operations.
-                  return data;
+                try {
+                  return JSONBigInt.parse(data);
+                } catch (error) {
+                  this.logger.warn(
+                    `${requestDetails.formattedRequestId} Failed to parse response data from Mirror Node: ${error}`,
+                  );
                 }
-                return JSONBigInt.parse(data);
               }
 
+              // Return raw data so response can be processed properly by subsequent operations.
               return data;
             },
           ];

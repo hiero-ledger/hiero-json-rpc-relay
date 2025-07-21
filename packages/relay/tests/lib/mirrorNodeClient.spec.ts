@@ -217,6 +217,14 @@ describe('MirrorNodeClient', async function () {
         .to.eventually.be.rejectedWith('Request failed with status code 502')
         .and.have.property('statusCode', 502);
     });
+
+    it('should gracefully handle empty error responses', async () => {
+      // Simulate Mirror Node returning HTML error page
+      mock.onGet('accounts').reply(503, ``);
+      await expect(mirrorNodeInstance.get('accounts', 'accounts', requestDetails))
+        .to.eventually.be.rejectedWith('Request failed with status code 503')
+        .and.have.property('statusCode', 503);
+    });
   });
 
   it('Can extract the account number out of an account pagination next link url', async () => {
