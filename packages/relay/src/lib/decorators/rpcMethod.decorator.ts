@@ -32,8 +32,5 @@ export function rpcMethod(target: any, context: ClassMethodDecoratorContext): an
     }
   });
 
-  // Also set it directly on the target function for immediate access
-  target[RPC_METHOD_KEY] = true;
-
   return target;
 }

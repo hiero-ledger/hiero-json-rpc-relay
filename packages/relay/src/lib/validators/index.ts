@@ -58,9 +58,6 @@ export function rpcParamValidationRules(validationRules: Record<number, IParamVa
       }
     });
 
-    // Also store validation rules directly on the function as a property for immediate access
-    target[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
-
     return target;
   };
 }

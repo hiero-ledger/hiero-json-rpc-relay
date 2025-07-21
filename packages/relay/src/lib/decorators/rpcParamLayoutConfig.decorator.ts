@@ -60,9 +60,6 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
       }
     });
 
-    // Also attach parameter layout configuration to the method for immediate access
-    target[RPC_PARAM_LAYOUT_KEY] = layout;
-
     return target;
   };
 }
