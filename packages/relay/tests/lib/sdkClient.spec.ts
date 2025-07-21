@@ -5,7 +5,6 @@ import {
   AccountId,
   Client,
   EthereumTransaction,
-  EthereumTransactionData,
   ExchangeRate,
   FileAppendTransaction,
   FileCreateTransaction,
@@ -1210,7 +1209,6 @@ describe('SdkClient', async function () {
         randomAccountAddress,
       );
 
-      // Assert - Verify FileDeleteTransaction configuration
       expect(setFileIdSpy.calledWith(fileId), 'setFileId should be called with correct fileId').to.be.true;
       expect(setMaxTransactionFeeSpy.calledOnce, 'setMaxTransactionFee should be called').to.be.true;
       expect(setMaxTransactionFeeSpy.firstCall.args[0].toTinybars().toNumber(), 'Max fee should be 2 HBAR').to.equal(
@@ -1221,8 +1219,6 @@ describe('SdkClient', async function () {
     });
 
     it('should configure FileInfoQuery correctly', async () => {
-      const mockTransactionResponse = getMockedTransactionResponse();
-      const mockFileInfo = { isDeleted: true };
       const setFileIdSpy = sinon.spy(FileInfoQuery.prototype, 'setFileId');
 
       await sdkClient.deleteFile(
