@@ -42,14 +42,14 @@ describe('ValidationService tests', async function () {
       GlobalConfig.ENTRIES.SERVER_PORT.required = false;
     });
 
-    it('should throw an error when the addresses are invalid', async () => {
+    it('should throw an error when the whitelist is invalid', async () => {
       GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = true;
       expect(() =>
         ValidationService.startUp({
           ...mandatoryStartUpFields,
-          PAYMASTER_WHITELIST: `["invalid-addr-1", "invalid-addr-2"]`,
+          PAYMASTER_WHITELIST: `not-an-array`,
         }),
-      ).to.throw('Configuration error: PAYMASTER_WHITELIST must contain only addresses.');
+      ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON string.');
       GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
     });
 
