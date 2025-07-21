@@ -38,7 +38,7 @@ export class ValidationService {
                 : entryInfo.type === 'strArray'
                 ? parsed.every((item) => typeof item === 'string')
                 : // handle 'addrType'
-                  parsed.every((item) => isValidAddress(item));
+                  parsed.every((item) => isValidAddress(item) || item === '*');
 
             if (!isCorrectType) {
               const expectedType =
