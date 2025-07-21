@@ -10,6 +10,9 @@ import { ValidationService } from '../../../dist/services/validationService';
 chai.use(chaiAsPromised);
 
 describe('ValidationService tests', async function () {
+  const RANDOM_ADDRESS_1 = '0x9B24244DB3624844Ee4b46D76D75F2b2F0a12D9a';
+  const RANDOM_ADDRESS_2 = '0x7C27Fc8FD1E28d6A4c1580f06855C7F0F1227A99';
+
   describe('startUp', () => {
     const mandatoryStartUpFields = {
       CHAIN_ID: '0x12a',
@@ -37,6 +40,26 @@ describe('ValidationService tests', async function () {
         }),
       ).to.throw('SERVER_PORT must be a valid number.');
       GlobalConfig.ENTRIES.SERVER_PORT.required = false;
+    });
+
+    it('should throw an error when the addresses are invalid', async () => {
+      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = true;
+      expect(() =>
+        ValidationService.startUp({
+          ...mandatoryStartUpFields,
+          PAYMASTER_WHITELIST: `["invalid-addr-1", "invalid-addr-2"]`,
+        }),
+      ).to.throw('Configuration error: PAYMASTER_WHITELIST must contain only addresses.');
+      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
+    });
+
+    it('should validate addr array type', async () => {
+      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = true;
+      ValidationService.startUp({
+        ...mandatoryStartUpFields,
+        PAYMASTER_WHITELIST: `["${RANDOM_ADDRESS_1}", "${RANDOM_ADDRESS_2}"]`,
+      });
+      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
     });
 
     it('should validate string array type', async () => {
@@ -170,6 +193,18 @@ describe('ValidationService tests', async function () {
         'method2',
       ]);
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.type).to.equal('strArray');
+    });
+
+    it('should cast addr array type', async () => {
+      const castedEnvs = ValidationService.typeCasting({
+        [GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.envName]: `["${RANDOM_ADDRESS_1}", "${RANDOM_ADDRESS_2}"]`,
+      });
+
+      expect(castedEnvs[GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.envName]).to.deep.equal([
+        RANDOM_ADDRESS_1,
+        RANDOM_ADDRESS_2,
+      ]);
+      expect(GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.type).to.equal('addrArray');
     });
 
     it('should cast number array type', async () => {

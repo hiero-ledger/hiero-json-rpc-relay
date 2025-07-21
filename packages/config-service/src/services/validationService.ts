@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { isValidAddress } from '@ethereumjs/util';
+
 import { GlobalConfig } from './globalConfig';
 
 export class ValidationService {
@@ -19,7 +21,10 @@ export class ValidationService {
           throw new Error(`Configuration error: ${entryName} must be a valid number.`);
         }
 
-        if ((entryInfo.type === 'strArray' || entryInfo.type === 'numArray') && envs[entryName]) {
+        if (
+          (entryInfo.type === 'strArray' || entryInfo.type === 'numArray' || entryInfo.type === 'addrArray') &&
+          envs[entryName]
+        ) {
           try {
             const parsed = JSON.parse(envs[entryName] as string);
 
@@ -30,10 +35,14 @@ export class ValidationService {
             const isCorrectType =
               entryInfo.type === 'numArray'
                 ? parsed.every((item) => typeof item === 'number')
-                : parsed.every((item) => typeof item === 'string');
+                : entryInfo.type === 'strArray'
+                ? parsed.every((item) => typeof item === 'string')
+                : // handle 'addrType'
+                  parsed.every((item) => isValidAddress(item));
 
             if (!isCorrectType) {
-              const expectedType = entryInfo.type === 'numArray' ? 'numbers' : 'strings';
+              const expectedType =
+                entryInfo.type === 'numArray' ? 'numbers' : entryInfo.type === 'strArray' ? 'strings' : 'addresses';
               throw new Error(`Configuration error: ${entryName} must contain only ${expectedType}.`);
             }
           } catch (e) {
@@ -77,6 +86,7 @@ export class ValidationService {
         case 'boolean':
           typeCastedEnvs[entryName] = envs[entryName] === 'true';
           break;
+        case 'addrArray':
         case 'numArray':
         case 'strArray':
           typeCastedEnvs[entryName] = JSON.parse(envs[entryName] || '[]');
