@@ -131,13 +131,13 @@ describe('rpcParamValidationRules decorator', () => {
       expect(appliedSchema[2].errorMessage).to.equal('Must be hex');
     });
 
-    it('should support custom type strings', () => {
-      const customType = ['custom', 'type', 'string'];
+    it('should support array of valid type strings', () => {
+      const validTypes: ('address' | 'hex' | 'boolean')[] = ['address', 'hex', 'boolean'];
 
       class TestCustomTypeClass {
         // @ts-ignore
         @rpcParamValidationRules({
-          0: { type: customType, required: true },
+          0: { type: validTypes, required: true },
         })
         testMethod() {
           return 'test';
@@ -147,15 +147,15 @@ describe('rpcParamValidationRules decorator', () => {
       const instance = new TestCustomTypeClass();
       const schema = instance.testMethod[RPC_PARAM_VALIDATION_RULES_KEY];
 
-      expect(schema[0].type).to.equal(customType);
+      expect(schema[0].type).to.equal(validTypes);
     });
   });
 
   describe('Multiple decorators interaction', () => {
     it('should work alongside other decorators', () => {
-      const mockDecorator = (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) => {
-        descriptor.value.MOCK_KEY = 'mock-value';
-        return descriptor;
+      // TypeScript 5+ standard decorator syntax
+      const mockDecorator = (target: any, _context: ClassMethodDecoratorContext): void => {
+        target.MOCK_KEY = 'mock-value';
       };
 
       class TestMultiDecoratorClass {

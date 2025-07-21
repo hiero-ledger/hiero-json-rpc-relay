@@ -31,7 +31,8 @@ export interface IParamValidation {
 export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules';
 
 /**
- * Decorator that defines a schema for validating RPC method parameters
+ * TypeScript 5+ standard decorator that defines a schema for validating RPC method parameters.
+ * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
  *
  * @example
  * ```typescript
@@ -49,34 +50,7 @@ export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules
  * @returns Method decorator function
  */
 export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
-  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    // Store validation rules directly on the function as a property
-    descriptor.value[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
-    return descriptor;
-  };
-}
-
-/**
- * TypeScript 5+ standard decorator that defines a schema for validating RPC method parameters.
- * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
- *
- * @example
- * ```typescript
- * @rpcMethodStandard
- * @rpcParamValidationRulesStandard({
- *   0: { type: 'address', required: true },
- *   1: { type: 'blockNumber', required: true }
- * })
- * getBalance(address: string, blockNumber: string, requestDetails: RequestDetails): Promise<string> {
- *   // Implementation
- * }
- * ```
- *
- * @param validationRules - Validation rules for method parameters
- * @returns Method decorator function
- */
-export function rpcParamValidationRulesStandard(validationRules: Record<number, IParamValidation>) {
-  return function (target: any, context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
+  return function (target: any, context: ClassMethodDecoratorContext): void {
     if (context.kind !== 'method') {
       throw new Error(`@rpcParamValidationRulesStandard can only be applied to methods, received: ${context.kind}`);
     }

@@ -28,37 +28,6 @@ export const RPC_LAYOUT = {
 };
 
 /**
- * Decorator for specifying the parameter layout of an RPC method which is different from the standard layout
- *
- * This decorator defines how RPC parameters should be arranged when passed to the method.
- *
- * @example
- * ```typescript
- * // Method that only needs requestDetails
- * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
- * blockNumber(requestDetails: RequestDetails): Promise<string> {
- *   // Implementation
- * }
- *
- * // Method with specific parameter transformations
- * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.custom(params => [params[0], params[1]]))
- * estimateGas(transaction: IContractCallRequest, _blockParam: string | null, requestDetails: RequestDetails,): Promise<string | JsonRpcError> {
- *   // Implementation
- * }
- * ```
- *
- * @param layout - Parameter layout specification
- */
-export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
-  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    descriptor.value[RPC_PARAM_LAYOUT_KEY] = layout;
-    return descriptor;
-  };
-}
-
-/**
  * TypeScript 5+ standard decorator for specifying the parameter layout of an RPC method.
  *
  * This decorator defines how RPC parameters should be arranged when passed to the method.
@@ -67,14 +36,14 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
  * ```typescript
  * // Method that only needs requestDetails
  * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+ * @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
  * blockNumber(requestDetails: RequestDetails): Promise<string> {
  *   // Implementation
  * }
  *
  * // Method with specific parameter transformations
  * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.custom(params => [params[0], params[1]]))
+ * @rpcParamLayoutConfig(RPC_LAYOUT.custom(params => [params[0], params[1]]))
  * estimateGas(transaction: IContractCallRequest, _blockParam: string | null, requestDetails: RequestDetails,): Promise<string | JsonRpcError> {
  *   // Implementation
  * }
@@ -82,8 +51,8 @@ export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
  *
  * @param layout - Parameter layout specification
  */
-export function rpcParamLayoutConfigStandard(layout: string | ParamTransformFn) {
-  return function (target: any, _context: any /* ClassMethodDecoratorContext - requires TS5+ */): void {
+export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
+  return function (target: any, _context: ClassMethodDecoratorContext): void {
     // Attach parameter layout configuration to the method
     target[RPC_PARAM_LAYOUT_KEY] = layout;
   };
