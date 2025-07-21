@@ -59,6 +59,9 @@
       "text",
       "text-summary"
     ],
-    "report-dir": "coverage"
+    "report-dir": "coverage",
+    "extension": [
+      ".ts"
+    ]
   }
 }
