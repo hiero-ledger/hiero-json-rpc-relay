@@ -172,7 +172,8 @@ export class Precheck {
     const passes =
       txGasPrice >= networkGasPrice ||
       Precheck.isDeterministicDeploymentTransaction(tx) ||
-      (ConfigService.get('PAYMASTER_ENABLED') &&
+      (txGasPrice === BigInt(0) &&
+        ConfigService.get('PAYMASTER_ENABLED') &&
         (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to))));
 
     if (!passes) {
