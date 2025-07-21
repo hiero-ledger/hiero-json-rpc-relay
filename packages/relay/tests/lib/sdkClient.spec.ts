@@ -309,26 +309,28 @@ describe('SdkClient', async function () {
 
         const sendRawTransactionResult = await callSubmit(largeBuffer);
 
-        const callData = EthereumTransactionData.fromBytes(largeBuffer).callData;
-        expect(createFileStub.calledOnce).to.be.true;
-        const createFileArgs = createFileStub.firstCall.args;
-        expect(createFileArgs[0]).to.deep.equal(callData).and.to.be.instanceOf(Uint8Array); // callData
-        expect(createFileArgs[1]).to.equal(sdkClient.getMainClientInstance()); // client
-        expect(createFileArgs[2]).to.equal(requestDetails); // requestDetails
-        expect(createFileArgs[3]).to.equal(mockedCallerName); // callerName
-        expect(createFileArgs[4]).to.be.a('string'); // interactingEntity
-        expect(createFileArgs[5]).to.equal(randomAccountAddress); // originalCallerAddress
-        expect(createFileArgs[6]).to.equal(mockedExchangeRateIncents); // currentNetworkExchangeRateInCents
+        expect(
+          createFileStub.calledOnceWithExactly(
+            sinon.match.instanceOf(Uint8Array),
+            sdkClient.getMainClientInstance(),
+            requestDetails,
+            mockedCallerName,
+            sinon.match.string,
+            randomAccountAddress,
+            mockedExchangeRateIncents,
+          ),
+        ).to.be.true;
 
-        // Verify executeTransaction is called for the main Ethereum transaction
-        expect(executeTransactionStub.calledOnce).to.be.true;
-        const executeTransactionArgs = executeTransactionStub.firstCall.args;
-        expect(executeTransactionArgs[0]).to.be.instanceOf(EthereumTransaction); // transaction
-        expect(executeTransactionArgs[1]).to.equal(mockedCallerName); // callerName
-        expect(executeTransactionArgs[2]).to.be.a('string'); // interactingEntity
-        expect(executeTransactionArgs[3]).to.equal(requestDetails); // requestDetails
-        expect(executeTransactionArgs[4]).to.be.true; // shouldThrowHbarLimit
-        expect(executeTransactionArgs[5]).to.equal(randomAccountAddress); // originalCallerAddress
+        expect(
+          executeTransactionStub.calledOnceWithExactly(
+            sinon.match.instanceOf(EthereumTransaction),
+            mockedCallerName,
+            sinon.match.string,
+            requestDetails,
+            true,
+            randomAccountAddress,
+          ),
+        ).to.be.true;
 
         // Verify Ethereum transaction setup
         expect(setEthereumDataStub.called).to.be.true;
@@ -1086,14 +1088,12 @@ describe('SdkClient', async function () {
     });
 
     it('should successfully delete a file and verify deletion', async () => {
-      // Arrange
       const mockTransactionResponse = getMockedTransactionResponse();
       const mockFileInfo = { isDeleted: true };
 
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1102,42 +1102,39 @@ describe('SdkClient', async function () {
         randomAccountAddress,
       );
 
-      // Assert - Verify executeTransaction call for FileDeleteTransaction
-      expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
-      const executeTransactionArgs = executeTransactionStub.firstCall.args;
-      expect(executeTransactionArgs[0], 'First arg should be FileDeleteTransaction').to.be.instanceOf(
-        FileDeleteTransaction,
-      );
-      expect(executeTransactionArgs[1], 'Second arg should be callerName').to.equal(mockedCallerName);
-      expect(executeTransactionArgs[2], 'Third arg should be interactingEntity').to.equal(mockedInteractingEntity);
-      expect(executeTransactionArgs[3], 'Fourth arg should be requestDetails').to.equal(requestDetails);
-      expect(executeTransactionArgs[4], 'Fifth arg should be false (shouldThrowHbarLimit)').to.be.false;
-      expect(executeTransactionArgs[5], 'Sixth arg should be originalCallerAddress').to.equal(randomAccountAddress);
+      expect(
+        executeTransactionStub.calledOnceWithExactly(
+          sinon.match.instanceOf(FileDeleteTransaction),
+          mockedCallerName,
+          mockedInteractingEntity,
+          requestDetails,
+          false,
+          randomAccountAddress,
+        ),
+      ).to.be.true;
 
-      // Assert - Verify executeQuery call for FileInfoQuery
-      expect(executeQueryStub.calledOnce, 'executeQuery should be called once').to.be.true;
-      const executeQueryArgs = executeQueryStub.firstCall.args;
-      expect(executeQueryArgs[0], 'First arg should be FileInfoQuery').to.be.instanceOf(FileInfoQuery);
-      expect(executeQueryArgs[1], 'Second arg should be client instance').to.equal(sdkClient.getMainClientInstance());
-      expect(executeQueryArgs[2], 'Third arg should be callerName').to.equal(mockedCallerName);
-      expect(executeQueryArgs[3], 'Fifth arg should be requestDetails').to.equal(requestDetails);
-      expect(executeQueryArgs[4], 'Sixth arg should be originalCallerAddress').to.equal(randomAccountAddress);
+      expect(
+        executeQueryStub.calledOnceWithExactly(
+          sinon.match.instanceOf(FileInfoQuery),
+          sdkClient.getMainClientInstance(),
+          mockedCallerName,
+          requestDetails,
+          randomAccountAddress,
+        ),
+      ).to.be.true;
 
-      // Assert - Verify successful deletion logging
-      expect(loggerTraceStub.called, 'logger.trace should be called for successful deletion').to.be.true;
+      expect(loggerTraceStub.calledOnce).to.be.true;
       expect(loggerTraceStub.firstCall.args[0]).to.include(`Deleted file with fileId: ${fileId}`);
-      expect(loggerWarnStub.called, 'logger.warn should not be called on success').to.be.false;
+      expect(loggerWarnStub.called).to.be.false;
     });
 
     it('should warn when file deletion verification fails', async () => {
-      // Arrange
       const mockTransactionResponse = getMockedTransactionResponse();
       const mockFileInfo = { isDeleted: false };
 
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1153,13 +1150,11 @@ describe('SdkClient', async function () {
     });
 
     it('should handle and log errors during file deletion', async () => {
-      // Arrange
       const errorMessage = 'Transaction execution failed';
       const error = new Error(errorMessage);
 
       executeTransactionStub.rejects(error);
 
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1176,14 +1171,12 @@ describe('SdkClient', async function () {
     });
 
     it('should handle errors during file info query', async () => {
-      // Arrange
       const mockTransactionResponse = getMockedTransactionResponse();
       const queryError = new Error('Query execution failed');
 
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.rejects(queryError);
 
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1200,7 +1193,6 @@ describe('SdkClient', async function () {
     });
 
     it('should configure FileDeleteTransaction correctly', async () => {
-      // Arrange
       const mockTransactionResponse = getMockedTransactionResponse();
       const mockFileInfo = { isDeleted: true };
       const setFileIdSpy = sinon.spy(FileDeleteTransaction.prototype, 'setFileId');
@@ -1210,7 +1202,6 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1230,15 +1221,10 @@ describe('SdkClient', async function () {
     });
 
     it('should configure FileInfoQuery correctly', async () => {
-      // Arrange
       const mockTransactionResponse = getMockedTransactionResponse();
       const mockFileInfo = { isDeleted: true };
       const setFileIdSpy = sinon.spy(FileInfoQuery.prototype, 'setFileId');
 
-      executeTransactionStub.resolves(mockTransactionResponse);
-      executeQueryStub.resolves(mockFileInfo);
-
-      // Act
       await sdkClient.deleteFile(
         fileId,
         requestDetails,
@@ -1247,9 +1233,7 @@ describe('SdkClient', async function () {
         randomAccountAddress,
       );
 
-      // Assert - Verify FileInfoQuery configuration
-      expect(setFileIdSpy.calledWith(fileId), 'FileInfoQuery setFileId should be called with correct fileId').to.be
-        .true;
+      expect(setFileIdSpy.calledWith(fileId)).to.be.true;
     });
 
     it('should thrown an error on grpcTimeout', async () => {
