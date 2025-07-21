@@ -49,7 +49,7 @@ describe('ValidationService tests', async function () {
           ...mandatoryStartUpFields,
           PAYMASTER_WHITELIST: `not-an-array`,
         }),
-      ).to.throw('Configuration error: BATCH_REQUESTS_DISALLOWED_METHODS must be a valid JSON string.');
+      ).to.throw('Configuration error: PAYMASTER_WHITELIST must be a valid JSON string.');
       GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
     });
 
