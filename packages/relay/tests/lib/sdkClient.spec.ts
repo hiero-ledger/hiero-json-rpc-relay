@@ -1274,4 +1274,57 @@ describe('SdkClient', async function () {
       }
     });
   });
+
+  describe('getTransactionRecordMetrics', () => {
+    const operatorAccountId = '0.0.1234';
+    const txId = 'test-tx-id';
+    const txConstructorName = 'TestTx';
+    const fakeGasUsed = Long.fromNumber(999);
+
+    beforeEach(() => {
+      sinon.restore();
+    });
+
+    describe('getTransactionRecordMetrics', () => {
+      it('returns correct metrics for a successful record', async () => {
+        const fakeReceipt = { status: Status.Success, exchangeRate: { exchangeRateInCents: 10 } } as any;
+        const fakeRecord: any = {
+          receipt: fakeReceipt,
+          contractFunctionResult: { gasUsed: fakeGasUsed },
+          transfers: [
+            { accountId: operatorAccountId, amount: Hbar.fromTinybars(-100), is_approval: false },
+            { accountId: operatorAccountId, amount: Hbar.fromTinybars(-200), is_approval: false },
+          ],
+        };
+        sinon.stub(TransactionRecordQuery.prototype, 'execute').resolves(fakeRecord);
+        sinon.stub(sdkClient as any, 'calculateTxRecordChargeAmount').returns(1234);
+        sinon.stub(sdkClient as any, 'getTransferAmountSumForAccount').returns(300);
+
+        const metrics = await sdkClient.getTransactionRecordMetrics(
+          txId,
+          txConstructorName,
+          operatorAccountId,
+          requestDetails,
+        );
+
+        expect(metrics.gasUsed).to.eq(fakeGasUsed.toNumber());
+        expect(metrics.transactionFee).to.eq(300);
+        expect(metrics.txRecordChargeAmount).to.eq(1234);
+        expect(metrics.status).to.eq(fakeReceipt.status.toString());
+      });
+
+      it('throws SDKClientError when TransactionRecordQuery fails', async () => {
+        const error = { status: { _code: 404 }, message: 'Not Found' };
+        sinon.stub(TransactionRecordQuery.prototype, 'execute').throws(error);
+        try {
+          await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId, requestDetails);
+          expect.fail('should have thrown');
+        } catch (err: any) {
+          expect(err).to.be.instanceOf(SDKClientError);
+          expect(err.status).to.eql(error.status);
+          expect(err.message).to.eq(error.message);
+        }
+      });
+    });
+  });
 });
