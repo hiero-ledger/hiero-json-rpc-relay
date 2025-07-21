@@ -132,9 +132,6 @@
     }
   },
   "nyc": {
-    "extension": [
-      ".ts"
-    ],
     "check-coverage": false,
     "reporter": [
       "html",
@@ -142,7 +139,6 @@
       "text",
       "text-summary"
     ],
-    "report-dir": "coverage",
-    "sourceMap": true
+    "report-dir": "coverage"
   }
 }
