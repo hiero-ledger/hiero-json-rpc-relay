@@ -33,7 +33,7 @@
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.1",
     "typechain": "^5.2.0",
-    "typescript": "^4.9.3"
+    "typescript": "^5.8.3"
   },
   "scripts": {
     "graph-test": "graph test",
