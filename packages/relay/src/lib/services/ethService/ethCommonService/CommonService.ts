@@ -631,4 +631,14 @@ export class CommonService implements ICommonService {
       '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
     return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
   }
+
+  public static shouldSubsidyTransaction(interactingEntity: string | null): boolean {
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+
+    return !!(
+      ConfigService.get('PAYMASTER_ENABLED') &&
+      (payMasterWhiteList.includes('*') ||
+        (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
+    );
+  }
 }

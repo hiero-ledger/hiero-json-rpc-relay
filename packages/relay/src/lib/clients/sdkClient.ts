@@ -31,6 +31,7 @@ import { Logger } from 'pino';
 
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
+import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import {
   IExecuteQueryEventPayload,
@@ -170,12 +171,7 @@ export class SDKClient {
       ),
     );
 
-    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
-    if (
-      ConfigService.get('PAYMASTER_ENABLED') &&
-      (payMasterWhiteList.includes('*') ||
-        (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
-    ) {
+    if (CommonService.shouldSubsidyTransaction(interactingEntity)) {
       // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
       ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
     }
