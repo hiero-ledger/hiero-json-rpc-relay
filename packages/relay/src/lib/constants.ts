@@ -303,5 +303,5 @@ export default {
     RPC_WS_SERVER: 'rpc-ws-server',
     SERVICES_CLIENT: 'services-client',
     SERVICES_TEST_CLIENT: 'services-test-client',
-  }
+  },
 };
