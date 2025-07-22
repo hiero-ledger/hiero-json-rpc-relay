@@ -29,7 +29,7 @@ import {
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
-import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
+import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
