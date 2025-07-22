@@ -72,6 +72,12 @@ test:
 
 The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.
 
+## Conformity Tests
+
+This project includes a set of **conformity tests** to ensure compliance with the [Ethereum JSON-RPC specification](https://ethereum.org/en/developers/docs/apis/json-rpc/). These tests verify that our implementation behaves consistently with the standard, covering expected methods, formats, and edge cases.
+
+For details see [`CONFORMITY_TESTING.md`](./CONFORMITY_TESTING.md).
+
 #### Configuration
 
 The JSON RPC Relay offers multiple environment variable configuration porperties to configure the relay for appropriate use.
