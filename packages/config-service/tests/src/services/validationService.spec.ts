@@ -10,9 +10,6 @@ import { ValidationService } from '../../../dist/services/validationService';
 chai.use(chaiAsPromised);
 
 describe('ValidationService tests', async function () {
-  const RANDOM_ADDRESS_1 = '0x9B24244DB3624844Ee4b46D76D75F2b2F0a12D9a';
-  const RANDOM_ADDRESS_2 = '0x7C27Fc8FD1E28d6A4c1580f06855C7F0F1227A99';
-
   describe('startUp', () => {
     const mandatoryStartUpFields = {
       CHAIN_ID: '0x12a',
