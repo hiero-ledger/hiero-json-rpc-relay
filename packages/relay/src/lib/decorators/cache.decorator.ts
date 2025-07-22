@@ -47,34 +47,32 @@ interface CacheOptions {
  *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cache(cacheService: CacheService, options: CacheOptions = {}) {
-  return function (target: any, context: ClassMethodDecoratorContext): void {
+  return function (target: any, context: ClassMethodDecoratorContext) {
     const methodName = String(context.name);
 
-    context.addInitializer(function (this: any) {
-      this[context.name as string | symbol] = async function (...args: unknown[]) {
-        const requestDetails = extractRequestDetails(args);
-        const cacheKey = generateCacheKey(methodName, args);
+    return async function (this: any, ...args: unknown[]) {
+      const requestDetails = extractRequestDetails(args);
+      const cacheKey = generateCacheKey(methodName, args);
 
-        const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
-        if (cachedResponse) return cachedResponse;
+      const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
+      if (cachedResponse) return cachedResponse;
 
-        const result = await target.apply(this, args);
-        if (
-          result &&
-          !shouldSkipCachingForSingleParams(args, options.skipParams) &&
-          !shouldSkipCachingForNamedParams(args, options.skipNamedParams)
-        ) {
-          await cacheService.set(
-            cacheKey,
-            result,
-            methodName,
-            requestDetails,
-            options.ttl ?? ConfigService.get('CACHE_TTL'),
-          );
-        }
-        return result;
-      };
-    });
+      const result = await target.apply(this, args);
+      if (
+        result &&
+        !shouldSkipCachingForSingleParams(args, options.skipParams) &&
+        !shouldSkipCachingForNamedParams(args, options.skipNamedParams)
+      ) {
+        await cacheService.set(
+          cacheKey,
+          result,
+          methodName,
+          requestDetails,
+          options.ttl ?? ConfigService.get('CACHE_TTL'),
+        );
+      }
+      return result;
+    };
   };
 }
 

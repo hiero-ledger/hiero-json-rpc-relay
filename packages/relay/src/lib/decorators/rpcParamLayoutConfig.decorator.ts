@@ -52,14 +52,8 @@ export const RPC_LAYOUT = {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
-  return function (target: any, context: ClassMethodDecoratorContext): any {
-    context.addInitializer(function (this: any) {
-      const methodName = String(context.name);
-      if (this[methodName]) {
-        this[methodName][RPC_PARAM_LAYOUT_KEY] = layout;
-      }
-    });
-
+  return function (target: any, _context: ClassMethodDecoratorContext): any {
+    target[RPC_PARAM_LAYOUT_KEY] = layout;
     return target;
   };
 }
