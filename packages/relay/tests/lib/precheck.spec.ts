@@ -370,8 +370,6 @@ describe('Precheck', async function () {
         const tx = {
           ...parsedTxWithMatchingChainId,
           gasPrice: 0,
-          maxFeePerGas: null,
-          maxPriorityFeePerGas: null,
         };
         const signed = await signTransaction(tx);
         const parsedTx = ethers.Transaction.from(signed);
