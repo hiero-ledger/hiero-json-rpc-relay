@@ -378,9 +378,16 @@ export class MirrorNodeClient {
             (data) => {
               // if the data is not valid, just return it to stick to the current behaviour
               if (data) {
-                return JSONBigInt.parse(data);
+                try {
+                  return JSONBigInt.parse(data);
+                } catch (error) {
+                  this.logger.warn(
+                    `${requestDetails.formattedRequestId} Failed to parse response data from Mirror Node: ${error}`,
+                  );
+                }
               }
 
+              // Return raw data so response can be processed properly by subsequent operations.
               return data;
             },
           ];
