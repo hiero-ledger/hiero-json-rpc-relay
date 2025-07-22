@@ -33,6 +33,7 @@ import testConstants from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 
@@ -67,7 +68,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   const ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
   const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
     cacheService,
-    logger.child({ name: 'hbar-spending-plan-repository' }),
+    logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_REPOSITORY }),
   );
 
   const pollForProperAmountSpent = async (

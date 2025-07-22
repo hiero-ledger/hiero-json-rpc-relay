@@ -20,6 +20,7 @@ import WsMetricRegistry from './metrics/wsMetricRegistry';
 import { SubscriptionService } from './service/subscriptionService';
 import { WS_CONSTANTS } from './utils/constants';
 import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClose, sendToClient } from './utils/utils';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
@@ -33,7 +34,7 @@ const mainLogger = pino({
   },
 });
 const register = new Registry();
-const logger = mainLogger.child({ name: 'rpc-ws-server' });
+const logger = mainLogger.child({ name: constants.LOGGER_CHILD_NAME.RPC_WS_SERVER });
 const relay = new Relay(logger, register);
 
 const subscriptionService = new SubscriptionService(relay, logger, register);
@@ -41,7 +42,7 @@ const subscriptionService = new SubscriptionService(relay, logger, register);
 const mirrorNodeClient = relay.mirrorClient();
 
 const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
-const rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
+const rateLimiter = new IPRateLimiterService(logger.child({ name: constants.LOGGER_CHILD_NAME.IP_RATE_LIMIT }), register, rateLimitDuration);
 const limiter = new ConnectionLimiter(logger, register, rateLimiter);
 const wsMetricRegistry = new WsMetricRegistry(register);
 

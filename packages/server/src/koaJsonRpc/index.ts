@@ -30,6 +30,7 @@ import {
   getRequestIdIsOptional,
   hasOwnProperty,
 } from './lib/utils';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 const INVALID_REQUEST = 'INVALID REQUEST';
 const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
@@ -61,7 +62,7 @@ export default class KoaJsonRpc {
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
     this.logger = logger;
-    this.rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, this.duration);
+    this.rateLimiter = new IPRateLimiterService(logger.child({ name: constants.LOGGER_CHILD_NAME.IP_RATE_LIMIT }), register, this.duration);
     this.metricsRegistry = register;
     this.relay = relay;
 

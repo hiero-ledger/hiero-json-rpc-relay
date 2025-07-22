@@ -95,7 +95,7 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
+    sdkClient = new SDKClient(client, logger.child({ name: constants.LOGGER_CHILD_NAME.CONSENSUS_NODE }), eventEmitter, hbarLimitService);
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -109,7 +109,7 @@ describe('SdkClient', async function () {
     // mirror node client
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE }),
       registry,
       CacheService.getInstance(CACHE_LEVEL.L1, registry),
       instance,

@@ -142,7 +142,7 @@ describe('Metric Service', function () {
     });
     mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE }),
       registry,
       CacheService.getInstance(CACHE_LEVEL.L1, registry),
       instance,
@@ -171,7 +171,7 @@ describe('Metric Service', function () {
 
     const sdkClient = new SDKClient(
       client,
-      logger.child({ name: `consensus-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.CONSENSUS_NODE }),
       CacheService.getInstance(CACHE_LEVEL.L1, registry),
       eventEmitter,
       hbarLimitService,

@@ -14,6 +14,7 @@ import { IIPAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLim
 import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
+import constants from '../../../../src/lib/constants';
 
 chai.use(chaiAsPromised);
 
@@ -40,7 +41,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'IPAddressHbarSpendingPlanRepository' }),
+        logger.child({ name: constants.LOGGER_CHILD_NAME.IP_ADDRESS_SPENDING_PLAN_REPOSITORY }),
       );
     });
 

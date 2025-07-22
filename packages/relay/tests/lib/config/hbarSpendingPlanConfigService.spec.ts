@@ -31,6 +31,7 @@ import {
   verifyResult,
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
+import constants from '../../../src/lib/constants';
 
 chai.use(chaiAsPromised);
 
@@ -165,15 +166,15 @@ describe('HbarSpendingPlanConfigService', function () {
       cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry, reservedKeys);
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'hbar-spending-plan-repository' }),
+        logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_REPOSITORY }),
       );
       evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'evm-address-spending-plan-repository' }),
+        logger.child({ name: constants.LOGGER_CHILD_NAME.EVM_ADDRESS_SPENDING_PLAN_REPOSITORY }),
       );
       ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'ip-address-spending-plan-repository' }),
+        logger.child({ name: constants.LOGGER_CHILD_NAME.IP_ADDRESS_SPENDING_PLAN_REPOSITORY }),
       );
       hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
         logger,

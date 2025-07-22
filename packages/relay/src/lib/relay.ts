@@ -142,21 +142,21 @@ export class Relay {
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,
-      logger.child({ name: 'hbar-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_REPOSITORY }),
     );
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
       this.cacheService,
-      logger.child({ name: 'evm-address-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.EVM_ADDRESS_SPENDING_PLAN_REPOSITORY }),
     );
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
       this.cacheService,
-      logger.child({ name: 'ip-address-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.IP_ADDRESS_SPENDING_PLAN_REPOSITORY }),
     );
     const hbarLimitService = new HbarLimitService(
       hbarSpendingPlanRepository,
       evmAddressHbarSpendingPlanRepository,
       ipAddressHbarSpendingPlanRepository,
-      logger.child({ name: 'hbar-rate-limit' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_RATE_LIMIT }),
       register,
       duration,
     );
@@ -170,7 +170,7 @@ export class Relay {
 
     this.mirrorNodeClient = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE }),
       register,
       this.cacheService,
       undefined,
@@ -189,7 +189,7 @@ export class Relay {
     this.ethImpl = new EthImpl(
       hapiService,
       this.mirrorNodeClient,
-      logger.child({ name: 'relay-eth' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.RELAY_ETH }),
       chainId,
       this.cacheService,
       this.eventEmitter,
@@ -199,7 +199,7 @@ export class Relay {
     this.adminImpl = new AdminImpl(this.cacheService);
 
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
-      logger.child({ name: 'hbar-spending-plan-config-service' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_CONFIG_SERVICE }),
       hbarSpendingPlanRepository,
       evmAddressHbarSpendingPlanRepository,
       ipAddressHbarSpendingPlanRepository,

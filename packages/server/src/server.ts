@@ -12,6 +12,7 @@ import { v4 as uuid } from 'uuid';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
@@ -26,10 +27,10 @@ const mainLogger = pino({
   },
 });
 
-const logger = mainLogger.child({ name: 'rpc-server' });
+const logger = mainLogger.child({ name: constants.LOGGER_CHILD_NAME.RPC_SERVER });
 const register = new Registry();
-const relay: Relay = new Relay(logger.child({ name: 'relay' }), register);
-const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
+const relay: Relay = new Relay(logger.child({ name: constants.LOGGER_CHILD_NAME.RELAY }), register);
+const app = new KoaJsonRpc(logger.child({ name: constants.LOGGER_CHILD_NAME.KOA_RPC }), register, relay, {
   limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
 });
 

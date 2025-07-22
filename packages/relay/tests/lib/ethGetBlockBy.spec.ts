@@ -113,7 +113,7 @@ describe('eth_getBlockBy', async function () {
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE }),
       registry,
       cacheService,
     );

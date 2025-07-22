@@ -14,6 +14,7 @@ import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/
 import { IEvmAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
 import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
+import constants from '../../../../src/lib/constants';
 
 chai.use(chaiAsPromised);
 
@@ -38,7 +39,7 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,
-        logger.child({ name: 'EvmAddressHbarSpendingPlanRepository' }),
+        logger.child({ name: constants.LOGGER_CHILD_NAME.EVM_ADDRESS_SPENDING_PLAN_REPOSITORY}),
       );
     });
 

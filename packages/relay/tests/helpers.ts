@@ -944,7 +944,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
 };
 
 export const startRedisInMemoryServer = async (logger: Logger, port: number) => {
-  const redisInMemoryServer = new RedisInMemoryServer(logger.child({ name: 'RedisInMemoryServer' }), port);
+  const redisInMemoryServer = new RedisInMemoryServer(logger.child({ name: constants.LOGGER_CHILD_NAME.REDIS_IN_MEMORY_SERVER }), port);
   await redisInMemoryServer.start();
   return redisInMemoryServer;
 };

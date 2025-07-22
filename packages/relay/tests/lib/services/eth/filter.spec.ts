@@ -66,17 +66,17 @@ describe('Filter API Test Suite', async function () {
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE }),
       registry,
       cacheService,
     );
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
-    const common = new CommonService(mirrorNodeInstance, logger.child({ name: 'common-service' }), cacheService);
+    const common = new CommonService(mirrorNodeInstance, logger.child({ name: constants.LOGGER_CHILD_NAME.COMMON_SERVICE }), cacheService);
     filterService = new FilterService(
       mirrorNodeInstance,
-      logger.child({ name: 'filter-service' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.FILTER_SERVICE }),
       cacheService,
       common,
     );

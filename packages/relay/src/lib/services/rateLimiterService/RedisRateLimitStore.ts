@@ -8,6 +8,7 @@ import { createClient, RedisClientType } from 'redis';
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RateLimitKey, RateLimitStore } from '../../types';
 import { RequestDetails } from '../../types/RequestDetails';
+import constants from '../../constants';
 
 /**
  * Redis-based rate limit store implementation using Lua scripting for atomic operations.
@@ -48,7 +49,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   `;
 
   constructor(logger: Logger, duration: number, rateLimitStoreFailureCounter?: Counter) {
-    this.logger = logger.child({ name: 'redis-rate-limit-store' });
+    this.logger = logger.child({ name: constants.LOGGER_CHILD_NAME.REDIS_RATE_LIMIT_STORE });
     this.duration = duration;
     this.rateLimitStoreFailureCounter = rateLimitStoreFailureCounter;
 

@@ -17,6 +17,7 @@ import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subsc
 import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
+import constants from '../../../../src/lib/constants';
 
 chai.use(chaiAsPromised);
 
@@ -36,7 +37,7 @@ describe('HbarSpendingPlanRepository', function () {
       CacheService.instances = [];
       cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
       cacheServiceSpy = sinon.spy(cacheService);
-      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
+      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_REPOSITORY }));
     });
 
     if (isSharedCacheEnabled) {

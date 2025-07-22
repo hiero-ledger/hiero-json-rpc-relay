@@ -41,6 +41,7 @@ import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 import { Utils as relayUtils } from '@hashgraph/json-rpc-relay/dist/utils';
 import { Long } from 'long';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 const supportedEnvs = ['previewnet', 'testnet', 'mainnet'];
 
@@ -329,7 +330,7 @@ export default class ServicesClient {
       this.network,
       accountInfo.accountId.toString(),
       privateKey.toString(),
-      this.logger.child({ name: `services-client` }),
+      this.logger.child({ name: constants.LOGGER_CHILD_NAME.SERVICES_CLIENT }),
     );
 
     let wallet: ethers.Wallet;

@@ -10,6 +10,7 @@ import sinon from 'sinon';
 import { RequestDetails } from '../../../dist/lib/types';
 import { RedisCache } from '../../../src/lib/clients';
 import { useInMemoryRedisServer } from '../../helpers';
+import constants from '../../../../relay/src/lib/constants';
 
 chai.use(chaiAsPromised);
 
@@ -27,7 +28,7 @@ describe('RedisCache Test Suite', async function () {
   useInMemoryRedisServer(logger, 6379);
 
   this.beforeAll(async () => {
-    redisCache = new RedisCache(logger.child({ name: `cache` }), registry);
+    redisCache = new RedisCache(logger.child({ name: constants.LOGGER_CHILD_NAME.CACHE }), registry);
     redisCache['options'].ttl = 100; // set default cache ttl to 100ms for testing
     redisClientSpy = sinon.spy(redisCache['client']);
   });

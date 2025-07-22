@@ -61,17 +61,17 @@ describe('HBAR Rate Limit Service', function () {
     loggerSpy = sinon.spy(logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,
-      logger.child({ name: 'hbar-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.HBAR_SPENDING_PLAN_REPOSITORY }),
     );
     hbarSpendingPlanRepositorySpy = sinon.spy(hbarSpendingPlanRepository);
     evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
       cacheService,
-      logger.child({ name: 'evm-address-hbar-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.EVM_ADDRESS_SPENDING_PLAN_REPOSITORY }),
     );
     evmAddressHbarSpendingPlanRepositorySpy = sinon.spy(evmAddressHbarSpendingPlanRepository);
     ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
       cacheService,
-      logger.child({ name: 'ip-address-hbar-spending-plan-repository' }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.IP_ADDRESS_SPENDING_PLAN_REPOSITORY }),
     );
     ipAddressHbarSpendingPlanRepositorySpy = sinon.spy(ipAddressHbarSpendingPlanRepository);
     hbarLimitService = new HbarLimitService(

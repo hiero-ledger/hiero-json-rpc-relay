@@ -8,6 +8,7 @@ import { LocalLRUCache, RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RequestDetails } from '../../types';
+import constants from '../../constants';
 
 export enum CACHE_LEVEL {
   L1 = 'L1_CACHE',
@@ -83,13 +84,13 @@ export class CacheService {
     this.logger = logger;
     this.register = register;
 
-    this.internalCache = new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys);
+    this.internalCache = new LocalLRUCache(logger.child({ name: constants.LOGGER_CHILD_NAME.LOCAL_LRU_CACHE }), register, reservedKeys);
     this.sharedCache = this.internalCache;
     this.isSharedCacheEnabled = !ConfigService.get('TEST') && this.isRedisEnabled();
     this.shouldMultiSet = ConfigService.get('MULTI_SET');
 
     if (this.isSharedCacheEnabled) {
-      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register);
+      this.sharedCache = new RedisCache(logger.child({ name: constants.LOGGER_CHILD_NAME.REDIS_CACHE }), register);
     }
 
     /**

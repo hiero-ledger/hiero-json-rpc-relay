@@ -10,6 +10,7 @@ import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
 import { PollerService } from './pollerService';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 export interface Subscriber {
   connection: any;
@@ -28,7 +29,7 @@ export class SubscriptionService {
   private resultsSentToSubscribersCounter: Counter;
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
-    this.pollerService = new PollerService(relay, logger.child({ name: 'poller' }), register);
+    this.pollerService = new PollerService(relay, logger.child({ name: constants.LOGGER_CHILD_NAME.POLLER }), register);
     this.logger = logger;
     this.subscriptions = {};
 

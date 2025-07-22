@@ -261,7 +261,7 @@ export default class HAPIService {
   private initSDKClient(logger: Logger): SDKClient {
     return new SDKClient(
       this.clientMain,
-      logger.child({ name: `consensus-node` }),
+      logger.child({ name: constants.LOGGER_CHILD_NAME.CONSENSUS_NODE }),
       this.eventEmitter,
       this.hbarLimitService,
     );

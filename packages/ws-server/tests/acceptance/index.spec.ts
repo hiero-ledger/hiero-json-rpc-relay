@@ -39,7 +39,7 @@ describe('RPC Server Acceptance Tests', function () {
       },
     },
   });
-  const logger = testLogger.child({ name: 'rpc-acceptance-test' });
+  const logger = testLogger.child({ name: constants.LOGGER_CHILD_NAME.RPC_ACCEPTANCE_TEST });
 
   const NETWORK = ConfigService.get('HEDERA_NETWORK');
   const OPERATOR_KEY = ConfigService.get('OPERATOR_KEY_MAIN');
@@ -54,10 +54,10 @@ describe('RPC Server Acceptance Tests', function () {
     NETWORK,
     OPERATOR_ID,
     OPERATOR_KEY,
-    logger.child({ name: `services-test-client` }),
+    logger.child({ name: constants.LOGGER_CHILD_NAME.SERVICES_TEST_CLIENT }),
   );
-  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL, logger.child({ name: `mirror-node-test-client` }));
-  global.relay = new RelayClient(RELAY_URL, logger.child({ name: `relay-test-client` }));
+  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL, logger.child({ name: constants.LOGGER_CHILD_NAME.MIRROR_NODE_TEST_CLIENT }));
+  global.relay = new RelayClient(RELAY_URL, logger.child({ name: constants.LOGGER_CHILD_NAME.RELAY_TEST_CLIENT }));
   global.logger = logger;
 
   let startOperatorBalance: Hbar;
