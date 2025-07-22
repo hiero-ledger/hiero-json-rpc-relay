@@ -82,9 +82,9 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
  * This is a predicate function that takes a list of arguments and parameters,
  * and it checks whether the given function should skip caching based on specific positional argument values.
  *
- * @param args - A list of arguments passed to a function
- * @param params - An array of rules for skipping caching
- * @returns A boolean indicating whether caching should be skipped for the provided arguments
+ * @param args - The arguments passed to the method in an array
+ * @param params - An array of CacheSingleParam caching rules
+ * @returns 'true' if any argument matches a rule and caching should be skipped; otherwise, 'false'.
  *
  * @example
  *   [{
@@ -110,12 +110,14 @@ const shouldSkipCachingForSingleParams = (args: unknown[], params: CacheSinglePa
 };
 
 /**
- * This is a predicate function that takes a list of arguments and parameters,
- * and it checks whether the given function should skip caching based on fields within argument objects.
+ * Determines whether caching should be skipped based on field-level conditions within specific argument objects. For each
+ * item in 'params', the function inspects a corresponding argument at the specified 'index' in 'args'. It builds
+ * a list of field-based skip conditions and checks if any of the fields in the input argument match any of the provided
+ * values (supports multiple values via pipe '|' separators).
  *
- * @param args - A list of arguments passed to a function
- * @param params - An array of rules for skipping caching
- * @returns A boolean indicating whether caching should be skipped for the provided arguments
+ * @param args - The function's arguments object, where values are accessed by index.
+ * @param params - An array of `CacheNamedParams` defining which arguments and which fields to inspect.
+ * @returns `true` if any field value matches a skip condition; otherwise, `false`.
  *
  * @example
  *   [{
