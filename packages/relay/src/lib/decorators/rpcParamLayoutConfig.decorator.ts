@@ -28,7 +28,7 @@ export const RPC_LAYOUT = {
 };
 
 /**
- * TypeScript 5+ standard decorator for specifying the parameter layout of an RPC method.
+ * Decorator for specifying the parameter layout of an RPC method which is different from the standard layout
  *
  * This decorator defines how RPC parameters should be arranged when passed to the method.
  *

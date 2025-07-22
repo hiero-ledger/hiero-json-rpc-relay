@@ -31,8 +31,7 @@ export interface IParamValidation {
 export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules';
 
 /**
- * TypeScript 5+ standard decorator that defines a schema for validating RPC method parameters.
- * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
+ * Decorator that defines a schema for validating RPC method parameters
  *
  * @example
  * ```typescript

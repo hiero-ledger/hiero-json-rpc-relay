@@ -27,8 +27,8 @@ interface CacheOptions {
 }
 
 /**
- * TypeScript 5+ standard cache decorator.
- * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
+ * Iterates through the provided 'params' array and checks if any argument in 'args' at the specified 'index'
+ * matches one of the pipe-separated values in 'value'. If a match is found, caching should be skipped.
  *
  * Uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
  * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
@@ -87,15 +87,15 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
  * @returns A boolean indicating whether caching should be skipped for the provided arguments
  *
  * @example
- *   skipParams: [{
- *     index: "0",
- *     value: "latest|pending"
+ *   [{
+ *     index: '0',
+ *     value: 'pending|safe'
  *   }]
  */
 const shouldSkipCachingForSingleParams = (args: unknown[], params: CacheSingleParam[] = []): boolean => {
   for (const item of params) {
     const values = item.value.split('|');
-    if (values.includes(args[item.index])) {
+    if (values.indexOf(args[item.index]) > -1) {
       return true;
     }
 
@@ -118,12 +118,13 @@ const shouldSkipCachingForSingleParams = (args: unknown[], params: CacheSinglePa
  * @returns A boolean indicating whether caching should be skipped for the provided arguments
  *
  * @example
- *   skipNamedParams: [{
- *     index: "0",
+ *   [{
+ *     index: '0',
  *     fields: [{
- *       name: "blockTag",
- *       value: "latest|pending"
- *     }]
+ *       name: 'fromBlock', value: 'pending|safe'
+ *     }, {
+ *       name: 'toBlock', value: 'safe|finalized'
+ *     }],
  *   }]
  */
 const shouldSkipCachingForNamedParams = (args: unknown[], params: CacheNamedParams[] = []): boolean => {

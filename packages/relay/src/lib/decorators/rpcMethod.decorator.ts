@@ -7,8 +7,8 @@
 export const RPC_METHOD_KEY = 'hedera-rpc-method';
 
 /**
- * TypeScript 5+ standard decorator that marks a class method as an RPC method.
- * This is the clean, modern version for TypeScript 5+ without legacy compatibility.
+ * Decorator that marks a class method as an RPC method.
+ * When applied to a method, it marks that method as available for RPC invocation.
  *
  * @example
  * ```typescript
