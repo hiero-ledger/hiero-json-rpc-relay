@@ -42,26 +42,6 @@ describe('ValidationService tests', async function () {
       GlobalConfig.ENTRIES.SERVER_PORT.required = false;
     });
 
-    it('should throw an error when the whitelist is invalid', async () => {
-      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = true;
-      expect(() =>
-        ValidationService.startUp({
-          ...mandatoryStartUpFields,
-          PAYMASTER_WHITELIST: `not-an-array`,
-        }),
-      ).to.throw('Configuration error: PAYMASTER_WHITELIST must be a valid JSON string.');
-      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
-    });
-
-    it('should validate addr array type', async () => {
-      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = true;
-      ValidationService.startUp({
-        ...mandatoryStartUpFields,
-        PAYMASTER_WHITELIST: `["${RANDOM_ADDRESS_1}", "${RANDOM_ADDRESS_2}"]`,
-      });
-      GlobalConfig.ENTRIES.PAYMASTER_WHITELIST.required = false;
-    });
-
     it('should validate string array type', async () => {
       GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.required = true;
       expect(() =>

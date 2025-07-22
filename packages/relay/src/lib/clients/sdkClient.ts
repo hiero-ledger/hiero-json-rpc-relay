@@ -176,6 +176,7 @@ export class SDKClient {
       (payMasterWhiteList.includes('*') ||
         (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
     ) {
+      // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
       ethereumTransaction.setMaxGasAllowanceHbar(Hbar.from(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'), HbarUnit.Hbar));
     }
 

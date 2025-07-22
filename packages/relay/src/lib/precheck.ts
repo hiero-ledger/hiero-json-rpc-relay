@@ -168,13 +168,12 @@ export class Precheck {
     //                which is lower than the minimum gas price value in all Hedera network environments. Therefore,
     //                this special case is exempt from the precheck in the Relay, and the gas price logic will be resolved at the Services level.
     //                The same is true for fully subsidized transactions, where the precheck about the gasPrice is not needed anymore.
-    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST');
+    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
     const passes =
       txGasPrice >= networkGasPrice ||
       Precheck.isDeterministicDeploymentTransaction(tx) ||
-      (txGasPrice === BigInt(0) &&
-        ConfigService.get('PAYMASTER_ENABLED') &&
-        (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to))));
+      (ConfigService.get('PAYMASTER_ENABLED') &&
+        (payMasterWhiteList.includes('*') || (tx.to && payMasterWhiteList.includes(tx.to.toLowerCase()))));
 
     if (!passes) {
       if (ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER')) {

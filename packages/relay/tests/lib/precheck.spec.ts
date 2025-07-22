@@ -21,6 +21,7 @@ import {
   mockData,
   overrideEnvsInMochaDescribe,
   signTransaction,
+  withOverriddenEnvsInMochaTest,
 } from '../helpers';
 import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 
@@ -362,6 +363,58 @@ describe('Precheck', async function () {
       expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
         `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
       );
+    });
+
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: false }, () => {
+      it('should not pass if gas price is set to 0 and PAYMASTER_ENABLED is false', async function () {
+        const tx = {
+          ...parsedTxWithMatchingChainId,
+          gasPrice: 0,
+          maxFeePerGas: null,
+          maxPriorityFeePerGas: null,
+        };
+        const signed = await signTransaction(tx);
+        const parsedTx = ethers.Transaction.from(signed);
+        const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
+
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
+          `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: [contractAddress1] }, () => {
+      it('should not pass if gas price is set to 0, PAYMASTER_ENABLED is true but the to address is not whitelisted', async function () {
+        const tx = {
+          ...parsedTxWithMatchingChainId,
+          gasPrice: 0,
+          maxFeePerGas: null,
+          maxPriorityFeePerGas: null,
+        };
+        const signed = await signTransaction(tx);
+        const parsedTx = ethers.Transaction.from(signed);
+        const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
+
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
+          `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: ['*'] }, () => {
+      it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and whitelist is set to wildcard', async function () {
+        const tx = {
+          ...parsedTxWithMatchingChainId,
+          gasPrice: 0,
+          maxFeePerGas: null,
+          maxPriorityFeePerGas: null,
+        };
+        const signed = await signTransaction(tx);
+        const parsedTx = ethers.Transaction.from(signed);
+        const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
+
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.not.throw();
+      });
     });
   });
 
