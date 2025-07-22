@@ -172,7 +172,7 @@ export class Precheck {
     const passes =
       txGasPrice >= networkGasPrice ||
       Precheck.isDeterministicDeploymentTransaction(tx) ||
-      CommonService.shouldSubsidyTransaction(tx.to);
+      CommonService.isSubsidyTransaction(tx.to);
 
     if (!passes) {
       if (ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER')) {

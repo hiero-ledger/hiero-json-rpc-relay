@@ -632,13 +632,21 @@ export class CommonService implements ICommonService {
     return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
   }
 
-  public static shouldSubsidyTransaction(interactingEntity: string | null): boolean {
+  /**
+   * Determines whether a given transaction qualifies as a subsidy transaction. The method checks if the paymaster
+   * FF is enabled and whether the provided `toAddress` is included in the paymaster whitelist. A wildcard `'*'`in
+   * the whitelist indicates all addresses are eligible.
+   *
+   * @param toAddress string | null
+   * @returns boolean
+   */
+  public static isSubsidyTransaction(toAddress: string | null): boolean {
     const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
 
     return !!(
       ConfigService.get('PAYMASTER_ENABLED') &&
       (payMasterWhiteList.includes('*') ||
-        (interactingEntity && payMasterWhiteList.includes(prepend0x(interactingEntity.toLowerCase()))))
+        (toAddress && payMasterWhiteList.includes(prepend0x(toAddress.toLowerCase()))))
     );
   }
 }
