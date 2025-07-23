@@ -4,7 +4,6 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import crypto from 'crypto';
 
-import { GlobalConfig } from '../../../dist/services/globalConfig';
 import { ConfigService } from '../../../src/services';
 import { LoggerService } from '../../../src/services/loggerService';
 
