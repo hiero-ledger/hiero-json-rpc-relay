@@ -153,9 +153,8 @@ describe('rpcParamValidationRules decorator', () => {
 
   describe('Multiple decorators interaction', () => {
     it('should work alongside other decorators', () => {
-      const mockDecorator = (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) => {
-        descriptor.value.MOCK_KEY = 'mock-value';
-        return descriptor;
+      const mockDecorator = (target: any, _context: ClassMethodDecoratorContext): void => {
+        target.MOCK_KEY = 'mock-value';
       };
 
       class TestMultiDecoratorClass {
