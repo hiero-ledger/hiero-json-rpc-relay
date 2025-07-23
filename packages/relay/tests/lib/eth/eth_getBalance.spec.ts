@@ -2,10 +2,8 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
-import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { buildCryptoTransferTransaction, overrideEnvsInMochaDescribe } from '../../helpers';
@@ -29,12 +27,9 @@ import { balancesByAccountIdByTimestampURL, generateEthTestEnv } from './eth-hel
 
 use(chaiAsPromised);
 
-let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
-
 describe('@ethGetBalance using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBalanceTest', ipAddress: '0.0.0.0' });
 
@@ -45,13 +40,10 @@ describe('@ethGetBalance using MirrorNode', async function () {
     await cacheService.clear(requestDetails);
     restMock.reset();
 
-    sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
