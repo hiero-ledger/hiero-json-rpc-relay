@@ -133,7 +133,7 @@ describe('ValidationService tests', async function () {
 
     it('should to cast string type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['CHAIN_ID']: '0x160c',
+        CHAIN_ID: '0x160c',
       });
 
       expect(castedEnvs['CHAIN_ID']).to.equal('0x160c');
@@ -142,7 +142,7 @@ describe('ValidationService tests', async function () {
 
     it('should to cast numeric type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['BATCH_REQUESTS_MAX_SIZE']: '5644',
+        BATCH_REQUESTS_MAX_SIZE: '5644',
       });
 
       expect(castedEnvs['BATCH_REQUESTS_MAX_SIZE']).to.equal(5644);
@@ -151,7 +151,7 @@ describe('ValidationService tests', async function () {
 
     it('should to cast boolean type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['BATCH_REQUESTS_ENABLED']: 'true',
+        BATCH_REQUESTS_ENABLED: 'true',
       });
 
       expect(castedEnvs['BATCH_REQUESTS_ENABLED']).to.be.true;
@@ -160,7 +160,7 @@ describe('ValidationService tests', async function () {
 
     it('should cast string array type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['BATCH_REQUESTS_DISALLOWED_METHODS']: '["method1", "method2"]',
+        BATCH_REQUESTS_DISALLOWED_METHODS: '["method1", "method2"]',
       });
 
       expect(castedEnvs['BATCH_REQUESTS_DISALLOWED_METHODS']).to.deep.equal(['method1', 'method2']);
@@ -169,7 +169,7 @@ describe('ValidationService tests', async function () {
 
     it('should cast number array type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['HAPI_CLIENT_ERROR_RESET']: '[21, 50]',
+        HAPI_CLIENT_ERROR_RESET: '[21, 50]',
       });
 
       expect(castedEnvs['HAPI_CLIENT_ERROR_RESET']).to.deep.equal([21, 50]);
@@ -178,7 +178,7 @@ describe('ValidationService tests', async function () {
 
     it('should handle empty arrays', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        ['ETH_CALL_ACCEPTED_ERRORS']: '[]',
+        ETH_CALL_ACCEPTED_ERRORS: '[]',
       });
 
       expect(castedEnvs['ETH_CALL_ACCEPTED_ERRORS']).to.deep.equal([]);
