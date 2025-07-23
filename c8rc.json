@@ -1,0 +1,8 @@
+{
+  "reporter": [
+    "text",
+    "html",
+    "clover",
+    "lcov"
+  ]
+}
