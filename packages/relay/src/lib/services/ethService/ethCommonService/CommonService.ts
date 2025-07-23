@@ -633,14 +633,14 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Determines whether a given transaction qualifies as a subsidy transaction. The method checks if the paymaster
+   * Determines whether a given transaction qualifies as a subsidized transaction. The method checks if the paymaster
    * FF is enabled and whether the provided `toAddress` is included in the paymaster whitelist. A wildcard `'*'`in
    * the whitelist indicates all addresses are eligible.
    *
    * @param toAddress string | null
    * @returns boolean
    */
-  public static isSubsidyTransaction(toAddress: string | null): boolean {
+  public static isSubsidizedTransaction(toAddress: string | null): boolean {
     const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
 
     return !!(

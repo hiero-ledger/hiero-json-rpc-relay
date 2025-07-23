@@ -398,7 +398,7 @@ describe('Precheck', async function () {
     });
 
     withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: [contractAddress1] }, () => {
-      it('should not pass if gas price is set to 0, PAYMASTER_ENABLED is true and the to address is whitelisted', async function () {
+      it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and the to address is whitelisted', async function () {
         const tx = {
           ...parsedTxWithMatchingChainId,
           to: contractAddress1,
