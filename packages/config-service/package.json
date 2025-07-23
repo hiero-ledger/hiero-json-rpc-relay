@@ -11,7 +11,7 @@
     "compile": "tsc -b tsconfig.json",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "format": "npx prettier --ignore-path ../../.gitignore --write \"**/*.+(js|ts|json)\"",
-    "test": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
     "print-env": "node src/commands/printEnvs.ts"
   },
   "dependencies": {
@@ -23,15 +23,5 @@
     "chai": "^4.3.6",
     "ts-mocha": "^9.0.2",
     "typescript": "^4.6.4"
-  },
-  "nyc": {
-    "check-coverage": false,
-    "reporter": [
-      "html",
-      "lcov",
-      "text",
-      "text-summary"
-    ],
-    "report-dir": "coverage"
   }
 }
