@@ -8,6 +8,7 @@ import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
+import { CommonService } from './services';
 import { RequestDetails } from './types';
 
 /**
@@ -163,7 +164,7 @@ export class Precheck {
 
     // **notice: Pass gasPrice precheck if txGasPrice is greater than the minimum network's gas price value,
     //          OR if the transaction is the deterministic deployment transaction (a special case),
-    //          OR in case of fully subsidized transactions where gasPrice was set 0 by the user and the provider set a gas allowance
+    //          OR paymaster is used for fully subsidized transactions where gasPrice was set 0 by the user and the provider set a gas allowance
     // **explanation: The deterministic deployment transaction is pre-signed with a gasPrice value of only 10 hbars,
     //                which is lower than the minimum gas price value in all Hedera network environments. Therefore,
     //                this special case is exempt from the precheck in the Relay, and the gas price logic will be resolved at the Services level.
@@ -171,7 +172,7 @@ export class Precheck {
     const passes =
       txGasPrice >= networkGasPrice ||
       Precheck.isDeterministicDeploymentTransaction(tx) ||
-      (txGasPrice === BigInt(0) && ConfigService.get('MAX_GAS_ALLOWANCE_HBAR') > 0);
+      CommonService.isSubsidizedTransaction(tx.to);
 
     if (!passes) {
       if (ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER')) {

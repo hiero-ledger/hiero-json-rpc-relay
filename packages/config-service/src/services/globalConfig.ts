@@ -587,6 +587,18 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  PAYMASTER_ENABLED: {
+    envName: 'PAYMASTER_ENABLED',
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
+  PAYMASTER_WHITELIST: {
+    envName: 'PAYMASTER_WHITELIST',
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
   RATE_LIMIT_DISABLED: {
     envName: 'RATE_LIMIT_DISABLED',
     type: 'boolean',
