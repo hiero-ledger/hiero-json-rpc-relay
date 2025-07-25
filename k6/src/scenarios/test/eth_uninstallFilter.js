@@ -3,19 +3,19 @@
 import http from 'k6/http';
 
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { isNonErrorResponse, isErrorResponse, httpParams, getPayLoad } from './common.js';
-
-const url = __ENV.RELAY_BASE_URL;
+import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_uninstallFilter';
 const { options, run } = new TestScenarioBuilder()
   .name(methodName) // use unique scenario name among all tests
-  .request(() => {
-    // Use placeholder filter ID - may return error response which is acceptable for performance testing
-    const placeholderFilterId = '0x1';
-    return http.post(url, getPayLoad(methodName, [placeholderFilterId]), httpParams);
+  .request((testParameters) => {
+    const filterId = testParameters.filters.blockFilterId;
+    return http.post(testParameters.RELAY_BASE_URL, getPayLoad(methodName, [filterId]), httpParams);
   })
-  .check(methodName, (r) => isNonErrorResponse(r) || isErrorResponse(r))
+  .check(methodName, (r) => isNonErrorResponse(r))
   .build();
 
 export { options, run };
+
+export const setup = setupTestParameters;
