@@ -3,8 +3,9 @@
 
 
 import http from 'k6/http';
-import { is400Status, httpParams, getPayLoad } from './common.js';
+
 import { TestScenarioBuilder } from '../../lib/common.js';
+import { getPayLoad,httpParams, is400Status } from './common.js';
 
 const methodName = 'eth_newPendingTransactionFilter';
 const { options, run } = new TestScenarioBuilder()

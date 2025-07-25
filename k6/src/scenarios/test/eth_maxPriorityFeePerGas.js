@@ -3,8 +3,9 @@
 
 
 import http from 'k6/http';
-import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+
 import { TestScenarioBuilder } from '../../lib/common.js';
+import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
 
 const methodName = 'eth_maxPriorityFeePerGas';
 const { options, run } = new TestScenarioBuilder()

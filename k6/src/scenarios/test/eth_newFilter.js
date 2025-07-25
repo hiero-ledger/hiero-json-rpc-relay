@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-import http from 'k6/http';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import http from 'k6/http';
+
 import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
 
 const methodName = 'eth_newFilter';
 const { options, run } = new TestScenarioBuilder()

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import http from 'k6/http';
+
 import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
 
 const methodName = 'debug_traceBlockByNumber';
 const { options, run } = new TestScenarioBuilder()
