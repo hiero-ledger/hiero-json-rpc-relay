@@ -66,9 +66,7 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   const mainWallet = new ethers.Wallet(mainPrivateKeyString, provider);
   console.log('RPC Server:  ' + process.env.RELAY_BASE_URL);
   console.log('Main Wallet Address: ' + mainWallet.address);
-  console.log(
-    'Main Wallet Initial Balance: ' + formatEther(await provider.getBalance(mainWallet.address)) + ' HBAR',
-  );
+  console.log('Main Wallet Initial Balance: ' + formatEther(await provider.getBalance(mainWallet.address)) + ' HBAR');
   const usersCount = process.env.WALLETS_AMOUNT ? process.env.WALLETS_AMOUNT : 1;
   const contractsCount = process.env.SMART_CONTRACTS_AMOUNT ? process.env.SMART_CONTRACTS_AMOUNT : 1;
   const smartContracts = [];
@@ -129,6 +127,26 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   const latestBlock = await provider.getBlockNumber();
   console.log('Latest Block: ' + latestBlock);
 
+  // Create filters for testing filter endpoints
+  console.log('Creating filters for testing...');
+  const filters = {};
+
+  // Create a block filter
+  const blockFilterResponse = await provider.send('eth_newBlockFilter', []);
+  filters.blockFilterId = blockFilterResponse;
+  console.log('Block filter created:', blockFilterResponse);
+
+  // Create a log filter
+  const logFilterResponse = await provider.send('eth_newFilter', [
+    {
+      fromBlock: 'latest',
+      toBlock: 'latest',
+      address: smartContracts[0], // Use first contract address
+    },
+  ]);
+  filters.logFilterId = logFilterResponse;
+  console.log('Log filter created:', logFilterResponse);
+
   console.log('Creating smartContractParams.json file...');
 
   const output = {};
@@ -137,6 +155,7 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   output['contractAddress'] = smartContracts[0];
   output['contractsAddresses'] = smartContracts;
   output['wallets'] = wallets;
+  output['filters'] = filters;
 
   fs.writeFileSync(path.resolve(__dirname) + '/.smartContractParams.json', JSON.stringify(output, null, 2));
 })();
