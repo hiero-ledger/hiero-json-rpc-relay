@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+
 import http from 'k6/http';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
-
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
-
-const url = __ENV.RELAY_BASE_URL;
 
 const methodName = 'eth_newFilter';
 const { options, run } = new TestScenarioBuilder()
@@ -25,7 +23,7 @@ const { options, run } = new TestScenarioBuilder()
       filterObject.address = testParameters.contractsAddresses[contractIndex];
     }
 
-    return http.post(url, getPayLoad(methodName, [filterObject]), httpParams);
+    return http.post(testParameters.RELAY_BASE_URL, getPayLoad(methodName, [filterObject]), httpParams);
   })
   .check(methodName, (r) => isNonErrorResponse(r))
   .build();
