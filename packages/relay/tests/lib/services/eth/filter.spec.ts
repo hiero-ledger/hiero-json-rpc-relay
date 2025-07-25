@@ -22,7 +22,6 @@ import {
   toHex,
   withOverriddenEnvsInMochaTest,
 } from '../../../helpers';
-import { generateEthTestEnv } from '../../eth/eth-helpers';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
@@ -542,9 +541,21 @@ describe('Filter API Test Suite', async function () {
         200,
         JSON.stringify({
           blocks: [
-            { ...defaultBlock, number: defaultBlock.number + 1, hash: '0x1' },
-            { ...defaultBlock, number: defaultBlock.number + 2, hash: '0x2' },
-            { ...defaultBlock, number: defaultBlock.number + 3, hash: '0x3' },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 1,
+              hash: '0x814c4894b0d8894966d79d6c22bee808bdf4150a9202cc82e97800b7dc540119cb84fcf5723e0d312322972551f2f6f3',
+            },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 2,
+              hash: '0x6caf6ddba4d214b1c4bf5285950335df17499bb7f9a43929935181bc04c0a6193997e56fcaebbcae23a8f65b53df2c6c',
+            },
+            {
+              ...defaultBlock,
+              number: defaultBlock.number + 3,
+              hash: '0x08bac9fc00f257cba1215929cb19355c4ee08679c78e387ca0720142d50758925a0f5283c02dfa3fb37317116f0bc2a2',
+            },
           ],
         }),
       );
@@ -562,12 +573,14 @@ describe('Filter API Test Suite', async function () {
       );
 
       const result = await filterService.getFilterChanges(existingFilterId, requestDetails);
-
       expect(result).to.exist;
       expect(result.length).to.eq(3, 'returns correct number of blocks');
-      expect(result[0]).to.eq('0x1', 'result is in ascending order');
-      expect(result[1]).to.eq('0x2');
-      expect(result[2]).to.eq('0x3');
+      expect(result[0]).to.eq(
+        '0x814c4894b0d8894966d79d6c22bee808bdf4150a9202cc82e97800b7dc540119',
+        'result is in ascending order',
+      );
+      expect(result[1]).to.eq('0x6caf6ddba4d214b1c4bf5285950335df17499bb7f9a43929935181bc04c0a619');
+      expect(result[2]).to.eq('0x08bac9fc00f257cba1215929cb19355c4ee08679c78e387ca0720142d5075892');
 
       const secondResult = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(secondResult).to.exist;
