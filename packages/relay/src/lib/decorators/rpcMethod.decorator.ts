@@ -20,12 +20,12 @@ export const RPC_METHOD_KEY = 'hedera-rpc-method';
  * }
  * ```
  *
- * @param _target - The prototype of the class (ignored in this implementation)
- * @param _propertyKey - The name of the method being decorated (ignored in this implementation)
- * @param descriptor - The property descriptor for the method
- * @returns The same property descriptor, allowing for decorator composition
+ * @param target - The method function
+ * @param context - The decorator context
+ * @returns The method function with RPC metadata attached
  */
-export function rpcMethod(_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-  descriptor.value[RPC_METHOD_KEY] = true;
-  return descriptor;
+export function rpcMethod(target: any, _context: ClassMethodDecoratorContext): any {
+  target[RPC_METHOD_KEY] = true;
+
+  return target;
 }
