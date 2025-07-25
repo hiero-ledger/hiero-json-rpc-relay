@@ -3,8 +3,8 @@
 
 
 import http from 'k6/http';
-import { TestScenarioBuilder } from '../../lib/common.js';
 import { is400Status, httpParams, getPayLoad } from './common.js';
+import { TestScenarioBuilder } from '../../lib/common.js';
 
 const methodName = 'net_peerCount';
 const { options, run } = new TestScenarioBuilder()

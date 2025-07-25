@@ -2,9 +2,9 @@
 
 import http from 'k6/http';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { is400Status, httpParams, getPayLoad } from './common.js';
-import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_getProof';
 const { options, run } = new TestScenarioBuilder()

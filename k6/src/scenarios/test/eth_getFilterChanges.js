@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import http from 'k6/http';
+import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
-import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_getFilterChanges';
 const { options, run } = new TestScenarioBuilder()
