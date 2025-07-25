@@ -504,13 +504,11 @@ const _CONFIG = {
     defaultValue: null,
   },
   PAYMASTER_ENABLED: {
-    envName: 'PAYMASTER_ENABLED',
     type: 'boolean',
     required: false,
     defaultValue: false,
   },
   PAYMASTER_WHITELIST: {
-    envName: 'PAYMASTER_WHITELIST',
     type: 'strArray',
     required: false,
     defaultValue: [],
