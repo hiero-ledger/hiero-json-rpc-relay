@@ -17,7 +17,7 @@ async function _fetch(endpoint) {
 
 /**
  * 
- * @param {string} prNumber 
+ * @param {string | number} prNumber 
  * @returns 
  */
 async function getPRDetails(prNumber) {
@@ -43,10 +43,16 @@ async function getContributors() {
   return await response.json();
 }
 
+/**
+ * @param {string} text 
+ */
 function stripHTMLTags(text) {
   return text.replace(/<\/?[^>]+(>|$)/g, '');
 }
 
+/**
+ * @param {string} text 
+ */
 function removeCodeBlocks(text) {
   // Remove fenced code blocks (triple backticks or tildes)
   text = text.replace(/```[\s\S]*?```/g, '');
@@ -95,6 +101,9 @@ function extractIssueReferences(text) {
   return issues;
 }
 
+/**
+ * @param {string} text 
+ */
 function cleanText(text) {
   let cleanText = text;
   cleanText = stripHTMLTags(cleanText);
@@ -102,14 +111,19 @@ function cleanText(text) {
   return cleanText;
 }
 
-async function checkPRLabelsAndMilestone(pr) {
-  const { labels: prLabels, milestone: prMilestone } = pr;
+/**
+ * 
+ * @param {*} pr 
+ * @param {string[]} errors
+ */
+async function checkPRLabelsAndMilestone(pr, errors) {
+  const { labels, milestone } = pr;
 
-  if (!prLabels || prLabels.length === 0) {
-    throw new Error('The PR has no labels.');
+  if (!labels || labels.length === 0) {
+    errors.push('The PR has no labels.');
   }
-  if (!prMilestone) {
-    throw new Error('The PR has no milestone.');
+  if (!milestone) {
+    errors.push('The PR has no milestone.');
   }
 }
 
@@ -117,7 +131,11 @@ function isDependabotOrSnykPR(pr) {
   return pr.user.login === 'dependabot[bot]' || pr.user.login === 'swirlds-automation';
 }
 
-async function processIssueReferencesInText(text) {
+/**
+ * @param {string} text 
+ * @param {string[]} errors 
+ */
+async function processIssueReferencesInText(text, errors = []) {
   const issueReferences = extractIssueReferences(text);
 
   let hasValidIssueReference = false;
@@ -132,52 +150,60 @@ async function processIssueReferencesInText(text) {
           const { labels: issueLabels, milestone: issueMilestone } = issue;
 
           if (!issueLabels || issueLabels.length === 0) {
-            throw new Error(`Associated issue #${issueRef.issueNumber} has no labels.`);
+            errors.push(`Associated issue #${issueRef.issueNumber} has no labels.`);
           }
           if (!issueMilestone) {
-            throw new Error(`Associated issue #${issueRef.issueNumber} has no milestone.`);
+            errors.push(`Associated issue #${issueRef.issueNumber} has no milestone.`);
           }
         }
       } else {
-        console.log(
+        console.info(
           `Issue #${issueRef.issueNumber} is from a different repository (${issueRef.owner}/${issueRef.repo}), skipping...`,
         );
       }
     }
 
     if (!hasValidIssueReference) {
-      throw new Error('The PR description must reference at least one issue from the current repository.');
+      errors.push('The PR description must reference at least one issue from the current repository.');
     } else {
-      console.log('All associated issues have labels and milestones.');
+      console.info('All associated issues have labels and milestones.');
     }
   } else {
-    throw new Error('The PR description must reference at least one issue from the current repository.');
+    errors.push('The PR description must reference at least one issue from the current repository.');
   }
 }
 
-async function processPRReferencesInText(text, contributors) {
+/**
+ * @param {string} text 
+ * @param {{login: string}[]} contributors 
+ */
+async function processPRReferencesInText(text, contributors, errors) {
   const prReferences = extractPRReferences(text);
 
   if (prReferences.length === 0) {
-    console.log('No associated PRs found in PR description.');
+    console.info('No associated PRs found in PR description.');
   } else {
     for (const prRef of prReferences) {
       // Only process PRs from the same repository
       if (prRef.owner === owner && prRef.repo === repo) {
-        await processReferencedPR(prRef, contributors);
+        await processReferencedPR(prRef, contributors, errors);
       } else {
-        console.log(`PR #${prRef.prNumber} is from a different repository (${prRef.owner}/${prRef.repo}), skipping...`);
+        console.info(`PR #${prRef.prNumber} is from a different repository (${prRef.owner}/${prRef.repo}), skipping...`);
         // Skip processing issue references from external PRs
       }
     }
   }
 }
 
+/**
+ * @param {string} prRef 
+ * @param {{login: string}[]} contributors 
+ */
 async function processReferencedPR(prRef, contributors) {
   // Attempt to fetch the PR to validate its existence
   const referencedPR = await getPRDetails(prRef.prNumber);
   if (!referencedPR) {
-    console.log(`PR #${prRef.prNumber} does not exist, skipping...`);
+    console.info(`PR #${prRef.prNumber} does not exist, skipping...`);
     return; // Skip if PR not found
   }
 
@@ -207,19 +233,19 @@ async function processReferencedPR(prRef, contributors) {
           const { labels: issueLabels, milestone: issueMilestone } = issue;
 
           if (!issueLabels || issueLabels.length === 0) {
-            throw new Error(`Associated issue #${issueRef.issueNumber} has no labels.`);
+            errors.push(`Associated issue #${issueRef.issueNumber} has no labels.`);
           }
           if (!issueMilestone) {
-            throw new Error(`Associated issue #${issueRef.issueNumber} has no milestone.`);
+            errors.push(`Associated issue #${issueRef.issueNumber} has no milestone.`);
           }
         }
       } else {
-        console.log(
+        console.info(
           `Issue #${issueRef.issueNumber} is from a different repository (${issueRef.owner}/${issueRef.repo}), skipping...`,
         );
       }
     }
-    console.log(`PR #${prRef.prNumber} and all associated issues have labels and milestones.`);
+    console.info(`PR #${prRef.prNumber} and all associated issues have labels and milestones.`);
   }
 }
 
@@ -273,22 +299,28 @@ async function main() {
   }
 
   await fixSnykPR(pr);
-  await checkPRLabelsAndMilestone(pr);
+  const errors = [];
+
+  await checkPRLabelsAndMilestone(pr, errors);
 
   if (isDependabotOrSnykPR(pr)) {
-    console.log('Dependabot or snyk PR detected. Skipping issue reference requirement.');
+    console.info('Dependabot or snyk PR detected. Skipping issue reference requirement.');
     return;
-  } else {
-    const cleanBody = cleanText(pr.body);
-    await processIssueReferencesInText(cleanBody);
   }
 
-  const contributors = await getContributors();
-
   const cleanBody = cleanText(pr.body);
-  await processPRReferencesInText(cleanBody, contributors);
+  await processIssueReferencesInText(cleanBody, errors);
 
-  console.log('All checks completed.');
+  const contributors = await getContributors();
+  await processPRReferencesInText(cleanBody, contributors, errors);
+
+  if (errors.length > 0) {
+    console.error('PR validation failed with the following errors:');
+    errors.forEach((error) => console.error(`- ${error}`));
+    process.exit(2);
+  }
+
+  console.info('All checks completed.');
 }
 
 main().catch((error) => {
