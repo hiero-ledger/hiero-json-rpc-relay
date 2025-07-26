@@ -20,10 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 #v3.8.2
         with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install axios
+          node-version: '22'
 
       - name: Check PR labels and milestones
         env:
