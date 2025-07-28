@@ -17,7 +17,7 @@ const blue = text => `\x1b[34m${text}\x1b[0m`;
 async function _get(endpoint) {
   return await fetch('https://api.github.com/repos/' + endpoint, {
     headers: {
-      Authorization: `token ${githubToken}`,
+      Authorization: `token ${GITHUB_TOKEN}`,
     },
   });
 }
