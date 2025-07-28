@@ -1,12 +1,8 @@
 {
   "all": true,
-  "include": [
-    "packages/**/*.ts"
-  ],
   "reporter": [
     "text",
     "html",
-    "clover",
     "lcov"
   ]
 }
