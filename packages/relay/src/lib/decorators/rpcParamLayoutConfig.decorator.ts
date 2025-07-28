@@ -36,14 +36,14 @@ export const RPC_LAYOUT = {
  * ```typescript
  * // Method that only needs requestDetails
  * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+ * @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
  * blockNumber(requestDetails: RequestDetails): Promise<string> {
  *   // Implementation
  * }
  *
  * // Method with specific parameter transformations
  * @rpcMethod
- * @rpcParamSpecialLayout(RPC_LAYOUT.custom(params => [params[0], params[1]]))
+ * @rpcParamLayoutConfig(RPC_LAYOUT.custom(params => [params[0], params[1]]))
  * estimateGas(transaction: IContractCallRequest, _blockParam: string | null, requestDetails: RequestDetails,): Promise<string | JsonRpcError> {
  *   // Implementation
  * }
@@ -52,8 +52,8 @@ export const RPC_LAYOUT = {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
-  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    descriptor.value[RPC_PARAM_LAYOUT_KEY] = layout;
-    return descriptor;
+  return function (target: any, _context: ClassMethodDecoratorContext): any {
+    target[RPC_PARAM_LAYOUT_KEY] = layout;
+    return target;
   };
 }

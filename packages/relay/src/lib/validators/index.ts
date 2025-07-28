@@ -49,10 +49,10 @@ export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules
  * @returns Method decorator function
  */
 export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
-  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    // Store validation rules directly on the function as a property
-    descriptor.value[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
-    return descriptor;
+  return function (target: any, _context: ClassMethodDecoratorContext): any {
+    target[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;
+
+    return target;
   };
 }
 
