@@ -1,4 +1,5 @@
 {
+  "all": true,
   "reporter": [
     "text",
     "html",
