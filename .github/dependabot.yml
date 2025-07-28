@@ -37,7 +37,7 @@ updates:
       - "/tools/golang-example"
       - "/tools/golang-json-rpc-tests"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     open-pull-requests-limit: 10
 
   - package-ecosystem: "cargo"
@@ -46,7 +46,7 @@ updates:
       - "/tools/ethers-rs-example"
       - "/tools/web3rs-example"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     open-pull-requests-limit: 10
 
   - package-ecosystem: "github-actions"
