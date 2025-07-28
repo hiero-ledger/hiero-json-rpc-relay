@@ -271,6 +271,10 @@ const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = 
   return value == null ? null : value * constants.TINYBAR_TO_WEIBAR_COEF;
 };
 
+const randomFunction = () => {
+  return 'randomFunction';
+};
+
 export {
   hashNumber,
   formatRequestIdMessage,
