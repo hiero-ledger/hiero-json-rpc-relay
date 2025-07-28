@@ -1,5 +1,8 @@
 {
   "all": true,
+  "include": [
+    "packages/"
+  ],
   "reporter": [
     "text",
     "html",
