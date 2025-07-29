@@ -87,13 +87,35 @@ Based on the goals and requirements outlined in `performance_test_goal.md`, this
 - [ ] Plan future automation of dashboard updates
 - [ ] **Deliverable**: Grafana integration documentation
 
-## Priority 3: Targeted Performance Issue Resolution
+## Priority 3: Upper Limit Discovery and Capacity Testing
 
-### 3.1 High-Transaction Block Testing
+### 3.1 Progressive Load Testing Implementation
+
+**Goal**: Systematically identify maximum stable traffic capacity for single relay instance
+
+#### Ticket 3.1.1: Progressive Load Testing Framework
+
+- [ ] Create systematic VU progression methodology (start low, increase until degradation)
+- [ ] Implement degradation detection criteria using APM metrics from Priority 2
+- [ ] Build automated load discovery script or manual testing process
+- [ ] Document upper limit discovery procedure for repeatable execution
+- [ ] **Deliverable**: Framework for finding relay instance capacity limits
+
+#### Ticket 3.1.2: Capacity Discovery Test Execution
+
+- [ ] Execute progressive load tests using weighted traffic patterns and APM monitoring
+- [ ] Start with baseline VU count and systematically increase until degradation occurs
+- [ ] Monitor and document system behavior using Clinic.js and enhanced K6 metrics
+- [ ] Identify specific bottlenecks (CPU, memory, I/O, event loop) with performance data
+- [ ] **Deliverable**: Documented maximum stable traffic capacity and bottleneck analysis
+
+## Priority 4: Targeted Performance Issue Resolution
+
+### 4.1 High-Transaction Block Testing
 
 **Goal**: Address degradation issues with blocks containing 5,000+ transactions
 
-#### Ticket 3.1.1: High-Transaction Block Identification
+#### Ticket 4.1.1: High-Transaction Block Identification
 
 - [ ] Coordinate with Mirror Node team to identify testnet blocks with 5,000+ transactions
 - [ ] Document specific block numbers and transaction counts
@@ -101,25 +123,25 @@ Based on the goals and requirements outlined in `performance_test_goal.md`, this
 - [ ] Create test data repository for consistent testing
 - [ ] **Deliverable**: Curated list of high-transaction test blocks
 
-#### Ticket 3.1.2: Custom Degradation Reproduction Script
+#### Ticket 4.1.2: Custom Degradation Reproduction Script
 
-- [ ] Create dedicated K6 script for high-transaction block testing
+- [ ] Create dedicated K6 script for high-transaction block testing using enhanced monitoring
 - [ ] Implement progressive load increase to reproduce degradation
-- [ ] Add specific monitoring for block retrieval performance
+- [ ] Add specific monitoring for block retrieval performance using APM tools
 - [ ] Document reproduction steps and expected outcomes
 - [ ] **Deliverable**: High-transaction block test script
 
-#### Ticket 3.1.3: Performance Bottleneck Analysis
+#### Ticket 4.1.3: Performance Bottleneck Analysis
 
-- [ ] Use enhanced K6 + Clinic.js tools to analyze bottlenecks
-- [ ] Identify specific performance degradation points
+- [ ] Use enhanced K6 + Clinic.js tools from Priority 2 to analyze bottlenecks
+- [ ] Identify specific performance degradation points with detailed metrics
 - [ ] Document findings with performance data evidence
 - [ ] Recommend optimization strategies
 - [ ] **Deliverable**: Performance bottleneck analysis report
 
-### 3.2 Testnet vs Mainnet Staging Coordination
+### 4.2 Testnet vs Mainnet Staging Coordination
 
-#### Ticket 3.2.1: Mirror Node Team Coordination
+#### Ticket 4.2.1: Mirror Node Team Coordination
 
 - [ ] Schedule meetings with Mirror Node team for performance testing coordination
 - [ ] Evaluate mainnet staging environment for performance testing
@@ -127,7 +149,7 @@ Based on the goals and requirements outlined in `performance_test_goal.md`, this
 - [ ] Document environment setup and limitations
 - [ ] **Deliverable**: Coordinated testing environment strategy
 
-## Priority 4: Reporting and Tracking Infrastructure
+## Priority 5: Reporting and Tracking Infrastructure
 
 ### 4.1 Reference Data and Baseline Management
 
@@ -178,15 +200,17 @@ Based on the goals and requirements outlined in `performance_test_goal.md`, this
 ## Implementation Timeline
 
 **Weeks 1-2**: Priority 1 (Enhanced K6 Script Foundation)
-**Weeks 3-4**: Priority 2 (APM Integration)
-**Weeks 5-6**: Priority 3 (Targeted Performance Issues)
-**Weeks 7-8**: Priority 4 (Reporting and Tracking)
+**Weeks 3-4**: Priority 2 (APM Integration)  
+**Weeks 5-6**: Priority 3 (Upper Limit Discovery and Capacity Testing)
+**Weeks 7-8**: Priority 4 (Targeted Performance Issues)
+**Weeks 9-10**: Priority 5 (Reporting and Tracking)
 
 ## Success Criteria
 
 - [ ] K6 tests reflect real HashIO traffic patterns
 - [ ] Professional test anatomy with proper phases implemented
 - [ ] Comprehensive Node.js performance monitoring operational
+- [ ] Maximum stable traffic capacity identified with detailed bottleneck analysis
 - [ ] High-transaction block degradation issues identified and documented
 - [ ] Baseline performance data established for release comparisons
 - [ ] Complete performance engineering process documented
