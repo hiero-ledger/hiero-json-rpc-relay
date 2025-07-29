@@ -1,0 +1,102 @@
+# Analyze HashIO Traffic Patterns
+
+## Description
+
+### Current Situation
+
+The existing K6 performance test suite treats all RPC endpoints equally, allocating 1 VU for 1-5 seconds to each endpoint regardless of actual usage patterns. This creates unrealistic test scenarios that don't reflect real-world traffic distribution on HashIO.
+
+### Rationale
+
+To enhance the K6 performance test suite, we need to analyze the last three months of traffic to assign weights to each RPC call, reflecting their distribution in the test scenarios. This analysis is the foundation for creating realistic performance tests that:
+
+1. **Reflect actual user behavior** - Popular endpoints should receive more testing resources
+2. **Identify resource-intensive endpoints** - Slow endpoints need additional weight multipliers
+3. **Enable accurate capacity planning** - Understanding real traffic patterns helps determine system limits
+4. **Support regression testing** - Baseline performance data must be based on realistic workloads
+
+### Business Impact
+
+Without traffic-weighted testing, our performance tests may miss critical bottlenecks in heavily-used endpoints while over-testing rarely-used ones. This could lead to production performance issues going undetected during release validation.
+
+## Acceptance Criteria
+
+- [ ] Successfully extract 90-day traffic data from Grafana for all RPC endpoints
+- [ ] Calculate average RPS (Requests Per Second) for each endpoint over the 90-day period
+- [ ] Calculate percentage distribution of traffic across all endpoints
+- [ ] Extract average response latency for each endpoint over the same period
+- [ ] Identify endpoints with >500ms average latency for resource-intensive multipliers
+- [ ] Document findings in a comprehensive traffic analysis report
+- [ ] Provide clear data table showing: Endpoint Name, Average RPS, Traffic Percentage, Average Latency, Recommended Weight Multiplier
+
+## Suggested Solution
+
+### Step 1: Grafana Data Collection
+
+Given Grafana's 30-day historical limit for some metrics, collect data using available metrics:
+
+- **Use RPS data** (available for 90-day range) to calculate traffic distribution
+- **Use Response Latency data** (available for 90-day range) to identify resource-intensive endpoints
+- Query format: `now-90d` to `now` for comprehensive historical view
+
+### Step 2: Data Analysis Process
+
+```javascript
+// Example calculation process:
+// 1. Extract average RPS per endpoint over 90 days
+eth_call: 15 RPS average
+eth_getBalance: 12 RPS average
+eth_chainId: 3 RPS average
+// Total: 30 RPS
+
+// 2. Calculate percentage distribution
+eth_call: 15/30 = 50% of traffic
+eth_getBalance: 12/30 = 40% of traffic
+eth_chainId: 3/30 = 10% of traffic
+
+// 3. Apply latency-based multipliers
+eth_call: 800ms latency > 500ms threshold = 2x multiplier
+eth_getBalance: 50ms latency < 500ms threshold = 1x multiplier
+eth_chainId: 25ms latency < 500ms threshold = 1x multiplier
+
+// 4.Apply multipliers to raw weights (not percentages)
+eth_call: 50% × 2 (latency multiplier) = 100 points
+eth_getBalance: 40% × 1 (no multiplier) = 40 points
+eth_chainId: 10% × 1 (no multiplier) = 10 points
+
+Total weighted points = 150
+
+// 5. Normalize to final %
+eth_call: 100/150 = 67% final weight
+eth_getBalance: 40/150 = 27% final weight
+eth_chainId: 10/150 = 6% final weight
+
+// 6. Assign VUs
+
+eth_call: 67% × totalVUs = x VUs
+eth_getBalance: 27% × totalVUs = y VUs
+eth_chainId: 6% × totalVUs = z VU
+
+// In k6/src/lib/common.js or wherever scenario options are defined:
+const trafficWeights = {
+  eth_call: { vus: x, duration: '60s' },
+  eth_getBalance: { vus: y, duration: '60s' },
+  eth_chainId: { vus: z, duration: '60s' }
+}
+```
+
+### Step 3: Report Structure
+
+Create a markdown report with:
+
+1. **Executive Summary** - Key findings and recommendations
+2. **Methodology** - Data collection approach and timeframe
+3. **Traffic Distribution Table** - All endpoints with RPS, percentages, latencies
+4. **Resource-Intensive Endpoint Analysis** - Endpoints requiring multipliers
+5. **Recommended Weights** - Final weight calculations for K6 implementation
+
+## Deliverables
+
+- [ ] Traffic analysis report completed and reviewed
+- [ ] Clear weight recommendations ready for implementation
+- [ ] Report stored in project documentation for future reference
