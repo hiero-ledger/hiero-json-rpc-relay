@@ -4,7 +4,7 @@
 
 ### Current Situation
 
-The existing K6 performance test suite treats all RPC endpoints equally, allocating 1 VU for 1-5 seconds to each endpoint regardless of actual usage patterns. This creates unrealistic test scenarios that don't reflect real-world traffic distribution on HashIO.
+The existing K6 performance test suite treats all RPC endpoints equally, allocating a constant VU for 1-5 seconds to each endpoint regardless of actual usage patterns. This creates unrealistic test scenarios that don't reflect real-world traffic distribution on HashIO.
 
 ### Rationale
 
@@ -19,25 +19,14 @@ To enhance the K6 performance test suite, we need to analyze the last three mont
 
 Without traffic-weighted testing, our performance tests may miss critical bottlenecks in heavily-used endpoints while over-testing rarely-used ones. This could lead to production performance issues going undetected during release validation.
 
-## Acceptance Criteria
-
-- [ ] Successfully extract 90-day traffic data from Grafana for all RPC endpoints
-- [ ] Calculate average RPS (Requests Per Second) for each endpoint over the 90-day period
-- [ ] Calculate percentage distribution of traffic across all endpoints
-- [ ] Extract average response latency for each endpoint over the same period
-- [ ] Identify endpoints with >500ms average latency for resource-intensive multipliers
-- [ ] Document findings in a comprehensive traffic analysis report
-- [ ] Provide clear data table showing: Endpoint Name, Average RPS, Traffic Percentage, Average Latency, Recommended Weight Multiplier
-
 ## Suggested Solution
 
 ### Step 1: Grafana Data Collection
 
-Given Grafana's 30-day historical limit for some metrics, collect data using available metrics:
+Collect data using available metrics:
 
 - **Use RPS data** (available for 90-day range) to calculate traffic distribution
 - **Use Response Latency data** (available for 90-day range) to identify resource-intensive endpoints
-- Query format: `now-90d` to `now` for comprehensive historical view
 
 ### Step 2: Data Analysis Process
 
@@ -75,7 +64,7 @@ eth_chainId: 10/150 = 6% final weight
 
 eth_call: 67% × totalVUs = x VUs
 eth_getBalance: 27% × totalVUs = y VUs
-eth_chainId: 6% × totalVUs = z VU
+eth_chainId: 6% × totalVUs = z VUs
 
 // In k6/src/lib/common.js or wherever scenario options are defined:
 const trafficWeights = {
@@ -94,6 +83,16 @@ Create a markdown report with:
 3. **Traffic Distribution Table** - All endpoints with RPS, percentages, latencies
 4. **Resource-Intensive Endpoint Analysis** - Endpoints requiring multipliers
 5. **Recommended Weights** - Final weight calculations for K6 implementation
+
+## Acceptance Criteria
+
+- [ ] Successfully extract 90-day traffic data from Grafana for all RPC endpoints
+- [ ] Calculate average RPS (Requests Per Second) for each endpoint over the 90-day period
+- [ ] Calculate percentage distribution of traffic across all endpoints
+- [ ] Extract average response latency for each endpoint over the same period
+- [ ] Identify endpoints with >500ms average latency for resource-intensive multipliers
+- [ ] Document findings in a comprehensive traffic analysis report
+- [ ] Provide clear data table showing: Endpoint Name, Average RPS, Traffic Percentage, Average Latency, Recommended Weight Multiplier
 
 ## Deliverables
 
