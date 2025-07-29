@@ -17,3 +17,9 @@ coverage:
 
 ignore:
   - "packages/*/dist"
+  - ".github"
+  - "dapp-example"
+  - "docs"
+  - "k6"
+  - "scripts"
+  - "tools"
