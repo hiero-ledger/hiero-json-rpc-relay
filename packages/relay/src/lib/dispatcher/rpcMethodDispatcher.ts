@@ -52,7 +52,7 @@ export class RpcMethodDispatcher {
   ): Promise<any | JsonRpcError> {
     try {
       /////////////////////////////// Pre-execution Phase ///////////////////////////////
-      const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams, requestDetails);
+      const operationHandler = this.precheckRpcMethod(rpcMethodName, rpcMethodParams);
 
       /////////////////////////////// Execution Phase ///////////////////////////////
       return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
@@ -71,23 +71,16 @@ export class RpcMethodDispatcher {
    *
    * @param rpcMethodName - The name of the RPC method to validate
    * @param rpcMethodParams - The parameters to validate against the method's schema
-   * @param requestDetails - Details about the request for logging purposes
    * @returns The operation handler for the requested method
    * @throws {JsonRpcError} If the method doesn't exist or parameters are invalid
    */
-  private precheckRpcMethod(
-    rpcMethodName: string,
-    rpcMethodParams: any[],
-    requestDetails: RequestDetails,
-  ): OperationHandler {
+  private precheckRpcMethod(rpcMethodName: string, rpcMethodParams: any[]): OperationHandler {
     // Validate RPC method existence
     const operationHandler = this.methodRegistry.get(rpcMethodName);
 
     if (!operationHandler) {
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} RPC method not found in registry: rpcMethodName=${rpcMethodName}`,
-        );
+        this.logger.debug(`RPC method not found in registry: rpcMethodName=${rpcMethodName}`);
       }
 
       throw this.throwUnregisteredRpcMethods(rpcMethodName);
@@ -99,9 +92,7 @@ export class RpcMethodDispatcher {
     if (methodParamSchemas) {
       if (this.logger.isLevelEnabled('info')) {
         this.logger.info(
-          `${
-            requestDetails.formattedRequestId
-          } Validating method parameters for ${rpcMethodName}, params: ${JSON.stringify(rpcMethodParams)}`,
+          `Validating method parameters for ${rpcMethodName}, params: ${JSON.stringify(rpcMethodParams)}`,
         );
       }
       validateParams(rpcMethodParams, methodParamSchemas);
@@ -162,9 +153,7 @@ export class RpcMethodDispatcher {
    */
   private handleRpcMethodError(error: any, rpcMethodName: string, requestDetails: RequestDetails): JsonRpcError {
     const errorMessage = error?.message?.toString() || 'Unknown error';
-    this.logger.error(
-      `${requestDetails.formattedRequestId} Error executing method: rpcMethodName=${rpcMethodName}, error=${errorMessage}`,
-    );
+    this.logger.error(`Error executing method: rpcMethodName=${rpcMethodName}, error=${errorMessage}`);
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {

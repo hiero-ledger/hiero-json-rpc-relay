@@ -45,7 +45,7 @@ export class HbarSpendingPlanRepository {
       throw new HbarSpendingPlanNotFoundError(id);
     }
     if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`${requestDetails.formattedRequestId} Retrieved subscription with ID ${id}`);
+      this.logger.debug(`Retrieved subscription with ID ${id}`);
     }
     return {
       ...plan,
@@ -91,7 +91,7 @@ export class HbarSpendingPlanRepository {
       amountSpent: 0,
     };
     if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`${requestDetails.formattedRequestId} Creating HbarSpendingPlan with ID ${plan.id}...`);
+      this.logger.debug(`Creating HbarSpendingPlan with ID ${plan.id}...`);
     }
     const key = this.getKey(plan.id);
     await this.cache.set(key, plan, 'create', requestDetails, ttl);
@@ -100,7 +100,7 @@ export class HbarSpendingPlanRepository {
 
   async delete(id: string, requestDetails: RequestDetails): Promise<void> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} Deleting HbarSpendingPlan with ID ${id}...`);
+      this.logger.trace(`Deleting HbarSpendingPlan with ID ${id}...`);
     }
     const key = this.getKey(id);
     await this.cache.delete(key, 'delete', requestDetails);
@@ -129,9 +129,7 @@ export class HbarSpendingPlanRepository {
     await this.checkExistsAndActive(id, requestDetails);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Retrieving spending history for HbarSpendingPlan with ID ${id}...`,
-      );
+      this.logger.trace(`Retrieving spending history for HbarSpendingPlan with ID ${id}...`);
     }
     const key = this.getSpendingHistoryKey(id);
     const spendingHistory = await this.cache.lRange<IHbarSpendingRecord>(
@@ -155,9 +153,7 @@ export class HbarSpendingPlanRepository {
     await this.checkExistsAndActive(id, requestDetails);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Adding ${amount} to spending history for HbarSpendingPlan with ID ${id}...`,
-      );
+      this.logger.trace(`Adding ${amount} to spending history for HbarSpendingPlan with ID ${id}...`);
     }
     const key = this.getSpendingHistoryKey(id);
     const entry: IHbarSpendingRecord = { amount, timestamp: new Date() };
@@ -174,9 +170,7 @@ export class HbarSpendingPlanRepository {
     await this.checkExistsAndActive(id, requestDetails);
 
     if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `${requestDetails.formattedRequestId} Retrieving amountSpent for HbarSpendingPlan with ID ${id}...`,
-      );
+      this.logger.debug(`Retrieving amountSpent for HbarSpendingPlan with ID ${id}...`);
     }
     const key = this.getAmountSpentKey(id);
     return this.cache
@@ -190,17 +184,13 @@ export class HbarSpendingPlanRepository {
    */
   async resetAmountSpentOfAllPlans(requestDetails: RequestDetails): Promise<void> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Resetting the \`amountSpent\` entries for all HbarSpendingPlans...`,
-      );
+      this.logger.trace(`Resetting the \`amountSpent\` entries for all HbarSpendingPlans...`);
     }
     const callerMethod = this.resetAmountSpentOfAllPlans.name;
     const keys = await this.cache.keys(this.getAmountSpentKey('*'), callerMethod, requestDetails);
     await Promise.all(keys.map((key) => this.cache.delete(key, callerMethod, requestDetails)));
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Successfully reset ${keys.length} "amountSpent" entries for HbarSpendingPlans.`,
-      );
+      this.logger.trace(`Successfully reset ${keys.length} "amountSpent" entries for HbarSpendingPlans.`);
     }
   }
 
@@ -218,16 +208,12 @@ export class HbarSpendingPlanRepository {
     const key = this.getAmountSpentKey(id);
     if (!(await this.cache.getAsync(key, 'addToAmountSpent', requestDetails))) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestDetails.formattedRequestId} No spending yet for HbarSpendingPlan with ID ${id}, setting amountSpent to ${amount}...`,
-        );
+        this.logger.trace(`No spending yet for HbarSpendingPlan with ID ${id}, setting amountSpent to ${amount}...`);
       }
       await this.cache.set(key, amount, 'addToAmountSpent', requestDetails, ttl);
     } else {
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Adding ${amount} to amountSpent for HbarSpendingPlan with ID ${id}...`,
-        );
+        this.logger.debug(`Adding ${amount} to amountSpent for HbarSpendingPlan with ID ${id}...`);
       }
       await this.cache.incrBy(key, amount, 'addToAmountSpent', requestDetails);
     }

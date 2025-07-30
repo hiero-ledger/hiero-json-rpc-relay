@@ -116,9 +116,7 @@ export class FilterService implements IFilterService {
     await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter, requestDetails);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} created filter with TYPE=${type}, params: ${JSON.stringify(params)}`,
-      );
+      this.logger.trace(`created filter with TYPE=${type}, params: ${JSON.stringify(params)}`);
     }
     return filterId;
   }

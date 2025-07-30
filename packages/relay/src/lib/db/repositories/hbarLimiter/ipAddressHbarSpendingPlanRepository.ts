@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { CacheService } from '../../../services/cacheService/cacheService';
 import { Logger } from 'pino';
-import { IIPAddressHbarSpendingPlan } from '../../types/hbarLimiter/ipAddressHbarSpendingPlan';
-import { IPAddressHbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
-import { IPAddressHbarSpendingPlan } from '../../entities/hbarLimiter/ipAddressHbarSpendingPlan';
+
+import { CacheService } from '../../../services/cacheService/cacheService';
 import { RequestDetails } from '../../../types';
+import { IPAddressHbarSpendingPlan } from '../../entities/hbarLimiter/ipAddressHbarSpendingPlan';
+import { IPAddressHbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
+import { IIPAddressHbarSpendingPlan } from '../../types/hbarLimiter/ipAddressHbarSpendingPlan';
 
 export class IPAddressHbarSpendingPlanRepository {
   public static readonly collectionKey = 'ipAddressHbarSpendingPlan';
@@ -77,9 +78,7 @@ export class IPAddressHbarSpendingPlanRepository {
       const addressPlan = await this.cache.getAsync<IIPAddressHbarSpendingPlan>(key, callingMethod, requestDetails);
       if (addressPlan?.planId === planId) {
         if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(
-            `${requestDetails.formattedRequestId} Removing IP address from HbarSpendingPlan with ID ${planId}`,
-          );
+          this.logger.trace(`Removing IP address from HbarSpendingPlan with ID ${planId}`);
         }
         await this.cache.delete(key, callingMethod, requestDetails);
       }
@@ -100,9 +99,7 @@ export class IPAddressHbarSpendingPlanRepository {
       throw new IPAddressHbarSpendingPlanNotFoundError(ipAddress);
     }
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Retrieved link between IP address and HbarSpendingPlan with ID ${addressPlan.planId}`,
-      );
+      this.logger.trace(`Retrieved link between IP address and HbarSpendingPlan with ID ${addressPlan.planId}`);
     }
     return new IPAddressHbarSpendingPlan(addressPlan);
   }
@@ -118,9 +115,7 @@ export class IPAddressHbarSpendingPlanRepository {
   async save(addressPlan: IIPAddressHbarSpendingPlan, requestDetails: RequestDetails, ttl: number): Promise<void> {
     const key = this.getKey(addressPlan.ipAddress);
     await this.cache.set(key, addressPlan, 'save', requestDetails, ttl);
-    this.logger.trace(
-      `${requestDetails.formattedRequestId} Linked new IP address to HbarSpendingPlan with ID ${addressPlan.planId}`,
-    );
+    this.logger.trace(`Linked new IP address to HbarSpendingPlan with ID ${addressPlan.planId}`);
   }
 
   /**
@@ -138,7 +133,7 @@ export class IPAddressHbarSpendingPlanRepository {
       ? `Removed IP address from HbarSpendingPlan with ID ${ipAddressSpendingPlan.planId}`
       : `Trying to remove an IP address, which is not linked to a spending plan`;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} ${errorMessage}`);
+      this.logger.trace(`${errorMessage}`);
     }
   }
 
