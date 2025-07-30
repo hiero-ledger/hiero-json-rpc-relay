@@ -15,7 +15,7 @@
     "print-env": "node src/commands/printEnvs.ts"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.1",
     "find-config": "^1.0.0",
     "pnpm": "^10.0.0"
   },
