@@ -180,7 +180,6 @@ export class TransactionService implements ITransactionService {
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
-      requestDetails,
     );
 
     if (contractResult === null || contractResult.hash === undefined) {
@@ -231,7 +230,6 @@ export class TransactionService implements ITransactionService {
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
-      requestDetails,
     );
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
@@ -382,7 +380,6 @@ export class TransactionService implements ITransactionService {
         },
         undefined,
       ],
-      requestDetails,
     );
 
     if (!contractResults[0]) return null;
@@ -567,7 +564,6 @@ export class TransactionService implements ITransactionService {
           this.mirrorNodeClient.getContractResult.name,
           [formattedTransactionId, modifiedRequestDetails],
           this.mirrorNodeClient.getMirrorNodeRequestRetryCount(),
-          requestDetails,
         );
 
         if (!contractResult) {

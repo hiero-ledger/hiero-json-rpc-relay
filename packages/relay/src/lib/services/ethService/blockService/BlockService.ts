@@ -315,11 +315,11 @@ export class BlockService implements IBlockService {
     const params = { timestamp: timestampRangeParams };
 
     const [contractResults, logs] = await Promise.all([
-      this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, params, undefined],
+      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
         requestDetails,
-      ),
+        params,
+        undefined,
+      ]),
       this.common.getLogsWithParams(null, params, requestDetails),
     ]);
 

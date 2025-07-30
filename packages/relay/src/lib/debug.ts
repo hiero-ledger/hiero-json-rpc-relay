@@ -189,7 +189,6 @@ export class DebugImpl implements Debug {
       const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
         this.mirrorNodeClient.getContractResults.name,
         [requestDetails, { timestamp: timestampRangeParams }, undefined],
-        requestDetails,
       );
 
       if (contractResults == null || contractResults.length === 0) {
@@ -437,11 +436,10 @@ export class DebugImpl implements Debug {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(
-          this.mirrorNodeClient.getContractResult.name,
-          [transactionHash, requestDetails],
+        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
+          transactionHash,
           requestDetails,
-        ),
+        ]),
       ]);
 
       if (!actionsResponse || !transactionsResponse) {
