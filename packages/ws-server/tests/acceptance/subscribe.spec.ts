@@ -8,7 +8,7 @@ import IERC20Json from '@hashgraph/json-rpc-server/tests/contracts/openzeppelin/
 import Assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import Constants from '@hashgraph/json-rpc-server/tests/helpers/constants';
-import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import { requestIdRegex, Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -312,8 +312,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
         expect(response.id).to.be.eq(requestId);
         expect(response.error.code).to.be.eq(-32602);
-        expect(response.error.message).to.be.eq(
-          `Invalid parameter filters.address: Only one contract address is allowed`,
+        expect(response.error.message).to.match(
+          requestIdRegex(`Invalid parameter filters.address: Only one contract address is allowed`),
         );
 
         // post test clean-up
