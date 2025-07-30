@@ -77,7 +77,7 @@ describe('RpcMethodDispatcher', () => {
 
       // Verify the dispatch flow
       expect(validateSpy.calledOnce).to.be.true;
-      expect(validateSpy.calledWith(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS)).to.be.true;
+      expect(validateSpy.calledWith(TEST_METHOD_NAME, TEST_PARAMS)).to.be.true;
 
       expect(processSpy.calledOnce).to.be.true;
       expect(processSpy.calledWith(operationHandler, TEST_PARAMS, TEST_REQUEST_DETAILS)).to.be.true;
