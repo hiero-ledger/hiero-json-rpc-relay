@@ -1,4 +1,4 @@
-FROM node:22-bullseye
+FROM node:24-bullseye
 
 ENV DEBIAN_FRONTEND=noninteractive
 
