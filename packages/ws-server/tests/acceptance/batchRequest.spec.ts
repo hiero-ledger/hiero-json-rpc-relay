@@ -3,6 +3,7 @@
 // external resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
+import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
 
@@ -111,8 +112,8 @@ describe('@web-socket-batch-request Batch Requests', async function () {
         expect(batchResponses[index].id).to.equal(index);
         expect(batchResponses[index].error.code).to.equal(-32007);
         expect(batchResponses[index]).to.haveOwnProperty('error');
-        expect(batchResponses[index].error.message).to.equal(
-          `Method ${disallowedMethods[index]} is not permitted as part of batch requests`,
+        expect(batchResponses[index].error.message).to.match(
+          requestIdRegex(`Method ${disallowedMethods[index]} is not permitted as part of batch requests`),
         );
       }
     });

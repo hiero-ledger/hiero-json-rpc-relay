@@ -16,7 +16,7 @@ const { ERROR_CODE } = serverTestConstants;
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
-import { request, Server } from 'http';
+import { Server } from 'http';
 import Koa from 'koa';
 import sinon from 'sinon';
 import { GCProfiler } from 'v8';
@@ -31,11 +31,9 @@ import {
 } from '../../../relay/tests/helpers';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions from '../helpers/assertions';
-import { Utils } from '../helpers/utils';
+import { requestIdRegex, Utils } from '../helpers/utils';
 
 const MISSING_PARAM_ERROR = 'Missing value for required parameter';
-
-const requestIdRegex = (msg: string) => new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${msg}`);
 
 describe('RPC Server', function () {
   let testServer: Server;

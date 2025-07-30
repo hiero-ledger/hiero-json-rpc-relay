@@ -3,6 +3,7 @@
 // external resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { InvalidRequest, MethodNotFound } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
+import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
@@ -86,7 +87,7 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
 
         const methodNotFound = new MethodNotFound(method);
         expect(response.error).to.exist;
-        expect(response.error.message).to.eq(methodNotFound.message);
+        expect(response.error.message).to.match(requestIdRegex(methodNotFound.message));
         expect(response.error.code).to.eq(methodNotFound.code);
       });
     }
