@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { JsonRpcError, predefined } from '@hashgraph/json-rpc-relay/dist';
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { jsonRespError, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import Koa from 'koa';
 import websockify from 'koa-websocket';
 import pino from 'pino';
@@ -104,7 +104,7 @@ app.ws.use(async (ctx: Koa.Context) => {
       logger.warn(
         `${requestDetails.formattedLogPrefix}: Could not decode message from connection, message: ${msg}, error: ${e}`,
       );
-      ctx.websocket.send(JSON.stringify(new JsonRpcError(predefined.INVALID_REQUEST, undefined)));
+      ctx.websocket.send(JSON.stringify(predefined.INVALID_REQUEST));
       return;
     }
 
@@ -125,7 +125,7 @@ app.ws.use(async (ctx: Koa.Context) => {
       if (!getWsBatchRequestsEnabled()) {
         const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
         logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(batchRequestDisabledError)}`);
-        ctx.websocket.send(JSON.stringify([jsonResp(null, batchRequestDisabledError, undefined)]));
+        ctx.websocket.send(JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]));
         return;
       }
 
@@ -136,14 +136,20 @@ app.ws.use(async (ctx: Koa.Context) => {
           getBatchRequestsMaxSize(),
         );
         logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(batchRequestAmountMaxExceed)}`);
-        ctx.websocket.send(JSON.stringify([jsonResp(null, batchRequestAmountMaxExceed, undefined)]));
+        ctx.websocket.send(
+          JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
+        );
         return;
       }
 
       // process requests
       const requestPromises = request.map((item: any) => {
         if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
-          return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
+          return jsonRespError(
+            item.id,
+            predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method),
+            requestDetails.requestId,
+          );
         }
         return getRequestResult(
           ctx,
@@ -196,7 +202,7 @@ app.ws.use(async (ctx: Koa.Context) => {
 
   if (pingInterval > 0) {
     setInterval(async () => {
-      ctx.websocket.send(JSON.stringify(jsonResp(null, null, null)));
+      ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
     }, pingInterval);
   }
 });

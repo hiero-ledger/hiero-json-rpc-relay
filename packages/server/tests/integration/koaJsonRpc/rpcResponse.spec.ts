@@ -1,93 +1,88 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import jsonResp from '../../../src/koaJsonRpc/lib/RpcResponse';
 
-describe('jsonResp', () => {
-  it('should return a valid JSON-RPC response with result', () => {
-    const id = 1;
-    const result = { key: 'value' };
+import { jsonRespError, jsonRespResult } from '../../../src/koaJsonRpc/lib/RpcResponse';
 
-    const response = jsonResp(id, null, result);
+describe('RpcResponse', function () {
+  describe('jsonRespResult', function () {
+    it('should return a valid JSON-RPC response with result', () => {
+      const response = jsonRespResult(1, { key: 'value' });
+      expect(response).to.be.deep.equal({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { key: 'value' },
+      });
+    });
 
-    expect(response).to.deep.equal({
-      jsonrpc: '2.0',
-      id: 1,
-      result: { key: 'value' },
+    it('should return a valid JSON-RPC response with `null` result', () => {
+      const response = jsonRespResult(2, null);
+      expect(response).to.be.deep.equal({
+        jsonrpc: '2.0',
+        id: 2,
+        result: null,
+      });
+    });
+
+    it('should throw a TypeError for invalid id type', () => {
+      const result = { key: 'value' };
+      // @ts-expect-error: Argument of type '{}' is not assignable to parameter of type 'string | number | null'.
+      expect(() => jsonRespResult({}, result)).to.throw(TypeError, 'Invalid id type object');
+    });
+
+    it('should handle null id and return a valid response', () => {
+      const result = { key: 'value' };
+
+      const response = jsonRespResult(null, result);
+
+      expect(response).to.deep.equal({
+        jsonrpc: '2.0',
+        id: null,
+        result: { key: 'value' },
+      });
+    });
+
+    it('should handle string id and return a valid response', () => {
+      const result = { key: 'value' };
+
+      const response = jsonRespResult('request-1', result);
+
+      expect(response).to.deep.equal({
+        jsonrpc: '2.0',
+        id: 'request-1',
+        result: { key: 'value' },
+      });
     });
   });
 
-  it('should return a valid JSON-RPC response with error', () => {
-    const id = 1;
-    const error = { code: 123, message: 'An error occurred' };
+  describe('jsonRespError', function () {
+    it('should return a valid JSON-RPC response with error', () => {
+      const response = jsonRespError(1, { code: 123, message: 'An error occurred' }, 'req-123');
 
-    const response = jsonResp(id, error, undefined);
-
-    expect(response).to.deep.equal({
-      jsonrpc: '2.0',
-      id: 1,
-      error: { code: 123, message: 'An error occurred' },
+      expect(response).to.deep.equal({
+        jsonrpc: '2.0',
+        id: 1,
+        error: { code: 123, message: '[Request ID: req-123] An error occurred' },
+      });
     });
-  });
 
-  it('should throw an error when both error and result are provided', () => {
-    const id = 1;
-    const result = { key: 'value' };
-    const error = { code: 123, message: 'An error occurred' };
-
-    expect(() => jsonResp(id, error, result)).to.throw('Mutually exclusive error and result exist');
-  });
-
-  it('should throw a TypeError for invalid id type', () => {
-    const id = {};
-    const result = { key: 'value' };
-
-    expect(() => jsonResp(id as any, null, result)).to.throw(TypeError, 'Invalid id type object');
-  });
-
-  it('should throw a TypeError for invalid error code type', () => {
-    const id = 1;
-    const error = { code: 'invalid_code', message: 'An error occurred' };
-
-    expect(() => jsonResp(id, error as any, undefined)).to.throw(TypeError, 'Invalid error code type string');
-  });
-
-  it('should throw a TypeError for invalid error message type', () => {
-    const id = 1;
-    const error = { code: 123, message: 456 };
-
-    expect(() => jsonResp(id, error as any, undefined)).to.throw(TypeError, 'Invalid error message type number');
-  });
-
-  it('should throw an error when neither result nor error is provided', () => {
-    const id = 1;
-
-    expect(() => jsonResp(id, null, undefined)).to.throw('Missing result or error');
-  });
-
-  it('should handle null id and return a valid response', () => {
-    const id = null;
-    const result = { key: 'value' };
-
-    const response = jsonResp(id, null, result);
-
-    expect(response).to.deep.equal({
-      jsonrpc: '2.0',
-      id: null,
-      result: { key: 'value' },
+    it('should throw a TypeError for invalid id type ', () => {
+      const error = { code: 123, message: 'An error occurred' };
+      expect(() => jsonRespError({} as any, error, '')).to.throw(TypeError, 'Invalid id type object');
     });
-  });
 
-  it('should handle string id and return a valid response', () => {
-    const id = 'request-1';
-    const result = { key: 'value' };
+    it('should throw a TypeError for invalid error code type', () => {
+      const id = 1;
+      const error = { code: 'invalid_code', message: 'An error occurred' };
 
-    const response = jsonResp(id, null, result);
+      expect(() => jsonRespError(id, error as any, '')).to.throw(TypeError, 'Invalid error code type string');
+    });
 
-    expect(response).to.deep.equal({
-      jsonrpc: '2.0',
-      id: 'request-1',
-      result: { key: 'value' },
+    it('should throw a TypeError for invalid error message type', () => {
+      const id = 1;
+      const error = { code: 123, message: 456 };
+
+      expect(() => jsonRespError(id, error as any, '')).to.throw(TypeError, 'Invalid error message type number');
     });
   });
 });

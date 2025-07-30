@@ -16,7 +16,7 @@ const { ERROR_CODE } = serverTestConstants;
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
 import { expect } from 'chai';
-import { Server } from 'http';
+import { request, Server } from 'http';
 import Koa from 'koa';
 import sinon from 'sinon';
 import { GCProfiler } from 'v8';
@@ -34,6 +34,8 @@ import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 
 const MISSING_PARAM_ERROR = 'Missing value for required parameter';
+
+const requestIdRegex = (msg: string) => new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${msg}`);
 
 describe('RPC Server', function () {
   let testServer: Server;
@@ -771,7 +773,7 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal(null);
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32600);
-      expect(response.data[1].error.message).to.be.equal('Invalid Request');
+      expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
     });
 
     it('should execute "eth_chainId" and method not found in batch request', async function () {
@@ -792,7 +794,7 @@ describe('RPC Server', function () {
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
       expect(response.data[1].error.message).to.match(
-        /[Request ID: [0-9a-fA-F-]{36}\] Method non_existent_method not found/,
+        /\[Request ID: [0-9a-fA-F-]{36}\] Method non_existent_method not found/,
       );
       // verify eth_chainId result on position 2
       expect(response.data[2].id).to.be.equal('4');
@@ -875,7 +877,7 @@ describe('RPC Server', function () {
         expect(response.data[1].id).to.be.equal(null);
         expect(response.data[1].error).to.be.an('Object');
         expect(response.data[1].error.code).to.be.equal(-32600);
-        expect(response.data[1].error.message).to.be.equal('Invalid Request');
+        expect(response.data[1].error.message).to.match(requestIdRegex('Invalid Request'));
       });
     });
   });
@@ -3353,9 +3355,9 @@ class BaseTest {
 
   static batchDisabledErrorCheck(response: any) {
     expect(response.status).to.eq(400);
-    expect(response.statusText).to.eq('Bad Request');
+    expect(response.statusText).to.be.equal('Bad Request');
 
-    expect(response.data.error.message).to.eq('Batch requests are disabled');
+    expect(response.data.error.message).to.match(requestIdRegex('Batch requests are disabled'));
     expect(response.data.error.code).to.eq(-32202);
   }
 
@@ -3367,8 +3369,8 @@ class BaseTest {
 
   static batchRequestLimitError(response: any, amount: number, max: number) {
     expect(response.status).to.eq(400);
-    expect(response.statusText).to.eq('Bad Request');
-    expect(response.data.error.message).to.eq(`Batch request amount ${amount} exceeds max ${max}`);
+    expect(response.statusText).to.be.equal('Bad Request');
+    expect(response.data.error.message).to.match(requestIdRegex(`Batch request amount ${amount} exceeds max ${max}`));
     expect(response.data.error.code).to.eq(-32203);
   }
 

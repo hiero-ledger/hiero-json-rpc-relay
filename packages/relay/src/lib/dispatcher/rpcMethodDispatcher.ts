@@ -58,7 +58,7 @@ export class RpcMethodDispatcher {
       return await this.processRpcMethod(operationHandler, rpcMethodParams, requestDetails);
     } catch (error: any) {
       /////////////////////////////// Error Handling Phase ///////////////////////////////
-      return this.handleRpcMethodError(error, rpcMethodName, requestDetails);
+      return this.handleRpcMethodError(error, rpcMethodName);
     }
   }
 
@@ -148,33 +148,29 @@ export class RpcMethodDispatcher {
    *
    * @param error - The error that occurred during method execution
    * @param rpcMethodName - The name of the RPC method that failed
-   * @param requestDetails - Details about the request for logging and context
    * @returns A JsonRpcError instance with appropriate error code, message and request ID
    */
-  private handleRpcMethodError(error: any, rpcMethodName: string, requestDetails: RequestDetails): JsonRpcError {
+  private handleRpcMethodError(error: any, rpcMethodName: string): JsonRpcError {
     const errorMessage = error?.message?.toString() || 'Unknown error';
     this.logger.error(`Error executing method: rpcMethodName=${rpcMethodName}, error=${errorMessage}`);
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {
-      return JsonRpcError.newWithRequestId(error, requestDetails.requestId);
+      return error;
     }
 
     // Handle GRPC timeout errors
     if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      return JsonRpcError.newWithRequestId(predefined.REQUEST_TIMEOUT, requestDetails.requestId);
+      return predefined.REQUEST_TIMEOUT;
     }
 
     // Handle MirrorNodeClientError by mapping to the correct JsonRpcError
     if (error instanceof MirrorNodeClientError) {
-      return JsonRpcError.newWithRequestId(
-        predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure'),
-        requestDetails.requestId,
-      );
+      return predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message || 'Mirror node upstream failure');
     }
 
     // Default to internal error for all other error types
-    return JsonRpcError.newWithRequestId(predefined.INTERNAL_ERROR(errorMessage), requestDetails.requestId);
+    return predefined.INTERNAL_ERROR(errorMessage);
   }
 
   /**

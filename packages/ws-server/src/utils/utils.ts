@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import Koa from 'koa';
+import { jsonRespError } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';
@@ -192,5 +191,5 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
 export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: RequestDetails): IJsonRpcResponse => {
   const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
   logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
-  return jsonResp(null, wsSubscriptionsDisabledError, undefined);
+  return jsonRespError(null, wsSubscriptionsDisabledError, requestDetails.requestId);
 };
