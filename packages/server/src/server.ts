@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import fs from 'fs';
@@ -13,15 +15,26 @@ import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
 
+// https://nodejs.org/api/async_context.html#asynchronous-context-tracking
+const context = new AsyncLocalStorage<{ requestId: string }>();
+
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
-  level: ConfigService.get('LOG_LEVEL') || 'trace',
+  level: ConfigService.get('LOG_LEVEL'),
+  // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
+  mixin: () => {
+    const store = context.getStore();
+    return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
+  },
   transport: {
     target: 'pino-pretty',
     options: {
       colorize: true,
       translateTime: true,
+      messageFormat: '{requestId}{msg}',
+      // Hide objects from output (but not error object)
+      hideObject: true,
     },
   },
 });
@@ -158,7 +171,6 @@ app.getKoaApp().use(cors());
  */
 app.getKoaApp().use(async (ctx, next) => {
   const start = Date.now();
-  ctx.state.start = start;
   await next();
 
   const ms = Date.now() - start;
@@ -169,9 +181,7 @@ app.getKoaApp().use(async (ctx, next) => {
     const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
 
     // log call type, method, status code and latency
-    logger.info(
-      `${formatRequestIdMessage(ctx.state.reqId)} [${ctx.method}]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
-    );
+    logger.info(`${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`);
     methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
   }
 });
@@ -267,7 +277,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-app.getKoaApp().use(async (ctx, next) => {
+app.getKoaApp().use((ctx, next) => {
   const options = {
     expose: ctx.get('Request-Id'),
     header: ctx.get('Request-Id'),
@@ -300,7 +310,7 @@ app.getKoaApp().use(async (ctx, next) => {
 
   ctx.state.reqId = id;
 
-  return next();
+  return context.run({ requestId: id }, next);
 });
 
 const rpcApp = app.rpcApp();
