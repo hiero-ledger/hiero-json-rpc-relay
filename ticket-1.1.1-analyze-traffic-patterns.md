@@ -31,40 +31,22 @@ Collect data using available metrics:
 ### Step 2: Data Analysis Process
 
 ```javascript
-// Example calculation process:
+// PRIMARY APPROACH: RPS-based weighting (simple and effective)
 // 1. Extract average RPS per endpoint over 90 days
 eth_call: 15 RPS average
 eth_getBalance: 12 RPS average
 eth_chainId: 3 RPS average
 // Total: 30 RPS
 
-// 2. Calculate percentage distribution
+// 2. Calculate percentage distribution based on RPS
 eth_call: 15/30 = 50% of traffic
 eth_getBalance: 12/30 = 40% of traffic
 eth_chainId: 3/30 = 10% of traffic
 
-// 3. Apply latency-based multipliers
-eth_call: 800ms latency > 500ms threshold = 2x multiplier
-eth_getBalance: 50ms latency < 500ms threshold = 1x multiplier
-eth_chainId: 25ms latency < 500ms threshold = 1x multiplier
-
-// 4.Apply multipliers to raw weights (not percentages)
-eth_call: 50% × 2 (latency multiplier) = 100 points
-eth_getBalance: 40% × 1 (no multiplier) = 40 points
-eth_chainId: 10% × 1 (no multiplier) = 10 points
-
-Total weighted points = 150
-
-// 5. Normalize to final %
-eth_call: 100/150 = 67% final weight
-eth_getBalance: 40/150 = 27% final weight
-eth_chainId: 10/150 = 6% final weight
-
-// 6. Assign VUs
-
-eth_call: 67% × totalVUs = x VUs
-eth_getBalance: 27% × totalVUs = y VUs
-eth_chainId: 6% × totalVUs = z VUs
+// 3. Assign VUs directly from traffic percentages
+eth_call: 50% × totalVUs = x VUs
+eth_getBalance: 40% × totalVUs = y VUs
+eth_chainId: 10% × totalVUs = z VUs
 
 // In k6/src/lib/common.js or wherever scenario options are defined:
 const trafficWeights = {
@@ -72,6 +54,35 @@ const trafficWeights = {
   eth_getBalance: { vus: y, duration: '60s' },
   eth_chainId: { vus: z, duration: '60s' }
 }
+```
+
+```javascript
+// FUTURE ENHANCEMENT: Latency-based multipliers (for advanced resource weighting)
+// This approach can be implemented later if we need to account for resource-intensive endpoints
+
+// 1. Extract both RPS and latency data
+eth_call: 15 RPS, 800ms latency
+eth_getBalance: 12 RPS, 50ms latency
+eth_chainId: 3 RPS, 25ms latency
+
+// 2. Apply latency-based multipliers to RPS percentages
+eth_call: 800ms > 500ms threshold = 2x multiplier
+eth_getBalance: 50ms < 500ms threshold = 1x multiplier
+eth_chainId: 25ms < 500ms threshold = 1x multiplier
+
+// 3. Calculate weighted points
+eth_call: 50% × 2 (latency multiplier) = 100 points
+eth_getBalance: 40% × 1 (no multiplier) = 40 points
+eth_chainId: 10% × 1 (no multiplier) = 10 points
+// Total weighted points = 150
+
+// 4. Normalize to final percentages
+eth_call: 100/150 = 67% final weight
+eth_getBalance: 40/150 = 27% final weight
+eth_chainId: 10/150 = 6% final weight
+
+// This approach gives more weight to resource-intensive endpoints
+// Implement this later if RPS-only approach shows gaps in bottleneck detection
 ```
 
 ### Step 3: Report Structure
@@ -88,14 +99,15 @@ Create a markdown report with:
 
 - [ ] Successfully extract 90-day traffic data from Grafana for all RPC endpoints
 - [ ] Calculate average RPS (Requests Per Second) for each endpoint over the 90-day period
-- [ ] Calculate percentage distribution of traffic across all endpoints
-- [ ] Extract average response latency for each endpoint over the same period
-- [ ] Identify endpoints with >500ms average latency for resource-intensive multipliers
+- [ ] Calculate percentage distribution of traffic across all endpoints based on RPS
 - [ ] Document findings in a comprehensive traffic analysis report
-- [ ] Provide clear data table showing: Endpoint Name, Average RPS, Traffic Percentage, Average Latency, Recommended Weight Multiplier
+- [ ] Provide clear data table showing: Endpoint Name, Average RPS, Traffic Percentage, Recommended VU Weight
+- [ ] _(Future enhancement)_ Extract average response latency for each endpoint for potential latency-based multipliers
+- [ ] _(Future enhancement)_ Identify endpoints with >500ms average latency for resource-intensive multipliers
 
 ## Deliverables
 
-- [ ] Traffic analysis report completed and reviewed
-- [ ] Clear weight recommendations ready for implementation
+- [ ] Traffic analysis report completed and reviewed with RPS-based weights
+- [ ] Clear VU allocation recommendations ready for implementation
 - [ ] Report stored in project documentation for future reference
+- [ ] _(Future reference)_ Latency data collected and documented for potential advanced weighting
