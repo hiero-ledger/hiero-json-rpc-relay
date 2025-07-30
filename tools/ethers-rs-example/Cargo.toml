@@ -12,4 +12,4 @@ serde_json = "1.0.121"
 idna = "1.0.0"
 
 [dev-dependencies]
-serial_test = "0.5"
+serial_test = "3.2"
