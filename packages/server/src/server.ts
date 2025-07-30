@@ -163,17 +163,15 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
   }
 }
 
-// set cors
+// Set CORS
 app.getKoaApp().use(cors());
 
-/**
- * middleware for non POST request timing
- */
+// Middleware for non POST request timing
 app.getKoaApp().use(async (ctx, next) => {
   const start = Date.now();
   await next();
-
   const ms = Date.now() - start;
+
   if (ctx.method !== 'POST') {
     logger.info(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
   } else {
@@ -186,9 +184,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * prometheus metrics exposure
- */
+// Prometheus metrics exposure
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/metrics') {
     ctx.status = 200;
@@ -198,9 +194,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * liveness endpoint
- */
+// Liveness endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/liveness') {
     ctx.status = 200;
@@ -209,9 +203,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * config endpoint
- */
+// Config endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/config') {
     if (ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
@@ -224,9 +216,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * readiness endpoint
- */
+// Readiness endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/readiness') {
     try {
@@ -247,9 +237,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * openrpc endpoint
- */
+// OpenRPC endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/openrpc') {
     ctx.status = 200;
@@ -263,9 +251,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * middleware to end for non POST requests asides health, metrics and openrpc
- */
+// Middleware to end for non POST requests asides health, metrics and openrpc
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.method === 'POST') {
     await next();
@@ -290,27 +276,15 @@ app.getKoaApp().use((ctx, next) => {
     }
   }
 
-  let id = '';
-
-  if (options.query) {
-    id = options.query as string;
-  }
-
-  if (!id && options.header) {
-    id = options.header;
-  }
-
-  if (!id) {
-    id = uuid();
-  }
+  const requestId = options.query || options.header || uuid();
 
   if (options.expose) {
-    ctx.set(options.expose, id);
+    ctx.set(options.expose, requestId);
   }
 
-  ctx.state.reqId = id;
+  ctx.state.reqId = requestId;
 
-  return context.run({ requestId: id }, next);
+  return context.run({ requestId }, next);
 });
 
 const rpcApp = app.rpcApp();
