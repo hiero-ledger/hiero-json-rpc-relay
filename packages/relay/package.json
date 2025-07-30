@@ -63,7 +63,7 @@
     "json-bigint": "^1.0.0",
     "keccak": "^3.0.2",
     "keyv": "^4.2.2",
-    "keyv-file": "^0.3.0",
+    "keyv-file": "^5.1.3",
     "lodash": "^4.17.21",
     "lru-cache": "^7.14.0",
     "pino": "^7.11.0",
