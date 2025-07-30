@@ -6,13 +6,10 @@ import { expect } from 'chai';
 import { translateRpcErrorToHttpStatus } from '../../src/koaJsonRpc/lib/httpErrorMapper';
 
 describe('translateRpcErrorToHttpStatus', () => {
-  const requestId = 'req-123';
-  const requestIdPrefix = `[Request ID: ${requestId}]`;
-
   // Helper function to test error code mappings
   const testErrorCodeMapping = (errorCode, errorMessage, expectedStatusCode, errorData: any = undefined) => {
     const result = translateRpcErrorToHttpStatus(
-      new JsonRpcError({ code: errorCode, message: errorMessage, data: errorData }, requestId),
+      new JsonRpcError({ code: errorCode, message: errorMessage, data: errorData }),
     );
 
     expect(result.statusErrorCode).to.equal(expectedStatusCode);
@@ -54,7 +51,7 @@ describe('translateRpcErrorToHttpStatus', () => {
     mirrorNodeErrorMappings.forEach(({ status, message, expectedStatus }) => {
       it(`should map Mirror Node ${status} error to HTTP ${expectedStatus}`, () => {
         const result = testErrorCodeMapping(mirrorNodeErrorCode, message, expectedStatus, status);
-        expect(result.statusErrorMessage).to.equal(`${requestIdPrefix} ${message}`);
+        expect(result.statusErrorMessage).to.equal(message);
       });
     });
 
@@ -64,7 +61,7 @@ describe('translateRpcErrorToHttpStatus', () => {
         'Mirror Node error without data',
         400, // Default behavior when no error data
       );
-      expect(result.statusErrorMessage).to.equal(`${requestIdPrefix} Mirror Node error without data`);
+      expect(result.statusErrorMessage).to.equal('Mirror Node error without data');
     });
   });
 });

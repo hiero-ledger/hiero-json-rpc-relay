@@ -98,12 +98,12 @@ describe('RpcMethodDispatcher', () => {
 
       // Verify error handling flow
       expect(errorHandlerSpy.calledOnce).to.be.true;
-      expect(errorHandlerSpy.calledWith(testError, TEST_METHOD_NAME, TEST_REQUEST_DETAILS)).to.be.true;
+      expect(errorHandlerSpy.calledWith(testError, TEST_METHOD_NAME)).to.be.true;
 
       // Verify the error result
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(-32000);
-      expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Validation error`);
+      expect(result.message).to.equal('Validation error');
     });
   });
 
@@ -198,24 +198,23 @@ describe('RpcMethodDispatcher', () => {
     it('should return JsonRpcError with request ID when error is JsonRpcError', () => {
       const error = new JsonRpcError({ code: -32000, message: 'Test error' });
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(-32000);
-      expect(result.message).to.equal(`${TEST_REQUEST_DETAILS.formattedRequestId} Test error`);
+      expect(result.message).to.equal(`Test error`);
     });
 
     it('should return non time out SDKClientError as INTERNAL_ERROR', () => {
       const error = new SDKClientError(new Error('SDK error'), 'SDK error');
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
-      const expected = new JsonRpcError(
-        {
-          code: predefined.INTERNAL_ERROR(error.message).code,
-          message: predefined.INTERNAL_ERROR(error.message).message,
-        },
-        TEST_REQUEST_DETAILS.requestId,
-      );
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
+      const expected = new JsonRpcError({
+        code: predefined.INTERNAL_ERROR(error.message).code,
+        message: predefined.INTERNAL_ERROR(error.message).message,
+      });
 
       expect(result).to.deep.equal(expected);
     });
@@ -223,14 +222,12 @@ describe('RpcMethodDispatcher', () => {
     it('should return INTERNAL_ERROR for other error types', () => {
       const error = new Error('Unexpected error');
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
-      const expected = new JsonRpcError(
-        {
-          code: predefined.INTERNAL_ERROR('Unexpected error').code,
-          message: predefined.INTERNAL_ERROR('Unexpected error').message,
-        },
-        TEST_REQUEST_DETAILS.requestId,
-      );
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
+      const expected = new JsonRpcError({
+        code: predefined.INTERNAL_ERROR('Unexpected error').code,
+        message: predefined.INTERNAL_ERROR('Unexpected error').message,
+      });
 
       expect(result).to.deep.equal(expected);
     });
@@ -244,7 +241,8 @@ describe('RpcMethodDispatcher', () => {
       );
       sinon.stub(error, 'isRateLimit').returns(true);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -258,7 +256,8 @@ describe('RpcMethodDispatcher', () => {
       );
       sinon.stub(error, 'isTimeout').returns(true);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -272,7 +271,8 @@ describe('RpcMethodDispatcher', () => {
       );
       sinon.stub(error, 'isNotSupported').returns(true);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -286,7 +286,8 @@ describe('RpcMethodDispatcher', () => {
       );
       sinon.stub(error, 'isNotFound').returns(true);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -296,7 +297,8 @@ describe('RpcMethodDispatcher', () => {
     it('should handle internal server error (500) correctly', () => {
       const error = new MirrorNodeClientError(new Error('Internal server error'), 500);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -306,7 +308,8 @@ describe('RpcMethodDispatcher', () => {
     it('should handle bad gateway (502) errors correctly', () => {
       const error = new MirrorNodeClientError(new Error('Bad gateway'), 502);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -316,7 +319,8 @@ describe('RpcMethodDispatcher', () => {
     it('should handle service unavailable (503) errors correctly', () => {
       const error = new MirrorNodeClientError(new Error('Service unavailable'), 503);
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.code).to.equal(predefined.MIRROR_NODE_UPSTREAM_FAIL(error.statusCode, error.message).code);
@@ -327,7 +331,8 @@ describe('RpcMethodDispatcher', () => {
       const error = new MirrorNodeClientError(new Error(), 400);
       error.message = ''; // Explicitly set empty message
 
-      const result = (dispatcher as any).handleRpcMethodError(error, TEST_METHOD_NAME, TEST_REQUEST_DETAILS);
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
 
       expect(result).to.be.instanceOf(JsonRpcError);
       expect(result.message).to.include('Mirror node upstream failure');
@@ -443,13 +448,10 @@ describe('RpcMethodDispatcher', () => {
       operationHandler.rejects(new Error('Execution failed'));
 
       result = await dispatcher.dispatch(TEST_METHOD_NAME, TEST_PARAMS, TEST_REQUEST_DETAILS);
-      const expected = new JsonRpcError(
-        {
-          code: predefined.INTERNAL_ERROR('Execution failed').code,
-          message: predefined.INTERNAL_ERROR('Execution failed').message,
-        },
-        TEST_REQUEST_DETAILS.requestId,
-      );
+      const expected = new JsonRpcError({
+        code: predefined.INTERNAL_ERROR('Execution failed').code,
+        message: predefined.INTERNAL_ERROR('Execution failed').message,
+      });
 
       expect(result).to.deep.equal(expected);
     });
