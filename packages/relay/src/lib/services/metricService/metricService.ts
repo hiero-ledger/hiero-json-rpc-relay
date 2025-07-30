@@ -293,12 +293,7 @@ export default class MetricService {
     // retrieve transaction metrics
     try {
       if (defaultToConsensusNode) {
-        return await this.sdkClient.getTransactionRecordMetrics(
-          transactionId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
+        return await this.sdkClient.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,

@@ -223,10 +223,6 @@ export class MirrorNodeClient {
     axiosRetry(axiosClient, {
       retries: mirrorNodeRetries,
       retryDelay: (retryCount, error) => {
-        const request = error?.request?._header;
-        // extract request id from request header. Request is located in 4th element separated by new line
-        const requestId = request ? request.split('\n')[3].substring(11, 47) : '';
-        const requestIdPrefix = formatRequestIdMessage(requestId);
         const delay = mirrorNodeRetryDelay * retryCount;
         if (this.logger.isLevelEnabled('trace')) {
           this.logger.trace(`Retry delay ${delay} ms on '${error?.request?.path}'`);
@@ -566,13 +562,14 @@ export class MirrorNodeClient {
       requestDetails,
     );
   }
-  /*******************************************************************************
+
+  /**
    * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant MIRROR_NODE_QUERY_LIMIT.
-   *******************************************************************************/
+   * transaction count exceeds the constant `MIRROR_NODE_QUERY_LIMIT`.
+   */
   public async getAccountPaginated(url: string, requestDetails: RequestDetails) {
     const queryParamObject = {};
-    const accountId = this.extractAccountIdFromUrl(url, requestDetails);
+    const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
     this.setQueryParam(queryParamObject, 'limit', constants.MIRROR_NODE_QUERY_LIMIT);
@@ -587,7 +584,7 @@ export class MirrorNodeClient {
     );
   }
 
-  public extractAccountIdFromUrl(url: string, requestDetails: RequestDetails): string | null {
+  public extractAccountIdFromUrl(url: string): string | null {
     const substringStartIndex = url.indexOf('/accounts/') + '/accounts/'.length;
     if (url.startsWith('0x', substringStartIndex)) {
       // evm addresss
@@ -814,16 +811,11 @@ export class MirrorNodeClient {
    * - The record matures (all fields are properly populated)
    * - The maximum retry count is reached
    *
-   * @param {string} methodName - The name of the method used to fetch contract results.
-   * @param {any[]} args - The arguments to be passed to the specified method for fetching contract results.
-   * @param {RequestDetails} requestDetails - Details used for logging and tracking the request.
-   * @returns {Promise<any>} - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
+   * @param methodName - The name of the method used to fetch contract results.
+   * @param args - The arguments to be passed to the specified method for fetching contract results.
+   * @returns - A promise resolving to the fetched contract result, either mature or the last fetched result after retries.
    */
-  public async getContractResultWithRetry(
-    methodName: string,
-    args: any[],
-    requestDetails: RequestDetails,
-  ): Promise<any> {
+  public async getContractResultWithRetry(methodName: string, args: any[]): Promise<any> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
@@ -1520,7 +1512,7 @@ export class MirrorNodeClient {
    * enough time for the expected data to be propagated to the Mirror node.
    * It provides a way to have an extended retry logic only in specific places
    */
-  public async repeatedRequest(methodName: string, args: any[], repeatCount: number, requestDetails?: RequestDetails) {
+  public async repeatedRequest(methodName: string, args: any[], repeatCount: number) {
     let result;
     for (let i = 0; i < repeatCount; i++) {
       try {
@@ -1589,7 +1581,6 @@ export class MirrorNodeClient {
       this.getTransactionById.name,
       [transactionId, modifiedRequestDetails, 0],
       this.MIRROR_NODE_REQUEST_RETRY_COUNT,
-      requestDetails,
     );
 
     if (!transactionRecords) {

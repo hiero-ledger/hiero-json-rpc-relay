@@ -8,10 +8,9 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
 import * as sinon from 'sinon';
-import { v4 as uuid } from 'uuid';
 
 import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
-import { formatRequestIdMessage, numberTo0x, toHash32 } from '../src/formatters';
+import { numberTo0x, toHash32 } from '../src/formatters';
 import constants from '../src/lib/constants';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
@@ -71,10 +70,6 @@ const random20BytesAddress = (addHexPrefix = true) => {
 
 export const toHex = (num) => {
   return `0x${Number(num).toString(16)}`;
-};
-
-const getRequestId = () => {
-  return formatRequestIdMessage(uuid());
 };
 
 export const ethCallFailing = async (contractService, args, block, requestDetails, assertFunc) => {
@@ -356,15 +351,7 @@ const mockData = {
   },
 };
 
-export {
-  expectUnsupportedMethod,
-  expectedError,
-  signTransaction,
-  mockData,
-  random20BytesAddress,
-  getRequestId,
-  getQueryParams,
-};
+export { expectUnsupportedMethod, expectedError, signTransaction, mockData, random20BytesAddress, getQueryParams };
 
 export const bytecode =
   '0x608060405234801561001057600080fd5b5060405161078938038061078983398181016040528101906100329190';

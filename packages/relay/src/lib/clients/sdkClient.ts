@@ -13,11 +13,9 @@ import {
   FileInfoQuery,
   Hbar,
   HbarUnit,
-  PrecheckStatusError,
   Query,
   Status,
   Transaction,
-  TransactionId,
   TransactionRecord,
   TransactionRecordQuery,
   TransactionResponse,
@@ -505,7 +503,7 @@ export class SDKClient {
 
       if (fileInfo.size.isZero()) {
         this.logger.warn(`File ${fileId} is empty.`);
-        throw new SDKClientError({}, `Created file is empty. `);
+        throw new SDKClientError({}, 'Created file is empty.');
       }
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`Created file with fileId: ${fileId} and file size ${fileInfo.size}`);
@@ -583,7 +581,6 @@ export class SDKClient {
     transactionId: string,
     txConstructorName: string,
     operatorAccountId: string,
-    requestDetails: RequestDetails,
   ): Promise<ITransactionRecordMetric> {
     let gasUsed: number = 0;
     let transactionFee: number = 0;
