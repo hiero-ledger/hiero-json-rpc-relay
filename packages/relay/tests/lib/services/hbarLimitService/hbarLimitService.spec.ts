@@ -842,10 +842,7 @@ describe('HBAR Rate Limit Service', function () {
         sinon.assert.calledOnceWithExactly(incUniqueSpendingPlansCounterSpy, 1);
       } else {
         await expect(addExpensePromise).to.eventually.be.fulfilled;
-        sinon.assert.calledWith(
-          loggerSpy.warn,
-          `${requestDetails.formattedRequestId} Cannot add expense to a spending plan without an evm address`,
-        );
+        sinon.assert.calledWith(loggerSpy.warn, `Cannot add expense to a spending plan without an evm address`);
         sinon.assert.calledOnce(hbarSpendingPlanRepositorySpy.addToAmountSpent); // only once for the operator
         operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
         sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.addToAmountSpent.firstCall, operatorPlan.id, expense);
@@ -913,10 +910,7 @@ describe('HBAR Rate Limit Service', function () {
               }),
             ),
           ).to.be.eventually.fulfilled;
-          sinon.assert.calledWith(
-            loggerSpy.warn,
-            `${requestDetails.formattedRequestId} Cannot add expense to a spending plan without an evm address`,
-          );
+          sinon.assert.calledWith(loggerSpy.warn, `Cannot add expense to a spending plan without an evm address`);
         });
       });
     });

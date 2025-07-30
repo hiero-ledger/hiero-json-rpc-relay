@@ -153,7 +153,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     ]);
 
     if (global.logger.isLevelEnabled('trace')) {
-      global.logger.trace(`${requestIdPrefix} Setup completed`);
+      global.logger.trace(`Setup completed`);
     }
   });
 
