@@ -3,7 +3,7 @@
   "version": "0.71.0-SNAPSHOT",
   "devDependencies": {
     "@hashgraph/hedera-local": "^2.32.5",
-    "@open-rpc/schema-utils-js": "^1.16.1",
+    "@open-rpc/schema-utils-js": "^2.1.2",
     "@types/chai-as-promised": "^7.1.5",
     "@types/co-body": "6.1.0",
     "@types/find-config": "^1.0.4",
