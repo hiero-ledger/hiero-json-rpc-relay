@@ -7,7 +7,7 @@ toolchain go1.23.8
 require (
 	github.com/ethereum/go-ethereum v1.14.13
 	github.com/joho/godotenv v1.5.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
