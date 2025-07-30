@@ -67,7 +67,7 @@ const handleSendingRequestsToRelay = async ({
     if (result instanceof JsonRpcError) {
       return jsonRespError(request.id, result, requestDetails.requestId);
     } else {
-      return jsonRespResult(request.id, null);
+      return jsonRespResult(request.id, result);
     }
   } catch (err) {
     return jsonRespError(request.id, new InternalError(err), requestDetails.requestId);
