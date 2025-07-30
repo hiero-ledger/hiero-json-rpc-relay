@@ -20,6 +20,10 @@ import { AliasAccount } from '../types/AliasAccount';
 import { HeapDifferenceStatistics } from '../types/HeapDifferenceStatistics';
 import Assertions from './assertions';
 
+export function requestIdRegex(message: string) {
+  return new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${message}`);
+}
+
 export class Utils {
   static readonly HEAP_SIZE_DIFF_MEMORY_LEAK_THRESHOLD: number = 4e6; // 4 MB
   static readonly HEAP_SIZE_DIFF_SNAPSHOT_THRESHOLD: number = 5e6; // 5 MB
