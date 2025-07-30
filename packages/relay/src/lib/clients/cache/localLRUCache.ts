@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import LRUCache, { LimitedByCount, LimitedByTTL } from 'lru-cache';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { ICacheClient } from './ICacheClient';
-import LRUCache, { LimitedByCount, LimitedByTTL } from 'lru-cache';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { RequestDetails } from '../../types';
+
 import { Utils } from '../../../utils';
+import { RequestDetails } from '../../types';
+import { ICacheClient } from './ICacheClient';
 
 /**
  * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
@@ -106,9 +107,8 @@ export class LocalLRUCache implements ICacheClient {
     if (value !== undefined) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
       const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-      const message = `Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`;
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestDetails.formattedRequestId} ${message}`);
+        this.logger.trace(`Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`);
       }
       return value;
     }
@@ -127,9 +127,7 @@ export class LocalLRUCache implements ICacheClient {
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(key); // in milliseconds
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`,
-      );
+      this.logger.trace(`returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`);
     }
     return remainingTtl;
   }
@@ -163,9 +161,7 @@ export class LocalLRUCache implements ICacheClient {
       resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
     }`;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} ${message} (cache size: ${this.cache.size}, max: ${this.options.max})`,
-      );
+      this.logger.trace(`${message} (cache size: ${this.cache.size}, max: ${this.options.max})`);
     }
   }
 
@@ -218,7 +214,7 @@ export class LocalLRUCache implements ICacheClient {
    */
   public async delete(key: string, callingMethod: string, requestDetails: RequestDetails): Promise<void> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} delete cache for ${key} on ${callingMethod} call`);
+      this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
     }
     const cache = this.getCacheInstance(key);
     cache.delete(key);
@@ -278,9 +274,7 @@ export class LocalLRUCache implements ICacheClient {
     const matchingKeys = keys.filter((key) => regex.test(key));
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} retrieving keys matching ${pattern} on ${callingMethod} call`,
-      );
+      this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
     }
     return matchingKeys;
   }

@@ -99,11 +99,8 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`,
-      );
+      this.logger.trace(`getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`);
     }
 
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
@@ -152,7 +149,7 @@ export class AccountService implements IAccountService {
       if (!balanceFound) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `${requestIdPrefix} Unable to find account ${account} in block ${JSON.stringify(
+            `Unable to find account ${account} in block ${JSON.stringify(
               blockNumber,
             )}(${blockNumberOrTagOrHash}), returning 0x0 balance`,
           );
@@ -162,10 +159,7 @@ export class AccountService implements IAccountService {
 
       return numberTo0x(weibars);
     } catch (error: any) {
-      throw this.common.genericErrorHandler(
-        error,
-        `${requestIdPrefix} Error raised during getBalance for account ${account}`,
-      );
+      throw this.common.genericErrorHandler(error, `Error raised during getBalance for account ${account}`);
     }
   }
 
@@ -183,9 +177,7 @@ export class AccountService implements IAccountService {
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestDetails.requestId} returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`,
-        );
+        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`);
       }
       latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
     } else {
@@ -304,9 +296,8 @@ export class AccountService implements IAccountService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
+      this.logger.trace(`getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
     }
 
     // cache considerations for high load
@@ -314,7 +305,7 @@ export class AccountService implements IAccountService {
     let nonceCount = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_TRANSACTION_COUNT, requestDetails);
     if (nonceCount) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
+        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
       }
       return nonceCount;
     }
@@ -354,7 +345,7 @@ export class AccountService implements IAccountService {
     requestDetails: RequestDetails,
   ): Promise<LatestBlockNumberTimestamp> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
+      this.logger.trace(`blockNumber()`);
     }
 
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
@@ -462,7 +453,6 @@ export class AccountService implements IAccountService {
     blockNumOrHash: string | number,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     // get block timestamp for blockNum
     const block = await this.mirrorNodeClient.getBlock(blockNumOrHash, requestDetails); // consider caching error responses
     if (block == null) {
@@ -501,7 +491,7 @@ export class AccountService implements IAccountService {
 
     if (accountResult.evm_address !== address.toLowerCase()) {
       this.logger.warn(
-        `${requestIdPrefix} eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`,
+        `eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`,
       );
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     }

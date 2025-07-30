@@ -78,9 +78,7 @@ export class EvmAddressHbarSpendingPlanRepository {
       const addressPlan = await this.cache.getAsync<IEvmAddressHbarSpendingPlan>(key, callingMethod, requestDetails);
       if (addressPlan?.planId === planId) {
         if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(
-            `${requestDetails.formattedRequestId} Removing EVM address ${addressPlan.evmAddress} from HbarSpendingPlan with ID ${planId}`,
-          );
+          this.logger.trace(`Removing EVM address ${addressPlan.evmAddress} from HbarSpendingPlan with ID ${planId}`);
         }
         await this.cache.delete(key, callingMethod, requestDetails);
       }
@@ -102,7 +100,7 @@ export class EvmAddressHbarSpendingPlanRepository {
     }
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Retrieved link between EVM address ${evmAddress} and HbarSpendingPlan with ID ${addressPlan.planId}`,
+        `Retrieved link between EVM address ${evmAddress} and HbarSpendingPlan with ID ${addressPlan.planId}`,
       );
     }
     return new EvmAddressHbarSpendingPlan(addressPlan);
@@ -121,7 +119,7 @@ export class EvmAddressHbarSpendingPlanRepository {
     await this.cache.set(key, addressPlan, 'save', requestDetails, ttl);
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Linked EVM address ${addressPlan.evmAddress} to HbarSpendingPlan with ID ${addressPlan.planId}`,
+        `Linked EVM address ${addressPlan.evmAddress} to HbarSpendingPlan with ID ${addressPlan.planId}`,
       );
     }
   }
@@ -141,7 +139,7 @@ export class EvmAddressHbarSpendingPlanRepository {
       ? `Removed EVM address ${evmAddress} from HbarSpendingPlan with ID ${evmAddressPlan.planId}`
       : `Trying to remove EVM address ${evmAddress}, which is not linked to a spending plan`;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} ${errorMessage}`);
+      this.logger.trace(`${errorMessage}`);
     }
   }
 

@@ -228,10 +228,7 @@ export class CacheService {
       return await this.sharedCache.get(key, callingMethod, requestDetails);
     } catch (error) {
       const redisError = new RedisCacheError(error);
-      this.logger.error(
-        redisError,
-        `${requestDetails.formattedRequestId} Error occurred while getting the cache from Redis. Fallback to internal cache.`,
-      );
+      this.logger.error(redisError, 'Error occurred while getting the cache from Redis. Fallback to internal cache.');
 
       // fallback to internal cache in case of Redis error
       return await this.getFromInternalCache(key, callingMethod, requestDetails);
@@ -293,10 +290,7 @@ export class CacheService {
         return;
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while setting the cache to Redis. Fallback to internal cache.`,
-        );
+        this.logger.error(redisError, 'Error occurred while setting the cache to Redis. Fallback to internal cache.');
       }
     }
 
@@ -334,10 +328,7 @@ export class CacheService {
         return;
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while setting the cache to Redis. Fallback to internal cache.`,
-        );
+        this.logger.error(redisError, 'Error occurred while setting the cache to Redis. Fallback to internal cache.');
       }
     }
 
@@ -365,10 +356,7 @@ export class CacheService {
         return;
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while deleting cache from Redis.`,
-        );
+        this.logger.error(redisError, `Error occurred while deleting cache from Redis.`);
       }
     }
 
@@ -390,10 +378,7 @@ export class CacheService {
         return;
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while clearing Redis cache.`,
-        );
+        this.logger.error(redisError, `Error occurred while clearing Redis cache.`);
       }
     }
 
@@ -424,10 +409,7 @@ export class CacheService {
         return await this.sharedCache.incrBy(key, amount, callingMethod, requestDetails);
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while incrementing cache in Redis.`,
-        );
+        this.logger.error(redisError, `Error occurred while incrementing cache in Redis.`);
       }
     }
 
@@ -463,10 +445,7 @@ export class CacheService {
         return await this.sharedCache.rPush(key, value, callingMethod, requestDetails);
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while pushing cache in Redis.`,
-        );
+        this.logger.error(redisError, `Error occurred while pushing cache in Redis.`);
       }
     }
 
@@ -513,10 +492,7 @@ export class CacheService {
         return await this.sharedCache.lRange(key, start, end, callingMethod, requestDetails);
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while getting cache in Redis.`,
-        );
+        this.logger.error(redisError, `Error occurred while getting cache in Redis.`);
       }
     }
 
@@ -544,10 +520,7 @@ export class CacheService {
         return await this.sharedCache.keys(pattern, callingMethod, requestDetails);
       } catch (error) {
         const redisError = new RedisCacheError(error);
-        this.logger.error(
-          redisError,
-          `${requestDetails.formattedRequestId} Error occurred while getting keys from Redis.`,
-        );
+        this.logger.error(redisError, `Error occurred while getting keys from Redis.`);
       }
     }
 

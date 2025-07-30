@@ -89,7 +89,7 @@ export class Precheck {
     if (accountInfo == null) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Failed to retrieve address '${
+          `Failed to retrieve address '${
             tx.from
           }' account details from mirror node on verify account precheck for sendRawTransaction(transaction=${JSON.stringify(
             tx,
@@ -111,7 +111,7 @@ export class Precheck {
   nonce(tx: Transaction, accountInfoNonce: number, requestDetails: RequestDetails): void {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
-        `${requestDetails.formattedRequestId} Nonce precheck for sendRawTransaction(tx.nonce=${tx.nonce}, accountInfoNonce=${accountInfoNonce})`,
+        `Nonce precheck for sendRawTransaction(tx.nonce=${tx.nonce}, accountInfoNonce=${accountInfoNonce})`,
       );
     }
 
@@ -131,7 +131,7 @@ export class Precheck {
     if (!passes) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Failed chainId precheck for sendRawTransaction(transaction=%s, chainId=%s)`,
+          `Failed chainId precheck for sendRawTransaction(transaction=%s, chainId=%s)`,
           JSON.stringify(tx),
           txChainId,
         );
@@ -186,7 +186,7 @@ export class Precheck {
 
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Failed gas price precheck for sendRawTransaction(transaction=%s, gasPrice=%s, requiredGasPrice=%s)`,
+          `Failed gas price precheck for sendRawTransaction(transaction=%s, gasPrice=%s, requiredGasPrice=%s)`,
           JSON.stringify(tx),
           txGasPrice,
           networkGasPrice,
@@ -223,9 +223,7 @@ export class Precheck {
     if (account == null) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${
-            requestDetails.formattedRequestId
-          } Failed to retrieve account details from mirror node on balance precheck for sendRawTransaction(transaction=${JSON.stringify(
+          `Failed to retrieve account details from mirror node on balance precheck for sendRawTransaction(transaction=${JSON.stringify(
             tx,
           )}, totalValue=${txTotalValue})`,
         );
@@ -240,7 +238,7 @@ export class Precheck {
     } catch (error: any) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Error on balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, error=%s)`,
+          `Error on balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, error=%s)`,
           JSON.stringify(tx),
           txTotalValue,
           error.message,
@@ -257,7 +255,7 @@ export class Precheck {
     if (!result.passes) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Failed balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, accountTinyBarBalance=%s)`,
+          `Failed balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, accountTinyBarBalance=%s)`,
           JSON.stringify(tx),
           txTotalValue,
           tinybars,
@@ -281,7 +279,7 @@ export class Precheck {
     if (gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} ${failBaseLog} Gas Limit was too high: %s, block gas limit: %s`,
+          `${failBaseLog} Gas Limit was too high: %s, block gas limit: %s`,
           JSON.stringify(tx),
           gasLimit,
           constants.MAX_TRANSACTION_FEE_THRESHOLD,
@@ -291,7 +289,7 @@ export class Precheck {
     } else if (gasLimit < intrinsicGasCost) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} ${failBaseLog} Gas Limit was too low: %s, intrinsic gas cost: %s`,
+          `${failBaseLog} Gas Limit was too low: %s, intrinsic gas cost: %s`,
           JSON.stringify(tx),
           gasLimit,
           intrinsicGasCost,
@@ -365,9 +363,7 @@ export class Precheck {
     if (tx.type === 3) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} Transaction with type=${
-            tx.type
-          } is unsupported for sendRawTransaction(transaction=${JSON.stringify(tx)})`,
+          `Transaction with type=${tx.type} is unsupported for sendRawTransaction(transaction=${JSON.stringify(tx)})`,
         );
       }
       throw predefined.UNSUPPORTED_TRANSACTION_TYPE;

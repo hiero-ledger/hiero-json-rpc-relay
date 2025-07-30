@@ -116,7 +116,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
+      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
     }
 
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
@@ -175,11 +175,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${
-          requestDetails.formattedRequestId
-        } traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`,
-      );
+      this.logger.trace(`traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`);
     }
 
     try {
