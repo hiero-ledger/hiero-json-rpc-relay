@@ -208,12 +208,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       };
 
       before(async function () {
-        logger.info(`${requestDetails.formattedRequestId} Creating accounts`);
-        logger.info(
-          `${requestDetails.formattedRequestId} HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get(
-            'HBAR_RATE_LIMIT_TINYBAR',
-          )}`,
-        );
+        logger.info(`Creating accounts`);
+        logger.info(`HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')}`);
 
         const initialAccount: AliasAccount = global.accounts[0];
 
@@ -452,9 +448,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             const parentContractAddress = parentContract.target as string;
             if (global.logger.isLevelEnabled('trace')) {
-              global.logger.trace(
-                `${requestDetails.formattedRequestId} Deploy parent contract on address ${parentContractAddress}`,
-              );
+              global.logger.trace(`Deploy parent contract on address ${parentContractAddress}`);
             }
 
             expect(evmAddressSpendingPlanRepository.findByAddress(accounts[2].address, requestDetails)).to.be.rejected;
@@ -934,11 +928,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
     describe('@hbarlimiter-batch3 Unlimited', () => {
       before(async function () {
-        logger.info(
-          `${requestDetails.formattedRequestId} HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get(
-            'HBAR_RATE_LIMIT_TINYBAR',
-          )}`,
-        );
+        logger.info(`HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')}`);
       });
 
       it('should eventually exhaust the hbar limit for a BASIC user after multiple deployments of large contracts, and not throw an error', async function () {
