@@ -48,15 +48,13 @@ describe('RPC Server', function () {
 
   before(function () {
     // Stub getAllMasked to avoid maskUpEnv errors for unknown envs
-    getAllMaskedStub = sinon
-      .stub(ConfigService, 'getAllMasked')
-      .returns({
-        BATCH_REQUESTS_MAX_SIZE: '100',
-        CACHE_MAX: '1000',
-        CACHE_TTL: '3600000',
-        CALL_DATA_SIZE_LIMIT: '131072',
-        CHAIN_ID: '0x12a',
-      });
+    getAllMaskedStub = sinon.stub(ConfigService, 'getAllMasked').returns({
+      BATCH_REQUESTS_MAX_SIZE: '100',
+      CACHE_MAX: '1000',
+      CACHE_TTL: '3600000',
+      CALL_DATA_SIZE_LIMIT: '131072',
+      CHAIN_ID: '0x12a',
+    });
 
     // Set up spy BEFORE requiring the server module to catch the constructor call
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
@@ -150,12 +148,11 @@ describe('RPC Server', function () {
 
     it('should serve the OpenRPC specification at /openrpc', async function () {
       const response = await testClient.get('/openrpc');
-      console.log(response);
+
       expect(response.status).to.eq(200);
       expect(response.statusText).to.eq('OK');
       expect(response, "OpenRPC endpoint: Should have 'data' property").to.have.property('data');
-      expect(() => JSON.parse(response.data), 'Response data should be valid JSON').to.not.throw();
-      const parsed = JSON.parse(response.data);
+      const parsed = response.data;
       expect(parsed).to.have.property('openrpc');
     });
   });
