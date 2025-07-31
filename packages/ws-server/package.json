@@ -44,19 +44,9 @@
     "build": "pnpm clean && pnpm compile",
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
-    "acceptancetest": "nyc ts-mocha tests/acceptance/index.spec.ts",
+    "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
     "start": "node dist/index.js",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
-    "test": "nyc ts-mocha --recursive './tests/unit/**/*.spec.ts' --exit"
-  },
-  "nyc": {
-    "check-coverage": false,
-    "reporter": [
-      "html",
-      "lcov",
-      "text",
-      "text-summary"
-    ],
-    "report-dir": "coverage"
+    "test": "c8 ts-mocha --recursive './tests/unit/**/*.spec.ts' --exit"
   }
 }
