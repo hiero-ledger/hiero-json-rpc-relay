@@ -32,8 +32,8 @@ const mainLogger = pino({
       colorize: true,
       translateTime: true,
       messageFormat: '{requestId}{msg}',
-      // Hide objects from output (but not error object)
-      hideObject: true,
+      // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
+      ignore: 'requestId',
     },
   },
 });
