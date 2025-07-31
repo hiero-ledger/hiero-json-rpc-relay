@@ -31,9 +31,9 @@ import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json
 // Contracts and JSON files from local resources
 import reverterContractJson from '../contracts/Reverter.json';
 // Assertions and constants from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { requestIdRegex } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
-import { requestIdRegex, Utils } from '../helpers/utils';
+import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
 chai.use(chaiExclude);

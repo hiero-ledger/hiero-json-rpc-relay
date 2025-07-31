@@ -3,7 +3,7 @@
 // external resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { InvalidRequest, MethodNotFound } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';

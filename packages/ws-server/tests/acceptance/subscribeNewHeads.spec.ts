@@ -5,8 +5,8 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
-import Assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
-import { requestIdRegex, Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import Assertions, { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
+import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
 import { ethers } from 'ethers';

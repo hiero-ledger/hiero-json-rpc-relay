@@ -30,8 +30,8 @@ import {
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
 import RelayCalls from '../../tests/helpers/constants';
-import Assertions from '../helpers/assertions';
-import { requestIdRegex, Utils } from '../helpers/utils';
+import Assertions, { requestIdRegex } from '../helpers/assertions';
+import { Utils } from '../helpers/utils';
 
 const MISSING_PARAM_ERROR = 'Missing value for required parameter';
 
@@ -821,9 +821,7 @@ describe('RPC Server', function () {
       expect(response.data[1].id).to.be.equal('3');
       expect(response.data[1].error).to.be.an('Object');
       expect(response.data[1].error.code).to.be.equal(-32601);
-      expect(response.data[1].error.message).to.match(
-        /[Request ID: [0-9a-fA-F-]{36}\] Method non_existent_method not found/,
-      );
+      expect(response.data[1].error.message).to.match(requestIdRegex('Method non_existent_method not found'));
       // verify
       expect(response.data[2].id).to.be.equal('4');
       expect(response.data[2].error).to.be.an('Object');
