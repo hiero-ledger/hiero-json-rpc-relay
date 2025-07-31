@@ -1,4 +1,4 @@
-# Implement Traffic-Weighted Configuration and Resource-Intensive Endpoint Focus
+# Implement Traffic-Weighted K6 Configuration
 
 ## Description
 
@@ -8,11 +8,11 @@ The existing K6 test suite uses equal VU allocation across all RPC endpoints, wi
 
 ### Rationale
 
-Based on the traffic analysis from metrics in the last 3 months, we need to transform the K6 test suite to use **Traffic-Weighted** test distribution that reflects actual HashIO traffic patterns. This involves:
+Based on the traffic data collection from 90 days of HashIO metrics, we need to transform the K6 test suite to use **RPS-based traffic weighting** that reflects actual traffic patterns. This involves:
 
 1. **Realistic load distribution** - Popular endpoints (high RPS) should get more VUs
-2. **Resource-intensive endpoint focus** - Slow endpoints (> Xms latency) should get additional VU multipliers
-3. **Proportional testing** - Total VU allocation should mirror real traffic percentages
+2. **Proportional testing** - Total VU allocation should mirror real traffic percentages
+3. **Simple implementation** - Use RPS percentages directly without complex multipliers
 
 ### The Core Concept
 
@@ -21,18 +21,19 @@ Based on the traffic analysis from metrics in the last 3 months, we need to tran
 Instead of:
 
 ```javascript
-// unrealistic equal weighting
-eth_call: 1 VU
-eth_getBalance: 1 VU
+// Current unrealistic equal weighting
+eth_getBlockByNumber: 1 VU
+eth_getLogs: 1 VU
 eth_chainId: 1 VU
 ```
 
 We need:
 
 ```javascript
-eth_call: 10 VUs (67% of traffic, high latency)
-eth_getBalance: 4 VUs (27% of traffic)
-eth_chainId: 1 VU (6% of traffic)
+// New RPS-based weighting (from traffic data)
+eth_getBlockByNumber: 69 VUs (68.7% of traffic)
+eth_getLogs: 13 VUs (13% of traffic)
+eth_chainId: 6 VUs (5.94% of traffic)
 ```
 
 ### Business Impact
@@ -46,41 +47,36 @@ Traffic-weighted testing enables:
 
 ## Acceptance Criteria
 
-- [ ] Create or extend configuration system to support Traffic-Weighted Test
-- [ ] Implement weight calculation logic using data from traffic analyzation
+- [ ] Create or extend configuration system to support RPS-based traffic weighting
+- [ ] Implement traffic weights using actual data from the traffic weights report
 - [ ] Update scenario execution to use weighted VU allocation instead of equal allocation
-- [ ] Apply latency-based multipliers for resource-intensive endpoints (> Xms)
-- [ ] Ensure total VU allocation remains within reasonable limits
+- [ ] Ensure total VU allocation uses DEFAULT_VUS environment variable
 - [ ] Validate weighted tests execute correctly with proper VU distribution
-- [ ] Document weight calculation methodology for future updates
+- [ ] Preserve existing equal-weight tests alongside new weighted tests
+- [ ] Document implementation for future maintenance
 
 ## Suggested Solution
 
-### Step 1: Use Traffic Analysis Data
+### Step 1: Use Traffic Weights Data
 
 Traffic Analysis Data will look somewhat like:
 
 ```javascript
-eth_call: 15 RPS average, 800ms latency
-eth_getBalance: 12 RPS average, 50ms latency
-eth_chainId: 3 RPS average, 25ms latency
-// Total: 30 RPS
+// Real traffic data (90 days: April 29 - July 29, 2025)
+eth_getBlockByNumber: 68.70% of traffic
+eth_getLogs: 13.00% of traffic
+eth_chainId: 5.94% of traffic
+eth_blockNumber: 5.30% of traffic
+eth_call: 3.26% of traffic
+// ... (see traffic weights report for complete list)
 
-// Calculated percentages:
-eth_call: 50% of traffic (15/30) × 2 (latency >500ms) = 100 points
-eth_getBalance: 40% of traffic (12/30) × 1 (latency <500ms) = 40 points
-eth_chainId: 10% of traffic (3/30) × 1 (latency <500ms) = 10 points
-// Total: 150 points
-
-// Final normalized weights:
-eth_call: 100/150 = 67% → Gets most VUs
-eth_getBalance: 40/150 = 27% → Gets moderate VUs
-eth_chainId: 10/150 = 6% → Gets minimum VUs
+// Simple VU calculation:
+// VUs = (endpoint_percentage / 100) × DEFAULT_VUS
 ```
 
 ### Step 2: Apply Weights to Current K6 VU Budget
 
-Instead of hardcoded VU numbers, use the existing `DEFAULT_VUS` configuration:
+Use the existing `DEFAULT_VUS` configuration with actual traffic percentages:
 
 ```javascript
 // Get current VU budget from environment
@@ -88,13 +84,16 @@ const totalVUs = parseInt(__ENV.DEFAULT_VUS) || 10;
 
 // Apply traffic weights (from Data analysis)
 const vuAllocation = {
-  eth_call: Math.round(0.67 * totalVUs), // 67% of available VUs
-  eth_getBalance: Math.round(0.27 * totalVUs), // 27% of available VUs
-  eth_chainId: Math.max(1, Math.round(0.06 * totalVUs)), // At least 1 VU
+  eth_getBlockByNumber: Math.round(0.687 * totalVUs), // 68.7% of available VUs
+  eth_getLogs: Math.round(0.13 * totalVUs), // 13% of available VUs
+  eth_chainId: Math.round(0.0594 * totalVUs), // 5.94% of available VUs
+  eth_blockNumber: Math.round(0.053 * totalVUs), // 5.3% of available VUs
+  eth_call: Math.round(0.0326 * totalVUs), // 3.26% of available VUs
+  // ... (see traffic weights report for complete weights)
 };
 
-// Example with DEFAULT_VUS=15:
-// eth_call: 10 VUs, eth_getBalance: 4 VUs, eth_chainId: 1 VU
+// Example with DEFAULT_VUS=100:
+// eth_getBlockByNumber: 69 VUs, eth_getLogs: 13 VUs, eth_chainId: 6 VUs
 ```
 
 ### Step 3: Create New Weighted Test Flow Files
@@ -104,12 +103,30 @@ Instead of modifying existing files, create new files for the weighted test impl
 **`k6/src/lib/traffic-weights.js`**
 
 ```javascript
-// Store traffic weights from the analysis
+// Traffic weights from traffic weights report (90-day data)
 export const trafficWeights = {
-  eth_call: 0.67, // 67% of VUs
-  eth_getBalance: 0.27, // 27% of VUs
-  eth_chainId: 0.06, // 6% of VUs
-  // ... add all other endpoints from analysis
+  eth_getBlockByNumber: 0.687,
+  eth_getLogs: 0.13,
+  eth_chainId: 0.0594,
+  eth_blockNumber: 0.053,
+  eth_call: 0.0326,
+  eth_getBlockByHash: 0.0197,
+  eth_getTransactionReceipt: 0.0082,
+  eth_getBalance: 0.0064,
+  debug_traceBlockByNumber: 0.0048,
+  eth_syncing: 0.0032,
+  eth_gasPrice: 0.0029,
+  eth_sendRawTransaction: 0.0028,
+  eth_getTransactionCount: 0.0023,
+  net_version: 0.0011,
+  eth_getTransactionByHash: 0.0008,
+  eth_estimateGas: 0.0005,
+  eth_getFilterChanges: 0.0005,
+  eth_getCode: 0.0003,
+  debug_traceTransaction: 0.0002,
+  web3_clientVersion: 0.0002,
+  eth_getBlockReceipts: 0.0002,
+  // ... (add remaining endpoints as needed)
 };
 
 // VU allocation function
@@ -147,16 +164,22 @@ export function getWeightedScenarioOptions(endpoint, testDuration = '60s') {
 import { getWeightedTestScenarios } from '../../lib/weighted-scenarios.js';
 
 // Import all the same test modules as current test/index.js
+import * as eth_getBlockByNumber from '../test/eth_getBlockByNumber.js';
+import * as eth_getLogs from '../test/eth_getLogs.js';
+import * as eth_chainId from '../test/eth_chainId.js';
+import * as eth_blockNumber from '../test/eth_blockNumber.js';
 import * as eth_call from '../test/eth_call.js';
 import * as eth_getBalance from '../test/eth_getBalance.js';
-import * as eth_chainId from '../test/eth_chainId.js';
 // ... import all other test modules
 
 // Create weighted test scenarios
 const tests = {
+  eth_getBlockByNumber,
+  eth_getLogs,
+  eth_chainId,
+  eth_blockNumber,
   eth_call,
   eth_getBalance,
-  eth_chainId,
   // ... add all other tests
 };
 
