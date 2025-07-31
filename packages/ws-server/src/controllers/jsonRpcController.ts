@@ -58,7 +58,7 @@ const handleSendingRequestsToRelay = async ({
   requestDetails,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
   if (logger.isLevelEnabled('trace')) {
-    logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
+    logger.trace(`Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
     // call the public API entry point on the Relay package to execute the RPC method
@@ -110,13 +110,13 @@ export const getRequestResult = async (
   wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, method).inc();
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
-  if (!validateJsonRpcRequest(request, logger, requestDetails)) {
+  if (!validateJsonRpcRequest(request, logger)) {
     return jsonRespError(request.id || null, new InvalidRequest(), requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(request.method)) {
-    logger.warn(`${requestDetails.formattedLogPrefix}: Method not supported: ${request.method}`);
+    logger.warn(`Method not supported: ${request.method}`);
     return jsonRespError(request.id || null, new MethodNotFound(request.method), requestDetails.requestId);
   }
 
@@ -160,9 +160,7 @@ export const getRequestResult = async (
   } catch (error: any) {
     logger.warn(
       error,
-      `${requestDetails.formattedLogPrefix} Encountered error on connectionID: ${
-        ctx.websocket.id
-      }, method: ${method}, params: ${JSON.stringify(params)}`,
+      `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,
     );
 
     let jsonRpcError: JsonRpcError;
