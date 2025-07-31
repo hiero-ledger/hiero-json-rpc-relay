@@ -20,7 +20,6 @@ const context = new AsyncLocalStorage<{ requestId: string }>();
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
-  // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
   level: ConfigService.get('LOG_LEVEL'),
   // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
   mixin: () => {
