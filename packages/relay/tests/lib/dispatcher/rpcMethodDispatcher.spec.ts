@@ -25,10 +25,7 @@ describe('RpcMethodDispatcher', () => {
   const TEST_REQUEST_ID = '123456';
   const TEST_REQUEST_DETAILS: RequestDetails = {
     requestId: TEST_REQUEST_ID,
-    formattedRequestId: `[Request ID: ${TEST_REQUEST_ID}]`,
     ipAddress: '127.0.0.1',
-    formattedConnectionId: 'connection-123',
-    formattedLogPrefix: 'test',
   };
   const logger = pino({ level: 'silent' });
 

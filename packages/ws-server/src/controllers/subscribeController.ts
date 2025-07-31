@@ -70,9 +70,7 @@ const handleEthSubscribeNewHeads = (
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
   if (!wsNewHeadsEnabled) {
-    logger.warn(
-      `${requestDetails.formattedLogPrefix}: Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`,
-    );
+    logger.warn(`Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`);
     throw predefined.UNSUPPORTED_METHOD;
   }
 
