@@ -200,9 +200,7 @@ export default class KoaJsonRpc {
       !hasOwnProperty(body, 'id')
     ) {
       this.logger.warn(
-        `${this.getFormattedLogPrefix()} Invalid request, body.jsonrpc: ${body.jsonrpc}, body[method]: ${
-          body.method
-        }, body[id]: ${body.id}, ctx.request.method: ${body.method}`,
+        `Invalid request, body.jsonrpc: ${body.jsonrpc}, body[method]: ${body.method}, body[id]: ${body.id}, ctx.request.method: ${body.method}`,
       );
       return false;
     }
@@ -233,16 +231,10 @@ export default class KoaJsonRpc {
     if (this.requestIdIsOptional && !hasId) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
       body.id = '0';
-      this.logger.warn(
-        `${this.getFormattedLogPrefix()} Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`,
-      );
+      this.logger.warn(`Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`);
       return false;
     }
 
     return !hasId;
-  }
-
-  private getFormattedLogPrefix(): string {
-    return this.getRequestDetails().formattedLogPrefix;
   }
 }

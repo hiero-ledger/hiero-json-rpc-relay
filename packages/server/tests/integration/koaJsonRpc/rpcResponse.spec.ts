@@ -62,7 +62,7 @@ describe('RpcResponse', function () {
       expect(response).to.deep.equal({
         jsonrpc: '2.0',
         id: 1,
-        error: { code: 123, message: '[Request ID: req-123] An error occurred' },
+        error: { code: 123, data: undefined, message: '[Request ID: req-123] An error occurred' },
       });
     });
 
