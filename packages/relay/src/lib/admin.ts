@@ -7,7 +7,6 @@ import type { Admin } from '../index';
 import { Utils } from '../utils';
 import constants from './constants';
 import type { CacheService } from './services/cacheService/cacheService';
-import type { RequestDetails } from './types';
 
 interface IAdminRelayConfig {
   version: string;
@@ -55,7 +54,7 @@ export class AdminImpl implements Admin {
   /**
    * Returns list of all config envs
    */
-  public async config(requestDetails: RequestDetails): Promise<IAdminConfig> {
+  public async config(): Promise<IAdminConfig> {
     const cacheKey = `${constants.CACHE_KEY.ADMIN_CONFIG}`;
 
     let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config);

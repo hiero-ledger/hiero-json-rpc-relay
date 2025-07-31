@@ -3,7 +3,6 @@
 import { Logger } from 'pino';
 
 import { CacheService } from '../../../services/cacheService/cacheService';
-import { RequestDetails } from '../../../types';
 import { EvmAddressHbarSpendingPlan } from '../../entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
 import { IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';

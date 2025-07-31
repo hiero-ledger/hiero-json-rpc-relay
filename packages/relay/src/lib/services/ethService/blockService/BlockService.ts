@@ -241,48 +241,44 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<null>} null
+   * @returns null
    */
-  async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
+  async getUncleByBlockHashAndIndex(): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleByBlockHashAndIndex()`);
+      this.logger.trace('getUncleByBlockHashAndIndex()');
     }
     return null;
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<null>} null
+   * @returns null
    */
-  async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
+  async getUncleByBlockNumberAndIndex(): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleByBlockNumberAndIndex()`);
+      this.logger.trace('getUncleByBlockNumberAndIndex()');
     }
     return null;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} '0x0'
+   * @returns '0x0'
    */
-  async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
+  async getUncleCountByBlockHash(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleCountByBlockHash()`);
+      this.logger.trace('getUncleCountByBlockHash()');
     }
     return constants.ZERO_HEX;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} '0x0'
+   * @returns '0x0'
    */
-  async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
+  async getUncleCountByBlockNumber(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleCountByBlockNumber()`);
+      this.logger.trace('getUncleCountByBlockNumber()');
     }
     return constants.ZERO_HEX;
   }
@@ -337,7 +333,7 @@ export class BlockService implements IBlockService {
       requestDetails,
     );
 
-    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
+    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray);
 
     const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
       txArray.map((tx) => (showDetails ? tx.hash : tx)),
@@ -381,7 +377,6 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     logs: Log[],
     transactionsArray: Transaction[] | string[],
-    requestDetails: RequestDetails,
   ): Transaction[] | string[] {
     let filteredLogs: Log[];
     if (showDetails) {

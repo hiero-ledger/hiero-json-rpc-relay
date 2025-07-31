@@ -209,7 +209,7 @@ app.getKoaApp().use(async (ctx, next) => {
       return new MethodNotFound('config');
     }
     ctx.status = 200;
-    ctx.body = JSON.stringify(await relay.admin().config(app.getRequestDetails()));
+    ctx.body = JSON.stringify(await relay.admin().config());
   } else {
     return next();
   }

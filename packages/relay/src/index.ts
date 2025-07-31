@@ -46,7 +46,7 @@ export interface Net {
 }
 
 export interface Admin {
-  config(requestDetails: RequestDetails): any;
+  config(): any;
 }
 
 export interface Eth {

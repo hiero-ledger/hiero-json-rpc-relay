@@ -4,7 +4,6 @@ import { randomBytes, uuidV4 } from 'ethers';
 import { Logger } from 'pino';
 
 import { CacheService } from '../../../services/cacheService/cacheService';
-import { RequestDetails } from '../../../types';
 import { HbarSpendingPlan } from '../../entities/hbarLimiter/hbarSpendingPlan';
 import { HbarSpendingRecord } from '../../entities/hbarLimiter/hbarSpendingRecord';
 import { HbarSpendingPlanNotActiveError, HbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
