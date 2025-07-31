@@ -9,7 +9,7 @@
     "@hashgraph/json-rpc-config-service": "file:../config-service",
     "@hashgraph/json-rpc-relay": "file:../relay",
     "co-body": "6.2.0",
-    "dotenv": "^16.0.0",
+    "dotenv": "^17.2.1",
     "koa": "^2.13.4",
     "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
