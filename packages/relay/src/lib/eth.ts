@@ -219,12 +219,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_chainId RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} _requestDetails - The details of the request for logging and tracking.
-   * @returns {string} The chain ID as a string.
+   * @returns The chain ID as a string.
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  chainId(_requestDetails: RequestDetails): string {
+  chainId(): string {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`chainId()`);
     }
@@ -294,14 +293,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_mining RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param requestDetails - The request details for logging and tracking.
    * @returns Always returns false.
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async mining(_requestDetails: RequestDetails): Promise<boolean> {
+  async mining(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`mining()`);
+      this.logger.trace('mining()');
     }
     return false;
   }
@@ -394,15 +392,14 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_uninstallFilter RPC endpoint
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
-   * @param {string} filterId - The filter ID to uninstall
-   * @param _requestDetails - Details about the request for logging and tracking
+   * @param filterId - The filter ID to uninstall
    * @returns True if the filter was successfully uninstalled, false otherwise
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'hex', required: true },
   })
-  async uninstallFilter(filterId: string, _requestDetails: RequestDetails): Promise<boolean> {
+  async uninstallFilter(filterId: string): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`uninstallFilter(${filterId})`);
     }
@@ -416,12 +413,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_newPendingTransactionFilter RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async newPendingTransactionFilter(_requestDetails: RequestDetails): Promise<JsonRpcError> {
+  async newPendingTransactionFilter(): Promise<JsonRpcError> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('newPendingTransactionFilter()');
     }
@@ -433,7 +429,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async submitWork(_requestDetails: RequestDetails): Promise<boolean> {
+  async submitWork(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('submitWork()');
     }
@@ -445,7 +441,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async syncing(_requestDetails: RequestDetails): Promise<boolean> {
+  async syncing(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('syncing()');
     }
@@ -517,7 +513,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async hashrate(_requestDetails: RequestDetails): Promise<string> {
+  async hashrate(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('hashrate()');
     }
@@ -530,12 +526,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getWork RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  getWork(_requestDetails: RequestDetails): JsonRpcError {
+  getWork(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('getWork()');
     }
@@ -548,12 +543,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_submitHashrate RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  submitHashrate(_requestDetails: RequestDetails): JsonRpcError {
+  submitHashrate(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('submitHashrate()');
     }
@@ -566,12 +560,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_signTransaction RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  signTransaction(_requestDetails: RequestDetails): JsonRpcError {
+  signTransaction(): JsonRpcError {
     return this.transactionService.signTransaction();
   }
 
@@ -581,12 +574,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_sign RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  sign(_requestDetails: RequestDetails): JsonRpcError {
+  sign(): JsonRpcError {
     return this.transactionService.sign();
   }
 
@@ -596,12 +588,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_sendTransaction RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  sendTransaction(_requestDetails: RequestDetails): JsonRpcError {
+  sendTransaction(): JsonRpcError {
     return this.transactionService.sendTransaction();
   }
 
@@ -611,12 +602,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_protocolVersion RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  protocolVersion(_requestDetails: RequestDetails): JsonRpcError {
+  protocolVersion(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('protocolVersion()');
     }
@@ -629,14 +619,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_coinbase RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  coinbase(_requestDetails: RequestDetails): JsonRpcError {
+  coinbase(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`coinbase()`);
+      this.logger.trace('coinbase()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -647,14 +636,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_blobBaseFee RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  blobBaseFee(_requestDetails: RequestDetails): JsonRpcError {
+  blobBaseFee(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`blobBaseFee()`);
+      this.logger.trace('blobBaseFee()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -1073,12 +1061,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_maxPriorityFeePerGas RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - The request details for logging and tracking.
    * @returns A promise that resolves to "0x0".
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async maxPriorityFeePerGas(_requestDetails: RequestDetails): Promise<string> {
+  async maxPriorityFeePerGas(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('maxPriorityFeePerGas()');
     }
@@ -1115,12 +1102,11 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getWork RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param _requestDetails - Details about the request for logging and tracking
    * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  getProof(_requestDetails: RequestDetails): JsonRpcError {
+  getProof(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('getProof()');
     }
@@ -1138,7 +1124,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  createAccessList(_requestDetails: RequestDetails): JsonRpcError {
+  createAccessList(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('createAccessList()');
     }
