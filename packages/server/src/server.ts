@@ -288,8 +288,8 @@ app.getKoaApp().use((ctx, next) => {
 
 const rpcApp = app.rpcApp();
 
-app.getKoaApp().use(async (ctx, next) => {
-  await rpcApp(ctx, next);
+app.getKoaApp().use(async (ctx) => {
+  await rpcApp(ctx);
 });
 
 process.on('unhandledRejection', (reason, p) => {

@@ -76,8 +76,8 @@ export default class KoaJsonRpc {
     });
   }
 
-  rpcApp(): (ctx: Koa.Context, _next: Koa.Next) => Promise<void> {
-    return async (ctx: Koa.Context, _next: Koa.Next) => {
+  rpcApp(): (ctx: Koa.Context) => Promise<void> {
+    return async (ctx: Koa.Context) => {
       const requestId = ctx.state.reqId;
       this.updateRequestDetails({ requestId, ipAddress: ctx.request.ip });
       ctx.set(REQUEST_ID_HEADER_NAME, this.requestId);

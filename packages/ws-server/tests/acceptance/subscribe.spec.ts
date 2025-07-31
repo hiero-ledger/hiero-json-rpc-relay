@@ -386,8 +386,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // wait 500ms to expect the message
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      expect(response.error.code).to.eq(predefined.UNSUPPORTED_METHOD.code);
-      expect(response.error.message).to.eq(predefined.UNSUPPORTED_METHOD.message);
+      expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
+      expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
 
       // close the connection
       webSocket.close();
