@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
 chai.use(chaiExclude);
 
 export function requestIdRegex(message: string) {
+  message = message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${message}`);
 }
 
