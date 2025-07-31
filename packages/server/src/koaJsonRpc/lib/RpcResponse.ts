@@ -29,6 +29,15 @@ export function jsonRespError(id: string | number | null, error: JsonRpcError, r
     throw new TypeError(`Invalid error message type ${typeof error.message}`);
   }
 
-  error.message = `[Request ID: ${requestId}] ${error.message}`;
-  return { error, jsonrpc: '2.0', id };
+  // We cannot update the original `error`'s message because `error` might be reused.
+  // Thus, we need to return a new `JsonRpcError` instance instead.
+  return {
+    error: new JsonRpcError({
+      code: error.code,
+      message: `[Request ID: ${requestId}] ${error.message}`,
+      data: error.data,
+    }),
+    jsonrpc: '2.0',
+    id,
+  };
 }
