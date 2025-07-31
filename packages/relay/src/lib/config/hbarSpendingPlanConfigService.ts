@@ -10,7 +10,6 @@ import { HbarSpendingPlanRepository } from '../db/repositories/hbarLimiter/hbarS
 import { IPAddressHbarSpendingPlanRepository } from '../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '../db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../db/types/hbarLimiter/subscriptionTier';
-import { RequestDetails } from '../types';
 import { isValidSpendingPlanConfig, SpendingPlanConfig } from '../types/spendingPlanConfig';
 
 /**
@@ -90,15 +89,14 @@ export class HbarSpendingPlanConfigService {
     }
     this.validateSpendingPlanConfig(spendingPlanConfigs);
 
-    const requestDetails = new RequestDetails({ requestId: '', ipAddress: '' });
     const existingPlans: IDetailedHbarSpendingPlan[] =
-      await this.hbarSpendingPlanRepository.findAllActiveBySubscriptionTier(
-        [SubscriptionTier.EXTENDED, SubscriptionTier.PRIVILEGED],
-        requestDetails,
-      );
-    const plansDeleted = await this.deleteObsoletePlans(existingPlans, spendingPlanConfigs, requestDetails);
-    const plansAdded = await this.addNewPlans(spendingPlanConfigs, existingPlans, requestDetails);
-    await this.updatePlanAssociations(spendingPlanConfigs, requestDetails);
+      await this.hbarSpendingPlanRepository.findAllActiveBySubscriptionTier([
+        SubscriptionTier.EXTENDED,
+        SubscriptionTier.PRIVILEGED,
+      ]);
+    const plansDeleted = await this.deleteObsoletePlans(existingPlans, spendingPlanConfigs);
+    const plansAdded = await this.addNewPlans(spendingPlanConfigs, existingPlans);
+    await this.updatePlanAssociations(spendingPlanConfigs);
 
     return plansDeleted + plansAdded;
   }
@@ -176,24 +174,15 @@ export class HbarSpendingPlanConfigService {
   private async deleteObsoletePlans(
     existingPlans: IDetailedHbarSpendingPlan[],
     spendingPlanConfigs: SpendingPlanConfig[],
-    requestDetails: RequestDetails,
   ): Promise<number> {
     const plansToDelete = existingPlans.filter((plan) => !spendingPlanConfigs.some((spc) => spc.id === plan.id));
     for (const { id } of plansToDelete) {
       this.logger.info(
         `Deleting HBAR spending plan with ID "${id}", as it is no longer in the spending plan configuration...`,
       );
-      await this.hbarSpendingPlanRepository.delete(id, requestDetails);
-      await this.evmAddressHbarSpendingPlanRepository.deleteAllByPlanId(
-        id,
-        'populatePreconfiguredSpendingPlans',
-        requestDetails,
-      );
-      await this.ipAddressHbarSpendingPlanRepository.deleteAllByPlanId(
-        id,
-        'populatePreconfiguredSpendingPlans',
-        requestDetails,
-      );
+      await this.hbarSpendingPlanRepository.delete(id);
+      await this.evmAddressHbarSpendingPlanRepository.deleteAllByPlanId(id, 'populatePreconfiguredSpendingPlans');
+      await this.ipAddressHbarSpendingPlanRepository.deleteAllByPlanId(id, 'populatePreconfiguredSpendingPlans');
     }
     return plansToDelete.length;
   }
@@ -201,20 +190,17 @@ export class HbarSpendingPlanConfigService {
   /**
    * Adds new HBAR spending plans to the database.
    *
-   * @param {SpendingPlanConfig[]} spendingPlanConfigs - The current spending plan configurations.
-   * @param {IDetailedHbarSpendingPlan[]} existingPlans - The existing HBAR spending plans in the database.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @returns {Promise<number>} - A promise that resolves with the number of plans added.
-   * @private
+   * @param spendingPlanConfigs - The current spending plan configurations.
+   * @param existingPlans - The existing HBAR spending plans in the database.
+   * @returns - A promise that resolves with the number of plans added.
    */
   private async addNewPlans(
     spendingPlanConfigs: SpendingPlanConfig[],
     existingPlans: IDetailedHbarSpendingPlan[],
-    requestDetails: RequestDetails,
   ): Promise<number> {
     const plansToAdd = spendingPlanConfigs.filter((spc) => !existingPlans.some((plan) => plan.id === spc.id));
     for (const { id, name, subscriptionTier } of plansToAdd) {
-      await this.hbarSpendingPlanRepository.create(subscriptionTier, requestDetails, this.TTL, id);
+      await this.hbarSpendingPlanRepository.create(subscriptionTier, this.TTL, id);
       this.logger.info(
         `Created HBAR spending plan "${name}" with ID "${id}" and subscriptionTier "${subscriptionTier}"`,
       );
@@ -225,42 +211,34 @@ export class HbarSpendingPlanConfigService {
   /**
    * Updates the associations of HBAR spending plans with ETH and IP addresses.
    *
-   * @param {SpendingPlanConfig[]} spendingPlanConfigs - The current spending plan configurations.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @returns {Promise<void>} - A promise that resolves when the operation is complete.
+   * @param spendingPlanConfigs - The current spending plan configurations.
+   * @returns - A promise that resolves when the operation is complete.
    * @private
    */
-  private async updatePlanAssociations(
-    spendingPlanConfigs: SpendingPlanConfig[],
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  private async updatePlanAssociations(spendingPlanConfigs: SpendingPlanConfig[]): Promise<void> {
     for (const planConfig of spendingPlanConfigs) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
           `Updating associations for HBAR spending plan '${planConfig.name}' with ID ${planConfig.id}...`,
         );
       }
-      await this.deleteObsoleteEvmAddressAssociations(planConfig, requestDetails);
-      await this.deleteObsoleteIpAddressAssociations(planConfig, requestDetails);
-      await this.updateEvmAddressAssociations(planConfig, requestDetails);
-      await this.updateIpAddressAssociations(planConfig, requestDetails);
+      await this.deleteObsoleteEvmAddressAssociations(planConfig);
+      await this.deleteObsoleteIpAddressAssociations(planConfig);
+      await this.updateEvmAddressAssociations(planConfig);
+      await this.updateIpAddressAssociations(planConfig);
     }
   }
 
   /**
    * Updates the associations of an HBAR spending plan with EVM addresses.
    *
-   * @param {SpendingPlanConfig} planConfig - The spending plan configuration.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @returns {Promise<void>} - A promise that resolves when the operation is complete.
+   * @param planConfig - The spending plan configuration.
+   * @returns - A promise that resolves when the operation is complete.
    * @private
    */
-  private async updateEvmAddressAssociations(
-    planConfig: SpendingPlanConfig,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  private async updateEvmAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     const currentEvmAddresses = await this.evmAddressHbarSpendingPlanRepository
-      .findAllByPlanId(planConfig.id, 'populatePreconfiguredSpendingPlans', requestDetails)
+      .findAllByPlanId(planConfig.id, 'populatePreconfiguredSpendingPlans')
       .then((evmAddressPlans) => evmAddressPlans.map((plan) => plan.evmAddress));
 
     const addressesToDelete = currentEvmAddresses.filter(
@@ -268,7 +246,7 @@ export class HbarSpendingPlanConfigService {
     );
     await Promise.all(
       addressesToDelete.map(async (evmAddress) => {
-        await this.evmAddressHbarSpendingPlanRepository.delete(evmAddress, requestDetails);
+        await this.evmAddressHbarSpendingPlanRepository.delete(evmAddress);
         this.logger.info(
           `Removed association between EVM address ${evmAddress} and HBAR spending plan '${planConfig.name}'`,
         );
@@ -279,11 +257,7 @@ export class HbarSpendingPlanConfigService {
       planConfig.evmAddresses?.filter((evmAddress) => !currentEvmAddresses.includes(evmAddress)) || [];
     await Promise.all(
       addressesToAdd.map(async (evmAddress) => {
-        await this.evmAddressHbarSpendingPlanRepository.save(
-          { evmAddress, planId: planConfig.id },
-          requestDetails,
-          this.TTL,
-        );
+        await this.evmAddressHbarSpendingPlanRepository.save({ evmAddress, planId: planConfig.id }, this.TTL);
         this.logger.info(`Associated HBAR spending plan '${planConfig.name}' with EVM address ${evmAddress}`);
       }),
     );
@@ -292,23 +266,19 @@ export class HbarSpendingPlanConfigService {
   /**
    * Updates the associations of an HBAR spending plan with IP addresses.
    *
-   * @param {SpendingPlanConfig} planConfig - The spending plan configuration.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @returns {Promise<void>} - A promise that resolves when the operation is complete.
+   * @param planConfig - The spending plan configuration.
+   * @returns - A promise that resolves when the operation is complete.
    * @private
    */
-  private async updateIpAddressAssociations(
-    planConfig: SpendingPlanConfig,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  private async updateIpAddressAssociations(planConfig: SpendingPlanConfig): Promise<void> {
     const currentIpAddresses = await this.ipAddressHbarSpendingPlanRepository
-      .findAllByPlanId(planConfig.id, 'populatePreconfiguredSpendingPlans', requestDetails)
+      .findAllByPlanId(planConfig.id, 'populatePreconfiguredSpendingPlans')
       .then((ipAddressPlans) => ipAddressPlans.map((plan) => plan.ipAddress));
 
     const addressesToDelete = currentIpAddresses.filter((ipAddress) => !planConfig.ipAddresses?.includes(ipAddress));
     await Promise.all(
       addressesToDelete.map(async (ipAddress) => {
-        await this.ipAddressHbarSpendingPlanRepository.delete(ipAddress, requestDetails);
+        await this.ipAddressHbarSpendingPlanRepository.delete(ipAddress);
         this.logger.info(`Removed association between IP address and HBAR spending plan '${planConfig.name}'`);
       }),
     );
@@ -316,11 +286,7 @@ export class HbarSpendingPlanConfigService {
     const addressesToAdd = planConfig.ipAddresses?.filter((ipAddress) => !currentIpAddresses.includes(ipAddress)) || [];
     await Promise.all(
       addressesToAdd.map(async (ipAddress) => {
-        await this.ipAddressHbarSpendingPlanRepository.save(
-          { ipAddress, planId: planConfig.id },
-          requestDetails,
-          this.TTL,
-        );
+        await this.ipAddressHbarSpendingPlanRepository.save({ ipAddress, planId: planConfig.id }, this.TTL);
         this.logger.info(`Associated HBAR spending plan '${planConfig.name}' with IP address`);
       }),
     );
@@ -332,23 +298,18 @@ export class HbarSpendingPlanConfigService {
    * For example, if an EVM address is associated with a plan different from the one in the {@link SPENDING_PLANS_CONFIG},
    * the association is deleted from the cache to allow the new association from the configuration file to take effect.
    *
-   * @param {SpendingPlanConfig} planConfig - The spending plan configuration.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @private
+   * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig, requestDetails: RequestDetails) {
+  private async deleteObsoleteEvmAddressAssociations(planConfig: SpendingPlanConfig) {
     for (const evmAddress of planConfig.evmAddresses || []) {
-      const exists = await this.evmAddressHbarSpendingPlanRepository.existsByAddress(evmAddress, requestDetails);
+      const exists = await this.evmAddressHbarSpendingPlanRepository.existsByAddress(evmAddress);
       if (exists) {
-        const evmAddressPlan = await this.evmAddressHbarSpendingPlanRepository.findByAddress(
-          evmAddress,
-          requestDetails,
-        );
+        const evmAddressPlan = await this.evmAddressHbarSpendingPlanRepository.findByAddress(evmAddress);
         if (evmAddressPlan.planId !== planConfig.id) {
           this.logger.info(
             `Deleting association between EVM address ${evmAddress} and HBAR spending plan '${planConfig.name}'`,
           );
-          await this.evmAddressHbarSpendingPlanRepository.delete(evmAddress, requestDetails);
+          await this.evmAddressHbarSpendingPlanRepository.delete(evmAddress);
         }
       }
     }
@@ -360,18 +321,16 @@ export class HbarSpendingPlanConfigService {
    * For example, if an IP address is associated with a plan different from the one in the {@link SPENDING_PLANS_CONFIG},
    * the association is deleted from the cache to allow the new association from the configuration file to take effect.
    *
-   * @param {SpendingPlanConfig} planConfig - The spending plan configuration.
-   * @param {RequestDetails} requestDetails - The details of the current request.
-   * @private
+   * @param planConfig - The spending plan configuration.
    */
-  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig, requestDetails: RequestDetails) {
+  private async deleteObsoleteIpAddressAssociations(planConfig: SpendingPlanConfig) {
     for (const ipAddress of planConfig.ipAddresses || []) {
-      const exists = await this.ipAddressHbarSpendingPlanRepository.existsByAddress(ipAddress, requestDetails);
+      const exists = await this.ipAddressHbarSpendingPlanRepository.existsByAddress(ipAddress);
       if (exists) {
-        const ipAddressPlan = await this.ipAddressHbarSpendingPlanRepository.findByAddress(ipAddress, requestDetails);
+        const ipAddressPlan = await this.ipAddressHbarSpendingPlanRepository.findByAddress(ipAddress);
         if (ipAddressPlan.planId !== planConfig.id) {
           this.logger.info(`Deleting association between IP address and HBAR spending plan '${planConfig.name}'`);
-          await this.ipAddressHbarSpendingPlanRepository.delete(ipAddress, requestDetails);
+          await this.ipAddressHbarSpendingPlanRepository.delete(ipAddress);
         }
       }
     }

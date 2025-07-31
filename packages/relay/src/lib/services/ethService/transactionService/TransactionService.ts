@@ -289,36 +289,33 @@ export class TransactionService implements ITransactionService {
 
   /**
    * Send transaction - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public sendTransaction(requestDetails: RequestDetails): JsonRpcError {
+  public sendTransaction(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`sendTransaction()`);
+      this.logger.trace('sendTransaction()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
    * Sign transaction - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public signTransaction(requestDetails: RequestDetails): JsonRpcError {
+  public signTransaction(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`signTransaction()`);
+      this.logger.trace('signTransaction()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
    * Sign - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public sign(requestDetails: RequestDetails): JsonRpcError {
+  public sign(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`sign()`);
+      this.logger.trace('sign()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -344,11 +341,11 @@ export class TransactionService implements ITransactionService {
     const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
     const cacheTTL = 15 * 60 * 1000; // 15 minutes
 
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod, requestDetails);
+    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod);
 
     if (!currentNetworkExchangeRate) {
       currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
-      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, requestDetails, cacheTTL);
+      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, cacheTTL);
     }
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;

@@ -3,11 +3,11 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import axios from 'axios';
 
-import { Admin } from '../index';
-import constants from './constants';
-import { CacheService } from './services/cacheService/cacheService';
-import { RequestDetails } from './types';
+import type { Admin } from '../index';
 import { Utils } from '../utils';
+import constants from './constants';
+import type { CacheService } from './services/cacheService/cacheService';
+import type { RequestDetails } from './types';
 
 interface IAdminRelayConfig {
   version: string;
@@ -58,7 +58,7 @@ export class AdminImpl implements Admin {
   public async config(requestDetails: RequestDetails): Promise<IAdminConfig> {
     const cacheKey = `${constants.CACHE_KEY.ADMIN_CONFIG}`;
 
-    let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config, requestDetails);
+    let info: IAdminConfig = await this.cacheService.getAsync(cacheKey, AdminImpl.config);
     if (!info) {
       const maskedEnvs = ConfigService.getAllMasked();
       info = {
@@ -87,7 +87,7 @@ export class AdminImpl implements Admin {
         ],
       };
 
-      await this.cacheService.set(cacheKey, info, AdminImpl.config, requestDetails);
+      await this.cacheService.set(cacheKey, info, AdminImpl.config);
     }
 
     return info;

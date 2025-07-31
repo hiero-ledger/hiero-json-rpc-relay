@@ -511,7 +511,7 @@ export class DebugImpl implements Debug {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
-    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name);
     if (cachedResult) {
       return cachedResult;
     }
@@ -608,7 +608,7 @@ export class DebugImpl implements Debug {
     );
 
     // Cache the result before returning
-    await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
+    await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
   }
 }
