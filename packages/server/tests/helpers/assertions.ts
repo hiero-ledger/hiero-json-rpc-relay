@@ -11,6 +11,10 @@ import { ethers } from 'ethers';
 
 chai.use(chaiExclude);
 
+export function requestIdRegex(message: string) {
+  return new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${message}`);
+}
+
 export default class Assertions {
   static emptyHex = '0x';
   static zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -327,8 +331,8 @@ export default class Assertions {
 
   static jsonRpcError(err: any, expectedError: JsonRpcError) {
     expect(err).to.exist;
-    expect(err.code).to.equal(expectedError.code);
-    expect(err.message).to.include(expectedError.message);
+    expect(err.code).to.be.equal(expectedError.code);
+    expect(err.message).to.match(requestIdRegex(expectedError.message));
   }
 
   static assertPredefinedRpcError = async (

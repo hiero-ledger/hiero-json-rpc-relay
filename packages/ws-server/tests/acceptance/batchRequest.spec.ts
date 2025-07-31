@@ -3,7 +3,7 @@
 // external resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
-import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
 
