@@ -335,7 +335,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
-          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+          expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
 
         it('Rejects unsubscribe requests when SUBSCRIPTIONS_ENABLED is false', async function () {
@@ -348,7 +348,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
-          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+          expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
       });
     }
