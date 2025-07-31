@@ -82,7 +82,7 @@ describe('HBAR Rate Limit Service', function () {
       register,
       limitDuration,
     );
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
   });
 
   afterEach(function () {
@@ -183,12 +183,7 @@ describe('HBAR Rate Limit Service', function () {
         describe('based on evmAddress', async function () {
           it('should return true if the total budget is exceeded', async function () {
             const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              operatorPlan.id,
-              totalBudgetInTinybars,
-              requestDetails,
-              limitDuration,
-            );
+            await hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, totalBudgetInTinybars, limitDuration);
             const result = await hbarLimitService.shouldLimit(
               mode,
               methodName,
@@ -204,7 +199,6 @@ describe('HBAR Rate Limit Service', function () {
             await hbarSpendingPlanRepository.addToAmountSpent(
               operatorPlan.id,
               totalBudgetInTinybars - mockEstimatedTxFee + 1,
-              requestDetails,
               limitDuration,
             );
             const result = await hbarLimitService.shouldLimit(
@@ -253,14 +247,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent is exactly at the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -278,14 +270,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent is just below the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() - 1,
-              requestDetails,
               limitDuration,
             );
 
@@ -303,14 +293,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent is just above the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber() + 1,
-              requestDetails,
               limitDuration,
             );
 
@@ -328,10 +316,9 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
@@ -339,7 +326,6 @@ describe('HBAR Rate Limit Service', function () {
                 .sub(mockEstimatedTxFee)
                 .add(1)
                 .toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -358,10 +344,9 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
@@ -369,7 +354,6 @@ describe('HBAR Rate Limit Service', function () {
                 .sub(mockEstimatedTxFee)
                 .sub(1)
                 .toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -387,14 +371,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -413,12 +395,7 @@ describe('HBAR Rate Limit Service', function () {
         describe('based on ipAddress', async function () {
           it('should return true if the total budget is exceeded', async function () {
             const operatorPlan = await hbarLimitService['getOperatorSpendingPlan'](requestDetails);
-            await hbarSpendingPlanRepository.addToAmountSpent(
-              operatorPlan.id,
-              totalBudgetInTinybars,
-              requestDetails,
-              limitDuration,
-            );
+            await hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, totalBudgetInTinybars, limitDuration);
             const result = await hbarLimitService.shouldLimit(mode, methodName, txConstructorName, '', requestDetails);
             expect(result).to.be.true;
           });
@@ -428,7 +405,6 @@ describe('HBAR Rate Limit Service', function () {
             await hbarSpendingPlanRepository.addToAmountSpent(
               operatorPlan.id,
               totalBudgetInTinybars - mockEstimatedTxFee + 1,
-              requestDetails,
               limitDuration,
             );
             const result = await hbarLimitService.shouldLimit(
@@ -451,14 +427,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent is exactly at the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -470,14 +444,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent is just below the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(1).toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -489,14 +461,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent is just above the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().add(1).toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -508,10 +478,9 @@ describe('HBAR Rate Limit Service', function () {
           it('should return true if amountSpent + estimatedTxFee is above the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
@@ -519,7 +488,6 @@ describe('HBAR Rate Limit Service', function () {
                 .sub(mockEstimatedTxFee)
                 .add(1)
                 .toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -538,10 +506,9 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent + estimatedTxFee is below the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC]
@@ -549,7 +516,6 @@ describe('HBAR Rate Limit Service', function () {
                 .sub(mockEstimatedTxFee)
                 .sub(1)
                 .toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -561,14 +527,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if amountSpent + estimatedTxFee is at the limit', async function () {
             await ipAddressHbarSpendingPlanRepository.save(
               { ipAddress: mockIpAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().sub(mockEstimatedTxFee).toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -597,14 +561,12 @@ describe('HBAR Rate Limit Service', function () {
           it('should return false if the rate limiter is disabled by setting HBAR_RATE_LIMIT_TINYBAR to zero', async function () {
             await evmAddressHbarSpendingPlanRepository.save(
               { evmAddress: mockEvmAddress, planId: mockPlanId },
-              requestDetails,
               limitDuration,
             );
-            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, requestDetails, limitDuration, mockPlanId);
+            await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
             await hbarSpendingPlanRepository.addToAmountSpent(
               mockPlanId,
               HbarLimitService.TIER_LIMITS[SubscriptionTier.BASIC].toTinybars().toNumber(),
-              requestDetails,
               limitDuration,
             );
 
@@ -648,15 +610,9 @@ describe('HBAR Rate Limit Service', function () {
     it('should return spending plan for evmAddress if evmAddress is provided', async function () {
       await evmAddressHbarSpendingPlanRepository.save(
         { evmAddress: mockEvmAddress, planId: mockPlanId },
-        requestDetails,
         limitDuration,
       );
-      const spendingPlan = await hbarSpendingPlanRepository.create(
-        SubscriptionTier.BASIC,
-        requestDetails,
-        limitDuration,
-        mockPlanId,
-      );
+      const spendingPlan = await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
 
       const result = await hbarLimitService['getSpendingPlan'](mockEvmAddress, requestDetails);
 
@@ -664,17 +620,8 @@ describe('HBAR Rate Limit Service', function () {
     });
 
     it('should return spending plan for ipAddress if ipAddress is provided', async function () {
-      await ipAddressHbarSpendingPlanRepository.save(
-        { ipAddress: mockIpAddress, planId: mockPlanId },
-        requestDetails,
-        limitDuration,
-      );
-      const spendingPlan = await hbarSpendingPlanRepository.create(
-        SubscriptionTier.BASIC,
-        requestDetails,
-        limitDuration,
-        mockPlanId,
-      );
+      await ipAddressHbarSpendingPlanRepository.save({ ipAddress: mockIpAddress, planId: mockPlanId }, limitDuration);
+      const spendingPlan = await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
 
       const result = await hbarLimitService['getSpendingPlan']('', requestDetails);
 
@@ -694,7 +641,7 @@ describe('HBAR Rate Limit Service', function () {
 
   describe('getSpendingPlanByEvmAddress', function () {
     const testGetSpendingPlanByEvmAddressError = async (error: Error, errorClass: any) => {
-      const result = hbarLimitService['getSpendingPlanByEvmAddress'](mockEvmAddress, requestDetails);
+      const result = hbarLimitService['getSpendingPlanByEvmAddress'](mockEvmAddress);
       await expect(result).to.be.eventually.rejectedWith(errorClass, error.message);
     };
 
@@ -706,7 +653,6 @@ describe('HBAR Rate Limit Service', function () {
     it('should handle error when getSpendingPlanByEvmAddress throws an HbarSpendingPlanNotFoundError', async function () {
       await evmAddressHbarSpendingPlanRepository.save(
         { evmAddress: mockEvmAddress, planId: mockPlanId },
-        requestDetails,
         limitDuration,
       );
       const error = new HbarSpendingPlanNotFoundError(mockPlanId);
@@ -716,20 +662,13 @@ describe('HBAR Rate Limit Service', function () {
     it('should handle error when getSpendingPlanByEvmAddress throws an HbarSpendingPlanNotActiveError', async function () {
       await evmAddressHbarSpendingPlanRepository.save(
         { evmAddress: mockEvmAddress, planId: mockPlanId },
-        requestDetails,
         limitDuration,
       );
-      const spendingPlan = await hbarSpendingPlanRepository.create(
-        SubscriptionTier.BASIC,
-        requestDetails,
-        limitDuration,
-        mockPlanId,
-      );
+      const spendingPlan = await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
       await cacheService.set(
         `hbarSpendingPlan:${mockPlanId}`,
         { ...spendingPlan, active: false },
         'hbarLimitServiceTest',
-        requestDetails,
       );
       const error = new HbarSpendingPlanNotActiveError(mockPlanId);
       await testGetSpendingPlanByEvmAddressError(error, HbarSpendingPlanNotActiveError);
@@ -738,17 +677,11 @@ describe('HBAR Rate Limit Service', function () {
     it('should return the spending plan for the given evmAddress', async function () {
       await evmAddressHbarSpendingPlanRepository.save(
         { evmAddress: mockEvmAddress, planId: mockPlanId },
-        requestDetails,
         limitDuration,
       );
-      const spendingPlan = await hbarSpendingPlanRepository.create(
-        SubscriptionTier.BASIC,
-        requestDetails,
-        limitDuration,
-        mockPlanId,
-      );
+      const spendingPlan = await hbarSpendingPlanRepository.create(SubscriptionTier.BASIC, limitDuration, mockPlanId);
 
-      const result = await hbarLimitService['getSpendingPlanByEvmAddress'](mockEvmAddress, requestDetails);
+      const result = await hbarLimitService['getSpendingPlanByEvmAddress'](mockEvmAddress);
 
       expect(result).to.deep.equal(spendingPlan);
     });
@@ -798,13 +731,11 @@ describe('HBAR Rate Limit Service', function () {
         `hbarSpendingPlan:${otherPlanOfTheSameTier.id}`,
         otherPlanOfTheSameTier,
         'hbarLimitServiceTest',
-        requestDetails,
       );
       await cacheService.set(
         `hbarSpendingPlan:${otherPlanOfTheSameTier.id}:amountSpent`,
         otherPlanOfTheSameTier.amountSpent,
         'hbarLimitServiceTest',
-        requestDetails,
       );
 
       const incUniqueSpendingPlansCounterSpy = sinon.spy(
@@ -922,7 +853,6 @@ describe('HBAR Rate Limit Service', function () {
       await hbarSpendingPlanRepository.addToAmountSpent(
         operatorPlan.id,
         totalBudgetInTinybars - remainingBudget,
-        requestDetails,
         limitDuration,
       );
       await expect(

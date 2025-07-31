@@ -6,9 +6,7 @@ import { Registry } from 'prom-client';
 import { createClient, RedisClientType } from 'redis';
 
 import { Utils } from '../../../utils';
-import constants from '../../constants';
 import { RedisCacheError } from '../../errors/RedisCacheError';
-import { RequestDetails } from '../../types';
 import { IRedisCacheClient } from './IRedisCacheClient';
 
 /**
@@ -62,7 +60,6 @@ export class RedisCache implements IRedisCacheClient {
     const redisUrl = ConfigService.get('REDIS_URL')!;
     const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
     this.client = createClient({
-      // @ts-ignore
       url: redisUrl,
       socket: {
         reconnectStrategy: (retries: number) => {
@@ -109,20 +106,18 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Retrieves a value from the cache.
    *
-   * @param {string} key - The cache key.
-   * @param {string} callingMethod - The name of the calling method.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<any | null>} The cached value or null if not found.
+   * @param key - The cache key.
+   * @param callingMethod - The name of the calling method.
+   * @returns The cached value or null if not found.
    */
-  async get(key: string, callingMethod: string, requestDetails: RequestDetails): Promise<any> {
+  async get(key: string, callingMethod: string): Promise<any> {
     const client = await this.getConnectedClient();
     const result = await client.get(key);
     if (result) {
-      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-      const censoredValue = result.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-      const message = `Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`;
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${message}`);
+        const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+        const censoredValue = result.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+        this.logger.trace(`Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`);
       }
       // TODO: add metrics
       return JSON.parse(result);
@@ -133,20 +128,13 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Stores a value in the cache.
    *
-   * @param {string} key - The cache key.
-   * @param {*} value - The value to be cached.
-   * @param {string} callingMethod - The name of the calling method.
-   * @param {number} [ttl] - The time-to-live (expiration) of the cache item in milliseconds.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<void>} A Promise that resolves when the value is cached.
+   * @param key - The cache key.
+   * @param value - The value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @param ttl - The time-to-live (expiration) of the cache item in milliseconds.
+   * @returns A Promise that resolves when the value is cached.
    */
-  async set(
-    key: string,
-    value: any,
-    callingMethod: string,
-    requestDetails: RequestDetails,
-    ttl?: number,
-  ): Promise<void> {
+  async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
     const client = await this.getConnectedClient();
     const serializedValue = JSON.stringify(value);
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
@@ -170,16 +158,11 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Stores multiple key-value pairs in the cache.
    *
-   * @param {Record<string, any>} keyValuePairs - An object where each property is a key and its value is the value to be cached.
-   * @param {string} callingMethod - The name of the calling method.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<void>} A Promise that resolves when the values are cached.
+   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @returns A Promise that resolves when the values are cached.
    */
-  async multiSet(
-    keyValuePairs: Record<string, any>,
-    callingMethod: string,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string): Promise<void> {
     const client = await this.getConnectedClient();
     // Serialize values
     const serializedKeyValuePairs: Record<string, string> = {};
@@ -200,18 +183,12 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Stores multiple key-value pairs in the cache using pipelining.
    *
-   * @param {Record<string, any>} keyValuePairs - An object where each property is a key and its value is the value to be cached.
-   * @param {string} callingMethod - The name of the calling method.
-   * @param {number} [ttl] - The time-to-live (expiration) of the cache item in milliseconds.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<void>} A Promise that resolves when the values are cached.
+   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds.
+   * @returns A Promise that resolves when the values are cached.
    */
-  async pipelineSet(
-    keyValuePairs: Record<string, any>,
-    callingMethod: string,
-    requestDetails: RequestDetails,
-    ttl?: number,
-  ): Promise<void> {
+  async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
     const client = await this.getConnectedClient();
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
 
@@ -225,9 +202,9 @@ export class RedisCache implements IRedisCacheClient {
     // Execute pipeline operation
     await pipeline.execAsPipeline();
 
-    // Log the operation
-    const entriesLength = Object.keys(keyValuePairs).length;
     if (this.logger.isLevelEnabled('trace')) {
+      // Log the operation
+      const entriesLength = Object.keys(keyValuePairs).length;
       this.logger.trace(`caching multiple keys via ${callingMethod}, total keys: ${entriesLength}`);
     }
   }
@@ -235,12 +212,11 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Deletes a value from the cache.
    *
-   * @param {string} key - The cache key.
-   * @param {string} callingMethod - The name of the calling method.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<void>} A Promise that resolves when the value is deleted from the cache.
+   * @param key - The cache key.
+   * @param callingMethod - The name of the calling method.
+   * @returns A Promise that resolves when the value is deleted from the cache.
    */
-  async delete(key: string, callingMethod: string, requestDetails: RequestDetails): Promise<void> {
+  async delete(key: string, callingMethod: string): Promise<void> {
     const client = await this.getConnectedClient();
     await client.del(key);
     if (this.logger.isLevelEnabled('trace')) {
@@ -304,13 +280,12 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Increments a value in the cache.
    *
-   * @param {string} key The key to increment
-   * @param {number} amount The amount to increment by
-   * @param {string} callingMethod The name of the calling method
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<number>} The value of the key after incrementing
+   * @param key The key to increment
+   * @param amount The amount to increment by
+   * @param callingMethod The name of the calling method
+   * @returns The value of the key after incrementing
    */
-  async incrBy(key: string, amount: number, callingMethod: string, requestDetails: RequestDetails): Promise<number> {
+  async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
     const client = await this.getConnectedClient();
     const result = await client.incrBy(key, amount);
     if (this.logger.isLevelEnabled('trace')) {
@@ -322,20 +297,13 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Retrieves a range of elements from a list in the cache.
    *
-   * @param {string} key The key of the list
-   * @param {number} start The start index
-   * @param {number} end The end index
-   * @param {string} callingMethod The name of the calling method
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<any[]>} The list of elements in the range
+   * @param key The key of the list
+   * @param start The start index
+   * @param end The end index
+   * @param callingMethod The name of the calling method
+   * @returns The list of elements in the range
    */
-  async lRange(
-    key: string,
-    start: number,
-    end: number,
-    callingMethod: string,
-    requestDetails: RequestDetails,
-  ): Promise<any[]> {
+  async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
     const client = await this.getConnectedClient();
     const result = await client.lRange(key, start, end);
     if (this.logger.isLevelEnabled('trace')) {
@@ -347,13 +315,12 @@ export class RedisCache implements IRedisCacheClient {
   /**
    * Pushes a value to the end of a list in the cache.
    *
-   * @param {string} key The key of the list
-   * @param {*} value The value to push
-   * @param {string} callingMethod The name of the calling method
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<number>} The length of the list after pushing
+   * @param key The key of the list
+   * @param value The value to push
+   * @param callingMethod The name of the calling method
+   * @returns The length of the list after pushing
    */
-  async rPush(key: string, value: any, callingMethod: string, requestDetails: RequestDetails): Promise<number> {
+  async rPush(key: string, value: any, callingMethod: string): Promise<number> {
     const client = await this.getConnectedClient();
     const serializedValue = JSON.stringify(value);
     const result = await client.rPush(key, serializedValue);
@@ -365,12 +332,11 @@ export class RedisCache implements IRedisCacheClient {
 
   /**
    * Retrieves all keys matching a pattern.
-   * @param {string} pattern The pattern to match
-   * @param {string} callingMethod The name of the calling method
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<string[]>} The list of keys matching the pattern
+   * @param pattern The pattern to match
+   * @param callingMethod The name of the calling method
+   * @returns The list of keys matching the pattern
    */
-  async keys(pattern: string, callingMethod: string, requestDetails: RequestDetails): Promise<string[]> {
+  async keys(pattern: string, callingMethod: string): Promise<string[]> {
     const client = await this.getConnectedClient();
     const result = await client.keys(pattern);
     if (this.logger.isLevelEnabled('trace')) {

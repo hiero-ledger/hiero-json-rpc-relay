@@ -173,7 +173,7 @@ export class AccountService implements IAccountService {
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
-    const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE, requestDetails);
+    const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
@@ -302,7 +302,7 @@ export class AccountService implements IAccountService {
 
     // cache considerations for high load
     const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
-    let nonceCount = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_TRANSACTION_COUNT, requestDetails);
+    let nonceCount = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_TRANSACTION_COUNT);
     if (nonceCount) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
@@ -332,7 +332,7 @@ export class AccountService implements IAccountService {
       blockNumOrTag === constants.BLOCK_EARLIEST || !isNaN(blockNum)
         ? constants.CACHE_TTL.ONE_DAY
         : this.ethGetTransactionCountCacheTtl; // cache historical values longer as they don't change
-    await this.cacheService.set(cacheKey, nonceCount, constants.ETH_GET_TRANSACTION_COUNT, requestDetails, cacheTtl);
+    await this.cacheService.set(cacheKey, nonceCount, constants.ETH_GET_TRANSACTION_COUNT, cacheTtl);
 
     return nonceCount;
   }
@@ -357,7 +357,7 @@ export class AccountService implements IAccountService {
       const timestamp = blocks[0].timestamp.to;
       const blockTimeStamp: LatestBlockNumberTimestamp = { blockNumber: currentBlock, timeStampTo: timestamp };
       // save the latest block number in cache
-      await this.cacheService.set(cacheKey, currentBlock, caller, requestDetails, this.ethBlockNumberCacheTtlMs);
+      await this.cacheService.set(cacheKey, currentBlock, caller, this.ethBlockNumberCacheTtlMs);
 
       return blockTimeStamp;
     }

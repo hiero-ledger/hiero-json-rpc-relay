@@ -177,7 +177,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`Resetting HBAR rate limiter...`);
     }
-    await this.hbarSpendingPlanRepository.resetAmountSpentOfAllPlans(requestDetails);
+    await this.hbarSpendingPlanRepository.resetAmountSpentOfAllPlans();
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
     this.resetTemporaryMetrics();
@@ -264,9 +264,9 @@ export class HbarLimitService implements IHbarLimitService {
     }
 
     const operatorPlan = await this.getOperatorSpendingPlan(requestDetails);
-    await this.hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, cost, requestDetails, this.limitDuration);
+    await this.hbarSpendingPlanRepository.addToAmountSpent(operatorPlan.id, cost, this.limitDuration);
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier, requestDetails).then();
+    this.updateAverageAmountSpentPerSubscriptionTier(operatorPlan.subscriptionTier).then();
 
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
@@ -297,10 +297,10 @@ export class HbarLimitService implements IHbarLimitService {
       this.uniqueSpendingPlansCounter[spendingPlan.subscriptionTier].inc(1);
     }
 
-    await this.hbarSpendingPlanRepository.addToAmountSpent(spendingPlan.id, cost, requestDetails, this.limitDuration);
+    await this.hbarSpendingPlanRepository.addToAmountSpent(spendingPlan.id, cost, this.limitDuration);
 
     // Done asynchronously in the background
-    this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier, requestDetails).then();
+    this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier).then();
 
     this.logger.info(
       `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
@@ -358,18 +358,11 @@ export class HbarLimitService implements IHbarLimitService {
 
   /**
    * Updates the average amount of tinybars spent of spending plans per subscription tier.
-   * @param {SubscriptionTier} subscriptionTier - The subscription tier to update the average usage for.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @private {Promise<void>} - A promise that resolves when the average usage has been updated.
+   * @param subscriptionTier - The subscription tier to update the average usage for.
+   * @private - A promise that resolves when the average usage has been updated.
    */
-  private async updateAverageAmountSpentPerSubscriptionTier(
-    subscriptionTier: SubscriptionTier,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
-    const plans = await this.hbarSpendingPlanRepository.findAllActiveBySubscriptionTier(
-      [subscriptionTier],
-      requestDetails,
-    );
+  private async updateAverageAmountSpentPerSubscriptionTier(subscriptionTier: SubscriptionTier): Promise<void> {
+    const plans = await this.hbarSpendingPlanRepository.findAllActiveBySubscriptionTier([subscriptionTier]);
     const totalUsage = plans.reduce((total, plan) => total + plan.amountSpent, 0);
     const averageUsage = Math.round(totalUsage / plans.length);
     this.averageSpendingPlanAmountSpentGauge[subscriptionTier].set(averageUsage);
@@ -439,7 +432,7 @@ export class HbarLimitService implements IHbarLimitService {
     const ipAddress = requestDetails.ipAddress;
     if (evmAddress) {
       try {
-        return await this.getSpendingPlanByEvmAddress(evmAddress, requestDetails);
+        return await this.getSpendingPlanByEvmAddress(evmAddress);
       } catch (error) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
@@ -462,20 +455,13 @@ export class HbarLimitService implements IHbarLimitService {
 
   /**
    * Gets the spending plan for the given evm address.
-   * @param {string} evmAddress - The evm address to get the spending plan for.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<IDetailedHbarSpendingPlan>} - A promise that resolves with the spending plan.
+   * @param evmAddress - The evm address to get the spending plan for.
+   * @returns - A promise that resolves with the spending plan.
    * @private
    */
-  private async getSpendingPlanByEvmAddress(
-    evmAddress: string,
-    requestDetails: RequestDetails,
-  ): Promise<IDetailedHbarSpendingPlan> {
-    const evmAddressHbarSpendingPlan = await this.evmAddressHbarSpendingPlanRepository.findByAddress(
-      evmAddress,
-      requestDetails,
-    );
-    return this.hbarSpendingPlanRepository.findByIdWithDetails(evmAddressHbarSpendingPlan.planId, requestDetails);
+  private async getSpendingPlanByEvmAddress(evmAddress: string): Promise<IDetailedHbarSpendingPlan> {
+    const evmAddressHbarSpendingPlan = await this.evmAddressHbarSpendingPlanRepository.findByAddress(evmAddress);
+    return this.hbarSpendingPlanRepository.findByIdWithDetails(evmAddressHbarSpendingPlan.planId);
   }
 
   /**
@@ -486,11 +472,8 @@ export class HbarLimitService implements IHbarLimitService {
    */
   private async getSpendingPlanByIPAddress(requestDetails: RequestDetails): Promise<IDetailedHbarSpendingPlan> {
     const ipAddress = requestDetails.ipAddress;
-    const ipAddressHbarSpendingPlan = await this.ipAddressHbarSpendingPlanRepository.findByAddress(
-      ipAddress,
-      requestDetails,
-    );
-    return this.hbarSpendingPlanRepository.findByIdWithDetails(ipAddressHbarSpendingPlan.planId, requestDetails);
+    const ipAddressHbarSpendingPlan = await this.ipAddressHbarSpendingPlanRepository.findByAddress(ipAddress);
+    return this.hbarSpendingPlanRepository.findByIdWithDetails(ipAddressHbarSpendingPlan.planId);
   }
 
   /**
@@ -511,17 +494,9 @@ export class HbarLimitService implements IHbarLimitService {
       throw new Error('Cannot create a spending plan without an associated evm address');
     }
 
-    const spendingPlan = await this.hbarSpendingPlanRepository.create(
-      subscriptionTier,
-      requestDetails,
-      this.limitDuration,
-    );
+    const spendingPlan = await this.hbarSpendingPlanRepository.create(subscriptionTier, this.limitDuration);
 
-    await this.evmAddressHbarSpendingPlanRepository.save(
-      { evmAddress, planId: spendingPlan.id },
-      requestDetails,
-      this.limitDuration,
-    );
+    await this.evmAddressHbarSpendingPlanRepository.save({ evmAddress, planId: spendingPlan.id }, this.limitDuration);
 
     return spendingPlan;
   }
