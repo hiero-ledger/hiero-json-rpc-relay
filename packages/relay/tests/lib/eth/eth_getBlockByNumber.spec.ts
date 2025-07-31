@@ -7,6 +7,7 @@ import chaiAsPromised from 'chai-as-promised';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 import sinon from 'sinon';
+import TypedEmitter from 'typed-emitter';
 
 import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { predefined } from '../../../src';
@@ -16,7 +17,7 @@ import { EthImpl } from '../../../src/lib/eth';
 import { Block, Transaction } from '../../../src/lib/model';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { RequestDetails } from '../../../src/lib/types';
+import { RequestDetails, TypedEvents } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   blockLogsBloom,
@@ -90,7 +91,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     mirrorNodeInstance: MirrorNodeClient;
     logger: Logger;
   } = generateEthTestEnv(true);
-  const eventEmitter = new EventEmitter();
+  const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 

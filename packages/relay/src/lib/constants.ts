@@ -224,9 +224,9 @@ export default {
   },
 
   EVENTS: {
-    EXECUTE_TRANSACTION: 'execute_transaction',
-    EXECUTE_QUERY: 'execute_query',
-    ETH_EXECUTION: 'eth_execution',
+    EXECUTE_TRANSACTION: 'EXECUTE_TRANSACTION',
+    EXECUTE_QUERY: 'EXECUTE_QUERY',
+    ETH_EXECUTION: 'ETH_EXECUTION',
   },
 
   EXECUTION_MODE: {
@@ -273,4 +273,4 @@ export default {
   ETH_GET_TRANSACTION_RECEIPT: 'eth_GetTransactionReceipt',
   ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
   NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
-};
+} as const;

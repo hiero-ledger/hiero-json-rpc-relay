@@ -2,6 +2,7 @@
 
 import EventEmitter from 'events';
 import { Logger } from 'pino';
+import TypedEmitter from 'typed-emitter';
 
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
@@ -33,6 +34,7 @@ import {
   INewFilterParams,
   ITransactionReceipt,
   RequestDetails,
+  TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
 
@@ -80,7 +82,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  private readonly eventEmitter: EventEmitter;
+  private readonly eventEmitter: TypedEmitter<TypedEvents>;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -123,7 +125,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     cacheService: CacheService,
-    eventEmitter: EventEmitter,
+    eventEmitter: TypedEmitter<TypedEvents>,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -263,10 +265,7 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-        method: constants.ETH_ESTIMATE_GAS,
-        requestDetails: requestDetails,
-      });
+      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_ESTIMATE_GAS, requestDetails);
     }
 
     return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
@@ -974,10 +973,7 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
     }
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: 'eth_call',
-      requestDetails: requestDetails,
-    });
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_CALL, requestDetails);
 
     return this.contractService.call(call, blockParam, requestDetails);
   }

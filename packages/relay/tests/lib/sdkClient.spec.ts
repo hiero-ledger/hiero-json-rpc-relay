@@ -26,7 +26,9 @@ import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
+import TypedEmitter from 'typed-emitter';
 
+import { TypedEvents } from '../../dist/lib/types';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -59,7 +61,7 @@ describe('SdkClient', async function () {
   let mock: MockAdapter;
   let sdkClient: SDKClient;
   let instance: AxiosInstance;
-  let eventEmitter: EventEmitter;
+  let eventEmitter: TypedEmitter<TypedEvents>;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -81,7 +83,7 @@ describe('SdkClient', async function () {
       Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new EventEmitter();
+    eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
 
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);

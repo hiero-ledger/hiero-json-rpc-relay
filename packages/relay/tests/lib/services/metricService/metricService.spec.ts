@@ -9,7 +9,9 @@ import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
+import TypedEmitter from 'typed-emitter';
 
+import { TypedEvents } from '../../../../dist/lib/types';
 import { MirrorNodeClient, SDKClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -33,7 +35,7 @@ describe('Metric Service', function () {
   let client: Client;
   let mock: typeof MockAdapter;
   let instance: AxiosInstance;
-  let eventEmitter: EventEmitter;
+  let eventEmitter: TypedEmitter<TypedEvents>;
   let metricService: MetricService;
   let hbarLimitService: HbarLimitService;
   let mirrorNodeClient: MirrorNodeClient;
@@ -154,7 +156,7 @@ describe('Metric Service', function () {
 
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    eventEmitter = new EventEmitter();
+    eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
 
     const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
@@ -258,7 +260,7 @@ describe('Metric Service', function () {
         const originalBudget = await hbarLimitService['getRemainingBudget'](requestDetails);
 
         // emitting an EXECUTE_TRANSACTION event to kick off capturing metrics process asynchronously
-        eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, mockedExecuteTransactionEventPayload);
+        eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, ...Object.values(mockedExecuteTransactionEventPayload));
 
         // small wait for hbar rate limiter to settle
         await new Promise((r) => setTimeout(r, 100));
@@ -303,7 +305,7 @@ describe('Metric Service', function () {
       const originalBudget = await hbarLimitService['getRemainingBudget'](requestDetails);
 
       // emitting an EXECUTE_QUERY event to kick off capturing metrics process
-      eventEmitter.emit(constants.EVENTS.EXECUTE_QUERY, mockedExecuteQueryEventPayload);
+      eventEmitter.emit(constants.EVENTS.EXECUTE_QUERY, ...Object.values(mockedExecuteQueryEventPayload));
 
       // small wait for hbar rate limiter to settle
       await new Promise((r) => setTimeout(r, 100));
@@ -327,7 +329,7 @@ describe('Metric Service', function () {
       // Find the initial value for our specific labels, or use 0 if not found
       const initialValue = counterBefore.values.find((metric) => metric.labels.method === mockedMethod)?.value || 0;
 
-      eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, mockedEthExecutionEventPayload);
+      eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, ...Object.values(mockedEthExecutionEventPayload));
 
       // Get the counter after emitting the event
       const counterAfter = await metricService['ethExecutionsCounter'].get();

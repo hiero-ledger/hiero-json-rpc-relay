@@ -5,6 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { AbiCoder, keccak256 } from 'ethers';
 import { EventEmitter } from 'events';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
+import TypedEmitter from 'typed-emitter';
 import { v4 as uuid } from 'uuid';
 
 import { Eth, JsonRpcError } from '../../../src';
@@ -14,7 +15,7 @@ import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { EthImpl } from '../../../src/lib/eth';
 import { Precheck } from '../../../src/lib/precheck';
-import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
+import { IContractCallRequest, IContractCallResponse, RequestDetails, TypedEvents } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -39,7 +40,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   const contractService = ethImpl['contractService'];
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
-  eventEmitter = new EventEmitter();
+  eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
   async function mockContractCall(
     callData: IContractCallRequest,
     estimate: boolean,

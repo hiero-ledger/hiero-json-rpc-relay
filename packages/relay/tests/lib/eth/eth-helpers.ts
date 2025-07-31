@@ -5,6 +5,7 @@ import MockAdapter from 'axios-mock-adapter';
 import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
+import TypedEmitter from 'typed-emitter';
 
 import { ConfigServiceTestHelper } from '../../../../config-service/tests/configServiceTestHelper';
 import { MirrorNodeClient } from '../../../src/lib/clients/mirrorNodeClient';
@@ -17,6 +18,7 @@ import { CommonService } from '../../../src/lib/services';
 import { CACHE_LEVEL, CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
+import { TypedEvents } from '../../../src/lib/types';
 
 export function contractResultsByNumberByIndexURL(number: number, index: number): string {
   return `contracts/results?block.number=${number}&transaction.index=${index}&limit=100&order=asc`;
@@ -47,7 +49,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
   const duration = constants.HBAR_RATE_LIMIT_DURATION;
-  const eventEmitter = new EventEmitter();
+  const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
 
   const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
   const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

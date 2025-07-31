@@ -2,14 +2,15 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import EventEmitter from 'events';
 import sinon from 'sinon';
-import { EventEmitter } from 'stream';
+import TypedEmitter from 'typed-emitter';
 
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { MirrorNodeClientError, predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
-import { RequestDetails } from '../../../src/lib/types';
+import { RequestDetails, TypedEvents } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   blockLogsBloom,
@@ -55,7 +56,7 @@ let ethImplLowTransactionCount: EthImpl;
 describe('@ethGetBlockByHash using MirrorNode', async function () {
   this.timeout(10000);
   const { restMock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } = generateEthTestEnv(true);
-  const eventEmitter = new EventEmitter();
+  const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 

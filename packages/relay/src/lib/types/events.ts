@@ -27,3 +27,26 @@ export interface IEthExecutionEventPayload {
   method: string;
   requestDetails: RequestDetails;
 }
+
+export type TypedEvents = {
+  ETH_EXECUTION: (method: string, requestDetails: RequestDetails) => void;
+  EXECUTE_QUERY: (
+    executionMode: string,
+    transactionId: string,
+    txConstructorName: string,
+    cost: number,
+    gasUsed: number,
+    status: string,
+    requestDetails: RequestDetails,
+    originalCallerAddress: string | undefined,
+  ) => void;
+  EXECUTE_TRANSACTION: (
+    transactionId: string,
+    callerName: string,
+    txConstructorName: string,
+    operatorAccountId: string,
+    interactingEntity: string,
+    requestDetails: RequestDetails,
+    originalCallerAddress: string,
+  ) => void;
+};
