@@ -92,7 +92,7 @@
     "@ethereumjs/rlp": "^5.0.2",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
-    "keyv-file": "^0.3.3",
+    "keyv-file": "^5.1.3",
     "koa-cors": "^0.0.16",
     "koa-websocket": "^7.0.0",
     "lerna": "^8.1.9",
