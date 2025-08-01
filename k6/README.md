@@ -500,3 +500,75 @@ TEST_TYPE=load
 ```
 
 When it completes, k6 will show a similar summary report. However, only for the load tests.
+
+## Stress Test
+
+The stress test simulates realistic traffic patterns based on 90 days of production data. It allocates virtual users (VUs) proportionally across endpoints to match real-world usage patterns.
+
+### Prerequisites
+
+Like other tests, the stress test requires preparation data (smart contracts, wallets, signed transactions). Run the prep script first:
+
+```shell
+npm run prep
+```
+
+### Running Stress Tests
+
+To run a stress test:
+
+```shell
+npm run stress-test
+```
+
+Or run prep and stress test together:
+
+```shell
+npm run prep-and-stress
+```
+
+### Configuration
+
+The stress test uses these environment variables:
+
+```shell
+DEFAULT_DURATION=60s      # Duration of the stress test
+DEFAULT_VUS=100          # Total VUs to distribute across endpoints
+DEFAULT_GRACEFUL_STOP=5s # Grace period for test completion
+SIGNED_TXS=300            # The longer the DEFAULT_DURATION, the higher SIGNED_TXS should be set. MUST BE SET BEFORE RUNNING `npm run prep`
+```
+
+### Example Usage
+
+Run with custom VU allocation:
+
+```shell
+DEFAULT_VUS=200 DEFAULT_DURATION=120s npm run stress-test
+```
+
+### Output
+
+The stress test generates:
+
+- Console output showing VU allocation per endpoint
+- `stress-test-summary.md` report with detailed metrics
+- Proportional resource usage reflecting real production patterns
+
+### Traffic Weights
+
+Current traffic distribution is based on 90 days of production RPS data (April 2025 to July 2025). These weights may need updates in the future as usage patterns evolve.
+
+Distribution based on total requests per second:
+
+- `eth_getBlockByNumber`: 68.0% (68 VUs out of 100)
+- `eth_getLogs`: 13.0% (13 VUs out of 100)
+- `eth_chainId`: 6.0% (6 VUs out of 100)
+- Other endpoints: Remaining VUs allocated proportionally
+
+### Validation
+
+Validate VU allocation and traffic weights:
+
+```shell
+node validate-weights.js
+```
