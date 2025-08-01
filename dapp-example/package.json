@@ -34,7 +34,7 @@
     "@synthetixio/synpress": "^3.7.3",
     "babel-loader": "^9.1.3",
     "cypress": "^13.13.2",
-    "cypress-multi-reporters": "^1.6.3",
+    "cypress-multi-reporters": "^2.0.5",
     "cypress-wait-until": "^3.0.1",
     "env-cmd": "^10.1.0",
     "http-server": "^14.1.1",
