@@ -4,7 +4,7 @@
   "scripts": {},
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.17"
+    "hardhat": "^2.26.1"
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.69.0",
