@@ -11,7 +11,7 @@ import { IPAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarL
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IIPAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
-import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -36,7 +36,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     before(() => {
       // @ts-ignore
       CacheService.instances = [];
-      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+      cacheService = new CacheService(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
         cacheService,

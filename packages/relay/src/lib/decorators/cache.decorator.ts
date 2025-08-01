@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
-import { CacheService } from '../services/cacheService/cacheService';
+import type { CacheService } from '../services/cacheService/cacheService';
 import { RequestDetails } from '../types';
 
 interface CacheSingleParam {

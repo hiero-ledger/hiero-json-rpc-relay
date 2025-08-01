@@ -83,7 +83,7 @@ describe('SdkClient', async function () {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     eventEmitter = new EventEmitter();
 
-    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+    cacheService = new CacheService(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -112,7 +112,7 @@ describe('SdkClient', async function () {
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
       registry,
-      CacheService.getInstance(CACHE_LEVEL.L1, registry),
+      cacheService,
       instance,
     );
 
