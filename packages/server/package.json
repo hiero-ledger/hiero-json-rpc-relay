@@ -37,7 +37,7 @@
     "ethers": "^5.8.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^10.6.0",
-    "shelljs": "^0.8.5",
+    "shelljs": "^0.10.0",
     "ts-mocha": "^9.0.2",
     "ts-node": "^10.8.1",
     "typescript": "^4.5.5"
