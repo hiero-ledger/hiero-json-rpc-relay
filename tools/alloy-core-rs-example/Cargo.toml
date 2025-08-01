@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 hex = "0.4.3"
 tokio = { version = "1.38.2", features = ["full"] }
-alloy = { version = "0.2.0", features = ["full"] }
+alloy = { version = "1.0.23", features = ["full"] }
 eyre = "0.6.12"
 reqwest = "0.12.22"
 dotenv = "0.15.0"
