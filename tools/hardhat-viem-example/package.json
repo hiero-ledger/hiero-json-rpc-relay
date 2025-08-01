@@ -10,7 +10,7 @@
   "dependencies": {
     "@hashgraph/hedera-local": "^2.29.2",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "dotenv": "^16.0.3"
+    "dotenv": "^17.2.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
