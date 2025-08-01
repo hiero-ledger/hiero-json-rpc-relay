@@ -209,7 +209,7 @@ import { funcs, options } from './stress/index.js';
 function handleSummary(data) {
   return {
     stdout: textSummary(data, { indent: ' ', enableColors: true }),
-    'stress-test-summary.md': markdownReport(data),
+    'stress-test-report.md': markdownReport(data),
   };
 }
 
