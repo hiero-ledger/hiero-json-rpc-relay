@@ -19,7 +19,7 @@ export function jsonRespResult(id: string | number | null, result: unknown): IJs
   }
 
   if (result === undefined) {
-    throw new Error('Missing result or error');
+    throw new Error('Missing result');
   }
 
   return { result, jsonrpc: '2.0', id };
