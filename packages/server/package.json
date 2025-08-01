@@ -13,7 +13,7 @@
     "koa": "^2.13.4",
     "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
-    "koa-logger": "^3.2.1",
+    "koa-logger": "^4.0.0",
     "koa-router": "^13.0.1",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
