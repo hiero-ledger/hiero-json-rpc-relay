@@ -1,4 +1,4 @@
-# Implement Traffic-Weighted K6 Configuration
+# Implement Stress Test Configuration with Realistic Traffic Patterns
 
 ## Description
 
@@ -8,15 +8,16 @@ The existing K6 test suite uses equal VU allocation across all RPC endpoints, wi
 
 ### Rationale
 
-Based on the traffic data collection from 90 days of HashIO metrics, we need to transform the K6 test suite to use **RPS-based traffic weighting** that reflects actual traffic patterns. This involves:
+Based on the traffic data collection from 90 days of HashIO metrics, we need to transform the K6 test suite to implement **stress testing with realistic traffic patterns** that reflects actual traffic distribution. This involves:
 
-1. **Realistic load distribution** - Popular endpoints (high RPS) should get more VUs
+1. **Realistic load distribution** - Popular endpoints (high RPS) should get more VUs during stress testing
 2. **Proportional testing** - Total VU allocation should mirror real traffic percentages
-3. **Simple implementation** - Use RPS percentages directly without complex multipliers
+3. **Progressive stress testing** - Enable gradual load increases to find degradation points
+4. **Simple implementation** - Use RPS percentages directly without complex multipliers
 
 ### The Core Concept
 
-**Traffic weighting** means: **More popular endpoint = More VUs = More concurrent requests**
+**Stress testing with realistic traffic patterns** means: **More popular endpoint = More VUs = More realistic stress on the system**
 
 Instead of:
 
@@ -30,7 +31,7 @@ eth_chainId: 1 VU
 We need:
 
 ```javascript
-// New RPS-based weighting (from traffic data)
+// New stress testing with realistic patterns (from traffic data)
 eth_getBlockByNumber: 69 VUs (68.7% of traffic)
 eth_getLogs: 13 VUs (13% of traffic)
 eth_chainId: 6 VUs (5.94% of traffic)
@@ -38,28 +39,30 @@ eth_chainId: 6 VUs (5.94% of traffic)
 
 ### Business Impact
 
-Traffic-weighted testing enables:
+Stress testing with realistic traffic patterns enables:
 
-- **Accurate performance validation** - Tests reflect real production load patterns
-- **Proper bottleneck identification** - Heavy endpoints get appropriate testing focus
-- **Realistic capacity planning** - Upper limit discovery based on actual usage
-- **Effective regression testing** - Performance comparisons based on realistic scenarios
+- **Accurate performance validation** - Tests reflect real production load patterns under stress
+- **Proper bottleneck identification** - Heavy endpoints get appropriate stress testing focus
+- **Realistic capacity planning** - Upper limit discovery based on actual usage patterns
+- **Effective regression testing** - Performance comparisons based on realistic stress scenarios
+- **Progressive load testing** - Find degradation points through incremental stress increases
 
 ## Acceptance Criteria
 
-- [ ] Create or extend configuration system to support RPS-based traffic weighting
-- [ ] Implement traffic weights using actual data from the traffic weights report
-- [ ] Update scenario execution to use weighted VU allocation instead of equal allocation
-- [ ] Ensure total VU allocation uses DEFAULT_VUS environment variable
-- [ ] Validate weighted tests execute correctly with proper VU distribution
-- [ ] Preserve existing equal-weight tests alongside new weighted tests
+- [ ] Create or extend configuration system to support stress testing with realistic traffic patterns
+- [ ] Implement traffic weights using actual data from traffic-weights-report.md
+- [ ] Update scenario execution to use realistic VU allocation instead of equal allocation
+- [ ] Ensure total VU allocation uses DEFAULT_VUS environment variable for progressive stress testing
+- [ ] Validate stress tests execute correctly with proper VU distribution
+- [ ] Preserve existing equal-weight tests alongside new stress tests
+- [ ] Enable progressive stress testing through DEFAULT_VUS scaling
 - [ ] Document implementation for future maintenance
 
 ## Suggested Solution
 
 ### Step 1: Use Traffic Weights Data
 
-Traffic Analysis Data will look somewhat like:
+From traffic-weights-report.md, we have the actual traffic distribution for stress testing:
 
 ```javascript
 // Real traffic data (90 days: April 29 - July 29, 2025)
@@ -68,37 +71,39 @@ eth_getLogs: 13.00% of traffic
 eth_chainId: 5.94% of traffic
 eth_blockNumber: 5.30% of traffic
 eth_call: 3.26% of traffic
-// ... (see traffic weights report for complete list)
+// ... (see traffic-weights-report.md for complete list)
 
-// Simple VU calculation:
+// Simple VU calculation for stress testing:
 // VUs = (endpoint_percentage / 100) × DEFAULT_VUS
 ```
 
-### Step 2: Apply Weights to Current K6 VU Budget
+### Step 2: Apply Traffic Weights to K6 VU Budget for Stress Testing
 
-Use the existing `DEFAULT_VUS` configuration with actual traffic percentages:
+Use the existing `DEFAULT_VUS` configuration with actual traffic percentages for progressive stress testing:
 
 ```javascript
 // Get current VU budget from environment
 const totalVUs = parseInt(__ENV.DEFAULT_VUS) || 10;
 
-// Apply traffic weights (from Data analysis)
+// Apply traffic weights for realistic stress testing
 const vuAllocation = {
   eth_getBlockByNumber: Math.round(0.687 * totalVUs), // 68.7% of available VUs
   eth_getLogs: Math.round(0.13 * totalVUs), // 13% of available VUs
   eth_chainId: Math.round(0.0594 * totalVUs), // 5.94% of available VUs
   eth_blockNumber: Math.round(0.053 * totalVUs), // 5.3% of available VUs
   eth_call: Math.round(0.0326 * totalVUs), // 3.26% of available VUs
-  // ... (see traffic weights report for complete weights)
+  // ... (see traffic-weights-report.md for complete weights)
 };
 
-// Example with DEFAULT_VUS=100:
-// eth_getBlockByNumber: 69 VUs, eth_getLogs: 13 VUs, eth_chainId: 6 VUs
+// Progressive stress testing examples:
+// DEFAULT_VUS=20: eth_getBlockByNumber gets 14 VUs, eth_getLogs gets 3 VUs
+// DEFAULT_VUS=100: eth_getBlockByNumber gets 69 VUs, eth_getLogs gets 13 VUs
+// DEFAULT_VUS=200: eth_getBlockByNumber gets 137 VUs, eth_getLogs gets 26 VUs
 ```
 
-### Step 3: Create New Weighted Test Flow Files
+### Step 3: Create New Stress Test Flow Files
 
-Instead of modifying existing files, create new files for the weighted test implementation:
+Instead of modifying existing files, create new files for the stress test implementation:
 
 **`k6/src/lib/traffic-weights.js`**
 
@@ -139,13 +144,13 @@ export function calculateVUAllocation(totalVUs = 10) {
 }
 ```
 
-**`k6/src/lib/weighted-scenarios.js`**
+**`k6/src/lib/stress-scenarios.js`**
 
 ```javascript
 import { trafficWeights, calculateVUAllocation } from './traffic-weights.js';
 
-// Create weighted scenario options
-export function getWeightedScenarioOptions(endpoint, testDuration = '60s') {
+// Create stress test scenario options
+export function getStressScenarioOptions(endpoint, testDuration = '60s') {
   const totalVUs = parseInt(__ENV.DEFAULT_VUS) || 10;
   const vuAllocation = calculateVUAllocation(totalVUs);
 
@@ -158,10 +163,10 @@ export function getWeightedScenarioOptions(endpoint, testDuration = '60s') {
 }
 ```
 
-**`k6/src/scenarios/weighted-test/index.js`**
+**`k6/src/scenarios/stress/index.js`**
 
 ```javascript
-import { getWeightedTestScenarios } from '../../lib/weighted-scenarios.js';
+import { getStressTestScenarios } from '../../lib/stress-common.js';
 
 // Import all the same test modules as current test/index.js
 import * as eth_getBlockByNumber from '../test/eth_getBlockByNumber.js';
@@ -172,7 +177,7 @@ import * as eth_call from '../test/eth_call.js';
 import * as eth_getBalance from '../test/eth_getBalance.js';
 // ... import all other test modules
 
-// Create weighted test scenarios
+// Create stress test scenarios
 const tests = {
   eth_getBlockByNumber,
   eth_getLogs,
@@ -183,28 +188,28 @@ const tests = {
   // ... add all other tests
 };
 
-const { funcs, options, scenarioDurationGauge } = getWeightedTestScenarios(tests);
+const { funcs, options, scenarioDurationGauge } = getStressTestScenarios(tests);
 
 export { funcs, options, scenarioDurationGauge };
 ```
 
-### Step 4: Create New Weighted Test Entry Point
+### Step 4: Create New Stress Test Entry Point
 
-**`k6/src/scenarios/weighted-apis.js`**
+**`k6/src/scenarios/stress-test.js`**
 
 ```javascript
-// New entry point for weighted testing (parallel to existing apis.js)
+// New entry point for stress testing (parallel to existing apis.js)
 import exec from 'k6/execution';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 import { markdownReport } from '../lib/common.js';
 import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
-import { funcs, options } from './weighted-test/index.js';
+import { funcs, options } from './stress/index.js';
 
 function handleSummary(data) {
   return {
     stdout: textSummary(data, { indent: ' ', enableColors: true }),
-    'weighted-test-summary.md': markdownReport(data),
+    'stress-test-summary.md': markdownReport(data),
   };
 }
 
@@ -221,27 +226,27 @@ export const setup = setupTestParameters;
 ### New Files to Create
 
 1. **`k6/src/lib/traffic-weights.js`** - Store traffic weight data and VU calculation logic
-2. **`k6/src/lib/weighted-scenarios.js`** - Create weighted scenario options (alternative to current common.js logic)
-3. **`k6/src/scenarios/weighted-test/index.js`** - Weighted test scenario collection (parallel to current test/index.js)
-4. **`k6/src/scenarios/weighted-apis.js`** - New entry point for weighted testing (parallel to current apis.js)
+2. **`k6/src/lib/stress-scenarios.js`** - Create stress test scenario options (alternative to current common.js logic)
+3. **`k6/src/scenarios/stress/index.js`** - Stress test scenario collection (parallel to current test/index.js)
+4. **`k6/src/scenarios/stress-test.js`** - New entry point for stress testing (parallel to current apis.js)
 
 ### Usage
 
-Run weighted tests alongside existing tests:
+Run stress tests alongside existing tests:
 
 ```bash
 # Current equal-weight tests (unchanged):
 npm run k6  # or k6 run src/scenarios/apis.js
 
-# New weighted tests:
-k6 run src/scenarios/weighted-apis.js
+# New stress tests:
+k6 run src/scenarios/stress-test.js
 ```
 
 ## Deliverables
 
 - [ ] Weight calculation system implemented and tested
-- [ ] K6 scenarios updated to use traffic-weighted VU allocation
-- [ ] Weighted tests execute successfully with proper VU distribution
+- [ ] K6 scenarios updated to use traffic-based VU allocation for stress testing
+- [ ] Stress tests execute successfully with proper VU distribution
 - [ ] Documentation updated explaining weight calculation methodology
 - [ ] Code reviewed and approved by team
 - [ ] Integration with existing K6 test suite verified
