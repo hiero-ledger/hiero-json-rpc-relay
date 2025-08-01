@@ -52,7 +52,7 @@
   "dependencies": {
     "@hashgraph/json-rpc-config-service": "file:../config-service",
     "@hashgraph/sdk": "^2.63.0",
-    "@keyvhq/core": "^1.6.9",
+    "@keyvhq/core": "^2.1.7",
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
     "better-lookup": "^1.3.0",
