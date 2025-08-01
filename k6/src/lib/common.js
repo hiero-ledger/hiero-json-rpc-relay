@@ -248,7 +248,11 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
       const httpMaxDuration = scenarioMetric['http_req_duration'].values['max'].toFixed(2);
 
       const firstColumn = isFirstColumnUrl ? scenarioUrls[scenario] : scenario;
-      markdown += `| ${firstColumn} | ${__ENV.DEFAULT_VUS} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
+      
+      // Get actual VU allocation for this scenario, fallback to DEFAULT_VUS
+      const actualVUs = (globalThis.vuAllocation && globalThis.vuAllocation[scenario]) || __ENV.DEFAULT_VUS;
+      
+      markdown += `| ${firstColumn} | ${actualVUs} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
     } catch (err) {
       console.error(`Unable to render report for scenario ${scenario}`);
     }
@@ -313,4 +317,4 @@ function TestScenarioBuilder() {
   return this;
 }
 
-export { getSequentialTestScenarios, markdownReport, TestScenarioBuilder };
+export { getSequentialTestScenarios, markdownReport, TestScenarioBuilder, getFilteredTests, getOptions };
