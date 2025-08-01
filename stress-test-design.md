@@ -100,7 +100,7 @@ export { options };
 
 export function handleSummary(data) {
   return {
-    'stress-test-summary.md': markdownReport(data),
+    'stress-test-report.md': markdownReport(data),
   };
 }
 
@@ -164,6 +164,6 @@ DEFAULT_VUS=200 k6 run src/scenarios/stress-test.js  # Maximum load
 
 ## Output
 
-- Report file: `stress-test-summary.md`
+- Report file: `stress-test-report.md`
 - Contains metrics for all concurrent scenarios
 - Shows performance under realistic traffic patterns
