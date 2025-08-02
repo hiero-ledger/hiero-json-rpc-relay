@@ -16,7 +16,6 @@ import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { BaseContract, ethers } from 'ethers';
 
-import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
 import RelayCall from '../../tests/helpers/constants';
 import Helper from '../../tests/helpers/constants';
@@ -29,11 +28,10 @@ import callerContractJson from '../contracts/Caller.json';
 import DeployerContractJson from '../contracts/Deployer.json';
 import EstimateGasContract from '../contracts/EstimateGasContract.json';
 import HederaTokenServiceImplJson from '../contracts/HederaTokenServiceImpl.json';
-import HRC719ContractJson from '../contracts/HRC719Contract.json';
 // Contracts and JSON files from local resources
 import reverterContractJson from '../contracts/Reverter.json';
 // Assertions and constants from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { requestIdRegex } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -2007,8 +2005,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         expect(res[index]).to.haveOwnProperty('error');
         expect(res[index].id).to.equal(index);
         expect(res[index].error.code).to.equal(-32007);
-        expect(res[index].error.message).to.equal(
-          `Method ${disallowedMethods[index]} is not permitted as part of batch requests`,
+        expect(res[index].error.message).to.match(
+          requestIdRegex(`Method ${disallowedMethods[index]} is not permitted as part of batch requests`),
         );
       }
     });

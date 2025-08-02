@@ -46,7 +46,7 @@ export interface Net {
 }
 
 export interface Admin {
-  config(requestDetails: RequestDetails): any;
+  config(): any;
 }
 
 export interface Eth {
@@ -54,9 +54,9 @@ export interface Eth {
 
   call(call: any, blockParam: string | object | null, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 
-  coinbase(requestDetails: RequestDetails): JsonRpcError;
+  coinbase(): JsonRpcError;
 
-  blobBaseFee(requestDetails: RequestDetails): JsonRpcError;
+  blobBaseFee(): JsonRpcError;
 
   estimateGas(
     transaction: IContractCallRequest,
@@ -121,7 +121,7 @@ export interface Eth {
 
   getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string>;
 
-  getWork(requestDetails: RequestDetails): JsonRpcError;
+  getWork(): JsonRpcError;
 
   feeHistory(
     blockCount: number,
@@ -130,9 +130,9 @@ export interface Eth {
     requestDetails: RequestDetails,
   ): Promise<any>;
 
-  hashrate(requestDetails: RequestDetails): Promise<string>;
+  hashrate(): Promise<string>;
 
-  maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string>;
+  maxPriorityFeePerGas(): Promise<string>;
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 
@@ -144,27 +144,27 @@ export interface Eth {
 
   getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]>;
 
-  newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError>;
+  newPendingTransactionFilter(): Promise<JsonRpcError>;
 
   uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean>;
 
-  protocolVersion(requestDetails: RequestDetails): JsonRpcError;
+  protocolVersion(): JsonRpcError;
 
   sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 
-  sendTransaction(requestDetails: RequestDetails): JsonRpcError;
+  sendTransaction(): JsonRpcError;
 
-  sign(requestDetails: RequestDetails): JsonRpcError;
+  sign(): JsonRpcError;
 
-  signTransaction(requestDetails: RequestDetails): JsonRpcError;
+  signTransaction(): JsonRpcError;
 
-  submitHashrate(requestDetails: RequestDetails): JsonRpcError;
+  submitHashrate(): JsonRpcError;
 
-  submitWork(requestDetails: RequestDetails): Promise<boolean>;
+  submitWork(): Promise<boolean>;
 
-  syncing(requestDetails: RequestDetails): Promise<boolean>;
+  syncing(): Promise<boolean>;
 
   accounts(requestDetails: RequestDetails): Array<any>;
 
-  getProof(requestDetails: RequestDetails): JsonRpcError;
+  getProof(): JsonRpcError;
 }

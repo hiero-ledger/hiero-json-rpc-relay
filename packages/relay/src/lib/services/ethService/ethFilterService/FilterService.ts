@@ -78,8 +78,6 @@ export class FilterService implements IFilterService {
    * @param params
    * @param lastQueried
    * @param method
-   * @param requestDetails
-   * @private
    */
   private async updateFilterCache(
     filterId: string,
@@ -87,38 +85,32 @@ export class FilterService implements IFilterService {
     params: any,
     lastQueried: number | null,
     method: string,
-    requestDetails: RequestDetails,
   ): Promise<void> {
     const cacheKey = this.getCacheKey(filterId);
-    await this.cacheService.set(cacheKey, { type, params, lastQueried }, method, requestDetails, constants.FILTER.TTL);
+    await this.cacheService.set(cacheKey, { type, params, lastQueried }, method, constants.FILTER.TTL);
   }
 
   /**
    * Retrieves filter from cache
    * @param filterId
    * @param method
-   * @param requestDetails
-   * @private
    */
-  private async getFilterFromCache(filterId: string, method: string, requestDetails: RequestDetails) {
+  private async getFilterFromCache(filterId: string, method: string) {
     const cacheKey = this.getCacheKey(filterId);
-    return await this.cacheService.getAsync(cacheKey, method, requestDetails);
+    return await this.cacheService.getAsync(cacheKey, method);
   }
 
   /**
    * Creates a new filter with the specified type and parameters
    * @param type
    * @param params
-   * @param requestDetails
    */
-  async createFilter(type: string, params: any, requestDetails: RequestDetails): Promise<string> {
+  async createFilter(type: string, params: any): Promise<string> {
     const filterId = generateRandomHex();
-    await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter, requestDetails);
+    await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} created filter with TYPE=${type}, params: ${JSON.stringify(params)}`,
-      );
+      this.logger.trace(`created filter with TYPE=${type}, params: ${JSON.stringify(params)}`);
     }
     return filterId;
   }
@@ -148,17 +140,13 @@ export class FilterService implements IFilterService {
         throw predefined.INVALID_BLOCK_RANGE;
       }
 
-      return await this.createFilter(
-        constants.FILTER.TYPE.LOG,
-        {
-          fromBlock:
-            fromBlock === constants.BLOCK_LATEST ? await this.common.getLatestBlockNumber(requestDetails) : fromBlock,
-          toBlock,
-          address: params?.address,
-          topics: params?.topics,
-        },
-        requestDetails,
-      );
+      return await this.createFilter(constants.FILTER.TYPE.LOG, {
+        fromBlock:
+          fromBlock === constants.BLOCK_LATEST ? await this.common.getLatestBlockNumber(requestDetails) : fromBlock,
+        toBlock,
+        address: params?.address,
+        topics: params?.topics,
+      });
     } catch (e) {
       throw this.common.genericErrorHandler(e);
     }
@@ -167,23 +155,19 @@ export class FilterService implements IFilterService {
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
     FilterService.requireFiltersEnabled();
 
-    return await this.createFilter(
-      constants.FILTER.TYPE.NEW_BLOCK,
-      {
-        blockAtCreation: await this.common.getLatestBlockNumber(requestDetails),
-      },
-      requestDetails,
-    );
+    return await this.createFilter(constants.FILTER.TYPE.NEW_BLOCK, {
+      blockAtCreation: await this.common.getLatestBlockNumber(requestDetails),
+    });
   }
 
-  public async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
+  public async uninstallFilter(filterId: string): Promise<boolean> {
     FilterService.requireFiltersEnabled();
 
-    const filter = await this.getFilterFromCache(filterId, this.ethUninstallFilter, requestDetails);
+    const filter = await this.getFilterFromCache(filterId, this.ethUninstallFilter);
 
     if (filter) {
       const cacheKey = this.getCacheKey(filterId);
-      await this.cacheService.delete(cacheKey, this.ethUninstallFilter, requestDetails);
+      await this.cacheService.delete(cacheKey, this.ethUninstallFilter);
       return true;
     }
 
@@ -197,7 +181,7 @@ export class FilterService implements IFilterService {
   public async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
     FilterService.requireFiltersEnabled();
 
-    const filter = await this.getFilterFromCache(filterId, this.ethGetFilterLogs, requestDetails);
+    const filter = await this.getFilterFromCache(filterId, this.ethGetFilterLogs);
     if (filter?.type !== constants.FILTER.TYPE.LOG) {
       throw predefined.FILTER_NOT_FOUND;
     }
@@ -212,14 +196,7 @@ export class FilterService implements IFilterService {
     );
 
     // update filter to refresh TTL
-    await this.updateFilterCache(
-      filterId,
-      filter.type,
-      filter.params,
-      filter.lastQueried,
-      this.ethGetFilterChanges,
-      requestDetails,
-    );
+    await this.updateFilterCache(filterId, filter.type, filter.params, filter.lastQueried, this.ethGetFilterChanges);
 
     return logs;
   }
@@ -286,7 +263,7 @@ export class FilterService implements IFilterService {
   public async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
     FilterService.requireFiltersEnabled();
 
-    const filter = await this.getFilterFromCache(filterId, this.ethGetFilterChanges, requestDetails);
+    const filter = await this.getFilterFromCache(filterId, this.ethGetFilterChanges);
 
     if (!filter) {
       throw predefined.FILTER_NOT_FOUND;
@@ -313,14 +290,7 @@ export class FilterService implements IFilterService {
     }
 
     // update filter to refresh TTL and set lastQueried block number
-    await this.updateFilterCache(
-      filterId,
-      filter.type,
-      filter.params,
-      latestBlockNumber,
-      this.ethGetFilterChanges,
-      requestDetails,
-    );
+    await this.updateFilterCache(filterId, filter.type, filter.params, latestBlockNumber, this.ethGetFilterChanges);
 
     return result;
   }

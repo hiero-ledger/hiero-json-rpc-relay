@@ -84,11 +84,10 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    this.logger.trace(`${requestIdPrefix} getBlockByHash(hash=${hash}, showDetails=${showDetails})`);
+    this.logger.trace(`getBlockByHash(hash=${hash}, showDetails=${showDetails})`);
 
     return this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
-      throw this.common.genericErrorHandler(e, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
+      throw this.common.genericErrorHandler(e, `Failed to retrieve block for hash ${hash}`);
     });
   }
 
@@ -105,14 +104,10 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    this.logger.trace(`${requestIdPrefix} getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
+    this.logger.trace(`getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
 
     return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
-      throw this.common.genericErrorHandler(
-        e,
-        `${requestIdPrefix} Failed to retrieve block for blockNumber ${blockNumber}`,
-      );
+      throw this.common.genericErrorHandler(e, `Failed to retrieve block for blockNumber ${blockNumber}`);
     });
   }
 
@@ -127,9 +122,8 @@ export class BlockService implements IBlockService {
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt[] | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
+      this.logger.trace(`getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
     }
 
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
@@ -163,7 +157,7 @@ export class BlockService implements IBlockService {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `${requestIdPrefix} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+            `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
           );
         }
         return null;
@@ -212,14 +206,13 @@ export class BlockService implements IBlockService {
    * @returns {Promise<string | null>} The transaction count
    */
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-    this.logger.trace(`${requestIdPrefix} getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
+    this.logger.trace(`getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
 
     try {
       const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
       return this.getTransactionCountFromBlockResponse(block);
     } catch (error: any) {
-      throw this.common.genericErrorHandler(error, `${requestIdPrefix} Failed to retrieve block for hash ${hash}`);
+      throw this.common.genericErrorHandler(error, `Failed to retrieve block for hash ${hash}`);
     }
   }
 
@@ -233,11 +226,8 @@ export class BlockService implements IBlockService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getBlockTransactionCountByNumber(blockNum=${blockNumOrTag}, showDetails=%o)`,
-      );
+      this.logger.trace(`getBlockTransactionCountByNumber(blockNum=${blockNumOrTag}, showDetails=%o)`);
     }
 
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
@@ -245,57 +235,50 @@ export class BlockService implements IBlockService {
       const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
       return this.getTransactionCountFromBlockResponse(block);
     } catch (error: any) {
-      throw this.common.genericErrorHandler(
-        error,
-        `${requestIdPrefix} Failed to retrieve block for blockNum ${blockNum}`,
-      );
+      throw this.common.genericErrorHandler(error, `Failed to retrieve block for blockNum ${blockNum}`);
     }
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<null>} null
+   * @returns null
    */
-  async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
+  async getUncleByBlockHashAndIndex(): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockHashAndIndex()`);
+      this.logger.trace('getUncleByBlockHashAndIndex()');
     }
     return null;
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<null>} null
+   * @returns null
    */
-  async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
+  async getUncleByBlockNumberAndIndex(): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getUncleByBlockNumberAndIndex()`);
+      this.logger.trace('getUncleByBlockNumberAndIndex()');
     }
     return null;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} '0x0'
+   * @returns '0x0'
    */
-  async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
+  async getUncleCountByBlockHash(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockHash()`);
+      this.logger.trace('getUncleCountByBlockHash()');
     }
     return constants.ZERO_HEX;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking
-   * @returns {Promise<string>} '0x0'
+   * @returns '0x0'
    */
-  async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
+  async getUncleCountByBlockNumber(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getUncleCountByBlockNumber()`);
+      this.logger.trace('getUncleCountByBlockNumber()');
     }
     return constants.ZERO_HEX;
   }
@@ -328,11 +311,11 @@ export class BlockService implements IBlockService {
     const params = { timestamp: timestampRangeParams };
 
     const [contractResults, logs] = await Promise.all([
-      this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, params, undefined],
+      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
         requestDetails,
-      ),
+        params,
+        undefined,
+      ]),
       this.common.getLogsWithParams(null, params, requestDetails),
     ]);
 
@@ -350,7 +333,7 @@ export class BlockService implements IBlockService {
       requestDetails,
     );
 
-    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray, requestDetails);
+    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray);
 
     const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
       txArray.map((tx) => (showDetails ? tx.hash : tx)),
@@ -394,7 +377,6 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     logs: Log[],
     transactionsArray: Transaction[] | string[],
-    requestDetails: RequestDetails,
   ): Transaction[] | string[] {
     let filteredLogs: Log[];
     if (showDetails) {
@@ -436,9 +418,7 @@ export class BlockService implements IBlockService {
     }
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} Synthetic transaction hashes will be populated in the block response`,
-      );
+      this.logger.trace(`Synthetic transaction hashes will be populated in the block response`);
     }
 
     transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
@@ -464,7 +444,7 @@ export class BlockService implements IBlockService {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `${requestDetails.formattedRequestId} Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
+            `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
           );
         }
         continue;

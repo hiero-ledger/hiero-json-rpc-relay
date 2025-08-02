@@ -133,25 +133,6 @@ const generateCacheKey = (methodName: string, args: unknown[]) => {
 };
 
 /**
- * This utility is used to scan through the provided arguments.
- * and return the first value that is identified as an instance of `RequestDetails`.
- *
- * If no such instance is found, it returns a new `RequestDetails` object with empty defaults.
- *
- * @param args - The arguments from a function.
- * @returns The first found `RequestDetails` instance, or a new one with default values if none is found.
- */
-const extractRequestDetails = (args: unknown[]): RequestDetails => {
-  for (const [, value] of Object.entries(args)) {
-    if (value instanceof RequestDetails) {
-      return value;
-    }
-  }
-
-  return new RequestDetails({ requestId: '', ipAddress: '' });
-};
-
-/**
  * This decorator uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
  * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
@@ -173,10 +154,9 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
     const method = descriptor.value;
 
     descriptor.value = async function (...args: unknown[]) {
-      const requestDetails = extractRequestDetails(args);
       const cacheKey = generateCacheKey(method.name, args);
 
-      const cachedResponse = await cacheService.getAsync(cacheKey, method, requestDetails);
+      const cachedResponse = await cacheService.getAsync(cacheKey, method);
       if (cachedResponse) {
         return cachedResponse;
       }
@@ -187,13 +167,7 @@ export function cache(cacheService: CacheService, options: CacheOptions = {}) {
         !shouldSkipCachingForSingleParams(args, options?.skipParams) &&
         !shouldSkipCachingForNamedParams(args, options?.skipNamedParams)
       ) {
-        await cacheService.set(
-          cacheKey,
-          result,
-          method,
-          requestDetails,
-          options?.ttl ?? ConfigService.get('CACHE_TTL'),
-        );
+        await cacheService.set(cacheKey, result, method, options?.ttl ?? ConfigService.get('CACHE_TTL'));
       }
 
       return result;
@@ -208,6 +182,5 @@ export const __test__ = {
     shouldSkipCachingForSingleParams,
     shouldSkipCachingForNamedParams,
     generateCacheKey,
-    extractRequestDetails,
   },
 };

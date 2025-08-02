@@ -17,16 +17,6 @@ const generateRandomHex = (bytesLength = 16) => {
   return '0x' + crypto.randomBytes(bytesLength).toString('hex');
 };
 
-/**
- * Format message prefix for logger.
- */
-const formatRequestIdMessage = (requestId?: string): string => {
-  if (!requestId) {
-    return '';
-  }
-  return requestId.includes(constants.REQUEST_ID_STRING) ? requestId : `[${constants.REQUEST_ID_STRING}${requestId}]`;
-};
-
 function hexToASCII(str: string): string {
   const hex = str.toString();
   let ascii = '';
@@ -273,7 +263,6 @@ const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = 
 
 export {
   hashNumber,
-  formatRequestIdMessage,
   hexToASCII,
   decodeErrorMessage,
   formatTransactionId,

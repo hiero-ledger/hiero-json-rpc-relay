@@ -116,7 +116,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<any> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} traceTransaction(${transactionIdOrHash})`);
+      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
     }
 
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
@@ -175,11 +175,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${
-          requestDetails.formattedRequestId
-        } traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`,
-      );
+      this.logger.trace(`traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`);
     }
 
     try {
@@ -193,7 +189,6 @@ export class DebugImpl implements Debug {
       const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
         this.mirrorNodeClient.getContractResults.name,
         [requestDetails, { timestamp: timestampRangeParams }, undefined],
-        requestDetails,
       );
 
       if (contractResults == null || contractResults.length === 0) {
@@ -441,11 +436,10 @@ export class DebugImpl implements Debug {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(
-          this.mirrorNodeClient.getContractResult.name,
-          [transactionHash, requestDetails],
+        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
+          transactionHash,
           requestDetails,
-        ),
+        ]),
       ]);
 
       if (!actionsResponse || !transactionsResponse) {
@@ -517,7 +511,7 @@ export class DebugImpl implements Debug {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
 
-    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name, requestDetails);
+    const cachedResult = await this.cacheService.getAsync(cacheKey, this.prestateTracer.name);
     if (cachedResult) {
       return cachedResult;
     }
@@ -614,7 +608,7 @@ export class DebugImpl implements Debug {
     );
 
     // Cache the result before returning
-    await this.cacheService.set(cacheKey, result, this.prestateTracer.name, requestDetails);
+    await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
   }
 }

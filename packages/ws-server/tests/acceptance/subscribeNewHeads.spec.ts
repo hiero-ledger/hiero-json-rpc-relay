@@ -5,7 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
-import Assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
+import Assertions, { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
@@ -134,7 +134,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
               expect(response.error).to.have.property('code');
               expect(response.error.code).to.equal(-32601);
               expect(response.error).to.have.property('message');
-              expect(response.error.message).to.equal('Unsupported JSON-RPC method');
+              expect(response.error.message).to.match(requestIdRegex('Unsupported JSON-RPC method'));
               resolve();
             } catch (error) {
               reject(error);

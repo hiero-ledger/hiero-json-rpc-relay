@@ -51,33 +51,4 @@ export class RequestDetails {
     this.ipAddress = details.ipAddress;
     this.connectionId = details.connectionId;
   }
-
-  /**
-   * Gets the formatted request ID.
-   * @returns {string} The formatted request ID, or an empty string if requestId is not set.
-   */
-  get formattedRequestId(): string {
-    return this.requestId ? `[Request ID: ${this.requestId}]` : '';
-  }
-
-  /**
-   * Gets the formatted connection ID.
-   * @returns {string | undefined} The formatted connection ID, or an empty string if connectionId is not set.
-   */
-  get formattedConnectionId(): string | undefined {
-    return this.connectionId ? `[Connection ID: ${this.connectionId}]` : '';
-  }
-
-  /**
-   * Gets the formatted log prefix.
-   * @returns {string} The formatted log prefix, combining connection ID and request ID if both are set.
-   */
-  get formattedLogPrefix(): string {
-    const connectionId = this.formattedConnectionId;
-    const requestId = this.formattedRequestId;
-    if (connectionId && requestId) {
-      return `${connectionId} ${requestId}`;
-    }
-    return connectionId || requestId;
-  }
 }

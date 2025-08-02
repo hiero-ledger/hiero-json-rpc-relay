@@ -1,42 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { decodeErrorMessage } from '../../formatters';
-import constants from '../../lib/constants';
 
 export class JsonRpcError {
   public code: number;
   public message: string;
   public data?: string;
 
-  constructor(args: { code: number; message: string; data?: string }, requestId?: string) {
+  constructor(args: { code: number; message: string; data?: string }) {
     this.code = args.code;
     this.data = args.data;
-
-    const hasRequestId = requestId && !args.message.includes(constants.REQUEST_ID_STRING);
-    this.message = hasRequestId ? `[${constants.REQUEST_ID_STRING}${requestId}] ${args.message}` : args.message;
-  }
-
-  /**
-   * Creates a new JsonRpcError instance with a request ID attached to the message
-   *
-   * This method creates a new JsonRpcError instance based on an existing one,
-   * ensuring that the error message includes the request ID for traceability.
-   * The constructor logic handles preventing duplicate request IDs if the message
-   * already contains one.
-   *
-   * @param error - The original JsonRpcError to clone
-   * @param requestId - The request ID to append to the error message
-   * @returns A new JsonRpcError instance with the same properties and request ID in its message
-   */
-  public static newWithRequestId(error: JsonRpcError, requestId: string): JsonRpcError {
-    return new JsonRpcError(
-      {
-        code: error.code,
-        message: error.message,
-        data: error.data,
-      },
-      requestId,
-    );
+    this.message = args.message;
   }
 }
 

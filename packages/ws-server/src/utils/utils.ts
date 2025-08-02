@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
-import Koa from 'koa';
+import { jsonRespError } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';
@@ -68,13 +67,8 @@ export const sendToClient = (
   request: IJsonRpcRequest | IJsonRpcRequest[],
   response: IJsonRpcResponse | IJsonRpcResponse[],
   logger: Logger,
-  requestDetails: RequestDetails,
 ) => {
-  logger.trace(
-    `${requestDetails.formattedLogPrefix}: Sending result=${JSON.stringify(
-      response,
-    )} to client for request=${JSON.stringify(request)}`,
-  );
+  logger.trace(`Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(request)}`);
 
   connection.send(JSON.stringify(response));
   connection.limiter.resetInactivityTTLTimer(connection);
@@ -82,24 +76,19 @@ export const sendToClient = (
 
 /**
  * Validates a JSON-RPC request to ensure it has the correct JSON-RPC version, method, and id.
- * @param {IJsonRpcRequest} request - The JSON-RPC request object.
- * @param {Logger} logger - The logger instance used for logging.
- * @param {RequestDetails} requestDetails - The request details for logging and tracking.
- * @returns {boolean} A boolean indicating whether the request is valid.
+ * @param request - The JSON-RPC request object.
+ * @param logger - The logger instance used for logging.
+ * @returns A boolean indicating whether the request is valid.
  */
-export const validateJsonRpcRequest = (
-  request: IJsonRpcRequest,
-  logger: Logger,
-  requestDetails: RequestDetails,
-): boolean => {
+export const validateJsonRpcRequest = (request: IJsonRpcRequest, logger: Logger): boolean => {
   if (
     request.jsonrpc !== '2.0' ||
     !hasOwnProperty(request, 'method') ||
-    hasInvalidRequestId(request, logger, requestDetails) ||
+    hasInvalidRequestId(request, logger) ||
     !hasOwnProperty(request, 'id')
   ) {
     logger.warn(
-      `${requestDetails.formattedLogPrefix} Invalid request, request.jsonrpc: ${request.jsonrpc}, request.method: ${request.method}, request.id: ${request.id}, request.method: ${request.method}`,
+      `Invalid request, request.jsonrpc: ${request.jsonrpc}, request.method: ${request.method}, request.id: ${request.id}, request.method: ${request.method}`,
     );
     return false;
   } else {
@@ -142,20 +131,17 @@ export const verifySupportedMethod = (method: string): boolean => {
 
 /**
  * Checks if the JSON-RPC request has an invalid ID.
- * @param {IJsonRpcRequest} request - The JSON-RPC request object.
- * @param {Logger} logger - The logger instance used for logging.
- * @param {RequestDetails} requestDetails - The request details for logging and tracking.
- * @returns {boolean} A boolean indicating whether the request ID is invalid.
+ * @param request - The JSON-RPC request object.
+ * @param logger - The logger instance used for logging.
+ * @returns A boolean indicating whether the request ID is invalid.
  */
-const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger, requestDetails: RequestDetails): boolean => {
+const hasInvalidRequestId = (request: IJsonRpcRequest, logger: Logger): boolean => {
   const hasId = hasOwnProperty(request, 'id');
 
   if (getRequestIdIsOptional() && !hasId) {
     // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
     request.id = '0';
-    logger.warn(
-      `${requestDetails.formattedLogPrefix} Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`,
-    );
+    logger.warn('Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response');
     return false;
   }
 
@@ -191,6 +177,6 @@ export const constructValidLogSubscriptionFilter = (filters: any): object => {
  */
 export const sendSubscriptionsDisabledError = (logger: Logger, requestDetails: RequestDetails): IJsonRpcResponse => {
   const wsSubscriptionsDisabledError = predefined.WS_SUBSCRIPTIONS_DISABLED;
-  logger.warn(`${requestDetails.formattedLogPrefix}: ${JSON.stringify(wsSubscriptionsDisabledError)}`);
-  return jsonResp(null, wsSubscriptionsDisabledError, undefined);
+  logger.warn(`${JSON.stringify(wsSubscriptionsDisabledError)}`);
+  return jsonRespError(null, wsSubscriptionsDisabledError, requestDetails.requestId);
 };

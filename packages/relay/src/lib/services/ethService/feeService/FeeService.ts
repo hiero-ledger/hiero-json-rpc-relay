@@ -9,7 +9,6 @@ import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { IFeeHistory, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
 
@@ -63,7 +62,6 @@ export class FeeService implements IFeeService {
     rewardPercentiles: Array<number> | null,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     const maxResults = ConfigService.get('TEST')
       ? constants.DEFAULT_FEE_HISTORY_MAX_RESULTS
       : Number(ConfigService.get('FEE_HISTORY_MAX_RESULTS'));
@@ -71,7 +69,7 @@ export class FeeService implements IFeeService {
 
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
-        `${requestIdPrefix} feeHistory(blockCount=${blockCount}, newestBlock=${newestBlock}, rewardPercentiles=${rewardPercentiles})`,
+        `feeHistory(blockCount=${blockCount}, newestBlock=${newestBlock}, rewardPercentiles=${rewardPercentiles})`,
       );
     }
 
@@ -130,7 +128,7 @@ export class FeeService implements IFeeService {
         reward: [],
         oldestBlock: constants.ZERO_HEX,
       };
-      this.logger.error(e, `${requestIdPrefix} Error constructing default feeHistory`);
+      this.logger.error(e, `Error constructing default feeHistory`);
       return feeHistoryEmptyResponse;
     }
   }
@@ -140,9 +138,9 @@ export class FeeService implements IFeeService {
    *
    * @param requestDetails
    */
-  public async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+  public async maxPriorityFeePerGas(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
+      this.logger.trace('maxPriorityFeePerGas()');
     }
 
     return constants.ZERO_HEX;
@@ -245,7 +243,7 @@ export class FeeService implements IFeeService {
     } catch (error) {
       this.logger.warn(
         error,
-        `${requestDetails.formattedRequestId} Fee history cannot retrieve block or fee. Returning ${fee} fee for block ${blockNumber}`,
+        `Fee history cannot retrieve block or fee. Returning ${fee} fee for block ${blockNumber}`,
       );
     }
 
