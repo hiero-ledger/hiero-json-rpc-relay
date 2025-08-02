@@ -16,7 +16,6 @@ describe('CacheService Test Suite', async function () {
   this.timeout(10000);
 
   const logger = pino({ level: 'silent' });
-  const cacheLogger = pino();
   const registry = new Registry();
   const callingMethod = 'CacheServiceTest';
   const requestDetails = new RequestDetails({ requestId: 'cacheServiceTest', ipAddress: '0.0.0.0' });
@@ -126,7 +125,7 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
 
     this.beforeAll(() => {
-      cacheService = new CacheService(cacheLogger, registry);
+      cacheService = new CacheService(logger, registry);
     });
 
     this.afterEach(async () => {
@@ -262,7 +261,7 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     this.beforeAll(async () => {
-      cacheService = new CacheService(cacheLogger, registry);
+      cacheService = new CacheService(logger, registry);
     });
 
     this.afterAll(async () => {
