@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
-import { CacheService } from '../services/cacheService/cacheService';
+import type { CacheService } from '../services/cacheService/cacheService';
 import { RequestDetails } from '../types';
 
 interface CacheSingleParam {
@@ -157,24 +157,26 @@ const extractRequestDetails = (args: unknown[]): RequestDetails => {
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
  * and `skipNamedParams` (for object args).
  *
- * @param cacheService - The caching service used to store and retrieve cache entries.
  * @param options - Optional configuration for caching behavior.
  *   @property skipParams - An array of rules for skipping caching based on specific argument values.
  *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
  *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
+ * @param cacheServiceProp - The caching service property used to store and retrieve cache entries.
  *
  * @returns A method decorator function that wraps the original method with caching logic.
  *
  * @example
  *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
-export function cache(cacheService: CacheService, options: CacheOptions = {}) {
+export function cache(options: CacheOptions = {}, cacheServiceProp: string = 'cacheService') {
   return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
 
     descriptor.value = async function (...args: unknown[]) {
       const requestDetails = extractRequestDetails(args);
       const cacheKey = generateCacheKey(method.name, args);
+
+      const cacheService = this[cacheServiceProp] as CacheService;
 
       const cachedResponse = await cacheService.getAsync(cacheKey, method, requestDetails);
       if (cachedResponse) {
