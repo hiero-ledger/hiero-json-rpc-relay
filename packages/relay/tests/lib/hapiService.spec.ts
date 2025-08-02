@@ -6,6 +6,7 @@ import { expect } from 'chai';
 import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
+import TypedEmitter from 'typed-emitter';
 
 import { SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -15,7 +16,7 @@ import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositori
 import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
-import { RequestDetails } from '../../src/lib/types';
+import { RequestDetails, TypedEvents } from '../../src/lib/types';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 const registry = new Registry();
@@ -33,7 +34,7 @@ describe('HAPI Service', async function () {
 
   this.beforeAll(() => {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new EventEmitter();
+    eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);

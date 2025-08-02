@@ -2,8 +2,8 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
-import EventEmitter from 'events';
 import { Logger } from 'pino';
+import TypedEmitter from 'typed-emitter';
 
 import { formatTransactionIdWithoutQueryParams } from '../../../../formatters';
 import { numberTo0x, toHash32 } from '../../../../formatters';
@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails } from '../../../types';
+import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { CommonService, ICommonService } from '../../index';
@@ -48,7 +48,7 @@ export class TransactionService implements ITransactionService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: EventEmitter;
+  private readonly eventEmitter: TypedEmitter<TypedEvents>;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +90,7 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: EventEmitter,
+    eventEmitter: TypedEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
@@ -338,10 +338,7 @@ export class TransactionService implements ITransactionService {
    * @param requestDetails The request details for logging and tracking
    */
   private emitEthExecutionEvent(requestDetails: RequestDetails): void {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: constants.ETH_SEND_RAW_TRANSACTION,
-      requestDetails: requestDetails,
-    });
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_SEND_RAW_TRANSACTION, requestDetails);
   }
 
   /**

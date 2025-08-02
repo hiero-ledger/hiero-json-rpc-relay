@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
+import TypedEmitter from 'typed-emitter';
 
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
@@ -21,7 +22,7 @@ import { DebugImpl } from '../../src/lib/debug';
 import { CommonService } from '../../src/lib/services';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
-import { RequestDetails } from '../../src/lib/types';
+import { RequestDetails, TypedEvents } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
 import { generateEthTestEnv } from './eth/eth-helpers';
@@ -261,7 +262,7 @@ describe('Debug API Test Suite', async function () {
       cacheService,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter();
+    const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

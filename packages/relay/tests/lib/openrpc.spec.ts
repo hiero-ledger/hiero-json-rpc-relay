@@ -10,6 +10,7 @@ import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
+import TypedEmitter from 'typed-emitter';
 
 import openRpcSchema from '../../../../docs/openrpc.json';
 import { Relay } from '../../src';
@@ -24,7 +25,7 @@ import { EthImpl } from '../../src/lib/eth';
 import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
-import { RequestDetails } from '../../src/lib/types';
+import { RequestDetails, TypedEvents } from '../../src/lib/types';
 import {
   blockHash,
   blockNumber,
@@ -107,7 +108,7 @@ describe('Open RPC Specification', function () {
       instance,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter();
+    const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
