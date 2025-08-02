@@ -17,7 +17,7 @@
     "koa-router": "^13.0.1",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
-    "uuid": "^3.3.2"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@hashgraph/sdk": "^2.63.0",
