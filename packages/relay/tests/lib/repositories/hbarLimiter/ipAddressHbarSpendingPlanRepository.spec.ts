@@ -34,8 +34,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     let repository: IPAddressHbarSpendingPlanRepository;
 
     before(() => {
-      // @ts-ignore
-      CacheService.instances = [];
       cacheService = new CacheService(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
