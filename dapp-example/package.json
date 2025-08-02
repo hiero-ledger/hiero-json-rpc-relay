@@ -6,7 +6,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hashgraph/sdk": "^2.60.1",
-    "@mui/material": "^5.16.14",
+    "@mui/material": "^7.2.0",
     "ethers": "^6.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
