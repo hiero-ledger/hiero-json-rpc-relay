@@ -21,7 +21,7 @@ import { DebugImpl } from '../../src/lib/debug';
 import { CommonService } from '../../src/lib/services';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
-import { RequestDetails, TypedEvents } from '../../src/lib/types';
+import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
 import { generateEthTestEnv } from './eth/eth-helpers';

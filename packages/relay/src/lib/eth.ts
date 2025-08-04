@@ -33,7 +33,6 @@ import {
   INewFilterParams,
   ITransactionReceipt,
   RequestDetails,
-  TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
 
