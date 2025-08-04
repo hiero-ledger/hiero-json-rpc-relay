@@ -21,13 +21,13 @@ import {
   TransactionResponse,
 } from '@hashgraph/sdk';
 import { Logger } from 'pino';
-import TypedEmitter from 'typed-emitter';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
+import { TypedEmitter } from '../../typedEmitter';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
-import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
+import { ITransactionRecordMetric, RequestDetails } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -66,7 +66,7 @@ export class SDKClient {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter<TypedEvents>;
+  private readonly eventEmitter: TypedEmitter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
@@ -82,13 +82,9 @@ export class SDKClient {
    * @param {Client} clientMain - The primary Hedera client instance used for executing transactions and queries.
    * @param {Logger} logger - The logger instance for logging information, warnings, and errors.
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
+   * @param hbarLimitService
    */
-  constructor(
-    clientMain: Client,
-    logger: Logger,
-    eventEmitter: TypedEmitter<TypedEvents>,
-    hbarLimitService: HbarLimitService,
-  ) {
+  constructor(clientMain: Client, logger: Logger, eventEmitter: TypedEmitter, hbarLimitService: HbarLimitService) {
     this.clientMain = clientMain;
 
     // sets the maximum time in ms for the SDK to wait when submitting

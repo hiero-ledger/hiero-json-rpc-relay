@@ -3,17 +3,15 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
-import TypedEmitter from 'typed-emitter';
 
+import { TypedEmitter } from '../../../typedEmitter';
 import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
-  IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
   RequestDetails,
-  TypedEvents,
 } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
@@ -65,7 +63,7 @@ export default class MetricService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter<TypedEvents>;
+  private readonly eventEmitter: TypedEmitter;
 
   /**
    * Counter for tracking Ethereum executions.
@@ -98,7 +96,7 @@ export default class MetricService {
     sdkClient: SDKClient,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
-    eventEmitter: TypedEmitter<TypedEvents>,
+    eventEmitter: TypedEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;

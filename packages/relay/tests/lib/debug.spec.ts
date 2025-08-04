@@ -4,12 +4,11 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
-import TypedEmitter from 'typed-emitter';
 
+import { TypedEmitter } from '../../dist/typedEmitter';
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -262,7 +261,7 @@ describe('Debug API Test Suite', async function () {
       cacheService,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
+    const eventEmitter = new TypedEmitter();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

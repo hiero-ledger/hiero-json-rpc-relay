@@ -5,13 +5,11 @@ import { AccountId, Client, Hbar, Long, Status, TransactionRecord, TransactionRe
 import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
-import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
-import TypedEmitter from 'typed-emitter';
 
-import { TypedEvents } from '../../../../dist/lib/types';
+import { TypedEmitter } from '../../../../dist/typedEmitter';
 import { MirrorNodeClient, SDKClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -35,7 +33,7 @@ describe('Metric Service', function () {
   let client: Client;
   let mock: typeof MockAdapter;
   let instance: AxiosInstance;
-  let eventEmitter: TypedEmitter<TypedEvents>;
+  let eventEmitter: TypedEmitter;
   let metricService: MetricService;
   let hbarLimitService: HbarLimitService;
   let mirrorNodeClient: MirrorNodeClient;
@@ -156,7 +154,7 @@ describe('Metric Service', function () {
 
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
+    eventEmitter = new TypedEmitter();
 
     const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);

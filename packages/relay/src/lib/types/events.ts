@@ -23,14 +23,9 @@ export interface IExecuteQueryEventPayload {
   originalCallerAddress: string | undefined;
 }
 
-export interface IEthExecutionEventPayload {
-  method: string;
-  requestDetails: RequestDetails;
-}
-
-export type TypedEvents = {
-  ETH_EXECUTION: (method: string, requestDetails: RequestDetails) => void;
-  EXECUTE_QUERY: (
+export interface TypedEvents {
+  ETH_EXECUTION: [method: string, requestDetails: RequestDetails];
+  EXECUTE_QUERY: [
     executionMode: string,
     transactionId: string,
     txConstructorName: string,
@@ -39,8 +34,8 @@ export type TypedEvents = {
     status: string,
     requestDetails: RequestDetails,
     originalCallerAddress: string | undefined,
-  ) => void;
-  EXECUTE_TRANSACTION: (
+  ];
+  EXECUTE_TRANSACTION: [
     transactionId: string,
     callerName: string,
     txConstructorName: string,
@@ -48,5 +43,5 @@ export type TypedEvents = {
     interactingEntity: string,
     requestDetails: RequestDetails,
     originalCallerAddress: string,
-  ) => void;
-};
+  ];
+}

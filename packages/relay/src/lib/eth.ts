@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import EventEmitter from 'events';
 import { Logger } from 'pino';
-import TypedEmitter from 'typed-emitter';
 
 import { Eth } from '../index';
+import { TypedEmitter } from '../typedEmitter';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
@@ -82,7 +81,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  private readonly eventEmitter: TypedEmitter<TypedEvents>;
+  private readonly eventEmitter: TypedEmitter;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -116,8 +115,8 @@ export class EthImpl implements Eth {
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
-   * @param {Registry} registry - Registry instance for registering metrics.
    * @param {CacheService} cacheService - Service for managing cached data.
+   * @param eventEmitter
    */
   constructor(
     hapiService: HAPIService,
@@ -125,7 +124,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     cacheService: CacheService,
-    eventEmitter: TypedEmitter<TypedEvents>,
+    eventEmitter: TypedEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;

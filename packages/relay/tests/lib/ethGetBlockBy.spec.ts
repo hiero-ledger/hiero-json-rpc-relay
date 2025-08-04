@@ -4,11 +4,10 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
-import TypedEmitter from 'typed-emitter';
 
+import { TypedEmitter } from '../../dist/typedEmitter';
 import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -21,7 +20,7 @@ import { BlockService, CommonService } from '../../src/lib/services';
 import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
-import { RequestDetails, TypedEvents } from '../../src/lib/types';
+import { RequestDetails } from '../../src/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);
@@ -123,7 +122,7 @@ describe('eth_getBlockBy', async function () {
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter() as TypedEmitter<TypedEvents>;
+    const eventEmitter = new TypedEmitter();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

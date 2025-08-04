@@ -3,10 +3,10 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
 import { Logger } from 'pino';
-import TypedEmitter from 'typed-emitter';
 
 import { formatTransactionIdWithoutQueryParams } from '../../../../formatters';
 import { numberTo0x, toHash32 } from '../../../../formatters';
+import { TypedEmitter } from '../../../../typedEmitter';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
+import { ITransactionReceipt, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { CommonService, ICommonService } from '../../index';
@@ -48,7 +48,7 @@ export class TransactionService implements ITransactionService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter<TypedEvents>;
+  private readonly eventEmitter: TypedEmitter;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +90,7 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: TypedEmitter<TypedEvents>,
+    eventEmitter: TypedEmitter,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
