@@ -27,8 +27,55 @@ interface CacheOptions {
 }
 
 /**
- * Iterates through the provided 'params' array and checks if any argument in 'args' at the specified 'index'
- * matches one of the pipe-separated values in 'value'. If a match is found, caching should be skipped.
+ * Uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
+ * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
+ * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
+ * and `skipNamedParams` (for object args).
+ *
+ * @param cacheService - The caching service used to store and retrieve cache entries.
+ * @param options - Optional configuration for caching behavior.
+ *   @property skipParams - An array of rules for skipping caching based on specific argument values.
+ *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
+ *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
+ *
+ * @returns A method decorator function that wraps the original method with caching logic.
+ *
+ * @example
+ *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
+ */
+export function cache(cacheService: CacheService, options: CacheOptions = {}) {
+  return function (target: any, context: ClassMethodDecoratorContext) {
+    const methodName = String(context.name);
+
+    return async function (this: any, ...args: unknown[]) {
+      const requestDetails = extractRequestDetails(args);
+      const cacheKey = generateCacheKey(methodName, args);
+
+      const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
+      if (cachedResponse) return cachedResponse;
+
+      const result = await target.apply(this, args);
+      if (
+        result &&
+        !shouldSkipCachingForSingleParams(args, options.skipParams) &&
+        !shouldSkipCachingForNamedParams(args, options.skipNamedParams)
+      ) {
+        await cacheService.set(
+          cacheKey,
+          result,
+          methodName,
+          requestDetails,
+          options.ttl ?? ConfigService.get('CACHE_TTL'),
+        );
+      }
+      return result;
+    };
+  };
+}
+
+/**
+ * This is a predicate function that takes a list of arguments and parameters,
+ * and it checks whether the given function should skip caching based on specific positional argument values.
  *
  * @param args - The arguments passed to the method in an array
  * @param params - An array of CacheSingleParam caching rules
@@ -150,56 +197,6 @@ const extractRequestDetails = (args: unknown[]): RequestDetails => {
 
   return new RequestDetails({ requestId: '', ipAddress: '' });
 };
-
-/**
- * This decorator uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
- * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
- * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
- * and `skipNamedParams` (for object args).
- *
- * @param cacheService - The caching service used to store and retrieve cache entries.
- * @param options - Optional configuration for caching behavior.
- *   @property skipParams - An array of rules for skipping caching based on specific argument values.
- *   @property skipNamedParams - An array of rules for skipping caching based on fields within argument objects.
- *   @property ttl - Optional time-to-live for the cache entry; falls back to global config if not provided.
- *
- * @returns A method decorator function that wraps the original method with caching logic.
- *
- * @example
- *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
- */
-export function cache(cacheService: CacheService, options: CacheOptions = {}) {
-  return function (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) {
-    const method = descriptor.value;
-
-    descriptor.value = async function (...args: unknown[]) {
-      const requestDetails = extractRequestDetails(args);
-      const cacheKey = generateCacheKey(method.name, args);
-
-      const cachedResponse = await cacheService.getAsync(cacheKey, method, requestDetails);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      const result = await method.apply(this, args);
-      if (
-        result &&
-        !shouldSkipCachingForSingleParams(args, options?.skipParams) &&
-        !shouldSkipCachingForNamedParams(args, options?.skipNamedParams)
-      ) {
-        await cacheService.set(
-          cacheKey,
-          result,
-          method,
-          requestDetails,
-          options?.ttl ?? ConfigService.get('CACHE_TTL'),
-        );
-      }
-
-      return result;
-    };
-  };
-}
 
 // export private methods under __test__ "namespace" but using const
 // due to `ES2015 module syntax is preferred over namespaces` eslint warning
