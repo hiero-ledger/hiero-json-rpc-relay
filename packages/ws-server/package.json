@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-ws-server",
-  "version": "0.70.0-SNAPSHOT",
+  "version": "0.71.0-SNAPSHOT",
   "description": "Hedera Hashgraph Ethereum JSON RPC socket server. Accepts socket connections for the purpose of subscribing to real-time data.",
   "main": "dist/index.js",
   "keywords": [],
@@ -10,14 +10,14 @@
     "@hashgraph/json-rpc-relay": "file:../relay",
     "@hashgraph/json-rpc-server": "file:../server",
     "co-body": "6.2.0",
-    "dotenv": "^16.0.0",
+    "dotenv": "^17.2.1",
     "koa": "^2.13.4",
     "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
     "koa-logger": "^3.2.1",
     "koa-router": "^13.0.1",
     "koa-websocket": "^7.0.0",
-    "pino": "^7.11.0",
+    "pino": "^9.7.0",
     "pino-pretty": "^7.6.1"
   },
   "devDependencies": {
@@ -44,19 +44,9 @@
     "build": "pnpm clean && pnpm compile",
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
-    "acceptancetest": "nyc ts-mocha tests/acceptance/index.spec.ts",
+    "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
     "start": "node dist/index.js",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
-    "test": "nyc ts-mocha --recursive './tests/unit/**/*.spec.ts' --exit"
-  },
-  "nyc": {
-    "check-coverage": false,
-    "reporter": [
-      "html",
-      "lcov",
-      "text",
-      "text-summary"
-    ],
-    "report-dir": "coverage"
+    "test": "c8 ts-mocha --recursive './tests/unit/**/*.spec.ts' --exit"
   }
 }

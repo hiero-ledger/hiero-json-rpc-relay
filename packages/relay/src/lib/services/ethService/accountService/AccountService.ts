@@ -91,12 +91,12 @@ export class AccountService implements IAccountService {
    * Current implementation does not yet utilize blockNumber
    *
    * @param {string} account The account to get the balance from
-   * @param {string | null} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
+   * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    */
   public async getBalance(
     account: string,
-    blockNumberOrTagOrHash: string | null,
+    blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
     const requestIdPrefix = requestDetails.formattedRequestId;
@@ -174,7 +174,7 @@ export class AccountService implements IAccountService {
    * @param requestDetails
    * @private
    */
-  private async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string | null, requestDetails: RequestDetails) {
+  private async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
     let latestBlock: LatestBlockNumberTimestamp;
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
@@ -192,7 +192,7 @@ export class AccountService implements IAccountService {
       latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
     }
 
-    if (blockNumberOrTagOrHash != null && blockNumberOrTagOrHash.length > 32) {
+    if (blockNumberOrTagOrHash.length > 32) {
       isHash = true;
       blockHashNumber = await this.mirrorNodeClient.getBlock(blockNumberOrTagOrHash, requestDetails);
     }
@@ -344,16 +344,6 @@ export class AccountService implements IAccountService {
     await this.cacheService.set(cacheKey, nonceCount, constants.ETH_GET_TRANSACTION_COUNT, requestDetails, cacheTtl);
 
     return nonceCount;
-  }
-
-  /**
-   *
-   * @param tag
-   * @private
-   */
-  private static shouldUseCacheForBalance(tag: string | null): boolean {
-    // should only cache balance when is Not latest or pending and is not in dev mode
-    return !CommonService.blockTagIsLatestOrPendingStrict(tag) && !ConfigService.get('DEV_MODE');
   }
 
   /**

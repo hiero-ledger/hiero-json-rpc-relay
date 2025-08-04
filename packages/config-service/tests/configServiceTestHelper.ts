@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import dotenv from 'dotenv';
+
 import { ConfigService } from '../dist/services';
 
 /**
@@ -16,7 +17,7 @@ export class ConfigServiceTestHelper {
    * @param value string
    * @returns void
    */
-  public static dynamicOverride(name: string, value: string | number | boolean | null | undefined): void {
+  public static dynamicOverride(name: string, value: string | string[] | number | boolean | null | undefined): void {
     // @ts-ignore
     ConfigService.getInstance().envs[name] = value;
   }

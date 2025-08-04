@@ -54,7 +54,7 @@ export class PollerService {
   /**
    * Polls the Ethereum blockchain for new events and calls the callback function for each event.
    */
-  public poll() {
+  private poll() {
     this.polls.forEach(async (poll) => {
       try {
         if (this.logger.isLevelEnabled('debug')) {
@@ -187,7 +187,7 @@ export class PollerService {
    * @param tag - The tag to check.
    * @returns True if the poll exists, false otherwise.
    */
-  public hasPoll(tag): boolean {
+  public hasPoll(tag: string): boolean {
     // Return boolean true if the polls array contains this tag
     return !!this.polls.filter((p) => p.tag === tag).length;
   }

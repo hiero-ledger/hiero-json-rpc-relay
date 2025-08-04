@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-config-service",
-  "version": "0.70.0-SNAPSHOT",
+  "version": "0.71.0-SNAPSHOT",
   "description": "Hedera Hashgraph singleton implementation of environment variables provider",
   "main": "dist/index.js",
   "keywords": [],
@@ -11,11 +11,11 @@
     "compile": "tsc -b tsconfig.json",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "format": "npx prettier --ignore-path ../../.gitignore --write \"**/*.+(js|ts|json)\"",
-    "test": "nyc ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
     "print-env": "node src/commands/printEnvs.ts"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.1",
     "find-config": "^1.0.0",
     "pnpm": "^10.0.0"
   },
@@ -23,15 +23,5 @@
     "chai": "^4.3.6",
     "ts-mocha": "^9.0.2",
     "typescript": "^5.8.3"
-  },
-  "nyc": {
-    "check-coverage": false,
-    "reporter": [
-      "html",
-      "lcov",
-      "text",
-      "text-summary"
-    ],
-    "report-dir": "coverage"
   }
 }

@@ -373,7 +373,6 @@ describe('@ethCall Eth Call spec', async function () {
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
       const result = await contractService.call(callData, 'latest', requestDetails);
-      sinon.assert.notCalled(sdkClientStub.submitContractCallQueryWithRetry);
       expect(result).to.not.be.null;
       expect((result as JsonRpcError).code).to.eq(3);
       expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
@@ -500,6 +499,41 @@ describe('@ethCall Eth Call spec', async function () {
       );
       const result = await contractService.call(callData, 'latest', requestDetails);
       expect(result).to.eq(EXAMPLE_CONTRACT_BYTECODE);
+    });
+
+    it('should return null when blockParam is null in extractBlockNumberOrTag', async function () {
+      const result = await contractService['extractBlockNumberOrTag'](null, requestDetails);
+      expect(result).to.be.null;
+    });
+
+    it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
+      try {
+        await contractService['extractBlockNumberOrTag']({}, requestDetails);
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32000);
+        expect(error.message).to.contain('neither block nor hash specified');
+      }
+    });
+
+    it('should handle invalid contract address in validateContractAddress', async function () {
+      const invalidAddress = '0xinvalid';
+
+      try {
+        await contractService.call(
+          {
+            from: ACCOUNT_ADDRESS_1,
+            to: invalidAddress,
+            data: CONTRACT_CALL_DATA,
+          },
+          'latest',
+          requestDetails,
+        );
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).to.equal(-32012);
+        expect(error.message).to.contain(`Invalid Contract Address: ${invalidAddress}`);
+      }
     });
 
     async function mockContractCall(

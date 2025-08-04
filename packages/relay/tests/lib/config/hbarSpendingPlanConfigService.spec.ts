@@ -10,6 +10,8 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { HbarSpendingPlanConfigService } from '../../../src/lib/config/hbarSpendingPlanConfigService';
+import { HbarSpendingPlan } from '../../../src/lib/db/entities/hbarLimiter/hbarSpendingPlan';
+import { HbarSpendingRecord } from '../../../src/lib/db/entities/hbarLimiter/hbarSpendingRecord';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
@@ -43,6 +45,99 @@ describe('HbarSpendingPlanConfigService', function () {
   const spendingPlansConfigFile = 'spendingPlansConfig.example.json';
   const path = findConfig(spendingPlansConfigFile);
   const spendingPlansConfig = JSON.parse(fs.readFileSync(path!, 'utf-8')) as SpendingPlanConfig[];
+
+  describe('HbarSpendingPlan Entity Constructor', function () {
+    it('should properly initialize spendingHistory and amountSpent with provided data', function () {
+      const mockSpendingRecord = {
+        id: 'test-record-1',
+        hbarSpendingPlanId: 'test-plan-1',
+        amount: 100,
+        timestamp: new Date(),
+      };
+
+      const planData = {
+        id: 'test-plan-1',
+        subscriptionTier: SubscriptionTier.BASIC,
+        spendingHistory: [mockSpendingRecord],
+        amountSpent: 250,
+        createdAt: new Date(),
+        active: true,
+      };
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.have.lengthOf(1);
+      expect(plan.spendingHistory[0]).to.be.instanceOf(HbarSpendingRecord);
+      expect(plan.spendingHistory[0].amount).to.equal(100);
+      expect(plan.amountSpent).to.equal(250);
+    });
+
+    it('should default spendingHistory to empty array and amountSpent to 0 when not provided', function () {
+      const planData = {
+        id: 'test-plan-2',
+        subscriptionTier: SubscriptionTier.EXTENDED,
+        spendingHistory: [],
+        amountSpent: 0,
+        createdAt: new Date(),
+        active: true,
+      };
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
+
+    it('should handle optional spendingHistory and amountSpent fields correctly', function () {
+      const planData = {
+        id: 'test-plan-3',
+        subscriptionTier: SubscriptionTier.PRIVILEGED,
+        spendingHistory: [],
+        amountSpent: 0,
+        createdAt: new Date(),
+        active: true,
+      };
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
+
+    it('should handle undefined spendingHistory and amountSpent fields', function () {
+      const planData = {
+        id: 'test-plan-4',
+        subscriptionTier: SubscriptionTier.BASIC,
+        createdAt: new Date(),
+        active: true,
+      } as any; // Use 'as any' to test runtime behavior when properties are undefined
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
+
+    it('should handle null spendingHistory and amountSpent fields', function () {
+      const planData = {
+        id: 'test-plan-5',
+        subscriptionTier: SubscriptionTier.EXTENDED,
+        spendingHistory: null,
+        amountSpent: null,
+        createdAt: new Date(),
+        active: true,
+      } as any; // Use 'as any' to test runtime behavior when properties are null
+
+      const plan = new HbarSpendingPlan(planData);
+
+      expect(plan.spendingHistory).to.be.an('array');
+      expect(plan.spendingHistory).to.have.lengthOf(0);
+      expect(plan.amountSpent).to.equal(0);
+    });
+  });
 
   const tests = (hbarSpendingPlansConfigEnv: string) => {
     let cacheService: CacheService;

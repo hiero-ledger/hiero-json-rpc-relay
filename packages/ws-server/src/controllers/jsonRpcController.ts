@@ -69,8 +69,8 @@ const handleSendingRequestsToRelay = async ({
     } else {
       return jsonResp(request.id, null, result);
     }
-  } catch (error: any) {
-    return jsonResp(request.id, new InternalError(error.message), undefined);
+  } catch (err) {
+    return jsonResp(request.id, new InternalError(err), undefined);
   }
 };
 

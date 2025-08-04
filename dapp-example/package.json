@@ -4,12 +4,12 @@
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.13.5",
+    "@emotion/styled": "^11.14.1",
     "@hashgraph/sdk": "^2.60.1",
     "@mui/material": "^5.16.14",
-    "ethers": "^6.13.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "ethers": "^6.15.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "react-scripts": "5.0.1",
     "typescript": "^5.5.4"
   },
@@ -28,19 +28,19 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
-    "@babel/preset-env": "^7.24.7",
+    "@babel/preset-env": "^7.28.0",
     "@cypress/webpack-batteries-included-preprocessor": "^3.0.3",
     "@cypress/webpack-preprocessor": "^5.0.2",
     "@synthetixio/synpress": "^3.7.3",
     "babel-loader": "^9.1.3",
     "cypress": "^13.13.2",
-    "cypress-multi-reporters": "^1.6.3",
-    "cypress-wait-until": "^3.0.1",
+    "cypress-multi-reporters": "^2.0.5",
+    "cypress-wait-until": "^3.0.2",
     "env-cmd": "^10.1.0",
     "http-server": "^14.1.1",
     "mocha-junit-reporter": "^2.2.1",
-    "start-server-and-test": "^2.0.11",
-    "webpack": "^5.94.0"
+    "start-server-and-test": "^2.0.12",
+    "webpack": "^5.101.0"
   },
   "scripts": {
     "start": "react-scripts start --openssl-legacy-provider",

@@ -33,6 +33,3 @@
 
 Note:
 Development tools are usually making a lot of requests to certain endpoints, especially during contract deployment. Be aware about rate limiting, when deploying multiple large contracts.
-
-Note:
-Enable [`development mode`](../docs/dev-mode.md) to correctly assert revert messages of contract calls with `hardhat-chai-matchers`.

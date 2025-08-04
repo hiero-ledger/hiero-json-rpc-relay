@@ -97,8 +97,8 @@ export class RpcMethodDispatcher {
     const methodParamSchemas = operationHandler[RPC_PARAM_VALIDATION_RULES_KEY];
 
     if (methodParamSchemas) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
+      if (this.logger.isLevelEnabled('info')) {
+        this.logger.info(
           `${
             requestDetails.formattedRequestId
           } Validating method parameters for ${rpcMethodName}, params: ${JSON.stringify(rpcMethodParams)}`,

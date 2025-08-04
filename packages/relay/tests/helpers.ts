@@ -7,6 +7,7 @@ import { expect } from 'chai';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
+import * as sinon from 'sinon';
 import { v4 as uuid } from 'uuid';
 
 import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
@@ -36,6 +37,23 @@ const expectUnsupportedMethod = (result) => {
   expect(result.name).to.be.equal('Method not found');
   expect(result).to.have.property('message');
   expect(result.message).to.be.equal('Unsupported JSON-RPC method');
+};
+
+export const createMockRedisClient = (options: { connectRejects?: boolean; evalRejects?: boolean } = {}) => {
+  const { connectRejects = false, evalRejects = false } = options;
+
+  const connectStub = connectRejects
+    ? sinon.stub().rejects(new Error('Redis connection failed'))
+    : sinon.stub().resolves();
+
+  const evalStub = evalRejects ? sinon.stub().rejects(new Error('Redis operation failed')) : sinon.stub();
+
+  return {
+    connect: connectStub,
+    on: sinon.stub(),
+    eval: evalStub,
+    quit: sinon.stub(),
+  };
 };
 
 const expectedError = () => {

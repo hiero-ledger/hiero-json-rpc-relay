@@ -121,79 +121,74 @@ describe('ValidationService tests', async function () {
   describe('typeCasting', () => {
     it('should be able to use default value for missing env if default value is set', async () => {
       const castedEnvs = ValidationService.typeCasting({});
-      expect(castedEnvs).to.haveOwnProperty(GlobalConfig.ENTRIES.E2E_RELAY_HOST.envName);
-      expect(castedEnvs[GlobalConfig.ENTRIES.E2E_RELAY_HOST.envName]).to.equal(
-        GlobalConfig.ENTRIES.E2E_RELAY_HOST.defaultValue,
-      );
+      expect(castedEnvs).to.haveOwnProperty('E2E_RELAY_HOST');
+      expect(castedEnvs['E2E_RELAY_HOST']).to.equal(GlobalConfig.ENTRIES.E2E_RELAY_HOST.defaultValue);
     });
 
     it('should skip adding value if it is missing and there is no default value set', async () => {
       const castedEnvs = ValidationService.typeCasting({});
-      expect(castedEnvs).to.not.haveOwnProperty(GlobalConfig.ENTRIES.GH_ACCESS_TOKEN.envName);
-      expect(castedEnvs[GlobalConfig.ENTRIES.GH_ACCESS_TOKEN.envName]).to.be.undefined;
+      expect(castedEnvs).to.not.haveOwnProperty('GH_ACCESS_TOKEN');
+      expect(castedEnvs['GH_ACCESS_TOKEN']).to.be.undefined;
     });
 
     it('should to cast string type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.CHAIN_ID.envName]: '0x160c',
+        CHAIN_ID: '0x160c',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.CHAIN_ID.envName]).to.equal('0x160c');
+      expect(castedEnvs['CHAIN_ID']).to.equal('0x160c');
       expect(GlobalConfig.ENTRIES.CHAIN_ID.type).to.equal('string');
     });
 
     it('should to cast numeric type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.BATCH_REQUESTS_MAX_SIZE.envName]: '5644',
+        BATCH_REQUESTS_MAX_SIZE: '5644',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_MAX_SIZE.envName]).to.equal(5644);
+      expect(castedEnvs['BATCH_REQUESTS_MAX_SIZE']).to.equal(5644);
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_MAX_SIZE.type).to.equal('number');
     });
 
     it('should to cast boolean type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.BATCH_REQUESTS_ENABLED.envName]: 'true',
+        BATCH_REQUESTS_ENABLED: 'true',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_ENABLED.envName]).to.be.true;
+      expect(castedEnvs['BATCH_REQUESTS_ENABLED']).to.be.true;
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_ENABLED.type).to.equal('boolean');
     });
 
     it('should cast string array type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]: '["method1", "method2"]',
+        BATCH_REQUESTS_DISALLOWED_METHODS: '["method1", "method2"]',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]).to.deep.equal([
-        'method1',
-        'method2',
-      ]);
+      expect(castedEnvs['BATCH_REQUESTS_DISALLOWED_METHODS']).to.deep.equal(['method1', 'method2']);
       expect(GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.type).to.equal('strArray');
     });
 
     it('should cast number array type', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.envName]: '[21, 50]',
+        HAPI_CLIENT_ERROR_RESET: '[21, 50]',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.envName]).to.deep.equal([21, 50]);
+      expect(castedEnvs['HAPI_CLIENT_ERROR_RESET']).to.deep.equal([21, 50]);
       expect(GlobalConfig.ENTRIES.HAPI_CLIENT_ERROR_RESET.type).to.equal('numArray');
     });
 
     it('should handle empty arrays', async () => {
       const castedEnvs = ValidationService.typeCasting({
-        [GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.envName]: '[]',
+        ETH_CALL_ACCEPTED_ERRORS: '[]',
       });
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.envName]).to.deep.equal([]);
+      expect(castedEnvs['ETH_CALL_ACCEPTED_ERRORS']).to.deep.equal([]);
       expect(GlobalConfig.ENTRIES.ETH_CALL_ACCEPTED_ERRORS.type).to.equal('numArray');
     });
 
     it('should use default value for missing array', async () => {
       const castedEnvs = ValidationService.typeCasting({});
 
-      expect(castedEnvs[GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.envName]).to.deep.equal(
+      expect(castedEnvs['BATCH_REQUESTS_DISALLOWED_METHODS']).to.deep.equal(
         GlobalConfig.ENTRIES.BATCH_REQUESTS_DISALLOWED_METHODS.defaultValue,
       );
     });

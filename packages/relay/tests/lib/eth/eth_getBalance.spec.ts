@@ -2,10 +2,8 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
-import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { buildCryptoTransferTransaction, overrideEnvsInMochaDescribe } from '../../helpers';
@@ -29,12 +27,9 @@ import { balancesByAccountIdByTimestampURL, generateEthTestEnv } from './eth-hel
 
 use(chaiAsPromised);
 
-let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
-
 describe('@ethGetBalance using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBalanceTest', ipAddress: '0.0.0.0' });
 
@@ -45,13 +40,10 @@ describe('@ethGetBalance using MirrorNode', async function () {
     await cacheService.clear(requestDetails);
     restMock.reset();
 
-    sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
@@ -59,40 +51,8 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
-  });
-
-  it('should return balance for latest block from cache', async () => {
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
-
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-    expect(resBalance).to.equal(DEF_HEX_BALANCE);
-
-    // next call should use cache
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, {});
-
-    const resBalanceCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-    expect(resBalanceCached).to.equal(resBalance);
-
-    // Third call should return new number using mirror node
-    const newBalance = 55555;
-    const newBalanceHex = numberTo0x(BigInt(newBalance) * TINYBAR_TO_WEIBAR_COEF_BIGINT);
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(
-      200,
-      JSON.stringify({
-        account: CONTRACT_ADDRESS_1,
-        balance: {
-          balance: newBalance,
-        },
-      }),
-    );
-    // expire cache, instead of waiting for ttl we clear it to simulate expiry faster.
-    await cacheService.clear(requestDetails);
-
-    const resBalanceNew = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-    expect(newBalanceHex).to.equal(resBalanceNew);
   });
 
   it('should return balance from mirror node with block number passed as param the same as latest', async () => {
@@ -162,24 +122,11 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(200, JSON.stringify(null));
     restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
-    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
+    const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(constants.ZERO_HEX);
   });
 
-  it('should return cached value for mirror nodes', async () => {
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
-
-    const resNoCache = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, NOT_FOUND_RES);
-
-    const resCached = await ethImpl.getBalance(CONTRACT_ADDRESS_1, null, requestDetails);
-    expect(resNoCache).to.equal(DEF_HEX_BALANCE);
-    expect(resCached).to.equal(DEF_HEX_BALANCE);
-  });
-
-  it('should return cached value for mirror nodes that is not latest so will need to query mirror node', async () => {
+  it('should return cached balance for a specific block number if mirror node is unavailable', async () => {
     const blockNumber = '0x1';
     restMock.onGet('blocks/1').reply(200, JSON.stringify(DEFAULT_BLOCK));
 

@@ -8,7 +8,7 @@ import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { Block, Log, Receipt, Transaction } from './model';
+import { Block, Log, Transaction } from './model';
 import {
   AccountService,
   BlockService,
@@ -204,9 +204,6 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
-    ttl: 500,
-  })
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
@@ -702,7 +699,7 @@ export class EthImpl implements Eth {
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
    * @param {string} account The account to get the balance from
-   * @param {string | null} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
+   * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
    * @param {RequestDetails} requestDetails The request details for logging and tracking
    * @returns {Promise<string>} A promise that resolves to the balance of the account in hexadecimal format.
    */
@@ -714,11 +711,7 @@ export class EthImpl implements Eth {
   @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
-  async getBalance(
-    account: string,
-    blockNumberOrTagOrHash: string | null,
-    requestDetails: RequestDetails,
-  ): Promise<string> {
+  async getBalance(account: string, blockNumberOrTagOrHash: string, requestDetails: RequestDetails): Promise<string> {
     return this.accountService.getBalance(account, blockNumberOrTagOrHash, requestDetails);
   }
 
