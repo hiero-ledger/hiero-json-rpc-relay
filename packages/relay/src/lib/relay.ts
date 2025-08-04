@@ -6,7 +6,6 @@ import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { Admin, Eth, Net, Web3 } from '../index';
-import { TypedEmitter } from '../typedEmitter';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -92,15 +91,6 @@ export class Relay {
   private readonly metricService: MetricService;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: TypedEmitter;
-
-  /**
    * The Debug Service implementation that takes care of all filter API operations.
    */
   private readonly debugImpl: DebugImpl;
@@ -136,7 +126,6 @@ export class Relay {
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    this.eventEmitter = new TypedEmitter();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
     this.cacheService = CacheService.getInstance(CACHE_LEVEL.L1, register, reservedKeys);
 
@@ -161,7 +150,7 @@ export class Relay {
       duration,
     );
 
-    const hapiService = new HAPIService(logger, register, this.eventEmitter, hbarLimitService);
+    const hapiService = new HAPIService(logger, register, hbarLimitService);
 
     this.clientMain = hapiService.getMainClientInstance();
 
@@ -177,23 +166,33 @@ export class Relay {
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
     );
 
-    this.metricService = new MetricService(
-      logger,
-      hapiService.getSDKClient(),
-      this.mirrorNodeClient,
-      register,
-      this.eventEmitter,
-      hbarLimitService,
-    );
-
     this.ethImpl = new EthImpl(
       hapiService,
       this.mirrorNodeClient,
       logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
-      this.eventEmitter,
     );
+
+    this.metricService = new MetricService(
+      logger,
+      hapiService.getSDKClient(),
+      this.mirrorNodeClient,
+      register,
+      hbarLimitService,
+    );
+
+    (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (method) => {
+      this.metricService.ethExecutionsCounter.labels(method).inc();
+    });
+
+    hapiService.eventEmitter.on('execute_transaction', (args) => {
+      this.metricService.captureTransactionMetrics(args).then();
+    });
+
+    hapiService.eventEmitter.on('execute_query', (args) => {
+      this.metricService.addExpenseAndCaptureMetrics(args);
+    });
 
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
     this.adminImpl = new AdminImpl(this.cacheService);

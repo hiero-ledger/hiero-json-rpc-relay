@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+
+import EventEmitter from 'node:events';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
@@ -6,7 +9,6 @@ import { Logger } from 'pino';
 
 import { formatTransactionIdWithoutQueryParams } from '../../../../formatters';
 import { numberTo0x, toHash32 } from '../../../../formatters';
-import { TypedEmitter } from '../../../../typedEmitter';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
@@ -40,15 +42,6 @@ export class TransactionService implements ITransactionService {
    * @readonly
    */
   private readonly common: ICommonService;
-
-  /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: TypedEmitter;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +83,10 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: TypedEmitter,
+    /** An instance of EventEmitter used for emitting and handling events within the class. */
+    private readonly eventEmitter: EventEmitter<{
+      eth_execution: [method: 'eth_estimateGas' | 'eth_call' | 'eth_sendRawTransaction'];
+    }>,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
@@ -334,14 +330,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Emits an Ethereum execution event with transaction details
-   * @param requestDetails The request details for logging and tracking
-   */
-  private emitEthExecutionEvent(requestDetails: RequestDetails): void {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_SEND_RAW_TRANSACTION, requestDetails);
-  }
-
-  /**
    * Retrieves the current network exchange rate of HBAR to USD in cents.
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
@@ -552,7 +540,7 @@ export class TransactionService implements ITransactionService {
     const requestIdPrefix = requestDetails.formattedRequestId;
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
-    this.emitEthExecutionEvent(requestDetails);
+    this.eventEmitter.emit('eth_execution', 'eth_sendRawTransaction');
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,

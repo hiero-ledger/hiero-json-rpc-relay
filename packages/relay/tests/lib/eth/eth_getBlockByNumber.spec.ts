@@ -8,7 +8,6 @@ import { Logger } from 'pino';
 import sinon from 'sinon';
 
 import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
-import { TypedEmitter } from '../../../dist/typedEmitter';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
@@ -90,7 +89,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     mirrorNodeInstance: MirrorNodeClient;
     logger: Logger;
   } = generateEthTestEnv(true);
-  const eventEmitter = new TypedEmitter();
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 
@@ -124,14 +122,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
-    ethImplLowTransactionCount = new EthImpl(
-      hapiServiceInstance,
-      mirrorNodeInstance,
-      logger,
-      '0x12a',
-      cacheService,
-      eventEmitter,
-    );
+    ethImplLowTransactionCount = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);

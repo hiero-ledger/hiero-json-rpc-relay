@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import EventEmitter from 'node:events';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
   Client,
@@ -23,7 +25,6 @@ import {
 import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
-import { TypedEmitter } from '../../typedEmitter';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
@@ -31,6 +32,25 @@ import { ITransactionRecordMetric, RequestDetails } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
+
+export interface IExecuteTransactionEventPayload {
+  transactionId: string;
+  txConstructorName: string;
+  operatorAccountId: string;
+  requestDetails: RequestDetails;
+  originalCallerAddress: string;
+}
+
+export interface IExecuteQueryEventPayload {
+  executionMode: string;
+  transactionId: string;
+  txConstructorName: string;
+  cost: number;
+  gasUsed: number;
+  status: string;
+  requestDetails: RequestDetails;
+  originalCallerAddress: string | undefined;
+}
 
 export class SDKClient {
   /**
@@ -60,15 +80,6 @@ export class SDKClient {
   private readonly fileAppendChunkSize: number;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: TypedEmitter;
-
-  /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
    * @private
    * @readonly
@@ -84,7 +95,16 @@ export class SDKClient {
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    * @param hbarLimitService
    */
-  constructor(clientMain: Client, logger: Logger, eventEmitter: TypedEmitter, hbarLimitService: HbarLimitService) {
+  constructor(
+    clientMain: Client,
+    logger: Logger,
+    /** An instance of EventEmitter used for emitting and handling events within the class. */
+    readonly eventEmitter: EventEmitter<{
+      execute_transaction: [IExecuteTransactionEventPayload];
+      execute_query: [IExecuteQueryEventPayload];
+    }>,
+    hbarLimitService: HbarLimitService,
+  ) {
     this.clientMain = clientMain;
 
     // sets the maximum time in ms for the SDK to wait when submitting
@@ -233,17 +253,16 @@ export class SDKClient {
       throw sdkClientError;
     } finally {
       if (queryCost && queryCost !== 0) {
-        this.eventEmitter.emit(
-          constants.EVENTS.EXECUTE_QUERY,
-          constants.EXECUTION_MODE.QUERY,
-          query.paymentTransactionId?.toString() ?? '',
-          queryConstructorName,
-          queryCost,
-          0,
+        this.eventEmitter.emit('execute_query', {
+          executionMode: constants.EXECUTION_MODE.QUERY,
+          transactionId: query.paymentTransactionId?.toString() ?? '',
+          txConstructorName: queryConstructorName,
+          cost: queryCost,
+          gasUsed: 0,
           status,
           requestDetails,
           originalCallerAddress,
-        );
+        });
       }
     }
   }
@@ -334,16 +353,13 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
-        this.eventEmitter.emit(
-          constants.EVENTS.EXECUTE_TRANSACTION,
+        this.eventEmitter.emit('execute_transaction', {
           transactionId,
-          callerName,
-          txConstructorName,
-          this.clientMain.operatorAccountId!.toString(),
-          interactingEntity,
           requestDetails,
+          txConstructorName,
+          operatorAccountId: this.clientMain.operatorAccountId!.toString(),
           originalCallerAddress,
-        );
+        });
       }
     }
   }
@@ -406,16 +422,13 @@ export class SDKClient {
       if (transactionResponses) {
         for (const transactionResponse of transactionResponses) {
           if (transactionResponse.transactionId) {
-            this.eventEmitter.emit(
-              constants.EVENTS.EXECUTE_TRANSACTION,
-              transactionResponse.transactionId.toString(),
-              callerName,
-              txConstructorName,
-              this.clientMain.operatorAccountId!.toString(),
-              interactingEntity,
+            this.eventEmitter.emit('execute_transaction', {
+              transactionId: transactionResponse.transactionId.toString(),
               requestDetails,
+              txConstructorName,
+              operatorAccountId: this.clientMain.operatorAccountId!.toString(),
               originalCallerAddress,
-            );
+            });
           }
         }
       }

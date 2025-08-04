@@ -8,7 +8,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { TypedEmitter } from '../../dist/typedEmitter';
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -261,7 +260,6 @@ describe('Debug API Test Suite', async function () {
       cacheService,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new TypedEmitter();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -274,7 +272,7 @@ describe('Debug API Test Suite', async function () {
       register,
       duration,
     );
-    new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+    new HAPIService(logger, registry, hbarLimitService);
 
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 

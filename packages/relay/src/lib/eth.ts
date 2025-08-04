@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import EventEmitter from 'node:events';
+
 import { Logger } from 'pino';
 
 import { Eth } from '../index';
-import { TypedEmitter } from '../typedEmitter';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
@@ -78,9 +79,8 @@ export class EthImpl implements Eth {
 
   /**
    * Event emitter for publishing and subscribing to events.
-   * @private
    */
-  private readonly eventEmitter: TypedEmitter;
+  readonly eventEmitter: TransactionService['eventEmitter'];
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -115,7 +115,6 @@ export class EthImpl implements Eth {
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
    * @param {CacheService} cacheService - Service for managing cached data.
-   * @param eventEmitter
    */
   constructor(
     hapiService: HAPIService,
@@ -123,7 +122,6 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     cacheService: CacheService,
-    eventEmitter: TypedEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -133,12 +131,12 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = new EventEmitter();
     this.transactionService = new TransactionService(
       cacheService,
       chain,
       this.common,
-      eventEmitter,
+      this.eventEmitter,
       hapiService,
       logger,
       mirrorNodeClient,
@@ -263,7 +261,7 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_ESTIMATE_GAS, requestDetails);
+      this.eventEmitter.emit('eth_execution', 'eth_estimateGas');
     }
 
     return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
@@ -971,7 +969,7 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
     }
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_CALL, requestDetails);
+    this.eventEmitter.emit('eth_execution', 'eth_call');
 
     return this.contractService.call(call, blockParam, requestDetails);
   }

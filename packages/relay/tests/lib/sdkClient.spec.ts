@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import EventEmitter from 'node:events';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
   AccountId,
@@ -26,7 +28,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { TypedEmitter } from '../../dist/typedEmitter';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -59,7 +60,7 @@ describe('SdkClient', async function () {
   let mock: MockAdapter;
   let sdkClient: SDKClient;
   let instance: AxiosInstance;
-  let eventEmitter: TypedEmitter;
+  let eventEmitter: SDKClient['eventEmitter'];
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -81,7 +82,7 @@ describe('SdkClient', async function () {
       Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new TypedEmitter();
+    eventEmitter = new EventEmitter();
 
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
@@ -116,9 +117,13 @@ describe('SdkClient', async function () {
       instance,
     );
 
-    // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
-    //       this class does not need an instance but must still be initiated.
-    new MetricService(logger, sdkClient, mirrorNodeClient, registry, eventEmitter, hbarLimitService);
+    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
+    eventEmitter.on('execute_transaction', (args) => {
+      metricService.captureTransactionMetrics(args).then();
+    });
+    eventEmitter.on('execute_query', (args) => {
+      metricService.addExpenseAndCaptureMetrics(args);
+    });
   });
 
   beforeEach(() => {
@@ -140,7 +145,7 @@ describe('SdkClient', async function () {
 
     this.beforeEach(() => {
       if (ConfigService.get('OPERATOR_KEY_FORMAT') !== 'BAD_FORMAT') {
-        hapiService = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+        hapiService = new HAPIService(logger, registry, hbarLimitService);
       }
     });
 
@@ -180,7 +185,7 @@ describe('SdkClient', async function () {
     withOverriddenEnvsInMochaTest({ OPERATOR_KEY_FORMAT: 'BAD_FORMAT' }, () => {
       it('It should throw an Error when an unexpected string is set', async () => {
         try {
-          new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+          new HAPIService(logger, registry, hbarLimitService);
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (e: any) {
           expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');

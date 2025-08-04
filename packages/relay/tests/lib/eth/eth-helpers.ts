@@ -6,7 +6,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
 import { ConfigServiceTestHelper } from '../../../../config-service/tests/configServiceTestHelper';
-import { TypedEmitter } from '../../../dist/typedEmitter';
 import { MirrorNodeClient } from '../../../src/lib/clients/mirrorNodeClient';
 import constants from '../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -47,7 +46,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
   const duration = constants.HBAR_RATE_LIMIT_DURATION;
-  const eventEmitter = new TypedEmitter();
 
   const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
   const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -61,11 +59,11 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+  const hapiServiceInstance = new HAPIService(logger, registry, hbarLimitService);
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
 
   return {
     cacheService,

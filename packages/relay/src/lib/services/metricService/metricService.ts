@@ -4,15 +4,9 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { TypedEmitter } from '../../../typedEmitter';
-import { MirrorNodeClient, SDKClient } from '../../clients';
+import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
-import {
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
-  ITransactionRecordMetric,
-  RequestDetails,
-} from '../../types';
+import { ITransactionRecordMetric, RequestDetails } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class MetricService {
@@ -57,21 +51,12 @@ export default class MetricService {
   private readonly consensusNodeClientHistogramGasFee: Histogram;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: TypedEmitter;
-
-  /**
    * Counter for tracking Ethereum executions.
    * @type {Counter}
    * @readonly
    * @private
    */
-  private readonly ethExecutionsCounter: Counter;
+  readonly ethExecutionsCounter: Counter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
@@ -89,75 +74,21 @@ export default class MetricService {
    * @param {SDKClient} sdkClient - Client for interacting with the Hedera SDK.
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Registry} register - Registry instance for registering metrics.
-   * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    */
   constructor(
     logger: Logger,
     sdkClient: SDKClient,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
-    eventEmitter: TypedEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
     this.sdkClient = sdkClient;
-    this.eventEmitter = eventEmitter;
     this.mirrorNodeClient = mirrorNodeClient;
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
     this.ethExecutionsCounter = this.initEthCounter(register);
-    this.eventEmitter.on(
-      constants.EVENTS.EXECUTE_TRANSACTION,
-      (
-        transactionId: string,
-        callerName: string,
-        txConstructorName: string,
-        operatorAccountId: string,
-        interactingEntity: string,
-        requestDetails: RequestDetails,
-        originalCallerAddress: string,
-      ) => {
-        this.captureTransactionMetrics({
-          transactionId,
-          callerName,
-          txConstructorName,
-          operatorAccountId,
-          interactingEntity,
-          requestDetails,
-          originalCallerAddress,
-        }).then();
-      },
-    );
-
-    this.eventEmitter.on(
-      constants.EVENTS.EXECUTE_QUERY,
-      (
-        executionMode: string,
-        transactionId: string,
-        txConstructorName: string,
-        cost: number,
-        gasUsed: number,
-        status: string,
-        requestDetails: RequestDetails,
-        originalCallerAddress: string | undefined,
-      ) => {
-        this.addExpenseAndCaptureMetrics({
-          executionMode,
-          transactionId,
-          txConstructorName,
-          cost,
-          gasUsed,
-          status,
-          requestDetails,
-          originalCallerAddress,
-        });
-      },
-    );
-
-    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (method: string) => {
-      this.ethExecutionsCounter.labels(method).inc();
-    });
   }
 
   /**

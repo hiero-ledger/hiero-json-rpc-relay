@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import EventEmitter from 'node:events';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Client } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
-import { TypedEmitter } from '../../../typedEmitter';
 import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
 import constants from '../../constants';
@@ -119,13 +120,11 @@ export default class HAPIService {
    * @type {HbarLimitService}
    */
   private readonly hbarLimitService: HbarLimitService;
+
   /**
    * An instance of EventEmitter used for emitting and handling events within the class.
-   * @private
-   * @readonly
-   * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  readonly eventEmitter: SDKClient['eventEmitter'];
 
   /**
    * A registry used within the class.
@@ -148,13 +147,12 @@ export default class HAPIService {
    *
    * @param {Logger} logger - The logger instance used for logging.
    * @param {Registry} register - The registry instance for metrics and other services.
-   * @param {EventEmitter} eventEmitter - The event emitter instance used for emitting events.
    * @param {HbarLimitService} hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(logger: Logger, register: Registry, eventEmitter: TypedEmitter, hbarLimitService: HbarLimitService) {
+  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = new EventEmitter();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
     this.clientMain = this.initClient(logger, this.hederaNetwork);
 

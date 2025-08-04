@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export * from './events';
 export * from './IFeeHistory';
 export * from './ITracerConfig';
 export * from './ITracerConfigWrapper';
