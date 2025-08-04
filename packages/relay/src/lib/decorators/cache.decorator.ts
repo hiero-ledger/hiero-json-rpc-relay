@@ -27,9 +27,6 @@ interface CacheOptions {
 }
 
 /**
- * Iterates through the provided 'params' array and checks if any argument in 'args' at the specified 'index'
- * matches one of the pipe-separated values in 'value'. If a match is found, caching should be skipped.
- *
  * Uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
  * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
