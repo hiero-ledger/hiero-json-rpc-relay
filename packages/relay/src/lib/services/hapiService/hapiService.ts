@@ -189,7 +189,7 @@ export default class HAPIService {
       name: metricCounterName,
       help: 'Relay Client Service',
       registers: [register],
-      labelNames: ['transactions', 'duration', 'errors'],
+      labelNames: ['transactions', 'errors'],
     });
   }
 
