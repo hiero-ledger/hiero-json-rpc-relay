@@ -85,7 +85,7 @@
     "test": "npx lerna run test",
     "openrpctest": "ts-mocha packages/relay/tests/lib/openrpc.spec.ts --exit",
     "bump-version": "SEM_VER=${npm_config_semver} SNAPSHOT=${npm_config_snapshot} node scripts/.bump-version.js",
-    "prepare": "husky install",
+    "prepare": "husky",
     "print-env": "npx lerna exec --scope @hashgraph/json-rpc-config-service -- npm run print-env"
   },
   "dependencies": {
