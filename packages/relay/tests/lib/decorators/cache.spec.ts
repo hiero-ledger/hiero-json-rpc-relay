@@ -33,7 +33,9 @@ describe('cache decorator', () => {
 
   const createDecoratedMethod = (options = {}) => {
     class TestClass {
-      @cache(cacheService as unknown as CacheService, options)
+      public _cacheService: CacheService = cacheService;
+
+      @cache(options, '_cacheService')
       async testMethod(arg1: any, arg2: any, requestDetails: RequestDetails) {
         return getComputedResult(arg1, arg2, requestDetails);
       }

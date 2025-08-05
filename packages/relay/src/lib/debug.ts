@@ -12,7 +12,7 @@ import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
-import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
+import type { CacheService } from './services/cacheService/cacheService';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -109,7 +109,7 @@ export class DebugImpl implements Debug {
     1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async traceTransaction(
     transactionIdOrHash: string,
     tracerObject: TransactionTracerConfig,
@@ -166,7 +166,7 @@ export class DebugImpl implements Debug {
     1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async traceBlockByNumber(

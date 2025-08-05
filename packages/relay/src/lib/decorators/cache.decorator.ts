@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
-import { CacheService } from '../services/cacheService/cacheService';
+import type { CacheService } from '../services/cacheService/cacheService';
 import { RequestDetails } from '../types';
 
 interface CacheSingleParam {
@@ -43,13 +43,14 @@ interface CacheOptions {
  * @example
  *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
-export function cache(cacheService: CacheService, options: CacheOptions = {}) {
-  return function (target: any, context: ClassMethodDecoratorContext) {
+export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T = 'cacheService' as keyof T) {
+  return function (target: any, context: ClassMethodDecoratorContext<T>) {
     const methodName = String(context.name);
 
-    return async function (this: any, ...args: unknown[]) {
+    return async function (this: T, ...args: unknown[]) {
       const requestDetails = extractRequestDetails(args);
       const cacheKey = generateCacheKey(methodName, args);
+      const cacheService = this[cacheServiceProp] as CacheService;
 
       const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
       if (cachedResponse) return cachedResponse;

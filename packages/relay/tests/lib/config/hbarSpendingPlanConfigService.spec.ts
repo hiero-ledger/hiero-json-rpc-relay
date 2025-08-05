@@ -21,7 +21,7 @@ import {
   IPAddressHbarSpendingPlanNotFoundError,
 } from '../../../src/lib/db/types/hbarLimiter/errors';
 import { SubscriptionTier } from '../../../src/lib/db/types/hbarLimiter/subscriptionTier';
-import { CACHE_LEVEL, CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../src/lib/types';
 import { SpendingPlanConfig } from '../../../src/lib/types/spendingPlanConfig';
 import {
@@ -160,9 +160,7 @@ describe('HbarSpendingPlanConfigService', function () {
 
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-      // @ts-ignore
-      CacheService.instances = [];
-      cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry, reservedKeys);
+      cacheService = new CacheService(logger.child({ name: 'cache-service' }), registry, reservedKeys);
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
         logger.child({ name: 'hbar-spending-plan-repository' }),
