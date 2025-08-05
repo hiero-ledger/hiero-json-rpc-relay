@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import EventEmitter from 'events';
+
+import constants from '../constants';
 import { RequestDetails } from './RequestDetails';
 
-export interface IExecuteTransactionEventPayload {
-  transactionId: string;
-  callerName: string;
-  txConstructorName: string;
-  operatorAccountId: string;
-  interactingEntity: string;
-  requestDetails: RequestDetails;
-  originalCallerAddress: string;
+export interface IEthExecutionEventPayload {
+  method: string;
 }
 
 export interface IExecuteQueryEventPayload {
@@ -23,25 +20,20 @@ export interface IExecuteQueryEventPayload {
   originalCallerAddress: string | undefined;
 }
 
-export interface TypedEvents {
-  ETH_EXECUTION: [method: string, requestDetails: RequestDetails];
-  EXECUTE_QUERY: [
-    executionMode: string,
-    transactionId: string,
-    txConstructorName: string,
-    cost: number,
-    gasUsed: number,
-    status: string,
-    requestDetails: RequestDetails,
-    originalCallerAddress: string | undefined,
-  ];
-  EXECUTE_TRANSACTION: [
-    transactionId: string,
-    callerName: string,
-    txConstructorName: string,
-    operatorAccountId: string,
-    interactingEntity: string,
-    requestDetails: RequestDetails,
-    originalCallerAddress: string,
-  ];
+export interface IExecuteTransactionEventPayload {
+  transactionId: string;
+  callerName: string;
+  txConstructorName: string;
+  operatorAccountId: string;
+  interactingEntity: string;
+  requestDetails: RequestDetails;
+  originalCallerAddress: string;
 }
+
+export interface TypedEvents {
+  [constants.EVENTS.ETH_EXECUTION]: [IEthExecutionEventPayload];
+  [constants.EVENTS.EXECUTE_QUERY]: [IExecuteQueryEventPayload];
+  [constants.EVENTS.EXECUTE_TRANSACTION]: [IExecuteTransactionEventPayload];
+}
+
+export type CustomEventEmitter = EventEmitter<TypedEvents>;

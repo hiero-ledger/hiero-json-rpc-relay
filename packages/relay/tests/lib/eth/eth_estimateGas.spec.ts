@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
-import { TypedEmitter } from '../../../dist/typedEmitter';
+import { TypedEvents } from '../../../dist/lib/types';
 import { Eth, JsonRpcError } from '../../../src';
 import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
@@ -40,7 +40,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   const contractService = ethImpl['contractService'];
   const requestDetails = new RequestDetails({ requestId: 'eth_estimateGasTest', ipAddress: '0.0.0.0' });
-  eventEmitter = new TypedEmitter();
+  eventEmitter = new EventEmitter<TypedEvents>();
   async function mockContractCall(
     callData: IContractCallRequest,
     estimate: boolean,

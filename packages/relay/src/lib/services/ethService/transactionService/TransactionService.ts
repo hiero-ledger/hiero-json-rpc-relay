@@ -6,7 +6,6 @@ import { Logger } from 'pino';
 
 import { formatTransactionIdWithoutQueryParams } from '../../../../formatters';
 import { numberTo0x, toHash32 } from '../../../../formatters';
-import { TypedEmitter } from '../../../../typedEmitter';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
@@ -20,7 +19,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails } from '../../../types';
+import { CustomEventEmitter, ITransactionReceipt, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { CommonService, ICommonService } from '../../index';
@@ -48,7 +47,7 @@ export class TransactionService implements ITransactionService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +89,7 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: TypedEmitter,
+    eventEmitter: CustomEventEmitter,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
@@ -338,7 +337,9 @@ export class TransactionService implements ITransactionService {
    * @param requestDetails The request details for logging and tracking
    */
   private emitEthExecutionEvent(requestDetails: RequestDetails): void {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_SEND_RAW_TRANSACTION, requestDetails);
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      method: constants.ETH_SEND_RAW_TRANSACTION,
+    });
   }
 
   /**

@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
-import { TypedEmitter } from '../../dist/typedEmitter';
+import { TypedEvents } from '../../dist/lib/types';
 import { SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -34,7 +34,7 @@ describe('HAPI Service', async function () {
 
   this.beforeAll(() => {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new TypedEmitter();
+    eventEmitter = new EventEmitter<TypedEvents>();
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);

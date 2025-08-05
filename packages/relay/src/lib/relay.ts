@@ -2,11 +2,11 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Client } from '@hashgraph/sdk';
+import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { Admin, Eth, Net, Web3 } from '../index';
-import { TypedEmitter } from '../typedEmitter';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -24,7 +24,7 @@ import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
-import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
+import { CustomEventEmitter, RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry, TypedEvents } from './types';
 import { Web3Impl } from './web3';
 
 export class Relay {
@@ -98,7 +98,7 @@ export class Relay {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * The Debug Service implementation that takes care of all filter API operations.
@@ -136,7 +136,7 @@ export class Relay {
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    this.eventEmitter = new TypedEmitter();
+    this.eventEmitter = new EventEmitter<TypedEvents>();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
     this.cacheService = CacheService.getInstance(CACHE_LEVEL.L1, register, reservedKeys);
 

@@ -4,11 +4,12 @@ import { fail } from 'assert';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import sinon from 'sinon';
 
 import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
-import { TypedEmitter } from '../../../dist/typedEmitter';
+import { TypedEvents } from '../../../dist/lib/types';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
@@ -90,7 +91,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     mirrorNodeInstance: MirrorNodeClient;
     logger: Logger;
   } = generateEthTestEnv(true);
-  const eventEmitter = new TypedEmitter();
+  const eventEmitter = new EventEmitter<TypedEvents>();
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 

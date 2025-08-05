@@ -21,12 +21,13 @@ import {
 import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
+import { EventEmitter } from 'events';
 import Long from 'long';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { TypedEmitter } from '../../dist/typedEmitter';
+import { CustomEventEmitter, TypedEvents } from '../../dist/lib/types';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -59,7 +60,7 @@ describe('SdkClient', async function () {
   let mock: MockAdapter;
   let sdkClient: SDKClient;
   let instance: AxiosInstance;
-  let eventEmitter: TypedEmitter;
+  let eventEmitter: CustomEventEmitter;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -81,7 +82,7 @@ describe('SdkClient', async function () {
       Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new TypedEmitter();
+    eventEmitter = new EventEmitter<TypedEvents>();
 
     cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);

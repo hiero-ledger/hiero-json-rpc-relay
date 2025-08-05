@@ -5,10 +5,10 @@ import { Client } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
-import { TypedEmitter } from '../../../typedEmitter';
 import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
 import constants from '../../constants';
+import { CustomEventEmitter } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
@@ -125,7 +125,7 @@ export default class HAPIService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * A registry used within the class.
@@ -151,7 +151,12 @@ export default class HAPIService {
    * @param {EventEmitter} eventEmitter - The event emitter instance used for emitting events.
    * @param {HbarLimitService} hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(logger: Logger, register: Registry, eventEmitter: TypedEmitter, hbarLimitService: HbarLimitService) {
+  constructor(
+    logger: Logger,
+    register: Registry,
+    eventEmitter: CustomEventEmitter,
+    hbarLimitService: HbarLimitService,
+  ) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = eventEmitter;

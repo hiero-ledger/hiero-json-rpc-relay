@@ -3,7 +3,6 @@
 import { Logger } from 'pino';
 
 import { Eth } from '../index';
-import { TypedEmitter } from '../typedEmitter';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
@@ -27,6 +26,7 @@ import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
 import {
+  CustomEventEmitter,
   IContractCallRequest,
   IFeeHistory,
   IGetLogsParams,
@@ -80,7 +80,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -123,7 +123,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     cacheService: CacheService,
-    eventEmitter: TypedEmitter,
+    eventEmitter: CustomEventEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -263,7 +263,9 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_ESTIMATE_GAS, requestDetails);
+      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+        method: constants.ETH_ESTIMATE_GAS,
+      });
     }
 
     return await this.contractService.estimateGas(transaction, _blockParam, requestDetails);
@@ -971,7 +973,9 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
     }
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, constants.ETH_CALL, requestDetails);
+    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      method: constants.ETH_CALL,
+    });
 
     return this.contractService.call(call, blockParam, requestDetails);
   }

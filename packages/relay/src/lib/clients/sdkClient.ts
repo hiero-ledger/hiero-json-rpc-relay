@@ -23,11 +23,10 @@ import {
 import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
-import { TypedEmitter } from '../../typedEmitter';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
-import { ITransactionRecordMetric, RequestDetails } from '../types';
+import { CustomEventEmitter, ITransactionRecordMetric, RequestDetails } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -66,7 +65,7 @@ export class SDKClient {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
@@ -84,7 +83,12 @@ export class SDKClient {
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    * @param hbarLimitService
    */
-  constructor(clientMain: Client, logger: Logger, eventEmitter: TypedEmitter, hbarLimitService: HbarLimitService) {
+  constructor(
+    clientMain: Client,
+    logger: Logger,
+    eventEmitter: CustomEventEmitter,
+    hbarLimitService: HbarLimitService,
+  ) {
     this.clientMain = clientMain;
 
     // sets the maximum time in ms for the SDK to wait when submitting
@@ -233,17 +237,16 @@ export class SDKClient {
       throw sdkClientError;
     } finally {
       if (queryCost && queryCost !== 0) {
-        this.eventEmitter.emit(
-          constants.EVENTS.EXECUTE_QUERY,
-          constants.EXECUTION_MODE.QUERY,
-          query.paymentTransactionId?.toString() ?? '',
-          queryConstructorName,
-          queryCost,
-          0,
+        this.eventEmitter.emit(constants.EVENTS.EXECUTE_QUERY, {
+          executionMode: constants.EXECUTION_MODE.QUERY,
+          transactionId: query.paymentTransactionId?.toString() ?? '',
+          txConstructorName: queryConstructorName,
+          cost: queryCost,
+          gasUsed: 0,
           status,
           requestDetails,
           originalCallerAddress,
-        );
+        });
       }
     }
   }
@@ -334,16 +337,15 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
-        this.eventEmitter.emit(
-          constants.EVENTS.EXECUTE_TRANSACTION,
+        this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
           transactionId,
           callerName,
           txConstructorName,
-          this.clientMain.operatorAccountId!.toString(),
+          operatorAccountId: this.clientMain.operatorAccountId!.toString(),
           interactingEntity,
           requestDetails,
           originalCallerAddress,
-        );
+        });
       }
     }
   }
@@ -406,16 +408,15 @@ export class SDKClient {
       if (transactionResponses) {
         for (const transactionResponse of transactionResponses) {
           if (transactionResponse.transactionId) {
-            this.eventEmitter.emit(
-              constants.EVENTS.EXECUTE_TRANSACTION,
-              transactionResponse.transactionId.toString(),
+            this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
+              transactionId: transactionResponse.transactionId.toString(),
               callerName,
               txConstructorName,
-              this.clientMain.operatorAccountId!.toString(),
+              operatorAccountId: this.clientMain.operatorAccountId!.toString(),
               interactingEntity,
               requestDetails,
               originalCallerAddress,
-            );
+            });
           }
         }
       }

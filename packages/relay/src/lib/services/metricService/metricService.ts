@@ -4,10 +4,11 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { TypedEmitter } from '../../../typedEmitter';
 import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
+  CustomEventEmitter,
+  IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
@@ -63,7 +64,7 @@ export default class MetricService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: TypedEmitter;
+  private readonly eventEmitter: CustomEventEmitter;
 
   /**
    * Counter for tracking Ethereum executions.
@@ -96,7 +97,7 @@ export default class MetricService {
     sdkClient: SDKClient,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
-    eventEmitter: TypedEmitter,
+    eventEmitter: CustomEventEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
@@ -107,56 +108,16 @@ export default class MetricService {
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
     this.ethExecutionsCounter = this.initEthCounter(register);
-    this.eventEmitter.on(
-      constants.EVENTS.EXECUTE_TRANSACTION,
-      (
-        transactionId: string,
-        callerName: string,
-        txConstructorName: string,
-        operatorAccountId: string,
-        interactingEntity: string,
-        requestDetails: RequestDetails,
-        originalCallerAddress: string,
-      ) => {
-        this.captureTransactionMetrics({
-          transactionId,
-          callerName,
-          txConstructorName,
-          operatorAccountId,
-          interactingEntity,
-          requestDetails,
-          originalCallerAddress,
-        }).then();
-      },
-    );
+    this.eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
+      this.captureTransactionMetrics(args).then();
+    });
 
-    this.eventEmitter.on(
-      constants.EVENTS.EXECUTE_QUERY,
-      (
-        executionMode: string,
-        transactionId: string,
-        txConstructorName: string,
-        cost: number,
-        gasUsed: number,
-        status: string,
-        requestDetails: RequestDetails,
-        originalCallerAddress: string | undefined,
-      ) => {
-        this.addExpenseAndCaptureMetrics({
-          executionMode,
-          transactionId,
-          txConstructorName,
-          cost,
-          gasUsed,
-          status,
-          requestDetails,
-          originalCallerAddress,
-        });
-      },
-    );
+    this.eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
+      this.addExpenseAndCaptureMetrics(args);
+    });
 
-    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (method: string) => {
-      this.ethExecutionsCounter.labels(method).inc();
+    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
+      this.ethExecutionsCounter.labels(args.method).inc();
     });
   }
 

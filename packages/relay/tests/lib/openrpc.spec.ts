@@ -6,12 +6,13 @@ import Ajv from 'ajv';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
+import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import openRpcSchema from '../../../../docs/openrpc.json';
-import { TypedEmitter } from '../../dist/typedEmitter';
+import { TypedEvents } from '../../dist/lib/types';
 import { Relay } from '../../src';
 import { numberTo0x } from '../../src/formatters';
 import { SDKClient } from '../../src/lib/clients';
@@ -107,7 +108,7 @@ describe('Open RPC Specification', function () {
       instance,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new TypedEmitter();
+    const eventEmitter = new EventEmitter<TypedEvents>();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

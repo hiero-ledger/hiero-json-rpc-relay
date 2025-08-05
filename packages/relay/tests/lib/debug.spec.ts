@@ -4,11 +4,12 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { TypedEmitter } from '../../dist/typedEmitter';
+import { TypedEvents } from '../../dist/lib/types';
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -25,6 +26,7 @@ import { RequestDetails } from '../../src/lib/types';
 import RelayAssertions from '../assertions';
 import { getQueryParams, withOverriddenEnvsInMochaTest } from '../helpers';
 import { generateEthTestEnv } from './eth/eth-helpers';
+
 chai.use(chaiAsPromised);
 
 const logger = pino({ level: 'silent' });
@@ -261,7 +263,7 @@ describe('Debug API Test Suite', async function () {
       cacheService,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new TypedEmitter();
+    const eventEmitter = new EventEmitter<TypedEvents>();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
