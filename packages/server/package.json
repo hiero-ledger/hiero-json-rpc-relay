@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-server",
-  "version": "0.70.0-SNAPSHOT",
+  "version": "0.71.0-SNAPSHOT",
   "description": "Hedera Hashgraph Ethereum JSON RPC server. Accepts requests for Ethereum JSON RPC 2.0 APIs",
   "main": "dist/index.js",
   "keywords": [],
@@ -9,13 +9,13 @@
     "@hashgraph/json-rpc-config-service": "file:../config-service",
     "@hashgraph/json-rpc-relay": "file:../relay",
     "co-body": "6.2.0",
-    "dotenv": "^16.0.0",
+    "dotenv": "^17.2.1",
     "koa": "^2.13.4",
     "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
     "koa-logger": "^3.2.1",
     "koa-router": "^13.0.1",
-    "pino": "^7.11.0",
+    "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
     "uuid": "^3.3.2"
   },
@@ -37,7 +37,7 @@
     "ethers": "^5.8.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^10.6.0",
-    "shelljs": "^0.8.5",
+    "shelljs": "^0.10.0",
     "ts-mocha": "^9.0.2",
     "ts-node": "^10.8.1",
     "typescript": "^5.8.3"
@@ -46,19 +46,9 @@
     "build": "pnpm clean && pnpm compile",
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
-    "acceptancetest": "nyc ts-mocha tests/acceptance/index.spec.ts",
+    "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "start": "node dist/index.js",
-    "test": "nyc ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit"
-  },
-  "nyc": {
-    "check-coverage": false,
-    "reporter": [
-      "html",
-      "lcov",
-      "text",
-      "text-summary"
-    ],
-    "report-dir": "coverage"
+    "test": "c8 ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit"
   }
 }

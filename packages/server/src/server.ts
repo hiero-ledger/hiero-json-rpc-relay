@@ -26,9 +26,9 @@ const mainLogger = pino({
   },
 });
 
-const logger = mainLogger.child({ name: 'rpc-server' });
+export const logger = mainLogger.child({ name: 'rpc-server' });
 const register = new Registry();
-const relay: Relay = new Relay(logger.child({ name: 'relay' }), register);
+export const relay: Relay = new Relay(logger.child({ name: 'relay' }), register);
 const app = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
   limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
 });

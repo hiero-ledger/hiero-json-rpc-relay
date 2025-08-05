@@ -164,11 +164,8 @@ export class MirrorNodeClient {
     const mirrorNodeHttpMaxSockets = ConfigService.get('MIRROR_NODE_HTTP_MAX_SOCKETS');
     const mirrorNodeHttpMaxTotalSockets = ConfigService.get('MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS');
     const mirrorNodeHttpSocketTimeout = ConfigService.get('MIRROR_NODE_HTTP_SOCKET_TIMEOUT');
-    const isDevMode = ConfigService.get('DEV_MODE');
     const mirrorNodeRetries = ConfigService.get('MIRROR_NODE_RETRIES'); // we are in the process of deprecating this feature
-    const mirrorNodeRetriesDevMode = ConfigService.get('MIRROR_NODE_RETRIES_DEVMODE');
     const mirrorNodeRetryDelay = this.MIRROR_NODE_RETRY_DELAY;
-    const mirrorNodeRetryDelayDevMode = ConfigService.get('MIRROR_NODE_RETRY_DELAY_DEVMODE');
     const mirrorNodeRetryErrorCodes = ConfigService.get('MIRROR_NODE_RETRY_CODES'); // we are in the process of deprecating this feature by default will be true, unless explicitly set to false.
     const useCacheableDnsLookup: boolean = ConfigService.get('MIRROR_NODE_AGENT_CACHEABLE_DNS');
 
@@ -224,13 +221,13 @@ export class MirrorNodeClient {
 
     //@ts-ignore
     axiosRetry(axiosClient, {
-      retries: isDevMode ? mirrorNodeRetriesDevMode : mirrorNodeRetries,
+      retries: mirrorNodeRetries,
       retryDelay: (retryCount, error) => {
         const request = error?.request?._header;
         // extract request id from request header. Request is located in 4th element separated by new line
         const requestId = request ? request.split('\n')[3].substring(11, 47) : '';
         const requestIdPrefix = formatRequestIdMessage(requestId);
-        const delay = isDevMode ? mirrorNodeRetryDelayDevMode || 200 : mirrorNodeRetryDelay * retryCount;
+        const delay = mirrorNodeRetryDelay * retryCount;
         if (this.logger.isLevelEnabled('trace')) {
           this.logger.trace(`${requestIdPrefix} Retry delay ${delay} ms on '${error?.request?.path}'`);
         }
@@ -381,9 +378,16 @@ export class MirrorNodeClient {
             (data) => {
               // if the data is not valid, just return it to stick to the current behaviour
               if (data) {
-                return JSONBigInt.parse(data);
+                try {
+                  return JSONBigInt.parse(data);
+                } catch (error) {
+                  this.logger.warn(
+                    `${requestDetails.formattedRequestId} Failed to parse response data from Mirror Node: ${error}`,
+                  );
+                }
               }
 
+              // Return raw data so response can be processed properly by subsequent operations.
               return data;
             },
           ];

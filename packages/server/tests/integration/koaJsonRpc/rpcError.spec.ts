@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+
 import {
   HBARRateLimitExceeded,
   InternalError,
@@ -24,7 +25,7 @@ describe('RpcErrors', () => {
     });
 
     it('should set data as undefined if not provided', () => {
-      const error = new JsonRpcError('Test message', -32000);
+      const error = new JsonRpcError('Test message', -32000, undefined);
       expect(error.message).to.equal('Test message');
       expect(error.code).to.equal(-32000);
       expect(error.data).to.be.undefined;
@@ -70,18 +71,19 @@ describe('RpcErrors', () => {
 
   describe('InternalError', () => {
     it('should create an InternalError with provided error message and code', () => {
-      const err = new Error('Specific internal error');
-      const error = new InternalError(err);
+      const error = new InternalError(new Error('Specific internal error'));
       expect(error.message).to.equal('Specific internal error');
       expect(error.code).to.equal(-32603);
       expect(error.data).to.be.undefined;
     });
 
-    it('should create an InternalError with default message when no error is provided', () => {
-      const error = new InternalError(undefined);
-      expect(error.message).to.equal('Internal error');
-      expect(error.code).to.equal(-32603);
-      expect(error.data).to.be.undefined;
+    [undefined, null, 'error', 1, {}].forEach((input) => {
+      it(`should create an InternalError with default message when input is '${input}'`, function () {
+        const error = new InternalError(input);
+        expect(error.message).to.equal('Internal error');
+        expect(error.code).to.equal(-32603);
+        expect(error.data).to.be.undefined;
+      });
     });
   });
 
