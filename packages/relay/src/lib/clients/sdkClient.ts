@@ -99,7 +99,7 @@ export class SDKClient {
     clientMain: Client,
     logger: Logger,
     /** An instance of EventEmitter used for emitting and handling events within the class. */
-    readonly eventEmitter: EventEmitter<{
+    private readonly eventEmitter: EventEmitter<{
       execute_transaction: [IExecuteTransactionEventPayload];
       execute_query: [IExecuteQueryEventPayload];
     }>,
