@@ -43,13 +43,14 @@ interface CacheOptions {
  * @example
  *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
-export function cache(cacheService: CacheService, options: CacheOptions = {}) {
+export function cache(options: CacheOptions = {}, cacheServiceProp: string = 'cacheService') {
   return function (target: any, context: ClassMethodDecoratorContext) {
     const methodName = String(context.name);
 
     return async function (this: any, ...args: unknown[]) {
       const requestDetails = extractRequestDetails(args);
       const cacheKey = generateCacheKey(methodName, args);
+      const cacheService = this[cacheServiceProp] as CacheService;
 
       const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
       if (cachedResponse) return cachedResponse;
