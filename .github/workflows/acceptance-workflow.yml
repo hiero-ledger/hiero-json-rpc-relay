@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload Heap Snapshots
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Heap Snapshots
           path: '**/*.heapsnapshot'
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Test Results (${{ inputs.testfilter }})
           path: test-*.xml
@@ -127,7 +127,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Publish Test Report
-        uses: step-security/publish-unit-test-result-action@4519d7c9f71dd765f8bbb98626268780f23bab28 # v2.17.0
+        uses: step-security/publish-unit-test-result-action@43e0c963eea0ace6eca353cb1d814d857fee5c53 # v2.20.2
         if: ${{ !cancelled() }}
         with:
           check_name: '' # Set to empty to disable check run
