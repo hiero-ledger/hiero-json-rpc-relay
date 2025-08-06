@@ -10,14 +10,14 @@
     "@hashgraph/json-rpc-relay": "file:../relay",
     "@hashgraph/json-rpc-server": "file:../server",
     "co-body": "6.2.0",
-    "dotenv": "^16.0.0",
+    "dotenv": "^17.2.1",
     "koa": "^2.13.4",
     "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
-    "koa-logger": "^3.2.1",
+    "koa-logger": "^4.0.0",
     "koa-router": "^13.0.1",
     "koa-websocket": "^7.0.0",
-    "pino": "^7.11.0",
+    "pino": "^9.7.0",
     "pino-pretty": "^7.6.1"
   },
   "devDependencies": {
@@ -35,10 +35,10 @@
     "chai": "^4.3.6",
     "ethers": "^5.8.0",
     "mocha": "^10.1.0",
-    "shelljs": "^0.8.5",
+    "shelljs": "^0.10.0",
     "ts-mocha": "^9.0.2",
     "ts-node": "^10.8.1",
-    "typescript": "^4.5.5"
+    "typescript": "^5.8.3"
   },
   "scripts": {
     "build": "pnpm clean && pnpm compile",

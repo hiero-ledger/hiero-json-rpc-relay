@@ -23,7 +23,7 @@ import {
 } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
-import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
@@ -57,7 +57,7 @@ describe('HBAR Rate Limit Service', function () {
   let loggerSpy: sinon.SinonSpiedInstance<Logger>;
 
   beforeEach(async function () {
-    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, register);
+    cacheService = new CacheService(logger, register);
     loggerSpy = sinon.spy(logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,
@@ -82,7 +82,7 @@ describe('HBAR Rate Limit Service', function () {
       register,
       limitDuration,
     );
-    await CacheService.getInstance(CACHE_LEVEL.L1).clear(requestDetails);
+    await cacheService.clear(requestDetails);
   });
 
   afterEach(function () {

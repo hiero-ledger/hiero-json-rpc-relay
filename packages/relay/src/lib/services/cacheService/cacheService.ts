@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import pino, { Logger } from 'pino';
+import type { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { LocalLRUCache, RedisCache } from '../../clients';
@@ -79,7 +79,7 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(logger: Logger, register: Registry, reservedKeys: Set<string> = new Set()) {
+  public constructor(logger: Logger, register: Registry = new Registry(), reservedKeys: Set<string> = new Set()) {
     this.logger = logger;
     this.register = register;
 
@@ -106,33 +106,6 @@ export class CacheService {
       registers: [register],
       labelNames: ['callingMethod', 'cacheType', 'method'],
     });
-  }
-
-  /**
-   * Array of singletons for L1 and L2 layers
-   *
-   * @private
-   */
-  private static instances: CacheService[] = [];
-
-  /**
-   * Get a cache service instance
-   *
-   * @param type
-   * @param registry
-   * @param reservedKeys
-   */
-  public static getInstance(
-    type: CACHE_LEVEL,
-    registry: Registry = new Registry(),
-    reservedKeys: Set<string> = new Set(),
-  ): CacheService {
-    if (!this.instances[type]) {
-      const logger = pino({ level: ConfigService.get('LOG_LEVEL') });
-      this.instances[type] = new CacheService(logger.child({ name: type }), registry, reservedKeys);
-    }
-
-    return this.instances[type];
   }
 
   /**

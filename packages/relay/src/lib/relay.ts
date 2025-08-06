@@ -19,7 +19,7 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
-import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
+import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
@@ -138,7 +138,7 @@ export class Relay {
 
     this.eventEmitter = new EventEmitter<TypedEvents>();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-    this.cacheService = CacheService.getInstance(CACHE_LEVEL.L1, register, reservedKeys);
+    this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,

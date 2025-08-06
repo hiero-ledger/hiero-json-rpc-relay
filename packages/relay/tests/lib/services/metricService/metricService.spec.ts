@@ -16,7 +16,7 @@ import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { CACHE_LEVEL, CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
 import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, RequestDetails } from '../../../../src/lib/types';
@@ -145,7 +145,7 @@ describe('Metric Service', function () {
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
       registry,
-      CacheService.getInstance(CACHE_LEVEL.L1, registry),
+      new CacheService(logger, registry),
       instance,
     );
   });
@@ -157,7 +157,7 @@ describe('Metric Service', function () {
 
     eventEmitter = new EventEmitter<TypedEvents>();
 
-    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+    const cacheService = new CacheService(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -170,13 +170,7 @@ describe('Metric Service', function () {
       duration,
     );
 
-    const sdkClient = new SDKClient(
-      client,
-      logger.child({ name: `consensus-node` }),
-      CacheService.getInstance(CACHE_LEVEL.L1, registry),
-      eventEmitter,
-      hbarLimitService,
-    );
+    const sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
     metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, eventEmitter, hbarLimitService);
   });

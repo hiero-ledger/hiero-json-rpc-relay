@@ -39,6 +39,7 @@ describe('RPC Server', function () {
   let testServer: Server;
   let testClient: AxiosInstance;
   let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
+  let getAllMaskedStub: sinon.SinonStub;
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   overrideEnvsInMochaDescribe({
@@ -46,6 +47,15 @@ describe('RPC Server', function () {
   });
 
   before(function () {
+    // Stub getAllMasked to avoid maskUpEnv errors for unknown envs
+    getAllMaskedStub = sinon.stub(ConfigService, 'getAllMasked').returns({
+      BATCH_REQUESTS_MAX_SIZE: '100',
+      CACHE_MAX: '1000',
+      CACHE_TTL: '3600000',
+      CALL_DATA_SIZE_LIMIT: '131072',
+      CHAIN_ID: '0x12a',
+    });
+
     // Set up spy BEFORE requiring the server module to catch the constructor call
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
 
@@ -63,6 +73,7 @@ describe('RPC Server', function () {
   });
 
   after(function () {
+    getAllMaskedStub.restore();
     populatePreconfiguredSpendingPlansSpy.restore();
     testServer.close((err) => {
       if (err) {
@@ -72,6 +83,79 @@ describe('RPC Server', function () {
   });
 
   this.timeout(5000);
+
+  describe('HTTP Endpoints', function () {
+    it('should execute HTTP OPTIONS cors preflight check', async function () {
+      const response = await testClient.options('/');
+
+      BaseTest.validResponseCheck(response, { status: 204, statusText: 'No Content' });
+      BaseTest.validCorsCheck(response);
+    });
+
+    it('should execute metrics collection', async function () {
+      const response = await testClient.get('/metrics');
+
+      expect(response.status).to.eq(200);
+      expect(response.statusText).to.eq('OK');
+    });
+
+    it('should execute successful health readiness check', async function () {
+      const response = await testClient.get('/health/readiness');
+
+      expect(response.status).to.eq(200);
+      expect(response.statusText).to.eq('OK');
+      expect(response, "Default response: Should have 'data' property").to.have.property('data');
+      expect(response.data, "Default response: 'data' should equal 'OK'").to.be.equal('OK');
+    });
+
+    it('should execute successful health liveness check', async function () {
+      const response = await testClient.get('/health/liveness');
+
+      expect(response.status).to.eq(200);
+      expect(response.statusText).to.eq('OK');
+      expect(response, "Default response: Should have 'data' property").to.have.property('data');
+      expect(response.data, "Default response: 'data' should equal 'OK'").to.be.equal('OK');
+    });
+
+    withOverriddenEnvsInMochaTest({ DISABLE_ADMIN_NAMESPACE: true }, function () {
+      it('should return a 404 for the /config endpoint', function () {
+        return expect(testClient.get('/config')).to.be.rejected.and.eventually.satisfy((error) => {
+          expect(error.response.status).to.eq(404);
+          expect(error.response.statusText).to.eq('Not Found');
+          return true;
+        });
+      });
+    });
+
+    it('should return the server config via /config endpoint', async function () {
+      const response = await testClient.get('/config');
+
+      expect(response.status).to.eq(200);
+      expect(response.statusText).to.eq('OK');
+      expect(response, "Config endpoint: Should have 'data' property").to.have.property('data');
+
+      expect(response.data).to.have.property('relay');
+      expect(response.data.relay).to.have.property('version');
+      expect(response.data.relay).to.have.property('config');
+      expect(response.data.relay.config).to.have.property('BATCH_REQUESTS_MAX_SIZE');
+      expect(response.data.relay.config).to.have.property('CACHE_MAX');
+      expect(response.data.relay.config).to.have.property('CACHE_TTL');
+      expect(response.data.relay.config).to.have.property('CALL_DATA_SIZE_LIMIT');
+      expect(response.data.relay.config).to.have.property('CHAIN_ID');
+      expect(response.data).to.have.property('upstreamDependencies');
+      expect(response.data.upstreamDependencies).to.be.an('array');
+    });
+
+    it('should serve the OpenRPC specification at /openrpc', async function () {
+      const response = await testClient.get('/openrpc');
+
+      expect(response.status).to.eq(200);
+      expect(response.statusText).to.eq('OK');
+      expect(response, "OpenRPC endpoint: Should have 'data' property").to.have.property('data');
+      const parsed = response.data;
+      expect(parsed).to.have.property('openrpc');
+    });
+  });
 
   it('should verify that the server is running with the correct host and port', async function () {
     const CUSTOMIZE_PORT = '7545';
@@ -2360,38 +2444,6 @@ describe('RPC Server', function () {
             `Invalid parameter 'topics' for FilterObject: ${TYPES['topics'].error}, value: [[123]]`,
           );
         }
-      });
-
-      it('should execute HTTP OPTIONS cors preflight check', async function () {
-        const response = await testClient.options('/');
-
-        BaseTest.validResponseCheck(response, { status: 204, statusText: 'No Content' });
-        BaseTest.validCorsCheck(response);
-      });
-
-      it('should execute metrics collection', async function () {
-        const response = await testClient.get('/metrics');
-
-        expect(response.status).to.eq(200);
-        expect(response.statusText).to.eq('OK');
-      });
-
-      it('should execute successful health readiness check', async function () {
-        const response = await testClient.get('/health/readiness');
-
-        expect(response.status).to.eq(200);
-        expect(response.statusText).to.eq('OK');
-        expect(response, "Default response: Should have 'data' property").to.have.property('data');
-        expect(response.data, "Default response: 'data' should equal 'OK'").to.be.equal('OK');
-      });
-
-      it('should execute successful health liveness check', async function () {
-        const response = await testClient.get('/health/readiness');
-
-        expect(response.status).to.eq(200);
-        expect(response.statusText).to.eq('OK');
-        expect(response, "Default response: Should have 'data' property").to.have.property('data');
-        expect(response.data, "Default response: 'data' should equal 'OK'").to.be.equal('OK');
       });
     });
 
