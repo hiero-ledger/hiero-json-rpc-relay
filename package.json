@@ -94,7 +94,7 @@
     "pino-pretty": "^7.6.1",
     "pnpm": "^10.0.0",
     "prom-client": "^14.0.1",
-    "redis": "^4.7.0"
+    "redis": "^5.8.0"
   },
   "overrides": {
     "protobufjs": "^7.2.4",
