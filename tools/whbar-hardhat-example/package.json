@@ -4,10 +4,10 @@
   "scripts": {},
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.26.1"
+    "hardhat": "^2.26.2"
   },
   "dependencies": {
-    "@hashgraph/sdk": "^2.69.0",
+    "@hashgraph/sdk": "^2.70.0",
     "dotenv": "^17.2.1"
   },
   "overrides": {

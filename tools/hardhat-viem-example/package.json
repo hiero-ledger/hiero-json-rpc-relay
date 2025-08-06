@@ -8,13 +8,13 @@
     "local-node": "npx @hashgraph/hedera-local restart -d"
   },
   "dependencies": {
-    "@hashgraph/hedera-local": "^2.29.2",
+    "@hashgraph/hedera-local": "^2.37.1",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "dotenv": "^17.2.1"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
-    "hardhat": "^2.26.1"
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "hardhat": "^2.26.2"
   },
   "overrides": {
     "elliptic": "^6.6.1",
