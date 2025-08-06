@@ -7,8 +7,6 @@ import { Counter, Histogram, Registry } from 'prom-client';
 import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
-  CustomEventEmitter,
-  IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
@@ -58,21 +56,12 @@ export default class MetricService {
   private readonly consensusNodeClientHistogramGasFee: Histogram;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: CustomEventEmitter;
-
-  /**
    * Counter for tracking Ethereum executions.
    * @type {Counter}
    * @readonly
    * @private
    */
-  private readonly ethExecutionsCounter: Counter;
+  readonly ethExecutionsCounter: Counter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
@@ -90,35 +79,21 @@ export default class MetricService {
    * @param {SDKClient} sdkClient - Client for interacting with the Hedera SDK.
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Registry} register - Registry instance for registering metrics.
-   * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    */
   constructor(
     logger: Logger,
     sdkClient: SDKClient,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
-    eventEmitter: CustomEventEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
     this.sdkClient = sdkClient;
-    this.eventEmitter = eventEmitter;
     this.mirrorNodeClient = mirrorNodeClient;
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
     this.ethExecutionsCounter = this.initEthCounter(register);
-    this.eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
-      this.captureTransactionMetrics(args).then();
-    });
-
-    this.eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
-      this.addExpenseAndCaptureMetrics(args);
-    });
-
-    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
-      this.ethExecutionsCounter.labels(args.method).inc();
-    });
   }
 
   /**

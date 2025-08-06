@@ -19,7 +19,12 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repo
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
-import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, RequestDetails } from '../../../../src/lib/types';
+import {
+  IEthExecutionEventPayload,
+  IExecuteQueryEventPayload,
+  IExecuteTransactionEventPayload,
+  RequestDetails,
+} from '../../../../src/lib/types';
 import { Utils } from '../../../../src/utils';
 import {
   calculateTxRecordChargeAmount,
@@ -172,7 +177,16 @@ describe('Metric Service', function () {
 
     const sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
-    metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, eventEmitter, hbarLimitService);
+    metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
+    eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
+      metricService.captureTransactionMetrics(args).then();
+    });
+    eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
+      metricService.addExpenseAndCaptureMetrics(args);
+    });
+    eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
+      metricService.ethExecutionsCounter.labels(args.method).inc();
+    });
   });
 
   afterEach(() => {

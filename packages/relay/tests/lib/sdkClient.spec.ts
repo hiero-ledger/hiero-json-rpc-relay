@@ -27,7 +27,12 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { CustomEventEmitter, TypedEvents } from '../../dist/lib/types';
+import {
+  CustomEventEmitter,
+  IExecuteQueryEventPayload,
+  IExecuteTransactionEventPayload,
+  TypedEvents,
+} from '../../dist/lib/types';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -35,7 +40,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
-import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import MetricService from '../../src/lib/services/metricService/metricService';
@@ -97,6 +102,7 @@ describe('SdkClient', async function () {
       duration,
     );
 
+    // @ts-ignore
     sdkClient = new SDKClient(client, logger, eventEmitter, hbarLimitService);
 
     instance = axios.create({
@@ -119,7 +125,13 @@ describe('SdkClient', async function () {
 
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
-    new MetricService(logger, sdkClient, mirrorNodeClient, registry, eventEmitter, hbarLimitService);
+    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
+    eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
+      metricService.captureTransactionMetrics(args).then();
+    });
+    eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
+      metricService.addExpenseAndCaptureMetrics(args);
+    });
   });
 
   beforeEach(() => {
@@ -141,7 +153,7 @@ describe('SdkClient', async function () {
 
     this.beforeEach(() => {
       if (ConfigService.get('OPERATOR_KEY_FORMAT') !== 'BAD_FORMAT') {
-        hapiService = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+        hapiService = new HAPIService(logger, registry, hbarLimitService);
       }
     });
 
@@ -181,7 +193,7 @@ describe('SdkClient', async function () {
     withOverriddenEnvsInMochaTest({ OPERATOR_KEY_FORMAT: 'BAD_FORMAT' }, () => {
       it('It should throw an Error when an unexpected string is set', async () => {
         try {
-          new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+          new HAPIService(logger, registry, hbarLimitService);
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (e: any) {
           expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');

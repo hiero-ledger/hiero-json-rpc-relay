@@ -59,15 +59,6 @@ export class SDKClient {
   private readonly fileAppendChunkSize: number;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: CustomEventEmitter;
-
-  /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
    * @private
    * @readonly
@@ -86,7 +77,7 @@ export class SDKClient {
   constructor(
     clientMain: Client,
     logger: Logger,
-    eventEmitter: CustomEventEmitter,
+    readonly eventEmitter: CustomEventEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.clientMain = clientMain;
@@ -96,7 +87,6 @@ export class SDKClient {
     this.clientMain = clientMain.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
 
     this.logger = logger;
-    this.eventEmitter = eventEmitter;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
     this.fileAppendChunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
