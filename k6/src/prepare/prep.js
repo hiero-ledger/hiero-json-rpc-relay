@@ -96,7 +96,7 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
     console.log('address: ', wallet.address);
 
     // amount to send (HBAR)
-    let amountInEther = '10';
+    let amountInEther = process.env.WALLET_BALANCE || '10';
     // Create transaction
     let tx = {
       to: wallet.address,
