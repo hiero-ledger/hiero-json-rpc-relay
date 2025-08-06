@@ -12,8 +12,8 @@
   "license": "ISC",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^3.0.0",
-    "hardhat": "^2.26.1",
-    "solidity-coverage": "^0.8.4"
+    "hardhat": "^2.26.2",
+    "solidity-coverage": "^0.8.16"
   },
   "dependencies": {
     "http-server": "^14.1.1"
