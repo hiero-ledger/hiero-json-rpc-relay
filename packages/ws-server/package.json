@@ -12,10 +12,7 @@
     "co-body": "6.2.0",
     "dotenv": "^17.2.1",
     "koa": "^2.13.4",
-    "koa-body-parser": "^0.2.1",
     "koa-cors": "^0.0.16",
-    "koa-logger": "^4.0.0",
-    "koa-router": "^13.0.1",
     "koa-websocket": "^7.0.0",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1"
@@ -25,9 +22,6 @@
     "@koa/cors": "^5.0.0",
     "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.12",
-    "@types/express": "^4.17.13",
-    "@types/koa-bodyparser": "^4.3.5",
-    "@types/koa-router": "^7.4.4",
     "@types/mocha": "^9.1.0",
     "@types/node": "^17.0.31",
     "axios": "^1.4.0",
@@ -35,7 +29,6 @@
     "chai": "^4.3.6",
     "ethers": "^5.8.0",
     "mocha": "^10.1.0",
-    "shelljs": "^0.10.0",
     "ts-mocha": "^9.0.2",
     "ts-node": "^10.8.1",
     "typescript": "^5.8.3"
