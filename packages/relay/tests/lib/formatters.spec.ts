@@ -7,7 +7,6 @@ import { AbiCoder, keccak256 } from 'ethers';
 import {
   ASCIIToHex,
   decodeErrorMessage,
-  formatRequestIdMessage,
   formatTransactionId,
   formatTransactionIdWithoutQueryParams,
   hexToASCII,
@@ -41,36 +40,6 @@ describe('Formatters', () => {
       expect(numberTo0x(15)).to.equal('0xf');
       expect(numberTo0x(255)).to.equal('0xff');
       expect(numberTo0x(0)).to.equal('0x0');
-    });
-  });
-
-  describe('formatRequestIdMessage', () => {
-    const exampleRequestId = '46530e63-e33a-4f42-8e44-b125f99f1a9b';
-    const expectedFormattedId = '[Request ID: 46530e63-e33a-4f42-8e44-b125f99f1a9b]';
-
-    it('Should format request ID message', () => {
-      const result = formatRequestIdMessage(exampleRequestId);
-      expect(result).to.eq(expectedFormattedId);
-    });
-
-    it('Should return formated request ID if already formatted request ID is passed in', () => {
-      const result = formatRequestIdMessage(expectedFormattedId);
-      expect(result).to.eq(expectedFormattedId);
-    });
-
-    it('Should return an empty string if undefined is passed in', () => {
-      const result = formatRequestIdMessage(undefined);
-      expect(result).to.eq('');
-    });
-
-    it('Should return an empty string if null is passed in', () => {
-      const result = formatRequestIdMessage(null as any);
-      expect(result).to.eq('');
-    });
-
-    it('Should return an empty string if empty string is passed in', () => {
-      const result = formatRequestIdMessage('');
-      expect(result).to.eq('');
     });
   });
 
@@ -944,22 +913,6 @@ describe('Formatters', () => {
       expect(numberTo0x(255)).to.equal('0xff');
       expect(numberTo0x(0)).to.equal('0x0');
       expect(numberTo0x(16)).to.equal('0x10');
-    });
-
-    it('should test formatRequestIdMessage with pre-formatted request ID', () => {
-      const preFormattedId = '[Request ID: test-id]';
-      expect(formatRequestIdMessage(preFormattedId)).to.eq(preFormattedId);
-    });
-
-    it('should test formatRequestIdMessage with unformatted request ID', () => {
-      const unformattedId = 'simple-id';
-      expect(formatRequestIdMessage(unformattedId)).to.eq('[Request ID: simple-id]');
-    });
-
-    it('should test various falsy inputs for formatRequestIdMessage', () => {
-      expect(formatRequestIdMessage(undefined)).to.eq('');
-      expect(formatRequestIdMessage('')).to.eq('');
-      expect(formatRequestIdMessage(null as any)).to.eq('');
     });
 
     it('should test hashNumber function indirectly through various number inputs', () => {

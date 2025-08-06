@@ -239,7 +239,7 @@ export class CommonService implements ICommonService {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=${returnLatest}, blockNumberOrTagOrHash=${blockNumberOrTagOrHash}`,
+          `Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=${returnLatest}, blockNumberOrTagOrHash=${blockNumberOrTagOrHash}`,
         );
       }
       return null;
@@ -248,7 +248,7 @@ export class CommonService implements ICommonService {
     if (blockNumberOrTagOrHash === constants.EMPTY_HEX) {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestDetails.formattedRequestId} Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
+          `Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
         );
       }
       return null;
@@ -481,7 +481,7 @@ export class CommonService implements ICommonService {
    */
   public async gasPrice(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} eth_gasPrice`);
+      this.logger.trace(`eth_gasPrice`);
     }
 
     try {
@@ -489,7 +489,7 @@ export class CommonService implements ICommonService {
 
       return numberTo0x(gasPrice);
     } catch (error) {
-      throw this.genericErrorHandler(error, `${requestDetails.formattedRequestId} Failed to retrieve gasPrice`);
+      throw this.genericErrorHandler(error, `Failed to retrieve gasPrice`);
     }
   }
 
@@ -545,10 +545,10 @@ export class CommonService implements ICommonService {
    */
   public async getAccount(address: string, requestDetails: RequestDetails): Promise<IAccountInfo | null> {
     const key = `${constants.CACHE_KEY.ACCOUNT}_${address}`;
-    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS, requestDetails);
+    let account = await this.cacheService.getAsync(key, constants.ETH_ESTIMATE_GAS);
     if (!account) {
       account = await this.mirrorNodeClient.getAccount(address, requestDetails);
-      await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS, requestDetails);
+      await this.cacheService.set(key, account, constants.ETH_ESTIMATE_GAS);
     }
     return account;
   }

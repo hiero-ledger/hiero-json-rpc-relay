@@ -48,11 +48,10 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
     const methodName = String(context.name);
 
     return async function (this: T, ...args: unknown[]) {
-      const requestDetails = extractRequestDetails(args);
       const cacheKey = generateCacheKey(methodName, args);
       const cacheService = this[cacheServiceProp] as CacheService;
 
-      const cachedResponse = await cacheService.getAsync(cacheKey, methodName, requestDetails);
+      const cachedResponse = await cacheService.getAsync(cacheKey, methodName);
       if (cachedResponse) return cachedResponse;
 
       const result = await target.apply(this, args);
@@ -65,7 +64,6 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
           cacheKey,
           result,
           methodName,
-          requestDetails,
           options.ttl ?? ConfigService.get('CACHE_TTL'),
         );
       }
@@ -180,25 +178,6 @@ const generateCacheKey = (methodName: string, args: unknown[]) => {
   return cacheKey;
 };
 
-/**
- * This utility is used to scan through the provided arguments.
- * and return the first value that is identified as an instance of `RequestDetails`.
- *
- * If no such instance is found, it returns a new `RequestDetails` object with empty defaults.
- *
- * @param args - The arguments from a function.
- * @returns The first found `RequestDetails` instance, or a new one with default values if none is found.
- */
-const extractRequestDetails = (args: unknown[]): RequestDetails => {
-  for (const [, value] of Object.entries(args)) {
-    if (value instanceof RequestDetails) {
-      return value;
-    }
-  }
-
-  return new RequestDetails({ requestId: '', ipAddress: '' });
-};
-
 // export private methods under __test__ "namespace" but using const
 // due to `ES2015 module syntax is preferred over namespaces` eslint warning
 export const __test__ = {
@@ -206,6 +185,5 @@ export const __test__ = {
     shouldSkipCachingForSingleParams,
     shouldSkipCachingForNamedParams,
     generateCacheKey,
-    extractRequestDetails,
   },
 };

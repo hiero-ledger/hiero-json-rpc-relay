@@ -205,7 +205,7 @@ export default class MetricService {
   }: IExecuteQueryEventPayload): Promise<void> => {
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
+        `Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
       );
     }
 
@@ -293,12 +293,7 @@ export default class MetricService {
     // retrieve transaction metrics
     try {
       if (defaultToConsensusNode) {
-        return await this.sdkClient.getTransactionRecordMetrics(
-          transactionId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
+        return await this.sdkClient.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,
@@ -308,10 +303,7 @@ export default class MetricService {
         );
       }
     } catch (error: any) {
-      this.logger.warn(
-        error,
-        `${requestDetails.formattedRequestId} Could not fetch transaction record: error=${error.message}`,
-      );
+      this.logger.warn(error, `Could not fetch transaction record: error=${error.message}`);
     }
   }
 }

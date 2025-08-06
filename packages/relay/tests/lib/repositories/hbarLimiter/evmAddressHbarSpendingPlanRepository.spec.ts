@@ -7,7 +7,6 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { RequestDetails } from '../../../../dist/lib/types';
 import { EvmAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
@@ -20,10 +19,6 @@ chai.use(chaiAsPromised);
 describe('EvmAddressHbarSpendingPlanRepository', function () {
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
-  const requestDetails = new RequestDetails({
-    requestId: 'evmAddressHbarSpendingPlanRepositoryTest',
-    ipAddress: '0.0.0.0',
-  });
   const ttl = 86_400_000; // 1 day
 
   const tests = (isSharedCacheEnabled: boolean) => {
@@ -47,7 +42,7 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
     }
 
     afterEach(async () => {
-      await cacheService.clear(requestDetails);
+      await cacheService.clear();
     });
 
     after(async () => {
@@ -62,15 +57,14 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        await expect(repository.existsByAddress(evmAddress, requestDetails)).to.eventually.be.true;
+        await expect(repository.existsByAddress(evmAddress)).to.eventually.be.true;
       });
 
       it('returns false if address plan does not exist', async () => {
         const evmAddress = '0xnonexistent';
-        await expect(repository.existsByAddress(evmAddress, requestDetails)).to.eventually.be.false;
+        await expect(repository.existsByAddress(evmAddress)).to.eventually.be.false;
       });
     });
 
@@ -86,17 +80,16 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
             `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${plan.evmAddress}`,
             plan,
             'test',
-            requestDetails,
           );
         }
 
-        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId', requestDetails);
+        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId');
         expect(result).to.have.deep.members(evmAddressPlans);
       });
 
       it('returns an empty array if no address plans are found for the plan ID', async () => {
         const planId = uuidV4(randomBytes(16));
-        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId', requestDetails);
+        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId');
         expect(result).to.deep.equal([]);
       });
     });
@@ -111,26 +104,21 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
             `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
             addressPlan,
             'test',
-            requestDetails,
           );
         }
 
-        await repository.deleteAllByPlanId(planId, 'deleteAllByPlanId', requestDetails);
+        await repository.deleteAllByPlanId(planId, 'deleteAllByPlanId');
 
         for (const evmAddress of evmAddresses) {
           await expect(
-            cacheService.getAsync(
-              `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
-              'test',
-              requestDetails,
-            ),
+            cacheService.getAsync(`${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`, 'test'),
           ).to.eventually.be.null;
         }
       });
 
       it('does not throw an error if no address plans are found for the plan ID', async () => {
         const planId = uuidV4(randomBytes(16));
-        await expect(repository.deleteAllByPlanId(planId, 'deleteAllByPlanId', requestDetails)).to.be.fulfilled;
+        await expect(repository.deleteAllByPlanId(planId, 'deleteAllByPlanId')).to.be.fulfilled;
       });
     });
 
@@ -142,16 +130,15 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        const result = await repository.findByAddress(evmAddress, requestDetails);
+        const result = await repository.findByAddress(evmAddress);
         expect(result).to.deep.equal(addressPlan);
       });
 
       it('throws an error if address plan is not found', async () => {
         const evmAddress = '0xnonexistent';
-        await expect(repository.findByAddress(evmAddress, requestDetails)).to.be.eventually.rejectedWith(
+        await expect(repository.findByAddress(evmAddress)).to.be.eventually.rejectedWith(
           EvmAddressHbarSpendingPlanNotFoundError,
           `EvmAddressHbarSpendingPlan with address ${evmAddress} not found`,
         );
@@ -163,11 +150,10 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
         const evmAddress = '0x123';
         const addressPlan: IEvmAddressHbarSpendingPlan = { evmAddress, planId: uuidV4(randomBytes(16)) };
 
-        await repository.save(addressPlan, requestDetails, ttl);
+        await repository.save(addressPlan, ttl);
         const result = await cacheService.getAsync<IEvmAddressHbarSpendingPlan>(
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.deep.equal(addressPlan);
         sinon.assert.calledWith(
@@ -175,7 +161,6 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           addressPlan,
           'save',
-          requestDetails,
           ttl,
         );
       });
@@ -187,16 +172,14 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
         const newPlanId = uuidV4(randomBytes(16));
         const newAddressPlan: IEvmAddressHbarSpendingPlan = { evmAddress, planId: newPlanId };
-        await repository.save(newAddressPlan, requestDetails, ttl);
+        await repository.save(newAddressPlan, ttl);
         const result = await cacheService.getAsync<IEvmAddressHbarSpendingPlan>(
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.deep.equal(newAddressPlan);
         sinon.assert.calledWith(
@@ -204,7 +187,6 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           newAddressPlan,
           'save',
-          requestDetails,
           ttl,
         );
       });
@@ -218,21 +200,19 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        await repository.delete(evmAddress, requestDetails);
+        await repository.delete(evmAddress);
         const result = await cacheService.getAsync<IEvmAddressHbarSpendingPlan>(
           `${EvmAddressHbarSpendingPlanRepository.collectionKey}:${evmAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.be.null;
       });
 
       it('does not throw an error if address plan to delete does not exist', async () => {
         const evmAddress = '0xnonexistent';
-        await expect(repository.delete(evmAddress, requestDetails)).to.be.fulfilled;
+        await expect(repository.delete(evmAddress)).to.be.fulfilled;
       });
     });
   };
