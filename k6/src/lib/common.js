@@ -3,7 +3,7 @@
 import { check, sleep } from 'k6';
 import { Gauge } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
-import { getStressScenarioOptions } from './traffic-weights.js';
+import { calculateVUAllocation } from './traffic-weights.js';
 
 import { setDefaultValuesForEnvParameters } from './parameters.js';
 
@@ -316,6 +316,25 @@ function TestScenarioBuilder() {
   };
 
   return this;
+}
+
+/**
+ * Get stress test scenario options for a specific endpoint
+ * @param {string} endpoint - The endpoint name
+ * @param {number} totalVUs - Total VUs to distribute
+ * @param {string} duration - Test duration
+ * @returns {Object} K6 scenario configuration
+ */
+export function getStressScenarioOptions(endpoint, totalVUs = 10, duration = '60s') {
+  const vuAllocation = calculateVUAllocation(totalVUs);
+
+  return {
+    executor: 'constant-vus',
+    vus: vuAllocation[endpoint] || 1,
+    duration: duration,
+    startTime: '0s', // All scenarios start simultaneously for stress testing
+    gracefulStop: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
+  };
 }
 
 /**

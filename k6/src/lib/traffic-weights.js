@@ -61,31 +61,15 @@ export const trafficWeights = {
 };
 
 /**
- * Normalize traffic weights to ensure they sum to 1.0
- * @returns {Object} Normalized traffic weights
- */
-function getNormalizedWeights() {
-  const totalWeight = Object.values(trafficWeights).reduce((sum, weight) => sum + weight, 0);
-  const normalized = {};
-
-  for (const [endpoint, weight] of Object.entries(trafficWeights)) {
-    normalized[endpoint] = weight / totalWeight;
-  }
-
-  return normalized;
-}
-
-/**
  * Calculate VU allocation based on traffic weights and total VUs
  * Simple proportional allocation: VUs = DEFAULT_VUS * Percentage
  * @param {number} totalVUs - Total number of VUs to distribute
  * @returns {Object} VU allocation per endpoint
  */
 export function calculateVUAllocation(totalVUs = 10) {
-  const normalizedWeights = getNormalizedWeights();
   const allocation = {};
 
-  for (const [endpoint, weight] of Object.entries(normalizedWeights)) {
+  for (const [endpoint, weight] of Object.entries(trafficWeights)) {
     // Simple proportional allocation: VUs = totalVUs * percentage
     const vus = Math.round(weight * totalVUs);
     // Ensure minimum 1 VU only if the calculated value would be 0
@@ -96,23 +80,4 @@ export function calculateVUAllocation(totalVUs = 10) {
   globalThis.vuAllocation = allocation;
 
   return allocation;
-}
-
-/**
- * Get stress test scenario options for a specific endpoint
- * @param {string} endpoint - The endpoint name
- * @param {number} totalVUs - Total VUs to distribute
- * @param {string} duration - Test duration
- * @returns {Object} K6 scenario configuration
- */
-export function getStressScenarioOptions(endpoint, totalVUs = 10, duration = '60s') {
-  const vuAllocation = calculateVUAllocation(totalVUs);
-
-  return {
-    executor: 'constant-vus',
-    vus: vuAllocation[endpoint] || 1,
-    duration: duration,
-    startTime: '0s', // All scenarios start simultaneously for stress testing
-    gracefulStop: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
-  };
 }
