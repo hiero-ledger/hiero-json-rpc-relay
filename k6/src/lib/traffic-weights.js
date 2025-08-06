@@ -2,7 +2,6 @@
 
 /**
  * Traffic weights from real production data (90 days: April 29 - July 29, 2025)
- * Source: traffic-weights-report.md
  */
 export const trafficWeights = {
   eth_getBlockByNumber: 0.687,

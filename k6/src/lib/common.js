@@ -3,6 +3,7 @@
 import { check, sleep } from 'k6';
 import { Gauge } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import { getStressScenarioOptions } from './traffic-weights.js';
 
 import { setDefaultValuesForEnvParameters } from './parameters.js';
 
@@ -191,7 +192,7 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
 
   const isDebugMode = __ENV['DEBUG_MODE'] === 'true';
   if (isDebugMode) {
-    console.log("Raw metrics:");
+    console.log('Raw metrics:');
     console.log(JSON.stringify(metrics, null, 2));
   }
 
@@ -248,10 +249,10 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
       const httpMaxDuration = scenarioMetric['http_req_duration'].values['max'].toFixed(2);
 
       const firstColumn = isFirstColumnUrl ? scenarioUrls[scenario] : scenario;
-      
+
       // Get actual VU allocation for this scenario, fallback to DEFAULT_VUS
       const actualVUs = (globalThis.vuAllocation && globalThis.vuAllocation[scenario]) || __ENV.DEFAULT_VUS;
-      
+
       markdown += `| ${firstColumn} | ${actualVUs} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
     } catch (err) {
       console.error(`Unable to render report for scenario ${scenario}`);
@@ -317,4 +318,65 @@ function TestScenarioBuilder() {
   return this;
 }
 
-export { getSequentialTestScenarios, markdownReport, TestScenarioBuilder, getFilteredTests, getOptions };
+/**
+ * Create concurrent stress test scenarios with realistic traffic distribution
+ * @param {Object} tests - Test modules object
+ * @returns {Object} Stress test configuration
+ */
+function getStressTestScenarios(tests) {
+  tests = getFilteredTests(tests);
+
+  const totalVUs = parseInt(__ENV.DEFAULT_VUS) || 10;
+  const testDuration = __ENV.DEFAULT_DURATION || '60s';
+
+  const funcs = {};
+  const scenarios = {};
+  const thresholds = {};
+
+  // Create concurrent scenarios for all endpoints
+  for (const testName of Object.keys(tests).sort()) {
+    const testModule = tests[testName];
+    const testScenarios = testModule.options.scenarios;
+    const testThresholds = testModule.options.thresholds;
+
+    for (const [scenarioName, testScenario] of Object.entries(testScenarios)) {
+      // Get stress scenario options with realistic VU allocation
+      const stressOptions = getStressScenarioOptions(scenarioName, totalVUs, testDuration);
+
+      // Merge with existing scenario options but override key stress test properties
+      const scenario = Object.assign({}, testScenario, stressOptions);
+
+      funcs[scenarioName] = testModule[scenario.exec];
+      scenarios[scenarioName] = scenario;
+
+      // Set up thresholds
+      const tag = `scenario:${scenarioName}`;
+      for (const [name, threshold] of Object.entries(testThresholds)) {
+        if (name === 'http_req_duration') {
+          thresholds[`${name}{${tag},expected_response:true}`] = threshold;
+        } else {
+          thresholds[`${name}{${tag}}`] = threshold;
+        }
+      }
+      thresholds[`http_reqs{${tag}}`] = ['count>0'];
+      thresholds[`${SCENARIO_DURATION_METRIC_NAME}{${tag}}`] = ['value>0'];
+    }
+  }
+
+  const testOptions = Object.assign({}, getOptions(), { scenarios, thresholds });
+
+  return {
+    funcs,
+    options: testOptions,
+    scenarioDurationGauge: new Gauge(SCENARIO_DURATION_METRIC_NAME),
+  };
+}
+
+export {
+  getSequentialTestScenarios,
+  getStressTestScenarios,
+  markdownReport,
+  TestScenarioBuilder,
+  getFilteredTests,
+  getOptions,
+};

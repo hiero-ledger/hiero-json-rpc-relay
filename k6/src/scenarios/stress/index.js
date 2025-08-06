@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { getStressTestScenarios } from '../../lib/stress-common.js';
+import { getStressTestScenarios } from '../../lib/common.js';
 
 // Import all test modules (same as current test/index.js)
 import * as debug_traceBlockByNumber from '../test/debug_traceBlockByNumber.js';
