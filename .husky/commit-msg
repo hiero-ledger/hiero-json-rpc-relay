@@ -1,4 +1,1 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 grep -q "Signed-off-by" $1 || (echo "No Signed-off-by found. Run git commit --signoff" && false)

@@ -7,7 +7,7 @@ import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
 import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
@@ -70,14 +70,12 @@ const handleEthSubscribeNewHeads = (
   const wsNewHeadsEnabled = ConfigService.get('WS_NEW_HEADS_ENABLED');
 
   if (!wsNewHeadsEnabled) {
-    logger.warn(
-      `${requestDetails.formattedLogPrefix}: Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`,
-    );
+    logger.warn(`Unsupported JSON-RPC method due to the value of environment variable WS_NEW_HEADS_ENABLED`);
     throw predefined.UNSUPPORTED_METHOD;
   }
 
   const subscriptionId = subscribeToNewHeads(filters, ctx, event, logger, subscriptionService);
-  return jsonResp(request.id, null, subscriptionId) as SubscriptionResponse;
+  return jsonRespResult(request.id, subscriptionId) as SubscriptionResponse;
 };
 
 /**
@@ -113,7 +111,7 @@ const handleEthSubscribeLogs = async (
     throw predefined.INVALID_PARAMETER('filters.address', 'Only one contract address is allowed');
   }
   const subscriptionId = subscriptionService.subscribe(ctx.websocket, event, validFiltersObject);
-  return jsonResp(request.id, null, subscriptionId) as SubscriptionResponse;
+  return jsonRespResult(request.id, subscriptionId) as SubscriptionResponse;
 };
 
 /**
