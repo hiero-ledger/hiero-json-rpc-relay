@@ -513,6 +513,27 @@ Like other tests, the stress test requires preparation data (smart contracts, wa
 npm run prep
 ```
 
+#### Recommended Relay Environment (.env) Settings
+
+For stress testing, it is advised to start the Relay with the following environment variables. These settings help ensure the stress test can be executed effectively and yield a higher pass rate under heavy load conditions:
+
+```env
+HEDERA_NETWORK=
+OPERATOR_ID_MAIN=
+OPERATOR_KEY_MAIN=
+OPERATOR_KEY_FORMAT=
+CHAIN_ID=
+MIRROR_NODE_URL_WEB3=
+MIRROR_NODE_URL=
+FILTER_API_ENABLED=true
+DEBUG_API_ENABLED=true
+REDIS_ENABLED=false # disabled Redis
+HBAR_RATE_LIMIT_TINYBAR=0 # disabled hbar rate limit
+RATE_LIMIT_DISABLED=true # disabled IP rate limit
+```
+
+These settings are recommended for running the relay in a stress test environment. They disable rate limiting and Redis, enable debugging and batch requests, and ensure synchronous transaction processing for more predictable test results.
+
 ### Running Stress Tests
 
 To run a stress test:
