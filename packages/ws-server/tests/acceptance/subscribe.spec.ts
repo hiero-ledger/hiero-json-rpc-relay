@@ -204,9 +204,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('When JSON is invalid, expect INVALID_REQUEST Error message', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = '';
+      let response = {};
       webSocket.on('message', function incoming(data) {
-        response = data;
+        response = JSON.parse(data);
       });
       webSocket.on('open', function open() {
         // send invalid JSON, missing closing bracket
@@ -214,8 +214,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(JSON.parse(response).code).to.eq(predefined.INVALID_REQUEST.code);
-      expect(JSON.parse(response).message).to.eq(predefined.INVALID_REQUEST.message);
+      expect(response.error.code).to.be.equal(predefined.INVALID_REQUEST.code);
+      expect(response.error.message).to.match(requestIdRegex(predefined.INVALID_REQUEST.message));
 
       webSocket.close();
     });
