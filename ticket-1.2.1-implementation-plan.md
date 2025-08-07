@@ -194,6 +194,8 @@ export function getStagedStressScenarioOptions(endpoint, totalVUs = 10) {
 ### Default Configuration (20-minute test)
 
 ```bash
+# For stress tests, DEFAULT_DURATION is ignored
+# Total duration = 2m + 20m + 1m = 23 minutes
 RAMP_UP_DURATION=2m
 STABLE_DURATION=20m
 RAMP_DOWN_DURATION=1m
@@ -202,7 +204,16 @@ RAMP_DOWN_DURATION=1m
 ### Long-duration Configuration (60-minute test)
 
 ```bash
+# Total duration = 2m + 60m + 2m = 64 minutes
 RAMP_UP_DURATION=2m
 STABLE_DURATION=60m
 RAMP_DOWN_DURATION=2m
 ```
+
+## Key Changes from Current Implementation
+
+### Duration Behavior Change
+
+- **Before**: `DEFAULT_DURATION` controlled stress test length (e.g., 120s)
+- **After**: Total stress test duration = `RAMP_UP_DURATION + STABLE_DURATION + RAMP_DOWN_DURATION`
+- **Backward Compatibility**: `DEFAULT_DURATION` still works for non-stress tests
