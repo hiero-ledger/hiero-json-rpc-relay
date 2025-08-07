@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getStressTestScenarios } from '../../lib/common.js';
-
 // Import all test modules (same as current test/index.js)
 import * as debug_traceBlockByNumber from '../test/debug_traceBlockByNumber.js';
 import * as debug_traceTransaction from '../test/debug_traceTransaction.js';
@@ -18,9 +17,9 @@ import * as eth_gasPrice from '../test/eth_gasPrice.js';
 import * as eth_getBalance from '../test/eth_getBalance.js';
 import * as eth_getBlockByHash from '../test/eth_getBlockByHash.js';
 import * as eth_getBlockByNumber from '../test/eth_getBlockByNumber.js';
+import * as eth_getBlockReceipts from '../test/eth_getBlockReceipts.js';
 import * as eth_getBlockTransactionCountByHash from '../test/eth_getBlockTransactionCountByHash.js';
 import * as eth_getBlockTransactionCountByNumber from '../test/eth_getBlockTransactionCountByNumber.js';
-import * as eth_getBlockReceipts from '../test/eth_getBlockReceipts.js';
 import * as eth_getCode from '../test/eth_getCode.js';
 import * as eth_getFilterChanges from '../test/eth_getFilterChanges.js';
 import * as eth_getFilterLogs from '../test/eth_getFilterLogs.js';
