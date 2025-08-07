@@ -13,4 +13,3 @@ export * from './spendingPlanConfig';
 export * from './registry';
 export * from './debug';
 export * from './rateLimiter';
-export * from './sdkClient';

@@ -20,7 +20,7 @@ import {
   TransactionRecordQuery,
   TransactionResponse,
 } from '@hashgraph/sdk';
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
@@ -73,7 +73,7 @@ export class SDKClient {
    * @param {Client} clientMain - The primary Hedera client instance used for executing transactions and queries.
    * @param {Logger} logger - The logger instance for logging information, warnings, and errors.
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
-   * @param hbarLimitService
+   * @param hbarLimitService - The HbarLimitService that tracks hbar expenses and limits.
    */
   constructor(
     clientMain: Client,
@@ -330,10 +330,8 @@ export class SDKClient {
       if (transactionId?.length) {
         this.eventEmitter.emit('execute_transaction', {
           transactionId,
-          callerName,
           txConstructorName,
           operatorAccountId: this.clientMain.operatorAccountId!.toString(),
-          interactingEntity,
           requestDetails,
           originalCallerAddress,
         });
@@ -401,10 +399,8 @@ export class SDKClient {
           if (transactionResponse.transactionId) {
             this.eventEmitter.emit('execute_transaction', {
               transactionId: transactionResponse.transactionId.toString(),
-              callerName,
               txConstructorName,
               operatorAccountId: this.clientMain.operatorAccountId!.toString(),
-              interactingEntity,
               requestDetails,
               originalCallerAddress,
             });

@@ -116,7 +116,6 @@ export class EthImpl implements Eth {
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
    * @param {CacheService} cacheService - Service for managing cached data.
-   * @param eventEmitter
    */
   constructor(
     hapiService: HAPIService,
