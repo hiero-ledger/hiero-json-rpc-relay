@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { check, sleep } from 'k6';
 import { Gauge } from 'k6/metrics';
-import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
-import { calculateVUAllocation } from './traffic-weights.js';
 
 import { setDefaultValuesForEnvParameters } from './parameters.js';
+import { calculateVUAllocation } from './traffic-weights.js';
 
 setDefaultValuesForEnvParameters();
 
@@ -270,13 +270,12 @@ function TestScenarioBuilder() {
   this._testDuration = undefined;
   this._maxDuration = undefined;
 
-  this.build = function () {
-    const that = this;
+  this.build = () => {
     return {
-      options: getOptionsWithScenario(that._name, that._tags, that._maxDuration, that._testDuration),
-      run: function (testParameters, iteration = 0, vuIndex = 0, iterationByVu = 0) {
-        const response = that._request(testParameters, iteration, vuIndex, iterationByVu);
-        check(response, that._checks);
+      options: getOptionsWithScenario(this._name, this._tags, this._maxDuration, this._testDuration),
+      run: (testParameters, iteration = 0, vuIndex = 0, iterationByVu = 0) => {
+        const response = this._request(testParameters, iteration, vuIndex, iterationByVu);
+        check(response, this._checks);
         // if Load test, then we need to sleep for random time between 1 and 5 seconds
         if (getTestType() === 'load') {
           sleep(randomIntBetween(1, 5));
