@@ -10,3 +10,11 @@ DEFAULT_GRACEFUL_STOP=
 FILTER_TEST=
 DEBUG_MODE=
 SIGNED_TXS=
+TEST_TYPE=
+
+# Stress test phase configuration
+# Note: When TEST_TYPE=stress, staging is enabled automatically with defaults (2m ramp-up, 20m stable, 1m ramp-down)
+# You can override these defaults by setting specific durations below:
+RAMP_UP_DURATION=
+STABLE_DURATION=
+RAMP_DOWN_DURATION=

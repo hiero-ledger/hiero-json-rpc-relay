@@ -78,6 +78,19 @@ function isLoadTest() {
   return __ENV.TEST_TYPE === 'load';
 }
 
+function isStressTest() {
+  return __ENV.TEST_TYPE === 'stress';
+}
+
+function shouldUseStagedExecution() {
+  // Enable staged execution if explicitly configured with staging variables
+  if (__ENV.RAMP_UP_DURATION || __ENV.STABLE_DURATION || __ENV.RAMP_DOWN_DURATION) {
+    return true;
+  }
+  // Or if TEST_TYPE is set to stress
+  return isStressTest();
+}
+
 function getFilteredTests(tests) {
   if (__ENV.FILTER_TEST && __ENV.FILTER_TEST !== '*') {
     const filteredTests = __ENV.FILTER_TEST.split(',');
@@ -179,7 +192,13 @@ function defaultMetrics() {
 }
 
 function getTestType() {
-  return __ENV.TEST_TYPE !== undefined && __ENV.TEST_TYPE === 'load' ? 'load' : 'performance';
+  if (__ENV.TEST_TYPE === 'load') {
+    return 'load';
+  } else if (__ENV.TEST_TYPE === 'stress') {
+    return 'stress';
+  } else {
+    return 'performance';
+  }
 }
 
 function markdownReport(data, isFirstColumnUrl, scenarios) {
@@ -228,7 +247,22 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
   let markdown = '# K6 Performance Test Results \n\n';
   markdown += `JSON-RPC-RELAY URL:  ${__ENV['RELAY_BASE_URL']}\n\n`;
   markdown += `Timestamp: ${new Date(Date.now()).toISOString()} \n\n`;
-  markdown += `Duration: ${__ENV['DEFAULT_DURATION']} \n\n`;
+  
+  // Add staging information if available
+  if (shouldUseStagedExecution()) {
+    if (__ENV.RAMP_UP_DURATION) {
+      markdown += `Ramp-up Duration: ${__ENV.RAMP_UP_DURATION} \n\n`;
+    }
+    if (__ENV.STABLE_DURATION) {
+      markdown += `Stable Duration: ${__ENV.STABLE_DURATION} \n\n`;
+    }
+    if (__ENV.RAMP_DOWN_DURATION) {
+      markdown += `Ramp-down Duration: ${__ENV.RAMP_DOWN_DURATION} \n\n`;
+    }
+  } else {
+    markdown += `Duration: ${__ENV['DEFAULT_DURATION']} \n\n`;
+  }
+  
   markdown += `Test Type: ${getTestType()} \n\n`;
   markdown += `Virtual Users (VUs): ${__ENV['DEFAULT_VUS']} \n\n`;
 
@@ -318,21 +352,29 @@ function TestScenarioBuilder() {
 }
 
 /**
- * Get stress test scenario options for a specific endpoint
+ * Get stress test scenario options for a specific endpoint with staged execution
  * @param {string} endpoint - The endpoint name
  * @param {number} totalVUs - Total VUs to distribute
- * @param {string} duration - Test duration
- * @returns {Object} K6 scenario configuration
+ * @returns {Object} K6 scenario configuration with ramping stages
+ * @note This function ignores DEFAULT_DURATION as total duration is calculated from stage durations
  */
-export function getStressScenarioOptions(endpoint, totalVUs = 10, duration = '60s') {
+function getStagedStressScenarioOptions(endpoint, totalVUs = 10) {
   const vuAllocation = calculateVUAllocation(totalVUs);
+  const rampUpDuration = __ENV.RAMP_UP_DURATION || '2m';
+  const stableDuration = __ENV.STABLE_DURATION || '20m';
+  const rampDownDuration = __ENV.RAMP_DOWN_DURATION || '1m';
+
+  const allocatedVUs = vuAllocation[endpoint] || 1;
 
   return {
-    executor: 'constant-vus',
-    vus: vuAllocation[endpoint] || 1,
-    duration: duration,
-    startTime: '0s', // All scenarios start simultaneously for stress testing
-    gracefulStop: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
+    executor: 'ramping-vus',
+    startVUs: 0,
+    stages: [
+      { duration: rampUpDuration, target: allocatedVUs }, // Ramp-up phase
+      { duration: stableDuration, target: allocatedVUs }, // Stable phase
+      { duration: rampDownDuration, target: 0 }, // Ramp-down phase
+    ],
+    gracefulRampDown: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
   };
 }
 
@@ -345,24 +387,32 @@ function getStressTestScenarios(tests) {
   tests = getFilteredTests(tests);
 
   const totalVUs = parseInt(__ENV.DEFAULT_VUS) || 10;
-  const testDuration = __ENV.DEFAULT_DURATION || '60s';
 
   const funcs = {};
   const scenarios = {};
   const thresholds = {};
 
-  // Create concurrent scenarios for all endpoints
+  // Create concurrent scenarios for all endpoints using staged execution
   for (const testName of Object.keys(tests).sort()) {
     const testModule = tests[testName];
     const testScenarios = testModule.options.scenarios;
     const testThresholds = testModule.options.thresholds;
 
     for (const [scenarioName, testScenario] of Object.entries(testScenarios)) {
-      // Get stress scenario options with realistic VU allocation
-      const stressOptions = getStressScenarioOptions(scenarioName, totalVUs, testDuration);
+      // Get staged stress scenario options with realistic VU allocation
+      const stressOptions = getStagedStressScenarioOptions(scenarioName, totalVUs);
 
-      // Merge with existing scenario options but override key stress test properties
-      const scenario = Object.assign({}, testScenario, stressOptions);
+      const scenario = {
+        // Core execution properties from stress options
+        executor: stressOptions.executor,
+        startVUs: stressOptions.startVUs,
+        stages: stressOptions.stages,
+        gracefulRampDown: stressOptions.gracefulRampDown,
+
+        // Execution function and tags from original scenario
+        exec: testScenario.exec,
+        tags: testScenario.tags || {},
+      };
 
       funcs[scenarioName] = testModule[scenario.exec];
       scenarios[scenarioName] = scenario;
@@ -393,6 +443,7 @@ function getStressTestScenarios(tests) {
 export {
   getSequentialTestScenarios,
   getStressTestScenarios,
+  getStagedStressScenarioOptions,
   markdownReport,
   TestScenarioBuilder,
   getFilteredTests,
