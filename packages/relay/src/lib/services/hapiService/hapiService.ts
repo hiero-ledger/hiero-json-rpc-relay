@@ -2,13 +2,14 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Client } from '@hashgraph/sdk';
+import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
 import constants from '../../constants';
-import { CustomEventEmitter } from '../../types';
+import { CustomEventEmitter, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
@@ -125,7 +126,7 @@ export default class HAPIService {
    * @readonly
    * @type {EventEmitter}
    */
-  private readonly eventEmitter: CustomEventEmitter;
+  readonly eventEmitter: CustomEventEmitter;
 
   /**
    * A registry used within the class.
@@ -151,15 +152,10 @@ export default class HAPIService {
    * @param {EventEmitter} eventEmitter - The event emitter instance used for emitting events.
    * @param {HbarLimitService} hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(
-    logger: Logger,
-    register: Registry,
-    eventEmitter: CustomEventEmitter,
-    hbarLimitService: HbarLimitService,
-  ) {
+  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = new EventEmitter<TypedEvents>();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
     this.clientMain = this.initClient(logger, this.hederaNetwork);
 

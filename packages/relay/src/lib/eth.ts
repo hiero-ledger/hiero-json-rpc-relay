@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
 import { Eth } from '../index';
@@ -33,6 +34,7 @@ import {
   INewFilterParams,
   ITransactionReceipt,
   RequestDetails,
+  TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
 
@@ -80,7 +82,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  private readonly eventEmitter: CustomEventEmitter;
+  readonly eventEmitter: CustomEventEmitter;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -123,7 +125,6 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: CacheService,
-    eventEmitter: CustomEventEmitter,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -133,12 +134,12 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = new EventEmitter<TypedEvents>();
     this.transactionService = new TransactionService(
       cacheService,
       chain,
       this.common,
-      eventEmitter,
+      this.eventEmitter,
       hapiService,
       logger,
       mirrorNodeClient,
