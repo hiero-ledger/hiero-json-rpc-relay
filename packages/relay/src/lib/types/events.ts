@@ -3,32 +3,7 @@
 import EventEmitter from 'events';
 
 import constants from '../constants';
-import { RequestDetails } from './RequestDetails';
-
-export interface IEthExecutionEventPayload {
-  method: string;
-}
-
-export interface IExecuteQueryEventPayload {
-  executionMode: string;
-  transactionId: string;
-  txConstructorName: string;
-  cost: number;
-  gasUsed: number;
-  status: string;
-  requestDetails: RequestDetails;
-  originalCallerAddress: string | undefined;
-}
-
-export interface IExecuteTransactionEventPayload {
-  transactionId: string;
-  callerName: string;
-  txConstructorName: string;
-  operatorAccountId: string;
-  interactingEntity: string;
-  requestDetails: RequestDetails;
-  originalCallerAddress: string;
-}
+import { IEthExecutionEventPayload, IExecuteQueryEventPayload, IExecuteTransactionEventPayload } from './sdkClient';
 
 export interface TypedEvents {
   [constants.EVENTS.ETH_EXECUTION]: [IEthExecutionEventPayload];

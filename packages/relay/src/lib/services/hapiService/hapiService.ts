@@ -126,7 +126,7 @@ export default class HAPIService {
    * @readonly
    * @type {EventEmitter}
    */
-  readonly eventEmitter: CustomEventEmitter;
+  readonly eventEmitter: EventEmitter<TypedEvents>;
 
   /**
    * A registry used within the class.
