@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y make gcc g++
 
       - name: Setup node
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
