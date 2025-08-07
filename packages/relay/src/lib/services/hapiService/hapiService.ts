@@ -9,7 +9,7 @@ import { Counter, Registry } from 'prom-client';
 import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
 import constants from '../../constants';
-import { CustomEventEmitter, TypedEvents } from '../../types';
+import { TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {

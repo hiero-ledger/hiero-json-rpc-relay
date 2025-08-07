@@ -20,13 +20,14 @@ import {
   TransactionRecordQuery,
   TransactionResponse,
 } from '@hashgraph/sdk';
+import EventEmitter from 'events';
 import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
-import { CustomEventEmitter, ITransactionRecordMetric, RequestDetails } from '../types';
+import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -77,7 +78,7 @@ export class SDKClient {
   constructor(
     clientMain: Client,
     logger: Logger,
-    readonly eventEmitter: CustomEventEmitter,
+    readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
   ) {
     this.clientMain = clientMain;
@@ -227,7 +228,7 @@ export class SDKClient {
       throw sdkClientError;
     } finally {
       if (queryCost && queryCost !== 0) {
-        this.eventEmitter.emit(constants.EVENTS.EXECUTE_QUERY, {
+        this.eventEmitter.emit('execute_query', {
           executionMode: constants.EXECUTION_MODE.QUERY,
           transactionId: query.paymentTransactionId?.toString() ?? '',
           txConstructorName: queryConstructorName,
@@ -327,7 +328,7 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
-        this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
+        this.eventEmitter.emit('execute_transaction', {
           transactionId,
           callerName,
           txConstructorName,
@@ -398,7 +399,7 @@ export class SDKClient {
       if (transactionResponses) {
         for (const transactionResponse of transactionResponses) {
           if (transactionResponse.transactionId) {
-            this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
+            this.eventEmitter.emit('execute_transaction', {
               transactionId: transactionResponse.transactionId.toString(),
               callerName,
               txConstructorName,

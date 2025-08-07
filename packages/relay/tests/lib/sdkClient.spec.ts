@@ -27,12 +27,7 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import {
-  CustomEventEmitter,
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
-  TypedEvents,
-} from '../../dist/lib/types';
+import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, TypedEvents } from '../../dist/lib/types';
 import { formatTransactionId } from '../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -65,7 +60,7 @@ describe('SdkClient', async function () {
   let mock: MockAdapter;
   let sdkClient: SDKClient;
   let instance: AxiosInstance;
-  let eventEmitter: CustomEventEmitter;
+  let eventEmitter: EventEmitter<TypedEvents>;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -126,10 +121,10 @@ describe('SdkClient', async function () {
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
     const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
-    eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
+    eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       metricService.captureTransactionMetrics(args).then();
     });
-    eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
+    eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
       metricService.addExpenseAndCaptureMetrics(args);
     });
   });

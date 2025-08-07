@@ -223,12 +223,6 @@ export default {
     FILE_APPEND_RATE_PER_BYTE: 0.0011,
   },
 
-  EVENTS: {
-    EXECUTE_TRANSACTION: 'EXECUTE_TRANSACTION',
-    EXECUTE_QUERY: 'EXECUTE_QUERY',
-    ETH_EXECUTION: 'ETH_EXECUTION',
-  },
-
   EXECUTION_MODE: {
     QUERY: `QUERY`,
     RECORD: `RECORD`,
@@ -273,4 +267,4 @@ export default {
   ETH_GET_TRANSACTION_RECEIPT: 'eth_GetTransactionReceipt',
   ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
   NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
-} as const;
+};

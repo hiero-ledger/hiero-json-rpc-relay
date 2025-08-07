@@ -27,7 +27,6 @@ import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
 import {
-  CustomEventEmitter,
   IContractCallRequest,
   IFeeHistory,
   IGetLogsParams,
@@ -82,7 +81,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  readonly eventEmitter: CustomEventEmitter;
+  readonly eventEmitter: EventEmitter<TypedEvents>;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -264,7 +263,7 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      this.eventEmitter.emit('eth_execution', {
         method: constants.ETH_ESTIMATE_GAS,
       });
     }
@@ -974,7 +973,7 @@ export class EthImpl implements Eth {
       this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
     }
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+    this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_CALL,
     });
 

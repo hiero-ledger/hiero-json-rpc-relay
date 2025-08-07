@@ -188,15 +188,15 @@ export class Relay {
       this.cacheService,
     );
 
-    (this.ethImpl as EthImpl).eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
+    (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
       this.metricService.ethExecutionsCounter.labels(args.method).inc();
     });
 
-    hapiService.eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
+    hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       this.metricService.captureTransactionMetrics(args).then();
     });
 
-    hapiService.eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
+    hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
