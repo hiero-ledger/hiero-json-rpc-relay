@@ -13,7 +13,7 @@ import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
-import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
+import { spec } from './koaJsonRpc/lib/RpcError';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
@@ -206,7 +206,7 @@ app.getKoaApp().use(async (ctx, next) => {
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/config') {
     if (ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
-      return new MethodNotFound('config');
+      return spec.MethodNotFound('config');
     }
     ctx.status = 200;
     ctx.body = JSON.stringify(await relay.admin().config());

@@ -13,15 +13,8 @@ import { Histogram, Registry } from 'prom-client';
 
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { IJsonRpcRequest } from './lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from './lib/IJsonRpcResponse';
-import {
-  InternalError,
-  InvalidRequest,
-  IPRateLimitExceeded,
-  JsonRpcError as JsonRpcErrorServer,
-  ParseError,
-} from './lib/RpcError';
-import { jsonRespError, jsonRespResult } from './lib/RpcResponse';
+import { spec } from './lib/RpcError';
+import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from './lib/RpcResponse';
 import {
   getBatchRequestsEnabled,
   getBatchRequestsMaxSize,
@@ -83,7 +76,7 @@ export default class KoaJsonRpc {
       ctx.set(REQUEST_ID_HEADER_NAME, this.requestId);
 
       if (ctx.request.method !== 'POST') {
-        ctx.body = jsonRespError(null, new InvalidRequest(), requestId);
+        ctx.body = jsonRespError(null, spec.InvalidRequest, requestId);
         ctx.status = 400;
         ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
         return;
@@ -93,7 +86,7 @@ export default class KoaJsonRpc {
       try {
         body = await parse.json(ctx, { limit: this.limit });
       } catch (err) {
-        ctx.body = jsonRespError(null, new ParseError(), requestId);
+        ctx.body = jsonRespError(null, spec.ParseError, requestId);
         return;
       }
       //check if body is array or object
@@ -110,9 +103,8 @@ export default class KoaJsonRpc {
     ctx.body = response;
     ctx.state.methodName = body.method;
 
-    const errorOrResult = response.error || response.result;
-    if (errorOrResult instanceof JsonRpcError || errorOrResult instanceof JsonRpcErrorServer) {
-      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(errorOrResult);
+    if ('error' in response) {
+      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(response.error);
 
       ctx.status = statusErrorCode;
       ctx.state.status = `${ctx.status} (${statusErrorMessage})`;
@@ -151,7 +143,8 @@ export default class KoaJsonRpc {
       const startTime = Date.now();
       return this.getRequestResult(item, ctx.ip, requestId).then((res) => {
         const ms = Date.now() - startTime;
-        this.methodResponseHistogram?.labels(item.method, `${res.error ? res.error.code : 200}`, 'true').observe(ms);
+        const code = 'error' in res ? res.error.code : 200;
+        this.methodResponseHistogram?.labels(item.method, `${code}`, 'true').observe(ms);
         return res;
       });
     });
@@ -168,13 +161,13 @@ export default class KoaJsonRpc {
     try {
       // ensure the request aligns with JSON-RPC 2.0 Specification
       if (!this.validateJsonRpcRequest(request)) {
-        return jsonRespError(request.id || null, new InvalidRequest(), requestId);
+        return jsonRespError(request.id || null, spec.InvalidRequest, requestId);
       }
 
       // check rate limit for method and ip
       const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
       if (await this.rateLimiter.shouldRateLimit(ip, request.method, methodTotalLimit, this.getRequestDetails())) {
-        return jsonRespError(request.id, new IPRateLimitExceeded(request.method), requestId);
+        return jsonRespError(request.id, spec.IPRateLimitExceeded(request.method), requestId);
       }
 
       // call the public API entry point on the Relay package to execute the RPC method
@@ -187,7 +180,7 @@ export default class KoaJsonRpc {
       }
     } catch (err) {
       /* istanbul ignore next: this catch block covers programmatic errors and should not happen */
-      return jsonRespError(request.id, new InternalError(err), requestId);
+      return jsonRespError(request.id, spec.InternalError(err), requestId);
     }
   }
 

@@ -4,8 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import { jsonRespError } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { type IJsonRpcResponse, jsonRespError } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Logger } from 'pino';
 
 import ConnectionLimiter from '../metrics/connectionLimiter';

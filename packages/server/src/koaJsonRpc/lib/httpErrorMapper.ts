@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '@hashgraph/json-rpc-relay/dist';
-
-import { JsonRpcError as JsonRpcErrorServer } from './RpcError';
+import { type IJsonRpcError } from './RpcError';
 
 // Define constants for frequently used values
 const HTTP_STATUS = {
@@ -28,10 +26,10 @@ const ERROR_CODE_MAP: Record<number, number> = {
 // - MN 429 -> Relay HTTP 429
 // - MN 501 -> Relay HTTP 501
 // - Any other error codes from the Mirror Node will be mapped to Relay HTTP 500 by default
-const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
-  '404': HTTP_STATUS.BAD_REQUEST,
-  '429': HTTP_STATUS.TOO_MANY_REQUESTS,
-  '501': HTTP_STATUS.NOT_IMPLEMENTED,
+const MIRROR_NODE_ERROR_MAP = {
+  404: HTTP_STATUS.BAD_REQUEST,
+  429: HTTP_STATUS.TOO_MANY_REQUESTS,
+  501: HTTP_STATUS.NOT_IMPLEMENTED,
 };
 
 /**
@@ -43,7 +41,7 @@ const MIRROR_NODE_ERROR_MAP: Record<string, number> = {
  * @param errorData - Optional error data
  * @returns HTTP status code and status error description
  */
-export function translateRpcErrorToHttpStatus(jsonRpcError: JsonRpcError | JsonRpcErrorServer): {
+export function translateRpcErrorToHttpStatus(jsonRpcError: IJsonRpcError): {
   statusErrorCode: number;
   statusErrorMessage: string;
 } {
@@ -54,7 +52,7 @@ export function translateRpcErrorToHttpStatus(jsonRpcError: JsonRpcError | JsonR
   // Handle Mirror Node errors (-32020)
   // Note: -32020 corresponds to predefined.MIRROR_NODE_UPSTREAM_FAILURE,
   // where `jsonRpcError.data` represents the actual HTTP status code returned from the Mirror Node upstream server.
-  if (jsonRpcError.code === -32020 && jsonRpcError.data) {
+  if (jsonRpcError.code === -32020 && typeof jsonRpcError.data === 'number') {
     statusErrorCode = MIRROR_NODE_ERROR_MAP[jsonRpcError.data] || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   }
 

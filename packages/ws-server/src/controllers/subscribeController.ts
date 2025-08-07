@@ -6,15 +6,12 @@ import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import { jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { type IJsonRpcResponse, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import { Context } from 'koa';
 import { Logger } from 'pino';
 
 type SubscriptionId = string | undefined;
-export interface SubscriptionResponse extends IJsonRpcResponse {
-  result: SubscriptionId;
-}
+type SubscriptionResponse = IJsonRpcResponse<SubscriptionId>;
 
 import { SubscriptionService } from '../service/subscriptionService';
 import {

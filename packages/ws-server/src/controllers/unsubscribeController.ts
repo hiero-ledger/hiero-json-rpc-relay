@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import { jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { type IJsonRpcResponse, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
 import { areSubscriptionsEnabled } from '../utils/utils';
 import { sendSubscriptionsDisabledError } from '../utils/utils';

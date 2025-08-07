@@ -2,12 +2,12 @@
 
 import { decodeErrorMessage } from '../../formatters';
 
-export class JsonRpcError {
+export class JsonRpcError extends Error {
   public code: number;
-  public message: string;
-  public data?: string;
+  public data?: unknown;
 
-  constructor(args: { code: number; message: string; data?: string }) {
+  constructor(args: { code: number; message: string; data?: unknown }) {
+    super(args.message);
     this.code = args.code;
     this.data = args.data;
     this.message = args.message;
@@ -233,7 +233,7 @@ export const predefined = {
     return new JsonRpcError({
       code: -32020,
       message: `Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`,
-      data: errCode.toString(), // Preserving the Mirror Node HTTP status for potential exposure/debugging
+      data: errCode, // Preserving the Mirror Node HTTP status for potential exposure/debugging
     });
   },
   UNKNOWN_BLOCK: (msg?: string | null) =>
