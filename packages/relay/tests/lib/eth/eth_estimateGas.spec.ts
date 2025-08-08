@@ -72,7 +72,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = createStubInstance(SDKClient);
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
@@ -552,7 +552,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     const result = await ethImpl.estimateGas(transaction, null, requestDetails);
 
-    expect(result).to.be.an('object');
+    expect(result).to.be.an('error');
     expect((result as JsonRpcError).code).to.equal(-32603);
     expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
 
@@ -567,7 +567,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     const result = await ethImpl.estimateGas(transaction, null, requestDetails);
 
-    expect(result).to.be.an('object');
+    expect(result).to.be.an('error');
     expect((result as JsonRpcError).code).to.equal(-32603);
     expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
 

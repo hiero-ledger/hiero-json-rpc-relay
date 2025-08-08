@@ -110,7 +110,7 @@ describe('Errors', () => {
           const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
           expect(error.code).to.eq(-32020);
           expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
-          expect(error.data).to.eq(errCode.toString());
+          expect(error.data).to.eq(errCode);
         });
       });
     });

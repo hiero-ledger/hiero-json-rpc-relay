@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { JsonRpcError } from '@hashgraph/json-rpc-relay';
+import { type IJsonRpcError } from './RpcError';
 
-import { IJsonRpcResponse } from './IJsonRpcResponse';
+export type IJsonRpcResponse<Result = unknown> = {
+  id: string | number | null;
+  jsonrpc: '2.0';
+} & (
+  | {
+      result: Result;
+    }
+  | {
+      error: IJsonRpcError;
+    }
+);
 
 /**
  * Creates a JSON-RPC response object for a successful request.
@@ -13,7 +23,7 @@ import { IJsonRpcResponse } from './IJsonRpcResponse';
  * @param result - The result of the response.
  * @returns A JSON-RPC response object.
  */
-export function jsonRespResult(id: string | number | null, result: unknown): IJsonRpcResponse {
+export function jsonRespResult<Result>(id: IJsonRpcResponse['id'], result: Result): IJsonRpcResponse<Result> {
   if (id !== null && typeof id !== 'string' && typeof id !== 'number') {
     throw new TypeError(`Invalid id type ${typeof id}`);
   }
@@ -26,7 +36,7 @@ export function jsonRespResult(id: string | number | null, result: unknown): IJs
 }
 
 /**
- * Creates a JSON-RPC error object for a `JsonRpcError`.
+ * Creates a JSON-RPC error response object for an {@link IJsonRpcError}.
  * It wraps the `error` in a response object with the given ID.
  * See _Error object_ https://www.jsonrpc.org/specification#error_object for more details.
  *
@@ -42,7 +52,7 @@ export function jsonRespResult(id: string | number | null, result: unknown): IJs
  * @param requestId - The internal request ID used for logging and tracing purposes.
  * @returns A JSON-RPC error object.
  */
-export function jsonRespError(id: string | number | null, error: JsonRpcError, requestId: string): IJsonRpcResponse {
+export function jsonRespError(id: IJsonRpcResponse['id'], error: IJsonRpcError, requestId: string): IJsonRpcResponse {
   if (id !== null && typeof id !== 'string' && typeof id !== 'number') {
     throw new TypeError(`Invalid id type ${typeof id}`);
   }
@@ -55,14 +65,12 @@ export function jsonRespError(id: string | number | null, error: JsonRpcError, r
     throw new TypeError(`Invalid error message type ${typeof error.message}`);
   }
 
-  // We cannot update the original `error`'s message because `error` might be reused.
-  // Thus, we need to return a new `JsonRpcError` instance instead.
   return {
-    error: new JsonRpcError({
+    error: {
       code: error.code,
       message: `[Request ID: ${requestId}] ${error.message}`,
       data: error.data,
-    }),
+    },
     jsonrpc: '2.0',
     id,
   };

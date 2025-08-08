@@ -133,7 +133,7 @@ app.ws.use(async (ctx: Koa.Context) => {
       } catch (e) {
         // Log an error if the message cannot be decoded and send an invalid request error to the client
         logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
-        ctx.websocket.send(JSON.stringify(predefined.INVALID_REQUEST));
+        ctx.websocket.send(JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)));
         return;
       }
 

@@ -4,14 +4,12 @@ import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist'
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import { spec } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
 import {
-  InternalError,
-  InvalidRequest,
-  IPRateLimitExceeded,
-  MethodNotFound,
-} from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import { jsonRespError, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+  type IJsonRpcResponse,
+  jsonRespError,
+  jsonRespResult,
+} from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import Koa from 'koa';
 import { Logger } from 'pino';
 
@@ -70,7 +68,7 @@ const handleSendingRequestsToRelay = async ({
       return jsonRespResult(request.id, result);
     }
   } catch (err) {
-    return jsonRespError(request.id, new InternalError(err), requestDetails.requestId);
+    return jsonRespError(request.id, spec.InternalError(err), requestDetails.requestId);
   }
 };
 
@@ -111,18 +109,18 @@ export const getRequestResult = async (
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger)) {
-    return jsonRespError(request.id || null, new InvalidRequest(), requestDetails.requestId);
+    return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(request.method)) {
     logger.warn(`Method not supported: ${request.method}`);
-    return jsonRespError(request.id || null, new MethodNotFound(request.method), requestDetails.requestId);
+    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 
   // verify rate limit for method method based on IP
   if (await limiter.shouldRateLimitOnMethod(ctx.ip, request.method, requestDetails)) {
-    return jsonRespError(null, new IPRateLimitExceeded(request.method), requestDetails.requestId);
+    return jsonRespError(null, spec.IPRateLimitExceeded(request.method), requestDetails.requestId);
   }
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method

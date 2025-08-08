@@ -2107,7 +2107,6 @@ describe('RPC Server', function () {
 
           Assertions.expectedError();
         } catch (error: any) {
-          console.log(error);
           BaseTest.invalidParamError(error.response, ERROR_CODE, MISSING_PARAM_ERROR + ' 2');
         }
       });
@@ -3373,8 +3372,6 @@ class BaseTest {
   static invalidParamError(response: any, code: number, message: string) {
     expect(response.status).to.eq(400);
     expect(response.statusText).to.eq('Bad Request');
-    console.log('response', response);
-    console.log('message', message);
     this.errorResponseChecks(response, code, message);
   }
 

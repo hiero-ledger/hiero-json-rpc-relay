@@ -2147,11 +2147,6 @@
               "title": "Error message",
               "type": "string",
               "pattern": "Unsupported JSON-RPC method"
-            },
-            "name": {
-              "title": "Error name",
-              "type": "string",
-              "pattern": "Method not found"
             }
           }
         }
