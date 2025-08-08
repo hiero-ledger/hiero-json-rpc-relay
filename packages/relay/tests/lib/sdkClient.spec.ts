@@ -97,7 +97,6 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    // @ts-ignore
     sdkClient = new SDKClient(client, logger, eventEmitter, hbarLimitService);
 
     instance = axios.create({
