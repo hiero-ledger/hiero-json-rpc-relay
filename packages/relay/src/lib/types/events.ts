@@ -2,14 +2,8 @@
 
 import { RequestDetails } from './RequestDetails';
 
-export interface IExecuteTransactionEventPayload {
-  transactionId: string;
-  callerName: string;
-  txConstructorName: string;
-  operatorAccountId: string;
-  interactingEntity: string;
-  requestDetails: RequestDetails;
-  originalCallerAddress: string;
+export interface IEthExecutionEventPayload {
+  method: string;
 }
 
 export interface IExecuteQueryEventPayload {
@@ -23,7 +17,16 @@ export interface IExecuteQueryEventPayload {
   originalCallerAddress: string | undefined;
 }
 
-export interface IEthExecutionEventPayload {
-  method: string;
+export interface IExecuteTransactionEventPayload {
+  transactionId: string;
+  txConstructorName: string;
+  operatorAccountId: string;
   requestDetails: RequestDetails;
+  originalCallerAddress: string;
+}
+
+export interface TypedEvents {
+  eth_execution: [IEthExecutionEventPayload];
+  execute_query: [IExecuteQueryEventPayload];
+  execute_transaction: [IExecuteTransactionEventPayload];
 }

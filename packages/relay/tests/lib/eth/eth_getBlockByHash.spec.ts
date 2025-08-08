@@ -3,7 +3,6 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
-import { EventEmitter } from 'stream';
 
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { MirrorNodeClientError, predefined } from '../../../src';
@@ -55,7 +54,6 @@ let ethImplLowTransactionCount: EthImpl;
 describe('@ethGetBlockByHash using MirrorNode', async function () {
   this.timeout(10000);
   const { restMock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } = generateEthTestEnv(true);
-  const eventEmitter = new EventEmitter();
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 
@@ -78,14 +76,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       .onGet(contractByEvmAddress(CONTRACT_ADDRESS_2))
       .reply(200, JSON.stringify({ ...DEFAULT_CONTRACT, evmAddress: CONTRACT_ADDRESS_2 }));
 
-    ethImplLowTransactionCount = new EthImpl(
-      hapiServiceInstance,
-      mirrorNodeInstance,
-      logger,
-      '0x12a',
-      cacheService,
-      eventEmitter,
-    );
+    ethImplLowTransactionCount = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
   });
 
   this.afterEach(() => {

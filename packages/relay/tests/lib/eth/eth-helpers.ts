@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import MockAdapter from 'axios-mock-adapter';
-import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
@@ -47,7 +46,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
   const duration = constants.HBAR_RATE_LIMIT_DURATION;
-  const eventEmitter = new EventEmitter();
 
   const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
   const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -61,11 +59,11 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+  const hapiServiceInstance = new HAPIService(logger, registry, hbarLimitService);
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
 
   return {
     cacheService,

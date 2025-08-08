@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Client } from '@hashgraph/sdk';
-import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
@@ -24,7 +23,14 @@ import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
-import { RequestDetails, RpcMethodRegistry, RpcNamespaceRegistry } from './types';
+import {
+  IEthExecutionEventPayload,
+  IExecuteQueryEventPayload,
+  IExecuteTransactionEventPayload,
+  RequestDetails,
+  RpcMethodRegistry,
+  RpcNamespaceRegistry,
+} from './types';
 import { Web3Impl } from './web3';
 
 export class Relay {
@@ -92,15 +98,6 @@ export class Relay {
   private readonly metricService: MetricService;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
-
-  /**
    * The Debug Service implementation that takes care of all filter API operations.
    */
   private readonly debugImpl: DebugImpl;
@@ -135,8 +132,6 @@ export class Relay {
 
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-
-    this.eventEmitter = new EventEmitter();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
     this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys);
 
@@ -161,7 +156,7 @@ export class Relay {
       duration,
     );
 
-    const hapiService = new HAPIService(logger, register, this.eventEmitter, hbarLimitService);
+    const hapiService = new HAPIService(logger, register, hbarLimitService);
 
     this.clientMain = hapiService.getMainClientInstance();
 
@@ -182,7 +177,6 @@ export class Relay {
       hapiService.getSDKClient(),
       this.mirrorNodeClient,
       register,
-      this.eventEmitter,
       hbarLimitService,
     );
 
@@ -192,8 +186,19 @@ export class Relay {
       logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
-      this.eventEmitter,
     );
+
+    (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
+      this.metricService.ethExecutionsCounter.labels(args.method).inc();
+    });
+
+    hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
+      this.metricService.captureTransactionMetrics(args).then();
+    });
+
+    hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
+      this.metricService.addExpenseAndCaptureMetrics(args);
+    });
 
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
     this.adminImpl = new AdminImpl(this.cacheService);

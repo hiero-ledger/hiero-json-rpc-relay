@@ -187,8 +187,8 @@ export class MirrorNodeClient {
     });
 
     if (useCacheableDnsLookup) {
-      betterLookupInstall(httpAgent);
-      betterLookupInstall(httpsAgent);
+      betterLookupInstall(httpAgent as any);
+      betterLookupInstall(httpsAgent as any);
     }
 
     const axiosClient: AxiosInstance = Axios.create({
