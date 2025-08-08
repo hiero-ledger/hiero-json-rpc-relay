@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@hashgraph/smart-contracts": "github:hashgraph/hedera-smart-contracts#11c5017c1867b3f31012163cdac0aafa4a30b60a",
-    "@openzeppelin/contracts": "^4.9.6"
+    "@openzeppelin/contracts": "^5.4.0"
   },
   "overrides": {
     "elliptic": "^6.6.1",
