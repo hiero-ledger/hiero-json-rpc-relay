@@ -10,7 +10,6 @@ export class JsonRpcError extends Error {
     super(args.message);
     this.code = args.code;
     this.data = args.data;
-    this.message = args.message;
   }
 }
 
