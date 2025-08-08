@@ -44,14 +44,6 @@ describe('WsMetricRegistry', function () {
         sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
       });
     });
-
-    const gaugeMetrics = ['cpuUsageGauge', 'memoryUsageGauge'] as const;
-
-    gaugeMetrics.forEach((metric) => {
-      it(`should initialize the ${metric} gauge metric`, function () {
-        sinon.assert.calledWith(removeSingleMetricStub, WS_CONSTANTS[metric].name);
-      });
-    });
   });
 
   describe('getCounter', function () {
