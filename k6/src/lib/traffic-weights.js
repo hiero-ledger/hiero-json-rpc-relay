@@ -60,24 +60,25 @@ export const trafficWeights = {
   eth_createAccessList: 0.00000001,
 };
 
+
 /**
- * Calculate VU allocation based on traffic weights and total VUs
- * Simple proportional allocation: VUs = DEFAULT_VUS * Percentage
- * @param {number} totalVUs - Total number of VUs to distribute
- * @returns {Object} VU allocation per endpoint
+ * Calculate rate allocation based on traffic weights and total RPS
+ * @param {number} targetTotalRPS - Target total requests per second to distribute
+ * @returns {Object} RPS allocation per endpoint
  */
-export function calculateVUAllocation(totalVUs = 10) {
+export function calculateRateAllocation(targetTotalRPS = 100) {
   const allocation = {};
 
   for (const [endpoint, weight] of Object.entries(trafficWeights)) {
-    // Simple proportional allocation: VUs = totalVUs * percentage
-    const vus = Math.round(weight * totalVUs);
-    // Ensure minimum 1 VU only if the calculated value would be 0
-    allocation[endpoint] = Math.max(1, vus);
+    // Direct proportional allocation: RPS = targetTotalRPS * percentage
+    const rps = weight * targetTotalRPS;
+    // Set minimum rate for very low-traffic endpoints and ensure it's an integer
+    // k6 requires rate to be an integer, so we round up to ensure at least 1 req/s for active endpoints
+    allocation[endpoint] = Math.max(1, Math.round(rps));
   }
 
   // Store allocation globally for reporting
-  globalThis.vuAllocation = allocation;
+  globalThis.rateAllocation = allocation;
 
   return allocation;
 }
