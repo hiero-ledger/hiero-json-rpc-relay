@@ -29,13 +29,8 @@ jobs:
           repository: 'ethereum/execution-apis'
           path: 'execution-apis'
 
-<<<<<<< HEAD
-      - name: Use Node.js TLS 20
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-=======
       - name: Use Node.js TLS 22
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
->>>>>>> f9ff0001 (updates node version used to 22)
         with:
           node-version: 22
 
