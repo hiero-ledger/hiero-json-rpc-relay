@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { AccountId, PrivateKey } from '@hashgraph/sdk';
 import { Operator } from '@hashgraph/sdk/lib/client/Client';
 import crypto from 'crypto';
-import createHash from 'keccak';
 import { Logger } from 'pino';
 
-import { hexToASCII, prepend0x, strip0x } from './formatters';
+import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
 import { RequestDetails } from './lib/types';
@@ -114,11 +114,11 @@ export class Utils {
 
   /**
    * Computes the Keccak-256 hash of a transaction buffer and prepends '0x'
-   * @param {Buffer} transactionBuffer - The raw transaction buffer to hash
-   * @returns {string} The computed transaction hash with '0x' prefix
+   * @param transactionBuffer - The raw transaction buffer to hash
+   * @returns The computed transaction hash with '0x' prefix
    */
   public static computeTransactionHash(transactionBuffer: Buffer): string {
-    return prepend0x(createHash('keccak256').update(transactionBuffer).digest('hex'));
+    return keccak256(transactionBuffer);
   }
 
   /**

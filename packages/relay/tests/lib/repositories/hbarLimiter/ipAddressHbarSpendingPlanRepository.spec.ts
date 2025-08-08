@@ -12,7 +12,6 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repo
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IIPAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
-import { RequestDetails } from '../../../../src/lib/types';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -20,10 +19,6 @@ chai.use(chaiAsPromised);
 describe('IPAddressHbarSpendingPlanRepository', function () {
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
-  const requestDetails = new RequestDetails({
-    requestId: 'ipAddressHbarSpendingPlanRepositoryTest',
-    ipAddress: '0.0.0.0',
-  });
   const ttl = 86_400_000; // 1 day
   const ipAddress = '555.555.555.555';
   const nonExistingIpAddress = 'xxx.xxx.xxx.xxx';
@@ -49,7 +44,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     }
 
     afterEach(async () => {
-      await cacheService.clear(requestDetails);
+      await cacheService.clear();
     });
 
     after(async () => {
@@ -63,14 +58,13 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        await expect(repository.existsByAddress(ipAddress, requestDetails)).to.eventually.be.true;
+        await expect(repository.existsByAddress(ipAddress)).to.eventually.be.true;
       });
 
       it('returns false if address plan does not exist', async () => {
-        await expect(repository.existsByAddress(nonExistingIpAddress, requestDetails)).to.eventually.be.false;
+        await expect(repository.existsByAddress(nonExistingIpAddress)).to.eventually.be.false;
       });
     });
 
@@ -86,17 +80,16 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
             `${IPAddressHbarSpendingPlanRepository.collectionKey}:${plan.ipAddress}`,
             plan,
             'test',
-            requestDetails,
           );
         }
 
-        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId', requestDetails);
+        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId');
         expect(result).to.have.deep.members(ipAddressPlans);
       });
 
       it('returns an empty array if no address plans are found for the plan ID', async () => {
         const planId = uuidV4(randomBytes(16));
-        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId', requestDetails);
+        const result = await repository.findAllByPlanId(planId, 'findAllByPlanId');
         expect(result).to.deep.equal([]);
       });
     });
@@ -111,26 +104,21 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
             `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
             addressPlan,
             'test',
-            requestDetails,
           );
         }
 
-        await repository.deleteAllByPlanId(planId, 'deleteAllByPlanId', requestDetails);
+        await repository.deleteAllByPlanId(planId, 'deleteAllByPlanId');
 
         for (const ipAddress of ipAddresses) {
           await expect(
-            cacheService.getAsync(
-              `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
-              'test',
-              requestDetails,
-            ),
+            cacheService.getAsync(`${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`, 'test'),
           ).to.eventually.be.null;
         }
       });
 
       it('does not throw an error if no address plans are found for the plan ID', async () => {
         const planId = uuidV4(randomBytes(16));
-        await expect(repository.deleteAllByPlanId(planId, 'deleteAllByPlanId', requestDetails)).to.be.fulfilled;
+        await expect(repository.deleteAllByPlanId(planId, 'deleteAllByPlanId')).to.be.fulfilled;
       });
     });
 
@@ -141,15 +129,14 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        const result = await repository.findByAddress(ipAddress, requestDetails);
+        const result = await repository.findByAddress(ipAddress);
         expect(result).to.deep.equal(addressPlan);
       });
 
       it('throws an error if address plan is not found', async () => {
-        await expect(repository.findByAddress(nonExistingIpAddress, requestDetails)).to.be.eventually.rejectedWith(
+        await expect(repository.findByAddress(nonExistingIpAddress)).to.be.eventually.rejectedWith(
           IPAddressHbarSpendingPlanNotFoundError,
           `IPAddressHbarSpendingPlan not found`,
         );
@@ -160,11 +147,10 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       it('saves an address plan successfully', async () => {
         const addressPlan: IIPAddressHbarSpendingPlan = { ipAddress, planId: uuidV4(randomBytes(16)) };
 
-        await repository.save(addressPlan, requestDetails, ttl);
+        await repository.save(addressPlan, ttl);
         const result = await cacheService.getAsync<IIPAddressHbarSpendingPlan>(
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.deep.equal(addressPlan);
         sinon.assert.calledWith(
@@ -172,7 +158,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           addressPlan,
           'save',
-          requestDetails,
           ttl,
         );
       });
@@ -183,16 +168,14 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
         const newPlanId = uuidV4(randomBytes(16));
         const newAddressPlan: IIPAddressHbarSpendingPlan = { ipAddress, planId: newPlanId };
-        await repository.save(newAddressPlan, requestDetails, ttl);
+        await repository.save(newAddressPlan, ttl);
         const result = await cacheService.getAsync<IIPAddressHbarSpendingPlan>(
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.deep.equal(newAddressPlan);
         sinon.assert.calledWith(
@@ -200,7 +183,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           newAddressPlan,
           'save',
-          requestDetails,
           ttl,
         );
       });
@@ -213,20 +195,18 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           addressPlan,
           'test',
-          requestDetails,
         );
 
-        await repository.delete(ipAddress, requestDetails);
+        await repository.delete(ipAddress);
         const result = await cacheService.getAsync<IIPAddressHbarSpendingPlan>(
           `${IPAddressHbarSpendingPlanRepository.collectionKey}:${ipAddress}`,
           'test',
-          requestDetails,
         );
         expect(result).to.be.null;
       });
 
       it('does not throw an error if address plan to delete does not exist', async () => {
-        await expect(repository.delete(nonExistingIpAddress, requestDetails)).to.be.fulfilled;
+        await expect(repository.delete(nonExistingIpAddress)).to.be.fulfilled;
       });
     });
   };

@@ -22,7 +22,6 @@ import {
 } from '../../../src/lib/db/types/hbarLimiter/errors';
 import { SubscriptionTier } from '../../../src/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
-import { RequestDetails } from '../../../src/lib/types';
 import { SpendingPlanConfig } from '../../../src/lib/types/spendingPlanConfig';
 import {
   overrideEnvsInMochaDescribe,
@@ -41,7 +40,6 @@ describe('HbarSpendingPlanConfigService', function () {
   });
   const registry = new Registry();
   const neverExpireTtl = -1;
-  const emptyRequestDetails = new RequestDetails({ requestId: '', ipAddress: '' });
   const spendingPlansConfigFile = 'spendingPlansConfig.example.json';
   const path = findConfig(spendingPlansConfigFile);
   const spendingPlansConfig = JSON.parse(fs.readFileSync(path!, 'utf-8')) as SpendingPlanConfig[];
@@ -197,7 +195,7 @@ describe('HbarSpendingPlanConfigService', function () {
 
     afterEach(async function () {
       sinon.restore();
-      await cacheService.clear(emptyRequestDetails);
+      await cacheService.clear();
     });
 
     describe('populatePreconfiguredSpendingPlans', function () {
@@ -319,25 +317,12 @@ describe('HbarSpendingPlanConfigService', function () {
         // Helper function to save spending plans and their associations from the configurations
         const saveSpendingPlans = async (spendingPlansConfig: SpendingPlanConfig[]) => {
           for (const plan of spendingPlansConfig) {
-            await hbarSpendingPlanRepository.create(
-              plan.subscriptionTier,
-              emptyRequestDetails,
-              neverExpireTtl,
-              plan.id,
-            );
+            await hbarSpendingPlanRepository.create(plan.subscriptionTier, neverExpireTtl, plan.id);
             for (const evmAddress of plan.evmAddresses || []) {
-              await evmAddressHbarSpendingPlanRepository.save(
-                { evmAddress, planId: plan.id },
-                emptyRequestDetails,
-                neverExpireTtl,
-              );
+              await evmAddressHbarSpendingPlanRepository.save({ evmAddress, planId: plan.id }, neverExpireTtl);
             }
             for (const ipAddress of plan.ipAddresses || []) {
-              await ipAddressHbarSpendingPlanRepository.save(
-                { ipAddress, planId: plan.id },
-                emptyRequestDetails,
-                neverExpireTtl,
-              );
+              await ipAddressHbarSpendingPlanRepository.save({ ipAddress, planId: plan.id }, neverExpireTtl);
             }
           }
           hbarSpendingPlanRepositorySpy.create.resetHistory();
@@ -380,24 +365,24 @@ describe('HbarSpendingPlanConfigService', function () {
 
           // Validate existence of the configured spending plans and their associations to eth and ip addresses
           for (const plan of spendingPlans) {
-            await verifyResult(() => hbarSpendingPlanRepository.findById(plan.id, emptyRequestDetails), {
+            await verifyResult(() => hbarSpendingPlanRepository.findById(plan.id), {
               id: plan.id,
               subscriptionTier: plan.subscriptionTier,
               active: true,
             });
 
             for (const evmAddress of plan.evmAddresses || []) {
-              await verifyResult(
-                () => evmAddressHbarSpendingPlanRepository.findByAddress(evmAddress, emptyRequestDetails),
-                { evmAddress, planId: plan.id },
-              );
+              await verifyResult(() => evmAddressHbarSpendingPlanRepository.findByAddress(evmAddress), {
+                evmAddress,
+                planId: plan.id,
+              });
             }
 
             for (const ipAddress of plan.ipAddresses || []) {
-              await verifyResult(
-                () => ipAddressHbarSpendingPlanRepository.findByAddress(ipAddress, emptyRequestDetails),
-                { ipAddress, planId: plan.id },
-              );
+              await verifyResult(() => ipAddressHbarSpendingPlanRepository.findByAddress(ipAddress), {
+                ipAddress,
+                planId: plan.id,
+              });
             }
           }
 
@@ -410,7 +395,7 @@ describe('HbarSpendingPlanConfigService', function () {
             // Validate non-existence of obsolete plans
             for (const plan of obsoletePlans) {
               await verifyResult(
-                () => hbarSpendingPlanRepository.findById(plan.id, emptyRequestDetails),
+                () => hbarSpendingPlanRepository.findById(plan.id),
                 null,
                 `HbarSpendingPlan with ID ${plan.id} not found`,
                 HbarSpendingPlanNotFoundError,
@@ -420,7 +405,7 @@ describe('HbarSpendingPlanConfigService', function () {
             // Validate non-existence of obsolete EVM address associations
             for (const { address, newPlanId } of obsoleteEthAssociations) {
               await verifyResult(
-                () => evmAddressHbarSpendingPlanRepository.findByAddress(address, emptyRequestDetails),
+                () => evmAddressHbarSpendingPlanRepository.findByAddress(address),
                 newPlanId ? { evmAddress: address, planId: newPlanId } : null,
                 `EvmAddressHbarSpendingPlan with address ${address} not found`,
                 EvmAddressHbarSpendingPlanNotFoundError,
@@ -430,7 +415,7 @@ describe('HbarSpendingPlanConfigService', function () {
             // Validate non-existence of obsolete IP address associations
             for (const { address, newPlanId } of obsoleteIpAssociations) {
               await verifyResult(
-                () => ipAddressHbarSpendingPlanRepository.findByAddress(address, emptyRequestDetails),
+                () => ipAddressHbarSpendingPlanRepository.findByAddress(address),
                 newPlanId ? { ipAddress: address, planId: newPlanId } : null,
                 `IPAddressHbarSpendingPlan not found`,
                 IPAddressHbarSpendingPlanNotFoundError,
@@ -443,13 +428,7 @@ describe('HbarSpendingPlanConfigService', function () {
           await hbarSpendingPlanConfigService.populatePreconfiguredSpendingPlans();
 
           spendingPlansConfig.forEach(({ id, name, subscriptionTier }) => {
-            sinon.assert.calledWith(
-              hbarSpendingPlanRepositorySpy.create,
-              subscriptionTier,
-              emptyRequestDetails,
-              neverExpireTtl,
-              id,
-            );
+            sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.create, subscriptionTier, neverExpireTtl, id);
             sinon.assert.calledWith(
               loggerSpy.info,
               `Created HBAR spending plan "${name}" with ID "${id}" and subscriptionTier "${subscriptionTier}"`,
@@ -483,14 +462,9 @@ describe('HbarSpendingPlanConfigService', function () {
                 sinon.assert.calledWith(
                   evmAddressHbarSpendingPlanRepositorySpy.save,
                   { evmAddress, planId: id },
-                  emptyRequestDetails,
                   neverExpireTtl,
                 );
-                sinon.assert.calledWith(
-                  evmAddressHbarSpendingPlanRepositorySpy.delete,
-                  evmAddress,
-                  emptyRequestDetails,
-                );
+                sinon.assert.calledWith(evmAddressHbarSpendingPlanRepositorySpy.delete, evmAddress);
               });
             }
 
@@ -499,10 +473,9 @@ describe('HbarSpendingPlanConfigService', function () {
                 sinon.assert.calledWith(
                   ipAddressHbarSpendingPlanRepositorySpy.save,
                   { ipAddress, planId: id },
-                  emptyRequestDetails,
                   neverExpireTtl,
                 );
-                sinon.assert.calledWith(ipAddressHbarSpendingPlanRepositorySpy.delete, ipAddress, emptyRequestDetails);
+                sinon.assert.calledWith(ipAddressHbarSpendingPlanRepositorySpy.delete, ipAddress);
               });
             }
           });
@@ -541,10 +514,10 @@ describe('HbarSpendingPlanConfigService', function () {
           expect(hbarSpendingPlanRepositorySpy.delete.calledTwice).to.be.true;
           for (const { id, subscriptionTier, evmAddresses, ipAddresses } of obsoletePlans) {
             if (subscriptionTier === SubscriptionTier.BASIC) {
-              sinon.assert.neverCalledWith(hbarSpendingPlanRepositorySpy.delete, id, emptyRequestDetails);
+              sinon.assert.neverCalledWith(hbarSpendingPlanRepositorySpy.delete, id);
               continue;
             }
-            sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.delete, id, emptyRequestDetails);
+            sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.delete, id);
             sinon.assert.calledWith(
               loggerSpy.info,
               `Deleting HBAR spending plan with ID "${id}", as it is no longer in the spending plan configuration...`,
@@ -593,7 +566,6 @@ describe('HbarSpendingPlanConfigService', function () {
             sinon.assert.calledWith(
               evmAddressHbarSpendingPlanRepositorySpy.save,
               { evmAddress: toHex(index), planId: config.id },
-              emptyRequestDetails,
               neverExpireTtl,
             );
             if (config.evmAddresses) {
@@ -601,14 +573,9 @@ describe('HbarSpendingPlanConfigService', function () {
                 sinon.assert.neverCalledWith(
                   evmAddressHbarSpendingPlanRepositorySpy.save,
                   { evmAddress, planId: config.id },
-                  emptyRequestDetails,
                   neverExpireTtl,
                 );
-                sinon.assert.neverCalledWith(
-                  evmAddressHbarSpendingPlanRepositorySpy.delete,
-                  evmAddress,
-                  emptyRequestDetails,
-                );
+                sinon.assert.neverCalledWith(evmAddressHbarSpendingPlanRepositorySpy.delete, evmAddress);
               });
             }
           });
@@ -640,11 +607,7 @@ describe('HbarSpendingPlanConfigService', function () {
                   ipAddress,
                   planId: config.id,
                 });
-                sinon.assert.neverCalledWith(
-                  ipAddressHbarSpendingPlanRepositorySpy.delete,
-                  ipAddress,
-                  emptyRequestDetails,
-                );
+                sinon.assert.neverCalledWith(ipAddressHbarSpendingPlanRepositorySpy.delete, ipAddress);
               });
             }
           });
@@ -673,17 +636,9 @@ describe('HbarSpendingPlanConfigService', function () {
                   planId: id,
                 });
                 if (index === 0) {
-                  sinon.assert.neverCalledWith(
-                    evmAddressHbarSpendingPlanRepositorySpy.delete,
-                    evmAddress,
-                    emptyRequestDetails,
-                  );
+                  sinon.assert.neverCalledWith(evmAddressHbarSpendingPlanRepositorySpy.delete, evmAddress);
                 } else {
-                  sinon.assert.calledWith(
-                    evmAddressHbarSpendingPlanRepositorySpy.delete,
-                    evmAddress,
-                    emptyRequestDetails,
-                  );
+                  sinon.assert.calledWith(evmAddressHbarSpendingPlanRepositorySpy.delete, evmAddress);
                 }
               });
             }
@@ -713,17 +668,9 @@ describe('HbarSpendingPlanConfigService', function () {
                   planId: id,
                 });
                 if (index === 0) {
-                  sinon.assert.neverCalledWith(
-                    ipAddressHbarSpendingPlanRepositorySpy.delete,
-                    ipAddress,
-                    emptyRequestDetails,
-                  );
+                  sinon.assert.neverCalledWith(ipAddressHbarSpendingPlanRepositorySpy.delete, ipAddress);
                 } else {
-                  sinon.assert.calledWith(
-                    ipAddressHbarSpendingPlanRepositorySpy.delete,
-                    ipAddress,
-                    emptyRequestDetails,
-                  );
+                  sinon.assert.calledWith(ipAddressHbarSpendingPlanRepositorySpy.delete, ipAddress);
                 }
               });
             }

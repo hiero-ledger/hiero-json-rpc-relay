@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { PrivateKey } from '@hashgraph/sdk';
 import { expect } from 'chai';
-import createHash from 'keccak';
 import pino from 'pino';
 
 import { ASCIIToHex, prepend0x } from '../../src/formatters';
@@ -96,7 +96,7 @@ describe('Utils', () => {
     testCases.forEach(({ description, input }) => {
       it(`should ${description}`, () => {
         const testBuffer = Buffer.from(input);
-        const expectedHash = '0x' + createHash('keccak256').update(testBuffer).digest('hex');
+        const expectedHash = keccak256(testBuffer);
 
         const result = Utils.computeTransactionHash(testBuffer);
 

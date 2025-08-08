@@ -185,7 +185,7 @@ export default class HAPIService {
       name: metricCounterName,
       help: 'Relay Client Service',
       registers: [register],
-      labelNames: ['transactions', 'duration', 'errors'],
+      labelNames: ['transactions', 'errors'],
     });
   }
 
@@ -230,9 +230,7 @@ export default class HAPIService {
    * Reset the SDK Client and all counters.
    */
   private resetClient() {
-    this.clientResetCounter
-      .labels(this.transactionCount.toString(), this.resetDuration.toString(), this.errorCodes.toString())
-      .inc(1);
+    this.clientResetCounter.labels(this.transactionCount.toString(), this.errorCodes.toString()).inc(1);
 
     this.clientMain = this.initClient(this.logger, this.hederaNetwork);
     this.client = this.initSDKClient(this.logger);

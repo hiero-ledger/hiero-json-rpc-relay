@@ -97,12 +97,11 @@ export class ContractService implements IContractService {
    * Returns an array of addresses owned by client.
    * Always returns an empty array for Hedera.
    *
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {[]} An empty array of addresses
+   * @returns An empty array of addresses
    */
-  public accounts(requestDetails: RequestDetails): [] {
+  public accounts(): [] {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} accounts()`);
+      this.logger.trace(`accounts()`);
     }
     return [];
   }
@@ -126,17 +125,17 @@ export class ContractService implements IContractService {
       }
 
       const blockNumberOrTag = await this.extractBlockNumberOrTag(blockParam, requestDetails);
-      const gas = this.getCappedBlockGasLimit(call.gas?.toString(), requestDetails);
+      const gas = this.getCappedBlockGasLimit(call.gas?.toString());
       await this.contractCallFormat(call, requestDetails);
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`${requestDetails.formattedRequestId} eth_call response: ${JSON.stringify(result)}`);
+        this.logger.debug(`eth_call response: ${JSON.stringify(result)}`);
       }
 
       return result;
     } catch (e: any) {
-      this.logger.error(e, `${requestDetails.formattedRequestId} Failed to successfully submit eth_call`);
+      this.logger.error(e, `Failed to successfully submit eth_call`);
       if (e instanceof JsonRpcError) {
         throw e;
       }
@@ -161,28 +160,22 @@ export class ContractService implements IContractService {
     blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} estimateGas(transaction=${JSON.stringify(transaction)}, blockParam=${blockParam})`,
-      );
+      this.logger.trace(`estimateGas(transaction=${JSON.stringify(transaction)}, blockParam=${blockParam})`);
     }
 
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
       if (response?.result) {
-        this.logger.info(`${requestIdPrefix} Returning gas: ${response.result}`);
+        this.logger.info(`Returning gas: ${response.result}`);
         return prepend0x(trimPrecedingZeros(response.result));
       } else {
-        this.logger.error(`${requestIdPrefix} No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
+        this.logger.error(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
         return this.predefinedGasForTransaction(transaction, requestDetails);
       }
     } catch (e: any) {
-      this.logger.error(
-        `${requestIdPrefix} Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`,
-      );
+      this.logger.error(`Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`);
       // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
       if (
         ConfigService.get('ESTIMATE_GAS_THROWS') &&
@@ -204,23 +197,20 @@ export class ContractService implements IContractService {
    * @returns {Promise<string>} The code at the given address
    */
   public async getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (!this.common.isBlockParamValid(blockNumber)) {
       throw predefined.UNKNOWN_BLOCK(
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
     }
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getCode(address=${address}, blockNumber=${blockNumber})`);
+      this.logger.trace(`getCode(address=${address}, blockNumber=${blockNumber})`);
     }
 
     // check for static precompile cases first before consulting nodes
     // this also account for environments where system entities were not yet exposed to the mirror node
     if (address === constants.HTS_ADDRESS) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `${requestIdPrefix} HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`,
-        );
+        this.logger.trace(`HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`);
       }
       return constants.INVALID_EVM_INSTRUCTION;
     }
@@ -237,7 +227,7 @@ export class ContractService implements IContractService {
         }
         if (result.type === constants.TYPE_TOKEN) {
           if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`${requestIdPrefix} Token redirect case, return redirectBytecode`);
+            this.logger.trace(`Token redirect case, return redirectBytecode`);
           }
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
@@ -248,15 +238,13 @@ export class ContractService implements IContractService {
       }
 
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestIdPrefix} Address ${address} is not a contract nor an HTS token, returning empty hex`,
-        );
+        this.logger.debug(`Address ${address} is not a contract nor an HTS token, returning empty hex`);
       }
 
       return constants.EMPTY_HEX;
     } catch (error: any) {
       this.logger.error(
-        `${requestIdPrefix} Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
+        `Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
       );
       throw error;
     }
@@ -295,10 +283,9 @@ export class ContractService implements IContractService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(
-        `${requestIdPrefix} getStorageAt(address=${address}, slot=${slot}, blockNumberOrOrHashTag=${blockNumberOrTagOrHash})`,
+        `getStorageAt(address=${address}, slot=${slot}, blockNumberOrOrHashTag=${blockNumberOrTagOrHash})`,
       );
     }
 
@@ -323,7 +310,7 @@ export class ContractService implements IContractService {
       .catch((error: any) => {
         throw this.common.genericErrorHandler(
           error,
-          `${requestIdPrefix} Failed to retrieve current contract state for address ${address} at slot=${slot}`,
+          `Failed to retrieve current contract state for address ${address} at slot=${slot}`,
         );
       });
 
@@ -347,11 +334,10 @@ export class ContractService implements IContractService {
     block: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     try {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
+          `Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
           call.to,
           gas,
           call.data,
@@ -362,7 +348,7 @@ export class ContractService implements IContractService {
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);
     } catch (e: any) {
-      return this.handleMirrorNodeError(e, call, gas, requestDetails);
+      return this.handleMirrorNodeError(e);
     }
   }
 
@@ -501,11 +487,10 @@ export class ContractService implements IContractService {
    * Caps the block gas limit to a reasonable value.
    *
    * @param {string | undefined} gasString - The gas limit as a string
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking
    * @returns {number | null} The capped gas limit as a number, or null if no valid gas limit could be determined
    * @private
    */
-  private getCappedBlockGasLimit(gasString: string | undefined, requestDetails: RequestDetails): number | null {
+  private getCappedBlockGasLimit(gasString: string | undefined): number | null {
     if (!gasString) {
       // Return null and don't include in the mirror node call, as mirror is doing this estimation on the go.
       return null;
@@ -517,7 +502,7 @@ export class ContractService implements IContractService {
     if (gas > constants.MAX_GAS_PER_SEC) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestDetails.formattedRequestId} eth_call gas amount (${gas}) exceeds network limit, capping gas to ${constants.MAX_GAS_PER_SEC}`,
+          `eth_call gas amount (${gas}) exceeds network limit, capping gas to ${constants.MAX_GAS_PER_SEC}`,
         );
       }
       return constants.MAX_GAS_PER_SEC;
@@ -530,18 +515,10 @@ export class ContractService implements IContractService {
    * Handles specific mirror node client errors.
    *
    * @param {MirrorNodeClientError} e - The mirror node client error
-   * @param {IContractCallRequest} call - The original call request
-   * @param {number | null} gas - The gas limit
-   * @param {RequestDetails} requestDetails - The request details
    * @returns {Promise<string | JsonRpcError>} The appropriate error response or consensus node fallback result
    * @private
    */
-  private async handleMirrorNodeClientError(
-    e: MirrorNodeClientError,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-
+  private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<string | JsonRpcError> {
     if (e.isFailInvalid() || e.isInvalidTransaction()) {
       return constants.EMPTY_HEX;
     }
@@ -549,7 +526,7 @@ export class ContractService implements IContractService {
     if (e.isContractReverted()) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
-          `${requestIdPrefix} mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
+          `mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
         );
       }
       return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
@@ -562,29 +539,19 @@ export class ContractService implements IContractService {
    * Handles various error cases from mirror node calls.
    *
    * @param {any} e - The error to handle
-   * @param {IContractCallRequest} call - The original call request
-   * @param {number | null} gas - The gas limit
-   * @param {RequestDetails} requestDetails - The request details
    * @returns {Promise<string | JsonRpcError>} The error response or consensus node fallback result
    * @private
    */
-  private async handleMirrorNodeError(
-    e: any,
-    call: IContractCallRequest,
-    gas: number | null,
-    requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
-
+  private async handleMirrorNodeError(e: any): Promise<string | JsonRpcError> {
     if (e instanceof JsonRpcError) {
       return e;
     }
 
     if (e instanceof MirrorNodeClientError) {
-      return await this.handleMirrorNodeClientError(e, requestDetails);
+      return await this.handleMirrorNodeClientError(e);
     }
 
-    this.logger.error(e, `${requestIdPrefix} Failed to successfully submit eth_call`);
+    this.logger.error(e, 'Failed to successfully submit eth_call');
     return predefined.INTERNAL_ERROR(e.message.toString());
   }
 
@@ -602,7 +569,6 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
     error?: any,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     const isSimpleTransfer = !!transaction?.to && (!transaction.data || transaction.data === '0x');
     const isContractCall =
       !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
@@ -621,14 +587,12 @@ export class ContractService implements IContractService {
       }
       // when account exists return default base gas
       if (await this.common.getAccount(transaction.to!, requestDetails)) {
-        this.logger.warn(`${requestIdPrefix} Returning predefined gas for simple transfer: ${gasTxBaseCost}`);
+        this.logger.warn(`Returning predefined gas for simple transfer: ${gasTxBaseCost}`);
         return gasTxBaseCost;
       }
       const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
       // otherwise, return the minimum amount of gas for hollow account creation
-      this.logger.warn(
-        `${requestIdPrefix} Returning predefined gas for hollow account creation: ${minGasTxHollowAccountCreation}`,
-      );
+      this.logger.warn(`Returning predefined gas for hollow account creation: ${minGasTxHollowAccountCreation}`);
       return minGasTxHollowAccountCreation;
     } else if (isContractCreate) {
       // The size limit of the encoded contract posted to the mirror node can
@@ -642,13 +606,13 @@ export class ContractService implements IContractService {
       ) {
         return predefined.CONTRACT_REVERT(error.detail, error.data);
       }
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract creation: ${gasTxBaseCost}`);
+      this.logger.warn(`Returning predefined gas for contract creation: ${gasTxBaseCost}`);
       return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
     } else if (isContractCall) {
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for contract call: ${contractCallAverageGas}`);
+      this.logger.warn(`Returning predefined gas for contract call: ${contractCallAverageGas}`);
       return contractCallAverageGas;
     } else {
-      this.logger.warn(`${requestIdPrefix} Returning predefined gas for unknown transaction: ${this.defaultGas}`);
+      this.logger.warn(`Returning predefined gas for unknown transaction: ${this.defaultGas}`);
       return this.defaultGas;
     }
   }

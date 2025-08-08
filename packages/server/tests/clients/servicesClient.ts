@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Utils as relayUtils } from '@hashgraph/json-rpc-relay/dist/utils';
 import {
   AccountAllowanceApproveTransaction,
   AccountBalanceQuery,
@@ -35,12 +36,12 @@ import {
   TransactionResponse,
   TransferTransaction,
 } from '@hashgraph/sdk';
-import { Logger } from 'pino';
 import { ethers, JsonRpcProvider } from 'ethers';
+import { Long } from 'long';
+import { Logger } from 'pino';
+
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
-import { Utils as relayUtils } from '@hashgraph/json-rpc-relay/dist/utils';
-import { Long } from 'long';
 
 const supportedEnvs = ['previewnet', 'testnet', 'mainnet'];
 
@@ -123,7 +124,7 @@ export default class ServicesClient {
     );
 
     const receipt = await aliasCreationResponse?.getRecord(this.client);
-    const accountId = receipt?.transfers[1].accountId!;
+    const accountId = receipt?.transfers[1].accountId;
     accountId.evmAddress = EvmAddress.fromString(address);
 
     return {
@@ -188,7 +189,7 @@ export default class ServicesClient {
     const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
     const symbol = Math.random().toString(36).slice(2, 6).toUpperCase();
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} symbol = ${symbol}`);
+      this.logger.trace(`symbol = ${symbol}`);
     }
     const resp = await this.executeAndGetTransactionReceipt(
       new TokenCreateTransaction()
@@ -202,7 +203,7 @@ export default class ServicesClient {
     );
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} get token id from receipt`);
+      this.logger.trace(`get token id from receipt`);
     }
     const tokenId = resp?.tokenId;
     this.logger.info(`${requestIdPrefix} token id = ${tokenId?.toString()}`);
@@ -291,13 +292,7 @@ export default class ServicesClient {
       .setTransactionMemo('Relay test contract execution');
 
     tx.setPayableAmount(Hbar.fromTinybars(amount));
-    let contractExecTransactionResponse: TransactionResponse;
-
-    try {
-      contractExecTransactionResponse = await this.executeTransaction(tx, requestId);
-    } catch (e) {
-      throw e;
-    }
+    const contractExecTransactionResponse = await this.executeTransaction(tx, requestId);
 
     // @ts-ignore
     const resp = await this.getRecordResponseDetails(contractExecTransactionResponse, requestId);
@@ -485,8 +480,6 @@ export default class ServicesClient {
       adminPrivateKey: this.DEFAULT_KEY,
     },
   ) {
-    const {} = args;
-
     const expiration = new Date();
     expiration.setDate(expiration.getDate() + 30);
 
@@ -561,8 +554,6 @@ export default class ServicesClient {
       adminPrivateKey: this.DEFAULT_KEY,
     },
   ) {
-    const {} = args;
-
     const htsClient = this.getClient();
     htsClient.setOperator(AccountId.fromString(args.treasuryAccountId), args.adminPrivateKey);
 
@@ -589,7 +580,7 @@ export default class ServicesClient {
       ]);
     }
 
-    let nftCreate = await transaction.execute(htsClient);
+    const nftCreate = await transaction.execute(htsClient);
 
     const receipt = await nftCreate.getReceipt(this.client);
     this.logger.info(`Created NFT token ${receipt.tokenId?.toString()}`);
@@ -611,7 +602,7 @@ export default class ServicesClient {
     htsClient.setOperator(AccountId.fromString(args.treasuryAccountId), args.adminPrivateKey);
 
     // Mint new NFT
-    let mintTx = await new TokenMintTransaction()
+    const mintTx = await new TokenMintTransaction()
       .setTokenId(args.tokenId)
       .setMetadata([Buffer.from(args.metadata)])
       .execute(htsClient);

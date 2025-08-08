@@ -23,14 +23,14 @@ jobs:
           egress-policy: audit
 
       - name: Checkout execution-apis repo
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           repository: 'ethereum/execution-apis'
           path: 'execution-apis'
 
       - name: Use Node.js TLS 20
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
@@ -43,7 +43,7 @@ jobs:
         working-directory: ./execution-apis
 
       - name: Upload openrpc.json as an artifact
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openrpc
           path: ./execution-apis/refs-openrpc.json
@@ -58,13 +58,13 @@ jobs:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: 'main'
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - name: Download openrpc.json artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: openrpc
           path: ./downloaded-artifacts/
@@ -75,7 +75,7 @@ jobs:
           cp ./downloaded-artifacts/refs-openrpc.json scripts/openrpc-json-updater/original-openrpc.json
 
       - name: Setup Node.js
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
 
