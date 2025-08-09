@@ -7,7 +7,9 @@
     "prep-and-run": "npm run prep && npm run k6",
     "prep": "env-cmd node src/prepare/prep.js",
     "k6": "env-cmd --use-shell k6 run src/scenarios/apis.js",
-    "k6-ws": "env-cmd --use-shell k6 run src/scenarios/ws-apis.js"
+    "k6-ws": "env-cmd --use-shell k6 run src/scenarios/ws-apis.js",
+    "stress-test": "TEST_TYPE=stress env-cmd --use-shell k6 run src/scenarios/stress-test.js",
+    "prep-and-stress": "npm run prep && npm run stress-test"
   },
   "dependencies": {
     "env-cmd": "^10.1.0",

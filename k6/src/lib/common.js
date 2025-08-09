@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { check, sleep } from 'k6';
 import { Gauge } from 'k6/metrics';
-import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 import { setDefaultValuesForEnvParameters } from './parameters.js';
+import { calculateRateAllocation } from './traffic-weights.js';
 
 setDefaultValuesForEnvParameters();
 
@@ -178,12 +179,16 @@ function defaultMetrics() {
 }
 
 function getTestType() {
-  return __ENV.TEST_TYPE !== undefined && __ENV.TEST_TYPE === 'load' ? 'load' : 'performance';
+  if (__ENV.TEST_TYPE === 'stress') return 'stress';
+  if (__ENV.TEST_TYPE === 'load') return 'load';
+  return 'performance';
 }
 
 function markdownReport(data, isFirstColumnUrl, scenarios) {
+  const testType = getTestType();
   const firstColumnName = isFirstColumnUrl ? 'URL' : 'Scenario';
-  const header = `| ${firstColumnName} | VUS | Reqs | Pass % | RPS (1/s) | Pass RPS (1/s) | Avg. Req Duration (ms) | Median (ms) | Min (ms) | Max (ms) | P(90) (ms) | P(95) (ms) | Comment |
+  const secondColumnName = getTestType() === 'stress' ? 'Expected RPS' : 'VUS';
+  const header = `| ${firstColumnName} | ${secondColumnName} | Reqs | Pass % | RPS (1/s) | Pass RPS (1/s) | Avg. Req Duration (ms) | Median (ms) | Min (ms) | Max (ms) | P(90) (ms) | P(95) (ms) | Comment |
 |----------|-----|------|--------|-----|----------|-------------------|-------|-----|-----|-------|-------|---------|`;
 
   // collect the metrics
@@ -191,7 +196,7 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
 
   const isDebugMode = __ENV['DEBUG_MODE'] === 'true';
   if (isDebugMode) {
-    console.log("Raw metrics:");
+    console.log('Raw metrics:');
     console.log(JSON.stringify(metrics, null, 2));
   }
 
@@ -228,8 +233,12 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
   markdown += `JSON-RPC-RELAY URL:  ${__ENV['RELAY_BASE_URL']}\n\n`;
   markdown += `Timestamp: ${new Date(Date.now()).toISOString()} \n\n`;
   markdown += `Duration: ${__ENV['DEFAULT_DURATION']} \n\n`;
-  markdown += `Test Type: ${getTestType()} \n\n`;
-  markdown += `Virtual Users (VUs): ${__ENV['DEFAULT_VUS']} \n\n`;
+  markdown += `Test Type: ${testType} \n\n`;
+  if (testType === 'stress') {
+    markdown += `Target Total RPS: ${__ENV['STRESS_TEST_TARGET_TOTAL_RPS'] || 'N/A'} \n\n`;
+  } else {
+    markdown += `Virtual Users (VUs): ${__ENV['DEFAULT_VUS']} \n\n`;
+  }
 
   markdown += `${header}\n`;
   for (const scenario of Object.keys(scenarioMetrics).sort()) {
@@ -248,7 +257,16 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
       const httpMaxDuration = scenarioMetric['http_req_duration'].values['max'].toFixed(2);
 
       const firstColumn = isFirstColumnUrl ? scenarioUrls[scenario] : scenario;
-      markdown += `| ${firstColumn} | ${__ENV.DEFAULT_VUS} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
+
+      if (testType === 'stress') {
+        // Show expected RPS for stress test
+        const expectedRPS = (globalThis.rateAllocation && globalThis.rateAllocation[scenario]) || 'N/A';
+        markdown += `| ${firstColumn} | ${expectedRPS} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
+      } else {
+        // Show VUs for load/performance test
+        const actualVUs = (globalThis.vuAllocation && globalThis.vuAllocation[scenario]) || __ENV.DEFAULT_VUS;
+        markdown += `| ${firstColumn} | ${actualVUs} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
+      }
     } catch (err) {
       console.error(`Unable to render report for scenario ${scenario}`);
     }
@@ -265,13 +283,12 @@ function TestScenarioBuilder() {
   this._testDuration = undefined;
   this._maxDuration = undefined;
 
-  this.build = function () {
-    const that = this;
+  this.build = () => {
     return {
-      options: getOptionsWithScenario(that._name, that._tags, that._maxDuration, that._testDuration),
-      run: function (testParameters, iteration = 0, vuIndex = 0, iterationByVu = 0) {
-        const response = that._request(testParameters, iteration, vuIndex, iterationByVu);
-        check(response, that._checks);
+      options: getOptionsWithScenario(this._name, this._tags, this._maxDuration, this._testDuration),
+      run: (testParameters, iteration = 0, vuIndex = 0, iterationByVu = 0) => {
+        const response = this._request(testParameters, iteration, vuIndex, iterationByVu);
+        check(response, this._checks);
         // if Load test, then we need to sleep for random time between 1 and 5 seconds
         if (getTestType() === 'load') {
           sleep(randomIntBetween(1, 5));
@@ -313,4 +330,94 @@ function TestScenarioBuilder() {
   return this;
 }
 
-export { getSequentialTestScenarios, markdownReport, TestScenarioBuilder };
+/**
+ * Get stress test scenario options for a specific endpoint
+ *
+ * Uses the "constant-arrival-rate" executor, which generates a fixed number of iterations (requests) per time unit.
+ * The executor will dynamically ramp up or lower the number of virtual users as needed to maintain the target request rate.
+ * This makes it ideal for stress and throughput testing where a steady RPS is required.
+ *
+ * See: https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate
+ *
+ * @param {string} endpoint - The endpoint name
+ * @param {number} targetTotalRPS - Target total RPS to distribute
+ * @param {string} duration - Test duration
+ * @returns {Object} K6 scenario configuration
+ */
+export function getStressScenarioOptions(endpoint, targetTotalRPS = 100, duration = '60s') {
+  const rateAllocation = calculateRateAllocation(targetTotalRPS);
+  const targetRate = rateAllocation[endpoint];
+  const VU_BUFFER_MULTIPLIER = parseFloat(__ENV.VU_BUFFER_MULTIPLIER) || 3; // default buffer multiplier
+
+  return {
+    executor: 'constant-arrival-rate',
+    rate: Math.max(1, Math.round(targetRate)), // requests per second (must be integer, minimum 1)
+    duration: duration,
+    preAllocatedVUs: Math.max(1, Math.ceil(targetRate * VU_BUFFER_MULTIPLIER)),
+    maxVUs: Math.max(1, Math.ceil(3 * targetRate * VU_BUFFER_MULTIPLIER)),
+    startTime: '0s', // All scenarios start simultaneously for stress testing
+    gracefulStop: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
+    exec: 'run',
+  };
+}
+
+/**
+ * Create concurrent stress test scenarios with realistic traffic distribution
+ * @param {Object} tests - Test modules object
+ * @returns {Object} Stress test configuration
+ */
+function getStressTestScenarios(tests) {
+  tests = getFilteredTests(tests);
+
+  // Use new STRESS_TEST_TARGET_TOTAL_RPS environment variable
+  const targetTotalRPS = parseInt(__ENV.STRESS_TEST_TARGET_TOTAL_RPS) || 100;
+  const testDuration = __ENV.DEFAULT_DURATION || '60s';
+
+  const funcs = {};
+  const scenarios = {};
+  const thresholds = {};
+
+  // Create concurrent scenarios for all endpoints
+  for (const testName of Object.keys(tests).sort()) {
+    const testModule = tests[testName];
+    const testScenarios = testModule.options.scenarios;
+    const testThresholds = testModule.options.thresholds;
+
+    for (const [scenarioName] of Object.entries(testScenarios)) {
+      // Get stress scenario options with realistic RPS allocation
+      const stressOptions = getStressScenarioOptions(scenarioName, targetTotalRPS, testDuration);
+
+      funcs[scenarioName] = testModule[stressOptions.exec];
+      scenarios[scenarioName] = stressOptions;
+
+      // Set up thresholds
+      const tag = `scenario:${scenarioName}`;
+      for (const [name, threshold] of Object.entries(testThresholds)) {
+        if (name === 'http_req_duration') {
+          thresholds[`${name}{${tag},expected_response:true}`] = threshold;
+        } else {
+          thresholds[`${name}{${tag}}`] = threshold;
+        }
+      }
+      thresholds[`http_reqs{${tag}}`] = ['count>0'];
+      thresholds[`${SCENARIO_DURATION_METRIC_NAME}{${tag}}`] = ['value>0'];
+    }
+  }
+
+  const testOptions = Object.assign({}, getOptions(), { scenarios, thresholds });
+
+  return {
+    funcs,
+    options: testOptions,
+    scenarioDurationGauge: new Gauge(SCENARIO_DURATION_METRIC_NAME),
+  };
+}
+
+export {
+  getSequentialTestScenarios,
+  getStressTestScenarios,
+  markdownReport,
+  TestScenarioBuilder,
+  getFilteredTests,
+  getOptions,
+};

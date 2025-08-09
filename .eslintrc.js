@@ -10,6 +10,9 @@ module.exports = {
         "plugin:@typescript-eslint/recommended",
         "prettier",
     ],
+    "globals": {
+        "__ENV": "readonly",
+    },
     "plugins": [
         "simple-import-sort",
         "header",

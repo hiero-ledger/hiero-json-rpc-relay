@@ -15,7 +15,8 @@ const { options, run } = new TestScenarioBuilder()
     const latestBlock = testParameters.latestBlock;
     // 20% of times we want  to  do  latest, otherwise, we want to  do  a random block
     const isLatest = Math.random() < 0.2;
-    const blockNumber = isLatest ? 'latest' : '0x' + randomIntBetween(latestBlock - 1000, latestBlock).toString(16);
+    const lowerBound = Math.max(0, latestBlock - 1000);
+    const blockNumber = isLatest ? 'latest' : '0x' + randomIntBetween(lowerBound, latestBlock).toString(16);
 
     return http.post(url, getPayLoad(methodName, [blockNumber, true]), httpParams);
   })
