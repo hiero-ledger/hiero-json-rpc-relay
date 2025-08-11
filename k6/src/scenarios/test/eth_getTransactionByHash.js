@@ -12,7 +12,7 @@ const { options, run } = new TestScenarioBuilder()
   .request((testParameters) => {
     return http.post(
       testParameters.RELAY_BASE_URL,
-      getPayLoad(methodName, [testParameters.DEFAULT_TRANSACTION_HASH, '0x0']),
+      getPayLoad(methodName, [testParameters.DEFAULT_TRANSACTION_HASH]),
       httpParams,
     );
   })

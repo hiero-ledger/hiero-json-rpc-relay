@@ -55,23 +55,24 @@ npm run prep-and-run
 
 ### Environment Variables
 
-| Parameter              | Description                                                                                                                                                                                                                                                                                                                                                                     | Default Value | Required |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- |
-| PRIVATE_KEY            | The Private Key (ECDSA) to use when preparing the tests and signing the txs                                                                                                                                                                                                                                                                                                     |               | true     |
-| MIRROR_BASE_URL        | The URL for the mirror node to use. e.g. https://testnet.mirrornode.hedera.com                                                                                                                                                                                                                                                                                                  |               | true     |
-| RELAY_BASE_URL         | The URL of the RCP-Relay to perform the Tests against. e.g. https://testnet.hashio.io/api                                                                                                                                                                                                                                                                                       |               | true     |
-| DEFAULT_DURATION       | Duration of each test, K6 will perform as many requests as possible for each test in this given timeframe. Some tests might override this duration to a minimum for at least 1 successful call for that test. i.e: if DEFAULT_DURATION=1s, but `eth_sendRawTransaction` needs at least 3s, k6 will use the bigger of the 2 (3s). to try to guarantee at least 1 successful call | 120s          | false    |
-| DEFAULT_VUS            | Amount of concurrent (VUS) Virtual Users (doing requests)                                                                                                                                                                                                                                                                                                                       | 10            | false    |
-| DEFAULT_LIMIT          | ?                                                                                                                                                                                                                                                                                                                                                                               | 100           | false    |
-| DEFAULT_PASS_RATE      | The percentage of request that must pass for passing check                                                                                                                                                                                                                                                                                                                      | 0.95          | false    |
-| DEFAULT_MAX_DURATION   | Threshold for passing test in ms (each request response should not take longer than this to pass)                                                                                                                                                                                                                                                                               | 500           | false    |
-| DEFAULT_GRACEFUL_STOP  | Time of Grace given at the end between each scenario is run.                                                                                                                                                                                                                                                                                                                    | 5s            | false    |
-| FILTER_TEST            | Test or Tests to be run, separated by comma without blanks ie: `FILTER_TEST=eth_call`, `FILTER_TEST=eth_call,eth_chainId,eth_sendRawTransaction`                                                                                                                                                                                                                                | \*            | false    |
-| DEBUG_MODE             | If true, both the prep script and the k6 tests will produce useful logging to debug                                                                                                                                                                                                                                                                                             | false         | false    |
-| SIGNED_TXS             | Amount of signed Txs to generate by the prep script, to be used on eth_sendRawTransaction Tests                                                                                                                                                                                                                                                                                 | 10            | false    |
-| TEST_TYPE              | Type of test to run, either `performance` or `load`                                                                                                                                                                                                                                                                                                                             | performance   | false    |
-| SMART_CONTRACTS_AMOUNT | Amount of smart contracts to deploy by the prep script, to be used on eth_call, eth_getCode and eth_sendRawTransaction Tests                                                                                                                                                                                                                                                    | 1             | false    |
-| WALLETS_AMOUNT         | Amount of wallets to generate by the prep script, to be used on eth_getBalance and eth_getTransactionCount, eth_call and other Tests                                                                                                                                                                                                                                            | 1             | false    |
+| Parameter                    | Description                                                                                                                                                                                                                                                                                                                                                                     | Default Value | Required |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- |
+| PRIVATE_KEY                  | The Private Key (ECDSA) to use when preparing the tests and signing the txs                                                                                                                                                                                                                                                                                                     |               | true     |
+| MIRROR_BASE_URL              | The URL for the mirror node to use. e.g. https://testnet.mirrornode.hedera.com                                                                                                                                                                                                                                                                                                  |               | true     |
+| RELAY_BASE_URL               | The URL of the RCP-Relay to perform the Tests against. e.g. https://testnet.hashio.io/api                                                                                                                                                                                                                                                                                       |               | true     |
+| DEFAULT_DURATION             | Duration of each test, K6 will perform as many requests as possible for each test in this given timeframe. Some tests might override this duration to a minimum for at least 1 successful call for that test. i.e: if DEFAULT_DURATION=1s, but `eth_sendRawTransaction` needs at least 3s, k6 will use the bigger of the 2 (3s). to try to guarantee at least 1 successful call | 120s          | false    |
+| DEFAULT_VUS                  | Amount of concurrent (VUS) Virtual Users (doing requests). Used for load and performance tests only.                                                                                                                                                                                                                                                                            | 10            | false    |
+| DEFAULT_LIMIT                | ?                                                                                                                                                                                                                                                                                                                                                                               | 100           | false    |
+| DEFAULT_PASS_RATE            | The percentage of request that must pass for passing check                                                                                                                                                                                                                                                                                                                      | 0.95          | false    |
+| DEFAULT_MAX_DURATION         | Threshold for passing test in ms (each request response should not take longer than this to pass)                                                                                                                                                                                                                                                                               | 500           | false    |
+| DEFAULT_GRACEFUL_STOP        | Time of Grace given at the end between each scenario is run.                                                                                                                                                                                                                                                                                                                    | 5s            | false    |
+| FILTER_TEST                  | Test or Tests to be run, separated by comma without blanks ie: `FILTER_TEST=eth_call`, `FILTER_TEST=eth_call,eth_chainId,eth_sendRawTransaction`                                                                                                                                                                                                                                | \*            | false    |
+| DEBUG_MODE                   | If true, both the prep script and the k6 tests will produce useful logging to debug                                                                                                                                                                                                                                                                                             | false         | false    |
+| SIGNED_TXS                   | Amount of signed Txs to generate by the prep script, to be used on eth_sendRawTransaction Tests                                                                                                                                                                                                                                                                                 | 10            | false    |
+| TEST_TYPE                    | Type of test to run: `performance`, `load`, or `stress`.                                                                                                                                                                                                                                                                                                                        | performance   | false    |
+| STRESS_TEST_TARGET_TOTAL_RPS | Target total requests per second (RPS) for stress tests. This value is distributed across all endpoints according to production traffic weights. Only used when TEST_TYPE=stress.                                                                                                                                                                                               | 100           | false    |
+| VU_BUFFER_MULTIPLIER         | Multiplier used to calculate both preAllocatedVUs and maxVUs for stress test scenarios. Higher values provide more buffer for virtual users. Only used when TEST_TYPE=stress.                                                                                                                                                                                                   | 3             | false    |
+| WALLET_BALANCE               | Initial balance (in HBARs) assigned to each generated wallet by the prep script. Used for eth_getBalance, eth_getTransactionCount, eth_call, and related tests.                                                                                                                                                                                                                 | 10            | false    |
 
 #### Full Suite Test
 
@@ -500,3 +501,84 @@ TEST_TYPE=load
 ```
 
 When it completes, k6 will show a similar summary report. However, only for the load tests.
+
+## Stress Test
+
+The stress test uses a rate-based approach with the [constant-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate/) executor to simulate realistic traffic patterns, based on 90 days of production data. A global requests-per-second (RPS) budget is distributed across endpoints according to their real-world usage proportions, providing an accurate simulation of production traffic.
+
+### Prerequisites
+
+#### Start Relay with Recommended Environment Settings
+
+For optimal stress testing, start the Relay with the following environment variables. These settings help ensure the stress test runs smoothly and with minimal friction under heavy load:
+
+```env
+HEDERA_NETWORK=
+OPERATOR_ID_MAIN=
+OPERATOR_KEY_MAIN=
+OPERATOR_KEY_FORMAT=
+CHAIN_ID=
+MIRROR_NODE_URL_WEB3=
+MIRROR_NODE_URL=
+FILTER_API_ENABLED=true
+DEBUG_API_ENABLED=true
+REDIS_ENABLED=false # Disable Redis
+HBAR_RATE_LIMIT_TINYBAR=0 # Disable HBAR rate limit
+RATE_LIMIT_DISABLED=true # Disable IP rate limit
+```
+
+#### K6 Environment Variables
+
+Configure the stress test with these environment variables:
+
+```shell
+PRIVATE_KEY=
+MIRROR_BASE_URL=
+RELAY_BASE_URL=
+DEFAULT_DURATION=     # Duration of the test
+STRESS_TEST_TARGET_TOTAL_RPS=  # Target total RPS for the stress test (distributed by traffic weights)
+SIGNED_TXS=            # Increase SIGNED_TXS for higher STRESS_TEST_TARGET_TOTAL_RPS and longer DEFAULT_DURATION
+WALLET_BALANCE=        # Increase WALLET_BALANCE for higher STRESS_TEST_TARGET_TOTAL_RPS and longer DEFAULT_DURATION
+VU_BUFFER_MULTIPLIER= # Increase VU_BUFFER_MULTIPLIER for higher STRESS_TEST_TARGET_TOTAL_RPS and longer DEFAULT_DURATION
+```
+
+#### Preparing Artifacts
+
+As with other tests, the stress test requires preparation data (smart contracts, wallets, signed transactions, filter IDs). Run the prep script before starting:
+
+```shell
+npm run prep
+```
+
+### Running Stress Tests
+
+To execute a stress test:
+
+```shell
+npm run stress-test
+```
+
+Or to run both preparation and the stress test:
+
+```shell
+npm run prep-and-stress
+```
+
+### Output
+
+The stress test produces:
+
+- Console output showing RPS allocation per endpoint
+- A `stress-test-report.md` file with detailed metrics (showing expected RPS per endpoint)
+- Resource usage proportional to real production traffic
+
+### Traffic Weights
+
+Current traffic distribution is based on 90 days of production RPS data (April 2025 to July 2025). These weights should be updated as usage patterns change.
+
+Distribution by total requests per second (example for STRESS_TEST_TARGET_TOTAL_RPS=100):
+
+- `eth_getBlockByNumber`: 68.0 RPS
+- `eth_getLogs`: 13.0 RPS
+- `eth_chainId`: 6.0 RPS
+- Other endpoints: Remaining RPS allocated proportionally
