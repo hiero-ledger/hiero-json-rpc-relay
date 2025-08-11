@@ -153,8 +153,6 @@ export default class KoaJsonRpc {
       });
     });
     const results = await Promise.all(promises);
-    // const response: any[] = [];
-    // response.push(...results);
 
     // for batch requests, always return 200 http status, this is standard for JSON-RPC 2.0 batch requests
     ctx.body = results;
@@ -190,19 +188,7 @@ export default class KoaJsonRpc {
 
   isValidJsonRpcRequest(body: Pick<IJsonRpcRequest, 'id'>): body is IJsonRpcRequest {
     // validate it has the correct jsonrpc version, method, and id
-    if (
-      body['jsonrpc'] === '2.0' &&
-      hasOwnProperty(body, 'method')
-      // this.hasValidJsonRpcId(body) &&
-      // hasOwnProperty(body, 'id')
-    ) {
-      return true;
-    }
-
-    // this.logger.warn(
-    //   `Invalid request, body.jsonrpc: ${body.jsonrpc}, body[method]: ${body.method}, body[id]: ${body.id}, ctx.request.method: ${body.method}`,
-    // );
-    return false;
+    return body['jsonrpc'] === '2.0' && hasOwnProperty(body, 'method');
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {
@@ -210,9 +196,11 @@ export default class KoaJsonRpc {
   }
 
   hasValidJsonRpcId(body: unknown): body is Pick<IJsonRpcRequest, 'id'> {
-    const hasId = hasOwnProperty(body, 'id');
-    if (hasId) return true;
-    if (this.requestIdIsOptional && typeof body === 'object' && body !== null) {
+    if (typeof body !== 'object' || body === null) return false;
+
+    if (hasOwnProperty(body, 'id')) return true;
+
+    if (this.requestIdIsOptional) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
       body['id'] = '0';
       this.logger.warn(`Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`);

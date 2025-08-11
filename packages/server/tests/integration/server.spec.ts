@@ -717,6 +717,24 @@ describe('RPC Server', function () {
       };
     }
 
+    [null, 1234, 'some string', true].forEach((payload) => {
+      it(`should return error when request is primitive "${payload}" in batch request`, async function () {
+        const response = await testClient.post('/', [payload, payload]);
+
+        // verify response
+        BaseTest.baseDefaultResponseChecks(response);
+
+        expect(response.data.length).to.be.equal(2);
+        // verify response for each request
+        for (let i = 0; i < response.data.length; i++) {
+          expect(response.data[i].id).to.be.equal(null);
+          expect(response.data[i].error).to.be.an('object');
+          expect(response.data[i].error.code).to.be.equal(-32600);
+          expect(response.data[i].error.message).to.match(requestIdRegex('Invalid Request'));
+        }
+      });
+    });
+
     it('should execute "eth_chainId" in batch request', async function () {
       // 3 request of eth_chainId
       const response = await testClient.post('/', [
