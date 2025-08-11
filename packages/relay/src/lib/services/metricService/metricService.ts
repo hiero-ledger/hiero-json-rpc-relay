@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
 import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
-  IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
   IExecuteTransactionEventPayload,
   ITransactionRecordMetric,
@@ -58,21 +56,12 @@ export default class MetricService {
   private readonly consensusNodeClientHistogramGasFee: Histogram;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
-
-  /**
    * Counter for tracking Ethereum executions.
    * @type {Counter}
    * @readonly
    * @private
    */
-  private readonly ethExecutionsCounter: Counter;
+  readonly ethExecutionsCounter: Counter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
@@ -90,35 +79,21 @@ export default class MetricService {
    * @param {SDKClient} sdkClient - Client for interacting with the Hedera SDK.
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Registry} register - Registry instance for registering metrics.
-   * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
    */
   constructor(
     logger: Logger,
     sdkClient: SDKClient,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
-    eventEmitter: EventEmitter,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
     this.sdkClient = sdkClient;
-    this.eventEmitter = eventEmitter;
     this.mirrorNodeClient = mirrorNodeClient;
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
     this.ethExecutionsCounter = this.initEthCounter(register);
-    this.eventEmitter.on(constants.EVENTS.EXECUTE_TRANSACTION, (args: IExecuteTransactionEventPayload) => {
-      this.captureTransactionMetrics(args).then();
-    });
-
-    this.eventEmitter.on(constants.EVENTS.EXECUTE_QUERY, (args: IExecuteQueryEventPayload) => {
-      this.addExpenseAndCaptureMetrics(args);
-    });
-
-    this.eventEmitter.on(constants.EVENTS.ETH_EXECUTION, (args: IEthExecutionEventPayload) => {
-      this.ethExecutionsCounter.labels(args.method).inc();
-    });
   }
 
   /**
@@ -205,7 +180,7 @@ export default class MetricService {
   }: IExecuteQueryEventPayload): Promise<void> => {
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `${requestDetails.formattedRequestId} Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
+        `Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
       );
     }
 
@@ -293,12 +268,7 @@ export default class MetricService {
     // retrieve transaction metrics
     try {
       if (defaultToConsensusNode) {
-        return await this.sdkClient.getTransactionRecordMetrics(
-          transactionId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
+        return await this.sdkClient.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,
@@ -308,10 +278,7 @@ export default class MetricService {
         );
       }
     } catch (error: any) {
-      this.logger.warn(
-        error,
-        `${requestDetails.formattedRequestId} Could not fetch transaction record: error=${error.message}`,
-      );
+      this.logger.warn(error, `Could not fetch transaction record: error=${error.message}`);
     }
   }
 }

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { inspect } from 'node:util';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
-import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -21,7 +22,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
-import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
@@ -97,7 +98,7 @@ describe('Open RPC Specification', function () {
 
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+    const cacheService = new CacheService(logger, registry);
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -107,7 +108,6 @@ describe('Open RPC Specification', function () {
       instance,
     );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter();
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -121,11 +121,11 @@ describe('Open RPC Specification', function () {
       duration,
     );
 
-    clientServiceInstance = new ClientService(logger, registry, eventEmitter, hbarLimitService);
+    clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     // @ts-ignore
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
+    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
 
     // mocked data
     mock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify({ blocks: [defaultBlock] }));
@@ -238,13 +238,7 @@ describe('Open RPC Specification', function () {
     const ajv = new Ajv();
     ajv.validate(schema, response);
 
-    if (ajv.errors && ajv.errors.length > 0) {
-      console.log({
-        errors: ajv.errors,
-      });
-    }
-
-    expect(ajv.errors).to.be.null;
+    expect(ajv.errors, `Errors found: ${inspect(ajv.errors)}`).to.be.null;
   };
 
   it(`validates the openrpc document`, async () => {
@@ -267,19 +261,19 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_chainId"', function () {
-    const response = ethImpl.chainId(requestDetails);
+    const response = ethImpl.chainId();
 
     validateResponseSchema(methodsResponseSchema.eth_chainId, response);
   });
 
   it('should execute "eth_coinbase"', function () {
-    const response = ethImpl.coinbase(requestDetails);
+    const response = ethImpl.coinbase();
 
     validateResponseSchema(methodsResponseSchema.eth_coinbase, response);
   });
 
   it('should execute "eth_blobBaseFee"', function () {
-    const response = ethImpl.blobBaseFee(requestDetails);
+    const response = ethImpl.blobBaseFee();
 
     validateResponseSchema(methodsResponseSchema.eth_blobBaseFee, response);
   });
@@ -444,7 +438,9 @@ describe('Open RPC Specification', function () {
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
 
-    sinon.stub(ethImpl.common, <any>'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
+    // @ts-expect-error: Property 'common' is private and only accessible within class 'EthImpl'.
+    const common = ethImpl.common;
+    sinon.stub(common, 'getCurrentGasPriceForBlock').resolves('0xad78ebc5ac620000');
     const response = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
 
     validateResponseSchema(methodsResponseSchema.eth_getTransactionReceipt, response);
@@ -481,25 +477,25 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getWork"', async function () {
-    const response = ethImpl.getWork(requestDetails);
+    const response = ethImpl.getWork();
 
     validateResponseSchema(methodsResponseSchema.eth_getWork, response);
   });
 
   it('should execute "eth_hashrate"', async function () {
-    const response = await ethImpl.hashrate(requestDetails);
+    const response = await ethImpl.hashrate();
 
     validateResponseSchema(methodsResponseSchema.eth_hashrate, response);
   });
 
   it('should execute "eth_mining"', async function () {
-    const response = await ethImpl.mining(requestDetails);
+    const response = await ethImpl.mining();
 
     validateResponseSchema(methodsResponseSchema.eth_mining, response);
   });
 
   it('should execute "eth_protocolVersion"', async function () {
-    const response = ethImpl.protocolVersion(requestDetails);
+    const response = ethImpl.protocolVersion();
 
     validateResponseSchema(methodsResponseSchema.eth_protocolVersion, response);
   });
@@ -511,49 +507,49 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_sendTransaction"', async function () {
-    const response = ethImpl.sendTransaction(requestDetails);
+    const response = ethImpl.sendTransaction();
 
     validateResponseSchema(methodsResponseSchema.eth_sendTransaction, response);
   });
 
   it('should execute "eth_signTransaction"', async function () {
-    const response = ethImpl.signTransaction(requestDetails);
+    const response = ethImpl.signTransaction();
 
     validateResponseSchema(methodsResponseSchema.eth_signTransaction, response);
   });
 
   it('should execute "eth_sign"', async function () {
-    const response = ethImpl.sign(requestDetails);
+    const response = ethImpl.sign();
 
     validateResponseSchema(methodsResponseSchema.eth_sign, response);
   });
 
   it('should execute "eth_submitHashrate"', async function () {
-    const response = ethImpl.submitHashrate(requestDetails);
+    const response = ethImpl.submitHashrate();
 
     validateResponseSchema(methodsResponseSchema.eth_submitHashrate, response);
   });
 
   it('should execute "eth_submitWork"', async function () {
-    const response = await ethImpl.submitWork(requestDetails);
+    const response = await ethImpl.submitWork();
 
     validateResponseSchema(methodsResponseSchema.eth_submitWork, response);
   });
 
   it('should execute "eth_syncing"', async function () {
-    const response = await ethImpl.syncing(requestDetails);
+    const response = await ethImpl.syncing();
 
     validateResponseSchema(methodsResponseSchema.eth_syncing, response);
   });
 
   it('should execute "eth_getProof"', async function () {
-    const response = ethImpl.getProof(requestDetails);
+    const response = ethImpl.getProof();
 
     validateResponseSchema(methodsResponseSchema.eth_getProof, response);
   });
 
   it('should execute "eth_createAccessList"', async function () {
-    const response = ethImpl.createAccessList(requestDetails);
+    const response = ethImpl.createAccessList();
 
     validateResponseSchema(methodsResponseSchema.eth_createAccessList, response);
   });

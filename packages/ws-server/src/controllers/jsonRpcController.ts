@@ -4,14 +4,12 @@ import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist'
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
+import { spec } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
 import {
-  InternalError,
-  InvalidRequest,
-  IPRateLimitExceeded,
-  MethodNotFound,
-} from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+  type IJsonRpcResponse,
+  jsonRespError,
+  jsonRespResult,
+} from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import Koa from 'koa';
 import { Logger } from 'pino';
 
@@ -58,19 +56,19 @@ const handleSendingRequestsToRelay = async ({
   requestDetails,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
   if (logger.isLevelEnabled('trace')) {
-    logger.trace(`${requestDetails.formattedLogPrefix}: Submitting request=${JSON.stringify(request)} to relay.`);
+    logger.trace(`Submitting request=${JSON.stringify(request)} to relay.`);
   }
   try {
     // call the public API entry point on the Relay package to execute the RPC method
     const result = await relay.executeRpcMethod(method, params, requestDetails);
 
     if (result instanceof JsonRpcError) {
-      return jsonResp(request.id, result, undefined);
+      return jsonRespError(request.id, result, requestDetails.requestId);
     } else {
-      return jsonResp(request.id, null, result);
+      return jsonRespResult(request.id, result);
     }
   } catch (err) {
-    return jsonResp(request.id, new InternalError(err), undefined);
+    return jsonRespError(request.id, spec.InternalError(err), requestDetails.requestId);
   }
 };
 
@@ -110,25 +108,25 @@ export const getRequestResult = async (
   wsMetricRegistry.getCounter('methodsCounterByIp').labels(ctx.request.ip, method).inc();
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
-  if (!validateJsonRpcRequest(request, logger, requestDetails)) {
-    return jsonResp(request.id || null, new InvalidRequest(), undefined);
+  if (!validateJsonRpcRequest(request, logger)) {
+    return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(request.method)) {
-    logger.warn(`${requestDetails.formattedLogPrefix}: Method not supported: ${request.method}`);
-    return jsonResp(request.id || null, new MethodNotFound(request.method), undefined);
+    logger.warn(`Method not supported: ${request.method}`);
+    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
   }
 
   // verify rate limit for method method based on IP
   if (await limiter.shouldRateLimitOnMethod(ctx.ip, request.method, requestDetails)) {
-    return jsonResp(null, new IPRateLimitExceeded(request.method), undefined);
+    return jsonRespError(null, spec.IPRateLimitExceeded(request.method), requestDetails.requestId);
   }
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method
   let response: IJsonRpcResponse;
   if (method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE && !limiter.validateSubscriptionLimit(ctx)) {
-    return jsonResp(request.id, predefined.MAX_SUBSCRIPTIONS, undefined);
+    return jsonRespError(request.id, predefined.MAX_SUBSCRIPTIONS, requestDetails.requestId);
   }
 
   // processing method
@@ -160,9 +158,7 @@ export const getRequestResult = async (
   } catch (error: any) {
     logger.warn(
       error,
-      `${requestDetails.formattedLogPrefix} Encountered error on connectionID: ${
-        ctx.websocket.id
-      }, method: ${method}, params: ${JSON.stringify(params)}`,
+      `Encountered error on connectionID: ${ctx.websocket.id}, method: ${method}, params: ${JSON.stringify(params)}`,
     );
 
     let jsonRpcError: JsonRpcError;
@@ -172,7 +168,7 @@ export const getRequestResult = async (
       jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
     }
 
-    response = jsonResp(request.id, jsonRpcError, undefined);
+    response = jsonRespError(request.id, jsonRpcError, requestDetails.requestId);
   }
 
   return response;

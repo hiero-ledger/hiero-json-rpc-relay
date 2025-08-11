@@ -2,10 +2,8 @@
 
 import { expect } from 'chai';
 import { AbiCoder, keccak256 } from 'ethers';
-import { v4 as uuid } from 'uuid';
 
 import { JsonRpcError, predefined } from '../../../src';
-import constants from '../../../src/lib/constants';
 
 describe('Errors', () => {
   describe('JsonRpcError', () => {
@@ -20,116 +18,6 @@ describe('Errors', () => {
 
       // Check that request ID is *not* prefixed
       expect(err.message).to.eq('test error: foo');
-    });
-
-    describe('Constructor with RequestId handling', () => {
-      const requestId = uuid();
-
-      it('Constructs correctly with request ID', () => {
-        const err = new JsonRpcError(
-          {
-            code: -32999,
-            message: 'test error: foo',
-            data: 'some data',
-          },
-          requestId,
-        );
-
-        expect(err.code).to.eq(-32999);
-        expect(err.data).to.eq('some data');
-        // Check that request ID is prefixed
-        expect(err.message).to.eq(`[Request ID: ${requestId}] test error: foo`);
-      });
-
-      it('Should not duplicate request ID if message already has it', () => {
-        const existingMessage = `[Request ID: ${requestId}] test error: foo`;
-        const err = new JsonRpcError(
-          {
-            code: -32999,
-            message: existingMessage,
-            data: 'some data',
-          },
-          requestId,
-        );
-        expect(err.message).to.eq(existingMessage);
-      });
-
-      it('Should not add request ID if message includes the request ID pattern anywhere', () => {
-        const messageWithRequestIdPattern = `Error occurred with [Request ID: ${requestId}] in the middle`;
-        const err = new JsonRpcError(
-          {
-            code: -32999,
-            message: messageWithRequestIdPattern,
-            data: 'some data',
-          },
-          requestId,
-        );
-        expect(err.message).to.eq(messageWithRequestIdPattern);
-      });
-
-      it('Should add request ID when message does not have one', () => {
-        const originalMessage = 'test error: foo';
-        const err = new JsonRpcError(
-          {
-            code: -32999,
-            message: originalMessage,
-            data: 'some data',
-          },
-          requestId,
-        );
-        expect(err.message).to.eq(`[Request ID: ${requestId}] ${originalMessage}`);
-      });
-    });
-
-    describe('newWithRequestId', () => {
-      const requestId = uuid();
-
-      it('Should add request ID to error message when not present', () => {
-        const originalError = new JsonRpcError({
-          code: -32999,
-          message: 'test error: foo',
-          data: 'some data',
-        });
-
-        const updatedError = JsonRpcError.newWithRequestId(originalError, requestId);
-
-        expect(updatedError.message).to.eq(`[${constants.REQUEST_ID_STRING}${requestId}] test error: foo`);
-        expect(updatedError.code).to.eq(originalError.code);
-        expect(updatedError.data).to.eq(originalError.data);
-        expect(updatedError).to.not.equal(originalError); // Should be a new object reference
-      });
-
-      it('Should not add request ID if message already has it', () => {
-        const existingMessage = `[${constants.REQUEST_ID_STRING}${requestId}] test error: foo`;
-        const originalError = new JsonRpcError({
-          code: -32999,
-          message: existingMessage,
-          data: 'some data',
-        });
-
-        const updatedError = JsonRpcError.newWithRequestId(originalError, requestId);
-
-        expect(updatedError.message).to.eq(existingMessage);
-        expect(updatedError.code).to.eq(originalError.code);
-        expect(updatedError.data).to.eq(originalError.data);
-        expect(updatedError).to.not.equal(originalError); // Should be a new object reference
-      });
-
-      it('Should not add request ID if message includes the request ID pattern anywhere', () => {
-        const messageWithRequestIdPattern = `Error occurred with [${constants.REQUEST_ID_STRING}${requestId}] in the middle`;
-        const originalError = new JsonRpcError({
-          code: -32999,
-          message: messageWithRequestIdPattern,
-          data: 'some data',
-        });
-
-        const updatedError = JsonRpcError.newWithRequestId(originalError, requestId);
-
-        expect(updatedError.message).to.eq(messageWithRequestIdPattern);
-        expect(updatedError.code).to.eq(originalError.code);
-        expect(updatedError.data).to.eq(originalError.data);
-        expect(updatedError).to.not.equal(originalError); // Should be a new object reference
-      });
     });
 
     describe('predefined.CONTRACT_REVERT', () => {
@@ -222,7 +110,7 @@ describe('Errors', () => {
           const error = predefined.MIRROR_NODE_UPSTREAM_FAIL(errCode, errMessage);
           expect(error.code).to.eq(-32020);
           expect(error.message).to.eq(`Mirror node upstream failure: statusCode=${errCode}, message=${errMessage}`);
-          expect(error.data).to.eq(errCode.toString());
+          expect(error.data).to.eq(errCode);
         });
       });
     });

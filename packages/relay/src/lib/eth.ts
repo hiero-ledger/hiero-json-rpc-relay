@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
 import { Eth } from '../index';
@@ -21,7 +21,7 @@ import {
   IContractService,
   TransactionService,
 } from './services';
-import { CACHE_LEVEL, CacheService } from './services/cacheService/cacheService';
+import type { CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/ethService/feeService/FeeService';
 import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
@@ -33,6 +33,7 @@ import {
   INewFilterParams,
   ITransactionReceipt,
   RequestDetails,
+  TypedEvents,
 } from './types';
 import { rpcParamValidationRules } from './validators';
 
@@ -80,7 +81,7 @@ export class EthImpl implements Eth {
    * Event emitter for publishing and subscribing to events.
    * @private
    */
-  private readonly eventEmitter: EventEmitter;
+  readonly eventEmitter: EventEmitter<TypedEvents>;
 
   /**
    * The Fee Service implementation that takes care of all fee API operations.
@@ -114,7 +115,6 @@ export class EthImpl implements Eth {
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
-   * @param {Registry} registry - Registry instance for registering metrics.
    * @param {CacheService} cacheService - Service for managing cached data.
    */
   constructor(
@@ -122,8 +122,7 @@ export class EthImpl implements Eth {
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
     chain: string,
-    cacheService: CacheService,
-    eventEmitter: EventEmitter,
+    public readonly cacheService: CacheService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -133,12 +132,12 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.eventEmitter = eventEmitter;
+    this.eventEmitter = new EventEmitter<TypedEvents>();
     this.transactionService = new TransactionService(
       cacheService,
       chain,
       this.common,
-      eventEmitter,
+      this.eventEmitter,
       hapiService,
       logger,
       mirrorNodeClient,
@@ -180,7 +179,7 @@ export class EthImpl implements Eth {
     2: { type: 'array', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [Number(params[0]), params[1], params[2]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
     ttl: constants.CACHE_TTL.FIFTEEN_MINUTES,
   })
@@ -206,7 +205,7 @@ export class EthImpl implements Eth {
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} blockNumber()`);
+      this.logger.trace(`blockNumber()`);
     }
     return await this.common.getLatestBlockNumber(requestDetails);
   }
@@ -219,14 +218,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_chainId RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
-   * @returns {string} The chain ID as a string.
+   * @returns The chain ID as a string.
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  chainId(requestDetails: RequestDetails): string {
+  chainId(): string {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} chainId()`);
+      this.logger.trace(`chainId()`);
     }
     return this.chain;
   }
@@ -263,9 +261,8 @@ export class EthImpl implements Eth {
     const callDataSize = callData?.length || 0;
 
     if (callDataSize >= constants.FUNCTION_SELECTOR_CHAR_LENGTH) {
-      this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
+      this.eventEmitter.emit('eth_execution', {
         method: constants.ETH_ESTIMATE_GAS,
-        requestDetails: requestDetails,
       });
     }
 
@@ -281,7 +278,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     ttl: constants.CACHE_TTL.FIFTEEN_MINUTES,
   })
   async gasPrice(requestDetails: RequestDetails): Promise<string> {
@@ -294,14 +291,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_mining RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<boolean>} Always returns false.
+   * @returns Always returns false.
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async mining(requestDetails: RequestDetails): Promise<boolean> {
+  async mining(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} mining()`);
+      this.logger.trace('mining()');
     }
     return false;
   }
@@ -322,9 +318,8 @@ export class EthImpl implements Eth {
     0: { type: 'filter', required: true },
   })
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} newFilter(params=${JSON.stringify(params)})`);
+      this.logger.trace(`newFilter(params=${JSON.stringify(params)})`);
     }
     return this.filterService.newFilter(params, requestDetails);
   }
@@ -345,7 +340,7 @@ export class EthImpl implements Eth {
   })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getFilterLogs(${filterId})`);
+      this.logger.trace(`getFilterLogs(${filterId})`);
     }
     return this.filterService.getFilterLogs(filterId, requestDetails);
   }
@@ -366,7 +361,7 @@ export class EthImpl implements Eth {
   })
   async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getFilterChanges(${filterId})`);
+      this.logger.trace(`getFilterChanges(${filterId})`);
     }
     return this.filterService.getFilterChanges(filterId, requestDetails);
   }
@@ -384,7 +379,7 @@ export class EthImpl implements Eth {
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} newBlockFilter()`);
+      this.logger.trace('newBlockFilter()');
     }
     return this.filterService.newBlockFilter(requestDetails);
   }
@@ -395,19 +390,18 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_uninstallFilter RPC endpoint
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
-   * @param {string} filterId - The filter ID to uninstall
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<boolean>} True if the filter was successfully uninstalled, false otherwise
+   * @param filterId - The filter ID to uninstall
+   * @returns True if the filter was successfully uninstalled, false otherwise
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'hex', required: true },
   })
-  async uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean> {
+  async uninstallFilter(filterId: string): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} uninstallFilter(${filterId})`);
+      this.logger.trace(`uninstallFilter(${filterId})`);
     }
-    return this.filterService.uninstallFilter(filterId, requestDetails);
+    return this.filterService.uninstallFilter(filterId);
   }
 
   /**
@@ -417,14 +411,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_newPendingTransactionFilter RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<JsonRpcError>} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async newPendingTransactionFilter(requestDetails: RequestDetails): Promise<JsonRpcError> {
+  async newPendingTransactionFilter(): Promise<JsonRpcError> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} newPendingTransactionFilter()`);
+      this.logger.trace('newPendingTransactionFilter()');
     }
     return this.filterService.newPendingTransactionFilter();
   }
@@ -434,9 +427,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async submitWork(requestDetails: RequestDetails): Promise<boolean> {
+  async submitWork(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} submitWork()`);
+      this.logger.trace('submitWork()');
     }
     return false;
   }
@@ -446,9 +439,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async syncing(requestDetails: RequestDetails): Promise<boolean> {
+  async syncing(): Promise<boolean> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} syncing()`);
+      this.logger.trace('syncing()');
     }
     return false;
   }
@@ -504,8 +497,8 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleCountByBlockNumber RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<string>} Always returns '0x0'
+   * @param requestDetails - Details about the request for logging and tracking
+   * @returns Always returns '0x0'
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
@@ -518,9 +511,9 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async hashrate(requestDetails: RequestDetails): Promise<string> {
+  async hashrate(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} hashrate()`);
+      this.logger.trace('hashrate()');
     }
     return constants.ZERO_HEX;
   }
@@ -531,14 +524,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getWork RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  getWork(requestDetails: RequestDetails): JsonRpcError {
+  getWork(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getWork()`);
+      this.logger.trace('getWork()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -549,14 +541,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_submitHashrate RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {JsonRpcError} An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  submitHashrate(requestDetails: RequestDetails): JsonRpcError {
+  submitHashrate(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} submitHashrate()`);
+      this.logger.trace('submitHashrate()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -567,13 +558,12 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_signTransaction RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  signTransaction(requestDetails: RequestDetails): JsonRpcError {
-    return this.transactionService.signTransaction(requestDetails);
+  signTransaction(): JsonRpcError {
+    return this.transactionService.signTransaction();
   }
 
   /**
@@ -582,13 +572,12 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_sign RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  sign(requestDetails: RequestDetails): JsonRpcError {
-    return this.transactionService.sign(requestDetails);
+  sign(): JsonRpcError {
+    return this.transactionService.sign();
   }
 
   /**
@@ -597,13 +586,12 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_sendTransaction RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  sendTransaction(requestDetails: RequestDetails): JsonRpcError {
-    return this.transactionService.sendTransaction(requestDetails);
+  sendTransaction(): JsonRpcError {
+    return this.transactionService.sendTransaction();
   }
 
   /**
@@ -612,14 +600,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_protocolVersion RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  protocolVersion(requestDetails: RequestDetails): JsonRpcError {
+  protocolVersion(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} protocolVersion()`);
+      this.logger.trace('protocolVersion()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -630,14 +617,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_coinbase RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  coinbase(requestDetails: RequestDetails): JsonRpcError {
+  coinbase(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} coinbase()`);
+      this.logger.trace('coinbase()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -648,14 +634,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_blobBaseFee RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  blobBaseFee(requestDetails: RequestDetails): JsonRpcError {
+  blobBaseFee(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} blobBaseFee()`);
+      this.logger.trace('blobBaseFee()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -679,7 +664,7 @@ export class EthImpl implements Eth {
     2: { type: ['blockNumber', 'blockHash'], required: true },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1], params[2]]))
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '2', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getStorageAt(
@@ -708,7 +693,7 @@ export class EthImpl implements Eth {
     0: { type: 'address', required: true },
     1: { type: ['blockNumber', 'blockHash'], required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBalance(account: string, blockNumberOrTagOrHash: string, requestDetails: RequestDetails): Promise<string> {
@@ -732,7 +717,7 @@ export class EthImpl implements Eth {
     0: { type: 'address', required: true },
     1: { type: ['blockNumber', 'blockHash'], required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async getCode(
@@ -759,7 +744,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockHash', required: true },
     1: { type: 'boolean', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
     return this.blockService.getBlockByHash(hash, showDetails, requestDetails);
   }
@@ -778,7 +763,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'blockHash', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
     return this.blockService.getBlockTransactionCountByHash(hash, requestDetails);
   }
@@ -797,7 +782,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'blockNumber', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBlockTransactionCountByNumber(
@@ -823,7 +808,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockHash', required: true },
     1: { type: 'hex', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async getTransactionByBlockHashAndIndex(
     blockHash: string,
     transactionIndex: string,
@@ -848,7 +833,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockNumber', required: true },
     1: { type: 'hex', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getTransactionByBlockNumberAndIndex(
@@ -879,7 +864,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockNumber', required: true },
     1: { type: 'boolean', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getBlockByNumber(
@@ -909,7 +894,7 @@ export class EthImpl implements Eth {
     0: { type: 'address', required: true },
     1: { type: ['blockNumber', 'blockHash'], required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   async getTransactionCount(
@@ -954,7 +939,7 @@ export class EthImpl implements Eth {
     0: { type: 'transaction', required: true },
     1: { type: 'blockParams', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async call(
@@ -962,21 +947,19 @@ export class EthImpl implements Eth {
     blockParam: string | object | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     const callData = call.data ? call.data : call.input;
     // log request
     this.logger.info(
-      `${requestIdPrefix} call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
+      `call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
     );
     // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} call data size: ${callDataSize}`);
+      this.logger.trace(`call data size: ${callDataSize}`);
     }
 
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: 'eth_call',
-      requestDetails: requestDetails,
+    this.eventEmitter.emit('eth_execution', {
+      method: constants.ETH_CALL,
     });
 
     return this.contractService.call(call, blockParam, requestDetails);
@@ -996,7 +979,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transactionHash', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     return await this.transactionService.getTransactionByHash(hash, requestDetails);
   }
@@ -1014,7 +997,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transactionHash', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1))
+  @cache()
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<any> {
     return await this.transactionService.getTransactionReceipt(hash, requestDetails);
   }
@@ -1053,7 +1036,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'filter', required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipNamedParams: [
       {
         index: '0',
@@ -1075,14 +1058,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_maxPriorityFeePerGas RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<string>} A promise that resolves to "0x0".
+   * @returns A promise that resolves to "0x0".
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+  async maxPriorityFeePerGas(): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} maxPriorityFeePerGas()`);
+      this.logger.trace('maxPriorityFeePerGas()');
     }
     return constants.ZERO_HEX;
   }
@@ -1101,7 +1083,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ['blockNumber', 'blockHash'], required: true },
   })
-  @cache(CacheService.getInstance(CACHE_LEVEL.L1), {
+  @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
   public async getBlockReceipts(
@@ -1117,14 +1099,13 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getWork RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  getProof(requestDetails: RequestDetails): JsonRpcError {
+  getProof(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} getProof()`);
+      this.logger.trace('getProof()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -1135,14 +1116,14 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_createAccessList RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {JsonRpcError} An error indicating the method is not supported
+   * @param _requestDetails - Details about the request for logging and tracking
+   * @returns An error indicating the method is not supported
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  createAccessList(requestDetails: RequestDetails): JsonRpcError {
+  createAccessList(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} createAccessList()`);
+      this.logger.trace('createAccessList()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }

@@ -13,15 +13,8 @@ import { Histogram, Registry } from 'prom-client';
 
 import { translateRpcErrorToHttpStatus } from './lib/httpErrorMapper';
 import { IJsonRpcRequest } from './lib/IJsonRpcRequest';
-import { IJsonRpcResponse } from './lib/IJsonRpcResponse';
-import {
-  InternalError,
-  InvalidRequest,
-  IPRateLimitExceeded,
-  JsonRpcError as JsonRpcErrorServer,
-  ParseError,
-} from './lib/RpcError';
-import jsonResp from './lib/RpcResponse';
+import { spec } from './lib/RpcError';
+import { type IJsonRpcResponse, jsonRespError, jsonRespResult } from './lib/RpcResponse';
 import {
   getBatchRequestsEnabled,
   getBatchRequestsMaxSize,
@@ -76,13 +69,14 @@ export default class KoaJsonRpc {
     });
   }
 
-  rpcApp(): (ctx: Koa.Context, _next: Koa.Next) => Promise<void> {
-    return async (ctx: Koa.Context, _next: Koa.Next) => {
-      this.updateRequestDetails({ requestId: ctx.state.reqId, ipAddress: ctx.request.ip });
+  rpcApp(): (ctx: Koa.Context) => Promise<void> {
+    return async (ctx: Koa.Context) => {
+      const requestId = ctx.state.reqId;
+      this.updateRequestDetails({ requestId, ipAddress: ctx.request.ip });
       ctx.set(REQUEST_ID_HEADER_NAME, this.requestId);
 
       if (ctx.request.method !== 'POST') {
-        ctx.body = jsonResp(null, new InvalidRequest(), undefined);
+        ctx.body = jsonRespError(null, spec.InvalidRequest, requestId);
         ctx.status = 400;
         ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
         return;
@@ -92,36 +86,35 @@ export default class KoaJsonRpc {
       try {
         body = await parse.json(ctx, { limit: this.limit });
       } catch (err) {
-        ctx.body = jsonResp(null, new ParseError(), undefined);
+        ctx.body = jsonRespError(null, spec.ParseError, requestId);
         return;
       }
       //check if body is array or object
       if (Array.isArray(body)) {
-        await this.handleMultipleRequest(ctx, body);
+        await this.handleMultipleRequest(ctx, body, requestId);
       } else {
-        await this.handleSingleRequest(ctx, body);
+        await this.handleSingleRequest(ctx, body, requestId);
       }
     };
   }
 
-  private async handleSingleRequest(ctx: Koa.Context, body: IJsonRpcRequest): Promise<void> {
-    const response = await this.getRequestResult(body, ctx.ip);
+  private async handleSingleRequest(ctx: Koa.Context, body: IJsonRpcRequest, requestId: string): Promise<void> {
+    const response = await this.getRequestResult(body, ctx.ip, requestId);
     ctx.body = response;
     ctx.state.methodName = body.method;
 
-    const errorOrResult = response.error || response.result;
-    if (errorOrResult instanceof JsonRpcError || errorOrResult instanceof JsonRpcErrorServer) {
-      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(errorOrResult);
+    if ('error' in response) {
+      const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(response.error);
 
       ctx.status = statusErrorCode;
       ctx.state.status = `${ctx.status} (${statusErrorMessage})`;
     }
   }
 
-  private async handleMultipleRequest(ctx: Koa.Context, body: any[]): Promise<void> {
+  private async handleMultipleRequest(ctx: Koa.Context, body: any[], requestId: string): Promise<void> {
     // verify that batch requests are enabled
     if (!getBatchRequestsEnabled()) {
-      ctx.body = jsonResp(null, predefined.BATCH_REQUESTS_DISABLED, undefined);
+      ctx.body = jsonRespError(null, predefined.BATCH_REQUESTS_DISABLED, requestId);
       ctx.status = 400;
       ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
       return;
@@ -129,10 +122,10 @@ export default class KoaJsonRpc {
 
     // verify max batch size
     if (body.length > this.batchRequestsMaxSize) {
-      ctx.body = jsonResp(
+      ctx.body = jsonRespError(
         null,
         predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
-        undefined,
+        requestId,
       );
       ctx.status = 400;
       ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
@@ -145,12 +138,13 @@ export default class KoaJsonRpc {
     // we do the requests in parallel to save time, but we need to keep track of the order of the responses (since the id might be optional)
     const promises: Promise<any>[] = body.map(async (item: any) => {
       if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
-        return jsonResp(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), undefined);
+        return jsonRespError(item.id, predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method), requestId);
       }
       const startTime = Date.now();
-      return this.getRequestResult(item, ctx.ip).then((res) => {
+      return this.getRequestResult(item, ctx.ip, requestId).then((res) => {
         const ms = Date.now() - startTime;
-        this.methodResponseHistogram?.labels(item.method, `${res.error ? res.error.code : 200}`, 'true').observe(ms);
+        const code = 'error' in res ? res.error.code : 200;
+        this.methodResponseHistogram?.labels(item.method, `${code}`, 'true').observe(ms);
         return res;
       });
     });
@@ -163,30 +157,30 @@ export default class KoaJsonRpc {
     ctx.state.status = responseSuccessStatusCode;
   }
 
-  async getRequestResult(request: IJsonRpcRequest, ip: string): Promise<IJsonRpcResponse> {
+  async getRequestResult(request: IJsonRpcRequest, ip: string, requestId: string): Promise<IJsonRpcResponse> {
     try {
       // ensure the request aligns with JSON-RPC 2.0 Specification
       if (!this.validateJsonRpcRequest(request)) {
-        return jsonResp(request.id || null, new InvalidRequest(), undefined);
+        return jsonRespError(request.id || null, spec.InvalidRequest, requestId);
       }
 
       // check rate limit for method and ip
       const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
       if (await this.rateLimiter.shouldRateLimit(ip, request.method, methodTotalLimit, this.getRequestDetails())) {
-        return jsonResp(request.id, new IPRateLimitExceeded(request.method), undefined);
+        return jsonRespError(request.id, spec.IPRateLimitExceeded(request.method), requestId);
       }
 
       // call the public API entry point on the Relay package to execute the RPC method
       const result = await this.relay.executeRpcMethod(request.method, request.params, this.getRequestDetails());
 
       if (result instanceof JsonRpcError) {
-        return jsonResp(request.id, result, undefined);
+        return jsonRespError(request.id, result, requestId);
       } else {
-        return jsonResp(request.id, null, result);
+        return jsonRespResult(request.id, result);
       }
     } catch (err) {
       /* istanbul ignore next: this catch block covers programmatic errors and should not happen */
-      return jsonResp(request.id, new InternalError(err), undefined);
+      return jsonRespError(request.id, spec.InternalError(err), requestId);
     }
   }
 
@@ -199,9 +193,7 @@ export default class KoaJsonRpc {
       !hasOwnProperty(body, 'id')
     ) {
       this.logger.warn(
-        `${this.getFormattedLogPrefix()} Invalid request, body.jsonrpc: ${body.jsonrpc}, body[method]: ${
-          body.method
-        }, body[id]: ${body.id}, ctx.request.method: ${body.method}`,
+        `Invalid request, body.jsonrpc: ${body.jsonrpc}, body[method]: ${body.method}, body[id]: ${body.id}, ctx.request.method: ${body.method}`,
       );
       return false;
     }
@@ -232,16 +224,10 @@ export default class KoaJsonRpc {
     if (this.requestIdIsOptional && !hasId) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
       body.id = '0';
-      this.logger.warn(
-        `${this.getFormattedLogPrefix()} Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`,
-      );
+      this.logger.warn(`Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`);
       return false;
     }
 
     return !hasId;
-  }
-
-  private getFormattedLogPrefix(): string {
-    return this.getRequestDetails().formattedLogPrefix;
   }
 }

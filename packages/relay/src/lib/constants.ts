@@ -95,7 +95,6 @@ export default {
   TX_DEFAULT_GAS_DEFAULT: 400_000,
   TX_CREATE_EXTRA: 32_000,
   TX_DATA_ZERO_COST: 4,
-  REQUEST_ID_STRING: `Request ID: `,
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
   MAX_MIRROR_NODE_PAGINATION: 20,
   MIRROR_NODE_QUERY_LIMIT: 100,
@@ -221,12 +220,6 @@ export default {
     FILE_APPEND_PER_5_KB: 9.55,
     FILE_APPEND_BASE_FEE: 3.9,
     FILE_APPEND_RATE_PER_BYTE: 0.0011,
-  },
-
-  EVENTS: {
-    EXECUTE_TRANSACTION: 'execute_transaction',
-    EXECUTE_QUERY: 'execute_query',
-    ETH_EXECUTION: 'eth_execution',
   },
 
   EXECUTION_MODE: {

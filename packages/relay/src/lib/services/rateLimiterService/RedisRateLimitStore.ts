@@ -7,7 +7,6 @@ import { createClient, RedisClientType } from 'redis';
 
 import { RedisCacheError } from '../../errors/RedisCacheError';
 import { RateLimitKey, RateLimitStore } from '../../types';
-import { RequestDetails } from '../../types/RequestDetails';
 
 /**
  * Redis-based rate limit store implementation using Lua scripting for atomic operations.
@@ -113,10 +112,9 @@ export class RedisRateLimitStore implements RateLimitStore {
    * Atomically increments the key in Redis and checks if the request count exceeds the limit.
    * @param key - The rate limit key containing IP and method information.
    * @param limit - Maximum allowed requests.
-   * @param requestDetails - Request details for logging and tracing.
    * @returns True if rate limit exceeded, false otherwise.
    */
-  async incrementAndCheck(key: RateLimitKey, limit: number, requestDetails: RequestDetails): Promise<boolean> {
+  async incrementAndCheck(key: RateLimitKey, limit: number): Promise<boolean> {
     try {
       const client = await this.getConnectedClient();
       const durationSeconds = Math.ceil(this.duration / 1000);
@@ -132,7 +130,7 @@ export class RedisRateLimitStore implements RateLimitStore {
 
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `${requestDetails.formattedRequestId}Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
+        `Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
         error,
       );
 

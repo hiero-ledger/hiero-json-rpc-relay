@@ -29,13 +29,7 @@ import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../src/lib/types';
 import { Utils } from '../../../src/utils';
 import RelayAssertions from '../../assertions';
-import {
-  getRequestId,
-  mockData,
-  overrideEnvsInMochaDescribe,
-  signTransaction,
-  withOverriddenEnvsInMochaTest,
-} from '../../helpers';
+import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -273,7 +267,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         'getContractResult',
         [formattedTransactionId, newRequestDetails],
         mirrorNodeRetry,
-        requestDetails,
       );
     });
 
@@ -291,7 +284,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         ethImpl.sendRawTransaction,
         false,
         ethImpl,
-        [signed, getRequestId()],
+        [signed, requestDetails],
       );
     });
 

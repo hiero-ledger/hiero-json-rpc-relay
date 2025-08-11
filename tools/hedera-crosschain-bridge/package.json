@@ -17,7 +17,7 @@
     "@layerzerolabs/lz-v2-utilities": "^3.0.98",
     "@layerzerolabs/oapp-evm": "^0.3.2",
     "@layerzerolabs/onft-evm": "^0.2.3",
-    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^17.2.1",
     "hardhat": "^2.24.1"
   }

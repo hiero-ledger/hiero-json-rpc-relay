@@ -7,7 +7,6 @@ import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
-import { RequestDetails } from '../../../dist/lib/types';
 import { RedisCache } from '../../../src/lib/clients';
 import { useInMemoryRedisServer } from '../../helpers';
 
@@ -19,7 +18,6 @@ describe('RedisCache Test Suite', async function () {
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
   const callingMethod = 'RedisCacheTest';
-  const requestDetails = new RequestDetails({ requestId: 'localLRUCacheTest', ipAddress: '0.0.0.0' });
 
   let redisCache: RedisCache;
   let redisClientSpy: sinon.SinonSpiedInstance<RedisClientType>;
@@ -48,7 +46,7 @@ describe('RedisCache Test Suite', async function () {
 
   describe('Get and Set Test Suite', async function () {
     it('should get null on empty cache', async function () {
-      const cacheValue = await redisCache.get('test', callingMethod, requestDetails);
+      const cacheValue = await redisCache.get('test', callingMethod);
       expect(cacheValue).to.be.null;
     });
 
@@ -56,9 +54,9 @@ describe('RedisCache Test Suite', async function () {
       const key = 'int';
       const value = 1;
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
     });
 
@@ -66,9 +64,9 @@ describe('RedisCache Test Suite', async function () {
       const key = 'boolean';
       const value = false;
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
     });
 
@@ -76,9 +74,9 @@ describe('RedisCache Test Suite', async function () {
       const key = 'array';
       const value = ['false'];
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).deep.equal(value);
     });
 
@@ -86,9 +84,9 @@ describe('RedisCache Test Suite', async function () {
       const key = 'object';
       const value = { result: true };
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).deep.equal(value);
     });
 
@@ -97,15 +95,15 @@ describe('RedisCache Test Suite', async function () {
       const value = 1;
       const ttl = 100;
 
-      await redisCache.set(key, value, callingMethod, requestDetails, ttl);
+      await redisCache.set(key, value, callingMethod, ttl);
       sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
 
       await new Promise((resolve) => setTimeout(resolve, ttl + 100));
 
-      const expiredValue = await redisCache.get(key, callingMethod, requestDetails);
+      const expiredValue = await redisCache.get(key, callingMethod);
       expect(expiredValue).to.be.null;
     });
 
@@ -114,15 +112,15 @@ describe('RedisCache Test Suite', async function () {
       const value = 1;
       const ttl = 1100;
 
-      await redisCache.set(key, value, callingMethod, requestDetails, ttl);
+      await redisCache.set(key, value, callingMethod, ttl);
       sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
 
       await new Promise((resolve) => setTimeout(resolve, ttl + 100));
 
-      const expiredValue = await redisCache.get(key, callingMethod, requestDetails);
+      const expiredValue = await redisCache.get(key, callingMethod);
       expect(expiredValue).to.be.null;
     });
 
@@ -131,10 +129,10 @@ describe('RedisCache Test Suite', async function () {
       const value = 1;
       const ttl = -1;
 
-      await redisCache.set(key, value, callingMethod, requestDetails, ttl);
+      await redisCache.set(key, value, callingMethod, ttl);
       sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value));
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
 
       await new Promise((resolve) => setTimeout(resolve, redisCache['options'].ttl));
@@ -151,10 +149,10 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
-      await redisCache.multiSet(keyValuePairs, callingMethod, requestDetails);
+      await redisCache.multiSet(keyValuePairs, callingMethod);
 
       for (const key in keyValuePairs) {
-        const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+        const cachedValue = await redisCache.get(key, callingMethod);
         expect(cachedValue).deep.equal(keyValuePairs[key]);
       }
     });
@@ -170,10 +168,10 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
-      await redisCache.pipelineSet(keyValuePairs, callingMethod, requestDetails);
+      await redisCache.pipelineSet(keyValuePairs, callingMethod);
 
       for (const key in keyValuePairs) {
-        const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+        const cachedValue = await redisCache.get(key, callingMethod);
         expect(cachedValue).deep.equal(keyValuePairs[key]);
       }
     });
@@ -187,17 +185,17 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
-      await redisCache.pipelineSet(keyValuePairs, callingMethod, requestDetails, 500);
+      await redisCache.pipelineSet(keyValuePairs, callingMethod, 500);
 
       for (const key in keyValuePairs) {
-        const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+        const cachedValue = await redisCache.get(key, callingMethod);
         expect(cachedValue).deep.equal(keyValuePairs[key]);
       }
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       for (const key in keyValuePairs) {
-        const expiredValue = await redisCache.get(key, callingMethod, requestDetails);
+        const expiredValue = await redisCache.get(key, callingMethod);
         expect(expiredValue).to.be.null;
       }
     });
@@ -208,10 +206,10 @@ describe('RedisCache Test Suite', async function () {
       const key = 'int';
       const value = 1;
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
-      await redisCache.delete(key, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
+      await redisCache.delete(key, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).to.be.null;
     });
 
@@ -219,10 +217,10 @@ describe('RedisCache Test Suite', async function () {
       const key = 'boolean';
       const value = false;
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
-      await redisCache.delete(key, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
+      await redisCache.delete(key, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).to.be.null;
     });
 
@@ -230,10 +228,10 @@ describe('RedisCache Test Suite', async function () {
       const key = 'array';
       const value = ['false'];
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
-      await redisCache.delete(key, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
+      await redisCache.delete(key, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).to.be.null;
     });
 
@@ -241,10 +239,10 @@ describe('RedisCache Test Suite', async function () {
       const key = 'object';
       const value = { result: true };
 
-      await redisCache.set(key, value, callingMethod, requestDetails);
-      await redisCache.delete(key, callingMethod, requestDetails);
+      await redisCache.set(key, value, callingMethod);
+      await redisCache.delete(key, callingMethod);
 
-      const cachedValue = await redisCache.get(key, callingMethod, requestDetails);
+      const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).to.be.null;
     });
   });
@@ -254,7 +252,7 @@ describe('RedisCache Test Suite', async function () {
       const key = 'non-existing';
       const amount = 1;
 
-      const newValue = await redisCache.incrBy(key, amount, callingMethod, requestDetails);
+      const newValue = await redisCache.incrBy(key, amount, callingMethod);
       expect(newValue).equal(amount);
     });
 
@@ -263,8 +261,8 @@ describe('RedisCache Test Suite', async function () {
       const initialValue = 5;
       const amount = 3;
 
-      await redisCache.set(key, initialValue, callingMethod, requestDetails);
-      const newValue = await redisCache.incrBy(key, amount, callingMethod, requestDetails);
+      await redisCache.set(key, initialValue, callingMethod);
+      const newValue = await redisCache.incrBy(key, amount, callingMethod);
       expect(newValue).equal(initialValue + amount);
     });
 
@@ -273,8 +271,8 @@ describe('RedisCache Test Suite', async function () {
       const initialValue = 5;
       const amount = -2;
 
-      await redisCache.set(key, initialValue, callingMethod, requestDetails);
-      const newValue = await redisCache.incrBy(key, amount, callingMethod, requestDetails);
+      await redisCache.set(key, initialValue, callingMethod);
+      const newValue = await redisCache.incrBy(key, amount, callingMethod);
       expect(newValue).equal(initialValue + amount);
     });
   });
@@ -284,10 +282,10 @@ describe('RedisCache Test Suite', async function () {
       const key = 'non-existing-list';
       const value = 'item1';
 
-      const length = await redisCache.rPush(key, value, callingMethod, requestDetails);
+      const length = await redisCache.rPush(key, value, callingMethod);
       expect(length).equal(1);
 
-      const list = await redisCache.lRange(key, 0, -1, callingMethod, requestDetails);
+      const list = await redisCache.lRange(key, 0, -1, callingMethod);
       expect(list).deep.equal([value]);
     });
 
@@ -296,11 +294,11 @@ describe('RedisCache Test Suite', async function () {
       const initialList = ['item1'];
       const newValue = 'item2';
 
-      await redisCache.rPush(key, initialList[0], callingMethod, requestDetails);
-      const length = await redisCache.rPush(key, newValue, callingMethod, requestDetails);
+      await redisCache.rPush(key, initialList[0], callingMethod);
+      const length = await redisCache.rPush(key, newValue, callingMethod);
       expect(length).equal(2);
 
-      const list = await redisCache.lRange(key, 0, -1, callingMethod, requestDetails);
+      const list = await redisCache.lRange(key, 0, -1, callingMethod);
       expect(list).deep.equal([...initialList, newValue]);
     });
   });
@@ -311,7 +309,7 @@ describe('RedisCache Test Suite', async function () {
       const start = 0;
       const end = 1;
 
-      const list = await redisCache.lRange(key, start, end, callingMethod, requestDetails);
+      const list = await redisCache.lRange(key, start, end, callingMethod);
       expect(list).deep.equal([]);
     });
 
@@ -320,10 +318,10 @@ describe('RedisCache Test Suite', async function () {
       const list = ['item1', 'item2', 'item3'];
 
       for (const item of list) {
-        await redisCache.rPush(key, item, callingMethod, requestDetails);
+        await redisCache.rPush(key, item, callingMethod);
       }
 
-      const range = await redisCache.lRange(key, 0, 1, callingMethod, requestDetails);
+      const range = await redisCache.lRange(key, 0, 1, callingMethod);
       expect(range).deep.equal(['item1', 'item2']);
     });
   });
@@ -332,17 +330,17 @@ describe('RedisCache Test Suite', async function () {
     it('should retrieve keys matching a glob-style pattern with *', async function () {
       const keys = ['hello', 'hallo', 'hxllo'];
       for (let i = 0; i < keys.length; i++) {
-        await redisCache.set(keys[i], `value${i}`, callingMethod, requestDetails);
+        await redisCache.set(keys[i], `value${i}`, callingMethod);
       }
-      await expect(redisCache.keys('h*llo', callingMethod, requestDetails)).to.eventually.have.members(keys);
+      await expect(redisCache.keys('h*llo', callingMethod)).to.eventually.have.members(keys);
     });
 
     it('should retrieve keys matching a glob-style pattern with ?', async function () {
       const keys = ['hello', 'hallo', 'hxllo'];
       for (let i = 0; i < keys.length; i++) {
-        await redisCache.set(keys[i], `value${i}`, callingMethod, requestDetails);
+        await redisCache.set(keys[i], `value${i}`, callingMethod);
       }
-      await expect(redisCache.keys('h?llo', callingMethod, requestDetails)).to.eventually.have.members(keys);
+      await expect(redisCache.keys('h?llo', callingMethod)).to.eventually.have.members(keys);
     });
 
     it('should retrieve keys matching a glob-style pattern with []', async function () {
@@ -350,10 +348,10 @@ describe('RedisCache Test Suite', async function () {
       const key2 = 'hallo';
       const pattern = 'h[ae]llo';
 
-      await redisCache.set(key1, 'value1', callingMethod, requestDetails);
-      await redisCache.set(key2, 'value2', callingMethod, requestDetails);
+      await redisCache.set(key1, 'value1', callingMethod);
+      await redisCache.set(key2, 'value2', callingMethod);
 
-      const keys = await redisCache.keys(pattern, callingMethod, requestDetails);
+      const keys = await redisCache.keys(pattern, callingMethod);
       expect(keys).to.include.members([key1, key2]);
     });
 
@@ -362,10 +360,10 @@ describe('RedisCache Test Suite', async function () {
       const key2 = 'hbllo';
       const pattern = 'h[^e]llo';
 
-      await redisCache.set(key1, 'value1', callingMethod, requestDetails);
-      await redisCache.set(key2, 'value2', callingMethod, requestDetails);
+      await redisCache.set(key1, 'value1', callingMethod);
+      await redisCache.set(key2, 'value2', callingMethod);
 
-      const keys = await redisCache.keys(pattern, callingMethod, requestDetails);
+      const keys = await redisCache.keys(pattern, callingMethod);
       expect(keys).to.include.members([key1, key2]);
     });
 
@@ -374,22 +372,20 @@ describe('RedisCache Test Suite', async function () {
       const key2 = 'hbllo';
       const pattern = 'h[a-b]llo';
 
-      await redisCache.set(key1, 'value1', callingMethod, requestDetails);
-      await redisCache.set(key2, 'value2', callingMethod, requestDetails);
+      await redisCache.set(key1, 'value1', callingMethod);
+      await redisCache.set(key2, 'value2', callingMethod);
 
-      const keys = await redisCache.keys(pattern, callingMethod, requestDetails);
+      const keys = await redisCache.keys(pattern, callingMethod);
       expect(keys).to.include.members([key1, key2]);
     });
 
     it('should retrieve keys matching a pattern with escaped special characters', async function () {
       const keys = ['h*llo', 'h?llo', 'h[llo', 'h]llo'];
       for (let i = 0; i < keys.length; i++) {
-        await redisCache.set(keys[i], `value${i}`, callingMethod, requestDetails);
+        await redisCache.set(keys[i], `value${i}`, callingMethod);
       }
       for (const key of keys) {
-        await expect(
-          redisCache.keys(key.replace(/([*?[\]])/g, '\\$1'), callingMethod, requestDetails),
-        ).eventually.has.members([key]);
+        await expect(redisCache.keys(key.replace(/([*?[\]])/g, '\\$1'), callingMethod)).eventually.has.members([key]);
       }
     });
 
@@ -399,11 +395,11 @@ describe('RedisCache Test Suite', async function () {
       const key3 = 'age';
       const pattern = '*';
 
-      await redisCache.set(key1, 'Jack', callingMethod, requestDetails);
-      await redisCache.set(key2, 'Stuntman', callingMethod, requestDetails);
-      await redisCache.set(key3, '35', callingMethod, requestDetails);
+      await redisCache.set(key1, 'Jack', callingMethod);
+      await redisCache.set(key2, 'Stuntman', callingMethod);
+      await redisCache.set(key3, '35', callingMethod);
 
-      const keys = await redisCache.keys(pattern, callingMethod, requestDetails);
+      const keys = await redisCache.keys(pattern, callingMethod);
       expect(keys).to.include.members([key1, key2, key3]);
     });
   });

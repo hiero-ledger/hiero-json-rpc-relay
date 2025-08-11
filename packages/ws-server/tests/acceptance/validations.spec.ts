@@ -2,7 +2,8 @@
 
 // external resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
-import { InvalidRequest, MethodNotFound } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
+import { spec } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
+import { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
@@ -51,7 +52,7 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
     }
   });
 
-  describe('Request  & Method Validations', () => {
+  describe('Request & Method Validations', () => {
     for (const request of INVALID_REQUESTS) {
       it('Should reject the requests because of the invalid JSON-RPC requests', async () => {
         const webSocket = new WebSocket(WsTestConstant.WS_RELAY_URL);
@@ -70,11 +71,9 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
-        const invalidRequest = new InvalidRequest();
-
         expect(response.error).to.exist;
-        expect(response.error.message).to.eq(invalidRequest.message);
-        expect(response.error.code).to.eq(invalidRequest.code);
+        expect(response.error.message).to.match(requestIdRegex(spec.InvalidRequest.message));
+        expect(response.error.code).to.eq(spec.InvalidRequest.code);
 
         webSocket.close();
       });
@@ -84,9 +83,9 @@ describe('@release @web-socket-batch-1 JSON-RPC requests validation', async func
       it('Should reject the requests because of the invalid JSON-RPC methods', async () => {
         const response = await WsTestHelper.sendRequestToStandardWebSocket(method, []);
 
-        const methodNotFound = new MethodNotFound(method);
+        const methodNotFound = spec.MethodNotFound(method);
         expect(response.error).to.exist;
-        expect(response.error.message).to.eq(methodNotFound.message);
+        expect(response.error.message).to.match(requestIdRegex(methodNotFound.message));
         expect(response.error.code).to.eq(methodNotFound.code);
       });
     }

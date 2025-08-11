@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import MockAdapter from 'axios-mock-adapter';
-import EventEmitter from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
@@ -14,7 +13,7 @@ import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hba
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../../src/lib/eth';
 import { CommonService } from '../../../src/lib/services';
-import { CACHE_LEVEL, CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 
@@ -35,7 +34,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   ConfigServiceTestHelper.dynamicOverride('ETH_FEE_HISTORY_FIXED', fixedFeeHistory);
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
-  const cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+  const cacheService = new CacheService(logger, registry);
   const mirrorNodeInstance = new MirrorNodeClient(
     ConfigService.get('MIRROR_NODE_URL'),
     logger.child({ name: `mirror-node` }),
@@ -47,7 +46,6 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   const web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
   const duration = constants.HBAR_RATE_LIMIT_DURATION;
-  const eventEmitter = new EventEmitter();
 
   const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
   const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -61,11 +59,11 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
+  const hapiServiceInstance = new HAPIService(logger, registry, hbarLimitService);
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
 
   return {
     cacheService,

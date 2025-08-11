@@ -4,22 +4,16 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 
 import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
-import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
-import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
-import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
 import { Log, Transaction } from '../../src/lib/model';
 import { BlockService, CommonService } from '../../src/lib/services';
-import { CACHE_LEVEL, CacheService } from '../../src/lib/services/cacheService/cacheService';
-import HAPIService from '../../src/lib/services/hapiService/hapiService';
-import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
+import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../src/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
@@ -30,7 +24,6 @@ const registry = new Registry();
 
 let restMock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
-let hapiServiceInstance: HAPIService;
 let cacheService: CacheService;
 
 const blockHashTrimmed = '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b';
@@ -108,7 +101,7 @@ describe('eth_getBlockBy', async function () {
   overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });
 
   this.beforeAll(async () => {
-    cacheService = CacheService.getInstance(CACHE_LEVEL.L1, registry);
+    cacheService = new CacheService(logger, registry);
 
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
@@ -121,25 +114,6 @@ describe('eth_getBlockBy', async function () {
     // @ts-ignore
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
 
-    const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const eventEmitter = new EventEmitter();
-
-    const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
-    const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
-    const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
-    const hbarLimitService = new HbarLimitService(
-      hbarSpendingPlanRepository,
-      evmAddressHbarSpendingPlanRepository,
-      ipAddressHbarSpendingPlanRepository,
-      logger,
-      register,
-      duration,
-    );
-
-    hapiServiceInstance = new HAPIService(logger, registry, eventEmitter, hbarLimitService);
-
-    // @ts-ignore
-    ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, eventEmitter);
     const common = new CommonService(mirrorNodeInstance, logger, cacheService);
     blockService = new BlockService(cacheService, '0x12a', common, mirrorNodeInstance, logger);
   });

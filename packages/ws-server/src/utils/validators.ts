@@ -36,7 +36,6 @@ const validateIsContractOrTokenAddress = async (
         'filters.address',
         `${address} is not a valid contract or token type or does not exists`,
       ),
-      requestDetails.formattedRequestId,
     );
   }
 };

@@ -5,8 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined, WebSocketError } from '@hashgraph/json-rpc-relay/dist';
 import LogContractJson from '@hashgraph/json-rpc-server/tests/contracts/Logs.json';
 import IERC20Json from '@hashgraph/json-rpc-server/tests/contracts/openzeppelin/IERC20.json';
-import Assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
-import assertions from '@hashgraph/json-rpc-server/tests/helpers/assertions';
+import Assertions, { requestIdRegex } from '@hashgraph/json-rpc-server/tests/helpers/assertions';
 import Constants from '@hashgraph/json-rpc-server/tests/helpers/constants';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
@@ -205,9 +204,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     it('When JSON is invalid, expect INVALID_REQUEST Error message', async function () {
       const webSocket = new WebSocket(WS_RELAY_URL);
-      let response = '';
+      let response = {};
       webSocket.on('message', function incoming(data) {
-        response = data;
+        response = JSON.parse(data);
       });
       webSocket.on('open', function open() {
         // send invalid JSON, missing closing bracket
@@ -215,8 +214,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(JSON.parse(response).code).to.eq(predefined.INVALID_REQUEST.code);
-      expect(JSON.parse(response).message).to.eq(predefined.INVALID_REQUEST.message);
+      expect(response.error.code).to.be.equal(predefined.INVALID_REQUEST.code);
+      expect(response.error.message).to.match(requestIdRegex(predefined.INVALID_REQUEST.message));
 
       webSocket.close();
     });
@@ -312,8 +311,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
         expect(response.id).to.be.eq(requestId);
         expect(response.error.code).to.be.eq(-32602);
-        expect(response.error.message).to.be.eq(
-          `Invalid parameter filters.address: Only one contract address is allowed`,
+        expect(response.error.message).to.match(
+          requestIdRegex(`Invalid parameter filters.address: Only one contract address is allowed`),
         );
 
         // post test clean-up
@@ -336,7 +335,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
-          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+          expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
 
         it('Rejects unsubscribe requests when SUBSCRIPTIONS_ENABLED is false', async function () {
@@ -349,7 +348,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           expect(response).to.not.be.null;
           expect(response.error).to.exist;
           expect(response.error.code).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.code);
-          expect(response.error.message).to.equal(predefined.WS_SUBSCRIPTIONS_DISABLED.message);
+          expect(response.error.message).to.match(requestIdRegex(predefined.WS_SUBSCRIPTIONS_DISABLED.message));
         });
       });
     }
@@ -367,8 +366,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // wait 500ms to expect the message
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      expect(response.error.code).to.eq(predefined.UNSUPPORTED_METHOD.code);
-      expect(response.error.message).to.eq(predefined.UNSUPPORTED_METHOD.message);
+      expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
+      expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
 
       // close the connection
       webSocket.close();
@@ -387,8 +386,8 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // wait 500ms to expect the message
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      expect(response.error.code).to.eq(predefined.UNSUPPORTED_METHOD.code);
-      expect(response.error.message).to.eq(predefined.UNSUPPORTED_METHOD.message);
+      expect(response.error.code).to.be.equal(predefined.UNSUPPORTED_METHOD.code);
+      expect(response.error.message).to.match(requestIdRegex(predefined.UNSUPPORTED_METHOD.message));
 
       // close the connection
       webSocket.close();
@@ -668,11 +667,11 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(5);
 
-      assertions.expectAnonymousLog(eventsReceived[0], logContractSigner, ANONYMOUS_LOG_DATA);
-      assertions.expectLogArgs(eventsReceived[1], logContractSigner, [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[2], logContractSigner, [BigInt(1), BigInt(2)]);
-      assertions.expectLogArgs(eventsReceived[3], logContractSigner, [BigInt(10), BigInt(20), BigInt(31)]);
-      assertions.expectLogArgs(eventsReceived[4], logContractSigner, [BigInt(11), BigInt(22), BigInt(33), BigInt(44)]);
+      Assertions.expectAnonymousLog(eventsReceived[0], logContractSigner, ANONYMOUS_LOG_DATA);
+      Assertions.expectLogArgs(eventsReceived[1], logContractSigner, [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[2], logContractSigner, [BigInt(1), BigInt(2)]);
+      Assertions.expectLogArgs(eventsReceived[3], logContractSigner, [BigInt(10), BigInt(20), BigInt(31)]);
+      Assertions.expectLogArgs(eventsReceived[4], logContractSigner, [BigInt(11), BigInt(22), BigInt(33), BigInt(44)]);
     });
 
     it('@release Subscribes for contract logs for a specific contract address (using long zero address)', async function () {
@@ -681,11 +680,11 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(5);
 
-      assertions.expectAnonymousLog(eventsReceived[0], logContractSigner, ANONYMOUS_LOG_DATA);
-      assertions.expectLogArgs(eventsReceived[1], logContractSigner, [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[2], logContractSigner, [BigInt(1), BigInt(2)]);
-      assertions.expectLogArgs(eventsReceived[3], logContractSigner, [BigInt(10), BigInt(20), BigInt(31)]);
-      assertions.expectLogArgs(eventsReceived[4], logContractSigner, [BigInt(11), BigInt(22), BigInt(33), BigInt(44)]);
+      Assertions.expectAnonymousLog(eventsReceived[0], logContractSigner, ANONYMOUS_LOG_DATA);
+      Assertions.expectLogArgs(eventsReceived[1], logContractSigner, [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[2], logContractSigner, [BigInt(1), BigInt(2)]);
+      Assertions.expectLogArgs(eventsReceived[3], logContractSigner, [BigInt(10), BigInt(20), BigInt(31)]);
+      Assertions.expectLogArgs(eventsReceived[4], logContractSigner, [BigInt(11), BigInt(22), BigInt(33), BigInt(44)]);
     });
 
     it('Subscribes for contract logs for a single topic', async function () {
@@ -694,9 +693,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(3);
 
-      assertions.expectLogArgs(eventsReceived[0], contracts[0], [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[1], contracts[1], [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[2], contracts[2], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[0], contracts[0], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[1], contracts[1], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[2], contracts[2], [BigInt(1)]);
     });
 
     it('Subscribes for contract logs for multiple topics', async function () {
@@ -705,9 +704,9 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(3);
 
-      assertions.expectLogArgs(eventsReceived[0], contracts[0], [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[1], contracts[1], [BigInt(1)]);
-      assertions.expectLogArgs(eventsReceived[2], contracts[2], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[0], contracts[0], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[1], contracts[1], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[2], contracts[2], [BigInt(1)]);
     });
 
     it('Subscribes for contract logs for address and multiple topics', async function () {
@@ -716,7 +715,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // Only the logs from logContractSigner.target are captured
       expect(eventsReceived.length).to.eq(1);
 
-      assertions.expectLogArgs(eventsReceived[0], contracts[1], [BigInt(1)]);
+      Assertions.expectLogArgs(eventsReceived[0], contracts[1], [BigInt(1)]);
     });
 
     it('Subscribing for contract logs for a specific contract address and a wrong topic.', async function () {
@@ -796,7 +795,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       expect(balanceAfter.toString()).to.eq('1', 'token is successfully transferred');
 
       expect(htsEventsReceived.length).to.eq(1, 'log is captured');
-      assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
+      Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
         htsAccounts[0].wallet.address,
         htsAccounts[1].wallet.address,
         BigInt(1),
@@ -824,13 +823,13 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       expect(htsEventsReceived.length).to.eq(2, 'logs are captured');
 
-      assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
+      Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
         htsAccounts[0].wallet.address,
         htsAccounts[1].wallet.address,
         BigInt(1),
       ]);
 
-      assertions.expectLogArgs(htsEventsReceived[1], htsToken, [
+      Assertions.expectLogArgs(htsEventsReceived[1], htsToken, [
         htsAccounts[0].wallet.address,
         htsAccounts[2].wallet.address,
         BigInt(1),

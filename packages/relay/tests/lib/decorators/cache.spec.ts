@@ -33,7 +33,9 @@ describe('cache decorator', () => {
 
   const createDecoratedMethod = (options = {}) => {
     class TestClass {
-      @cache(cacheService as unknown as CacheService, options)
+      public _cacheService: CacheService = cacheService;
+
+      @cache(options, '_cacheService')
       async testMethod(arg1: any, arg2: any, requestDetails: RequestDetails) {
         return getComputedResult(arg1, arg2, requestDetails);
       }
@@ -64,7 +66,7 @@ describe('cache decorator', () => {
 
       const args = cacheService.set.getCall(0).args;
       expect(args[1]).to.equal(getComputedResult('arg1', 'arg2', requestDetails));
-      expect(args[4]).to.equal(ConfigService.get('CACHE_TTL'));
+      expect(args[3]).to.equal(ConfigService.get('CACHE_TTL'));
     });
 
     it('should not cache result if shouldSkipCachingForSingleParams returns true', async () => {
@@ -101,7 +103,7 @@ describe('cache decorator', () => {
       const result = await instance.testMethod('latest', 'another', requestDetails);
       expect(result).to.equal(getComputedResult('latest', 'another', requestDetails));
       expect(cacheService.set.calledOnce).to.be.true;
-      expect(cacheService.set.getCall(0).args[4]).to.equal(555);
+      expect(cacheService.set.getCall(0).args[3]).to.equal(555);
     });
   });
 
@@ -336,50 +338,6 @@ describe('cache decorator', () => {
 
       const result = __test__.__private.generateCacheKey('deep_method', args);
       expect(result).to.equal('deep_method_{"level1":{"level2":{"level3":{"value":"deep"}}}}');
-    });
-  });
-
-  describe('extractRequestDetails', () => {
-    it('should return the RequestDetails instance if found in args', () => {
-      const requestDetails = new RequestDetails({ requestId: 'abc123', ipAddress: '127.0.0.1' });
-      const args = [5644, requestDetails, 'other'];
-
-      const result = __test__.__private.extractRequestDetails(args);
-      expect(result.requestId).to.equal('abc123');
-      expect(result.ipAddress).to.equal('127.0.0.1');
-    });
-
-    it('should return a new default RequestDetails if not found', () => {
-      const args = [5644, { fromBlock: 'pending' }, 'value'];
-
-      const result = __test__.__private.extractRequestDetails(args);
-      expect(result.requestId).to.equal('');
-      expect(result.ipAddress).to.equal('');
-    });
-
-    it('should return new RequestDetails when args is empty', () => {
-      const args = [];
-
-      const result = __test__.__private.extractRequestDetails(args);
-      expect(result.requestId).to.equal('');
-      expect(result.ipAddress).to.equal('');
-    });
-
-    it('should return the first RequestDetails instance if multiple are present', () => {
-      const rd1 = new RequestDetails({ requestId: 'first', ipAddress: '1.1.1.1' });
-      const rd2 = new RequestDetails({ requestId: 'second', ipAddress: '2.2.2.2' });
-      const args = [rd1, rd2];
-
-      const result = __test__.__private.extractRequestDetails(args);
-      expect(result).to.equal(rd1);
-    });
-
-    it('should handle null or undefined values in args', () => {
-      const args = [undefined, null, 5644];
-
-      const result = __test__.__private.extractRequestDetails(args);
-      expect(result.requestId).to.equal('');
-      expect(result.ipAddress).to.equal('');
     });
   });
 });

@@ -23,9 +23,9 @@ export interface ITransactionService {
 
   sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 
-  sendTransaction(requestDetails: RequestDetails): JsonRpcError;
+  sendTransaction(): JsonRpcError;
 
-  signTransaction(requestDetails: RequestDetails): JsonRpcError;
+  signTransaction(): JsonRpcError;
 
-  sign(requestDetails: RequestDetails): JsonRpcError;
+  sign(): JsonRpcError;
 }

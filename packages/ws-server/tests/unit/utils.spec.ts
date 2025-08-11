@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Relay } from '@hashgraph/json-rpc-relay';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { EthImpl } from '@hashgraph/json-rpc-relay/src/lib/eth';
 import { expect } from 'chai';
 import pino from 'pino';
@@ -77,11 +76,6 @@ describe('Utilities unit tests', async function () {
     let loggerMock: any;
     let request: any;
     let response: any;
-    const requestDetails = new RequestDetails({
-      requestId: 'req-123',
-      ipAddress: '0.0.0.0',
-      connectionId: 'conn-456',
-    });
 
     beforeEach(() => {
       connectionMock = {
@@ -104,25 +98,25 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should log the response being sent to the client', () => {
-      sendToClient(connectionMock, request, response, loggerMock, requestDetails);
+      sendToClient(connectionMock, request, response, loggerMock);
 
-      const expectedLogMessage = `${requestDetails.formattedLogPrefix}: Sending result=${JSON.stringify(
-        response,
-      )} to client for request=${JSON.stringify(request)}`;
+      const expectedLogMessage = `Sending result=${JSON.stringify(response)} to client for request=${JSON.stringify(
+        request,
+      )}`;
 
       expect(loggerMock.trace.calledOnce).to.be.true;
       expect(loggerMock.trace.calledWith(expectedLogMessage)).to.be.true;
     });
 
     it('should send the response to the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock, requestDetails);
+      sendToClient(connectionMock, request, response, loggerMock);
 
       expect(connectionMock.send.calledOnce).to.be.true;
       expect(connectionMock.send.calledWith(JSON.stringify(response))).to.be.true;
     });
 
     it('should reset the inactivity TTL timer for the client connection', () => {
-      sendToClient(connectionMock, request, response, loggerMock, requestDetails);
+      sendToClient(connectionMock, request, response, loggerMock);
 
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledOnce).to.be.true;
       expect(connectionMock.limiter.resetInactivityTTLTimer.calledWith(connectionMock)).to.be.true;

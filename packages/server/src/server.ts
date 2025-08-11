@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import fs from 'fs';
@@ -11,17 +13,27 @@ import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
-import { MethodNotFound } from './koaJsonRpc/lib/RpcError';
+import { spec } from './koaJsonRpc/lib/RpcError';
+
+// https://nodejs.org/api/async_context.html#asynchronous-context-tracking
+const context = new AsyncLocalStorage<{ requestId: string }>();
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
-  // Pino requires the default level to be explicitly set; without fallback value ("trace"), an invalid or missing value could trigger the "default level must be included in custom levels" error.
-  level: ConfigService.get('LOG_LEVEL') || 'trace',
+  level: ConfigService.get('LOG_LEVEL'),
+  // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
+  mixin: () => {
+    const store = context.getStore();
+    return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
+  },
   transport: {
     target: 'pino-pretty',
     options: {
       colorize: true,
       translateTime: true,
+      messageFormat: '{requestId}{msg}',
+      // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
+      ignore: 'requestId',
     },
   },
 });
@@ -150,18 +162,15 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
   }
 }
 
-// set cors
+// Set CORS
 app.getKoaApp().use(cors());
 
-/**
- * middleware for non POST request timing
- */
+// Middleware for non POST request timing
 app.getKoaApp().use(async (ctx, next) => {
   const start = Date.now();
-  ctx.state.start = start;
   await next();
-
   const ms = Date.now() - start;
+
   if (ctx.method !== 'POST') {
     logger.info(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
   } else {
@@ -169,16 +178,12 @@ app.getKoaApp().use(async (ctx, next) => {
     const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
 
     // log call type, method, status code and latency
-    logger.info(
-      `${formatRequestIdMessage(ctx.state.reqId)} [${ctx.method}]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`,
-    );
+    logger.info(`${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`);
     methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
   }
 });
 
-/**
- * prometheus metrics exposure
- */
+// Prometheus metrics exposure
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/metrics') {
     ctx.status = 200;
@@ -188,9 +193,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * liveness endpoint
- */
+// Liveness endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/liveness') {
     ctx.status = 200;
@@ -199,24 +202,20 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * config endpoint
- */
+// Config endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/config') {
     if (ConfigService.get('DISABLE_ADMIN_NAMESPACE')) {
-      return new MethodNotFound('config');
+      return spec.MethodNotFound('config');
     }
     ctx.status = 200;
-    ctx.body = JSON.stringify(await relay.admin().config(app.getRequestDetails()));
+    ctx.body = JSON.stringify(await relay.admin().config());
   } else {
     return next();
   }
 });
 
-/**
- * readiness endpoint
- */
+// Readiness endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/health/readiness') {
     try {
@@ -237,9 +236,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * openrpc endpoint
- */
+// OpenRPC endpoint
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.url === '/openrpc') {
     ctx.status = 200;
@@ -253,9 +250,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-/**
- * middleware to end for non POST requests asides health, metrics and openrpc
- */
+// Middleware to end for non POST requests asides health, metrics and openrpc
 app.getKoaApp().use(async (ctx, next) => {
   if (ctx.method === 'POST') {
     await next();
@@ -267,7 +262,7 @@ app.getKoaApp().use(async (ctx, next) => {
   }
 });
 
-app.getKoaApp().use(async (ctx, next) => {
+app.getKoaApp().use((ctx, next) => {
   const options = {
     expose: ctx.get('Request-Id'),
     header: ctx.get('Request-Id'),
@@ -280,33 +275,21 @@ app.getKoaApp().use(async (ctx, next) => {
     }
   }
 
-  let id = '';
-
-  if (options.query) {
-    id = options.query as string;
-  }
-
-  if (!id && options.header) {
-    id = options.header;
-  }
-
-  if (!id) {
-    id = uuid();
-  }
+  const requestId = options.query || options.header || uuid();
 
   if (options.expose) {
-    ctx.set(options.expose, id);
+    ctx.set(options.expose, requestId);
   }
 
-  ctx.state.reqId = id;
+  ctx.state.reqId = requestId;
 
-  return next();
+  return context.run({ requestId }, next);
 });
 
 const rpcApp = app.rpcApp();
 
-app.getKoaApp().use(async (ctx, next) => {
-  await rpcApp(ctx, next);
+app.getKoaApp().use(async (ctx) => {
+  await rpcApp(ctx);
 });
 
 process.on('unhandledRejection', (reason, p) => {

@@ -7,7 +7,7 @@ import { HbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/d
 import { IPAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/subscriptionTier';
-import { CACHE_LEVEL, CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
+import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '@hashgraph/json-rpc-relay/dist/lib/services/hbarLimitService';
 import { ITransfer, RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { SpendingPlanConfig } from '@hashgraph/json-rpc-relay/src/lib/types/spendingPlanConfig';
@@ -58,7 +58,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   const fileAppendChunkSize = Number(ConfigService.get('FILE_APPEND_CHUNK_SIZE'));
   const requestId = 'hbarLimiterTest';
   const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
-  const cacheService = CacheService.getInstance(CACHE_LEVEL.L1);
+  const cacheService = new CacheService(logger.child({ name: 'cache-service' }));
   const maxBasicSpendingLimit = HbarLimitService.TIER_LIMITS.BASIC.toTinybars().toNumber();
   const maxExtendedSpendingLimit = HbarLimitService.TIER_LIMITS.EXTENDED.toTinybars().toNumber();
   const maxPrivilegedSpendingLimit = HbarLimitService.TIER_LIMITS.PRIVILEGED.toTinybars().toNumber();
@@ -75,8 +75,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     deploymentCounts: number,
     expectedTxCost: number,
   ) => {
-    let amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id, requestDetails))
-      .amountSpent;
+    let amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
 
     while (amountSpent < deploymentCounts * expectedTxCost) {
       logger.warn(
@@ -85,8 +84,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         }, planId=${hbarSpendingPlan.id}`,
       );
       await Utils.wait(3000);
-      amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id, requestDetails))
-        .amountSpent;
+      amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
     }
 
     logger.info(
@@ -208,12 +206,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       };
 
       before(async function () {
-        logger.info(`${requestDetails.formattedRequestId} Creating accounts`);
-        logger.info(
-          `${requestDetails.formattedRequestId} HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get(
-            'HBAR_RATE_LIMIT_TINYBAR',
-          )}`,
-        );
+        logger.info(`Creating accounts`);
+        logger.info(`HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')}`);
 
         const initialAccount: AliasAccount = global.accounts[0];
 
@@ -231,17 +225,16 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       });
 
       afterEach(async () => {
-        const operatorPlans = await hbarSpendingPlanRepository.findAllActiveBySubscriptionTier(
-          [SubscriptionTier.OPERATOR],
-          requestDetails,
-        );
+        const operatorPlans = await hbarSpendingPlanRepository.findAllActiveBySubscriptionTier([
+          SubscriptionTier.OPERATOR,
+        ]);
         expect(operatorPlans.length).to.be.eq(1); // sanity check
 
-        await hbarSpendingPlanRepository.resetAmountSpentOfAllPlans(requestDetails);
+        await hbarSpendingPlanRepository.resetAmountSpentOfAllPlans();
 
         // we don't want to reset the operator account's spending, so we have to add the amount spent back
         for (const plan of operatorPlans) {
-          await hbarSpendingPlanRepository.addToAmountSpent(plan.id, plan.amountSpent, requestDetails, mockTTL);
+          await hbarSpendingPlanRepository.addToAmountSpent(plan.id, plan.amountSpent, mockTTL);
         }
 
         // Note: Since the total HBAR budget is shared across the entire Relay instance by multiple test cases,
@@ -401,7 +394,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
           accountCounts: number = 1,
         ) => {
           const aliasAccounts: AliasAccount[] = [];
-          const hbarSpendingPlan = await hbarSpendingPlanRepository.create(subscriptionTier, requestDetails, mockTTL);
+          const hbarSpendingPlan = await hbarSpendingPlanRepository.create(subscriptionTier, mockTTL);
 
           for (let i = 0; i < accountCounts; i++) {
             const aliasAccount = await Utils.createAliasAccount(
@@ -414,14 +407,13 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             await evmAddressSpendingPlanRepository.save(
               { evmAddress: aliasAccount.address, planId: hbarSpendingPlan.id },
-              requestDetails,
               mockTTL,
             );
 
-            const plan = await evmAddressSpendingPlanRepository.findByAddress(aliasAccount.address, requestDetails);
+            const plan = await evmAddressSpendingPlanRepository.findByAddress(aliasAccount.address);
             expect(plan.evmAddress).to.eq(aliasAccount.address);
             expect(plan.planId).to.eq(hbarSpendingPlan.id);
-            const spendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(plan.planId, requestDetails);
+            const spendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(plan.planId);
             expect(spendingPlan.active).to.be.true;
             expect(spendingPlan.amountSpent).to.eq(0);
             expect(spendingPlan.subscriptionTier).to.eq(subscriptionTier);
@@ -434,14 +426,13 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
         describe('@hbarlimiter-batch2 BASIC Tier', () => {
           beforeEach(async function () {
-            const basicPlans = await hbarSpendingPlanRepository.findAllActiveBySubscriptionTier(
-              [SubscriptionTier.BASIC],
-              requestDetails,
-            );
+            const basicPlans = await hbarSpendingPlanRepository.findAllActiveBySubscriptionTier([
+              SubscriptionTier.BASIC,
+            ]);
             for (const plan of basicPlans) {
-              await hbarSpendingPlanRepository.delete(plan.id, requestDetails);
-              await evmAddressSpendingPlanRepository.deleteAllByPlanId(plan.id, 'before', requestDetails);
-              await ipSpendingPlanRepository.deleteAllByPlanId(plan.id, 'before', requestDetails);
+              await hbarSpendingPlanRepository.delete(plan.id);
+              await evmAddressSpendingPlanRepository.deleteAllByPlanId(plan.id, 'before');
+              await ipSpendingPlanRepository.deleteAllByPlanId(plan.id, 'before');
             }
           });
 
@@ -452,12 +443,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             const parentContractAddress = parentContract.target as string;
             if (global.logger.isLevelEnabled('trace')) {
-              global.logger.trace(
-                `${requestDetails.formattedRequestId} Deploy parent contract on address ${parentContractAddress}`,
-              );
+              global.logger.trace(`Deploy parent contract on address ${parentContractAddress}`);
             }
 
-            expect(evmAddressSpendingPlanRepository.findByAddress(accounts[2].address, requestDetails)).to.be.rejected;
+            expect(evmAddressSpendingPlanRepository.findByAddress(accounts[2].address)).to.be.rejected;
             const gasPrice = await relay.gasPrice(requestId);
             const transaction = {
               ...defaultLondonTransactionData,
@@ -478,16 +467,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             // awaiting for HBAR limiter to finish updating expenses in the background
             await Utils.wait(6000);
 
-            const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
-              accounts[2].address,
-              requestDetails,
-            );
+            const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(accounts[2].address);
             expect(ethSpendingPlan).to.not.be.undefined;
 
-            const spendingPlanAssociated = await hbarSpendingPlanRepository.findByIdWithDetails(
-              ethSpendingPlan.planId,
-              requestDetails,
-            );
+            const spendingPlanAssociated = await hbarSpendingPlanRepository.findByIdWithDetails(ethSpendingPlan.planId);
             const amountSpendAfterFirst = spendingPlanAssociated.amountSpent;
 
             const secondTransaction = {
@@ -509,7 +492,6 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             let spendingPlanAssociatedAfterSecond = await hbarSpendingPlanRepository.findByIdWithDetails(
               ethSpendingPlan.planId,
-              requestDetails,
             );
 
             while (spendingPlanAssociatedAfterSecond.amountSpent === amountSpendAfterFirst) {
@@ -517,7 +499,6 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
               await Utils.wait(1000);
               spendingPlanAssociatedAfterSecond = await hbarSpendingPlanRepository.findByIdWithDetails(
                 ethSpendingPlan.planId,
-                requestDetails,
               );
             }
 
@@ -541,10 +522,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             const txReceiptThird = await relay.pollForValidTransactionReceipt(txHashThird);
             expect(txReceiptThird).to.not.be.null;
 
-            const ethSpendingPlanThird = await evmAddressSpendingPlanRepository.findByAddress(
-              accounts[1].address,
-              requestDetails,
-            );
+            const ethSpendingPlanThird = await evmAddressSpendingPlanRepository.findByAddress(accounts[1].address);
             expect(ethSpendingPlanThird).to.not.be.undefined;
             expect(ethSpendingPlanThird.planId).to.not.equal(ethSpendingPlan.planId);
           });
@@ -556,7 +534,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             const remainingHbarsBefore = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
 
             //Unlinking the ipAdress, since ipAddress when running tests in CI and locally is the same
-            expect(evmAddressSpendingPlanRepository.findByAddress(accounts[2].address, requestDetails)).to.be.rejected;
+            expect(evmAddressSpendingPlanRepository.findByAddress(accounts[2].address)).to.be.rejected;
             try {
               for (deploymentCounts = 0; deploymentCounts < 50; deploymentCounts++) {
                 const tx = await deployContract(largeContractJson, accounts[2].wallet);
@@ -567,12 +545,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 if (!hbarSpendingPlan) {
                   const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
                     accounts[2].wallet.address,
-                    requestDetails,
                   );
-                  hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(
-                    ethSpendingPlan.planId,
-                    requestDetails,
-                  );
+                  hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(ethSpendingPlan.planId);
                 }
 
                 const amountSpent = await pollForProperAmountSpent(
@@ -595,12 +569,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
               if (!hbarSpendingPlan) {
                 const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
                   accounts[2].wallet.address,
-                  requestDetails,
                 );
-                hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(
-                  ethSpendingPlan.planId,
-                  requestDetails,
-                );
+                hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(ethSpendingPlan.planId);
               }
               const amountSpent = await pollForProperAmountSpent(hbarSpendingPlan, deploymentCounts, expectedTxCost);
               const remainingHbarsAfter = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
@@ -701,12 +671,9 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
                 }
 
                 // should make sure accounts in the same plan also share the same amountSpent which should also be hbar rate limited
-                const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
-                  aliasAccounts[1].address,
-                  requestDetails,
-                );
+                const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(aliasAccounts[1].address);
                 const account1SpendingPlanAmountSpent = (
-                  await hbarSpendingPlanRepository.findByIdWithDetails(ethSpendingPlan.planId, requestDetails)
+                  await hbarSpendingPlanRepository.findByIdWithDetails(ethSpendingPlan.planId)
                 ).amountSpent;
                 expect(account1SpendingPlanAmountSpent).to.eq(amountSpent);
                 expect(account1SpendingPlanAmountSpent + expectedTxCost).to.gt(maxSpendingLimit);
@@ -728,20 +695,15 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
               it('Should successfully populate all pre-configured spending plans', async () => {
                 expectedNonBasicPlans2.forEach(async (expectedPlan) => {
-                  const hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(
-                    expectedPlan.id,
-                    requestDetails,
-                  );
+                  const hbarSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(expectedPlan.id);
                   expect(hbarSpendingPlan.active).to.be.true;
                   expect(hbarSpendingPlan.id).to.eq(expectedPlan.id);
                   expect(hbarSpendingPlan.subscriptionTier).to.eq(expectedPlan.subscriptionTier);
 
                   if (expectedPlan.evmAddresses) {
                     expectedPlan.evmAddresses.forEach(async (evmAddress) => {
-                      const associatedPlanByEVMAddress = await evmAddressSpendingPlanRepository.findByAddress(
-                        evmAddress,
-                        requestDetails,
-                      );
+                      const associatedPlanByEVMAddress =
+                        await evmAddressSpendingPlanRepository.findByAddress(evmAddress);
                       expect(associatedPlanByEVMAddress.planId).to.eq(expectedPlan.id);
                       expect(associatedPlanByEVMAddress.evmAddress).to.eq(evmAddress);
                     });
@@ -749,10 +711,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
                   if (expectedPlan.ipAddresses) {
                     expectedPlan.ipAddresses.forEach(async (ipAddress) => {
-                      const associatedPlanByIpAddress = await ipSpendingPlanRepository.findByAddress(
-                        ipAddress,
-                        requestDetails,
-                      );
+                      const associatedPlanByIpAddress = await ipSpendingPlanRepository.findByAddress(ipAddress);
                       expect(associatedPlanByIpAddress.planId).to.eq(expectedPlan.id);
                       expect(associatedPlanByIpAddress.ipAddress).to.eq(ipAddress);
                     });
@@ -835,19 +794,13 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
             // polling for proper updated amountSpent for one of the calling plan
             let amountSpent = (
-              await hbarSpendingPlanRepository.findByIdWithDetails(
-                callingAliasAccountPlans[0].hbarSpendingPlan.id,
-                requestDetails,
-              )
+              await hbarSpendingPlanRepository.findByIdWithDetails(callingAliasAccountPlans[0].hbarSpendingPlan.id)
             ).amountSpent;
 
             while (amountSpent === 0) {
               await Utils.wait(1000);
               amountSpent = (
-                await hbarSpendingPlanRepository.findByIdWithDetails(
-                  callingAliasAccountPlans[0].hbarSpendingPlan.id,
-                  requestDetails,
-                )
+                await hbarSpendingPlanRepository.findByIdWithDetails(callingAliasAccountPlans[0].hbarSpendingPlan.id)
               ).amountSpent;
             }
 
@@ -856,7 +809,6 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             for (const aliasAccountPlan of Object.values(accountPlanObject).flat()) {
               const associatedSpendingPlan = await hbarSpendingPlanRepository.findByIdWithDetails(
                 aliasAccountPlan.hbarSpendingPlan.id,
-                requestDetails,
               );
 
               if (callingAccountAddresses.includes(aliasAccountPlan.aliasAccounts[0].address)) {
@@ -934,11 +886,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
 
     describe('@hbarlimiter-batch3 Unlimited', () => {
       before(async function () {
-        logger.info(
-          `${requestDetails.formattedRequestId} HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get(
-            'HBAR_RATE_LIMIT_TINYBAR',
-          )}`,
-        );
+        logger.info(`HBAR_RATE_LIMIT_TINYBAR: ${ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')}`);
       });
 
       it('should eventually exhaust the hbar limit for a BASIC user after multiple deployments of large contracts, and not throw an error', async function () {

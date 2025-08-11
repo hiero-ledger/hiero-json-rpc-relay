@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails } from '../../../types';
+import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { CommonService, ICommonService } from '../../index';
@@ -40,15 +40,6 @@ export class TransactionService implements ITransactionService {
    * @readonly
    */
   private readonly common: ICommonService;
-
-  /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +81,7 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: EventEmitter,
+    private readonly eventEmitter: EventEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
@@ -117,11 +108,8 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`,
-      );
+      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
     }
 
     try {
@@ -133,7 +121,7 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       throw this.common.genericErrorHandler(
         error,
-        `${requestIdPrefix} Failed to retrieve contract result for blockHash ${blockHash} and index=${transactionIndex}`,
+        `Failed to retrieve contract result for blockHash ${blockHash} and index=${transactionIndex}`,
       );
     }
   }
@@ -150,11 +138,8 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`,
-      );
+      this.logger.trace(`getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`);
     }
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
 
@@ -167,7 +152,7 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       throw this.common.genericErrorHandler(
         error,
-        `${requestIdPrefix} Failed to retrieve contract result for blockNum ${blockNum} and index=${transactionIndex}`,
+        `Failed to retrieve contract result for blockNum ${blockNum} and index=${transactionIndex}`,
       );
     }
   }
@@ -179,15 +164,13 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionByHash(hash=${hash})`, hash);
+      this.logger.trace(`getTransactionByHash(hash=${hash})`, hash);
     }
 
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
-      requestDetails,
     );
 
     if (contractResult === null || contractResult.hash === undefined) {
@@ -203,7 +186,7 @@ export class TransactionService implements ITransactionService {
       // no tx found
       if (!syntheticLogs.length) {
         if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`${requestIdPrefix} no tx for ${hash}`);
+          this.logger.trace(`no tx for ${hash}`);
         }
         return null;
       }
@@ -231,15 +214,13 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    const requestIdPrefix = requestDetails.formattedRequestId;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestIdPrefix} getTransactionReceipt(${hash})`);
+      this.logger.trace(`getTransactionReceipt(${hash})`);
     }
 
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
-      requestDetails,
     );
 
     if (receiptResponse === null || receiptResponse.hash === undefined) {
@@ -248,7 +229,7 @@ export class TransactionService implements ITransactionService {
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestIdPrefix} receipt for ${hash} found in block ${receipt.blockNumber}`);
+        this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
       }
 
       return receipt;
@@ -299,49 +280,35 @@ export class TransactionService implements ITransactionService {
 
   /**
    * Send transaction - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public sendTransaction(requestDetails: RequestDetails): JsonRpcError {
+  public sendTransaction(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} sendTransaction()`);
+      this.logger.trace('sendTransaction()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
    * Sign transaction - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public signTransaction(requestDetails: RequestDetails): JsonRpcError {
+  public signTransaction(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} signTransaction()`);
+      this.logger.trace('signTransaction()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
    * Sign - not supported
-   * @param requestDetails The request details for logging and tracking
-   * @returns {JsonRpcError} A JsonRpcError indicating that the method is not supported
+   * @returns A JsonRpcError indicating that the method is not supported
    */
-  public sign(requestDetails: RequestDetails): JsonRpcError {
+  public sign(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${requestDetails.formattedRequestId} sign()`);
+      this.logger.trace('sign()');
     }
     return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Emits an Ethereum execution event with transaction details
-   * @param requestDetails The request details for logging and tracking
-   */
-  private emitEthExecutionEvent(requestDetails: RequestDetails): void {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: constants.ETH_SEND_RAW_TRANSACTION,
-      requestDetails: requestDetails,
-    });
   }
 
   /**
@@ -354,11 +321,11 @@ export class TransactionService implements ITransactionService {
     const callingMethod = this.getCurrentNetworkExchangeRateInCents.name;
     const cacheTTL = 15 * 60 * 1000; // 15 minutes
 
-    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod, requestDetails);
+    let currentNetworkExchangeRate = await this.cacheService.getAsync(cacheKey, callingMethod);
 
     if (!currentNetworkExchangeRate) {
       currentNetworkExchangeRate = (await this.mirrorNodeClient.getNetworkExchangeRate(requestDetails)).current_rate;
-      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, requestDetails, cacheTTL);
+      await this.cacheService.set(cacheKey, currentNetworkExchangeRate, callingMethod, cacheTTL);
     }
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
@@ -390,7 +357,6 @@ export class TransactionService implements ITransactionService {
         },
         undefined,
       ],
-      requestDetails,
     );
 
     if (!contractResults[0]) return null;
@@ -470,7 +436,7 @@ export class TransactionService implements ITransactionService {
     // no tx found
     if (!syntheticLogs.length) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`${requestDetails.formattedRequestId} no receipt for ${hash}`);
+        this.logger.trace(`no receipt for ${hash}`);
       }
       return null;
     }
@@ -487,9 +453,7 @@ export class TransactionService implements ITransactionService {
     const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestDetails.formattedRequestId} receipt for ${hash} found in block ${receipt.blockNumber}`,
-      );
+      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
     }
 
     return receipt;
@@ -509,18 +473,12 @@ export class TransactionService implements ITransactionService {
   ): Promise<void> {
     try {
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `${requestDetails.formattedRequestId} Transaction undergoing prechecks: transaction=${JSON.stringify(
-            parsedTx,
-          )}`,
-        );
+        this.logger.debug(`Transaction undergoing prechecks: transaction=${JSON.stringify(parsedTx)}`);
       }
 
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (e: any) {
-      this.logger.error(
-        `${requestDetails.formattedRequestId} Precheck failed: transaction=${JSON.stringify(parsedTx)}`,
-      );
+      this.logger.error(`Precheck failed: transaction=${JSON.stringify(parsedTx)}`);
       throw this.common.genericErrorHandler(e);
     }
   }
@@ -552,10 +510,11 @@ export class TransactionService implements ITransactionService {
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
 
-    const requestIdPrefix = requestDetails.formattedRequestId;
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
-    this.emitEthExecutionEvent(requestDetails);
+    this.eventEmitter.emit('eth_execution', {
+      method: constants.ETH_SEND_RAW_TRANSACTION,
+    });
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,
@@ -584,7 +543,6 @@ export class TransactionService implements ITransactionService {
           this.mirrorNodeClient.getContractResult.name,
           [formattedTransactionId, modifiedRequestDetails],
           this.mirrorNodeClient.getMirrorNodeRequestRetryCount(),
-          requestDetails,
         );
 
         if (!contractResult) {
@@ -595,9 +553,7 @@ export class TransactionService implements ITransactionService {
             throw sendRawTransactionError;
           }
 
-          this.logger.warn(
-            `${requestIdPrefix} No matching transaction record retrieved: transactionId=${submittedTransactionId}`,
-          );
+          this.logger.warn(`No matching transaction record retrieved: transactionId=${submittedTransactionId}`);
 
           throw predefined.INTERNAL_ERROR(
             `No matching transaction record retrieved: transactionId=${submittedTransactionId}`,
@@ -605,9 +561,7 @@ export class TransactionService implements ITransactionService {
         }
 
         if (contractResult.hash == null) {
-          this.logger.error(
-            `${requestIdPrefix} Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`,
-          );
+          this.logger.error(`Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`);
           throw predefined.INTERNAL_ERROR(
             `Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`,
           );
@@ -645,12 +599,7 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    this.logger.error(
-      e,
-      `${
-        requestDetails.formattedRequestId
-      } Failed to successfully submit sendRawTransaction: transaction=${JSON.stringify(parsedTx)}`,
-    );
+    this.logger.error(e, `Failed to successfully submit sendRawTransaction: transaction=${JSON.stringify(parsedTx)}`);
     if (e instanceof JsonRpcError) {
       return e;
     }
@@ -658,9 +607,7 @@ export class TransactionService implements ITransactionService {
     if (e instanceof SDKClientError) {
       if (e.nodeAccountId) {
         // Log the target node account ID, right now, it's populated only for MaxAttemptsOrTimeout error
-        this.logger.info(
-          `${requestDetails.formattedRequestId} Transaction failed to execute against node with id: ${e.nodeAccountId}`,
-        );
+        this.logger.info(`Transaction failed to execute against node with id: ${e.nodeAccountId}`);
       }
 
       this.hapiService.decrementErrorCounter(e.statusCode);
@@ -679,16 +626,14 @@ export class TransactionService implements ITransactionService {
 
           if (this.logger.isLevelEnabled('trace')) {
             this.logger.trace(
-              `${
-                requestDetails.formattedRequestId
-              } Repeating retry to poll for updated account nonce. Count ${i} of ${mirrorNodeGetContractResultRetries}. Waiting ${this.mirrorNodeClient.getMirrorNodeRetryDelay()} ms before initiating a new request`,
+              `Repeating retry to poll for updated account nonce. Count ${i} of ${mirrorNodeGetContractResultRetries}. Waiting ${this.mirrorNodeClient.getMirrorNodeRetryDelay()} ms before initiating a new request`,
             );
           }
           await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
         }
 
         if (!accountNonce) {
-          this.logger.warn(`${requestDetails.formattedRequestId} Cannot find updated account nonce.`);
+          this.logger.warn(`Cannot find updated account nonce.`);
           throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
         }
 
@@ -708,9 +653,7 @@ export class TransactionService implements ITransactionService {
 
     this.logger.error(
       e,
-      `${
-        requestDetails.formattedRequestId
-      } Failed sendRawTransaction during record retrieval for transaction, returning computed hash: transaction=${JSON.stringify(
+      `Failed sendRawTransaction during record retrieval for transaction, returning computed hash: transaction=${JSON.stringify(
         parsedTx,
       )}`,
     );

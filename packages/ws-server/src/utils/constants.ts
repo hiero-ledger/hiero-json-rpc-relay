@@ -11,16 +11,7 @@ export const WS_CONSTANTS = {
     help: 'Relay websocket methods called by ip received through websocket',
     labelNames: ['ip', 'method'],
   },
-  cpuUsageGauge: {
-    name: 'rpc_websocket_cpu_usage_percentage',
-    help: 'CPU usage percentage of the WebSocket server',
-    labelNames: ['cpu'],
-  },
-  memoryUsageGauge: {
-    name: 'rpc_websocket_memory_usage_bytes',
-    help: 'Memory usage of the WebSocket server in bytes',
-    labelNames: ['memory'],
-  },
+
   totalMessageCounter: {
     name: 'rpc_websocket_messages_received_total',
     help: 'Total number of messages received by the WebSocket server',

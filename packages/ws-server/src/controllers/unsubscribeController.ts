@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { IJsonRpcResponse } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcResponse';
-import jsonResp from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
+import { type IJsonRpcResponse, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 
 import { areSubscriptionsEnabled } from '../utils/utils';
 import { sendSubscriptionsDisabledError } from '../utils/utils';
@@ -32,5 +31,5 @@ export const handleEthUnsubscribe = ({
   const subId = params[0];
   const unsubbedCount = subscriptionService.unsubscribe(ctx.websocket, subId);
   limiter.decrementSubs(ctx, unsubbedCount);
-  return jsonResp(request.id, null, unsubbedCount !== 0);
+  return jsonRespResult(request.id, unsubbedCount !== 0);
 };
