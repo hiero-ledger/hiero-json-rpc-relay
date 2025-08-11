@@ -271,11 +271,6 @@ export const predefined = {
       code: -32203,
       message: `Batch request amount ${amount} exceeds max ${max}`,
     }),
-  BATCH_REQUESTS_METHOD_NOT_PERMITTED: (method: string) =>
-    new JsonRpcError({
-      code: -32007,
-      message: `Method ${method} is not permitted as part of batch requests`,
-    }),
   WS_BATCH_REQUESTS_DISABLED: new JsonRpcError({
     code: -32205,
     message: 'WS batch requests are disabled',
