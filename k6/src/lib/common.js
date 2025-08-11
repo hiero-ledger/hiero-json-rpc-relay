@@ -187,9 +187,16 @@ function getTestType() {
 function markdownReport(data, isFirstColumnUrl, scenarios) {
   const testType = getTestType();
   const firstColumnName = isFirstColumnUrl ? 'URL' : 'Scenario';
-  const secondColumnName = getTestType() === 'stress' ? 'Expected RPS' : 'VUS';
-  const header = `| ${firstColumnName} | ${secondColumnName} | Reqs | Pass % | RPS (1/s) | Pass RPS (1/s) | Avg. Req Duration (ms) | Median (ms) | Min (ms) | Max (ms) | P(90) (ms) | P(95) (ms) | Comment |
+  const secondColumnName = getTestType() === 'stress' ? 'Target RPS' : 'VUS';
+
+  let header;
+  if (testType === 'stress') {
+    header = `## Test Results Summary\n\n| ${firstColumnName} | ${secondColumnName} | Reqs | Pass % | Avg. Req Duration (ms) | P(95) (ms) | Comment |
+|----------|-----|------|--------|-------------------|-------|---------|`;
+  } else {
+    header = `| ${firstColumnName} | ${secondColumnName} | Reqs | Pass % | RPS (1/s) | Pass RPS (1/s) | Avg. Req Duration (ms) | Median (ms) | Min (ms) | Max (ms) | P(90) (ms) | P(95) (ms) | Comment |
 |----------|-----|------|--------|-----|----------|-------------------|-------|-----|-----|-------|-------|---------|`;
+  }
 
   // collect the metrics
   const { metrics } = data;
@@ -234,13 +241,19 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
   markdown += `Timestamp: ${new Date(Date.now()).toISOString()} \n\n`;
   markdown += `Duration: ${__ENV['DEFAULT_DURATION']} \n\n`;
   markdown += `Test Type: ${testType} \n\n`;
+
   if (testType === 'stress') {
     markdown += `Target Total RPS: ${__ENV['STRESS_TEST_TARGET_TOTAL_RPS'] || 'N/A'} \n\n`;
+    markdown += `Ramp Up Phase: ${__ENV['RAMP_UP_DURATION'] || '2m'} \n\n`;
+    markdown += `Stable Phase: ${__ENV['STABLE_DURATION'] || '20m'} \n\n`;
+    markdown += `Ramp Down Phase: ${__ENV['RAMP_DOWN_DURATION'] || '1m'} \n\n`;
   } else {
-    markdown += `Virtual Users (VUs): ${__ENV['DEFAULT_VUS']} \n\n`;
+    markdown += `Virtual Users (VUs): ${__ENV['DEFAULT_VUS']} \n`;
+    markdown += `Duration: ${__ENV['DEFAULT_DURATION']} \n\n`;
   }
 
   markdown += `${header}\n`;
+
   for (const scenario of Object.keys(scenarioMetrics).sort()) {
     try {
       const scenarioMetric = scenarioMetrics[scenario];
@@ -261,7 +274,7 @@ function markdownReport(data, isFirstColumnUrl, scenarios) {
       if (testType === 'stress') {
         // Show expected RPS for stress test
         const expectedRPS = (globalThis.rateAllocation && globalThis.rateAllocation[scenario]) || 'N/A';
-        markdown += `| ${firstColumn} | ${expectedRPS} | ${httpReqs} | ${passPercentage} | ${rps} | ${passRps} | ${httpReqDuration} | ${httpMedDuration} | ${httpMinDuration} | ${httpMaxDuration} | ${httpP90Duration} | ${httpP95Duration} | |\n`;
+        markdown += `| ${firstColumn} | ${expectedRPS} | ${httpReqs} | ${passPercentage} | ${httpReqDuration} | ${httpP95Duration} | |\n`;
       } else {
         // Show VUs for load/performance test
         const actualVUs = (globalThis.vuAllocation && globalThis.vuAllocation[scenario]) || __ENV.DEFAULT_VUS;
@@ -331,31 +344,40 @@ function TestScenarioBuilder() {
 }
 
 /**
- * Get stress test scenario options for a specific endpoint
+ * Get stress test scenario options for a specific endpoint with staged RPS phases
  *
- * Uses the "constant-arrival-rate" executor, which generates a fixed number of iterations (requests) per time unit.
- * The executor will dynamically ramp up or lower the number of virtual users as needed to maintain the target request rate.
- * This makes it ideal for stress and throughput testing where a steady RPS is required.
+ * Uses the "ramping-arrival-rate" executor, which supports staged rate execution phases.
+ * This provides proper ramp-up, stable, and ramp-down phases for professional performance testing.
+ * The executor dynamically adjusts VUs to maintain target request rates independent of response times.
  *
- * See: https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate
+ * See: https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate
  *
  * @param {string} endpoint - The endpoint name
  * @param {number} targetTotalRPS - Target total RPS to distribute
- * @param {string} duration - Test duration
- * @returns {Object} K6 scenario configuration
+ * @param {string} duration - Test duration (ignored, uses staged phases instead)
+ * @returns {Object} K6 scenario configuration with staged execution
  */
-export function getStressScenarioOptions(endpoint, targetTotalRPS = 100, duration = '60s') {
+export function getStressScenarioOptions(endpoint, targetTotalRPS = 100) {
   const rateAllocation = calculateRateAllocation(targetTotalRPS);
   const targetRate = rateAllocation[endpoint];
   const VU_BUFFER_MULTIPLIER = parseFloat(__ENV.VU_BUFFER_MULTIPLIER) || 3; // default buffer multiplier
 
+  // Get stage durations from environment variables
+  const rampUpDuration = __ENV.RAMP_UP_DURATION || '2m';
+  const stableDuration = __ENV.STABLE_DURATION || '20m';
+  const rampDownDuration = __ENV.RAMP_DOWN_DURATION || '1m';
+
   return {
-    executor: 'constant-arrival-rate',
-    rate: Math.max(1, Math.round(targetRate)), // requests per second (must be integer, minimum 1)
-    duration: duration,
+    executor: 'ramping-arrival-rate',
+    startRate: 0, // Start at 0 RPS for clean system state
+    timeUnit: '1s', // Rate per second for precise control
+    stages: [
+      { target: Math.max(1, Math.round(targetRate)), duration: rampUpDuration }, // Ramp up to target RPS
+      { target: Math.max(1, Math.round(targetRate)), duration: stableDuration }, // Maintain target RPS
+      { target: 0, duration: rampDownDuration }, // Ramp down to 0 RPS
+    ],
     preAllocatedVUs: Math.max(1, Math.ceil(targetRate * VU_BUFFER_MULTIPLIER)),
     maxVUs: Math.max(1, Math.ceil(3 * targetRate * VU_BUFFER_MULTIPLIER)),
-    startTime: '0s', // All scenarios start simultaneously for stress testing
     gracefulStop: __ENV.DEFAULT_GRACEFUL_STOP || '5s',
     exec: 'run',
   };
