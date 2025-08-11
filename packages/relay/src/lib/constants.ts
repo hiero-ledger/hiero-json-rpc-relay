@@ -222,12 +222,6 @@ export default {
     FILE_APPEND_RATE_PER_BYTE: 0.0011,
   },
 
-  EVENTS: {
-    EXECUTE_TRANSACTION: 'execute_transaction',
-    EXECUTE_QUERY: 'execute_query',
-    ETH_EXECUTION: 'eth_execution',
-  },
-
   EXECUTION_MODE: {
     QUERY: `QUERY`,
     RECORD: `RECORD`,

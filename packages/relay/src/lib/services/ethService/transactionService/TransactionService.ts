@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails } from '../../../types';
+import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { CommonService, ICommonService } from '../../index';
@@ -40,15 +40,6 @@ export class TransactionService implements ITransactionService {
    * @readonly
    */
   private readonly common: ICommonService;
-
-  /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
 
   /**
    * The HAPI service for interacting with Hedera API.
@@ -90,7 +81,7 @@ export class TransactionService implements ITransactionService {
     cacheService: CacheService,
     chain: string,
     common: ICommonService,
-    eventEmitter: EventEmitter,
+    private readonly eventEmitter: EventEmitter<TypedEvents>,
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
@@ -321,17 +312,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Emits an Ethereum execution event with transaction details
-   * @param requestDetails The request details for logging and tracking
-   */
-  private emitEthExecutionEvent(requestDetails: RequestDetails): void {
-    this.eventEmitter.emit(constants.EVENTS.ETH_EXECUTION, {
-      method: constants.ETH_SEND_RAW_TRANSACTION,
-      requestDetails: requestDetails,
-    });
-  }
-
-  /**
    * Retrieves the current network exchange rate of HBAR to USD in cents.
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
@@ -532,7 +512,9 @@ export class TransactionService implements ITransactionService {
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
-    this.emitEthExecutionEvent(requestDetails);
+    this.eventEmitter.emit('eth_execution', {
+      method: constants.ETH_SEND_RAW_TRANSACTION,
+    });
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,

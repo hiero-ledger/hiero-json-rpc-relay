@@ -27,12 +27,7 @@ import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
-import {
-  IExecuteQueryEventPayload,
-  IExecuteTransactionEventPayload,
-  ITransactionRecordMetric,
-  RequestDetails,
-} from '../types';
+import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
@@ -65,15 +60,6 @@ export class SDKClient {
   private readonly fileAppendChunkSize: number;
 
   /**
-   * An instance of EventEmitter used for emitting and handling events within the class.
-   *
-   * @private
-   * @readonly
-   * @type {EventEmitter}
-   */
-  private readonly eventEmitter: EventEmitter;
-
-  /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
    * @private
    * @readonly
@@ -87,8 +73,14 @@ export class SDKClient {
    * @param {Client} clientMain - The primary Hedera client instance used for executing transactions and queries.
    * @param {Logger} logger - The logger instance for logging information, warnings, and errors.
    * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
+   * @param hbarLimitService - The HbarLimitService that tracks hbar expenses and limits.
    */
-  constructor(clientMain: Client, logger: Logger, eventEmitter: EventEmitter, hbarLimitService: HbarLimitService) {
+  constructor(
+    clientMain: Client,
+    logger: Logger,
+    readonly eventEmitter: EventEmitter<TypedEvents>,
+    hbarLimitService: HbarLimitService,
+  ) {
     this.clientMain = clientMain;
 
     // sets the maximum time in ms for the SDK to wait when submitting
@@ -96,7 +88,6 @@ export class SDKClient {
     this.clientMain = clientMain.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
 
     this.logger = logger;
-    this.eventEmitter = eventEmitter;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
     this.fileAppendChunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
@@ -236,16 +227,16 @@ export class SDKClient {
       throw sdkClientError;
     } finally {
       if (queryCost && queryCost !== 0) {
-        this.eventEmitter.emit(constants.EVENTS.EXECUTE_QUERY, {
+        this.eventEmitter.emit('execute_query', {
           executionMode: constants.EXECUTION_MODE.QUERY,
-          transactionId: query.paymentTransactionId?.toString(),
+          transactionId: query.paymentTransactionId?.toString() ?? '',
           txConstructorName: queryConstructorName,
           cost: queryCost,
           gasUsed: 0,
           status,
           requestDetails,
           originalCallerAddress,
-        } as IExecuteQueryEventPayload);
+        });
       }
     }
   }
@@ -336,13 +327,13 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
-        this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
+        this.eventEmitter.emit('execute_transaction', {
           transactionId,
-          requestDetails,
           txConstructorName,
           operatorAccountId: this.clientMain.operatorAccountId!.toString(),
+          requestDetails,
           originalCallerAddress,
-        } as IExecuteTransactionEventPayload);
+        });
       }
     }
   }
@@ -405,13 +396,13 @@ export class SDKClient {
       if (transactionResponses) {
         for (const transactionResponse of transactionResponses) {
           if (transactionResponse.transactionId) {
-            this.eventEmitter.emit(constants.EVENTS.EXECUTE_TRANSACTION, {
+            this.eventEmitter.emit('execute_transaction', {
               transactionId: transactionResponse.transactionId.toString(),
-              requestDetails,
               txConstructorName,
               operatorAccountId: this.clientMain.operatorAccountId!.toString(),
+              requestDetails,
               originalCallerAddress,
-            } as IExecuteTransactionEventPayload);
+            });
           }
         }
       }
