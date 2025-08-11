@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ContractFunctionResult } from '@hashgraph/sdk';
 import { assert, expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
@@ -19,7 +18,6 @@ import {
   ethCallFailing,
   mockData,
   overrideEnvsInMochaDescribe,
-  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
@@ -51,12 +49,6 @@ describe('@ethCall Eth Call spec', async function () {
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, commonService } = generateEthTestEnv();
 
   const contractService = ethImpl['contractService'];
-  const ETH_CALL_REQ_ARGS = {
-    from: ACCOUNT_ADDRESS_1,
-    to: CONTRACT_ADDRESS_2,
-    data: CONTRACT_CALL_DATA,
-    gas: MAX_GAS_LIMIT_HEX,
-  };
 
   const requestDetails = new RequestDetails({ requestId: 'eth_callTest', ipAddress: '0.0.0.0' });
 
@@ -64,7 +56,7 @@ describe('@ethCall Eth Call spec', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
