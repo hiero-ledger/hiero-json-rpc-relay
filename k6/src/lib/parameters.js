@@ -94,7 +94,7 @@ export const setDefaultValuesForEnvParameters = () => {
   __ENV['DEFAULT_PASS_RATE'] = __ENV['DEFAULT_PASS_RATE'] || 0.95;
   __ENV['DEFAULT_MAX_DURATION'] = __ENV['DEFAULT_MAX_DURATION'] || 500;
   __ENV['STRESS_TEST_TARGET_TOTAL_RPS'] = __ENV['STRESS_TEST_TARGET_TOTAL_RPS'] || 100;
-  
+
   // Staged RPS phase durations for ramping-arrival-rate executor
   __ENV['RAMP_UP_DURATION'] = __ENV['RAMP_UP_DURATION'] || '2m';
   __ENV['STABLE_DURATION'] = __ENV['STABLE_DURATION'] || '20m';
