@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { Counter, Histogram, Registry } from 'prom-client';
+
 import { WS_CONSTANTS } from '../utils/constants';
-import os from 'os';
 
 type WsMetricCounterTitles =
   | 'methodsCounter'
@@ -11,7 +11,6 @@ type WsMetricCounterTitles =
   | 'totalOpenedConnections'
   | 'totalClosedConnections';
 
-type WsMetricGaugeTitles = 'cpuUsageGauge' | 'memoryUsageGauge';
 type WsMetricHistogramTitles = 'connectionDuration' | 'messageDuration';
 
 export default class WsMetricRegistry {
@@ -22,9 +21,6 @@ export default class WsMetricRegistry {
   private totalOpenedConnections: Counter; // tracks the total websocket established connections
   private connectionDuration: Histogram; // tracks the duration of websocket connections in seconds
   private messageDuration: Histogram; // tracks the duration of websocket connections in seconds
-
-  private lastCpuUsage = process.cpuUsage();
-  private lastTime = process.hrtime();
 
   /**
    * Creates an instance of WsMetricRegistry.
@@ -38,10 +34,6 @@ export default class WsMetricRegistry {
     this.connectionDuration = this.generateHistogramMetric(register, 'connectionDuration');
     this.totalOpenedConnections = this.generateCounterMetric(register, 'totalOpenedConnections');
     this.totalClosedConnections = this.generateCounterMetric(register, 'totalClosedConnections');
-
-    // @notice code below will generate and init cpuUsageGauge and memoryUsageGauge which send metrics to the registry when start-up
-    this.initUsageGaugeMetric(register, 'cpuUsageGauge', 'CPU');
-    this.initUsageGaugeMetric(register, 'memoryUsageGauge', 'Memory Usage');
   }
 
   /**
@@ -74,58 +66,6 @@ export default class WsMetricRegistry {
       labelNames: WS_CONSTANTS[metricTitle]['labelNames'] || [],
       buckets: WS_CONSTANTS[metricTitle]['buckets'] || [],
       registers: [register],
-    });
-  };
-
-  /**
-   * Initializes a gauge metric for CPU or Memory Usage using the provided registry, metric title, and mode.
-   * @param {Registry} register - The Prometheus registry where the metric will be registered.
-   * @param {WsMetricGaugeTitles} metricTitle - The title of the metric to be initialized.
-   * @param {'CPU' | 'Memory Usage'} mode - The mode indicating whether to collect CPU or Memory Usage metrics.
-   * @returns {Gauge} A Prometheus Gauge metric instance.
-   */
-  private initUsageGaugeMetric = (
-    register: Registry,
-    metricTitle: WsMetricGaugeTitles,
-    mode: 'CPU' | 'Memory Usage',
-  ): Gauge => {
-    register.removeSingleMetric(WS_CONSTANTS[metricTitle].name);
-    return new Gauge({
-      name: WS_CONSTANTS[metricTitle].name,
-      help: WS_CONSTANTS[metricTitle].help,
-      labelNames: WS_CONSTANTS[metricTitle]['labelNames'] || [],
-      registers: [register],
-      async collect() {
-        switch (mode) {
-          case 'CPU': {
-            let lastCpuUsage = process.cpuUsage();
-            let lastTime = process.hrtime();
-            const currentCpuUsage = process.cpuUsage();
-            const currentTime = process.hrtime(lastTime);
-
-            const userTime = (currentCpuUsage.user - lastCpuUsage.user) / 1000; // Convert to milliseconds
-            const systemTime = (currentCpuUsage.system - lastCpuUsage.system) / 1000; // Convert to milliseconds
-
-            const elapsedTime = currentTime[0] * 1000 + currentTime[1] / 1e6; // Convert hrtime to milliseconds
-
-            const totalCpuTime = userTime + systemTime;
-            const totalCpus = os.cpus().length;
-
-            const cpuUsagePercentage = (totalCpuTime / (elapsedTime * totalCpus)) * 100;
-
-            lastCpuUsage = currentCpuUsage;
-            lastTime = process.hrtime();
-
-            this.set({ cpu: 'CPU' }, cpuUsagePercentage);
-            break;
-          }
-          case 'Memory Usage': {
-            const memoryUsage = process.memoryUsage();
-            this.set({ memory: 'Memory Usage' }, memoryUsage.heapUsed);
-            break;
-          }
-        }
-      },
     });
   };
 
