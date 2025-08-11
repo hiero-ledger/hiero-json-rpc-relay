@@ -213,7 +213,7 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
 
-      web3Mock.history.post = [];
+      web3Mock.resetHistory();
 
       const result = await contractService.call(callData, 'latest', requestDetails);
 
