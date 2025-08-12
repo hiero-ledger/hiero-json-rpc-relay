@@ -3,7 +3,7 @@
 import { inspect } from 'node:util';
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { ContentDescriptorObject, ErrorObject, JSONSchema, OpenrpcDocument } from '@open-rpc/meta-schema';
+import type { ContentDescriptorObject, JSONSchema, MethodObject, OpenrpcDocument } from '@open-rpc/meta-schema';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
@@ -14,7 +14,7 @@ import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import openRpcSchema from '../../../../docs/openrpc.json';
-import { Eth, Net, Web3 } from '../../src';
+import { Eth, JsonRpcError, Net, Web3 } from '../../src';
 import { numberTo0x } from '../../src/formatters';
 import { SDKClient } from '../../src/lib/clients';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -70,9 +70,8 @@ let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 const noTransactions = '?transactions=false';
 
 describe('Open RPC Specification', function () {
-  let rpcDocument: OpenrpcDocument;
+  let openRpcDocument: OpenrpcDocument;
   let methodsResponseSchema: { [method: string]: JSONSchema };
-  let methodsErrorSchema: { [method: string]: ErrorObject[] };
   let ethImpl: EthImpl;
   let ns: { eth: Eth; net: Net; web3: Web3 };
 
@@ -81,8 +80,8 @@ describe('Open RPC Specification', function () {
   overrideEnvsInMochaDescribe({ npm_package_version: 'relay/0.0.1-SNAPSHOT' });
 
   before(async () => {
-    rpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
-    methodsResponseSchema = rpcDocument.methods
+    openRpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
+    methodsResponseSchema = openRpcDocument.methods
       .filter((method) => 'name' in method)
       .filter((method) => method.result !== undefined)
       .reduce(
@@ -91,16 +90,6 @@ describe('Open RPC Specification', function () {
           [method.name]: (method.result as ContentDescriptorObject)?.schema,
         }),
         {} as { [method: string]: JSONSchema },
-      );
-    methodsErrorSchema = rpcDocument.methods
-      .filter((method) => 'name' in method)
-      .filter((method) => method.errors !== undefined && method.errors.every((err) => 'code' in err))
-      .reduce(
-        (res, method) => ({
-          ...res,
-          [method.name]: method.errors as ErrorObject[],
-        }),
-        {} as { [method: string]: ErrorObject[] },
       );
 
     // mock axios
@@ -257,7 +246,7 @@ describe('Open RPC Specification', function () {
   };
 
   it('validates the openrpc document', async () => {
-    const isValid = validateOpenRPCDocument(rpcDocument);
+    const isValid = validateOpenRPCDocument(openRpcDocument);
     expect(isValid).to.be.true;
   });
 
@@ -504,35 +493,48 @@ describe('Open RPC Specification', function () {
     validateResponseSchema(methodsResponseSchema.web3_sha3, response);
   });
 
-  describe('Unsupported Methods', () => {
+  describe('Unsupported Methods', function () {
+    let methodsSchema: { [method: string]: MethodObject };
+
+    before(function () {
+      methodsSchema = openRpcDocument.methods
+        .filter((method) => 'name' in method)
+        .reduce((res, method) => ({ ...res, [method.name]: method }), {} as { [method: string]: MethodObject });
+    });
+
     type RpcMethodName = { [k in keyof typeof ns]: `${k}_${Exclude<keyof (typeof ns)[k], symbol>}` }[keyof typeof ns];
 
-    (
-      [
-        'eth_coinbase',
-        'eth_blobBaseFee',
-        'eth_getWork',
-        'eth_newPendingTransactionFilter',
-        'eth_protocolVersion',
-        'eth_sendTransaction',
-        'eth_signTransaction',
-        'eth_sign',
-        'eth_submitHashrate',
-        'eth_getProof',
-        'eth_createAccessList',
-        'net_peerCount',
-      ] satisfies RpcMethodName[]
-    ).forEach((rpcMethodName) => {
+    const unsupportedMethods = {
+      eth_coinbase: () => ns.eth.coinbase(),
+      eth_blobBaseFee: () => ns.eth.blobBaseFee(),
+      eth_getWork: () => ns.eth.getWork(),
+      eth_newPendingTransactionFilter: () => ns.eth.newPendingTransactionFilter(),
+      eth_protocolVersion: () => ns.eth.protocolVersion(),
+      eth_sendTransaction: () => ns.eth.sendTransaction(),
+      eth_signTransaction: () => ns.eth.signTransaction(),
+      eth_sign: () => ns.eth.sign(),
+      eth_submitHashrate: () => ns.eth.submitHashrate(),
+      eth_getProof: () => ns.eth.getProof(),
+      eth_createAccessList: () => ns.eth.createAccessList(),
+      net_peerCount: () => ns.net.peerCount(),
+    } satisfies { [rpcMethodName in RpcMethodName]?: () => JsonRpcError };
+
+    Object.entries(unsupportedMethods).forEach(([rpcMethodName, fn]) => {
       it(`should return "Unsupported JSON-RPC method" error when executing '${rpcMethodName}'`, async function () {
-        const [obj, methodName] = rpcMethodName.split('_');
-        const error = ns[obj][methodName]();
+        const error = fn();
         expect(error).to.be.an('error');
 
-        const errorsSchema = methodsErrorSchema[rpcMethodName];
-        expect(errorsSchema).to.have.lengthOf(1);
-        const [errorSchema] = errorsSchema;
-        expect(error.code).to.be.equal(errorSchema.code);
-        expect(error.message).to.be.equal(errorSchema.message);
+        const { result, errors } = methodsSchema[rpcMethodName];
+
+        // Methods that always return "Unsupported JSON-RPC method" do not have a result
+        expect(result).to.be.undefined;
+
+        expect(errors).to.have.lengthOf(1);
+        const [errorSchema] = errors!;
+        expect(errorSchema).to.be.deep.equal({ code: -32601, message: 'Unsupported JSON-RPC method' });
+
+        // `JsonRpcError` is an `Error`, so it has additional properties that we want to omit here
+        expect({ code: error.code, message: error.message }).to.be.deep.equal(errorSchema);
       });
     });
   });
