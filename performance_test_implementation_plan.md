@@ -1,13 +1,6 @@
 # Performance Test Implementation Plan
 
-Based on the goals and requirements outlined in `performance_test_goal.md`, this doc**Tool Mapping (Original Clinic.js → Our Direct Approach):**
-
-| Original Clinic Tool | What It Did         | Our Replacement          | Same Data? |
-| -------------------- | ------------------- | ------------------------ | ---------- | --------------------------------------------------------------------------------------------- |
-| `clinic flame`       | CPU flame graphs    | `0x` (same engine!)      | ✅ Yes     |
-| `clinic doctor`      | Memory/CPU/GC stats | `node --prof`            | ✅ Yes     |
-| `clinic bubbleprof`  | Async profiling     | `0x` (covers this too)   | ✅ Yes     |
-| `clinic dashboard`   | Visual analysis     | Manual analysis + graphs | ✅ Yes     | rovides a comprehensive, prioritized implementation plan broken down into actionable tickets. |
+Based on the goals and requirements outlined in `performance_test_goal.md`, this document provides a comprehensive, prioritized implementation plan broken down into actionable tickets. |
 
 ## Overview
 
@@ -57,154 +50,150 @@ Based on the goals and requirements outlined in `performance_test_goal.md`, this
 
 ## Priority 2: APM Integration for Performance Monitoring
 
-**Original Goal**: Use Clinic.js for Node.js performance monitoring as outlined in the performance goals
+**Goal**: Implement comprehensive Node.js performance monitoring using Clinic.js to provide deep insights into CPU usage, memory allocation, garbage collection, and async operations during stress testing.
 
-**What Was Originally Planned**:
-The performance goals document specified using [Clinic.js](https://clinicjs.org/) with its suite of tools:
+### Why Clinic.js?
 
-- `node-clinic-flame`: For flame graphs (CPU profiling)
-- `node-clinic-doctor`: For memory, CPU, and process statistics
-- `node-clinic-bubbleprof`: For async profiling
-- `node-clinic`: Dashboard for diagnosing Node.js performance issues
+[Clinic.js](https://clinicjs.org/) is the industry-standard toolkit for Node.js performance analysis, providing specialized tools for different aspects of performance monitoring:
 
-**Problem Discovered**: After research, Clinic.js is **no longer actively maintained** and has compatibility issues with modern Node.js versions.
+- **`clinic flame`**: Advanced CPU profiling with interactive flame graphs
+- **`clinic doctor`**: System health monitoring (memory, CPU, GC, I/O)
+- **`clinic bubbleprof`**: Async operations and event loop analysis
 
-### The Updated Solution
+### Clinic.js Advantages
 
-Instead of Clinic.js, we use the **same underlying tools** that power Clinic.js, but directly:
+- **Professional-Grade Analysis**: Purpose-built for Node.js performance engineering
+- **Visual Insights**: Rich, interactive dashboards and flame graphs
+- **Comprehensive Coverage**: CPU, memory, async operations, and system health in one toolkit
+- **Production-Ready**: Battle-tested by enterprise Node.js applications
+- **Specialized Tools**: Each tool focuses on specific performance aspects
 
-**Tool Comparison Table:**
+### Performance Monitoring Strategy
 
-| Original Clinic.js Tool | Our Updated Tool | What It Gives You                                                |
-| ----------------------- | ---------------- | ---------------------------------------------------------------- |
-| `clinic flame`          | `0x`             | **CPU flame graphs** - shows which functions use most CPU time   |
-| `clinic doctor`         | `node --prof`    | **Memory usage, GC stats, I/O metrics** - system health data     |
-| `clinic bubbleprof`     | `0x`             | **Async profiling** - event loop and async operation analysis    |
-| `clinic dashboard`      | Manual analysis  | **Visual analysis** - interpret flame graphs and profiler output |
+The Clinic.js suite provides complete coverage of all required performance metrics through specialized tools:
 
-**One command gets it all:**
+**Tool Mapping:**
 
-```bash
-npx 0x --prof -- npm run relay:start
-```
+| Clinic.js Tool      | Primary Focus             | Key Metrics Provided                      |
+| ------------------- | ------------------------- | ----------------------------------------- |
+| `clinic flame`      | CPU Performance Analysis  | Function-level CPU usage, call stacks     |
+| `clinic doctor`     | System Health Monitoring  | Memory usage, GC stats, I/O operations    |
+| `clinic bubbleprof` | Async Operations Analysis | Event loop performance, async bottlenecks |
 
-**What this gives you (same metrics as Clinic.js would have):**
+### 2.1 Clinic.js Setup and Installation
 
-- ✅ **Flame graphs** (from 0x - same engine Clinic.js used)
-- ✅ **Memory usage, GC stats** (from --prof - same as clinic-doctor)
-- ✅ **CPU profiling** (from 0x - same as clinic-flame)
-- ✅ **I/O and event loop stats** (from --prof)
+#### Ticket 2.1.1: Install Clinic.js Toolkit
 
-**Why this is better:**
+- [ ] Install Clinic.js locally in k6 project: `cd k6 && npm install --save-dev clinic`
+- [ ] Verify local installation: `cd k6 && npx clinic --help`
+- [ ] Test individual tools:
+  - `npx clinic flame --help`
+  - `npx clinic doctor --help`
+  - `npx clinic bubbleprof --help`
+- [ ] **Deliverable**: Complete Clinic.js toolkit installation in k6 project
 
-- ✅ **Always up-to-date** (built into Node.js)
-- ✅ **No compatibility issues** (official Node.js tools)
-- ✅ **Same data quality** (uses the exact same engines)
-- ✅ **Much simpler** (one command vs multiple clinic tools)
+#### Ticket 2.1.2: Create Profiled Server Scripts
 
-### Understanding What We're Doing
+- [ ] Create npm scripts for each Clinic.js tool in k6/package.json with meaningful names
+- [ ] Configure output directories for organized report storage
+- [ ] Test each profiling mode with the relay server
+- [ ] **Deliverable**: Ready-to-use profiled server startup scripts with clear naming
 
-Think of your Node.js relay server like a restaurant kitchen during rush hour. The original plan was to use Clinic.js as our "kitchen monitoring system," but we discovered it's no longer maintained.
+### 2.2 Comprehensive Performance Analysis Workflow
 
-Instead, we use the **same monitoring tools** that Clinic.js used internally, but directly:
+#### Multi-Tool Analysis Strategy
 
-**One command does everything:**
+Each Clinic.js tool provides unique insights that complement the others:
 
-```bash
-npx 0x --prof -- npm run relay:start
-```
+**Complete Performance Analysis Workflow:**
 
-**This gives you:**
+1. **CPU Analysis**: `npm run start-monitored-relay:cpu` → CPU flame graphs
+2. **System Health**: `npm run start-monitored-relay:health` → Memory, GC, I/O analysis
+3. **Async Analysis**: `npm run start-monitored-relay:async` → Event loop performance
 
-- ✅ Flame graphs showing exactly where CPU time is spent (0x)
-- ✅ Memory usage, garbage collection, I/O stats (--prof)
-- ✅ Everything you need in one simple command!
+**Understanding Each Analysis:**
 
-### 2.1 Tool Setup
+| Tool                  | What It Shows                     | When to Use                              |
+| --------------------- | --------------------------------- | ---------------------------------------- |
+| **clinic flame**      | CPU hotspots and function timing  | Identifying slow functions and CPU usage |
+| **clinic doctor**     | Memory patterns and system health | Debugging memory leaks and GC issues     |
+| **clinic bubbleprof** | Async operation performance       | Analyzing event loop and I/O bottlenecks |
 
-#### Ticket 2.1.1: Install APM Tools
+**Note on HeapProfiler**: We **do not include** `clinic heapprofiler` because:
 
-- [ ] Install 0x globally: `npm install -g 0x`
-- [ ] That's it! (Node.js profiler is built-in, no install needed)
-- [ ] Test the command: `npx 0x --prof -- npm run relay:start`
-- [ ] Verify you get both flame graphs AND profiler data
+- **Redundant**: `clinic doctor` already provides comprehensive memory analysis for our needs
+- **Wrong granularity**: Function-level memory allocation is too detailed for performance stress testing
+- **Performance overhead**: Adds unnecessary load during stress tests
+- **Our focus**: System-level performance monitoring, not developer-level memory debugging
 
-#### Ticket 2.1.2: Create Stress Test Workflow
+### 2.3 Performance Metrics Coverage
 
-- [ ] Document the simple workflow:
-  1. Start profiled server: `npx 0x --prof -- npm run relay:start`
-  2. Run stress test: `npm run k6:stress-test`
-  3. Wait for K6 to finish completely
-  4. Stop server with `Ctrl+C`
-  5. Analyze results: `flamegraph.html` + profiler data files
-- [ ] Test complete workflow end-to-end
-- [ ] **Deliverable**: Working APM + K6 stress test workflow
+**Complete Coverage of Required Metrics:**
 
-### 2.2 Understanding Your Results
+| Required Metric                  | Clinic.js Tool    | Coverage Status | Analysis Method                        |
+| -------------------------------- | ----------------- | --------------- | -------------------------------------- |
+| Transactions Per Second (TPS)    | K6                | ✅ Full         | K6 stress test output                  |
+| TPS per RPC endpoint             | K6                | ✅ Full         | K6 scenario-based reporting            |
+| Latency                          | K6                | ✅ Full         | K6 response time metrics               |
+| CPU usage (% and wait time)      | clinic flame      | ✅ Full         | Interactive flame graphs               |
+| Memory usage                     | clinic doctor     | ✅ Full         | Heap analysis and allocation tracking  |
+| Garbage collector time           | clinic doctor     | ✅ Full         | GC event timing and frequency          |
+| I/O                              | clinic doctor     | ✅ Full         | File system and network I/O statistics |
+| Thread count                     | clinic doctor     | ✅ Full         | Process and thread monitoring          |
+| Error rate for failed requests   | K6                | ✅ Full         | HTTP error rate tracking               |
+| Event loop (delay and execution) | clinic bubbleprof | ✅ Full         | Event loop lag and async analysis      |
+| Active handles                   | clinic doctor     | ✅ Full         | Handle and resource tracking           |
+| Standard K6 output               | K6                | ✅ Full         | Median response times, data transfer   |
 
-**What you get from each tool:**
+**Coverage Summary: 12/12 metrics fully covered (100% complete)**
 
-| Tool            | What It's Like          | What It Shows You        | Example Output                                           |
-| --------------- | ----------------------- | ------------------------ | -------------------------------------------------------- |
-| **0x**          | Kitchen security camera | Which chef is busiest    | "The eth_getBlockByNumber chef uses 60% of kitchen time" |
-| **node --prof** | Health inspector report | Kitchen stats over time  | "Memory went from 200MB to 800MB during lunch rush"      |
-| **K6**          | Customer satisfaction   | External server response | "Average response time: 150ms, 2% error rate"            |
+### 2.4 Professional Analysis Dashboard
 
-**Before APM**: "Our app is slow during stress tests, but we don't know why"
+**Clinic.js Dashboard Features:**
 
-**After APM**: "During 100 RPS stress test:
+- **Interactive Flame Graphs**: Click and zoom through CPU performance data
+- **Memory Timeline**: Visual memory allocation and GC patterns over time
+- **Async Bubble Charts**: Visual representation of async operation delays
+- **System Health Metrics**: Real-time CPU, memory, and I/O monitoring
+- **Performance Recommendations**: Automated suggestions for optimization
 
-- `eth_getBlockByNumber` function uses most CPU (from 0x)
-- Memory grows from 200MB to 800MB (from --prof)
-- The database query is the bottleneck (from flame graph)"
+**Analysis Workflow:**
 
-### 2.3 Priority 2 Complete Checklist
+1. **Start Monitored Relay**: `cd k6 && npm run start-monitored-relay:health`
+2. **Run Stress Test**: `cd k6 && npm run stress-test` (separate terminal)
+3. **Complete Analysis**: Let K6 finish completely
+4. **Stop Server**: `Ctrl+C` triggers automatic report generation
+5. **Review Dashboard**: Open generated HTML reports for detailed analysis
 
-**Goal Requirements vs Our APM Coverage:**
+### 2.5 Priority 2 Implementation Checklist
 
-| Required Metric                  | Data Source     | Coverage Status | Notes                          |
-| -------------------------------- | --------------- | --------------- | ------------------------------ |
-| Transactions Per Second (TPS)    | K6              | ✅ Full         | K6 measures this directly      |
-| TPS per RPC endpoint             | K6              | ✅ Full         | K6 tracks per scenario         |
-| Latency                          | K6              | ✅ Full         | K6 response time metrics       |
-| CPU usage (% and wait time)      | 0x              | ✅ Full         | Flame graphs show CPU usage    |
-| Memory usage                     | node --prof     | ✅ Full         | Heap size, memory allocation   |
-| Garbage collector time           | node --prof     | ✅ Full         | GC events and duration         |
-| I/O                              | node --prof     | ✅ Full         | File system and network I/O    |
-| Thread count                     | Manual tracking | ⚠️ Partial      | Can add with Performance Hooks |
-| Error rate for failed requests   | K6              | ✅ Full         | HTTP error tracking            |
-| Event loop (delay and execution) | node --prof     | ✅ Full         | Event loop lag measurements    |
-| Active handles                   | Manual tracking | ⚠️ Partial      | Can add with Performance Hooks |
-| Standard K6 output               | K6              | ✅ Full         | Median, bytes exchanged, etc.  |
+**Setup Requirements:**
 
-**Coverage Summary: 10/12 metrics fully covered (83% complete)**
+- [ ] Install complete Clinic.js toolkit locally in k6 project
+- [ ] Configure profiled server scripts with meaningful names for each analysis type
+- [ ] Set up organized report output directories
+- [ ] Create comprehensive documentation for each analysis tool
 
-**Missing Metrics Strategy:**
+**Integration Testing:**
 
-- Thread count & Active handles are less critical for stress testing
-- Can be added later with Node.js Performance Hooks if needed
-- Core performance metrics (CPU, Memory, GC, I/O) are fully covered
+- [ ] Test clinic flame for CPU analysis with K6 stress tests
+- [ ] Test clinic doctor for system health monitoring during load
+- [ ] Test clinic bubbleprof for async performance analysis
+- [ ] Validate combined analysis workflow provides complete performance picture
 
-**Setup & Integration:**
+**Documentation and Training:**
 
-- [ ] Install 0x: `npm install -g 0x`
-- [ ] Test magic command: `npx 0x --prof -- npm run relay:start`
-- [ ] Run complete workflow with existing K6 stress tests
-- [ ] Verify flame graphs + profiler data generation
-- [ ] Document workflow and create troubleshooting guide
-
-**K6 Metrics Status: ✅ ALREADY COMPLETE**
-
-- ✅ TPS per RPC endpoint (K6 reports RPS by scenario)
-- ✅ P95 latency (built into K6 reports)
-- ✅ Error rate by endpoint (Pass % per scenario)
-- ✅ All required metrics are captured
+- [ ] Create analysis guides for each Clinic.js tool
+- [ ] Document interpretation of flame graphs, memory patterns, and async metrics
+- [ ] Establish baseline performance data collection process
+- [ ] Train team on professional performance analysis techniques
 
 **Success Criteria:**
 
-- ✅ One command gives comprehensive APM data
-- ✅ 10/12 core metrics captured (83% complete)
-- ✅ Ready for Priority 3 capacity testing
+- ✅ Complete Clinic.js toolkit operational for all analysis types
+- ✅ 12/12 required metrics fully covered (100% complete)
+- ✅ Professional-grade performance analysis capabilities established
+- ✅ Ready for Priority 3 capacity testing with comprehensive monitoring
 
 ## Priority 3: Upper Limit Discovery and Capacity Testing
 
@@ -224,7 +213,7 @@ npx 0x --prof -- npm run relay:start
 
 - [ ] Execute progressive load tests using weighted traffic patterns and APM monitoring
 - [ ] Start with baseline VU count and systematically increase until degradation occurs
-- [ ] Monitor and document system behavior using 0x and enhanced K6 metrics
+- [ ] Monitor and document system behavior using Clinic.js tools and enhanced K6 metrics
 - [ ] Identify specific bottlenecks (CPU, memory, I/O, event loop) with performance data
 - [ ] **Deliverable**: Documented maximum stable traffic capacity and bottleneck analysis
 
@@ -252,7 +241,7 @@ npx 0x --prof -- npm run relay:start
 
 #### Ticket 4.1.3: Performance Bottleneck Analysis
 
-- [ ] Use enhanced K6 + 0x tools from Priority 2 to analyze bottlenecks
+- [ ] Use enhanced K6 + Clinic.js tools from Priority 2 to analyze bottlenecks
 - [ ] Identify specific performance degradation points with detailed metrics
 - [ ] Document findings with performance data evidence
 - [ ] Recommend optimization strategies
@@ -276,7 +265,7 @@ npx 0x --prof -- npm run relay:start
 
 #### Ticket 5.1.1: Performance Data Export Format
 
-- [ ] Design JSON export format for K6 and 0x data
+- [ ] Design JSON export format for K6 and Clinic.js data
 - [ ] Include all key metrics: TPS, latency, CPU, memory, GC time
 - [ ] Add metadata: test configuration, environment, relay version
 - [ ] Implement automated export generation
@@ -307,33 +296,3 @@ npx 0x --prof -- npm run relay:start
 - [ ] Coordinate with DevOps on implementation requirements
 - [ ] Document cost optimization strategies
 - [ ] **Deliverable**: Autoscaling KPI framework
-
-## Implementation Timeline
-
-**Weeks 1-2**: Priority 2 (APM Integration) - **NEXT UP**
-**Weeks 3-4**: Priority 3 (Upper Limit Discovery and Capacity Testing)  
-**Weeks 5-6**: Priority 4 (Targeted Performance Issues)
-**Weeks 7-8**: Priority 5 (Reporting and Tracking)
-
-## Success Criteria
-
-- [x] K6 tests reflect real HashIO traffic patterns
-- [x] Professional test anatomy with proper phases implemented
-- [ ] Comprehensive Node.js performance monitoring operational
-- [ ] Maximum stable traffic capacity identified with detailed bottleneck analysis
-- [ ] High-transaction block degradation issues identified and documented
-- [ ] Baseline performance data established for release comparisons
-- [ ] Complete performance engineering process documented
-- [ ] Team capable of independent performance testing execution
-
-## Next Steps
-
-**You are ready to start Priority 2!**
-
-The K6 foundation is solid and APM-ready. Just follow the simple workflow:
-
-1. Install 0x: `npm install -g 0x`
-2. Test the magic command: `npx 0x --prof -- npm run relay:start`
-3. Run your stress tests and analyze the results
-
-**No complex setup, no overengineering - just one simple command that gives you everything you need.**
