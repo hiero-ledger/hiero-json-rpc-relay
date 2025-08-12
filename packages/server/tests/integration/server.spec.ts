@@ -219,6 +219,17 @@ describe('RPC Server', function () {
     }
   });
 
+  [null, 42, true, { a: 1 }, [1, 2, 3]].forEach((method) => {
+    it(`should return error when JSON-RPC method is non-string "${method}" in batch request`, async function () {
+      try {
+        await testClient.post('/', { jsonrpc: '2.0', id: 4, method });
+        Assertions.expectedError();
+      } catch (error) {
+        BaseTest.invalidRequestSpecError(error.response, -32600, `Invalid Request`);
+      }
+    });
+  });
+
   withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: true }, async function () {
     xit('supports optionality of request id when configured', async function () {
       const app2 = require('../../src/server').default;

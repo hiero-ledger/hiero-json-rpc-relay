@@ -21,7 +21,6 @@ import {
   getDefaultRateLimit,
   getLimitDuration,
   getRequestIdIsOptional,
-  hasOwnProperty,
 } from './lib/utils';
 
 const INVALID_REQUEST = 'INVALID REQUEST';
@@ -82,6 +81,7 @@ export default class KoaJsonRpc {
         body = await parse.json(ctx, { limit: this.limit });
       } catch (err) {
         ctx.body = jsonRespError(null, spec.ParseError, requestId);
+        ctx.status = 400;
         return;
       }
       //check if body is array or object
@@ -94,14 +94,17 @@ export default class KoaJsonRpc {
   }
 
   private async handleSingleRequest(ctx: Koa.Context, body: object, requestDetails: RequestDetails): Promise<void> {
-    const response = !this.hasValidJsonRpcId(body)
-      ? jsonRespError(null, spec.InvalidRequest, requestDetails.requestId)
-      : !this.isValidJsonRpcRequest(body)
-        ? jsonRespError(body.id, spec.InvalidRequest, requestDetails.requestId)
-        : await this.getRequestResult(body, ctx.ip, requestDetails);
+    let response: IJsonRpcResponse;
+    if (!this.hasValidJsonRpcId(body)) {
+      response = jsonRespError(null, spec.InvalidRequest, requestDetails.requestId);
+    } else if (!this.isValidJsonRpcRequest(body)) {
+      response = jsonRespError(body.id, spec.InvalidRequest, requestDetails.requestId);
+    } else {
+      response = await this.getRequestResult(body, ctx.ip, requestDetails);
+      ctx.state.methodName = body.method;
+    }
 
     ctx.body = response;
-    ctx.state.methodName = body['method'];
 
     if ('error' in response) {
       const { statusErrorCode, statusErrorMessage } = translateRpcErrorToHttpStatus(response.error);
@@ -139,7 +142,7 @@ export default class KoaJsonRpc {
       if (!this.hasValidJsonRpcId(item)) return jsonRespError(null, spec.InvalidRequest, requestDetails.requestId);
 
       if (!this.isValidJsonRpcRequest(item))
-        return jsonRespError(item.id || null, spec.InvalidRequest, requestDetails.requestId);
+        return jsonRespError(item.id, spec.InvalidRequest, requestDetails.requestId);
 
       if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method))
         return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestDetails.requestId);
@@ -188,7 +191,7 @@ export default class KoaJsonRpc {
 
   isValidJsonRpcRequest(body: Pick<IJsonRpcRequest, 'id'>): body is IJsonRpcRequest {
     // validate it has the correct jsonrpc version, method, and id
-    return body['jsonrpc'] === '2.0' && hasOwnProperty(body, 'method');
+    return body['jsonrpc'] === '2.0' && typeof body['method'] === 'string';
   }
 
   getKoaApp(): Koa<Koa.DefaultState, Koa.DefaultContext> {
@@ -198,12 +201,11 @@ export default class KoaJsonRpc {
   hasValidJsonRpcId(body: unknown): body is Pick<IJsonRpcRequest, 'id'> {
     if (typeof body !== 'object' || body === null) return false;
 
-    if (hasOwnProperty(body, 'id')) return true;
+    if (Object.prototype.hasOwnProperty.call(body, 'id')) return true;
 
     if (this.requestIdIsOptional) {
       // If the request is invalid, we still want to return a valid JSON-RPC response, default id to 0
       body['id'] = '0';
-      this.logger.warn(`Optional JSON-RPC 2.0 request id encountered. Will continue and default id to 0 in response`);
       return true;
     }
     return false;

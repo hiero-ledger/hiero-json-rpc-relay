@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Server } from 'http';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import type { Server } from 'node:http';
 
-export function hasOwnProperty(obj: any, prop: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
-}
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 export function setServerTimeout(server: Server): void {
   const requestTimeoutMs = ConfigService.get('SERVER_REQUEST_TIMEOUT_MS');

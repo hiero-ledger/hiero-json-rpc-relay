@@ -1,27 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Server } from 'node:http';
+
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { Server } from 'http';
-import * as utils from '../../../src/koaJsonRpc/lib/utils';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+
 import { withOverriddenEnvsInMochaTest } from '../../../../relay/tests/helpers';
+import * as utils from '../../../src/koaJsonRpc/lib/utils';
 
 describe('utils.ts', () => {
-  describe('hasOwnProperty', () => {
-    it('should return true when the object has the specified property', () => {
-      const obj = { a: 1 };
-      const result = utils.hasOwnProperty(obj, 'a');
-      expect(result).to.be.true;
-    });
-
-    it('should return false when the object does not have the specified property', () => {
-      const obj = { a: 1 };
-      const result = utils.hasOwnProperty(obj, 'b');
-      expect(result).to.be.false;
-    });
-  });
-
   describe('setServerTimeout', () => {
     let server: Server;
     let spy: sinon.SinonSpy;
