@@ -3,6 +3,7 @@
 import { inspect } from 'node:util';
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import type { ContentDescriptorObject, ErrorObject, JSONSchema, OpenrpcDocument } from '@open-rpc/meta-schema';
 import { parseOpenRPCDocument, validateOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import Ajv from 'ajv';
 import axios from 'axios';
@@ -13,7 +14,7 @@ import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import openRpcSchema from '../../../../docs/openrpc.json';
-import { Relay } from '../../src';
+import { Eth, Net, Web3 } from '../../src';
 import { numberTo0x } from '../../src/formatters';
 import { SDKClient } from '../../src/lib/clients';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -22,10 +23,12 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
+import { NetImpl } from '../../src/lib/net';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../src/lib/types';
+import { Web3Impl } from '../../src/lib/web3';
 import {
   blockHash,
   blockNumber,
@@ -58,7 +61,6 @@ import { CONTRACT_RESULT_MOCK, NOT_FOUND_RES } from './eth/eth-config';
 
 const logger = pino({ level: 'silent' });
 const registry = new Registry();
-const relay = new Relay(logger, registry);
 
 let mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
@@ -68,23 +70,38 @@ let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 const noTransactions = '?transactions=false';
 
 describe('Open RPC Specification', function () {
-  let rpcDocument: any;
-  let methodsResponseSchema: { [method: string]: any };
+  let rpcDocument: OpenrpcDocument;
+  let methodsResponseSchema: { [method: string]: JSONSchema };
+  let methodsErrorSchema: { [method: string]: ErrorObject[] };
   let ethImpl: EthImpl;
+  let ns: { eth: Eth; net: Net; web3: Web3 };
 
   const requestDetails = new RequestDetails({ requestId: 'openRpcTest', ipAddress: '0.0.0.0' });
 
   overrideEnvsInMochaDescribe({ npm_package_version: 'relay/0.0.1-SNAPSHOT' });
 
-  this.beforeAll(async () => {
+  before(async () => {
     rpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
-    methodsResponseSchema = rpcDocument.methods.reduce(
-      (res: { [method: string]: any }, method: any) => ({
-        ...res,
-        [method.name]: method.result.schema,
-      }),
-      {},
-    );
+    methodsResponseSchema = rpcDocument.methods
+      .filter((method) => 'name' in method)
+      .filter((method) => method.result !== undefined)
+      .reduce(
+        (res, method) => ({
+          ...res,
+          [method.name]: (method.result as ContentDescriptorObject)?.schema,
+        }),
+        {} as { [method: string]: JSONSchema },
+      );
+    methodsErrorSchema = rpcDocument.methods
+      .filter((method) => 'name' in method)
+      .filter((method) => method.errors !== undefined && method.errors.every((err) => 'code' in err))
+      .reduce(
+        (res, method) => ({
+          ...res,
+          [method.name]: method.errors as ErrorObject[],
+        }),
+        {} as { [method: string]: ErrorObject[] },
+      );
 
     // mock axios
     const instance = axios.create({
@@ -96,10 +113,8 @@ describe('Open RPC Specification', function () {
       timeout: 10 * 1000,
     });
 
-    // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
     const cacheService = new CacheService(logger, registry);
-    // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
@@ -124,8 +139,8 @@ describe('Open RPC Specification', function () {
     clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    // @ts-ignore
     ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
 
     // mocked data
     mock.onGet('blocks?limit=1&order=desc').reply(200, JSON.stringify({ blocks: [defaultBlock] }));
@@ -234,48 +249,31 @@ describe('Open RPC Specification', function () {
     mock.onGet(`tokens/${defaultContractResults.results[1].contract_id}`).reply(200);
   });
 
-  const validateResponseSchema = (schema: any, response: any) => {
+  const validateResponseSchema = (schema: JSONSchema, response: unknown) => {
     const ajv = new Ajv();
     ajv.validate(schema, response);
 
     expect(ajv.errors, `Errors found: ${inspect(ajv.errors)}`).to.be.null;
   };
 
-  it(`validates the openrpc document`, async () => {
-    const rpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
+  it('validates the openrpc document', async () => {
     const isValid = validateOpenRPCDocument(rpcDocument);
-
     expect(isValid).to.be.true;
   });
 
   it('should execute "eth_accounts"', function () {
     const response = ethImpl.accounts(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_accounts, response);
   });
 
   it('should execute "eth_blockNumber"', async function () {
     const response = await ethImpl.blockNumber(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_blockNumber, response);
   });
 
   it('should execute "eth_chainId"', function () {
     const response = ethImpl.chainId();
-
     validateResponseSchema(methodsResponseSchema.eth_chainId, response);
-  });
-
-  it('should execute "eth_coinbase"', function () {
-    const response = ethImpl.coinbase();
-
-    validateResponseSchema(methodsResponseSchema.eth_coinbase, response);
-  });
-
-  it('should execute "eth_blobBaseFee"', function () {
-    const response = ethImpl.blobBaseFee();
-
-    validateResponseSchema(methodsResponseSchema.eth_blobBaseFee, response);
   });
 
   it('should execute "eth_estimateGas"', async function () {
@@ -287,55 +285,46 @@ describe('Open RPC Specification', function () {
 
   it('should execute "eth_feeHistory"', async function () {
     const response = await ethImpl.feeHistory(1, 'latest', [0], requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_feeHistory, response);
   });
 
   it('should execute "eth_gasPrice"', async function () {
     const response = await ethImpl.gasPrice(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_gasPrice, response);
   });
 
   it('should execute "eth_getBalance"', async function () {
     const response = await ethImpl.getBalance(contractAddress1, 'latest', requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBalance, response);
   });
 
   it('should execute "eth_getBlockByHash" with hydrated = true', async function () {
     const response = await ethImpl.getBlockByHash(blockHash, true, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockByHash, response);
   });
 
   it('should execute "eth_getBlockByHash" with hydrated = false', async function () {
     const response = await ethImpl.getBlockByHash(blockHash, true, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockByHash, response);
   });
 
   it('should execute "eth_getBlockByNumber" with hydrated = true', async function () {
     const response = await ethImpl.getBlockByNumber(numberTo0x(blockNumber), true, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockByNumber, response);
   });
 
   it('should execute "eth_getBlockByNumber" with hydrated = false', async function () {
     const response = await ethImpl.getBlockByNumber(numberTo0x(blockNumber), false, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockByNumber, response);
   });
 
   it('should execute "eth_getBlockTransactionCountByHash"', async function () {
     const response = await ethImpl.getBlockTransactionCountByHash(blockHash, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockTransactionCountByHash, response);
   });
 
   it('should execute "eth_getBlockTransactionCountByNumber" with block tag', async function () {
     const response = await ethImpl.getBlockTransactionCountByNumber('latest', requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getBlockTransactionCountByNumber, response);
   });
 
@@ -421,7 +410,6 @@ describe('Open RPC Specification', function () {
 
   it('should execute "eth_getTransactionByHash"', async function () {
     const response = await ethImpl.getTransactionByHash(defaultTxHash, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getTransactionByHash, response);
   });
 
@@ -448,139 +436,104 @@ describe('Open RPC Specification', function () {
 
   it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
     const response = await ethImpl.getUncleByBlockHashAndIndex(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockHashAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
     const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
     const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleCountByBlockHash"', async function () {
     const response = await ethImpl.getUncleCountByBlockHash(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockHash, response);
   });
 
   it('should execute "eth_getUncleCountByBlockNumber"', async function () {
     const response = await ethImpl.getUncleCountByBlockNumber(requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockNumber, response);
-  });
-
-  it('should execute "eth_getWork"', async function () {
-    const response = ethImpl.getWork();
-
-    validateResponseSchema(methodsResponseSchema.eth_getWork, response);
   });
 
   it('should execute "eth_hashrate"', async function () {
     const response = await ethImpl.hashrate();
-
     validateResponseSchema(methodsResponseSchema.eth_hashrate, response);
   });
 
   it('should execute "eth_mining"', async function () {
     const response = await ethImpl.mining();
-
     validateResponseSchema(methodsResponseSchema.eth_mining, response);
-  });
-
-  it('should execute "eth_protocolVersion"', async function () {
-    const response = ethImpl.protocolVersion();
-
-    validateResponseSchema(methodsResponseSchema.eth_protocolVersion, response);
   });
 
   it('should execute "eth_sendRawTransaction"', async function () {
     const response = await ethImpl.sendRawTransaction(signedTransactionHash, requestDetails);
-
     validateResponseSchema(methodsResponseSchema.eth_sendRawTransaction, response);
-  });
-
-  it('should execute "eth_sendTransaction"', async function () {
-    const response = ethImpl.sendTransaction();
-
-    validateResponseSchema(methodsResponseSchema.eth_sendTransaction, response);
-  });
-
-  it('should execute "eth_signTransaction"', async function () {
-    const response = ethImpl.signTransaction();
-
-    validateResponseSchema(methodsResponseSchema.eth_signTransaction, response);
-  });
-
-  it('should execute "eth_sign"', async function () {
-    const response = ethImpl.sign();
-
-    validateResponseSchema(methodsResponseSchema.eth_sign, response);
-  });
-
-  it('should execute "eth_submitHashrate"', async function () {
-    const response = ethImpl.submitHashrate();
-
-    validateResponseSchema(methodsResponseSchema.eth_submitHashrate, response);
   });
 
   it('should execute "eth_submitWork"', async function () {
     const response = await ethImpl.submitWork();
-
     validateResponseSchema(methodsResponseSchema.eth_submitWork, response);
   });
 
   it('should execute "eth_syncing"', async function () {
     const response = await ethImpl.syncing();
-
     validateResponseSchema(methodsResponseSchema.eth_syncing, response);
   });
 
-  it('should execute "eth_getProof"', async function () {
-    const response = ethImpl.getProof();
-
-    validateResponseSchema(methodsResponseSchema.eth_getProof, response);
-  });
-
-  it('should execute "eth_createAccessList"', async function () {
-    const response = ethImpl.createAccessList();
-
-    validateResponseSchema(methodsResponseSchema.eth_createAccessList, response);
-  });
-
   it('should execute "net_listening"', function () {
-    const response = relay.net().listening();
-
+    const response = ns.net.listening();
     validateResponseSchema(methodsResponseSchema.net_listening, response);
   });
 
   it('should execute "net_version"', function () {
-    const response = relay.net().version();
-
+    const response = ns.net.version();
     validateResponseSchema(methodsResponseSchema.net_version, response);
   });
 
-  it('should execute "net_peerCount"', function () {
-    const response = relay.net().peerCount();
-
-    validateResponseSchema(methodsResponseSchema.net_peerCount, response);
-  });
-
   it('should execute "web3_clientVersion"', function () {
-    const response = relay.web3().clientVersion();
-
+    const response = ns.web3.clientVersion();
     validateResponseSchema(methodsResponseSchema.web3_clientVersion, response);
   });
 
   it('should execute "web3_sha3"', function () {
-    const response = relay.web3().sha3('0x5644');
-
+    const response = ns.web3.sha3('0x5644');
     validateResponseSchema(methodsResponseSchema.web3_sha3, response);
+  });
+
+  describe('Unsupported Methods', () => {
+    type RpcMethodName = { [k in keyof typeof ns]: `${k}_${Exclude<keyof (typeof ns)[k], symbol>}` }[keyof typeof ns];
+
+    (
+      [
+        'eth_coinbase',
+        'eth_blobBaseFee',
+        'eth_getWork',
+        'eth_newPendingTransactionFilter',
+        'eth_protocolVersion',
+        'eth_sendTransaction',
+        'eth_signTransaction',
+        'eth_sign',
+        'eth_submitHashrate',
+        'eth_getProof',
+        'eth_createAccessList',
+        'net_peerCount',
+      ] satisfies RpcMethodName[]
+    ).forEach((rpcMethodName) => {
+      it(`should return "Unsupported JSON-RPC method" error when executing '${rpcMethodName}'`, async function () {
+        const [obj, methodName] = rpcMethodName.split('_');
+        const error = ns[obj][methodName]();
+        expect(error).to.be.an('error');
+
+        const errorsSchema = methodsErrorSchema[rpcMethodName];
+        expect(errorsSchema).to.have.lengthOf(1);
+        const [errorSchema] = errorsSchema;
+        expect(error.code).to.be.equal(errorSchema.code);
+        expect(error.message).to.be.equal(errorSchema.message);
+      });
+    });
   });
 });

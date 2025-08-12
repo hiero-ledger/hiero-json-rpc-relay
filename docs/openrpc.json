@@ -118,17 +118,17 @@
       "name": "eth_coinbase",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_blobBaseFee",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_estimateGas",
@@ -671,9 +671,9 @@
       "name": "eth_getWork",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_hashrate",
@@ -786,9 +786,9 @@
       "name": "eth_newPendingTransactionFilter",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      },
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }],
       "tags": [
         {
           "name": "alpha API"
@@ -863,9 +863,9 @@
       "name": "eth_protocolVersion",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_sendRawTransaction",
@@ -891,33 +891,33 @@
       "name": "eth_sendTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_signTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_sign",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_submitHashrate",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_submitWork",
@@ -977,9 +977,9 @@
       "name": "net_peerCount",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "web3_clientVersion",
@@ -1253,20 +1253,26 @@
       "name": "eth_getProof",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     },
     {
       "name": "eth_createAccessList",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "result": {
-        "$ref": "#/components/schemas/unsupportedError"
-      }
+      "errors": [{
+          "$ref": "#/components/errors/unsupportedError"
+      }]
     }
   ],
   "components": {
+    "errors": {
+      "unsupportedError": {
+        "code": -32601,
+        "message": "Unsupported JSON-RPC method"
+      }
+    },
     "schemas": {
       "address": {
         "title": "hex encoded address",
@@ -2130,24 +2136,6 @@
           "topics": {
             "title": "Topics",
             "$ref": "#/components/schemas/FilterTopics"
-          }
-        }
-      },
-      "unsupportedError": {
-        "name": "Unsupported Error",
-        "schema": {
-          "type": "object",
-          "properties": {
-            "code": {
-              "title": "Error code",
-              "type": "number",
-              "pattern": "-32601"
-            },
-            "message": {
-              "title": "Error message",
-              "type": "string",
-              "pattern": "Unsupported JSON-RPC method"
-            }
           }
         }
       },
