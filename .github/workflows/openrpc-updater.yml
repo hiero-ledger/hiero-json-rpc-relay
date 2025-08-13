@@ -39,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./execution-apis
 
       - name: Build project
@@ -85,7 +85,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: scripts/openrpc-json-updater
-        run: npm install
+        run: npm ci
 
       - name: Generate comparison report
         id: generate-report
@@ -139,7 +139,7 @@ jobs:
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
           commit-message: Update OpenRPC JSON
-          title: 'chore: Update OpenRPC JSON'
+          title: 'docs: Update OpenRPC JSON'
           body: |
             # OpenRPC JSON Update
 
