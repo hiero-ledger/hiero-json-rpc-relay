@@ -80,7 +80,7 @@ export interface Eth {
 
   getCode(address: string, blockNumber: string | null, requestDetails: RequestDetails): Promise<string | null>;
 
-  chainId(requestDetails: RequestDetails): string;
+  chainId(): string;
 
   getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]>;
 
