@@ -8,14 +8,19 @@
     "prep": "env-cmd node src/prepare/prep.js",
     "k6": "env-cmd --use-shell k6 run src/scenarios/apis.js",
     "k6-ws": "env-cmd --use-shell k6 run src/scenarios/ws-apis.js",
-    "stress-test": "TEST_TYPE=stress env-cmd --use-shell k6 run src/scenarios/stress-test.js",
-    "prep-and-stress": "npm run prep && npm run stress-test"
+    "stress-test": "mkdir -p stress-test-reports/k6 && TEST_TYPE=stress env-cmd --use-shell k6 run src/scenarios/stress-test.js",
+    "prep-and-stress": "npm run prep && npm run stress-test",
+    "start-monitored-relay:cpu": "cd ../packages/server && ../../k6/node_modules/.bin/clinic flame --dest ../../k6/stress-test-reports/cpu -- node dist/index.js",
+    "start-monitored-relay:health": "cd ../packages/server && ../../k6/node_modules/.bin/clinic doctor --dest ../../k6/stress-test-reports/health -- node dist/index.js",
+    "start-monitored-relay:async": "cd ../packages/server && ../../k6/node_modules/.bin/clinic bubbleprof --dest ../../k6/stress-test-reports/async -- node dist/index.js",
+    "terminate-monitored-relay": "pkill -SIGINT -f 'dist/index.js'"
   },
   "dependencies": {
     "env-cmd": "^10.1.0",
     "ethers": "^6.15.0"
   },
   "devDependencies": {
-    "@types/k6": "^1.1.1"
+    "@types/k6": "^1.1.1",
+    "clinic": "^13.0.0"
   }
 }

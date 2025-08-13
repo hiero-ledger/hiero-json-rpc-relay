@@ -1,1 +1,14 @@
 src/prepare/.smartContractParams.json
+
+# Clinic.js Reports and Analysis
+stress-test-reports/
+.clinic/
+*.clinic-*
+flamegraph.html
+clinic-flame-*
+clinic-doctor-*
+clinic-bubbleprof-*
+
+# Clinic.js temporary files
+*.log
+isolate-*
