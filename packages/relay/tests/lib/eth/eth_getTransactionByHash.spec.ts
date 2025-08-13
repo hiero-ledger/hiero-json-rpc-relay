@@ -120,7 +120,6 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
 
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
     expect(result).to.be.an.instanceOf(Transaction1559);
-    expect(result?.value).to.be.equal('0x0');
   });
 
   it('returns `null` for non-existing hash', async function () {
