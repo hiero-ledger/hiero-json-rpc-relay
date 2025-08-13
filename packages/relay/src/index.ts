@@ -144,7 +144,7 @@ export interface Eth {
 
   getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]>;
 
-  newPendingTransactionFilter(): Promise<JsonRpcError>;
+  newPendingTransactionFilter(): JsonRpcError;
 
   uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean>;
 
@@ -167,4 +167,6 @@ export interface Eth {
   accounts(requestDetails: RequestDetails): Array<any>;
 
   getProof(): JsonRpcError;
+
+  createAccessList(): JsonRpcError;
 }
