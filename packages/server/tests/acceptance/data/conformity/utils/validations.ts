@@ -82,7 +82,7 @@ export function hasResponseFormatIssues(
     }
     return true;
   }
-  const missingKeys = getMissingKeys(actualResponse, parsedExpectedResponse, wildcards);
+  const missingKeys = getMissingKeys(actualResponse as Record<string, unknown>, parsedExpectedResponse, wildcards);
   if (missingKeys.length > 0) {
     console.log(`Missing keys in response: ${JSON.stringify(missingKeys)}`);
     return true;
@@ -122,8 +122,8 @@ export function hasResponseFormatIssues(
  * ```
  */
 export function getMissingKeys(
-  actualResponse: Record<string, unknown> | ErrorResponse | JsonRpcResponse,
-  expectedResponse: Record<string, unknown> | string | ErrorResponse,
+  actualResponse: Record<string, unknown>,
+  expectedResponse: Record<string, unknown>,
   wildcards: string[] = [],
 ): string[] {
   const actualResponseKeys = extractKeys(actualResponse as Record<string, unknown>);
