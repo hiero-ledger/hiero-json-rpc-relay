@@ -5,8 +5,12 @@ import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
-import { formatTransactionIdWithoutQueryParams } from '../../../../formatters';
-import { numberTo0x, toHash32 } from '../../../../formatters';
+import {
+  formatContractResult,
+  formatTransactionIdWithoutQueryParams,
+  numberTo0x,
+  toHash32,
+} from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
@@ -23,7 +27,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { CommonService, ICommonService } from '../../index';
+import { ICommonService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -200,7 +204,7 @@ export class TransactionService implements ITransactionService {
     const toAddress = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
-    return CommonService.formatContractResult({
+    return formatContractResult({
       ...contractResult,
       from: fromAddress,
       to: toAddress,
@@ -366,7 +370,7 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(contractResults[0].from, requestDetails, [constants.TYPE_ACCOUNT]),
     ]);
 
-    return CommonService.formatContractResult({
+    return formatContractResult({
       ...contractResults[0],
       from: resolvedFromAddress,
       to: resolvedToAddress,

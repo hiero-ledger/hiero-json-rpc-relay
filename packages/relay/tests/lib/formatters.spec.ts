@@ -7,6 +7,7 @@ import { AbiCoder, keccak256 } from 'ethers';
 import {
   ASCIIToHex,
   decodeErrorMessage,
+  formatContractResult,
   formatTransactionId,
   formatTransactionIdWithoutQueryParams,
   hexToASCII,
@@ -29,7 +30,6 @@ import {
   weibarHexToTinyBarInt,
 } from '../../src/formatters';
 import constants from '../../src/lib/constants';
-import { CommonService } from '../../src/lib/services';
 import { overrideEnvsInMochaDescribe } from '../helpers';
 
 describe('Formatters', () => {
@@ -240,11 +240,11 @@ describe('Formatters', () => {
     };
 
     it('should return null if null is passed', () => {
-      expect(CommonService.formatContractResult(null)).to.equal(null);
+      expect(formatContractResult(null)).to.equal(null);
     });
 
     it('should return a valid match', () => {
-      const formattedResult: any = CommonService.formatContractResult(contractResult);
+      const formattedResult: any = formatContractResult(contractResult);
       expect(formattedResult.accessList).to.deep.eq([]);
       expect(formattedResult.blockHash).to.equal('0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f488713');
       expect(formattedResult.blockNumber).to.equal('0x210');
@@ -268,7 +268,7 @@ describe('Formatters', () => {
     });
 
     it('should return a valid signature s value', () => {
-      const formattedResult: any = CommonService.formatContractResult(contractResultZeroPrefixedSignatureS);
+      const formattedResult: any = formatContractResult(contractResultZeroPrefixedSignatureS);
       expect(formattedResult.accessList).to.deep.eq([]);
       expect(formattedResult.blockHash).to.equal('0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f488713');
       expect(formattedResult.blockNumber).to.equal('0x210');
@@ -292,7 +292,7 @@ describe('Formatters', () => {
     });
 
     it('should return nullable fields', () => {
-      const formattedResult: any = CommonService.formatContractResult({
+      const formattedResult: any = formatContractResult({
         ...contractResult,
         block_number: null,
         gas_used: null,
@@ -327,17 +327,17 @@ describe('Formatters', () => {
     });
 
     it('Should not include chainId field for legacy EIP155 transaction (tx.chainId=0x0)', () => {
-      const formattedResult: any = CommonService.formatContractResult({ ...contractResult, chain_id: '0x' });
+      const formattedResult: any = formatContractResult({ ...contractResult, chain_id: '0x' });
       expect(formattedResult.chainId).to.be.undefined;
     });
 
     it('Should return legacy EIP155 transaction when null type', () => {
-      const formattedResult: any = CommonService.formatContractResult({ ...contractResult, type: null });
+      const formattedResult: any = formatContractResult({ ...contractResult, type: null });
       expect(formattedResult.type).to.be.eq('0x0');
     });
 
     it('Should return null when contract result type is undefined', async function () {
-      const formattedResult = CommonService.formatContractResult({ ...contractResult, type: undefined });
+      const formattedResult = formatContractResult({ ...contractResult, type: undefined });
       expect(formattedResult).to.be.null;
     });
   });
