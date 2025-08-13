@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+/* global task */
+
 require('dotenv').config();
 require('@nomicfoundation/hardhat-toolbox');
 const CONSTANTS = require('./test/constants');
@@ -146,7 +148,7 @@ task('deploy-stargate-hts-connector-existing-token', 'Deploy Stargate HTS connec
 
     const contractFactory = await ethers.getContractFactory('ExampleStargateHTSConnectorExistingToken');
     const contract = await contractFactory.deploy(taskArgs.token, 8, ENDPOINT_V2, signers[0].address, {
-      gasLimit: 10_000_000
+      gasLimit: 10_000_000,
     });
     await contract.deployTransaction.wait();
 
