@@ -64,6 +64,9 @@
       }
     },
     {
+      "name": "eth_test"
+    },
+    {
       "name": "eth_blockNumber",
       "summary": "Returns the number of most recent block.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
