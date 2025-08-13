@@ -9,7 +9,7 @@ on:
       - 'docs/openrpc.json'
   pull_request:
     branches:
-      - branches: [main, release/**]
+      - main
     paths:
       - 'docs/openrpc.json'
   workflow_dispatch:
