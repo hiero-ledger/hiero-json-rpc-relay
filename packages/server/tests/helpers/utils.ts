@@ -87,13 +87,6 @@ export class Utils {
     return crypto.randomUUID();
   };
 
-  /**
-   * Format message prefix for logger.
-   */
-  static formatRequestIdMessage = (requestId?: string): string => {
-    return requestId ? `[Request ID: ${requestId}]` : '';
-  };
-
   static deployContractWithEthers = async (
     constructorArgs: any[] = [],
     contractJson: { abi: ethers.InterfaceAbi | ethers.Interface; bytecode: ethers.BytesLike | { object: string } },
