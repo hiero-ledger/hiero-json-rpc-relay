@@ -105,7 +105,9 @@ export class LocalLRUCache implements ICacheClient {
     if (value !== undefined) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
       const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+      if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
+      }
       return value;
     }
 
@@ -121,7 +123,7 @@ export class LocalLRUCache implements ICacheClient {
   public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(key); // in milliseconds
-      this.logger.trace('returning remaining TTL %s:%d on %s call', key, remainingTtl, callingMethod);
+    this.logger.trace('returning remaining TTL %s:%d on %s call', key, remainingTtl, callingMethod);
     return remainingTtl;
   }
 
@@ -141,14 +143,21 @@ export class LocalLRUCache implements ICacheClient {
     } else {
       cache.set(key, value, { ttl: 0 }); // 0 means indefinite time
     }
-      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-      const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-      const message = 'Caching %s:%s on %s for %s';
-      this.logger.trace('%s (cache size: %d, max: %d)', 
-        message.replace('%s', censoredKey).replace('%s', censoredValue).replace('%s', callingMethod).replace('%s', resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'),
-        this.cache.size, 
-        this.options.max
+    const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+    const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+    const message = 'Caching %s:%s on %s for %s';
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(
+        '%s (cache size: %d, max: %d)',
+        message
+          .replace('%s', censoredKey)
+          .replace('%s', censoredValue)
+          .replace('%s', callingMethod)
+          .replace('%s', resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'),
+        this.cache.size,
+        this.options.max,
       );
+    }
   }
 
   /**

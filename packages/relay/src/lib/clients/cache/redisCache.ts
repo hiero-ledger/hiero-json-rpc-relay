@@ -64,7 +64,7 @@ export class RedisCache implements IRedisCacheClient {
       socket: {
         reconnectStrategy: (retries: number) => {
           const delay = retries * reconnectDelay;
-          logger.warn(`Trying to reconnect with Redis, retry #${retries}. Delay is ${delay} ms...`);
+          logger.warn('Trying to reconnect with Redis, retry #%d. Delay is %d ms...', retries, delay);
           return delay;
         },
       },
@@ -82,7 +82,7 @@ export class RedisCache implements IRedisCacheClient {
         this.logger.error(error);
         return 0;
       });
-      logger.info(`Connected to Redis server (${redisUrl}) successfully! Number of connections: ${connections}`);
+      logger.info('Connected to Redis server (%s) successfully! Number of connections: %s', redisUrl, connections);
     });
     this.client.on('end', () => {
       this.connected = Promise.resolve(false);
@@ -92,9 +92,9 @@ export class RedisCache implements IRedisCacheClient {
       this.connected = Promise.resolve(false);
       const redisError = new RedisCacheError(error);
       if (redisError.isSocketClosed()) {
-        logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
+        logger.error('Error occurred with Redis Connection when closing socket: %s', redisError.message);
       } else {
-        logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
+        logger.error('Error occurred with Redis Connection: %s', redisError.fullError);
       }
     });
   }
@@ -114,9 +114,9 @@ export class RedisCache implements IRedisCacheClient {
     const client = await this.getConnectedClient();
     const result = await client.get(key);
     if (result) {
-        const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-        const censoredValue = result.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-        this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
+      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+      const censoredValue = result.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+      this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
       // TODO: add metrics
       return JSON.parse(result);
     }
@@ -145,8 +145,13 @@ export class RedisCache implements IRedisCacheClient {
     const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
     const censoredValue = serializedValue.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
     const message = 'Caching %s:%s on %s for %s';
-    this.logger.trace('%s',
-      message.replace('%s', censoredKey).replace('%s', censoredValue).replace('%s', callingMethod).replace('%s', resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time')
+    this.logger.trace(
+      '%s',
+      message
+        .replace('%s', censoredKey)
+        .replace('%s', censoredValue)
+        .replace('%s', callingMethod)
+        .replace('%s', resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'),
     );
     // TODO: add metrics
   }
@@ -211,7 +216,7 @@ export class RedisCache implements IRedisCacheClient {
   async delete(key: string, callingMethod: string): Promise<void> {
     const client = await this.getConnectedClient();
     await client.del(key);
-    this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
+    this.logger.trace('delete cache for %s on %s call', key, callingMethod);
     // TODO: add metrics
   }
 
@@ -278,7 +283,7 @@ export class RedisCache implements IRedisCacheClient {
   async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
     const client = await this.getConnectedClient();
     const result = await client.incrBy(key, amount);
-    this.logger.trace(`incrementing ${key} by ${amount} on ${callingMethod} call`);
+    this.logger.trace('incrementing %s by %d on %s call', key, amount, callingMethod);
     return result;
   }
 
@@ -294,7 +299,7 @@ export class RedisCache implements IRedisCacheClient {
   async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
     const client = await this.getConnectedClient();
     const result = await client.lRange(key, start, end);
-    this.logger.trace(`retrieving range [${start}:${end}] from ${key} on ${callingMethod} call`);
+    this.logger.trace('retrieving range [%d:%d] from %s on %s call', start, end, key, callingMethod);
     return result.map((item) => JSON.parse(item));
   }
 
@@ -310,7 +315,7 @@ export class RedisCache implements IRedisCacheClient {
     const client = await this.getConnectedClient();
     const serializedValue = JSON.stringify(value);
     const result = await client.rPush(key, serializedValue);
-    this.logger.trace(`pushing ${serializedValue} to ${key} on ${callingMethod} call`);
+    this.logger.trace('pushing %s to %s on %s call', serializedValue, key, callingMethod);
     return result;
   }
 
