@@ -126,10 +126,9 @@ export function getMissingKeys(
   expectedResponse: Record<string, unknown>,
   wildcards: string[] = [],
 ): string[] {
-  const actualResponseKeys = extractKeys(actualResponse as Record<string, unknown>);
-  const expectedResponseKeys = extractKeys(expectedResponse as Record<string, unknown>);
-  const filteredExpectedKeys = expectedResponseKeys.filter((key) => !wildcards.includes(key));
-  return filteredExpectedKeys.filter((key) => !actualResponseKeys.includes(key));
+  const actualResponseKeys = extractKeys(actualResponse);
+  const expectedResponseKeys = extractKeys(expectedResponse);
+  return filteredExpectedKeys.filter((key) => !actualResponseKeys.includes(key) && !wildcards.includes(key));
 }
 
 /**
