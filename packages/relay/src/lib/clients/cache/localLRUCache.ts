@@ -145,18 +145,11 @@ export class LocalLRUCache implements ICacheClient {
     }
     const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
     const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-    const message = 'Caching %s:%s on %s for %s';
+    const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
+      resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
+    }`;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        '%s (cache size: %d, max: %d)',
-        message
-          .replace('%s', censoredKey)
-          .replace('%s', censoredValue)
-          .replace('%s', callingMethod)
-          .replace('%s', resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'),
-        this.cache.size,
-        this.options.max,
-      );
+      this.logger.trace('%s (cache size: %d, max: %d)', message, this.cache.size, this.options.max);
     }
   }
 
@@ -253,7 +246,8 @@ export class LocalLRUCache implements ICacheClient {
 
     const matchingKeys = keys.filter((key) => regex.test(key));
 
-    this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
+    this.logger.trace('retrieving keys matching %s on %s call', pattern, callingMethod);
+
     return matchingKeys;
   }
 

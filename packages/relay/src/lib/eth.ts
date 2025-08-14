@@ -204,7 +204,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
-    this.logger.trace(`blockNumber()`);
     return await this.common.getLatestBlockNumber(requestDetails);
   }
 
@@ -310,7 +309,6 @@ export class EthImpl implements Eth {
     0: { type: 'filter', required: true },
   })
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
-    this.logger.trace('newFilter(params=%o)', params);
     return this.filterService.newFilter(params, requestDetails);
   }
 
