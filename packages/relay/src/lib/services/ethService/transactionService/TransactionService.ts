@@ -5,18 +5,13 @@ import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 
-import {
-  formatContractResult,
-  formatTransactionIdWithoutQueryParams,
-  numberTo0x,
-  toHash32,
-} from '../../../../formatters';
+import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
-import { TransactionFactory } from '../../../factories/transactionFactory';
+import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
@@ -204,7 +199,7 @@ export class TransactionService implements ITransactionService {
     const toAddress = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
-    return formatContractResult({
+    return createTransactionFromContractResult({
       ...contractResult,
       from: fromAddress,
       to: toAddress,
@@ -370,7 +365,7 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(contractResults[0].from, requestDetails, [constants.TYPE_ACCOUNT]),
     ]);
 
-    return formatContractResult({
+    return createTransactionFromContractResult({
       ...contractResults[0],
       from: resolvedFromAddress,
       to: resolvedToAddress,
