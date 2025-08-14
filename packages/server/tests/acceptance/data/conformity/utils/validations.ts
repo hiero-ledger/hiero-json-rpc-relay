@@ -128,7 +128,7 @@ export function getMissingKeys(
 ): string[] {
   const actualResponseKeys = extractKeys(actualResponse);
   const expectedResponseKeys = extractKeys(expectedResponse);
-  return filteredExpectedKeys.filter((key) => !actualResponseKeys.includes(key) && !wildcards.includes(key));
+  return expectedResponseKeys.filter((key) => !actualResponseKeys.includes(key) && !wildcards.includes(key));
 }
 
 /**
