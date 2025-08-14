@@ -421,7 +421,7 @@ export class BlockService implements IBlockService {
           transactionIndex: log.transactionIndex,
           type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
           v: constants.ZERO_HEX,
-          value: constants.ONE_TWO_THREE_FOUR_HEX,
+          value: constants.ZERO_HEX,
         });
 
         if (transaction !== null) {
