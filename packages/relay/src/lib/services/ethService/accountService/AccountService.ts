@@ -99,9 +99,7 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`);
-    }
+    this.logger.trace('getBalance(account=%s, blockNumberOrTag=%s)', account, blockNumberOrTagOrHash);
 
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
@@ -147,13 +145,12 @@ export class AccountService implements IAccountService {
       }
 
       if (!balanceFound) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `Unable to find account ${account} in block ${JSON.stringify(
-              blockNumber,
-            )}(${blockNumberOrTagOrHash}), returning 0x0 balance`,
-          );
-        }
+        this.logger.debug(
+          'Unable to find account %s in block %o(%s), returning 0x0 balance',
+          account,
+          blockNumber,
+          blockNumberOrTagOrHash,
+        );
         return constants.ZERO_HEX;
       }
 
@@ -176,9 +173,7 @@ export class AccountService implements IAccountService {
     const blockNumberCached = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_BALANCE);
 
     if (blockNumberCached) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`);
-      }
+      this.logger.trace('returning cached value %s:%o', cacheKey, blockNumberCached);
       latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
     } else {
       latestBlock = await this.blockNumberTimestamp(constants.ETH_GET_BALANCE, requestDetails);
@@ -296,17 +291,13 @@ export class AccountService implements IAccountService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
-    }
+    this.logger.trace('getTransactionCount(address=%s, blockNumOrTag=%s)', address, blockNumOrTag);
 
     // cache considerations for high load
     const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
     let nonceCount = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_TRANSACTION_COUNT);
     if (nonceCount) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
-      }
+      this.logger.trace('returning cached value %s:%o', cacheKey, nonceCount);
       return nonceCount;
     }
 
@@ -344,9 +335,7 @@ export class AccountService implements IAccountService {
     caller: string,
     requestDetails: RequestDetails,
   ): Promise<LatestBlockNumberTimestamp> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`blockNumber()`);
-    }
+    this.logger.trace('blockNumber()');
 
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
 

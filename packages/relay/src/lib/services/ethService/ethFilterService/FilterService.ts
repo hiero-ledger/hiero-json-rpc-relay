@@ -109,9 +109,8 @@ export class FilterService implements IFilterService {
     const filterId = generateRandomHex();
     await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`created filter with TYPE=${type}, params: ${JSON.stringify(params)}`);
-    }
+    this.logger.trace('created filter with TYPE=%s, params: %o', type, params);
+
     return filterId;
   }
 

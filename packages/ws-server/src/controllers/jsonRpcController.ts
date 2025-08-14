@@ -55,9 +55,7 @@ const handleSendingRequestsToRelay = async ({
   logger,
   requestDetails,
 }: ISharedParams): Promise<IJsonRpcResponse> => {
-  if (logger.isLevelEnabled('trace')) {
-    logger.trace(`Submitting request=${JSON.stringify(request)} to relay.`);
-  }
+  logger.trace(`Submitting request=${JSON.stringify(request)} to relay.`);
   try {
     // call the public API entry point on the Relay package to execute the RPC method
     const result = await relay.executeRpcMethod(method, params, requestDetails);

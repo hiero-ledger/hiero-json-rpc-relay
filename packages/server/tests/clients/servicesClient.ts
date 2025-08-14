@@ -109,11 +109,9 @@ export default class ServicesClient {
     );
     const address = wallet.address;
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} Create new Eth compatible account w alias: ${address} and balance ~${initialBalance} HBar`,
-      );
-    }
+    this.logger.trace(
+      `${requestIdPrefix} Create new Eth compatible account w alias: ${address} and balance ~${initialBalance} HBar`,
+    );
 
     const aliasCreationResponse = await this.executeTransaction(
       new TransferTransaction()
@@ -188,9 +186,7 @@ export default class ServicesClient {
   async createToken(initialSupply: number = 1000, requestId?: string) {
     const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
     const symbol = Math.random().toString(36).slice(2, 6).toUpperCase();
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`symbol = ${symbol}`);
-    }
+    this.logger.trace(`symbol = ${symbol}`);
     const resp = await this.executeAndGetTransactionReceipt(
       new TokenCreateTransaction()
         .setTokenName(`relay-acceptance token ${symbol}`)
@@ -202,9 +198,7 @@ export default class ServicesClient {
       requestId,
     );
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`get token id from receipt`);
-    }
+    this.logger.trace(`get token id from receipt`);
     const tokenId = resp?.tokenId;
     this.logger.info(`${requestIdPrefix} token id = ${tokenId?.toString()}`);
     return tokenId!;
@@ -367,11 +361,9 @@ export default class ServicesClient {
     // Create a KeyList of both keys and specify that only 1 is required for signing transactions
     const keyList = new KeyList(keys, 1);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} Create new Eth compatible account w ContractId key: ${contractId}, privateKey: ${privateKey}, alias: ${publicKey.toEvmAddress()} and balance ~${initialBalance} hb`,
-      );
-    }
+    this.logger.trace(
+      `${requestIdPrefix} Create new Eth compatible account w ContractId key: ${contractId}, privateKey: ${privateKey}, alias: ${publicKey.toEvmAddress()} and balance ~${initialBalance} hb`,
+    );
 
     const accountCreateTx = await new AccountCreateTransaction()
       .setInitialBalance(new Hbar(initialBalance))
@@ -397,11 +389,9 @@ export default class ServicesClient {
     const publicKey = privateKey.publicKey;
     const aliasAccountId = publicKey.toAccountId(0, 0);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `${requestIdPrefix} Create new Eth compatible account w alias: ${aliasAccountId.toString()} and balance ~${initialBalance} hb`,
-      );
-    }
+    this.logger.trace(
+      `${requestIdPrefix} Create new Eth compatible account w alias: ${aliasAccountId.toString()} and balance ~${initialBalance} hb`,
+    );
 
     const aliasCreationResponse = await this.executeTransaction(
       new TransferTransaction()

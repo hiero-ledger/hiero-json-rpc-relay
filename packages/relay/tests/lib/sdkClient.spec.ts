@@ -1086,7 +1086,7 @@ describe('SdkClient', async function () {
       executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
       loggerWarnStub = sinon.stub(logger, 'warn');
       loggerTraceStub = sinon.stub(logger, 'trace');
-      sinon.stub(logger, 'isLevelEnabled').returns(true);
+      sinon.stub(logger, 'isLevelEnabled').returns(false);
     });
 
     afterEach(() => {
