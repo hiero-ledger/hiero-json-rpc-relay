@@ -9,13 +9,24 @@
     "k6": "env-cmd --use-shell k6 run src/scenarios/apis.js",
     "k6-ws": "env-cmd --use-shell k6 run src/scenarios/ws-apis.js",
     "stress-test": "TEST_TYPE=stress env-cmd --use-shell k6 run src/scenarios/stress-test.js",
-    "prep-and-stress": "npm run prep && npm run stress-test"
+    "prep-and-stress": "npm run prep && npm run stress-test",
+    "stress-test-complete": "npm run prep-and-stress && pkill -f 'dist/index.js'",
+    "start-profiled-relay": "cd ../packages/server && node --cpu-prof --heap-prof --cpu-prof-interval=100 --heap-prof-interval=512 --inspect=9229 --diagnostic-dir=../../k6/performance-profiles/session-$(date +%s) dist/index.js",
+    "start-profiled-relay:doctor": "cd ../packages/server && npx clinic doctor --autocannon [ http://localhost:7546/health/liveness -c 3 -d 3 ] --dest stress-test-reports/doctor -- node --cpu-prof --trace-gc dist/index.js",
+    "test-server:doctor-no-auto": "rm -rf stress-test-reports/test-server && npx clinic flame --dest stress-test-reports/test-server -- node --trace-gc server-test.js",
+    "test-server:doctor": "rm -rf stress-test-reports/test-server && npx clinic doctor --autocannon [ http://localhost:\\$PORT/bad-memory -c 10 -d 3 ] --dest stress-test-reports/test-server -- node --trace-gc server-test.js",
+    "start-monitored-relay": "cd ../packages/server && ../../k6/node_modules/.bin/clinic doctor --dest ../../k6/stress-test-reports/cpu -- node --trace-gc --inspect dist/index.js",
+    "start-monitored-relay-auto": "cd ../packages/server && ../../k6/node_modules/.bin/clinic doctor --on-port 'autocannon localhost:$PORT -c 3 -d 30 -m POST -H Content-Type=application/json -b \"{\\\"id\\\": \\\"test_id\\\", \\\"jsonrpc\\\": \\\"2.0\\\", \\\"method\\\": \\\"eth_blockNumber\\\", \\\"params\\\": [\\\"latest\\\"]}\"' --dest ../../k6/stress-test-reports/cpu -- node --trace-gc dist/index.js && ../../k6/node_modules/.bin/pm2 monit",
+    "start-monitored-relay:pm2": "cd ../packages/server && npx pm2 start dist/index.js --node-args=\"--inspect --cpu-prof --heap-prof --diagnostic-dir=../../k6/performance-profiles/session-$(date +%s)\" --kill-timeout 10000"
   },
   "dependencies": {
+    "autocannon": "^8.0.0",
     "env-cmd": "^10.1.0",
-    "ethers": "^6.15.0"
+    "ethers": "^6.15.0",
+    "pm2": "^6.0.8"
   },
   "devDependencies": {
-    "@types/k6": "^1.1.1"
+    "@types/k6": "^1.1.1",
+    "clinic": "^13.0.0"
   }
 }
