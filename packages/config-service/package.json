@@ -11,7 +11,7 @@
     "compile": "tsc -b tsconfig.json",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "format": "npx prettier --ignore-path ../../.gitignore --write \"**/*.+(js|ts|json)\"",
-    "test": "c8 ts-mocha --no-experimental-strip-types --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
+    "test": "c8 ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
     "print-env": "node src/commands/printEnvs.ts"
   },
   "dependencies": {
