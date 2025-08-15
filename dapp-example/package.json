@@ -31,7 +31,7 @@
     "@babel/preset-env": "^7.28.0",
     "@cypress/webpack-batteries-included-preprocessor": "^3.1.2",
     "@cypress/webpack-preprocessor": "^5.0.2",
-    "@synthetixio/synpress": "^3.7.3",
+    "@synthetixio/synpress": "^4.1.0",
     "babel-loader": "^9.1.3",
     "cypress": "^13.13.2",
     "cypress-multi-reporters": "^2.0.5",
