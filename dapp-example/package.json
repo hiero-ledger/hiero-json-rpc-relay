@@ -5,8 +5,8 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@hashgraph/sdk": "^2.60.1",
-    "@mui/material": "^7.2.0",
+    "@hashgraph/sdk": "^2.70.0",
+    "@mui/material": "^7.3.1",
     "ethers": "^6.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -27,8 +27,8 @@
     "mocha": "10.8.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.7",
-    "@babel/preset-env": "^7.28.0",
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
     "@cypress/webpack-batteries-included-preprocessor": "^3.1.2",
     "@cypress/webpack-preprocessor": "^5.0.2",
     "@synthetixio/synpress": "^3.7.3",
@@ -39,8 +39,8 @@
     "env-cmd": "^10.1.0",
     "http-server": "^14.1.1",
     "mocha-junit-reporter": "^2.2.1",
-    "start-server-and-test": "^2.0.12",
-    "webpack": "^5.101.0"
+    "start-server-and-test": "^2.0.13",
+    "webpack": "^5.101.2"
   },
   "scripts": {
     "start": "react-scripts start --openssl-legacy-provider",
