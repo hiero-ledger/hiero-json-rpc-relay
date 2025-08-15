@@ -4,7 +4,6 @@ import { hexToBytes } from '@ethereumjs/util';
 import { hexToASCII } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { ContractFunctionParameters } from '@hashgraph/sdk';
 import { assert, expect } from 'chai';
 import { ethers, toUtf8Bytes } from 'ethers';
@@ -62,7 +61,6 @@ describe('Equivalence tests', async function () {
   const { servicesNode, mirrorNode, relay }: any = global;
   const servicesClient = servicesNode as ServicesClient;
   const mirrorNodeClient = mirrorNode as MirrorNodeClient;
-  const requestDetails = new RequestDetails({ requestId: 'rpc_batch1Test', ipAddress: '0.0.0.0' });
   let precheck: Precheck;
 
   const SUCCESS = 'SUCCESS';
@@ -110,7 +108,6 @@ describe('Equivalence tests', async function () {
   let equivalenceContractReceipt;
   let equivalenceContractId;
   let estimateContract;
-  let requestId;
 
   const validateContractCall = (
     record,
@@ -171,18 +168,9 @@ describe('Equivalence tests', async function () {
     );
     equivalenceContractId = equivalenceContractReceipt.contractId.toString();
 
-    requestId = Utils.generateRequestId();
-    const contractMirror = await mirrorNodeClient.get(
-      `/contracts/${estimatePrecompileSolidityAddress}`,
-      requestDetails,
-    );
+    const contractMirror = await mirrorNodeClient.get(`/contracts/${estimatePrecompileSolidityAddress}`);
 
-    accounts[0] = await servicesClient.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      200,
-      relay.provider,
-      requestId,
-    );
+    accounts[0] = await servicesClient.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
     tokenAddress = await createFungibleToken();
     precheck = new Precheck(mirrorNodeClient, logger, '0x12a');
@@ -345,7 +333,7 @@ describe('Equivalence tests', async function () {
   };
 
   async function getResultByEntityIdAndTxTimestamp(entityId, txTimestamp) {
-    return await mirrorNode.get(`/contracts/${entityId}/results/${txTimestamp}`, requestDetails);
+    return await mirrorNode.get(`/contracts/${entityId}/results/${txTimestamp}`);
   }
 
   /**
@@ -354,7 +342,7 @@ describe('Equivalence tests', async function () {
    * @returns list of ContractActions
    */
   async function getContractActions(transactionIdOrHash: string) {
-    return await mirrorNode.get(`/contracts/results/${transactionIdOrHash}/actions`, requestDetails);
+    return await mirrorNode.get(`/contracts/results/${transactionIdOrHash}/actions`);
   }
 
   async function createFungibleToken() {

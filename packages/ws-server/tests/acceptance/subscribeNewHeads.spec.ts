@@ -81,7 +81,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
 
-  let mirrorNodeServer, requestId, rpcServer, wsServer;
+  let mirrorNodeServer, rpcServer, wsServer;
 
   let wsProvider;
 
@@ -93,19 +93,12 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
     rpcServer = relay;
     wsServer = socketServer;
 
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar
 
     const neededAccounts: number = 2;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestId,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
   });
@@ -192,7 +185,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
         let responseCounter = 0;
 
-        Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, requestId, mirrorNodeServer);
+        Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
         webSocket.on('message', function incoming(data) {
           const response = JSON.parse(data);
           responseCounter++;
@@ -225,7 +218,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       let responseCounter = 0;
 
-      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, requestId, mirrorNodeServer);
+      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
         const response = JSON.parse(data);
 
@@ -254,7 +247,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       let responseCounter = 0;
 
-      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, requestId, mirrorNodeServer);
+      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
         const response = JSON.parse(data);
 
@@ -283,7 +276,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
 
       let responseCounter = 0;
 
-      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, requestId, mirrorNodeServer);
+      Utils.sendTransaction(ONE_TINYBAR, CHAIN_ID, accounts, rpcServer, mirrorNodeServer);
       webSocket.on('message', function incoming(data) {
         const response = JSON.parse(data);
 

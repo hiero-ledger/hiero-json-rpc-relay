@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import ERC20MockJson from '@hashgraph/json-rpc-server/tests/contracts/ERC20Mock.json';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import ERC20MockJson from '@hashgraph/json-rpc-server/tests/contracts/ERC20Mock.json';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { expect } from 'chai';
+import { ethers, WebSocketProvider } from 'ethers';
+
+import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-1 eth_call', async function () {
   const METHOD_NAME = 'eth_call';
@@ -43,12 +44,8 @@ describe('@web-socket-batch-1 eth_call', async function () {
   // @ts-ignore
   const { mirrorNode } = global;
 
-  let erc20TokenAddr: string,
-    accounts: AliasAccount[] = [],
-    ethersWsProvider: WebSocketProvider,
-    erc20EtherInterface: ethers.Interface;
-
-  const requestDetails = new RequestDetails({ requestId: 'ws_callTest', ipAddress: '0.0.0.0' });
+  const accounts: AliasAccount[] = [];
+  let erc20TokenAddr: string, ethersWsProvider: WebSocketProvider, erc20EtherInterface: ethers.Interface;
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -56,13 +53,7 @@ describe('@web-socket-batch-1 eth_call', async function () {
 
     const neededAccounts: number = 1;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
 

@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // External resources
-import { ethers } from 'ethers';
+// Constants from local resources
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
+import { ethers } from 'ethers';
 
+import EstimateGasContractJson from '../contracts/EstimateGasContract.json';
+import RelayCalls from '../helpers/constants';
 // Local resources
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
-import EstimateGasContractJson from '../contracts/EstimateGasContract.json';
-
-// Constants from local resources
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import RelayCalls from '../helpers/constants';
 
 describe('EstimateGasContract tests', function () {
   const signers: AliasAccount[] = [];
@@ -19,7 +18,7 @@ describe('EstimateGasContract tests', function () {
   const { servicesNode, relay }: any = global;
 
   before(async function () {
-    signers[0] = await servicesNode.createAliasAccount(15, relay.provider, Utils.generateRequestId());
+    signers[0] = await servicesNode.createAliasAccount(15, relay.provider);
 
     const contractReceipt = await servicesNode.deployContract(EstimateGasContractJson, 500_000);
     contract = new ethers.Contract(

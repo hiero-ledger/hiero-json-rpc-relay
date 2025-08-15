@@ -5,7 +5,6 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { ONE_TINYBAR_IN_WEI_HEX } from '@hashgraph/json-rpc-relay/tests/lib/eth/eth-config';
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
@@ -36,8 +35,6 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
   // @ts-ignore
   const { mirrorNode, relay }: { mirrorNode: MirrorClient; relay: RelayClient } = global;
   const initialBalance = '5000000000'; // 50hbar
-  const requestId = 'sendRawTransactionTest_ws-server';
-  const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
 
   let tx: any, sendHbarToProxyContractDeployerTx: any, ethersWsProvider: WebSocketProvider;
   const accounts: AliasAccount[] = [];
@@ -47,13 +44,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
 
     const neededAccounts: number = 3;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialBalance,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
     global.accounts.push(...accounts);
 
@@ -62,7 +53,7 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
       gasLimit: numberTo0x(30000),
       chainId: Number(CHAIN_ID),
       to: accounts[2].address,
-      maxFeePerGas: await relay.gasPrice(requestId),
+      maxFeePerGas: await relay.gasPrice(),
     };
 
     sendHbarToProxyContractDeployerTx = {
@@ -96,15 +87,15 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
     }
 
     it(`@release Should execute eth_sendRawTransaction on Standard Web Socket and handle valid requests correctly`, async () => {
-      tx.nonce = await relay.getAccountNonce(accounts[0].address, requestId);
+      tx.nonce = await relay.getAccountNonce(accounts[0].address);
       const signedTx = await accounts[0].wallet.signTransaction(tx);
 
       const response = await WsTestHelper.sendRequestToStandardWebSocket(METHOD_NAME, [signedTx], 1000);
       WsTestHelper.assertJsonRpcObject(response);
 
       const txHash = response.result;
-      const txReceipt = await mirrorNode.get(`/contracts/results/${txHash}`, requestDetails);
-      const fromAccountInfo = await mirrorNode.get(`/accounts/${txReceipt.from}`, requestDetails);
+      const txReceipt = await mirrorNode.get(`/contracts/results/${txHash}`);
+      const fromAccountInfo = await mirrorNode.get(`/accounts/${txReceipt.from}`);
 
       expect(txReceipt.to).to.eq(accounts[2].address.toLowerCase());
       expect(fromAccountInfo.evm_address).to.eq(accounts[0].address.toLowerCase());
@@ -175,13 +166,13 @@ describe('@web-socket-batch-2 eth_sendRawTransaction', async function () {
     }
 
     it(`@release Should execute eth_sendRawTransaction on Ethers Web Socket Provider and handle valid requests correctly`, async () => {
-      tx.nonce = await relay.getAccountNonce(accounts[1].address, requestId);
+      tx.nonce = await relay.getAccountNonce(accounts[1].address);
       const signedTx = await accounts[1].wallet.signTransaction(tx); // const signedTx = await accounts[0].wallet.signTransaction(tx);
 
       const txHash = await ethersWsProvider.send(METHOD_NAME, [signedTx]);
 
-      const txReceipt = await mirrorNode.get(`/contracts/results/${txHash}`, requestDetails);
-      const fromAccountInfo = await mirrorNode.get(`/accounts/${txReceipt.from}`, requestDetails);
+      const txReceipt = await mirrorNode.get(`/contracts/results/${txHash}`);
+      const fromAccountInfo = await mirrorNode.get(`/accounts/${txReceipt.from}`);
 
       expect(txReceipt.to).to.eq(accounts[2].address.toLowerCase());
       expect(fromAccountInfo.evm_address).to.eq(accounts[1].address.toLowerCase());

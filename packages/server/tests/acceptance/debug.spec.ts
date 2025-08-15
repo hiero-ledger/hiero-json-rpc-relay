@@ -3,7 +3,6 @@
 // External resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import chai, { expect } from 'chai';
@@ -27,12 +26,10 @@ describe('@debug API Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
 
   const accounts: AliasAccount[] = [];
-  const requestDetails = new RequestDetails({ requestId: 'debug_test', ipAddress: '0.0.0.0' });
 
   // @ts-ignore
   const { mirrorNode, relay }: { mirrorNode: MirrorClient; relay: RelayClient } = global;
 
-  let requestId: string;
   let basicContract: ethers.Contract;
   let basicContractAddress: string;
   let reverterContract: ethers.Contract;
@@ -70,19 +67,12 @@ describe('@debug API Acceptance Tests', function () {
   };
 
   before(async () => {
-    requestId = Utils.generateRequestId();
     const initialAccount: AliasAccount = global.accounts[0];
 
     const initialBalance = '10000000000';
     const neededAccounts: number = 2;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialBalance,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
     global.accounts.push(...accounts);
 
@@ -109,10 +99,6 @@ describe('@debug API Acceptance Tests', function () {
     reverterContractAddress = reverterContract.target as string;
   });
 
-  beforeEach(async () => {
-    requestId = Utils.generateRequestId();
-  });
-
   describe('debug_traceBlockByNumber', () => {
     it('@release should trace a block containing successful transactions using CallTracer', async function () {
       // Create a transaction that will be included in the next block
@@ -121,19 +107,17 @@ describe('@debug API Acceptance Tests', function () {
         basicContractAddress,
         accounts[0].address,
         BASIC_CONTRACT_PING_CALL_DATA,
-        requestId,
       );
-      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const result = await relay.call(
-        DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
-        requestId,
-      );
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        blockNumber,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -157,19 +141,17 @@ describe('@debug API Acceptance Tests', function () {
         reverterContractAddress,
         accounts[0].address,
         PURE_METHOD_CALL_DATA,
-        requestId,
       );
-      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with CallTracer
-      const result = await relay.call(
-        DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
-        requestId,
-      );
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        blockNumber,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -193,19 +175,14 @@ describe('@debug API Acceptance Tests', function () {
         basicContractAddress,
         accounts[0].address,
         BASIC_CONTRACT_PING_CALL_DATA,
-        requestId,
       );
-      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
       // Get the block number from the receipt
       const blockNumber = receipt.blockNumber;
 
       // Call debug_traceBlockByNumber with PrestateTracer
-      const result = await relay.call(
-        DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER],
-        requestId,
-      );
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER]);
 
       expect(result).to.be.an('array');
       expect(result.length).to.be.at.least(1);
@@ -233,25 +210,22 @@ describe('@debug API Acceptance Tests', function () {
         basicContractAddress,
         accounts[0].address,
         BASIC_CONTRACT_PING_CALL_DATA,
-        requestId,
       );
-      const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
       const blockNumber = receipt.blockNumber;
 
       // First trace with onlyTopCall=false (default)
-      const fullResult = await relay.call(
-        DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
-        requestId,
-      );
+      const fullResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        blockNumber,
+        TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
+      ]);
 
       // Then trace with onlyTopCall=true
-      const topCallResult = await relay.call(
-        DEBUG_TRACE_BLOCK_BY_NUMBER,
-        [blockNumber, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
-        requestId,
-      );
+      const topCallResult = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        blockNumber,
+        TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
+      ]);
 
       // Both should return results
       expect(fullResult).to.be.an('array');
@@ -287,7 +261,7 @@ describe('@debug API Acceptance Tests', function () {
 
     it('should return an empty array for a block with no transactions', async function () {
       // Find a block with no transactions
-      let currentBlockNumber = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, [], requestId);
+      let currentBlockNumber = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
 
       // Convert from hex
       currentBlockNumber = parseInt(currentBlockNumber, 16);
@@ -298,11 +272,10 @@ describe('@debug API Acceptance Tests', function () {
       let hasTransactions = true;
 
       while (hasTransactions && blockNumberToTest < currentBlockNumber) {
-        block = await relay.call(
-          RelayCall.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER,
-          [numberTo0x(blockNumberToTest), false],
-          requestId,
-        );
+        block = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [
+          numberTo0x(blockNumberToTest),
+          false,
+        ]);
 
         hasTransactions = block.transactions.length > 0;
 
@@ -313,11 +286,10 @@ describe('@debug API Acceptance Tests', function () {
 
       if (!hasTransactions) {
         // Found a block without transactions
-        const result = await relay.call(
-          DEBUG_TRACE_BLOCK_BY_NUMBER,
-          [numberTo0x(blockNumberToTest), TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+          numberTo0x(blockNumberToTest),
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
 
         expect(result).to.be.an('array');
         expect(result.length).to.equal(0);
@@ -336,7 +308,6 @@ describe('@debug API Acceptance Tests', function () {
           '0',
           'Expected 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"',
         ),
-        requestId,
       );
     });
 
@@ -346,7 +317,6 @@ describe('@debug API Acceptance Tests', function () {
         DEBUG_TRACE_BLOCK_BY_NUMBER,
         [numberTo0x(deploymentBlockNumber), invalidTracerConfig],
         predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
-        requestId,
       );
     });
   });
@@ -377,18 +347,17 @@ describe('@debug API Acceptance Tests', function () {
       await relay.pollForValidTransactionReceipt(createChildTx.hash);
 
       // Get contract result details from mirror node
-      mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`, requestId);
+      mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
       mirrorContractDetails.from = accounts[0].address;
     });
 
     describe('Call Tracer', () => {
       it('should trace a transaction using CallTracer with onlyTopCall=false', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
 
         Assertions.validateCallTracerResult(
           result,
@@ -401,11 +370,10 @@ describe('@debug API Acceptance Tests', function () {
 
       it('should trace a transaction using CallTracer with onlyTopCall=true', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY,
+        ]);
 
         Assertions.validateCallTracerResult(
           result,
@@ -419,11 +387,7 @@ describe('@debug API Acceptance Tests', function () {
 
     describe('PrestateTracer', () => {
       it('should trace a transaction using PrestateTracer', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER]);
 
         expect(result).to.be.an('object');
         expect(Object.keys(result).length).to.be.at.least(1);
@@ -440,11 +404,10 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
+        ]);
 
         expect(result).to.be.an('object');
         expect(Object.keys(result).length).to.be.at.least(1);
@@ -461,11 +424,10 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE,
+        ]);
 
         expect(result).to.be.an('object');
         expect(Object.keys(result).length).to.be.at.least(1);
@@ -484,7 +446,7 @@ describe('@debug API Acceptance Tests', function () {
 
     describe('OpcodeLogger', () => {
       it('@release should trace a successful transaction using OpcodeLogger (default when no tracer specified)', async function () {
-        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash], requestId);
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash]);
 
         // Validate response structure for OpcodeLogger
         Assertions.validateOpcodeLoggerResult(result);
@@ -501,21 +463,16 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace a successful transaction using OpcodeLogger explicitly', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.OPCODE_LOGGER],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, TRACER_CONFIGS.OPCODE_LOGGER]);
 
         Assertions.validateOpcodeLoggerResult(result);
       });
 
       it('@release should trace using OpcodeLogger with custom config (enableMemory=true)', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_MEMORY],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.OPCODE_WITH_MEMORY,
+        ]);
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -528,11 +485,10 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (disableStack=true)', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_STACK],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.OPCODE_WITH_STACK,
+        ]);
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -545,11 +501,10 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (disableStorage=true)', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_STORAGE],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.OPCODE_WITH_STORAGE,
+        ]);
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -562,11 +517,10 @@ describe('@debug API Acceptance Tests', function () {
       });
 
       it('@release should trace using OpcodeLogger with custom config (enableMemory=true, disableStorage=true)', async function () {
-        const result = await relay.call(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, TRACER_CONFIGS.OPCODE_WITH_MEMORY_AND_STORAGE],
-          requestId,
-        );
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          TRACER_CONFIGS.OPCODE_WITH_MEMORY_AND_STORAGE,
+        ]);
 
         expect(result).to.be.an('object');
         expect(result).to.have.property('structLogs');
@@ -575,7 +529,7 @@ describe('@debug API Acceptance Tests', function () {
 
     describe('Edge Cases - Parameter Validation', () => {
       it('should fail with MISSING_REQUIRED_PARAMETER when transaction hash is missing', async function () {
-        await relay.callFailing(DEBUG_TRACE_TRANSACTION, [], predefined.MISSING_REQUIRED_PARAMETER(0), requestId);
+        await relay.callFailing(DEBUG_TRACE_TRANSACTION, [], predefined.MISSING_REQUIRED_PARAMETER(0));
       });
 
       it('should fail with INVALID_PARAMETER when given an invalid transaction hash format', async function () {
@@ -587,7 +541,6 @@ describe('@debug API Acceptance Tests', function () {
             0,
             'Expected Expected 0x prefixed string representing the hash (32 bytes) of a transaction, value: 0xinvalidhash',
           ),
-          requestId,
         );
       });
 
@@ -597,7 +550,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [nonExistentHash],
           predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
-          requestId,
         );
       });
 
@@ -607,7 +559,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [nonExistentHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
           predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
-          requestId,
         );
       });
 
@@ -617,7 +568,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
-          requestId,
         );
       });
 
@@ -630,7 +580,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER("'tracerConfig' for TracerConfigWrapper", 'Expected TracerConfig'),
-          requestId,
         );
       });
 
@@ -643,7 +592,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER("'tracerConfig' for TracerConfigWrapper", 'Expected TracerConfig'),
-          requestId,
         );
       });
 
@@ -659,7 +607,6 @@ describe('@debug API Acceptance Tests', function () {
             1,
             "callTracer 'tracerConfig' for TracerConfigWrapper is only valid when tracer=callTracer",
           ),
-          requestId,
         );
       });
 
@@ -675,7 +622,6 @@ describe('@debug API Acceptance Tests', function () {
             1,
             "opcodeLogger 'tracerConfig' for TracerConfigWrapper is only valid when tracer=opcodeLogger",
           ),
-          requestId,
         );
       });
     });
@@ -691,9 +637,8 @@ describe('@debug API Acceptance Tests', function () {
           basicContractAddress,
           accounts[0].address,
           BASIC_CONTRACT_PING_CALL_DATA,
-          requestId,
         );
-        const receipt = await Utils.getReceipt(relay, transaction, requestId, accounts[0].wallet);
+        const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
         deploymentBlockNumber = receipt.blockNumber;
         transactionHash = receipt.transactionHash;
@@ -710,7 +655,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_BLOCK_BY_NUMBER,
           [deploymentBlockNumber, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
           predefined.UNSUPPORTED_METHOD,
-          requestId,
         );
       });
 
@@ -721,7 +665,6 @@ describe('@debug API Acceptance Tests', function () {
           DEBUG_TRACE_TRANSACTION,
           [transactionHash, tracerConfig],
           predefined.UNSUPPORTED_METHOD,
-          requestId,
         );
       });
     });

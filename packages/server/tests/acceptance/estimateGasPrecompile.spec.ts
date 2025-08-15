@@ -1,27 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ethers } from 'ethers';
+import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { expect } from 'chai';
+import { ethers } from 'ethers';
 
-// Local resources
-import { Utils } from '../helpers/utils';
-import { AliasAccount } from '../types/AliasAccount';
-import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
-import ERC20MockJson from '../contracts/ERC20Mock.json';
-import ERC721MockJson from '../contracts/ERC721Mock.json';
-import ERCTestContractJson from '../contracts/ERCTestContract.json';
-import PrecompileTestContractJson from '../contracts/PrecompileTestContract.json';
-
+import RelayCalls from '../../../../packages/server/tests/helpers/constants';
 // Constants from local resources
 import Constants from '../../tests/helpers/constants';
-import RelayCalls from '../../../../packages/server/tests/helpers/constants';
-
+import MirrorClient from '../clients/mirrorClient';
 // Other imports
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
-import MirrorClient from '../clients/mirrorClient';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import ERC20MockJson from '../contracts/ERC20Mock.json';
+import ERC721MockJson from '../contracts/ERC721Mock.json';
+import ERCTestContractJson from '../contracts/ERCTestContract.json';
+import EstimatePrecompileContractJson from '../contracts/EstimatePrecompileContract.json';
+import PrecompileTestContractJson from '../contracts/PrecompileTestContract.json';
+// Local resources
+import { Utils } from '../helpers/utils';
+import { AliasAccount } from '../types/AliasAccount';
 
 describe('EstimatePrecompileContract tests', function () {
   const signers: AliasAccount[] = [];
@@ -32,7 +30,6 @@ describe('EstimatePrecompileContract tests', function () {
 
   let contractReceipt;
   let EstimatePrecompileContractAddress;
-  let requestId;
   let tokenAddress;
   let nftAddress;
   let nftSerialNumber;
@@ -45,8 +42,8 @@ describe('EstimatePrecompileContract tests', function () {
   let tokenContract;
   let precompileTestContract;
   let estimateContract;
-  let lowerPercentBound = 5;
-  let upperPercentBound = 30;
+  const lowerPercentBound = 5;
+  const upperPercentBound = 30;
   let ERCcontractReceipt;
   let ERCEstimatePrecompileContractAddress;
   let ERCContract: ethers.Contract;
@@ -107,8 +104,8 @@ describe('EstimatePrecompileContract tests', function () {
   }
 
   before(async function () {
-    signers[0] = await servicesNode.createAliasAccount(150, relay.provider, Utils.generateRequestId());
-    signers[1] = await servicesNode.createAliasAccount(150, relay.provider, Utils.generateRequestId());
+    signers[0] = await servicesNode.createAliasAccount(150, relay.provider);
+    signers[1] = await servicesNode.createAliasAccount(150, relay.provider);
 
     contractReceipt = await servicesNode.deployContract(
       EstimatePrecompileContractJson,
@@ -141,29 +138,13 @@ describe('EstimatePrecompileContract tests', function () {
       signers[0].wallet,
     );
 
-    requestId = Utils.generateRequestId();
-    const contractMirror = await mirrorNode.get(`/contracts/${EstimatePrecompileContractAddress}`, requestId);
+    const contractMirror = await mirrorNode.get(`/contracts/${EstimatePrecompileContractAddress}`);
 
-    accounts[0] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      200,
-      relay.provider,
-      requestId,
-    );
+    accounts[0] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
-    accounts[1] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[1] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 30, relay.provider);
 
-    accounts[2] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[2] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 30, relay.provider);
 
     contract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
@@ -171,19 +152,9 @@ describe('EstimatePrecompileContract tests', function () {
       accounts[0].wallet,
     );
 
-    accounts[3] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[3] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 30, relay.provider);
 
-    accounts[4] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      30,
-      relay.provider,
-      requestId,
-    );
+    accounts[4] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 30, relay.provider);
 
     tokenAddress = await createFungibleToken();
     nftAddress = await createNft();
@@ -291,8 +262,8 @@ describe('EstimatePrecompileContract tests', function () {
     expect(Number(estimatedGasValue)).to.be.lessThan(expectedValue * 1.4);
   };
 
-  async function getExchangeRates(requestId) {
-    let exchangeRateResult = await mirrorNode.get(`/network/exchangerate`, requestId);
+  async function getExchangeRates() {
+    const exchangeRateResult = await mirrorNode.get(`/network/exchangerate`);
     return exchangeRateResult;
   }
 
@@ -301,10 +272,10 @@ describe('EstimatePrecompileContract tests', function () {
     exchangeRateCentEquivalent: number,
     exhangeRateHbarEquivalent,
   ): number {
-    let hbarPriceInCents = exchangeRateCentEquivalent / exhangeRateHbarEquivalent;
+    const hbarPriceInCents = exchangeRateCentEquivalent / exhangeRateHbarEquivalent;
     const usdInCents = 100;
-    let feeResult = ((usdInCents * usdFee) / hbarPriceInCents + 1) * 100000000;
-    let feeResultInt: number = Math.floor(feeResult);
+    const feeResult = ((usdInCents * usdFee) / hbarPriceInCents + 1) * 100000000;
+    const feeResultInt: number = Math.floor(feeResult);
     return feeResultInt;
   }
 
@@ -314,10 +285,10 @@ describe('EstimatePrecompileContract tests', function () {
     lowerPercentBound: number,
     upperPercentBound: number,
   ) => {
-    let lowerDeviation = (Number(actualGasUsed) * lowerPercentBound) / 100;
-    let upperDeviation = (Number(actualGasUsed) * upperPercentBound) / 100;
-    let lowerBound = Number(actualGasUsed) + lowerDeviation;
-    let upperBound = Number(actualGasUsed) + upperDeviation;
+    const lowerDeviation = (Number(actualGasUsed) * lowerPercentBound) / 100;
+    const upperDeviation = (Number(actualGasUsed) * upperPercentBound) / 100;
+    const lowerBound = Number(actualGasUsed) + lowerDeviation;
+    const upperBound = Number(actualGasUsed) + upperDeviation;
     expect(Number(expectedGasUsed)).to.be.within(
       lowerBound,
       upperBound,
@@ -326,9 +297,9 @@ describe('EstimatePrecompileContract tests', function () {
   };
 
   const isEqualWithDeviation = (actualGasUsed: bigint, expectedGasUsed: number, percentDeviation: number) => {
-    let deviation = (Number(actualGasUsed) * percentDeviation) / 100;
-    let lowerBound = Number(actualGasUsed) - deviation;
-    let upperBound = Number(actualGasUsed) + deviation;
+    const deviation = (Number(actualGasUsed) * percentDeviation) / 100;
+    const lowerBound = Number(actualGasUsed) - deviation;
+    const upperBound = Number(actualGasUsed) + deviation;
     expect(Number(expectedGasUsed)).to.be.within(
       lowerBound,
       upperBound,
@@ -337,9 +308,9 @@ describe('EstimatePrecompileContract tests', function () {
   };
 
   it('should call estimateGas with transferRedirect function', async function () {
-    let spender = prefix + PrecompileContractAddress;
+    const spender = prefix + PrecompileContractAddress;
 
-    let precompiletTestContractAssociate = new ethers.Contract(
+    const precompiletTestContractAssociate = new ethers.Contract(
       prefix + PrecompileContractAddress,
       PrecompileTestContractJson.abi,
       accounts[4].wallet,
@@ -375,7 +346,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with transferFromRedirect function', async function () {
-    let spender = prefix + PrecompileContractAddress;
+    const spender = prefix + PrecompileContractAddress;
 
     const nftApproveTx = await tokenContract.approve(
       spender,
@@ -400,7 +371,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with approveRedirect function', async function () {
-    let spender = prefix + PrecompileContractAddress;
+    const spender = prefix + PrecompileContractAddress;
 
     const grantTokenKYCTx = await estimateContractSigner0.grantTokenKycExternal(
       tokenAddress,
@@ -443,7 +414,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with redirect transferFromNFT function', async function () {
-    let spender = prefix + PrecompileContractAddress;
+    const spender = prefix + PrecompileContractAddress;
     const nftSerial = await mintNFT();
 
     const txResult = await estimateContractSigner4.associateTokenExternal(accounts[4].wallet.address, nftAddress, {
@@ -609,7 +580,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with approve function', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
 
     await associateAcc(estimateContractSigner1, spender, tokenAddress);
     const gasResult = await approveAcc(estimateContractSigner0, tokenAddress, spender, Constants.AMOUNT.AMOUNT_10);
@@ -625,7 +596,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with approveNFT function', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
     const nftSerial = await mintNFT();
 
     //approve EstimatePrecompileContract to use the NFT
@@ -665,7 +636,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with setApprovalForAll function', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
 
     const txResult = await estimateContractSigner0.setApprovalForAllExternal(
       nftAddress,
@@ -684,7 +655,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with transferFromNFT function', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
     const nftSerial = await mintNFT();
 
     const nftApproveTX = await nftTokenContract.approve(spender, nftSerial, Constants.GAS.LIMIT_1_000_000);
@@ -725,7 +696,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with transferFrom function', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
 
     const approveTx = await tokenContract.approve(
       accounts[1].wallet.address,
@@ -771,7 +742,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with transferFromNFT with invalid serial number - negative', async function () {
-    let wrongNFTSerial = 10;
+    const wrongNFTSerial = 10;
 
     const tx = await contract.transferFromNFTExternal.populateTransaction(
       nftAddress,
@@ -929,7 +900,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with associate function for fungible tokens', async function () {
-    const tokens: String[] = [tokenAddress];
+    const tokens: string[] = [tokenAddress];
 
     const tx = await estimateContractSigner1.associateTokensExternal.populateTransaction(
       accounts[1].wallet.address,
@@ -944,7 +915,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with associate function for NFTs', async function () {
-    const tokens: String[] = [nftAddress];
+    const tokens: string[] = [nftAddress];
 
     const tx = await estimateContractSigner1.associateTokensExternal.populateTransaction(
       accounts[1].wallet.address,
@@ -959,7 +930,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with dissociateTokens function for fungible token', async function () {
-    const tokens: String[] = [tokenAddress];
+    const tokens: string[] = [tokenAddress];
     await associateAcc(estimateContractSigner4, accounts[4].wallet.address, tokenAddress);
 
     const tx = await estimateContractSigner4.dissociateTokensExternal.populateTransaction(
@@ -973,7 +944,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with dissociateTokens function for NFT', async function () {
-    const tokens: String[] = [nftAddress];
+    const tokens: string[] = [nftAddress];
     await associateAcc(estimateContractSigner4, accounts[4].wallet.address, nftAddress);
 
     const tx = await estimateContractSigner4.dissociateTokensExternal.populateTransaction(
@@ -987,9 +958,9 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with transferTokens function for fungible token', async function () {
-    const amounts: Number[] = [-10, 10];
-    const tokens: String[] = [tokenAddress];
-    const transferAccounts: String[] = [accounts[0].wallet.address, accounts[2].wallet.address];
+    const amounts: number[] = [-10, 10];
+    const tokens: string[] = [tokenAddress];
+    const transferAccounts: string[] = [accounts[0].wallet.address, accounts[2].wallet.address];
 
     const tx = await estimateContractSigner0.transferTokensExternal.populateTransaction(
       tokenAddress,
@@ -1007,9 +978,9 @@ describe('EstimatePrecompileContract tests', function () {
   it('should call estimateGas with transferNFTs function', async function () {
     const nftSerial = await mintNFT();
     const nftSerial2 = await mintNFT();
-    const serialNumbers: Number[] = [nftSerial, nftSerial2];
-    const receiverAccounts: String[] = [accounts[2].wallet.address, accounts[3].wallet.address];
-    const senderAccounts: String[] = [accounts[0].wallet.address];
+    const serialNumbers: number[] = [nftSerial, nftSerial2];
+    const receiverAccounts: string[] = [accounts[2].wallet.address, accounts[3].wallet.address];
+    const senderAccounts: string[] = [accounts[0].wallet.address];
 
     const tx = await contract.transferNFTsExternal.populateTransaction(
       nftAddress,
@@ -1059,7 +1030,7 @@ describe('EstimatePrecompileContract tests', function () {
       transfers: [],
     };
 
-    let tokenTransferList = [
+    const tokenTransferList = [
       {
         token: nftAddress,
         transfers: [],
@@ -1088,7 +1059,7 @@ describe('EstimatePrecompileContract tests', function () {
       transfers: [],
     };
 
-    let tokenTransferList = [
+    const tokenTransferList = [
       {
         token: tokenAddress,
         transfers: [
@@ -1148,7 +1119,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with burnToken function for NFT', async function () {
     const nftSerial = await mintNFT();
-    const serialNumbers: Number[] = [nftSerial];
+    const serialNumbers: number[] = [nftSerial];
     const tx = await contract.burnTokenExternal.populateTransaction(nftAddress, 0, serialNumbers);
     const estimateGasResponse = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [tx]);
     const txResult = await contract.burnTokenExternal(nftAddress, 0, serialNumbers);
@@ -1158,18 +1129,18 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with createFungible token function', async function () {
-    let exchangeRatesResult = await getExchangeRates(requestId);
-    let calculateFee = calculateCreateTokenFees(
+    const exchangeRatesResult = await getExchangeRates();
+    const calculateFee = calculateCreateTokenFees(
       usdFee1,
       exchangeRatesResult.current_rate.cent_equivalent,
       exchangeRatesResult.current_rate.hbar_equivalent,
     );
-    let hexNumber = numberTo0x(calculateFee * 10000000000);
+    const hexNumber = numberTo0x(calculateFee * 10000000000);
 
-    let accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`, requestId);
-    let accountLongZero = Utils.idToEvmAddress(accountWallet.account);
+    const accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`);
+    const accountLongZero = Utils.idToEvmAddress(accountWallet.account);
 
-    let NewestimateContract = new ethers.Contract(
+    const NewestimateContract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
       EstimatePrecompileContractJson.abi,
       accounts[0].wallet,
@@ -1194,18 +1165,18 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with createNonFungibleToken function', async function () {
-    let exchangeRatesResult = await getExchangeRates(requestId);
-    let calculateFee = calculateCreateTokenFees(
+    const exchangeRatesResult = await getExchangeRates();
+    const calculateFee = calculateCreateTokenFees(
       usdFee1,
       exchangeRatesResult.current_rate.cent_equivalent,
       exchangeRatesResult.current_rate.hbar_equivalent,
     );
-    let hexNumber = numberTo0x(calculateFee * 10000000000);
+    const hexNumber = numberTo0x(calculateFee * 10000000000);
 
-    let accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`, requestId);
-    let accountLongZero = Utils.idToEvmAddress(accountWallet.account);
+    const accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`);
+    const accountLongZero = Utils.idToEvmAddress(accountWallet.account);
 
-    let NewestimateContract = new ethers.Contract(
+    const NewestimateContract = new ethers.Contract(
       prefix + EstimatePrecompileContractAddress,
       EstimatePrecompileContractJson.abi,
       accounts[0].wallet,
@@ -1230,16 +1201,16 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with createFungibleToken with custom fees function', async function () {
-    let exchangeRatesResult = await getExchangeRates(requestId);
-    let calculateFee = calculateCreateTokenFees(
+    const exchangeRatesResult = await getExchangeRates();
+    const calculateFee = calculateCreateTokenFees(
       usdFee2,
       exchangeRatesResult.current_rate.cent_equivalent,
       exchangeRatesResult.current_rate.hbar_equivalent,
     );
-    let hexNumber = numberTo0x(calculateFee * 10000000000);
+    const hexNumber = numberTo0x(calculateFee * 10000000000);
 
-    let accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`, requestId);
-    let accountLongZero = Utils.idToEvmAddress(accountWallet.account);
+    const accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`);
+    const accountLongZero = Utils.idToEvmAddress(accountWallet.account);
 
     const txs = await estimateContractSigner0.createFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
@@ -1265,16 +1236,16 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with createNonFungibleToken with custom fees function', async function () {
-    let exchangeRatesResult = await getExchangeRates(requestId);
-    let calculateFee = calculateCreateTokenFees(
+    const exchangeRatesResult = await getExchangeRates();
+    const calculateFee = calculateCreateTokenFees(
       usdFee2,
       exchangeRatesResult.current_rate.cent_equivalent,
       exchangeRatesResult.current_rate.hbar_equivalent,
     );
-    let hexNumber = numberTo0x(calculateFee * 10000000000);
+    const hexNumber = numberTo0x(calculateFee * 10000000000);
 
-    let accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`, requestId);
-    let accountLongZero = Utils.idToEvmAddress(accountWallet.account);
+    const accountWallet = await mirrorNode.get(`/accounts/${accounts[0].wallet.address}`);
+    const accountLongZero = Utils.idToEvmAddress(accountWallet.account);
 
     const txs = await estimateContractSigner0.createNonFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
@@ -1356,7 +1327,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with wipeTokenAccountNFT function', async function () {
     const nftSerial = await mintNFT();
-    const serialNumbers: Number[] = [nftSerial];
+    const serialNumbers: number[] = [nftSerial];
     const transferTx = await nftTokenContract.transferFrom(
       accounts[0].wallet.address,
       accounts[3].wallet.address,
@@ -1383,7 +1354,7 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with wipeTokenAccountNFT function with invalid serial number', async function () {
     const nftSerial = await mintNFT();
-    const invalidSerialNumbers: Number[] = [100];
+    const invalidSerialNumbers: number[] = [100];
 
     const transferTx = await nftTokenContract.transferFrom(
       accounts[0].wallet.address,
@@ -1726,7 +1697,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with allowance function for fungible token', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
 
     const approveTx = await tokenContract.approve(spender, 10, Constants.GAS.LIMIT_1_000_000);
     await approveTx.wait();
@@ -1745,7 +1716,7 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with allowance function for NFT', async function () {
-    let spender = prefix + EstimatePrecompileContractAddress;
+    const spender = prefix + EstimatePrecompileContractAddress;
 
     const nftSerial = await mintNFT();
 
@@ -2271,16 +2242,16 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with setApprovalForAll redirect function', async function () {
-    let spender = prefix + PrecompileContractAddress;
+    const spender = prefix + PrecompileContractAddress;
     const nftSerial = await mintNFT();
 
-    let precompileTestContract = new ethers.Contract(
+    const precompileTestContract = new ethers.Contract(
       prefix + PrecompileContractAddress,
       PrecompileTestContractJson.abi,
       accounts[4].wallet,
     );
 
-    let precompiletTestContractAssociate = new ethers.Contract(
+    const precompiletTestContractAssociate = new ethers.Contract(
       prefix + PrecompileContractAddress,
       PrecompileTestContractJson.abi,
       accounts[4].wallet,

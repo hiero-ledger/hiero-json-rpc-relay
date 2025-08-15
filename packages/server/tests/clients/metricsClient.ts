@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Axios, { AxiosInstance } from 'axios';
-import { Logger } from 'pino';
-import { Utils } from '../helpers/utils';
 
 export default class MetricsClient {
-  private readonly logger: Logger;
   private readonly client: AxiosInstance;
   private readonly relayUrl: string;
 
-  constructor(relayUrl: string, logger: Logger) {
-    this.logger = logger;
+  constructor(relayUrl: string) {
     this.relayUrl = relayUrl;
 
     const metricsClient = Axios.create({
@@ -45,13 +41,8 @@ export default class MetricsClient {
    * rpc_websocket_subscription_times_bucket{le="60"} 0
    *
    * @param metric
-   * @param requestId
    */
-  async get(metric: string, requestId?: string) {
-    const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`${requestIdPrefix} [GET] Read all metrics from ${this.relayUrl}/metrics`);
-    }
+  async get(metric: string) {
     const allMetrics = (await this.client.get('')).data;
     const allMetricsArray = allMetrics.split('\n');
     const matchPattern = `${metric} `;

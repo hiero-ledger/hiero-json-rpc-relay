@@ -5,16 +5,15 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { Server } from 'node:http';
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { setServerTimeout } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/utils';
 import app from '@hashgraph/json-rpc-server/dist/server';
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
 import ServicesClient from '@hashgraph/json-rpc-server/tests/clients/servicesClient';
-import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { app as wsApp } from '@hashgraph/json-rpc-ws-server/dist/webSocketServer';
 import { AccountId, Hbar } from '@hashgraph/sdk';
@@ -50,14 +49,9 @@ describe('RPC Server Acceptance Tests', function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
 
   global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL;
-  global.servicesNode = new ServicesClient(
-    NETWORK,
-    OPERATOR_ID,
-    OPERATOR_KEY,
-    logger.child({ name: `services-test-client` }),
-  );
-  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL, logger.child({ name: `mirror-node-test-client` }));
-  global.relay = new RelayClient(RELAY_URL, logger.child({ name: `relay-test-client` }));
+  global.servicesNode = new ServicesClient(NETWORK, OPERATOR_ID, OPERATOR_KEY);
+  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL);
+  global.relay = new RelayClient(RELAY_URL);
   global.logger = logger;
 
   let startOperatorBalance: Hbar;
@@ -78,14 +72,10 @@ describe('RPC Server Acceptance Tests', function () {
 
     // cache start balance
     startOperatorBalance = await global.servicesNode.getOperatorBalance();
-    const initialAccount: AliasAccount = await global.servicesNode.createInitialAliasAccount(
-      RELAY_URL,
-      CHAIN_ID,
-      Utils.generateRequestId(),
-    );
+    const initialAccount: AliasAccount = await global.servicesNode.createInitialAliasAccount(RELAY_URL, CHAIN_ID);
 
     global.accounts = new Array<AliasAccount>(initialAccount);
-    await global.mirrorNode.get(`/accounts/${initialAccount.address}`, Utils.generateRequestId());
+    await global.mirrorNode.get(`/accounts/${initialAccount.address}`);
   });
 
   after(async function () {

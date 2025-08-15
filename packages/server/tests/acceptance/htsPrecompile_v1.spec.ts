@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -25,8 +24,6 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     mirrorNode,
   }: { servicesNode: ServicesClient; relay: RelayClient; mirrorNode: MirrorClient } = global;
 
-  const requestDetails = new RequestDetails({ requestId: 'htsPrecompile_v1Test', ipAddress: '0.0.0.0' });
-
   const TX_SUCCESS_CODE = BigInt(22);
 
   const accounts: AliasAccount[] = [];
@@ -43,34 +40,14 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar
 
-    const contractDeployer = await Utils.createAliasAccount(
-      mirrorNode,
-      initialAccount,
-      requestDetails.requestId,
-      initialAmount,
-    );
+    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     const BaseHTSContract = await Utils.deployContract(BaseHTSJson.abi, BaseHTSJson.bytecode, contractDeployer.wallet);
     BaseHTSContractAddress = BaseHTSContract.target;
-    const contractMirror = await mirrorNode.get(`/contracts/${BaseHTSContractAddress}`, requestDetails.requestId);
+    const contractMirror = await mirrorNode.get(`/contracts/${BaseHTSContractAddress}`);
 
-    accounts[0] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      70,
-      relay.provider,
-      requestDetails.requestId,
-    );
-    accounts[1] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      25,
-      relay.provider,
-      requestDetails.requestId,
-    );
-    accounts[2] = await servicesNode.createAccountWithContractIdKey(
-      contractMirror.contract_id,
-      25,
-      relay.provider,
-      requestDetails.requestId,
-    );
+    accounts[0] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 70, relay.provider);
+    accounts[1] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 25, relay.provider);
+    accounts[2] = await servicesNode.createAccountWithContractIdKey(contractMirror.contract_id, 25, relay.provider);
 
     // allow mirror node a 2 full record stream write windows (2 sec) and a buffer to persist setup details
     await new Promise((r) => setTimeout(r, 5000));
