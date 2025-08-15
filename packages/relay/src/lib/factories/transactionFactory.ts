@@ -6,6 +6,8 @@ import { Log, Transaction, Transaction1559, Transaction2930 } from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
+  public static createTransactionByType(type: 2, fields: any): Transaction1559;
+
   public static createTransactionByType(type: number, fields: any): Transaction | null {
     switch (type) {
       case 0:
@@ -40,7 +42,7 @@ export class TransactionFactory {
    * @param log The log entry containing transaction data
    * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log): Transaction1559 | null {
+  public static createTransactionFromLog(chainId: string, log: Log): Transaction1559 {
     const transaction = TransactionFactory.createTransactionByType(2, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
@@ -60,7 +62,8 @@ export class TransactionFactory {
       transactionIndex: log.transactionIndex,
       type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: constants.ZERO_HEX,
-    }) as Transaction1559;
+      value: constants.ZERO_HEX,
+    });
 
     return transaction;
   }
