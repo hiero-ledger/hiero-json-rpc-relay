@@ -4,26 +4,14 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import {
-  isHex,
-  nanOrNumberInt64To0x,
-  nanOrNumberTo0x,
-  nullableNumberTo0x,
-  numberTo0x,
-  parseNumericEnvVar,
-  prepend0x,
-  stripLeadingZeroForSignatures,
-  tinybarsToWeibars,
-  toHash32,
-} from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
-import { TransactionFactory } from '../../../factories/transactionFactory';
-import { Log, Transaction } from '../../../model';
+import { Log } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { ICommonService } from './ICommonService';
@@ -582,47 +570,6 @@ export class CommonService implements ICommonService {
     const gasPriceForTimestamp = await this.getGasPriceInWeibars(requestDetails, timestampDecimalString);
 
     return numberTo0x(gasPriceForTimestamp);
-  }
-
-  public static formatContractResult(cr: any): Transaction | null {
-    if (cr === null) {
-      return null;
-    }
-
-    const gasPrice =
-      cr.gas_price === null || cr.gas_price === '0x'
-        ? '0x0'
-        : isHex(cr.gas_price)
-        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-        : nanOrNumberTo0x(cr.gas_price);
-
-    const commonFields = {
-      blockHash: toHash32(cr.block_hash),
-      blockNumber: nullableNumberTo0x(cr.block_number),
-      from: cr.from.substring(0, 42),
-      gas: nanOrNumberTo0x(cr.gas_used),
-      gasPrice,
-      hash: cr.hash.substring(0, 66),
-      input: cr.function_parameters,
-      nonce: nanOrNumberTo0x(cr.nonce),
-      r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
-      s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
-      to: cr.to?.substring(0, 42),
-      transactionIndex: nullableNumberTo0x(cr.transaction_index),
-      type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
-      v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-      value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
-      // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
-      //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
-      //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
-      chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
-    };
-
-    return TransactionFactory.createTransactionByType(cr.type, {
-      ...commonFields,
-      maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-      maxFeePerGas: cr.max_fee_per_gas,
-    });
   }
 
   public static redirectBytecodeAddressReplace(address: string): string {
