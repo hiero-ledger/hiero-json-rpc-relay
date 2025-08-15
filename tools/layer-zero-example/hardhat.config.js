@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+/* global task */
+
 require('dotenv').config();
 require('@nomicfoundation/hardhat-toolbox');
 const CONSTANTS = require('./test/constants');
@@ -135,6 +137,22 @@ task('deploy-hts-connector-existing-token', 'Deploy HTS connector for existing t
     await contract.deployTransaction.wait();
 
     console.log(`(${hre.network.name}) ExampleHTSConnectorExistingToken deployed to ${contract.address} txHash ${contract.deployTransaction.hash}`);
+  });
+
+task('deploy-stargate-hts-connector-existing-token', 'Deploy Stargate HTS connector for existing token contract')
+  .addParam('token', 'Already existing token address')
+  .setAction(async (taskArgs, hre) => {
+    const ethers = hre.ethers;
+    const signers = await ethers.getSigners();
+    const ENDPOINT_V2 = getEndpointAddress(hre.network.name);
+
+    const contractFactory = await ethers.getContractFactory('ExampleStargateHTSConnectorExistingToken');
+    const contract = await contractFactory.deploy(taskArgs.token, 8, ENDPOINT_V2, signers[0].address, {
+      gasLimit: 10_000_000,
+    });
+    await contract.deployTransaction.wait();
+
+    console.log(`(${hre.network.name}) StargateHTSConnectorExistingToken deployed to ${contract.address} txHash ${contract.deployTransaction.hash}`);
   });
 
 task('create-hts-token', 'Create a HTS token')
