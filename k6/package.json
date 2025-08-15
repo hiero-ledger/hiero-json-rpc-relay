@@ -13,7 +13,13 @@
     "start-monitored-relay:cpu": "cd ../packages/server && ../../k6/node_modules/.bin/clinic flame --dest ../../k6/stress-test-reports/cpu -- node dist/index.js",
     "start-monitored-relay:health": "cd ../packages/server && ../../k6/node_modules/.bin/clinic doctor --dest ../../k6/stress-test-reports/health -- node dist/index.js",
     "start-monitored-relay:async": "cd ../packages/server && ../../k6/node_modules/.bin/clinic bubbleprof --dest ../../k6/stress-test-reports/async -- node dist/index.js",
-    "terminate-monitored-relay": "pkill -SIGINT -f 'dist/index.js'"
+    "terminate-monitored-relay": "pkill -SIGINT -f 'dist/index.js'",
+    "test-server": "node server-test.js",
+    "test-server:flame": "rm -rf stress-test-reports/test-server && npx clinic flame --autocannon [ http://localhost:\\$PORT/async -c 1 -d 9 ] --stop-delay 1000 --dest stress-test-reports/test-server -- node server-test.js",
+    "test-server:doctor": "rm -rf stress-test-reports/test-server && npx clinic doctor --autocannon [ http://localhost:\\$PORT/health -c 10 -d 30 ] --dest stress-test-reports/test-server -- node server-test.js",
+    "test-server:bubbleprof": "rm -rf stress-test-reports/test-server && npx clinic bubbleprof --collect-only --dest stress-test-reports/test-server -- node server-test.js",
+    "visualize-bubbleprof": "echo 'Usage: npm run visualize-bubbleprof <folder-name>' && npx clinic bubbleprof --visualize-only stress-test-reports/test-server/$npm_config_folder",
+    "test-server:heapprofiler": "rm -rf stress-test-reports/test-server && npx clinic heapprofiler --autocannon [ http://localhost:\\$PORT/memory -c 10 -d 30 ] --dest stress-test-reports/test-server -- node server-test.js"
   },
   "dependencies": {
     "env-cmd": "^10.1.0",
@@ -21,6 +27,7 @@
   },
   "devDependencies": {
     "@types/k6": "^1.1.1",
+    "autocannon": "^8.0.0",
     "clinic": "^13.0.0"
   }
 }
