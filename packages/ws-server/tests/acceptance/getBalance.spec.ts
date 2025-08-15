@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
+import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
+import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
+
 import { WsTestConstant, WsTestHelper } from '../helper';
-import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
-import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 
 describe('@web-socket-batch-1 eth_getBalance', async function () {
   const METHOD_NAME = 'eth_getBalance';
@@ -23,11 +23,9 @@ describe('@web-socket-batch-1 eth_getBalance', async function () {
   ];
   // @ts-ignore
   const { mirrorNode }: { mirrorNode: MirrorClient } = global;
-  const requestId = 'getBalanceTest_ws-server';
-  const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
 
-  let accounts: AliasAccount[] = [],
-    ethersWsProvider: WebSocketProvider;
+  const accounts: AliasAccount[] = [];
+  let ethersWsProvider: WebSocketProvider;
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -35,13 +33,7 @@ describe('@web-socket-batch-1 eth_getBalance', async function () {
 
     const neededAccounts: number = 1;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
   });

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
@@ -38,21 +37,13 @@ describe('@web-socket-batch-2 eth_getStorageAt', async function () {
 
   const accounts: AliasAccount[] = [];
 
-  const requestDetails = new RequestDetails({ requestId: 'ws_getStorageAtTest', ipAddress: '0.0.0.0' });
-
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '2500000000'; //25 Hbar
 
     const neededAccounts: number = 1;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
 
