@@ -67,11 +67,12 @@ export class FeeService implements IFeeService {
       : Number(ConfigService.get('FEE_HISTORY_MAX_RESULTS'));
     const maxRewardPercentilesSize = constants.FEE_HISTORY_REWARD_PERCENTILES_MAX_SIZE;
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `feeHistory(blockCount=${blockCount}, newestBlock=${newestBlock}, rewardPercentiles=${rewardPercentiles})`,
-      );
-    }
+    this.logger.trace(
+      'feeHistory(blockCount=%d, newestBlock=%s, rewardPercentiles=%o)',
+      blockCount,
+      newestBlock,
+      rewardPercentiles,
+    );
 
     if (rewardPercentiles && rewardPercentiles.length > maxRewardPercentilesSize) {
       throw predefined.INVALID_PARAMETER(
@@ -139,10 +140,6 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    */
   public async maxPriorityFeePerGas(): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('maxPriorityFeePerGas()');
-    }
-
     return constants.ZERO_HEX;
   }
 

@@ -88,9 +88,7 @@ export class SubscriptionService {
       // Check if the connection is already subscribed to this event
       const existingSub = this.subscriptions[tag].find((sub) => sub.connection.id === connection.id);
       if (existingSub) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Connection ${connection.id}: Attempting to subscribe to ${tag}; already subscribed`);
-        }
+        this.logger.debug(`Connection ${connection.id}: Attempting to subscribe to ${tag}; already subscribed`);
         return existingSub.subscriptionId;
       }
     }
@@ -124,11 +122,9 @@ export class SubscriptionService {
       this.subscriptions[tag] = subs.filter((sub) => {
         const match = sub.connection.id === id && (!subId || subId === sub.subscriptionId);
         if (match) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `Connection ${sub.connection.id}. Unsubscribing subId: ${sub.subscriptionId}; tag: ${tag}`,
-            );
-          }
+          this.logger.debug(
+            `Connection ${sub.connection.id}. Unsubscribing subId: ${sub.subscriptionId}; tag: ${tag}`,
+          );
           sub.endTimer();
           subCount++;
         }
@@ -137,9 +133,7 @@ export class SubscriptionService {
       });
 
       if (!this.subscriptions[tag].length) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`No subscribers for ${tag}. Removing from list.`);
-        }
+        this.logger.debug(`No subscribers for ${tag}. Removing from list.`);
         delete this.subscriptions[tag];
         this.pollerService.remove(tag);
       }
@@ -160,11 +154,9 @@ export class SubscriptionService {
         // If the hash exists in the cache then the data has recently been sent to the subscriber
         if (!this.cache.get(hash)) {
           this.cache.set(hash, true);
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `Sending data from tag: ${tag} to subscriptionId: ${sub.subscriptionId}, connectionId: ${sub.connection.id}, data: ${subscriptionData}`,
-            );
-          }
+          this.logger.debug(
+            `Sending data from tag: ${tag} to subscriptionId: ${sub.subscriptionId}, connectionId: ${sub.connection.id}, data: ${subscriptionData}`,
+          );
           this.resultsSentToSubscribersCounter.labels('sub.subscriptionId', tag).inc();
           sub.connection.send(
             JSON.stringify({

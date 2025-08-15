@@ -115,9 +115,7 @@ export class DebugImpl implements Debug {
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
-    }
+    this.logger.trace('traceTransaction(%s)', transactionIdOrHash);
 
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
@@ -174,9 +172,7 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`);
-    }
+    this.logger.trace('traceBlockByNumber(blockNumber=%s, tracerObject=%o)', blockNumber, tracerObject);
 
     try {
       DebugImpl.requireDebugAPIEnabled();

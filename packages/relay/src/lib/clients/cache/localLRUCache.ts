@@ -106,7 +106,7 @@ export class LocalLRUCache implements ICacheClient {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
       const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`);
+        this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
       }
       return value;
     }
@@ -123,9 +123,7 @@ export class LocalLRUCache implements ICacheClient {
   public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(key); // in milliseconds
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`);
-    }
+    this.logger.trace('returning remaining TTL %s:%d on %s call', key, remainingTtl, callingMethod);
     return remainingTtl;
   }
 
@@ -145,13 +143,13 @@ export class LocalLRUCache implements ICacheClient {
     } else {
       cache.set(key, value, { ttl: 0 }); // 0 means indefinite time
     }
+    const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+    const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+    const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
+      resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
+    }`;
     if (this.logger.isLevelEnabled('trace')) {
-      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-      const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-      const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
-        resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
-      }`;
-      this.logger.trace(`${message} (cache size: ${this.cache.size}, max: ${this.options.max})`);
+      this.logger.trace('%s (cache size: %d, max: %d)', message, this.cache.size, this.options.max);
     }
   }
 
@@ -191,9 +189,7 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
-    }
+    this.logger.trace('delete cache for %s on %s call', key, callingMethod);
     const cache = this.getCacheInstance(key);
     cache.delete(key);
   }
@@ -250,9 +246,8 @@ export class LocalLRUCache implements ICacheClient {
 
     const matchingKeys = keys.filter((key) => regex.test(key));
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
-    }
+    this.logger.trace('retrieving keys matching %s on %s call', pattern, callingMethod);
+
     return matchingKeys;
   }
 

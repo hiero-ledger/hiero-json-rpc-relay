@@ -172,13 +172,13 @@ app.getKoaApp().use(async (ctx, next) => {
   const ms = Date.now() - start;
 
   if (ctx.method !== 'POST') {
-    logger.info(`[${ctx.method}]: ${ctx.url} ${ctx.status} ${ms} ms`);
+    logger.info('[%s]: %s %s %s ms', ctx.method, ctx.url, ctx.status, ms);
   } else {
     // Since ctx.state.status might contain the request ID from JsonRpcError, remove it for a cleaner log.
     const contextStatus = ctx.state.status?.replace(`[Request ID: ${ctx.state.reqId}] `, '') || ctx.status;
 
     // log call type, method, status code and latency
-    logger.info(`${formatRequestIdMessage(ctx.state.reqId)} [POST]: ${ctx.state.methodName} ${contextStatus} ${ms} ms`);
+    logger.info('%s [POST]: %s %s %s ms', formatRequestIdMessage(ctx.state.reqId), ctx.state.methodName, contextStatus, ms);
     methodResponseHistogram.labels(ctx.state.methodName, `${ctx.status}`).observe(ms);
   }
 });
@@ -258,7 +258,7 @@ app.getKoaApp().use(async (ctx, next) => {
     // support CORS preflight
     ctx.status = 200;
   } else {
-    logger.warn(`skipping HTTP method: [${ctx.method}], url: ${ctx.url}, status: ${ctx.status}`);
+    logger.warn('skipping HTTP method: [%s], url: %s, status: %s', ctx.method, ctx.url, ctx.status);
   }
 });
 
@@ -293,7 +293,7 @@ app.getKoaApp().use(async (ctx) => {
 });
 
 process.on('unhandledRejection', (reason, p) => {
-  logger.error(`Unhandled Rejection at: Promise: ${JSON.stringify(p)}, reason: ${reason}`);
+  logger.error('Unhandled Rejection at: Promise: %s, reason: %s', JSON.stringify(p), reason);
 });
 
 process.on('uncaughtException', (err) => {

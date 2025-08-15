@@ -64,7 +64,7 @@ export class IPRateLimiterService {
       const normalizedType = String(configuredStoreType).trim().toUpperCase() as RateLimitStoreType;
 
       if (Object.values(RateLimitStoreType).includes(normalizedType)) {
-        this.logger.info(`Using configured rate limit store type: ${normalizedType}`);
+        this.logger.info('Using configured rate limit store type: %s', normalizedType);
         return normalizedType;
       }
 
@@ -77,7 +77,7 @@ export class IPRateLimiterService {
 
     // Only fall back to REDIS_ENABLED if IP_RATE_LIMIT_STORE is not set
     const fallbackType = ConfigService.get('REDIS_ENABLED') ? RateLimitStoreType.REDIS : RateLimitStoreType.LRU;
-    this.logger.info(`IP_RATE_LIMIT_STORE not configured, using fallback based on REDIS_ENABLED: ${fallbackType}`);
+    this.logger.info('IP_RATE_LIMIT_STORE not configured, using fallback based on REDIS_ENABLED: %s', fallbackType);
     return fallbackType;
   }
 

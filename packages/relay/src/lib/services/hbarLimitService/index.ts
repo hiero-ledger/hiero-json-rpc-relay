@@ -155,7 +155,7 @@ export class HbarLimitService implements IHbarLimitService {
       {} as Record<SubscriptionTier, Gauge>,
     );
 
-    logger.info(
+    this.logger.info(
       `HBAR Limiter successfully configured: totalBudget=${totalBudget}, maxLimitForBasicTier=${HbarLimitService.TIER_LIMITS.BASIC}, maxLimitForExtendedTier=${HbarLimitService.TIER_LIMITS.EXTENDED}, maxLimitForprivilegedTier=${HbarLimitService.TIER_LIMITS.PRIVILEGED}, limitDuration=${limitDuration}, resetTimeStamp=${this.reset}.`,
     );
   }
@@ -174,15 +174,13 @@ export class HbarLimitService implements IHbarLimitService {
    * @returns {Promise<void>} - A promise that resolves when the operation is complete.
    */
   async resetLimiter(requestDetails: RequestDetails): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Resetting HBAR rate limiter...`);
-    }
+    this.logger.trace('Resetting HBAR rate limiter...');
     await this.hbarSpendingPlanRepository.resetAmountSpentOfAllPlans();
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
     this.resetTemporaryMetrics();
     this.reset = this.getResetTimestamp();
-    this.logger.info(`HBAR Rate Limit reset: remainingBudget=${remainingBudget}, newResetTimestamp=${this.reset}`);
+    this.logger.info('HBAR Rate Limit reset: remainingBudget=%s, newResetTimestamp=%s', remainingBudget, this.reset);
   }
 
   /**
@@ -214,13 +212,11 @@ export class HbarLimitService implements IHbarLimitService {
     }
 
     if (!evmAddress && !ipAddress) {
-      this.logger.warn(`No evm address or ip address provided, cannot check if address should be limited.`);
+      this.logger.warn('No evm address or ip address provided, cannot check if address should be limited.');
       return false;
     }
     const signer = `signerAddress=${evmAddress}`;
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Checking if signer account should be limited: ${signer}`);
-    }
+    this.logger.debug('Checking if signer account should be limited: %s', signer);
     let spendingPlan = await this.getSpendingPlan(evmAddress, requestDetails);
     if (!spendingPlan) {
       // Create a basic spending plan if none exists for the evm address
@@ -237,15 +233,17 @@ export class HbarLimitService implements IHbarLimitService {
       spendingLimit.toTinybars().lt(spendingPlan.amountSpent + estimatedTxFee);
 
     this.logger.info(
-      `Signer account ${
-        exceedsLimit ? 'has' : 'has NOT'
-      } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${Hbar.fromTinybars(
-        spendingPlan.amountSpent,
-      )}, estimatedTxFee=${Hbar.fromTinybars(estimatedTxFee)}, spendingLimit=${spendingLimit}, spandingPlanId=${
-        spendingPlan.id
-      }, subscriptionTier=${
-        spendingPlan.subscriptionTier
-      }, txConstructorName=${txConstructorName}, mode=${mode}, methodName=${methodName}`,
+      'Signer account %s exceeded HBAR rate limit threshold: %s, amountSpent=%s, estimatedTxFee=%s, spendingLimit=%s, spandingPlanId=%s, subscriptionTier=%s, txConstructorName=%s, mode=%s, methodName=%s',
+      exceedsLimit ? 'has' : 'has NOT',
+      signer,
+      Hbar.fromTinybars(spendingPlan.amountSpent),
+      Hbar.fromTinybars(estimatedTxFee),
+      spendingLimit,
+      spendingPlan.id,
+      spendingPlan.subscriptionTier,
+      txConstructorName,
+      mode,
+      methodName,
     );
 
     return exceedsLimit;
@@ -277,20 +275,19 @@ export class HbarLimitService implements IHbarLimitService {
         // Create a basic spending plan if none exists for the evm address
         spendingPlan = await this.createSpendingPlanForAddress(evmAddress, requestDetails);
       } else {
-        this.logger.warn(`Cannot add expense to a spending plan without an evm address`);
+        this.logger.warn('Cannot add expense to a spending plan without an evm address');
         return;
       }
     }
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `Spending plan expense update: planID=${spendingPlan.id}, subscriptionTier=${
-          spendingPlan.subscriptionTier
-        }, cost=${Hbar.fromTinybars(cost)}, originalAmountSpent=${Hbar.fromTinybars(
-          spendingPlan.amountSpent,
-        )}, updatedAmountSpent=${Hbar.fromTinybars(spendingPlan.amountSpent + cost)}`,
-      );
-    }
+    this.logger.trace(
+      'Spending plan expense update: planID=%s, subscriptionTier=%s, cost=%s, originalAmountSpent=%s, updatedAmountSpent=%s',
+      spendingPlan.id,
+      spendingPlan.subscriptionTier,
+      Hbar.fromTinybars(cost),
+      Hbar.fromTinybars(spendingPlan.amountSpent),
+      Hbar.fromTinybars(spendingPlan.amountSpent + cost),
+    );
 
     // Check if the spending plan is being used for the first time today
     if (spendingPlan.amountSpent === 0) {
@@ -303,11 +300,12 @@ export class HbarLimitService implements IHbarLimitService {
     this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier).then();
 
     this.logger.info(
-      `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
-        cost,
-      )}, remainingBudget=${remainingBudget}, spendingPlanId=${
-        spendingPlan.id
-      }, signerAddress=${evmAddress}, subscriptionTier=${spendingPlan.subscriptionTier}`,
+      'HBAR rate limit expense update: cost=%s, remainingBudget=%s, spendingPlanId=%s, signerAddress=%s, subscriptionTier=%s',
+      Hbar.fromTinybars(cost),
+      remainingBudget,
+      spendingPlan.id,
+      evmAddress,
+      spendingPlan.subscriptionTier,
     );
   }
 
@@ -339,19 +337,27 @@ export class HbarLimitService implements IHbarLimitService {
     if (remainingBudget.toTinybars().lte(0) || remainingBudget.toTinybars().sub(estimatedTxFee).lt(0)) {
       this.hbarLimitCounter.labels(mode, methodName).inc(1);
       this.logger.warn(
-        `Total HBAR rate limit reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${Hbar.fromTinybars(
-          estimatedTxFee,
-        )}, resetTimestamp=${this.reset.getMilliseconds()}, txConstructorName=${txConstructorName} mode=${mode}, methodName=${methodName}`,
+        'Total HBAR rate limit reached: remainingBudget=%s, totalBudget=%s, estimatedTxFee=%s, resetTimestamp=%d, txConstructorName=%s mode=%s, methodName=%s',
+        remainingBudget,
+        totalBudget,
+        Hbar.fromTinybars(estimatedTxFee),
+        this.reset.getMilliseconds(),
+        txConstructorName,
+        mode,
+        methodName,
       );
       return true;
     } else {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Total HBAR rate limit NOT reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${Hbar.fromTinybars(
-            estimatedTxFee,
-          )}, resetTimestamp=${this.reset.getMilliseconds()}, txConstructorName=${txConstructorName} mode=${mode}, methodName=${methodName}`,
-        );
-      }
+      this.logger.debug(
+        'Total HBAR rate limit NOT reached: remainingBudget=%s, totalBudget=%s, estimatedTxFee=%s, resetTimestamp=%d, txConstructorName=%s mode=%s, methodName=%s',
+        remainingBudget,
+        totalBudget,
+        Hbar.fromTinybars(estimatedTxFee),
+        this.reset.getMilliseconds(),
+        txConstructorName,
+        mode,
+        methodName,
+      );
       return false;
     }
   }
@@ -367,13 +373,11 @@ export class HbarLimitService implements IHbarLimitService {
     const averageUsage = Math.round(totalUsage / plans.length);
     this.averageSpendingPlanAmountSpentGauge[subscriptionTier].set(averageUsage);
 
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Updated average amount spent: subsriptionTier=${subscriptionTier}, newAverageUsage=${Hbar.fromTinybars(
-          averageUsage,
-        )}`,
-      );
-    }
+    this.logger.debug(
+      'Updated average amount spent: subsriptionTier=%s, newAverageUsage=%s',
+      subscriptionTier,
+      Hbar.fromTinybars(averageUsage),
+    );
   }
 
   /**
@@ -434,9 +438,7 @@ export class HbarLimitService implements IHbarLimitService {
       try {
         return await this.getSpendingPlanByEvmAddress(evmAddress);
       } catch (error) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
-        }
+        this.logger.debug('Spending plan not found: evmAddress=\'%s\'', evmAddress);
       }
     }
 
@@ -444,9 +446,7 @@ export class HbarLimitService implements IHbarLimitService {
       try {
         return await this.getSpendingPlanByIPAddress(requestDetails);
       } catch (error) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(` Spending plan not found for IP address.`);
-        }
+        this.logger.debug(' Spending plan not found for IP address.');
       }
     }
 
@@ -510,7 +510,7 @@ export class HbarLimitService implements IHbarLimitService {
   private async getOperatorSpendingPlan(requestDetails: RequestDetails): Promise<IDetailedHbarSpendingPlan> {
     let operatorPlan = await this.getSpendingPlan(this.operatorAddress, requestDetails);
     if (!operatorPlan) {
-      this.logger.trace(`Creating operator spending plan...`);
+      this.logger.trace('Creating operator spending plan...');
       operatorPlan = await this.createSpendingPlanForAddress(
         this.operatorAddress,
         requestDetails,

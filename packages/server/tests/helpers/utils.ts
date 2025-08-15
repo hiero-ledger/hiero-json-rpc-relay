@@ -319,11 +319,10 @@ export class Utils {
         requestDetails.requestId,
         initialAmountInTinyBar,
       );
-      if (global.logger.isLevelEnabled('trace')) {
-        global.logger.trace(
-          `Create new Eth compatible account w alias: ${account.address} and balance ~${initialAmountInTinyBar} wei`,
-        );
-      }
+
+      global.logger.trace(
+        `Create new Eth compatible account w alias: ${account.address} and balance ~${initialAmountInTinyBar} wei`,
+      );
       accounts.push(account);
     }
     return accounts;
