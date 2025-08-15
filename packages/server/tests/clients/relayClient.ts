@@ -3,7 +3,6 @@
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
 import { ITransactionReceipt } from '@hashgraph/json-rpc-relay/src/lib/types';
 import { BlockTag, ethers } from 'ethers';
-import { Logger } from 'pino';
 
 import Assertions from '../helpers/assertions';
 import constants from '../helpers/constants';
@@ -11,10 +10,8 @@ import { Utils } from '../helpers/utils';
 
 export default class RelayClient {
   readonly provider: ethers.JsonRpcProvider;
-  private readonly logger: Logger;
 
-  constructor(relayUrl: string, logger: Logger) {
-    this.logger = logger;
+  constructor(relayUrl: string) {
     const fr: ethers.FetchRequest = new ethers.FetchRequest(relayUrl);
     this.provider = new ethers.JsonRpcProvider(fr);
   }

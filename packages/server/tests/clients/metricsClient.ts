@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Axios, { AxiosInstance } from 'axios';
-import { Logger } from 'pino';
 
 export default class MetricsClient {
-  private readonly logger: Logger;
   private readonly client: AxiosInstance;
   private readonly relayUrl: string;
 
-  constructor(relayUrl: string, logger: Logger) {
-    this.logger = logger;
+  constructor(relayUrl: string) {
     this.relayUrl = relayUrl;
 
     const metricsClient = Axios.create({

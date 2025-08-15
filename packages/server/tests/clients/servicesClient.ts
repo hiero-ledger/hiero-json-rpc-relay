@@ -38,7 +38,6 @@ import {
 } from '@hashgraph/sdk';
 import { ethers, JsonRpcProvider } from 'ethers';
 import Long from 'long';
-import { Logger } from 'pino';
 
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -72,13 +71,11 @@ export default class ServicesClient {
   static TINYBAR_TO_WEIBAR_COEF = 10_000_000_000;
 
   private readonly DEFAULT_KEY = PrivateKey.generateECDSA();
-  private readonly logger: Logger;
   private readonly network: string;
 
   public readonly client: Client;
 
-  constructor(network: string, accountId: string, key: string, logger: Logger) {
-    this.logger = logger;
+  constructor(network: string, accountId: string, key: string) {
     this.network = network;
 
     if (!network) network = '{}';
@@ -89,10 +86,6 @@ export default class ServicesClient {
       this.client = Client.forNetwork(JSON.parse(network));
     }
     this.client.setOperator(AccountId.fromString(accountId), opPrivateKey.toString());
-  }
-
-  getLogger(): Logger {
-    return this.logger;
   }
 
   async createInitialAliasAccount(
@@ -246,12 +239,7 @@ export default class ServicesClient {
   ): Promise<AliasAccount> {
     await this.executeQuery(new AccountBalanceQuery().setAccountId(accountId));
     const accountInfo = (await this.executeQuery(new AccountInfoQuery().setAccountId(accountId)))!;
-    const servicesClient = new ServicesClient(
-      this.network,
-      accountInfo.accountId.toString(),
-      privateKey.toString(),
-      this.logger.child({ name: `services-client` }),
-    );
+    const servicesClient = new ServicesClient(this.network, accountInfo.accountId.toString(), privateKey.toString());
 
     let wallet: ethers.Wallet;
     if (provider) {

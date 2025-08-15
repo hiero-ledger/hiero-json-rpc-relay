@@ -2,15 +2,11 @@
 
 import Axios, { AxiosInstance } from 'axios';
 import axiosRetry from 'axios-retry';
-import { Logger } from 'pino';
 
 export default class MirrorClient {
-  private readonly logger: Logger;
   private readonly client: AxiosInstance;
 
-  constructor(mirrorNodeUrl: string, logger: Logger) {
-    this.logger = logger;
-
+  constructor(mirrorNodeUrl: string) {
     const mirrorNodeClient = Axios.create({
       baseURL: `${mirrorNodeUrl}/api/v1`,
       responseType: 'json' as const,
