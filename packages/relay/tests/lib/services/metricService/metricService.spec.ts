@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { EventEmitter } from 'node:events';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { AccountId, Client, Hbar, Long, Status, TransactionRecord, TransactionRecordQuery } from '@hashgraph/sdk';
+import { Hbar, Long, Status, TransactionRecord, TransactionRecordQuery } from '@hashgraph/sdk';
 import axios, { AxiosInstance } from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { expect } from 'chai';
-import { EventEmitter } from 'events';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { TypedEvents } from '../../../../dist/lib/types';
-import { MirrorNodeClient, SDKClient } from '../../../../src/lib/clients';
+import type { TypedEvents } from '../../../../dist/lib/types';
+import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
+import type HAPIService from '../../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
 import {
@@ -25,7 +27,6 @@ import {
   IExecuteTransactionEventPayload,
   RequestDetails,
 } from '../../../../src/lib/types';
-import { Utils } from '../../../../src/utils';
 import {
   calculateTxRecordChargeAmount,
   overrideEnvsInMochaDescribe,
@@ -36,8 +37,7 @@ const registry = new Registry();
 const logger = pino({ level: 'silent' });
 
 describe('Metric Service', function () {
-  let client: Client;
-  let mock: typeof MockAdapter;
+  let mock: MockAdapter;
   let instance: AxiosInstance;
   let eventEmitter: EventEmitter<TypedEvents>;
   let metricService: MetricService;
@@ -47,9 +47,7 @@ describe('Metric Service', function () {
   const requestDetails = new RequestDetails({ requestId: 'metricServiceTest', ipAddress: '0.0.0.0' });
   const mockedTxFee = 36900000;
   const operatorAccountId = `0.0.1022`;
-  const mockedCallerName = 'caller_name';
   const mockedConstructorName = 'constructor_name';
-  const mockedInteractingEntity = 'interacting_entity';
   const mockedTransactionId = '0.0.1022@1681130064.409933500';
   const mockedTransactionIdFormatted = '0.0.1022-1681130064-409933500';
   const metricHistogramCostSumTitle = 'rpc_relay_consensusnode_response_sum';
@@ -125,18 +123,6 @@ describe('Metric Service', function () {
   overrideEnvsInMochaDescribe({ OPERATOR_KEY_FORMAT: 'DER' });
 
   before(() => {
-    // consensus node client
-    const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
-    if (hederaNetwork in constants.CHAIN_IDS) {
-      client = Client.forName(hederaNetwork);
-    } else {
-      client = Client.forNetwork(JSON.parse(hederaNetwork));
-    }
-    client = client.setOperator(
-      AccountId.fromString(ConfigService.get('OPERATOR_ID_MAIN')!),
-      Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
-    );
-
     // mirror node client
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -175,9 +161,8 @@ describe('Metric Service', function () {
       duration,
     );
 
-    const sdkClient = new SDKClient(client, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
-    metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
+    metricService = new MetricService(logger, {} as HAPIService, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       metricService.captureTransactionMetrics(args).then();
     });
@@ -197,10 +182,8 @@ describe('Metric Service', function () {
   describe('captureTransactionMetrics', () => {
     const mockedExecuteTransactionEventPayload: IExecuteTransactionEventPayload = {
       transactionId: mockedTransactionId,
-      callerName: mockedCallerName,
       txConstructorName: mockedConstructorName,
       operatorAccountId,
-      interactingEntity: mockedInteractingEntity,
       requestDetails,
       originalCallerAddress: mockedOriginalCallerAddress,
     };
