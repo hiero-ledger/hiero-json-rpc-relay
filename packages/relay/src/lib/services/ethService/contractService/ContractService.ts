@@ -371,9 +371,9 @@ export class ContractService implements IContractService {
     }
     if (!transaction.from && transaction.value && (transaction.value as number) > 0) {
       if (ConfigService.get('OPERATOR_KEY_FORMAT') === 'HEX_ECDSA') {
-        transaction.from = this.hapiService.getMainClientInstance().operatorPublicKey?.toEvmAddress();
+        transaction.from = this.hapiService.getOperatorPublicKey()?.toEvmAddress();
       } else {
-        const operatorId = this.hapiService.getMainClientInstance().operatorAccountId!.toString();
+        const operatorId = this.hapiService.getOperatorAccountId()!.toString();
         const operatorAccount = await this.common.getAccount(operatorId, requestDetails);
         transaction.from = operatorAccount?.evm_address;
       }

@@ -1,165 +1,106 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Client } from '@hashgraph/sdk';
+import { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
-import { Utils } from '../../../utils';
 import { SDKClient } from '../../clients';
-import constants from '../../constants';
-import { TypedEvents } from '../../types';
+import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class HAPIService {
   /**
    * The number of transactions that have occurred.
-   * @private
-   * @type {number}
    */
   private transactionCount: number;
 
   /**
    * An array of error codes encountered.
-   * @private
-   * @readonly
-   * @type {number[]}
    */
   private readonly errorCodes: number[];
 
   /**
    * The duration for resetting operations.
-   * @private
-   * @type {number}
    */
   private resetDuration: number;
 
   /**
    * Indicates whether a reset operation should occur.
-   * @private
-   * @type {boolean}
    */
   private shouldReset: boolean;
 
   /**
    * Indicates whether reinitialization is enabled.
-   * @private
-   * @readonly
-   * @type {boolean}
    */
   private readonly isReinitEnabled: boolean;
 
   /**
    * Indicates whether time-based resets are disabled.
-   * @private
-   * @readonly
-   * @type {boolean}
    */
   private readonly isTimeResetDisabled: boolean;
 
   /**
    * The initial count of transactions.
-   * @private
-   * @readonly
-   * @type {number}
    */
   private readonly initialTransactionCount: number;
 
   /**
    * The initial array of error codes.
-   * @private
-   * @readonly
-   * @type {number[]}
    */
   private readonly initialErrorCodes: number[];
 
   /**
    * The initial duration for resetting operations.
-   * @private
-   * @readonly
-   * @type {number}
    */
   private readonly initialResetDuration: number;
 
   /**
    * The network name for Hedera services.
-   * @private
-   * @readonly
-   * @type {string}
    */
   private readonly hederaNetwork: string;
 
   /**
-   * The main client for interacting with the Hedera network.
-   * @private
-   * @type {Client}
-   */
-  private clientMain: Client;
-
-  /**
    * The SDK Client used for connecting to both the consensus nodes and mirror node. The account
    * associated with this client will pay for all operations on the main network.
-   * @private
-   * @type {SDKClient}
    */
   private client: SDKClient;
 
   /**
    * The logger used for logging all output from this class.
-   * @private
-   * @readonly
-   * @type {Logger}
    */
   private readonly logger: Logger;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
-   * @private
-   * @readonly
-   * @type {HbarLimitService}
    */
   private readonly hbarLimitService: HbarLimitService;
+
   /**
    * An instance of EventEmitter used for emitting and handling events within the class.
-   * @private
-   * @readonly
-   * @type {EventEmitter}
    */
   readonly eventEmitter: EventEmitter<TypedEvents>;
 
   /**
-   * A registry used within the class.
-   * @private
-   * @readonly
-   * @type {Registry}
-   */
-  private readonly register: Registry;
-
-  /**
    * A counter for tracking client resets.
-   * @private
-   * @readonly
-   * @type {Counter}
    */
   private readonly clientResetCounter: Counter;
 
   /**
    * Constructs an instance of the class, initializes configuration settings, and sets up various services.
    *
-   * @param {Logger} logger - The logger instance used for logging.
-   * @param {Registry} register - The registry instance for metrics and other services.
-   * @param {EventEmitter} eventEmitter - The event emitter instance used for emitting events.
-   * @param {HbarLimitService} hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
+   * @param logger - The logger instance used for logging.
+   * @param register - The registry instance for metrics and other services.
+   * @param hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
   constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
-    this.clientMain = this.initClient(logger, this.hederaNetwork);
 
-    this.client = this.initSDKClient(logger);
+    this.client = this.initSDKClient();
 
     const currentDateNow = Date.now();
     this.initialTransactionCount = ConfigService.get('HAPI_CLIENT_TRANSACTION_RESET');
@@ -178,9 +119,8 @@ export default class HAPIService {
     }
     this.shouldReset = false;
 
-    this.register = register;
     const metricCounterName = 'rpc_relay_client_service';
-    this.register.removeSingleMetric(metricCounterName);
+    register.removeSingleMetric(metricCounterName);
     this.clientResetCounter = new Counter({
       name: metricCounterName,
       help: 'Relay Client Service',
@@ -232,81 +172,40 @@ export default class HAPIService {
   private resetClient() {
     this.clientResetCounter.labels(this.transactionCount.toString(), this.errorCodes.toString()).inc(1);
 
-    this.clientMain = this.initClient(this.logger, this.hederaNetwork);
-    this.client = this.initSDKClient(this.logger);
-    this.resetCounters();
-  }
+    this.client = this.initSDKClient();
 
-  /**
-   * Reset all counters with predefined configuration.
-   */
-  private resetCounters() {
+    // Reset all counters with predefined configuration.
     this.transactionCount = this.initialTransactionCount;
     this.resetDuration = Date.now() + this.initialResetDuration;
-
     this.shouldReset = false;
   }
 
   /**
    * Configure SDK Client from main client
-   * @param {Logger} logger
    * @returns SDK Client
    */
-  private initSDKClient(logger: Logger): SDKClient {
+  private initSDKClient(): SDKClient {
     return new SDKClient(
-      this.clientMain,
-      logger.child({ name: `consensus-node` }),
+      this.hederaNetwork,
+      this.logger.child({ name: `consensus-node` }),
       this.eventEmitter,
       this.hbarLimitService,
     );
   }
 
-  /**
-   * Configure Client
-   * @param {Logger} logger
-   * @param {string} hederaNetwork
-   * @returns Client
-   */
-  private initClient(logger: Logger, hederaNetwork: string): Client {
-    let client: Client;
-    if (hederaNetwork in constants.CHAIN_IDS) {
-      client = Client.forName(hederaNetwork);
-    } else {
-      client = Client.forNetwork(JSON.parse(hederaNetwork));
-    }
-
-    const operator = Utils.getOperator(logger);
-    if (operator) {
-      client.setOperator(operator.accountId, operator.privateKey);
-    }
-
-    client.setTransportSecurity(ConfigService.get('CLIENT_TRANSPORT_SECURITY'));
-
-    const SDK_REQUEST_TIMEOUT = ConfigService.get('SDK_REQUEST_TIMEOUT');
-    client.setRequestTimeout(SDK_REQUEST_TIMEOUT);
-
-    logger.info(
-      `SDK client successfully configured to ${JSON.stringify(hederaNetwork)} for account ${
-        client.operatorAccountId
-      } with request timeout value: ${SDK_REQUEST_TIMEOUT}`,
-    );
-
-    return client;
+  public getOperatorAccountId(): AccountId | null {
+    return this.client.getOperatorAccountId();
   }
 
-  /**
-   * Return current main client instance
-   * @returns Main Client
-   */
-  public getMainClientInstance() {
-    return this.clientMain;
+  public getOperatorPublicKey(): PublicKey | null {
+    return this.client.getOperatorPublicKey();
   }
 
   /**
    * Return configured sdk client and reinitialize it before retuning, if needed.
    * @returns SDK Client
    */
-  public getSDKClient(): SDKClient {
+  private getSDKClient(): SDKClient {
     if (!this.isReinitEnabled) {
       return this.client;
     }
@@ -321,34 +220,38 @@ export default class HAPIService {
     return this.client;
   }
 
-  /**
-   * Return true if reinitialization feature is enabled.
-   * @returns isEnabled boolean
-   */
-  public getIsReinitEnabled() {
-    return this.isReinitEnabled;
+  public async submitEthereumTransaction(
+    transactionBuffer: Uint8Array,
+    callerName: string,
+    requestDetails: RequestDetails,
+    originalCallerAddress: string,
+    networkGasPriceInWeiBars: number,
+    currentNetworkExchangeRateInCents: number,
+  ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
+    return this.getSDKClient().submitEthereumTransaction(
+      transactionBuffer,
+      callerName,
+      requestDetails,
+      originalCallerAddress,
+      networkGasPriceInWeiBars,
+      currentNetworkExchangeRateInCents,
+    );
   }
 
-  /**
-   * Return transaction count with current sdk instance.
-   * @returns transactionCount
-   */
-  public getTransactionCount() {
-    return this.transactionCount;
+  public async deleteFile(
+    fileId: FileId,
+    requestDetails: RequestDetails,
+    callerName: string,
+    originalCallerAddress: string,
+  ): Promise<void> {
+    return this.getSDKClient().deleteFile(fileId, requestDetails, callerName, originalCallerAddress);
   }
 
-  /**
-   * Return error codes which can trigger a sdk instance reinitialization.
-   * @returns errorCodes
-   */
-  public getErrorCodes() {
-    return this.errorCodes;
-  }
-
-  /**
-   * Return time until reset of the current sdk instance.
-   */
-  public getTimeUntilReset() {
-    return this.resetDuration - Date.now();
+  public async getTransactionRecordMetrics(
+    transactionId: string,
+    txConstructorName: string,
+    operatorAccountId: string,
+  ): Promise<ITransactionRecordMetric> {
+    return this.getSDKClient().getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
   }
 }

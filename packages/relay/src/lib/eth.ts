@@ -126,13 +126,14 @@ export class EthImpl implements Eth {
   ) {
     this.chain = chain;
     this.logger = logger;
+    this.eventEmitter = new EventEmitter<TypedEvents>();
+
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.eventEmitter = new EventEmitter<TypedEvents>();
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -563,7 +564,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   signTransaction(): JsonRpcError {
-    return this.transactionService.signTransaction();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
@@ -577,7 +578,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sign(): JsonRpcError {
-    return this.transactionService.sign();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
@@ -591,7 +592,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sendTransaction(): JsonRpcError {
-    return this.transactionService.sendTransaction();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**

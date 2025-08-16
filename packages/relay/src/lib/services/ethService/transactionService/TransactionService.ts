@@ -278,39 +278,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Send transaction - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public sendTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sendTransaction()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Sign transaction - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public signTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('signTransaction()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Sign - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public sign(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sign()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
    * Retrieves the current network exchange rate of HBAR to USD in cents.
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
@@ -684,16 +651,14 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
-      const sendRawTransactionResult = await this.hapiService
-        .getSDKClient()
-        .submitEthereumTransaction(
-          transactionBuffer,
-          constants.ETH_SEND_RAW_TRANSACTION,
-          requestDetails,
-          originalCallerAddress,
-          networkGasPriceInWeiBars,
-          await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        );
+      const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
+        transactionBuffer,
+        constants.ETH_SEND_RAW_TRANSACTION,
+        requestDetails,
+        originalCallerAddress,
+        networkGasPriceInWeiBars,
+        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+      );
 
       txSubmitted = true;
       fileId = sendRawTransactionResult.fileId;
@@ -716,14 +681,7 @@ export class TransactionService implements ITransactionService {
        */
       if (fileId) {
         this.hapiService
-          .getSDKClient()
-          .deleteFile(
-            fileId,
-            requestDetails,
-            constants.ETH_SEND_RAW_TRANSACTION,
-            fileId.toString(),
-            originalCallerAddress,
-          )
+          .deleteFile(fileId, requestDetails, constants.ETH_SEND_RAW_TRANSACTION, originalCallerAddress)
           .then();
       }
     }

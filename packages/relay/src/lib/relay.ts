@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Client } from '@hashgraph/sdk';
+import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
@@ -35,11 +35,9 @@ import { Web3Impl } from './web3';
 
 export class Relay {
   /**
-   * @private
-   * @readonly
-   * @property {Client} clientMain - The primary Hedera client used for interacting with the Hedera network.
+   * The primary Hedera client used for interacting with the Hedera network.
    */
-  private readonly clientMain: Client;
+  private readonly operatorAccountId: AccountId | null;
 
   /**
    * @private
@@ -158,7 +156,7 @@ export class Relay {
 
     const hapiService = new HAPIService(logger, register, hbarLimitService);
 
-    this.clientMain = hapiService.getMainClientInstance();
+    this.operatorAccountId = hapiService.getOperatorAccountId();
 
     this.web3Impl = new Web3Impl();
     this.netImpl = new NetImpl();
@@ -172,13 +170,7 @@ export class Relay {
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
     );
 
-    this.metricService = new MetricService(
-      logger,
-      hapiService.getSDKClient(),
-      this.mirrorNodeClient,
-      register,
-      hbarLimitService,
-    );
+    this.metricService = new MetricService(logger, hapiService, this.mirrorNodeClient, register, hbarLimitService);
 
     this.ethImpl = new EthImpl(
       hapiService,
@@ -210,7 +202,7 @@ export class Relay {
       ipAddressHbarSpendingPlanRepository,
     );
 
-    this.initOperatorMetric(this.clientMain, this.mirrorNodeClient, logger, register);
+    this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, logger, register);
 
     this.populatePreconfiguredSpendingPlans().then();
 
@@ -265,14 +257,14 @@ export class Relay {
 
   /**
    * Initialize operator account metrics
-   * @param {Client} clientMain
-   * @param {MirrorNodeClient} mirrorNodeClient
-   * @param {Logger} logger
-   * @param {Registry} register
-   * @returns {Gauge} Operator Metric
+   * @param operatorAccountId
+   * @param mirrorNodeClient
+   * @param logger
+   * @param register
+   * @returns Operator Metric
    */
   private initOperatorMetric(
-    clientMain: Client,
+    operatorAccountId: AccountId | null,
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
     register: Registry,
@@ -288,9 +280,9 @@ export class Relay {
         // Invoked when the registry collects its metrics' values.
         // Allows for updated account balance tracking
         try {
-          const operatorAccountId = clientMain.operatorAccountId!.toString();
+          const accountId = operatorAccountId!.toString();
           const account = await mirrorNodeClient.getAccount(
-            operatorAccountId,
+            accountId,
             new RequestDetails({ requestId: Utils.generateRequestId(), ipAddress: '' }),
           );
 
@@ -303,7 +295,7 @@ export class Relay {
               ? accountBalance.toNumber()
               : Number(accountBalance);
 
-          this.labels({ accountId: operatorAccountId }).set(numericBalance);
+          this.labels({ accountId }).set(numericBalance);
         } catch (e: any) {
           logger.error(e, `Error collecting operator balance. Skipping balance set`);
         }
@@ -338,7 +330,7 @@ export class Relay {
   async ensureOperatorHasBalance() {
     if (ConfigService.get('READ_ONLY')) return;
 
-    const operator = this.clientMain.operatorAccountId!.toString();
+    const operator = this.operatorAccountId!.toString();
     const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
     if (balance === BigInt(0)) {
       throw new Error(`Operator account '${operator}' has no balance`);

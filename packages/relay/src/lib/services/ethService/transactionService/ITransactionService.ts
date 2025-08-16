@@ -22,10 +22,4 @@ export interface ITransactionService {
   getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null>;
 
   sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
-
-  sendTransaction(): JsonRpcError;
-
-  signTransaction(): JsonRpcError;
-
-  sign(): JsonRpcError;
 }
