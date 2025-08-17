@@ -1,9 +1,1 @@
 src/prepare/.smartContractParams.json
-
-# Node.js Built-in Profiling Output Files
-*.cpuprofile
-*.heapprofile
-
-# Performance Profile Reports
-performance-profiles/
-reports/

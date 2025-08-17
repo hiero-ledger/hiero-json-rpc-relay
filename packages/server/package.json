@@ -14,7 +14,6 @@
     "koa-cors": "^0.0.16",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
-    "pm2": "^6.0.8",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
@@ -28,7 +27,6 @@
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
     "chai": "^4.3.6",
-    "clinic": "^13.0.0",
     "ethers": "^5.8.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^10.6.0",
@@ -43,8 +41,6 @@
     "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
     "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "start": "node dist/index.js",
-    "test": "c8 ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit",
-    "exp-no-auto": "npx clinic doctor --collect-only --stop-delay=3000 --dest stress-test-reports/doctor -- node --trace-gc dist/index.js",
-    "exp": "npx clinic doctor --on-port 'autocannon localhost:$PORT -c 3 -d 3 -m POST -H Content-Type=application/json -b \"{\\\"id\\\": \\\"test_id\\\", \\\"jsonrpc\\\": \\\"2.0\\\", \\\"method\\\": \\\"eth_blockNumber\\\", \\\"params\\\": [\\\"latest\\\"]}\"' --dest stress-test-reports/doctor -- node --trace-gc dist/index.js"
+    "test": "c8 ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit"
   }
 }
