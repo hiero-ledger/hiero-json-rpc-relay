@@ -84,18 +84,53 @@ export function hasResponseFormatIssues(
     }
     return true;
   }
-
-  const actualResponseKeys = extractKeys(actualResponse as Record<string, unknown>);
-  const expectedResponseKeys = extractKeys(parsedExpectedResponse as Record<string, unknown>);
-  const filteredExpectedKeys = expectedResponseKeys.filter((key) => !wildcards.includes(key));
-  const missingKeys = filteredExpectedKeys.filter((key) => !actualResponseKeys.includes(key));
-
+  const missingKeys = getMissingKeys(actualResponse as Record<string, unknown>, parsedExpectedResponse, wildcards);
   if (missingKeys.length > 0) {
     console.log(`Missing keys in response: ${JSON.stringify(missingKeys)}`);
     return true;
   }
 
   return hasValuesMismatch(actualResponse, parsedExpectedResponse, wildcards);
+}
+
+/**
+ * Returns the list of keys that exist in `expectedResponse` but are missing in `actualResponse`,
+ * excluding any keys listed in `wildcards`.
+ *
+ * This function compares only key presence (as produced by `extractKeys`)—it does not parse,
+ * validate error states, or compare values. Any keys in `expectedResponse` that match entries
+ * in `wildcards` are ignored.
+ *
+ * @param actualResponse - The actual response object whose keys will be checked.
+ * @param expectedResponse - The reference object whose keys are considered required.
+ * @param wildcards - Array of key paths to ignore during the check (default: []).
+ * @returns {string[]} Array of key names/paths that are required by `expectedResponse`
+ * but absent from `actualResponse`.
+ *
+ * @example
+ * ```typescript
+ * const actual = { result: "0x123" };
+ * const expected = { result: "0x123", id: 1 };
+ * const missing = getMissingKeys(actual, expected);
+ * console.log(missing); // ["id"]
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const actual = { result: "0x123", timestamp: "2023-01-01" };
+ * const expected = { result: "0x123", timestamp: "2023-01-02", id: 1 };
+ * const missing = getMissingKeys(actual, expected, ["timestamp"]);
+ * console.log(missing); // ["id"]  // "timestamp" is ignored by wildcard
+ * ```
+ */
+export function getMissingKeys(
+  actualResponse: Record<string, unknown>,
+  expectedResponse: Record<string, unknown>,
+  wildcards: string[] = [],
+): string[] {
+  const actualResponseKeys = extractKeys(actualResponse);
+  const expectedResponseKeys = extractKeys(expectedResponse);
+  return expectedResponseKeys.filter((key) => !actualResponseKeys.includes(key) && !wildcards.includes(key));
 }
 
 /**

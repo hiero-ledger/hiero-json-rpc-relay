@@ -4,8 +4,8 @@ import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
 import { expect } from 'chai';
 import fs from 'fs';
 import path from 'path';
+import WebSocket from 'ws';
 
-// import WebSocket from 'ws';
 import openRpcData from '../../../../docs/openrpc.json';
 import CallerContract from '../contracts/Caller.json';
 import LogsContract from '../contracts/Logs.json';
@@ -21,8 +21,9 @@ import {
   setTransaction1559_2930AndBlockHash,
   setTransaction1559AndBlockHash,
   setTransaction2930AndBlockHash,
+  WS_RELAY_URL,
 } from './data/conformity/utils/constants';
-import { TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
+import { TestCase, TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
   createContractLegacyTransaction,
@@ -32,7 +33,7 @@ import {
   transaction2930,
 } from './data/conformity/utils/transactions';
 import { getLatestBlockHash, sendRequestToRelay, signAndSendRawTransaction } from './data/conformity/utils/utils';
-import { isResponseValid } from './data/conformity/utils/validations';
+import { getMissingKeys, isResponseValid } from './data/conformity/utils/validations';
 
 const directoryPath = path.resolve(__dirname, '../../../../node_modules/execution-apis/tests');
 const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
@@ -42,19 +43,48 @@ let relayOpenRpcData: OpenrpcDocument;
   relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
 })().catch((error) => console.error('Error parsing OpenRPC document:', error));
 
+/**
+ * Determines whether a given test case is expected to return an error response.
+ *
+ * @param testCase - The test case to evaluate.
+ * @returns {boolean} `true` if an error response is expected, otherwise `false`.
+ *
+ * @example
+ * ```typescript
+ * const tc = { status: 404, response: '{"error": "Not found"}' };
+ * console.log(isErrorResponseExpected(tc)); // true
+ * ```
+ */
+const isErrorResponseExpected = function (testCase: TestCase): boolean {
+  return (testCase?.status && testCase.status != 200) || !!JSON.parse(testCase.response).error;
+};
+
+/**
+ * Retrieves the JSON schema object for the result of a given method name from the OpenRPC data.
+ *
+ * @param name - The name of the method to look up.
+ * @returns {JSONSchemaObject | undefined} The method's result schema, or `undefined` if not found or invalid.
+ *
+ * @example
+ * ```typescript
+ * const schema = getMethodSchema("eth_getBalance");
+ * console.log(schema); // JSON schema object or undefined
+ * ```
+ */
+const getMethodSchema = function (name: string): JSONSchemaObject | undefined {
+  const method = relayOpenRpcData.methods.find(
+    (m: MethodOrReference): m is MethodObject => 'name' in m && m.name === name,
+  );
+  return method?.result && 'schema' in method.result && typeof method.result.schema === 'object'
+    ? method.result.schema
+    : undefined;
+};
+
 const synthesizeTestCases = function (testCases: TestCases, updateParamIfNeeded: UpdateParamFunction) {
   for (const testName in testCases) {
     it(`${testName}`, async function () {
-      const isErrorStatusExpected: boolean =
-        (testCases[testName]?.status && testCases[testName].status != 200) ||
-        !!JSON.parse(testCases[testName].response).error;
-      const method = relayOpenRpcData.methods.find(
-        (m: MethodOrReference): m is MethodObject => 'name' in m && m.name === testName.split(' ')[0],
-      );
-      const schema: JSONSchemaObject | undefined =
-        method?.result && 'schema' in method.result && typeof method.result.schema === 'object'
-          ? method.result.schema
-          : undefined;
+      const isErrorStatusExpected = isErrorResponseExpected(testCases[testName]);
+      const schema = getMethodSchema(testName.split(' ')[0]);
       try {
         const req = updateParamIfNeeded(testName, JSON.parse(testCases[testName].request));
         const res = await sendRequestToRelay(RELAY_URL, req, false);
@@ -240,7 +270,7 @@ describe('@api-conformity', async function () {
 
     synthesizeTestCases(TEST_CASES_BATCH_3['server'], updateParamIfNeeded);
 
-    /*  describe('ws related rpc methods', async function () {
+    describe('ws related rpc methods', async function () {
       let webSocket: WebSocket;
       let contractAddress: string | null;
       let existingFilter: string;
@@ -319,14 +349,14 @@ describe('@api-conformity', async function () {
             });
             await new Promise((r) => setTimeout(r, 500));
 
-            const hasMissingKeys: boolean = hasResponseFormatIssues(response, JSON.parse(testCases[testName].response));
+            const hasMissingKeys = getMissingKeys(response, JSON.parse(testCases[testName].response)).length > 0;
             expect(hasMissingKeys).to.be.false;
           });
         }
       };
 
       synthesizeWsTestCases(TEST_CASES_BATCH_3['ws-server'], updateParamIfNeeded);
-    });*/
+    });
   });
 
   describe('@conformity-batch-4 Ethereum execution apis tests', async function () {
