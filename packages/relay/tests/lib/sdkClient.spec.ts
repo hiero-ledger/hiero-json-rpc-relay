@@ -72,7 +72,6 @@ describe('SdkClient', async function () {
   let mock: MockAdapter;
   let sdkClient: SDKClientTest;
   let instance: AxiosInstance;
-  let eventEmitter: EventEmitter<TypedEvents>;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -84,7 +83,6 @@ describe('SdkClient', async function () {
   before(() => {
     const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new EventEmitter<TypedEvents>();
 
     cacheService = new CacheService(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
@@ -99,6 +97,7 @@ describe('SdkClient', async function () {
       duration,
     );
 
+    const eventEmitter = new EventEmitter<TypedEvents>();
     sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
@@ -121,7 +120,7 @@ describe('SdkClient', async function () {
 
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
-    const metricService = new MetricService(logger, {} as HAPIService, mirrorNodeClient, registry, hbarLimitService);
+    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       metricService.captureTransactionMetrics(args).then();
     });

@@ -12,13 +12,12 @@ import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import type { TypedEvents } from '../../../../dist/lib/types';
-import { MirrorNodeClient } from '../../../../src/lib/clients';
+import { MirrorNodeClient, SDKClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
-import type HAPIService from '../../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
 import {
@@ -161,8 +160,10 @@ describe('Metric Service', function () {
       duration,
     );
 
+    const network = ConfigService.get('HEDERA_NETWORK')!;
+    const sdkClient = new SDKClient(network, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
-    metricService = new MetricService(logger, {} as HAPIService, mirrorNodeClient, registry, hbarLimitService);
+    metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       metricService.captureTransactionMetrics(args).then();
     });

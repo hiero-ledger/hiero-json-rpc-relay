@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { MirrorNodeClient } from '../../clients';
+import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
   IExecuteQueryEventPayload,
@@ -12,7 +12,6 @@ import {
   ITransactionRecordMetric,
   RequestDetails,
 } from '../../types';
-import HAPIService from '../hapiService/hapiService';
 import { HbarLimitService } from '../hbarLimitService';
 
 export default class MetricService {
@@ -57,7 +56,7 @@ export default class MetricService {
    */
   constructor(
     logger: Logger,
-    private readonly hapiService: HAPIService,
+    private readonly cnMetrics: Pick<SDKClient, 'getTransactionRecordMetrics'>,
     mirrorNodeClient: MirrorNodeClient,
     register: Registry,
     hbarLimitService: HbarLimitService,
@@ -242,7 +241,7 @@ export default class MetricService {
     // retrieve transaction metrics
     try {
       if (defaultToConsensusNode) {
-        return await this.hapiService.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
+        return await this.cnMetrics.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
       } else {
         return await this.mirrorNodeClient.getTransactionRecordMetrics(
           transactionId,
