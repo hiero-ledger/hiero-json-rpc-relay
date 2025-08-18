@@ -439,7 +439,7 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleCountByBlockHash"', async function () {
-    const response = await ethImpl.getUncleCountByBlockHash(requestDetails);
+    const response = await ethImpl.getUncleCountByBlockHash(blockHash, requestDetails);
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockHash, response);
   });
 

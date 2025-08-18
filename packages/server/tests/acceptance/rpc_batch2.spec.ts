@@ -603,8 +603,23 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH, []);
+      const res = await relay.call(
+        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,
+        ['0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8'],
+        requestId,
+      );
       expect(res).to.be.equal('0x0');
+    });
+
+    it('should fail to execute "eth_getUncleCountByBlockHash" with empty or invalid parameters', async function () {
+      for (const param of ['', '0xhedera']) {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH, [param], requestId);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy(
+          (error) =>
+            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter 0'),
+        );
+      }
     });
 
     it('should execute "eth_getUncleCountByBlockNumber"', async function () {

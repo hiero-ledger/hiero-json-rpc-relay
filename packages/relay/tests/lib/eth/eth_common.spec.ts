@@ -45,7 +45,9 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const result = await relay.eth().getUncleCountByBlockHash(requestDetails);
+      const result = await relay
+        .eth()
+        .getUncleCountByBlockHash('0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8', requestDetails);
       expect(result).to.eq('0x0');
     });
 

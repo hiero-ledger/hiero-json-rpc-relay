@@ -16,7 +16,7 @@
     "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockHash": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockHash\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockHash\",\"params\":[\"0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b\"]}",
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockNumber": {
