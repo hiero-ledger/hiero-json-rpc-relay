@@ -20,7 +20,7 @@ addFormats(ajv);
  * Validates response format by comparing actual response against expected response structure.
  *
  * @param actualResponse - The actual response received from the API call
- * @param expectedResponse - The expected response structure to validate against (can be object, string, or ErrorResponse)
+ * @param expectedResponse - The expected response structure to validate against (can be an object, string, or ErrorResponse)
  * @param wildcards - Array of property paths to ignore during validation (default: empty array)
  * @returns {boolean} Returns true if the response format has issues (validation failed), false if format is valid
  *
@@ -84,7 +84,11 @@ export function hasResponseFormatIssues(
     }
     return true;
   }
-  const missingKeys = getMissingKeys(actualResponse as Record<string, unknown>, parsedExpectedResponse, wildcards);
+  const missingKeys = getMissingKeys({
+    actual: actualResponse as Record<string, unknown>,
+    expected: parsedExpectedResponse,
+    wildcards,
+  });
   if (missingKeys.length > 0) {
     console.log(`Missing keys in response: ${JSON.stringify(missingKeys)}`);
     return true;
@@ -94,44 +98,30 @@ export function hasResponseFormatIssues(
 }
 
 /**
- * Returns the list of keys that exist in `expectedResponse` but are missing in `actualResponse`,
- * excluding any keys listed in `wildcards`.
+ * Gets the list of expected keys that are missing from the actual response,
+ * excluding any wildcard keys that should be ignored.
  *
- * This function compares only key presence (as produced by `extractKeys`)—it does not parse,
- * validate error states, or compare values. Any keys in `expectedResponse` that match entries
- * in `wildcards` are ignored.
- *
- * @param actualResponse - The actual response object whose keys will be checked.
- * @param expectedResponse - The reference object whose keys are considered required.
- * @param wildcards - Array of key paths to ignore during the check (default: []).
- * @returns {string[]} Array of key names/paths that are required by `expectedResponse`
- * but absent from `actualResponse`.
- *
- * @example
- * ```typescript
- * const actual = { result: "0x123" };
- * const expected = { result: "0x123", id: 1 };
- * const missing = getMissingKeys(actual, expected);
- * console.log(missing); // ["id"]
- * ```
- *
- * @example
- * ```typescript
- * const actual = { result: "0x123", timestamp: "2023-01-01" };
- * const expected = { result: "0x123", timestamp: "2023-01-02", id: 1 };
- * const missing = getMissingKeys(actual, expected, ["timestamp"]);
- * console.log(missing); // ["id"]  // "timestamp" is ignored by wildcard
- * ```
+ * @param response - The object containing:
+ *   - actual: the actual response object to check
+ *   - expected: the expected response object
+ *   - wildcards: a list of keys to ignore during comparison
+ * @returns {string[]} - An array of keys that are expected but missing in the actual response
  */
-export function getMissingKeys(
-  actualResponse: Record<string, unknown>,
-  expectedResponse: Record<string, unknown>,
-  wildcards: string[] = [],
-): string[] {
-  const actualResponseKeys = extractKeys(actualResponse);
-  const expectedResponseKeys = extractKeys(expectedResponse);
-  return expectedResponseKeys.filter((key) => !actualResponseKeys.includes(key) && !wildcards.includes(key));
+export function getMissingKeys(response: {
+  actual: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  wildcards: string[];
+}): string[] {
+  const skipKeys = new Set([...extractKeys(response.actual), ...response.wildcards]);
+  return extractKeys(response.expected).filter(notIn(skipKeys));
 }
+
+/**
+ * Predicate factory that checks whether a given key is not in a provided Set.
+ *
+ * @param set - A Set of keys to exclude
+ */
+const notIn = (set: ReadonlySet<string>) => (k: string) => !set.has(k);
 
 /**
  * Checks if the actual response is missing required error properties

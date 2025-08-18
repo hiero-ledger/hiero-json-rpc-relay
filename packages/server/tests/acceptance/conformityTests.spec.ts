@@ -349,7 +349,12 @@ describe('@api-conformity', async function () {
             });
             await new Promise((r) => setTimeout(r, 500));
 
-            const hasMissingKeys = getMissingKeys(response, JSON.parse(testCases[testName].response)).length > 0;
+            const hasMissingKeys =
+              getMissingKeys({
+                actual: response,
+                expected: JSON.parse(testCases[testName].response),
+                wildcards: [],
+              }).length > 0;
             expect(hasMissingKeys).to.be.false;
           });
         }
