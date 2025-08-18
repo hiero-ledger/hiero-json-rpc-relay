@@ -17,6 +17,19 @@ async function main() {
 
   // set request timeout to ensure sockets are closed after specified time of inactivity
   setServerTimeout(server);
+
+  // Handle graceful shutdown for clean termination
+  const gracefulShutdown = (signal: string) => {
+    logger.info(`Received ${signal}. Starting graceful shutdown...`);
+
+    server.close(() => {
+      logger.info('HTTP server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 main();

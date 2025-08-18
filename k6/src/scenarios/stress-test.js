@@ -10,7 +10,7 @@ import { funcs, options, scenarioDurationGauge } from './stress/index.js';
 function handleSummary(data) {
   return {
     stdout: textSummary(data, { indent: ' ', enableColors: true }),
-    'stress-test-report.md': markdownReport(data, false, options.scenarios),
+    'stress-test-reports/k6/report.md': markdownReport(data, false, options.scenarios),
   };
 }
 
