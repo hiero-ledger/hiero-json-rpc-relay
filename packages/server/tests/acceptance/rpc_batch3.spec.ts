@@ -4,7 +4,6 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 // Helper functions/constants from local resources
@@ -42,7 +41,6 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
 
   const accounts: AliasAccount[] = [];
-  const requestDetails = new RequestDetails({ requestId: 'rpc_batch1Test', ipAddress: '0.0.0.0' });
 
   // @ts-ignore
   const {
@@ -93,13 +91,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     const initialBalance = '10000000000';
     const neededAccounts: number = 4;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialBalance,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
     global.accounts.push(...accounts);
 
@@ -743,7 +735,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         data: IS_TOKEN_ADDRESS_SIGNATURE + tokenAddress.replace('0x', ''),
       };
 
-      const res = await Utils.ethCallWRetries(relay, callData, 'latest', requestId);
+      const res = await Utils.ethCallWRetries(relay, callData, 'latest');
       expect(res).to.eq(RESULT_TRUE);
     });
   });
@@ -908,7 +900,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getTransactionCount" for account with non-zero nonce', async function () {
-      const account = await Utils.createAliasAccount(mirrorNode, accounts[0], requestId);
+      const account = await Utils.createAliasAccount(mirrorNode, accounts[0]);
 
       const gasPrice = await relay.gasPrice();
       const transaction = {
@@ -1924,7 +1916,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
 
     it('Should return a batch of requests', async function () {
-      const testAccount = await Utils.createAliasAccount(mirrorNode, accounts[0], requestId);
+      const testAccount = await Utils.createAliasAccount(mirrorNode, accounts[0]);
 
       {
         const payload = [
