@@ -6,7 +6,7 @@
   },
   "type": "commonjs",
   "devDependencies": {
-    "chai": "^5.1.1",
+    "chai": "^5.3.1",
     "dotenv": "^17.2.1",
     "ethereum-waffle": "^4.0.10",
     "mocha": "^10.8.2"
