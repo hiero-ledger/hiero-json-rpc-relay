@@ -633,6 +633,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         chainId: Number(CHAIN_ID),
         to: reverterEvmAddress,
         nonce: await relay.getAccountNonce(accounts[0].address),
+        maxFeePerGas: await relay.gasPrice(),
         data: PAYABLE_METHOD_CALL_DATA,
       };
       const signedTx = await accounts[0].wallet.signTransaction(transaction);
