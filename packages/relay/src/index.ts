@@ -119,7 +119,7 @@ export interface Eth {
 
   getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string>;
 
-  getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string>;
+  getUncleCountByBlockNumber(blockNumOrTag: string, requestDetails: RequestDetails): Promise<string>;
 
   getWork(): JsonRpcError;
 

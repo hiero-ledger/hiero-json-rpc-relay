@@ -352,7 +352,7 @@ describe('RPC Server', function () {
       id: '2',
       jsonrpc: '2.0',
       method: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER,
-      params: [null],
+      params: ['latest'],
     });
 
     BaseTest.defaultResponseChecks(res);

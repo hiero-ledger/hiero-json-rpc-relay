@@ -50,7 +50,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-      const result = await relay.eth().getUncleCountByBlockNumber(requestDetails);
+      const result = await relay.eth().getUncleCountByBlockNumber('latest', requestDetails);
       expect(result).to.eq('0x0');
     });
 

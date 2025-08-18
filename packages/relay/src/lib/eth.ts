@@ -498,13 +498,16 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleCountByBlockNumber RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
+   * @param blockNumOrTag - The block number or tag
    * @param requestDetails - Details about the request for logging and tracking
    * @returns Always returns '0x0'
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
-    return this.blockService.getUncleCountByBlockNumber(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockNumber', required: true },
+  })
+  async getUncleCountByBlockNumber(blockNumOrTag: string, requestDetails: RequestDetails): Promise<string> {
+    return this.blockService.getUncleCountByBlockNumber(blockNumOrTag, requestDetails);
   }
 
   /**

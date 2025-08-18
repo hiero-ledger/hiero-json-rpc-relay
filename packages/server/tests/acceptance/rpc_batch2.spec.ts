@@ -608,8 +608,19 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, []);
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, ['latest'], requestId);
       expect(res).to.be.equal('0x0');
+    });
+
+    it('should fail to execute "eth_getUncleCountByBlockNumber" with empty or invalid parameters', async function () {
+      for (const param of ['', '0xhedera']) {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, [param], requestId);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy(
+          (error) =>
+            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter 0'),
+        );
+      }
     });
 
     it('should return empty on "eth_accounts"', async function () {

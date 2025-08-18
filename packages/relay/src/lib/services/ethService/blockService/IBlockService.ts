@@ -16,5 +16,5 @@ export interface IBlockService {
   getUncleByBlockHashAndIndex: (requestDetails: RequestDetails) => Promise<null>;
   getUncleByBlockNumberAndIndex: (requestDetails: RequestDetails) => Promise<null>;
   getUncleCountByBlockHash: (requestDetails: RequestDetails) => Promise<string>;
-  getUncleCountByBlockNumber: (requestDetails: RequestDetails) => Promise<string>;
+  getUncleCountByBlockNumber: (blockNumOrTag: string, requestDetails: RequestDetails) => Promise<string>;
 }

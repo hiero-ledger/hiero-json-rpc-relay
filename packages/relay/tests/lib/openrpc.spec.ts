@@ -444,7 +444,7 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-    const response = await ethImpl.getUncleCountByBlockNumber(requestDetails);
+    const response = await ethImpl.getUncleCountByBlockNumber(numberTo0x(blockNumber), requestDetails);
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockNumber, response);
   });
 

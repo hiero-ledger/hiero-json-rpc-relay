@@ -20,7 +20,7 @@
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockNumber": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockNumber\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockNumber\",\"params\":[\"latest\"]}",
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_hashrate": {
