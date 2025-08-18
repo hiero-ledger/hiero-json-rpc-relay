@@ -19,7 +19,7 @@ import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
-import { CommonService } from '../ethCommonService/CommonService';
+
 export class BlockService implements IBlockService {
   /**
    * The cache service used for caching all responses.
