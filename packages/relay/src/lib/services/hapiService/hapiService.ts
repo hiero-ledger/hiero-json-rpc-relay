@@ -193,10 +193,20 @@ export default class HAPIService {
     );
   }
 
+  /**
+   * Returns the operator account ID.
+   *
+   * @returns The operator account ID or `null` if not set.
+   */
   public getOperatorAccountId(): AccountId | null {
     return this.client.getOperatorAccountId();
   }
 
+  /**
+   * Returns the public key of the operator account.
+   *
+   * @returns The operator's public key or `null` if not set.
+   */
   public getOperatorPublicKey(): PublicKey | null {
     return this.client.getOperatorPublicKey();
   }

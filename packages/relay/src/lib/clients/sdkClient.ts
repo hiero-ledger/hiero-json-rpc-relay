@@ -64,7 +64,7 @@ export class SDKClient {
   /**
    * Constructs an instance of the SDKClient and initializes various services and settings.
    *
-   * @param clientMain - The primary Hedera client instance used for executing transactions and queries.
+   * @param hederaNetwork - The network name for Hedera services.
    * @param logger - The logger instance for logging information, warnings, and errors.
    * @param eventEmitter - The eventEmitter used for emitting and handling events within the class.
    * @param hbarLimitService - The HbarLimitService that tracks hbar expenses and limits.
@@ -107,13 +107,19 @@ export class SDKClient {
   }
 
   /**
-   * Return current main client instance
-   * @returns Main Client
+   * Returns the operator account ID.
+   *
+   * @returns The operator account ID or `null` if not set.
    */
   public getOperatorAccountId(): AccountId | null {
     return this.clientMain.operatorAccountId;
   }
 
+  /**
+   * Returns the public key of the operator account.
+   *
+   * @returns The operator's public key or `null` if not set.
+   */
   public getOperatorPublicKey(): PublicKey | null {
     return this.clientMain.operatorPublicKey;
   }

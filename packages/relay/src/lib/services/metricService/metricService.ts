@@ -50,7 +50,7 @@ export default class MetricService {
    * related to Hedera network interactions and resource usage.
    *
    * @param logger - Logger instance for logging system messages.
-   * @param sdkClient - Client for interacting with the Hedera SDK.
+   * @param cnMetrics - `SDKClient` or `HAPIService` for fetching transaction record metrics from the Consensus Node.
    * @param mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param register - Registry instance for registering metrics.
    */
