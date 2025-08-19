@@ -163,7 +163,8 @@ describe('Metric Service', function () {
     const network = ConfigService.get('HEDERA_NETWORK')!;
     const sdkClient = new SDKClient(network, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
-    metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
+    const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+    metricService = new MetricService(logger, metricsCollector, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       metricService.captureTransactionMetrics(args).then();
     });

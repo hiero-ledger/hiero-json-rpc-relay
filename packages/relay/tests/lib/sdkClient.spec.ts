@@ -120,12 +120,13 @@ describe('SdkClient', async function () {
 
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
-    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      metricService.captureTransactionMetrics(args).then();
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).captureTransactionMetrics(args).then();
     });
     eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      metricService.addExpenseAndCaptureMetrics(args);
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).addExpenseAndCaptureMetrics(args);
     });
   });
 

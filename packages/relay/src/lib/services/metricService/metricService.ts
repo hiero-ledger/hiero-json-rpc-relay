@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
   IExecuteQueryEventPayload,
@@ -14,16 +12,20 @@ import {
 } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
+interface ITransactionMetricsCollector {
+  getTransactionRecordMetrics(
+    transactionId: string,
+    txConstructorName: string,
+    operatorAccountId: string,
+    requestDetails?: RequestDetails,
+  ): Promise<ITransactionRecordMetric>;
+}
+
 export default class MetricService {
   /**
    * Logger instance for logging information.
    */
   private readonly logger: Logger;
-
-  /**
-   * Main Mirror Node client for retrieving transaction records.
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
 
   /**
    * Histogram for capturing the cost of transactions and queries.
@@ -50,19 +52,16 @@ export default class MetricService {
    * related to Hedera network interactions and resource usage.
    *
    * @param logger - Logger instance for logging system messages.
-   * @param cnMetrics - `SDKClient` or `HAPIService` for fetching transaction record metrics from the Consensus Node.
-   * @param mirrorNodeClient - Client for querying the Hedera mirror node.
+   * @param metricsCollector - `SDKClient` or `HAPIService` for fetching transaction record metrics from the Consensus Node.
    * @param register - Registry instance for registering metrics.
    */
   constructor(
     logger: Logger,
-    private readonly cnMetrics: Pick<SDKClient, 'getTransactionRecordMetrics'>,
-    mirrorNodeClient: MirrorNodeClient,
+    private readonly metricsCollector: ITransactionMetricsCollector,
     register: Registry,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
-    this.mirrorNodeClient = mirrorNodeClient;
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
@@ -236,20 +235,14 @@ export default class MetricService {
     operatorAccountId: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionRecordMetric | undefined> {
-    const defaultToConsensusNode = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE');
-
     // retrieve transaction metrics
     try {
-      if (defaultToConsensusNode) {
-        return await this.cnMetrics.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
-      } else {
-        return await this.mirrorNodeClient.getTransactionRecordMetrics(
-          transactionId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
-      }
+      return await this.metricsCollector.getTransactionRecordMetrics(
+        transactionId,
+        txConstructorName,
+        operatorAccountId,
+        requestDetails,
+      );
     } catch (error: any) {
       this.logger.warn(error, `Could not fetch transaction record: error=${error.message}`);
     }

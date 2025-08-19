@@ -170,7 +170,10 @@ export class Relay {
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
     );
 
-    this.metricService = new MetricService(logger, hapiService, this.mirrorNodeClient, register, hbarLimitService);
+    const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE')
+      ? hapiService
+      : this.mirrorNodeClient;
+    this.metricService = new MetricService(logger, metricsCollector, register, hbarLimitService);
 
     this.ethImpl = new EthImpl(
       hapiService,
