@@ -328,7 +328,7 @@ describe('RPC Server', function () {
       id: '2',
       jsonrpc: '2.0',
       method: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
-      params: [null],
+      params: ['latest', '0x0'],
     });
 
     BaseTest.defaultResponseChecks(res);

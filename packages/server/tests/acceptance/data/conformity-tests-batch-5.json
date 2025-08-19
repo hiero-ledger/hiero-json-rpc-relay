@@ -12,7 +12,7 @@
     "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleByBlockNumberAndIndex": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockNumberAndIndex\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockNumberAndIndex\",\"params\":[\"latest\",\"0x0\"]}",
     "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockHash": {

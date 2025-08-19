@@ -40,7 +40,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-      const result = await relay.eth().getUncleByBlockNumberAndIndex(requestDetails);
+      const result = await relay.eth().getUncleByBlockNumberAndIndex('latest', '0x0', requestDetails);
       expect(result).to.be.null;
     });
 

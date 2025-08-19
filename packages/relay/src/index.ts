@@ -115,7 +115,7 @@ export interface Eth {
 
   getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<any>;
 
-  getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string, requestDetails: RequestDetails): Promise<any>;
 
   getUncleCountByBlockHash(blockHash: string, requestDetails: RequestDetails): Promise<string>;
 

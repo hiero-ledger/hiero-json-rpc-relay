@@ -429,12 +429,12 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
+    const response = await ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0', requestDetails);
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
+    const response = await ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0', requestDetails);
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 

@@ -602,6 +602,21 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.be.null;
     });
 
+    it('should fail to execute "eth_getUncleByBlockNumberAndIndex" with empty or invalid parameters', async function () {
+      for (const invalidBlockNum of ['', '0xhedera']) {
+        const promise = relay.call(
+          RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
+          [invalidBlockNum, '0x0'],
+          requestId,
+        );
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy(
+          (error) =>
+            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter 0'),
+        );
+      }
+    });
+
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,

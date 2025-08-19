@@ -14,7 +14,11 @@ export interface IBlockService {
   getBlockTransactionCountByNumber: (blockNum: string, requestDetails: RequestDetails) => Promise<string | null>;
   getBlockReceipts: (blockHash: string, requestDetails: RequestDetails) => Promise<ITransactionReceipt[] | null>;
   getUncleByBlockHashAndIndex: (requestDetails: RequestDetails) => Promise<null>;
-  getUncleByBlockNumberAndIndex: (requestDetails: RequestDetails) => Promise<null>;
+  getUncleByBlockNumberAndIndex: (
+    blockNumOrTag: string,
+    index: string,
+    requestDetails: RequestDetails,
+  ) => Promise<null>;
   getUncleCountByBlockHash: (blockHash: string, requestDetails: RequestDetails) => Promise<string>;
   getUncleCountByBlockNumber: (blockNumOrTag: string, requestDetails: RequestDetails) => Promise<string>;
 }

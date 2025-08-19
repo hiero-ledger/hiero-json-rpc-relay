@@ -468,13 +468,22 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleByBlockNumberAndIndex RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
+   * @param blockNumOrTag - The block number or tag
+   * @param index - The uncle index
    * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
-    return this.blockService.getUncleByBlockNumberAndIndex(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockNumber', required: true },
+    1: { type: 'hex', required: true },
+  })
+  async getUncleByBlockNumberAndIndex(
+    blockNumOrTag: string,
+    index: string,
+    requestDetails: RequestDetails,
+  ): Promise<null> {
+    return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index, requestDetails);
   }
 
   /**
