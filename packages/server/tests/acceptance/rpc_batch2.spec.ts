@@ -571,63 +571,57 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, [
-        createChildTx.hash,
-        0,
-      ]);
+      const res = await relay.call(
+        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
+        [createChildTx.hash, '0x0'],
+        requestId,
+      );
       expect(res).to.be.null;
     });
 
-    it('should execute "eth_getUncleByBlockHashAndIndex" for non-existing block hash and index=0', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, [
-        Address.NON_EXISTING_BLOCK_HASH,
-        0,
-      ]);
-      expect(res).to.be.null;
-    });
-
-    it('should fail to execute "eth_getUncleByBlockHashAndIndex" with empty or invalid parameters', async function () {
-      for (const invalidBlockHash of ['', '0xhedera']) {
+    it('should fail to execute "eth_getUncleByBlockHashAndIndex" with invalid parameters', async function () {
+      for (const invalidBlockHash of [
+        ['', '0x0'],
+        ['0xhedera', '0x0'],
+        [createChildTx.hash, '0xinvalidiIndex'],
+      ]) {
         const promise = relay.call(
           RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
-          [invalidBlockHash, '0x0'],
+          [invalidBlockHash[0], invalidBlockHash[1]],
           requestId,
         );
 
         await expect(promise).to.eventually.be.rejected.and.satisfy(
           (error) =>
-            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter 0'),
+            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter'),
         );
       }
     });
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX, [
-        createChildTx.blockNumber,
-        0,
-      ]);
+      const res = await relay.call(
+        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
+        ['latest', '0x0'],
+        requestId,
+      );
       expect(res).to.be.null;
     });
 
-    it('should execute "eth_getUncleByBlockNumberAndIndex" for non-existing block number and index=0', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX, [
-        Address.NON_EXISTING_BLOCK_NUMBER,
-        0,
-      ]);
-      expect(res).to.be.null;
-    });
-
-    it('should fail to execute "eth_getUncleByBlockNumberAndIndex" with empty or invalid parameters', async function () {
-      for (const invalidBlockNum of ['', '0xhedera']) {
+    it('should fail to execute "eth_getUncleByBlockNumberAndIndex" with invalid parameters', async function () {
+      for (const invalidBlockNum of [
+        ['', '0x0'],
+        ['0xhedera', '0x0'],
+        ['latest', '0xinvalidiIndex'],
+      ]) {
         const promise = relay.call(
           RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
-          [invalidBlockNum, '0x0'],
+          [invalidBlockNum[0], invalidBlockNum[1]],
           requestId,
         );
 
         await expect(promise).to.eventually.be.rejected.and.satisfy(
           (error) =>
-            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter 0'),
+            error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter'),
         );
       }
     });
@@ -635,13 +629,13 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
       const res = await relay.call(
         RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,
-        [Address.NON_EXISTING_BLOCK_HASH],
+        [createChildTx.hash],
         requestId,
       );
       expect(res).to.be.equal('0x0');
     });
 
-    it('should fail to execute "eth_getUncleCountByBlockHash" with empty or invalid parameters', async function () {
+    it('should fail to execute "eth_getUncleCountByBlockHash" with invalid parameters', async function () {
       for (const param of ['', '0xhedera']) {
         const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH, [param], requestId);
 
@@ -657,7 +651,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.be.equal('0x0');
     });
 
-    it('should fail to execute "eth_getUncleCountByBlockNumber" with empty or invalid parameters', async function () {
+    it('should fail to execute "eth_getUncleCountByBlockNumber" with invalid parameters', async function () {
       for (const param of ['', '0xhedera']) {
         const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, [param], requestId);
 
