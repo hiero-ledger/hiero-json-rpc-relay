@@ -2,9 +2,9 @@
 
 /* global describe, it */
 
-import hre from 'hardhat';
 import { Options, addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
 import { expect } from 'chai';
+import hre from 'hardhat';
 import CONSTANTS from './constants.js';
 
 const { ethers } = hre;
