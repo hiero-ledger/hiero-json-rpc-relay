@@ -424,7 +424,7 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockHashAndIndex(requestDetails);
+    const response = await ethImpl.getUncleByBlockHashAndIndex(blockHash, '0x0', requestDetails);
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockHashAndIndex, response);
   });
 

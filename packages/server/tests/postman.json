@@ -448,7 +448,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockHashAndIndex\",\n    \"params\": []\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockHashAndIndex\",\n    \"params\": [\"0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8\", \"0x0\"]\n}",
           "options": {
             "raw": {
               "language": "json"

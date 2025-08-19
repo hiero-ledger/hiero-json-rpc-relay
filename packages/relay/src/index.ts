@@ -113,7 +113,7 @@ export interface Eth {
 
   getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<Receipt | null>;
 
-  getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockHashAndIndex(blockHash: string, index: string, requestDetails: RequestDetails): Promise<any>;
 
   getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string, requestDetails: RequestDetails): Promise<any>;
 

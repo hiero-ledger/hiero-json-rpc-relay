@@ -14,6 +14,7 @@ use(chaiAsPromised);
 describe('@ethCommon', async function () {
   let relay: Relay;
   this.timeout(10000);
+  const randomBlockHash = '0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8';
 
   const requestDetails = new RequestDetails({ requestId: 'eth_commonTest', ipAddress: '0.0.0.0' });
 
@@ -35,7 +36,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-      const result = await relay.eth().getUncleByBlockHashAndIndex(requestDetails);
+      const result = await relay.eth().getUncleByBlockHashAndIndex(randomBlockHash, '0x0', requestDetails);
       expect(result).to.be.null;
     });
 
@@ -45,9 +46,7 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const result = await relay
-        .eth()
-        .getUncleCountByBlockHash('0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8', requestDetails);
+      const result = await relay.eth().getUncleCountByBlockHash(randomBlockHash, requestDetails);
       expect(result).to.eq('0x0');
     });
 

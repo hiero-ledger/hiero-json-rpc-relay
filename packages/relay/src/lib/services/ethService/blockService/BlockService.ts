@@ -241,11 +241,14 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @returns null
+   *
+   * @param blockHash - The block hash
+   * @param index - The uncle index
+   * @returns null as Hedera does not support uncle blocks
    */
-  async getUncleByBlockHashAndIndex(): Promise<null> {
+  async getUncleByBlockHashAndIndex(blockHash: string, index: string): Promise<null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getUncleByBlockHashAndIndex()');
+      this.logger.trace(`getUncleByBlockHashAndIndex(blockHash=${blockHash}, index=${index})`);
     }
     return null;
   }
