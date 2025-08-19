@@ -37,10 +37,10 @@ abstract contract StargateHTSConnectorExistingToken is StargateOFT, KeyHelper, H
     function _inflow(address _from, uint256 _amount) internal virtual override returns (uint64 amountSD) {
         amountSD = _ld2sd(_amount);
 
-        int256 transferResponse = HederaTokenService.transferToken(htsTokenAddress, _from, address(this), int64(uint64(_sd2ld(amountSD))));
+        int256 transferResponse = HederaTokenService.transferToken(htsTokenAddress, _from, address(this), int64(uint64(_amount)));
         require(transferResponse == HederaTokenService.SUCCESS_CODE, "HTS: Transfer failed");
 
-        (int256 response,) = HederaTokenService.burnToken(htsTokenAddress, int64(uint64(_sd2ld(amountSD))), new int64[](0));
+        (int256 response,) = HederaTokenService.burnToken(htsTokenAddress, int64(uint64(_amount)), new int64[](0));
         require(response == HederaTokenService.SUCCESS_CODE, "HTS: Burn failed");
     }
 

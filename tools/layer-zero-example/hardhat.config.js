@@ -147,7 +147,7 @@ task('deploy-stargate-hts-connector-existing-token', 'Deploy Stargate HTS connec
     const ENDPOINT_V2 = getEndpointAddress(hre.network.name);
 
     const contractFactory = await ethers.getContractFactory('ExampleStargateHTSConnectorExistingToken');
-    const contract = await contractFactory.deploy(taskArgs.token, 8, ENDPOINT_V2, signers[0].address, {
+    const contract = await contractFactory.deploy(taskArgs.token, 6, ENDPOINT_V2, signers[0].address, {
       gasLimit: 10_000_000,
     });
     await contract.deployTransaction.wait();
@@ -240,4 +240,20 @@ task('set-peer', 'Set peer')
     }
 
     console.log(`(${hre.network.name}) Peer for network with EID ${EID} was successfully set, txHash ${tx.hash}`);
+  });
+
+task('set-stargate-oft-path', 'Set stargate oft path')
+  .addParam('source', 'Source contract address')
+  .setAction(async (taskArgs, hre) => {
+    const ethers = hre.ethers;
+
+    const contract = await ethers.getContractAt('StargateBase', taskArgs.source);
+    const tx = await contract.setOFTPath(CONSTANTS.BSC_EID, true, {gasLimit: 10_000_000});
+    const receipt = await tx.wait();
+
+    if (!receipt.status) {
+      process.exit('Execution of setPeer failed. Tx hash: ' + tx.hash);
+    }
+
+    console.log(`(${hre.network.name}) OFT Path for network with EID ${CONSTANTS.BSC_EID} was successfully set, txHash ${tx.hash}`);
   });
