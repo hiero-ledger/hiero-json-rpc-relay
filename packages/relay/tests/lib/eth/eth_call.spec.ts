@@ -21,7 +21,6 @@ import {
   mockData,
   overrideEnvsInMochaDescribe,
 } from '../../helpers';
-import type { SpyFor, StubFor } from '../../types';
 import {
   ACCOUNT_ADDRESS_1,
   CONTRACT_ADDRESS_1,
@@ -55,7 +54,7 @@ interface ContractServiceTest extends ContractService {
 }
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: StubFor<HAPIServiceTest, 'getSDKClient'>;
+let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
 
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
@@ -92,7 +91,7 @@ describe('@ethCall Eth Call spec', async function () {
 
   describe('eth_call precheck failures', async function () {
     let sandbox: sinon.SinonSandbox;
-    let callMirrorNodeSpy: SpyFor<ContractServiceTest, 'callMirrorNode'>;
+    let callMirrorNodeSpy: sinon.SinonSpiedMember<ContractServiceTest['callMirrorNode']>;
 
     beforeEach(() => {
       sandbox = sinon.createSandbox();

@@ -49,7 +49,6 @@ import {
   signTransaction,
   withOverriddenEnvsInMochaTest,
 } from '../helpers';
-import type { StubFor } from '../types';
 import { transactionBuffer } from './fixtures/transactionBufferFixture';
 
 const registry = new Registry();
@@ -1056,8 +1055,8 @@ describe('SdkClient', async function () {
           }),
       }) as unknown as TransactionResponse;
 
-    let executeTransactionStub: StubFor<SDKClientTest, 'executeTransaction'>;
-    let executeQueryStub: StubFor<SDKClientTest, 'executeQuery'>;
+    let executeTransactionStub: sinon.SinonStubbedMember<SDKClientTest['executeTransaction']>;
+    let executeQueryStub: sinon.SinonStubbedMember<SDKClientTest['executeQuery']>;
     let loggerWarnStub: sinon.SinonStub;
     let loggerTraceStub: sinon.SinonStub;
 
