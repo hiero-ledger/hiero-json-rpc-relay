@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+/* global describe, it */
+
 import hre from 'hardhat';
-const { ethers } = hre;
 import { Options, addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
 import { expect } from 'chai';
 import CONSTANTS from './constants.js';
 
+const { ethers } = hre;
 const { HEDERA_EID, BSC_EID, RECEIVER_ADDRESS } = CONSTANTS;
 const amount = '100';
 
@@ -98,7 +100,7 @@ describe('StargateHTSConnectorExistingToken', function() {
     const contract = await ethers.getContractAt('ExampleOFT', process.env.STARGATE_HTS_CONNECTOR_EXISTING_TOKEN_BSC_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '1000000000000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 1_000_000,
-      value: '1000000000000000'
+      value: '1000000000000000',
     });
 
     const receipt = await tx.wait();
