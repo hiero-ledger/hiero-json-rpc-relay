@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const hre = require('hardhat');
+import hre from 'hardhat';
 const { ethers } = hre;
-const { Options, addressToBytes32 } = require('@layerzerolabs/lz-v2-utilities');
-const { expect } = require('chai');
-const CONSTANTS = require('./constants');
+import { Options, addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
+import { expect } from 'chai';
+import CONSTANTS from './constants.js';
 
 const { HEDERA_EID, BSC_EID, RECEIVER_ADDRESS } = CONSTANTS;
 const amount = '100';
@@ -17,12 +17,12 @@ describe('StargateHTSConnectorExistingToken', function() {
       process.env.STARGATE_HTS_CONNECTOR_EXISTING_TOKEN_HEDERA_CONTRACT,
       '0x',
       '0x',
-      '0x0000000000000000000000000000000000000000'
+      '0x0000000000000000000000000000000000000000',
     ];
     const tx = await contract.updateTokenKeysPublic(
       [
-        [16, updatedKey]
-      ]
+        [16, updatedKey],
+      ],
     );
     const receipt = await tx.wait();
 
@@ -65,13 +65,13 @@ describe('StargateHTSConnectorExistingToken', function() {
       minAmountLD: amount,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      oftCmd: ethers.utils.arrayify('0x')
+      oftCmd: ethers.utils.arrayify('0x'),
     };
 
     const contract = await ethers.getContractAt('ExampleStargateHTSConnectorExistingToken', process.env.STARGATE_HTS_CONNECTOR_EXISTING_TOKEN_HEDERA_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '500000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 10_000_000,
-      value: '5000000000000000000'
+      value: '5000000000000000000',
     });
 
     const receipt = await tx.wait();
@@ -92,7 +92,7 @@ describe('StargateHTSConnectorExistingToken', function() {
       minAmountLD: amount,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      oftCmd: ethers.utils.arrayify('0x')
+      oftCmd: ethers.utils.arrayify('0x'),
     };
 
     const contract = await ethers.getContractAt('ExampleOFT', process.env.STARGATE_HTS_CONNECTOR_EXISTING_TOKEN_BSC_CONTRACT);
