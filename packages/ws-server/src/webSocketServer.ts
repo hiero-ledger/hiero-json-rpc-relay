@@ -9,6 +9,7 @@ import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/service
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
+import { spec } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/RpcResponse';
 import Koa from 'koa';
 import websockify from 'koa-websocket';
@@ -85,12 +86,11 @@ app.ws.use(async (ctx: Koa.Context) => {
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
-  koaJsonRpc.updateRequestDetails({
+  const requestDetails = new RequestDetails({
     requestId: ctx.websocket.requestId,
     ipAddress: ctx.request.ip,
     connectionId: ctx.websocket.id,
   });
-  const requestDetails = koaJsonRpc.getRequestDetails();
 
   logger.info(
     // @ts-ignore
@@ -176,11 +176,7 @@ app.ws.use(async (ctx: Koa.Context) => {
         // process requests
         const requestPromises = request.map((item: any) => {
           if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
-            return jsonRespError(
-              item.id,
-              predefined.BATCH_REQUESTS_METHOD_NOT_PERMITTED(item.method),
-              requestDetails.requestId,
-            );
+            return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestDetails.requestId);
           }
           return getRequestResult(
             ctx,
@@ -254,7 +250,7 @@ httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
   } else if (ctx.url === '/health/readiness') {
     // readiness endpoint
     try {
-      const result = relay.eth().chainId(new RequestDetails({ requestId: uuid(), ipAddress: ctx.request.ip }));
+      const result = relay.eth().chainId();
       if (result.includes('0x12')) {
         ctx.status = 200;
         ctx.body = 'OK';

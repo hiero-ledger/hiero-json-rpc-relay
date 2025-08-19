@@ -415,11 +415,11 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async newPendingTransactionFilter(): Promise<JsonRpcError> {
+  newPendingTransactionFilter(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('newPendingTransactionFilter()');
     }
-    return this.filterService.newPendingTransactionFilter();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**

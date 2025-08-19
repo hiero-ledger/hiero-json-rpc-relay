@@ -6,7 +6,7 @@ import { Logger } from 'pino';
 import { generateRandomHex, toHash32 } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
-import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
+import { predefined } from '../../../errors/JsonRpcError';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { INewFilterParams } from '../../../types/requestParams';
@@ -172,10 +172,6 @@ export class FilterService implements IFilterService {
     }
 
     return false;
-  }
-
-  public newPendingTransactionFilter(): JsonRpcError {
-    return predefined.UNSUPPORTED_METHOD;
   }
 
   public async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {

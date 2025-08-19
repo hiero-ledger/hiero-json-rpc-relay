@@ -10,7 +10,7 @@ import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
-import { TransactionFactory } from '../../../factories/transactionFactory';
+import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
   TransactionReceiptFactory,
@@ -19,7 +19,7 @@ import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
-import { CommonService } from '../ethCommonService/CommonService';
+
 export class BlockService implements IBlockService {
   /**
    * The cache service used for caching all responses.
@@ -403,7 +403,7 @@ export class BlockService implements IBlockService {
           transactionIndex: log.transactionIndex,
           type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
           v: constants.ZERO_HEX,
-          value: constants.ONE_TWO_THREE_FOUR_HEX,
+          value: constants.ZERO_HEX,
         });
 
         if (transaction !== null) {
@@ -456,7 +456,7 @@ export class BlockService implements IBlockService {
       ]);
 
       contractResult.chain_id = contractResult.chain_id || this.chain;
-      txArray.push(showDetails ? CommonService.formatContractResult(contractResult) : contractResult.hash);
+      txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
     }
 
     return txArray;

@@ -1,8 +1,12 @@
-
 name: OpenRPC JSON Updater
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'docs/openrpc.json'
+  pull_request:
     branches:
       - main
     paths:
@@ -25,17 +29,17 @@ jobs:
       - name: Checkout execution-apis repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: main
+          ref: v1.0.0-beta.4
           repository: 'ethereum/execution-apis'
           path: 'execution-apis'
 
       - name: Use Node.js TLS 22
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
-          node-version: 22
+          node-version: 22.17
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./execution-apis
 
       - name: Build project
@@ -60,8 +64,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: 'main'
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Download openrpc.json artifact
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
@@ -77,11 +80,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.17
 
       - name: Install dependencies
         working-directory: scripts/openrpc-json-updater
-        run: npm install
+        run: npm ci
 
       - name: Generate comparison report
         id: generate-report
@@ -130,12 +133,12 @@ jobs:
           echo "Generated unique branch name: ${UNIQUE_BRANCH}"
 
       - name: Create Pull Request
-        if: env.SKIP_PR != 'true'
+        if: ${{ env.SKIP_PR != 'true' }}
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
           commit-message: Update OpenRPC JSON
-          title: 'Update OpenRPC JSON'
+          title: 'docs: Update OpenRPC JSON'
           body: |
             # OpenRPC JSON Update
 

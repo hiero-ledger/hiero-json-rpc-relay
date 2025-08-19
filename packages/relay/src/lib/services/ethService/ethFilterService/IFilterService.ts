@@ -11,8 +11,6 @@ export interface IFilterService {
 
   uninstallFilter(filterId: string, requestDetails: RequestDetails): Promise<boolean>;
 
-  newPendingTransactionFilter(requestDetails: RequestDetails): JsonRpcError;
-
   getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<any>;
 
   getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[] | JsonRpcError>;
