@@ -636,8 +636,6 @@ describe('EstimatePrecompileContract tests', function () {
   });
 
   it('should call estimateGas with setApprovalForAll function', async function () {
-    const spender = prefix + EstimatePrecompileContractAddress;
-
     const txResult = await estimateContractSigner0.setApprovalForAllExternal(
       nftAddress,
       accounts[3].wallet.address,
@@ -959,7 +957,6 @@ describe('EstimatePrecompileContract tests', function () {
 
   it('should call estimateGas with transferTokens function for fungible token', async function () {
     const amounts: number[] = [-10, 10];
-    const tokens: string[] = [tokenAddress];
     const transferAccounts: string[] = [accounts[0].wallet.address, accounts[2].wallet.address];
 
     const tx = await estimateContractSigner0.transferTokensExternal.populateTransaction(

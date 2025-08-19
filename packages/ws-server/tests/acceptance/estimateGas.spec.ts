@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import basicContractJson from '@hashgraph/json-rpc-server/tests/contracts/Basic.json';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
