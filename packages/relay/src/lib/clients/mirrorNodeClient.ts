@@ -224,9 +224,7 @@ export class MirrorNodeClient {
       retries: mirrorNodeRetries,
       retryDelay: (retryCount, error) => {
         const delay = mirrorNodeRetryDelay * retryCount;
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`Retry delay ${delay} ms on '${error?.request?.path}'`);
-        }
+          this.logger.trace({ retryCount, delay }, 'Retry delay %d ms on \'%s\'', delay, error?.request?.path);
         return delay;
       },
       retryCondition: (error) => {
@@ -290,7 +288,8 @@ export class MirrorNodeClient {
     });
 
     this.logger.info(
-      `Mirror Node client successfully configured to REST url: ${this.restUrl} and Web3 url: ${this.web3Url} `,
+      { restUrl: this.restUrl, web3Url: this.web3Url },
+      'Mirror Node client successfully configured to REST url: %s and Web3 url: %s ',
     );
     this.cacheService = cacheService;
 
@@ -377,7 +376,7 @@ export class MirrorNodeClient {
                 try {
                   return JSONBigInt.parse(data);
                 } catch (error) {
-                  this.logger.warn(`Failed to parse response data from Mirror Node: ${error}`);
+                  this.logger.warn({ error }, 'Failed to parse response data from Mirror Node: %s');
                 }
               }
 
@@ -392,13 +391,10 @@ export class MirrorNodeClient {
       }
 
       const ms = Date.now() - start;
-      if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `Successfully received response from mirror node server: method=${method}, path=${path}, status=${
-            response.status
-          }, duration:${ms}ms, data:${JSON.stringify(response.data)}`,
+          { method, path, status: response.status, duration: ms, data: response.data },
+          'Successfully received response from mirror node server: method=%s, path=%s, status=%s, duration:%dms, data=%o',
         );
-      }
       this.mirrorResponseHistogram.labels(pathLabel, response.status?.toString()).observe(ms);
       return response.data;
     } catch (error: any) {
@@ -451,27 +447,24 @@ export class MirrorNodeClient {
     const acceptedErrorResponses = MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.get(pathLabel);
 
     if (error.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
-      if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `An accepted error occurred while communicating with the mirror node server: method=${method}, path=${path}, status=${effectiveStatusCode}`,
+          { method, path, status: effectiveStatusCode },
+          'An accepted error occurred while communicating with the mirror node server: method=%s, path=%s, status=%d',
         );
-      }
       return null;
     }
 
     // Contract Call returns 400 for a CONTRACT_REVERT but is a valid response, expected and should not be logged as error:
     if (pathLabel === MirrorNodeClient.CONTRACT_CALL_ENDPOINT && effectiveStatusCode === 400) {
-      if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `[${method}] ${path} Contract Revert: ( StatusCode: '${effectiveStatusCode}', StatusText: '${
-            error.response.statusText
-          }', Detail: '${JSON.stringify(error.response.detail)}',Data: '${JSON.stringify(error.response.data)}')`,
+          { method, path, status: effectiveStatusCode, detail: error.response.detail, data: error.response.data },
+          '[%s] %s Contract Revert: ( StatusCode: \'%d\', StatusText: \'%s\', Detail: \'%o\',Data: \'%o\')',
         );
-      }
     } else {
       this.logger.error(
         new Error(error.message),
-        `Error encountered while communicating with the mirror node server: method=${method}, path=${path}, status=${effectiveStatusCode}`,
+        { method, path, status: effectiveStatusCode },
+        'Error encountered while communicating with the mirror node server: method=%s, path=%s, status=%d',
       );
     }
 
@@ -496,9 +489,7 @@ export class MirrorNodeClient {
 
     if (page === pageMax) {
       // max page reached
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Max page reached ${pageMax} with ${results.length} results`);
-      }
+        this.logger.trace({ pageMax, results }, 'Max page reached %d with %d results', pageMax, results.length);
       throw predefined.PAGINATION_MAX(pageMax);
     }
 
@@ -592,7 +583,7 @@ export class MirrorNodeClient {
       const match = url.match(regex);
       const accountId = match ? match[1] : null;
       if (!accountId) {
-        this.logger.error(`Unable to extract evm address from url ${url}`);
+        this.logger.error({ url }, 'Unable to extract evm address from url %s');
       }
       return String(accountId);
     } else {
@@ -600,7 +591,7 @@ export class MirrorNodeClient {
       const match = url.match(MirrorNodeClient.EVM_ADDRESS_REGEX);
       const accountId = match ? match[1] : null;
       if (!accountId) {
-        this.logger.error(`Unable to extract account ID from url ${url}`);
+        this.logger.error({ url }, 'Unable to extract account ID from url %s');
       }
       return String(accountId);
     }
@@ -817,13 +808,12 @@ export class MirrorNodeClient {
               contractObject.block_hash == constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
-            if (this.logger.isLevelEnabled('debug')) {
               this.logger.debug(
-                `Contract result contains nullable transaction_index or block_number, or block_hash is an empty hex (0x): contract_result=${JSON.stringify(
-                  contractObject,
-                )}. ${!isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : ``}`,
+                { contractObject },
+                'Contract result contains nullable transaction_index or block_number, or block_hash is an empty hex (0x): contract_result=%o. %s',
+                contractObject,
+                !isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : '',
               );
-            }
 
             // If immature records persist after the final polling attempt, throw the DEPENDENT_SERVICE_IMMATURE_RECORDS error.
             if (isLastAttempt) {
@@ -1006,13 +996,12 @@ export class MirrorNodeClient {
               log.block_hash === constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
-            if (this.logger.isLevelEnabled('debug')) {
-              this.logger.debug(
-                `Contract result log contains nullable transaction_index, block_number, index, or block_hash is an empty hex (0x): log=${JSON.stringify(
-                  log,
-                )}. ${!isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : ``}`,
-              );
-            }
+            this.logger.debug(
+              { log },
+              'Contract result log contains nullable transaction_index, block_number, index, or block_hash is an empty hex (0x): log=%o. %s',
+              log,
+              !isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : '',
+            );
 
             // If immature records persist after the final polling attempt, throw the DEPENDENT_SERVICE_IMMATURE_RECORDS error.
             if (isLastAttempt) {
@@ -1294,14 +1283,14 @@ export class MirrorNodeClient {
         const tx = await this.getTransactionById(transactionId[0], requestDetails);
 
         if (tx === null) {
-          this.logger.error(`Transaction failed with null result`);
+          this.logger.error({ transactionId: transactionId[0] }, 'Transaction failed with null result');
           return null;
         } else if (tx.length === 0) {
-          this.logger.error(`Transaction failed with empty result`);
+          this.logger.error({ transactionId: transactionId[0] }, 'Transaction failed with empty result');
           return null;
         } else if (tx?.transactions.length > 1) {
           const result = tx.transactions[1].result;
-          this.logger.error(`Transaction failed with result: ${result}`);
+          this.logger.error({ transactionId: transactionId[0], result }, 'Transaction failed with result: %s', result);
           return result;
         }
       }
@@ -1498,10 +1487,7 @@ export class MirrorNodeClient {
         if (e.statusCode === 404) {
           result = null;
         } else {
-          this.logger.warn(
-            e,
-            `Error raised during polling mirror node for updated records: method=${methodName}, args=${args}`,
-          );
+          this.logger.warn({ e, methodName, args }, 'Error raised during polling mirror node for updated records: method=%s, args=%o');
         }
       }
 
@@ -1509,13 +1495,15 @@ export class MirrorNodeClient {
         break;
       }
 
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Repeating request ${methodName} with args ${JSON.stringify(
-            args,
-          )} retry count ${i} of ${repeatCount}. Waiting ${this.MIRROR_NODE_RETRY_DELAY} ms before repeating request`,
-        );
-      }
+      this.logger.debug(
+        { methodName, args, i, repeatCount },
+        'Repeating request %s with args %o retry count %d of %d. Waiting %d ms before repeating request',
+        methodName,
+        args,
+        i,
+        repeatCount,
+        this.MIRROR_NODE_RETRY_DELAY,
+      );
 
       // Backoff before repeating request
       await new Promise((r) => setTimeout(r, this.MIRROR_NODE_RETRY_DELAY));
@@ -1539,11 +1527,10 @@ export class MirrorNodeClient {
     operatorAccountId: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionRecordMetric> {
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
-      );
-    }
+    this.logger.debug(
+      { transactionId, txConstructorName },
+      'Get transaction record via mirror node: transactionId=%s, txConstructorName=%s',
+    );
 
     // Create a modified copy of requestDetails
     const modifiedRequestDetails = new RequestDetails({

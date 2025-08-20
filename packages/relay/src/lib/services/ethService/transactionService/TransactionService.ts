@@ -107,9 +107,7 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
-    }
+    this.logger.trace('getTransactionByBlockHashAndIndex(hash=%s, index=%s)', blockHash, transactionIndex);
 
     try {
       return await this.getTransactionByBlockHashOrBlockNumAndIndex(
@@ -137,9 +135,7 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`);
-    }
+    this.logger.trace('getTransactionByBlockNumberAndIndex(blockNum=%s, index=%s)', blockNumOrTag, transactionIndex);
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
 
     try {
@@ -163,9 +159,7 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByHash(hash=${hash})`, hash);
-    }
+    this.logger.trace('getTransactionByHash(hash=%s)', hash);
 
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
@@ -184,9 +178,7 @@ export class TransactionService implements ITransactionService {
 
       // no tx found
       if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`no tx for ${hash}`);
-        }
+        this.logger.trace('no tx for %s', hash);
         return null;
       }
 
@@ -213,9 +205,7 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionReceipt(${hash})`);
-    }
+    this.logger.trace('getTransactionReceipt(%s)', hash);
 
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
@@ -227,9 +217,7 @@ export class TransactionService implements ITransactionService {
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
+      this.logger.trace('receipt for %s found in block %s', hash, receipt.blockNumber);
 
       return receipt;
     }
@@ -282,9 +270,6 @@ export class TransactionService implements ITransactionService {
    * @returns A JsonRpcError indicating that the method is not supported
    */
   public sendTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sendTransaction()');
-    }
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -293,9 +278,6 @@ export class TransactionService implements ITransactionService {
    * @returns A JsonRpcError indicating that the method is not supported
    */
   public signTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('signTransaction()');
-    }
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -304,9 +286,6 @@ export class TransactionService implements ITransactionService {
    * @returns A JsonRpcError indicating that the method is not supported
    */
   public sign(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sign()');
-    }
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -434,9 +413,7 @@ export class TransactionService implements ITransactionService {
 
     // no tx found
     if (!syntheticLogs.length) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`no receipt for ${hash}`);
-      }
+      this.logger.trace('no receipt for %s', hash);
       return null;
     }
 
@@ -451,9 +428,7 @@ export class TransactionService implements ITransactionService {
     };
     const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
-    }
+    this.logger.trace('receipt for %s found in block %s', hash, receipt.blockNumber);
 
     return receipt;
   }
@@ -471,13 +446,11 @@ export class TransactionService implements ITransactionService {
     requestDetails: RequestDetails,
   ): Promise<void> {
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Transaction undergoing prechecks: transaction=${JSON.stringify(parsedTx)}`);
-      }
+      this.logger.debug('Transaction undergoing prechecks: transaction=%o', parsedTx);
 
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (e: any) {
-      this.logger.error(`Precheck failed: transaction=${JSON.stringify(parsedTx)}`);
+      this.logger.error(e, 'Precheck failed: transaction=%o', parsedTx);
       throw this.common.genericErrorHandler(e);
     }
   }
@@ -552,7 +525,7 @@ export class TransactionService implements ITransactionService {
             throw sendRawTransactionError;
           }
 
-          this.logger.warn(`No matching transaction record retrieved: transactionId=${submittedTransactionId}`);
+          this.logger.warn('No matching transaction record retrieved: transactionId=%s', submittedTransactionId);
 
           throw predefined.INTERNAL_ERROR(
             `No matching transaction record retrieved: transactionId=${submittedTransactionId}`,
@@ -560,7 +533,7 @@ export class TransactionService implements ITransactionService {
         }
 
         if (contractResult.hash == null) {
-          this.logger.error(`Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`);
+          this.logger.error('Transaction returned a null transaction hash: transactionId=%s', submittedTransactionId);
           throw predefined.INTERNAL_ERROR(
             `Transaction returned a null transaction hash: transactionId=${submittedTransactionId}`,
           );
@@ -598,7 +571,7 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    this.logger.error(e, `Failed to successfully submit sendRawTransaction: transaction=${JSON.stringify(parsedTx)}`);
+    this.logger.error(e, 'Failed to successfully submit sendRawTransaction: transaction=%o', parsedTx);
     if (e instanceof JsonRpcError) {
       return e;
     }
@@ -606,7 +579,7 @@ export class TransactionService implements ITransactionService {
     if (e instanceof SDKClientError) {
       if (e.nodeAccountId) {
         // Log the target node account ID, right now, it's populated only for MaxAttemptsOrTimeout error
-        this.logger.info(`Transaction failed to execute against node with id: ${e.nodeAccountId}`);
+        this.logger.info('Transaction failed to execute against node with id: %s', e.nodeAccountId);
       }
 
       this.hapiService.decrementErrorCounter(e.statusCode);
@@ -623,16 +596,17 @@ export class TransactionService implements ITransactionService {
             break;
           }
 
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(
-              `Repeating retry to poll for updated account nonce. Count ${i} of ${mirrorNodeGetContractResultRetries}. Waiting ${this.mirrorNodeClient.getMirrorNodeRetryDelay()} ms before initiating a new request`,
-            );
-          }
+          this.logger.trace(
+            'Repeating retry to poll for updated account nonce. Count %d of %d. Waiting %d ms before initiating a new request',
+            i,
+            mirrorNodeGetContractResultRetries,
+            this.mirrorNodeClient.getMirrorNodeRetryDelay(),
+          );
           await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
         }
 
         if (!accountNonce) {
-          this.logger.warn(`Cannot find updated account nonce.`);
+          this.logger.warn('Cannot find updated account nonce.');
           throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
         }
 
@@ -652,9 +626,8 @@ export class TransactionService implements ITransactionService {
 
     this.logger.error(
       e,
-      `Failed sendRawTransaction during record retrieval for transaction, returning computed hash: transaction=${JSON.stringify(
-        parsedTx,
-      )}`,
+      'Failed sendRawTransaction during record retrieval for transaction, returning computed hash: transaction=%o',
+      parsedTx,
     );
     //Return computed hash if unable to retrieve EthereumHash from record due to error
     return Utils.computeTransactionHash(transactionBuffer);

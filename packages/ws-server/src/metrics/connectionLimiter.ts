@@ -175,9 +175,7 @@ export default class ConnectionLimiter {
     websocket.inactivityTTL = setTimeout(() => {
       if (websocket.readyState !== 3) {
         // 3 = CLOSED, Avoid closing already closed connections
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Closing connection ${websocket.id} due to reaching TTL (${maxInactivityTTL}ms)`);
-        }
+        this.logger.debug(`Closing connection ${websocket.id} due to reaching TTL (${maxInactivityTTL}ms)`);
         try {
           this.inactivityTTLCounter.inc();
           websocket.send(

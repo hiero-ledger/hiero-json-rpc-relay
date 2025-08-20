@@ -57,9 +57,7 @@ export class PollerService {
   private poll() {
     this.polls.forEach(async (poll) => {
       try {
-        if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`${LOGGER_PREFIX} Fetching data for tag: ${poll.tag}`);
-        }
 
         const { event, filters } = JSON.parse(poll.tag);
         let data;
@@ -91,17 +89,13 @@ export class PollerService {
 
         if (Array.isArray(data)) {
           if (data.length) {
-            if (this.logger.isLevelEnabled('trace')) {
-              this.logger.trace(`${LOGGER_PREFIX} Received ${data.length} results from tag: ${poll.tag}`);
-            }
+            this.logger.trace(`${LOGGER_PREFIX} Received ${data.length} results from tag: ${poll.tag}`);
             data.forEach((d) => {
               poll.callback(d);
             });
           }
         } else {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`${LOGGER_PREFIX} Received 1 result from tag: ${poll.tag}`);
-          }
+          this.logger.trace(`${LOGGER_PREFIX} Received 1 result from tag: ${poll.tag}`);
           poll.callback(data);
         }
       } catch (error) {

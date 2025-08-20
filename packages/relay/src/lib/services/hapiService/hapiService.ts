@@ -286,9 +286,10 @@ export default class HAPIService {
     client.setRequestTimeout(SDK_REQUEST_TIMEOUT);
 
     logger.info(
-      `SDK client successfully configured to ${JSON.stringify(hederaNetwork)} for account ${
-        client.operatorAccountId
-      } with request timeout value: ${SDK_REQUEST_TIMEOUT}`,
+      'SDK client successfully configured to %o for account %s with request timeout value: %d',
+      hederaNetwork,
+      client.operatorAccountId,
+      SDK_REQUEST_TIMEOUT,
     );
 
     return client;
@@ -312,7 +313,7 @@ export default class HAPIService {
     }
 
     if (this.shouldReset) {
-      this.logger.warn(`SDK Client reinitialization.`);
+      this.logger.warn('SDK Client reinitialization.');
       this.resetClient();
     }
     this.decrementTransactionCounter();

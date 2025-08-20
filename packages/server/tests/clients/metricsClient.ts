@@ -49,9 +49,7 @@ export default class MetricsClient {
    */
   async get(metric: string, requestId?: string) {
     const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`${requestIdPrefix} [GET] Read all metrics from ${this.relayUrl}/metrics`);
-    }
+    this.logger.debug(`${requestIdPrefix} [GET] Read all metrics from ${this.relayUrl}/metrics`);
     const allMetrics = (await this.client.get('')).data;
     const allMetricsArray = allMetrics.split('\n');
     const matchPattern = `${metric} `;

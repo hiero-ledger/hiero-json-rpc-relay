@@ -152,9 +152,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       servicesNode.transferToken(tokenId, accounts[1].accountId, 10, requestId),
     ]);
 
-    if (global.logger.isLevelEnabled('trace')) {
-      global.logger.trace(`Setup completed`);
-    }
+    global.logger.trace(`Setup completed`);
   });
 
   this.beforeEach(async () => {
