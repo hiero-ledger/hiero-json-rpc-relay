@@ -118,17 +118,21 @@
       "name": "eth_coinbase",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_blobBaseFee",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_estimateGas",
@@ -615,7 +619,24 @@
       "name": "eth_getUncleByBlockHashAndIndex",
       "summary": "Returns information about a uncle of a block by hash and uncle index position.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block hash",
+          "description": "Hash of a block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        {
+          "name": "Index",
+          "description": "Uncle index position",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hex"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleByBlockHashAndIndex result",
         "schema": {
@@ -628,7 +649,24 @@
       "name": "eth_getUncleByBlockNumberAndIndex",
       "summary": "Returns information about a uncle of a block by number and uncle index position.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block",
+          "description": "Block number or tag",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "Index",
+          "description": "Uncle index position",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hex"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleByBlockNumberAndIndex result",
         "schema": {
@@ -641,7 +679,16 @@
       "name": "eth_getUncleCountByBlockHash",
       "summary": "Returns the number of uncles in a block from a block matching the given block hash.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block hash",
+          "description": "Hash of a block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleCountByBlockHash result",
         "schema": {
@@ -656,7 +703,16 @@
       "name": "eth_getUncleCountByBlockNumber",
       "summary": "Returns the number of transactions in a block matching the given block number.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block",
+          "description": "Block number or tag",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleCountByBlockNumber result",
         "schema": {
@@ -671,9 +727,11 @@
       "name": "eth_getWork",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_hashrate",
@@ -786,9 +844,11 @@
       "name": "eth_newPendingTransactionFilter",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }],
+        }
+      ],
       "tags": [
         {
           "name": "alpha API"
@@ -863,9 +923,11 @@
       "name": "eth_protocolVersion",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_sendRawTransaction",
@@ -891,33 +953,41 @@
       "name": "eth_sendTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_signTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_sign",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_submitHashrate",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_submitWork",
@@ -977,9 +1047,11 @@
       "name": "net_peerCount",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "web3_clientVersion",
@@ -1253,17 +1325,21 @@
       "name": "eth_getProof",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_createAccessList",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     }
   ],
   "components": {
