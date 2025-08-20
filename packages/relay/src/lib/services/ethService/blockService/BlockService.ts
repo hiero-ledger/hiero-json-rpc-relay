@@ -246,7 +246,7 @@ export class BlockService implements IBlockService {
    * @param index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  async getUncleByBlockHashAndIndex(blockHash: string, index: string): Promise<null> {
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`getUncleByBlockHashAndIndex(blockHash=${blockHash}, index=${index})`);
     }
@@ -260,7 +260,7 @@ export class BlockService implements IBlockService {
    * @param index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  async getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): Promise<null> {
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`getUncleByBlockNumberAndIndex(blockNumOrTag=${blockNumOrTag}, index=${index})`);
     }
@@ -273,7 +273,7 @@ export class BlockService implements IBlockService {
    * @param blockHash - The block hash
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  async getUncleCountByBlockHash(blockHash: string): Promise<string> {
+  getUncleCountByBlockHash(blockHash: string): string {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`getUncleCountByBlockHash(blockHash=${blockHash})`);
     }
@@ -286,7 +286,7 @@ export class BlockService implements IBlockService {
    * @param blockNumOrTag - The block number or tag
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  async getUncleCountByBlockNumber(blockNumOrTag: string): Promise<string> {
+  getUncleCountByBlockNumber(blockNumOrTag: string): string {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`getUncleCountByBlockNumber(blockNumOrTag=${blockNumOrTag})`);
     }

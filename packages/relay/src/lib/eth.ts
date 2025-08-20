@@ -462,7 +462,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockHash', required: true },
     1: { type: 'hex', required: true },
   })
-  async getUncleByBlockHashAndIndex(blockHash: string, index: string): Promise<null> {
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
     return this.blockService.getUncleByBlockHashAndIndex(blockHash, index);
   }
 
@@ -474,14 +474,14 @@ export class EthImpl implements Eth {
    *
    * @param blockNumOrTag - The block number or tag
    * @param index - The uncle index
-   * @returns {Promise<null>} Always returns null
+   * @returns {null} Always returns null
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'blockNumber', required: true },
     1: { type: 'hex', required: true },
   })
-  async getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): Promise<null> {
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
     return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index);
   }
 
@@ -492,14 +492,13 @@ export class EthImpl implements Eth {
    * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param blockHash - The block hash
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<string>} Always returns '0x0'
+   * @returns {string} Always returns '0x0'
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'blockHash', required: true },
   })
-  async getUncleCountByBlockHash(blockHash: string): Promise<string> {
+  getUncleCountByBlockHash(blockHash: string): string {
     return this.blockService.getUncleCountByBlockHash(blockHash);
   }
 
@@ -516,7 +515,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'blockNumber', required: true },
   })
-  async getUncleCountByBlockNumber(blockNumOrTag: string): Promise<string> {
+  getUncleCountByBlockNumber(blockNumOrTag: string): string {
     return this.blockService.getUncleCountByBlockNumber(blockNumOrTag);
   }
 

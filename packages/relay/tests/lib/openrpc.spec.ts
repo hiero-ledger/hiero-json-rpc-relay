@@ -424,27 +424,27 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockHashAndIndex(blockHash, '0x0', requestDetails);
+    const response = ethImpl.getUncleByBlockHashAndIndex(blockHash, '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockHashAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0', requestDetails);
+    const response = ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0', requestDetails);
+    const response = ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleCountByBlockHash"', async function () {
-    const response = await ethImpl.getUncleCountByBlockHash(blockHash, requestDetails);
+    const response = ethImpl.getUncleCountByBlockHash(blockHash);
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockHash, response);
   });
 
   it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-    const response = await ethImpl.getUncleCountByBlockNumber(numberTo0x(blockNumber), requestDetails);
+    const response = ethImpl.getUncleCountByBlockNumber(numberTo0x(blockNumber));
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockNumber, response);
   });
 

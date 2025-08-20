@@ -36,22 +36,22 @@ describe('@ethCommon', async function () {
     });
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-      const result = await relay.eth().getUncleByBlockHashAndIndex(randomBlockHash, '0x0', requestDetails);
+      const result = relay.eth().getUncleByBlockHashAndIndex(randomBlockHash, '0x0');
       expect(result).to.be.null;
     });
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-      const result = await relay.eth().getUncleByBlockNumberAndIndex('latest', '0x0', requestDetails);
+      const result = relay.eth().getUncleByBlockNumberAndIndex('latest', '0x0');
       expect(result).to.be.null;
     });
 
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const result = await relay.eth().getUncleCountByBlockHash(randomBlockHash, requestDetails);
+      const result = relay.eth().getUncleCountByBlockHash(randomBlockHash);
       expect(result).to.eq('0x0');
     });
 
     it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-      const result = await relay.eth().getUncleCountByBlockNumber('latest', requestDetails);
+      const result = relay.eth().getUncleCountByBlockNumber('latest');
       expect(result).to.eq('0x0');
     });
 
