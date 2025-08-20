@@ -54,6 +54,7 @@ export default class MetricService {
    * @param logger - Logger instance for logging system messages.
    * @param metricsCollector - `SDKClient` or `HAPIService` for fetching transaction record metrics from the Consensus Node.
    * @param register - Registry instance for registering metrics.
+   * @param hbarLimitService - An instance of the HbarLimitService that tracks hbar expenses and limits.
    */
   constructor(
     logger: Logger,

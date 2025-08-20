@@ -230,6 +230,11 @@ export default class HAPIService {
     return this.client;
   }
 
+  /**
+   * Wrapper around the SDK client's `submitEthereumTransaction` method.
+   *
+   * See {@link SDKClient.submitEthereumTransaction} for more details.
+   */
   public async submitEthereumTransaction(
     transactionBuffer: Uint8Array,
     callerName: string,
@@ -248,6 +253,11 @@ export default class HAPIService {
     );
   }
 
+  /**
+   * Wrapper around the SDK client's `deleteFile` method.
+   *
+   * See {@link SDKClient.deleteFile} for more details.
+   */
   public async deleteFile(
     fileId: FileId,
     requestDetails: RequestDetails,
@@ -257,6 +267,11 @@ export default class HAPIService {
     return this.getSDKClient().deleteFile(fileId, requestDetails, callerName, originalCallerAddress);
   }
 
+  /**
+   * Wrapper around the SDK client's `getTransactionRecordMetrics` method.
+   *
+   * See {@link SDKClient.getTransactionRecordMetrics} for more details.
+   */
   public async getTransactionRecordMetrics(
     transactionId: string,
     txConstructorName: string,
