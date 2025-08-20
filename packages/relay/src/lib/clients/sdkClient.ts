@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
+  AccountId,
   Client,
   EthereumTransaction,
   EthereumTransactionData,
@@ -13,6 +14,7 @@ import {
   FileInfoQuery,
   Hbar,
   HbarUnit,
+  PublicKey,
   Query,
   Status,
   Transaction,
@@ -36,56 +38,67 @@ export class SDKClient {
   /**
    * The client to use for connecting to the main consensus network. The account
    * associated with this client will pay for all operations on the main network.
-   *
-   * @private
    */
   private readonly clientMain: Client;
 
   /**
    * The logger used for logging all output from this class.
-   * @private
    */
   private readonly logger: Logger;
 
   /**
    * Maximum number of chunks for file append transaction.
-   * @private
    */
   private readonly maxChunks: number;
 
   /**
    * Size of each chunk for file append transaction.
-   * @private
    */
   private readonly fileAppendChunkSize: number;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
-   * @private
-   * @readonly
-   * @type {HbarLimitService}
    */
   private readonly hbarLimitService: HbarLimitService;
 
   /**
    * Constructs an instance of the SDKClient and initializes various services and settings.
    *
-   * @param {Client} clientMain - The primary Hedera client instance used for executing transactions and queries.
-   * @param {Logger} logger - The logger instance for logging information, warnings, and errors.
-   * @param {EventEmitter} eventEmitter - The eventEmitter used for emitting and handling events within the class.
+   * @param hederaNetwork - The network name for Hedera services.
+   * @param logger - The logger instance for logging information, warnings, and errors.
+   * @param eventEmitter - The eventEmitter used for emitting and handling events within the class.
    * @param hbarLimitService - The HbarLimitService that tracks hbar expenses and limits.
    */
   constructor(
-    clientMain: Client,
+    hederaNetwork: string,
     logger: Logger,
-    readonly eventEmitter: EventEmitter<TypedEvents>,
+    private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
   ) {
-    this.clientMain = clientMain;
+    const client =
+      hederaNetwork in constants.CHAIN_IDS
+        ? Client.forName(hederaNetwork)
+        : Client.forNetwork(JSON.parse(hederaNetwork));
+
+    const operator = Utils.getOperator(logger);
+    if (operator) {
+      client.setOperator(operator.accountId, operator.privateKey);
+    }
+
+    client.setTransportSecurity(ConfigService.get('CLIENT_TRANSPORT_SECURITY'));
+
+    const SDK_REQUEST_TIMEOUT = ConfigService.get('SDK_REQUEST_TIMEOUT');
+    client.setRequestTimeout(SDK_REQUEST_TIMEOUT);
+
+    logger.info(
+      `SDK client successfully configured to ${JSON.stringify(hederaNetwork)} for account ${
+        client.operatorAccountId
+      } with request timeout value: ${SDK_REQUEST_TIMEOUT}`,
+    );
 
     // sets the maximum time in ms for the SDK to wait when submitting
     // a transaction/query before throwing a TIMEOUT error
-    this.clientMain = clientMain.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
+    this.clientMain = client.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
 
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
@@ -94,11 +107,21 @@ export class SDKClient {
   }
 
   /**
-   * Return current main client instance
-   * @returns Main Client
+   * Returns the operator account ID.
+   *
+   * @returns The operator account ID or `null` if not set.
    */
-  public getMainClientInstance() {
-    return this.clientMain;
+  public getOperatorAccountId(): AccountId | null {
+    return this.clientMain.operatorAccountId;
+  }
+
+  /**
+   * Returns the public key of the operator account.
+   *
+   * @returns The operator's public key or `null` if not set.
+   */
+  public getOperatorPublicKey(): PublicKey | null {
+    return this.clientMain.operatorPublicKey;
   }
 
   /**
@@ -136,10 +159,8 @@ export class SDKClient {
       // if JUMBO_TX_ENABLED is false and callData's size is greater than `fileAppendChunkSize` => employ HFS to create new file to carry the rest of the contents of callData
       fileId = await this.createFile(
         ethereumTransactionData.callData,
-        this.clientMain,
         requestDetails,
         callerName,
-        interactingEntity,
         originalCallerAddress,
         currentNetworkExchangeRateInCents,
       );
@@ -166,7 +187,6 @@ export class SDKClient {
       txResponse: await this.executeTransaction(
         ethereumTransaction,
         callerName,
-        interactingEntity,
         requestDetails,
         true,
         originalCallerAddress,
@@ -176,19 +196,16 @@ export class SDKClient {
 
   /**
    * Executes a Hedera query and handles potential errors.
-   * @param {Query<T>} query - The Hedera query to execute.
-   * @param {Client} client - The Hedera client to use for the query.
-   * @param {string} callerName - The name of the caller executing the query.
-   * @param {string} interactingEntity - The entity interacting with the query.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @param {string} [originalCallerAddress] - The optional address of the original caller making the request.
-   * @returns {Promise<T>} A promise resolving to the query response.
+   * @param query - The Hedera query to execute.
+   * @param callerName - The name of the caller executing the query.
+   * @param requestDetails - The request details for logging and tracking.
+   * @param originalCallerAddress - The optional address of the original caller making the request.
+   * @returns A promise resolving to the query response.
    * @throws {Error} Throws an error if the query fails or if rate limits are exceeded.
    * @template T - The type of the query response.
    */
   private async executeQuery<T>(
     query: Query<T>,
-    client: Client,
     callerName: string,
     requestDetails: RequestDetails,
     originalCallerAddress?: string,
@@ -201,7 +218,7 @@ export class SDKClient {
     this.logger.info(`Execute ${queryConstructorName} query.`);
 
     try {
-      queryResponse = await query.execute(client);
+      queryResponse = await query.execute(this.clientMain);
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = Status.Success.toString();
       this.logger.info(
@@ -244,20 +261,18 @@ export class SDKClient {
   /**
    * Executes a single transaction, handling rate limits, logging, and metrics.
    *
-   * @param {Transaction} transaction - The transaction to execute.
-   * @param {string} callerName - The name of the caller requesting the transaction.
-   * @param {string} interactingEntity - The entity interacting with the transaction.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @param {boolean} shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
-   * @param {string} originalCallerAddress - The address of the original caller making the request.
-   * @param {number} [estimatedTxFee] - The optioanl total estimated transaction fee.
-   * @returns {Promise<TransactionResponse>} - A promise that resolves to the transaction response.
+   * @param transaction - The transaction to execute.
+   * @param callerName - The name of the caller requesting the transaction.
+   * @param requestDetails - The request details for logging and tracking.
+   * @param shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
+   * @param originalCallerAddress - The address of the original caller making the request.
+   * @param estimatedTxFee - The optional total estimated transaction fee.
+   * @returns - A promise that resolves to the transaction response.
    * @throws {SDKClientError} - Throws if an error occurs during transaction execution.
    */
   private async executeTransaction(
     transaction: Transaction,
     callerName: string,
-    interactingEntity: string,
     requestDetails: RequestDetails,
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
@@ -341,20 +356,18 @@ export class SDKClient {
   /**
    * Executes all transactions in a batch, checks HBAR limits, retrieves metrics, and captures expenses.
    *
-   * @param {FileAppendTransaction} transaction - The batch transaction to execute.
-   * @param {string} callerName - The name of the caller requesting the transaction.
-   * @param {string} interactingEntity - The entity interacting with the transaction.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @param {boolean} shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
-   * @param {string} originalCallerAddress - The address of the original caller making the request.
-   * @param {number} [estimatedTxFee] - The optioanl total estimated transaction fee.
-   * @returns {Promise<void>} - A promise that resolves when the batch execution is complete.
+   * @param transaction - The batch transaction to execute.
+   * @param callerName - The name of the caller requesting the transaction.
+   * @param requestDetails - The request details for logging and tracking.
+   * @param shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
+   * @param originalCallerAddress - The address of the original caller making the request.
+   * @param estimatedTxFee - The optioanl total estimated transaction fee.
+   * @returns A promise that resolves when the batch execution is complete.
    * @throws {SDKClientError} - Throws if an error occurs during batch transaction execution.
    */
   private async executeAllTransaction(
     transaction: FileAppendTransaction,
     callerName: string,
-    interactingEntity: string,
     requestDetails: RequestDetails,
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
@@ -411,22 +424,18 @@ export class SDKClient {
 
   /**
    * Creates a file on the Hedera network using the provided call data.
-   * @param {Uint8Array} callData - The data to be written to the file.
-   * @param {Client} client - The Hedera client to use for the transaction.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @param {string} callerName - The name of the caller creating the file.
-   * @param {string} interactingEntity - The entity interacting with the transaction.
-   * @param {string} originalCallerAddress - The address of the original caller making the request.
-   * @param {number} currentNetworkExchangeRateInCents - The current network exchange rate in cents per HBAR.
-   * @returns {Promise<FileId | null>} A promise that resolves to the created file ID or null if the creation failed.
+   * @param callData - The data to be written to the file.
+   * @param requestDetails - The request details for logging and tracking.
+   * @param callerName - The name of the caller creating the file.
+   * @param originalCallerAddress - The address of the original caller making the request.
+   * @param currentNetworkExchangeRateInCents - The current network exchange rate in cents per HBAR.
+   * @returns A promise that resolves to the created file ID or null if the creation failed.
    * @throws Will throw an error if the created file is empty or if any transaction fails during execution.
    */
   private async createFile(
     callData: Uint8Array,
-    client: Client,
     requestDetails: RequestDetails,
     callerName: string,
-    interactingEntity: string,
     originalCallerAddress: string,
     currentNetworkExchangeRateInCents: number,
   ): Promise<FileId | null> {
@@ -453,18 +462,17 @@ export class SDKClient {
 
     const fileCreateTx = new FileCreateTransaction()
       .setContents(hexedCallData.substring(0, this.fileAppendChunkSize))
-      .setKeys(client.operatorPublicKey ? [client.operatorPublicKey] : []);
+      .setKeys(this.clientMain.operatorPublicKey ? [this.clientMain.operatorPublicKey] : []);
 
     const fileCreateTxResponse = await this.executeTransaction(
       fileCreateTx,
       callerName,
-      interactingEntity,
       requestDetails,
       false,
       originalCallerAddress,
     );
 
-    const { fileId } = await fileCreateTxResponse.getReceipt(client);
+    const { fileId } = await fileCreateTxResponse.getReceipt(this.clientMain);
 
     if (fileId && callData.length > this.fileAppendChunkSize) {
       const fileAppendTx = new FileAppendTransaction()
@@ -473,20 +481,12 @@ export class SDKClient {
         .setChunkSize(this.fileAppendChunkSize)
         .setMaxChunks(this.maxChunks);
 
-      await this.executeAllTransaction(
-        fileAppendTx,
-        callerName,
-        interactingEntity,
-        requestDetails,
-        false,
-        originalCallerAddress,
-      );
+      await this.executeAllTransaction(fileAppendTx, callerName, requestDetails, false, originalCallerAddress);
     }
 
     if (fileId) {
       const fileInfo = await this.executeQuery(
         new FileInfoQuery().setFileId(fileId),
-        this.clientMain,
         callerName,
         requestDetails,
         originalCallerAddress,
@@ -507,19 +507,17 @@ export class SDKClient {
   /**
    * Deletes a file on the Hedera network and verifies its deletion.
    *
-   * @param {FileId} fileId - The ID of the file to be deleted.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @param {string} callerName - The name of the entity initiating the request.
-   * @param {string} interactingEntity - The name of the interacting entity.
-   * @param {string} originalCallerAddress - The address of the original caller making the request.
-   * @returns {Promise<void>} - A promise that resolves when the operation is complete.
-   * @throws {any} - Throws an error if the file deletion fails.
+   * @param fileId - The ID of the file to be deleted.
+   * @param requestDetails - The request details for logging and tracking.
+   * @param callerName - The name of the entity initiating the request.
+   * @param originalCallerAddress - The address of the original caller making the request.
+   * @returns A promise that resolves when the operation is complete.
+   * @throws Throws an error if the file deletion fails.
    */
   public async deleteFile(
     fileId: FileId,
     requestDetails: RequestDetails,
     callerName: string,
-    interactingEntity: string,
     originalCallerAddress: string,
   ): Promise<void> {
     try {
@@ -528,18 +526,10 @@ export class SDKClient {
         .setMaxTransactionFee(new Hbar(2))
         .freezeWith(this.clientMain);
 
-      await this.executeTransaction(
-        fileDeleteTx,
-        callerName,
-        interactingEntity,
-        requestDetails,
-        false,
-        originalCallerAddress,
-      );
+      await this.executeTransaction(fileDeleteTx, callerName, requestDetails, false, originalCallerAddress);
 
       const fileInfo = await this.executeQuery(
         new FileInfoQuery().setFileId(fileId),
-        this.clientMain,
         callerName,
         requestDetails,
         originalCallerAddress,
@@ -560,12 +550,10 @@ export class SDKClient {
   /**
    * Retrieves transaction record metrics for a given transaction ID.
    *
-   * @param {string} transactionId - The ID of the transaction to retrieve metrics for.
-   * @param {string} callerName - The name of the caller requesting the transaction record.
-   * @param {string} txConstructorName - The name of the transaction constructor.
-   * @param {string} operatorAccountId - The account ID of the operator.
-   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<ITransactionRecordMetric>} - A promise that resolves to an object containing transaction metrics.
+   * @param transactionId - The ID of the transaction to retrieve metrics for.
+   * @param txConstructorName - The name of the transaction constructor.
+   * @param operatorAccountId - The account ID of the operator.
+   * @returns A promise that resolves to an object containing transaction metrics.
    * @throws {SDKClientError} - Throws an error if an issue occurs during the transaction record query.
    */
   public async getTransactionRecordMetrics(

@@ -8,6 +8,8 @@ import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { JsonRpcError, predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
+import type { ContractService } from '../../../src/lib/services';
+import type HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
@@ -41,14 +43,24 @@ import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);
 
+// @ts-expect-error: Interface 'HAPIServiceTest' incorrectly extends interface 'HAPIService'.
+interface HAPIServiceTest extends HAPIService {
+  getSDKClient(): SDKClient;
+}
+
+// @ts-expect-error: Interface 'ContractServiceTest' incorrectly extends interface 'ContractService'.
+interface ContractServiceTest extends ContractService {
+  callMirrorNode(): ContractService['callMirrorNode'];
+}
+
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
+let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
 
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, commonService } = generateEthTestEnv();
 
-  const contractService = ethImpl['contractService'];
+  const contractService = ethImpl['contractService'] as ContractServiceTest;
 
   const requestDetails = new RequestDetails({ requestId: 'eth_callTest', ipAddress: '0.0.0.0' });
 
@@ -59,7 +71,9 @@ describe('@ethCall Eth Call spec', async function () {
     await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    getSdkClientStub = sinon
+      .stub(hapiServiceInstance as unknown as HAPIServiceTest, 'getSDKClient')
+      .returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`).reply(
       200,
@@ -76,8 +90,8 @@ describe('@ethCall Eth Call spec', async function () {
   });
 
   describe('eth_call precheck failures', async function () {
-    let callMirrorNodeSpy: sinon.SinonSpy;
     let sandbox: sinon.SinonSandbox;
+    let callMirrorNodeSpy: sinon.SinonSpiedMember<ContractServiceTest['callMirrorNode']>;
 
     beforeEach(() => {
       sandbox = sinon.createSandbox();
@@ -542,7 +556,7 @@ describe('@ethCall Eth Call spec', async function () {
   });
 
   describe('contractCallFormat', () => {
-    const operatorId = hapiServiceInstance.getMainClientInstance().operatorAccountId;
+    const operatorId = hapiServiceInstance.getOperatorAccountId();
     const operatorEvmAddress = ACCOUNT_ADDRESS_1;
 
     beforeEach(() => {

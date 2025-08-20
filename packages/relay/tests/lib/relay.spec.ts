@@ -119,9 +119,9 @@ describe('Relay', () => {
       beforeEach(() => {
         const mirrorNodeInstance = relay.mirrorClient().getMirrorNodeRestInstance();
         restMock = new MockAdapter(mirrorNodeInstance, { onNoMatch: 'throwException' });
-        // @ts-expect-error: Property 'clientMain' is private and only accessible within class 'Relay'
-        const clientMain = relay.clientMain;
-        operatorId = clientMain.operatorAccountId!.toString();
+
+        // @ts-expect-error: Property 'operatorAccountId' is private and only accessible within class 'Relay'.
+        operatorId = relay.operatorAccountId!.toString();
       });
 
       afterEach(() => {

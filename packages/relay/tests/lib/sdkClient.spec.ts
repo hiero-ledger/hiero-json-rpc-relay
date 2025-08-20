@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import assert from 'node:assert';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
   AccountId,
-  Client,
   EthereumTransaction,
   ExchangeRate,
   FileAppendTransaction,
@@ -53,14 +54,23 @@ import { transactionBuffer } from './fixtures/transactionBufferFixture';
 const registry = new Registry();
 const logger = pino({ level: 'silent' });
 
+// @ts-expect-error: Interface 'SDKClientTest' incorrectly extends interface 'SDKClient'.
+interface SDKClientTest extends SDKClient {
+  createFile: SDKClient['createFile'];
+  executeAllTransaction: SDKClient['executeAllTransaction'];
+  executeTransaction: SDKClient['executeTransaction'];
+  executeQuery: SDKClient['executeQuery'];
+  calculateTxRecordChargeAmount: SDKClient['calculateTxRecordChargeAmount'];
+  getTransferAmountSumForAccount: SDKClient['getTransferAmountSumForAccount'];
+  clientMain: SDKClient['clientMain'];
+}
+
 describe('SdkClient', async function () {
   this.timeout(20000);
 
-  let client: Client;
   let mock: MockAdapter;
-  let sdkClient: SDKClient;
+  let sdkClient: SDKClientTest;
   let instance: AxiosInstance;
-  let eventEmitter: EventEmitter<TypedEvents>;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -71,18 +81,7 @@ describe('SdkClient', async function () {
 
   before(() => {
     const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
-    if (hederaNetwork in constants.CHAIN_IDS) {
-      client = Client.forName(hederaNetwork);
-    } else {
-      client = Client.forNetwork(JSON.parse(hederaNetwork));
-    }
-
-    client = client.setOperator(
-      AccountId.fromString(ConfigService.get('OPERATOR_ID_MAIN')!),
-      Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
-    );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new EventEmitter<TypedEvents>();
 
     cacheService = new CacheService(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
@@ -97,7 +96,8 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    sdkClient = new SDKClient(client, logger, eventEmitter, hbarLimitService);
+    const eventEmitter = new EventEmitter<TypedEvents>();
+    sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -119,12 +119,13 @@ describe('SdkClient', async function () {
 
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
-    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      metricService.captureTransactionMetrics(args).then();
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).captureTransactionMetrics(args).then();
     });
     eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      metricService.addExpenseAndCaptureMetrics(args);
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).addExpenseAndCaptureMetrics(args);
     });
   });
 
@@ -288,7 +289,7 @@ describe('SdkClient', async function () {
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
       it('should not create a file when size <= fileAppendChunkSize', async () => {
-        const createFileStub = sinon.stub(sdkClient as any, 'createFile');
+        const createFileStub = sinon.stub(sdkClient, 'createFile');
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse());
@@ -306,9 +307,9 @@ describe('SdkClient', async function () {
       });
 
       it('should create a file when size > fileAppendChunkSize', async () => {
-        const createFileStub = sinon.stub(sdkClient as any, 'createFile').resolves(fileId);
+        const createFileStub = sinon.stub(sdkClient, 'createFile').resolves(fileId);
         const executeTransactionStub = sinon
-          .stub(sdkClient as any, 'executeTransaction')
+          .stub(sdkClient, 'executeTransaction')
           .resolves(getMockedTransactionResponse());
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
@@ -318,10 +319,8 @@ describe('SdkClient', async function () {
         expect(
           createFileStub.calledOnceWithExactly(
             sinon.match.instanceOf(Uint8Array),
-            sdkClient.getMainClientInstance(),
             requestDetails,
             mockedCallerName,
-            sinon.match.string,
             randomAccountAddress,
             mockedExchangeRateIncents,
           ),
@@ -331,7 +330,6 @@ describe('SdkClient', async function () {
           executeTransactionStub.calledOnceWithExactly(
             sinon.match.instanceOf(EthereumTransaction),
             mockedCallerName,
-            sinon.match.string,
             requestDetails,
             true,
             randomAccountAddress,
@@ -361,10 +359,10 @@ describe('SdkClient', async function () {
 
         // Setup stubs for internal methods called by createFile
         const executeTransactionStub = sinon
-          .stub(sdkClient as any, 'executeTransaction')
-          .resolves(mockTransactionResponse);
-        const executeAllTransactionStub = sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
-        const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery').resolves({
+          .stub(sdkClient, 'executeTransaction')
+          .resolves(mockTransactionResponse as unknown as TransactionResponse);
+        const executeAllTransactionStub = sinon.stub(sdkClient, 'executeAllTransaction').resolves();
+        const executeQueryStub = sinon.stub(sdkClient, 'executeQuery').resolves({
           size: { isZero: () => false, toString: () => '1000' },
         });
 
@@ -383,26 +381,26 @@ describe('SdkClient', async function () {
         const firstExecuteCall = executeTransactionStub.firstCall.args;
         expect(firstExecuteCall[0]).to.be.instanceOf(FileCreateTransaction);
         expect(firstExecuteCall[1]).to.equal(mockedCallerName);
-        expect(firstExecuteCall[4]).to.be.false; // shouldThrowHbarLimit is false in createFile
+        expect(firstExecuteCall[3]).to.be.false; // shouldThrowHbarLimit is false in createFile
 
         // Verify second call is for EthereumTransaction (main flow)
         const secondExecuteCall = executeTransactionStub.secondCall.args;
         expect(secondExecuteCall[0]).to.be.instanceOf(EthereumTransaction);
         expect(secondExecuteCall[1]).to.equal(mockedCallerName);
-        expect(secondExecuteCall[4]).to.be.true; // shouldThrowHbarLimit is true in main flow
+        expect(secondExecuteCall[3]).to.be.true; // shouldThrowHbarLimit is true in main flow
 
         // Verify executeAllTransaction was called for FileAppendTransaction
         expect(executeAllTransactionStub.calledOnce).to.be.true;
         const executeAllArgs = executeAllTransactionStub.firstCall.args;
         expect(executeAllArgs[0]).to.be.instanceOf(FileAppendTransaction);
         expect(executeAllArgs[1]).to.equal(mockedCallerName);
-        expect(executeAllArgs[4]).to.be.false; // shouldThrowHbarLimit is false
+        expect(executeAllArgs[3]).to.be.false; // shouldThrowHbarLimit is false
 
         // Verify executeQuery was called for FileInfoQuery
         expect(executeQueryStub.calledOnce).to.be.true;
         const executeQueryArgs = executeQueryStub.firstCall.args;
         expect(executeQueryArgs[0]).to.be.instanceOf(FileInfoQuery);
-        expect(executeQueryArgs[2]).to.equal(mockedCallerName);
+        expect(executeQueryArgs[1]).to.equal(mockedCallerName);
 
         // Verify Ethereum transaction setup
         expect(setEthereumDataStub.called).to.be.true;
@@ -421,9 +419,9 @@ describe('SdkClient', async function () {
           getReceipt: sinon.stub().resolves(mockReceipt),
         };
 
-        sinon.stub(sdkClient as any, 'executeTransaction').resolves(mockTransactionResponse);
-        sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
-        const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+        sinon.stub(sdkClient, 'executeTransaction').resolves(mockTransactionResponse as unknown as TransactionResponse);
+        sinon.stub(sdkClient, 'executeAllTransaction').resolves();
+        const executeQueryStub = sinon.stub(sdkClient, 'executeQuery');
         executeQueryStub.resolves({ size: { isZero: () => true, toString: () => '0' } });
         hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
 
@@ -432,7 +430,7 @@ describe('SdkClient', async function () {
       });
 
       it('throws an error when createFile returns null', async () => {
-        sinon.stub(sdkClient as any, 'createFile').resolves(null);
+        sinon.stub(sdkClient, 'createFile').resolves(null);
         const buffer = await createTransactionBuffer(chunkSize + 1);
         await expect(callSubmit(buffer)).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
       });
@@ -528,8 +526,8 @@ describe('SdkClient', async function () {
         nodeId: accountId,
         transactionHash: Uint8Array.from([1, 2, 3, 4]),
         transactionId,
-        getReceipt: (_client: Client) => Promise.resolve(transactionReceipt),
-        getRecord: (_client: Client) => {
+        getReceipt: () => Promise.resolve(transactionReceipt),
+        getRecord: () => {
           const transactionFee = getMockedTransaction(transactionType, false).transactionFee;
           const transfers = getMockedTransaction(transactionType, false).transfers;
           return Promise.resolve({
@@ -562,7 +560,6 @@ describe('SdkClient', async function () {
     };
     const mockedCallerName = 'caller_name';
     const mockedConstructorName = 'constructor_name';
-    const mockedInteractingEntity = 'interacting_entity';
 
     let hbarLimitServiceMock: sinon.SinonMock;
     let sdkClientMock: sinon.SinonMock;
@@ -599,7 +596,6 @@ describe('SdkClient', async function () {
       await sdkClient.executeAllTransaction(
         new FileAppendTransaction(),
         mockedCallerName,
-        mockedInteractingEntity,
         requestDetails,
         true,
         randomAccountAddress,
@@ -734,10 +730,8 @@ describe('SdkClient', async function () {
 
       const response = await sdkClient.createFile(
         callData,
-        client,
         requestDetails,
         mockedCallerName,
-        mockedInteractingEntity,
         randomAccountAddress,
         mockedExchangeRateIncents,
       );
@@ -773,7 +767,6 @@ describe('SdkClient', async function () {
       await sdkClient.executeAllTransaction(
         new FileAppendTransaction(),
         mockedCallerName,
-        mockedInteractingEntity,
         requestDetails,
         true,
         randomAccountAddress,
@@ -801,7 +794,6 @@ describe('SdkClient', async function () {
         await sdkClient.executeAllTransaction(
           new FileAppendTransaction(),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           true,
           randomAccountAddress,
@@ -843,10 +835,8 @@ describe('SdkClient', async function () {
 
       const response = await sdkClient.createFile(
         callData,
-        client,
         requestDetails,
         mockedCallerName,
-        mockedInteractingEntity,
         randomAccountAddress,
         mockedExchangeRateIncents,
       );
@@ -870,13 +860,7 @@ describe('SdkClient', async function () {
       hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
       hbarLimitServiceMock.expects('shouldLimit').never();
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(deleteFileStub.called).to.be.true;
       expect(fileInfoQueryStub.called).to.be.true;
@@ -891,7 +875,6 @@ describe('SdkClient', async function () {
 
       const result = await sdkClient.executeQuery(
         new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
-        client,
         mockedCallerName,
         requestDetails,
       );
@@ -926,7 +909,6 @@ describe('SdkClient', async function () {
       const response = await sdkClient.executeTransaction(
         new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
         mockedCallerName,
-        mockedInteractingEntity,
         requestDetails,
         true,
         randomAccountAddress,
@@ -984,7 +966,6 @@ describe('SdkClient', async function () {
         const response = await sdkClient.executeTransaction(
           new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           true,
           randomAccountAddress,
@@ -1017,7 +998,6 @@ describe('SdkClient', async function () {
         transactionId.toString(),
         mockedConstructorName,
         accountId.toString(),
-        requestDetails,
       );
 
       expect(transactionRecordStub.called).to.be.true;
@@ -1035,7 +1015,6 @@ describe('SdkClient', async function () {
           transactionId.toString(),
           mockedConstructorName,
           accountId.toString(),
-          requestDetails,
         );
         expect.fail('should have thrown an error');
       } catch (error: any) {
@@ -1048,6 +1027,7 @@ describe('SdkClient', async function () {
       const accountId = ConfigService.get('OPERATOR_ID_MAIN');
       const mockedTxRecord = getMockedTransactionRecord(EthereumTransaction.name, true);
 
+      assert(accountId !== undefined, 'Variable `OPERATOR_ID_MAIN` is not configured properly');
       const transactionFee = sdkClient.getTransferAmountSumForAccount(mockedTxRecord, accountId);
       expect(transactionFee).to.eq(defaultTransactionFee);
     });
@@ -1056,7 +1036,6 @@ describe('SdkClient', async function () {
   describe('deleteFile', () => {
     const fileId = FileId.fromString('0.0.1234');
     const mockedCallerName = 'deleteFileTest';
-    const mockedInteractingEntity = '0.0.5678';
     const randomAccountAddress = random20BytesAddress();
     const accountId = AccountId.fromString('0.0.1234');
     const transactionId = TransactionId.generate(accountId);
@@ -1076,14 +1055,14 @@ describe('SdkClient', async function () {
           }),
       }) as unknown as TransactionResponse;
 
-    let executeTransactionStub: sinon.SinonStub;
-    let executeQueryStub: sinon.SinonStub;
+    let executeTransactionStub: sinon.SinonStubbedMember<SDKClientTest['executeTransaction']>;
+    let executeQueryStub: sinon.SinonStubbedMember<SDKClientTest['executeQuery']>;
     let loggerWarnStub: sinon.SinonStub;
     let loggerTraceStub: sinon.SinonStub;
 
     beforeEach(() => {
-      executeTransactionStub = sinon.stub(sdkClient as any, 'executeTransaction');
-      executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+      executeTransactionStub = sinon.stub(sdkClient, 'executeTransaction');
+      executeQueryStub = sinon.stub(sdkClient, 'executeQuery');
       loggerWarnStub = sinon.stub(logger, 'warn');
       loggerTraceStub = sinon.stub(logger, 'trace');
       sinon.stub(logger, 'isLevelEnabled').returns(true);
@@ -1100,19 +1079,12 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(
         executeTransactionStub.calledOnceWithExactly(
           sinon.match.instanceOf(FileDeleteTransaction),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           false,
           randomAccountAddress,
@@ -1122,7 +1094,6 @@ describe('SdkClient', async function () {
       expect(
         executeQueryStub.calledOnceWithExactly(
           sinon.match.instanceOf(FileInfoQuery),
-          sdkClient.getMainClientInstance(),
           mockedCallerName,
           requestDetails,
           randomAccountAddress,
@@ -1141,13 +1112,7 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify warning is logged when file is not deleted
       expect(loggerWarnStub.calledOnce, 'logger.warn should be called when deletion fails').to.be.true;
@@ -1161,13 +1126,7 @@ describe('SdkClient', async function () {
 
       executeTransactionStub.rejects(error);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify error handling
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
@@ -1183,13 +1142,7 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.rejects(queryError);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify both methods were called and error was logged
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called').to.be.true;
@@ -1208,33 +1161,22 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(setFileIdSpy.calledWith(fileId), 'setFileId should be called with correct fileId').to.be.true;
       expect(setMaxTransactionFeeSpy.calledOnce, 'setMaxTransactionFee should be called').to.be.true;
+
+      assert(setMaxTransactionFeeSpy.firstCall.args[0] instanceof Hbar);
       expect(setMaxTransactionFeeSpy.firstCall.args[0].toTinybars().toNumber(), 'Max fee should be 2 HBAR').to.equal(
         200000000,
       );
-      expect(freezeWithSpy.calledWith(sdkClient.getMainClientInstance()), 'freezeWith should be called with client').to
-        .be.true;
+      expect(freezeWithSpy.calledWith(sdkClient.clientMain), 'freezeWith should be called with client').to.be.true;
     });
 
     it('should configure FileInfoQuery correctly', async () => {
       const setFileIdSpy = sinon.spy(FileInfoQuery.prototype, 'setFileId');
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(setFileIdSpy.calledWith(fileId)).to.be.true;
     });
@@ -1248,13 +1190,7 @@ describe('SdkClient', async function () {
       deleteFileStub.rejects({ status: { _code: 17 }, message: 'Transaction Record Not Found' });
 
       try {
-        await sdkClient.deleteFile(
-          fileId,
-          requestDetails,
-          mockedCallerName,
-          mockedInteractingEntity,
-          randomAccountAddress,
-        );
+        await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
       } catch (error: any) {
         expect(error.code).to.equal(-32010);
         expect(error.message).to.equal('Request timeout. Please try again.');
@@ -1284,15 +1220,10 @@ describe('SdkClient', async function () {
           ],
         };
         sinon.stub(TransactionRecordQuery.prototype, 'execute').resolves(fakeRecord);
-        sinon.stub(sdkClient as any, 'calculateTxRecordChargeAmount').returns(1234);
-        sinon.stub(sdkClient as any, 'getTransferAmountSumForAccount').returns(300);
+        sinon.stub(sdkClient, 'calculateTxRecordChargeAmount').returns(1234);
+        sinon.stub(sdkClient, 'getTransferAmountSumForAccount').returns(300);
 
-        const metrics = await sdkClient.getTransactionRecordMetrics(
-          txId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
+        const metrics = await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId);
 
         expect(metrics.gasUsed).to.eq(fakeGasUsed.toNumber());
         expect(metrics.transactionFee).to.eq(300);
@@ -1304,7 +1235,7 @@ describe('SdkClient', async function () {
         const error = { status: { _code: 404 }, message: 'Not Found' };
         sinon.stub(TransactionRecordQuery.prototype, 'execute').throws(error);
         try {
-          await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId, requestDetails);
+          await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId);
           expect.fail('should have thrown');
         } catch (err: any) {
           expect(err).to.be.instanceOf(SDKClientError);
