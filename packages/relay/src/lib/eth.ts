@@ -455,7 +455,6 @@ export class EthImpl implements Eth {
    *
    * @param blockHash - The block hash
    * @param index - The uncle index
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
   @rpcMethod
@@ -463,8 +462,8 @@ export class EthImpl implements Eth {
     0: { type: 'blockHash', required: true },
     1: { type: 'hex', required: true },
   })
-  async getUncleByBlockHashAndIndex(blockHash: string, index: string, requestDetails: RequestDetails): Promise<null> {
-    return this.blockService.getUncleByBlockHashAndIndex(blockHash, index, requestDetails);
+  async getUncleByBlockHashAndIndex(blockHash: string, index: string): Promise<null> {
+    return this.blockService.getUncleByBlockHashAndIndex(blockHash, index);
   }
 
   /**
@@ -475,7 +474,6 @@ export class EthImpl implements Eth {
    *
    * @param blockNumOrTag - The block number or tag
    * @param index - The uncle index
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
    * @returns {Promise<null>} Always returns null
    */
   @rpcMethod
@@ -483,12 +481,8 @@ export class EthImpl implements Eth {
     0: { type: 'blockNumber', required: true },
     1: { type: 'hex', required: true },
   })
-  async getUncleByBlockNumberAndIndex(
-    blockNumOrTag: string,
-    index: string,
-    requestDetails: RequestDetails,
-  ): Promise<null> {
-    return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index, requestDetails);
+  async getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): Promise<null> {
+    return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index);
   }
 
   /**
@@ -505,8 +499,8 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'blockHash', required: true },
   })
-  async getUncleCountByBlockHash(blockHash: string, requestDetails: RequestDetails): Promise<string> {
-    return this.blockService.getUncleCountByBlockHash(blockHash, requestDetails);
+  async getUncleCountByBlockHash(blockHash: string): Promise<string> {
+    return this.blockService.getUncleCountByBlockHash(blockHash);
   }
 
   /**
@@ -516,15 +510,14 @@ export class EthImpl implements Eth {
    * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param blockNumOrTag - The block number or tag
-   * @param requestDetails - Details about the request for logging and tracking
    * @returns Always returns '0x0'
    */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: 'blockNumber', required: true },
   })
-  async getUncleCountByBlockNumber(blockNumOrTag: string, requestDetails: RequestDetails): Promise<string> {
-    return this.blockService.getUncleCountByBlockNumber(blockNumOrTag, requestDetails);
+  async getUncleCountByBlockNumber(blockNumOrTag: string): Promise<string> {
+    return this.blockService.getUncleCountByBlockNumber(blockNumOrTag);
   }
 
   /**

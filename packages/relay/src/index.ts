@@ -113,13 +113,13 @@ export interface Eth {
 
   getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<Receipt | null>;
 
-  getUncleByBlockHashAndIndex(blockHash: string, index: string, requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): Promise<null>;
 
-  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string, requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): Promise<null>;
 
-  getUncleCountByBlockHash(blockHash: string, requestDetails: RequestDetails): Promise<string>;
+  getUncleCountByBlockHash(blockHash: string): Promise<string>;
 
-  getUncleCountByBlockNumber(blockNumOrTag: string, requestDetails: RequestDetails): Promise<string>;
+  getUncleCountByBlockNumber(blockNumOrTag: string): Promise<string>;
 
   getWork(): JsonRpcError;
 
