@@ -2,7 +2,7 @@
 
 /* global describe, it */
 
-import { Options, addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
+import { addressToBytes32, Options } from '@layerzerolabs/lz-v2-utilities';
 import { expect } from 'chai';
 import hre from 'hardhat';
 
