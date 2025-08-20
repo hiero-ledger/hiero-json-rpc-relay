@@ -32,7 +32,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
-  const requestId = 'sendRawTransactionPrecheck';
   const requestDetails = new RequestDetails({ requestId: 'sendRawTransactionPrecheck', ipAddress: '0.0.0.0' });
   const sendRawTransaction = relay.sendRawTransaction;
 
