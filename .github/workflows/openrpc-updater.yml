@@ -6,11 +6,12 @@ on:
       - main
     paths:
       - 'docs/openrpc.json'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'docs/openrpc.json'
+  # Needs to be removed for now
+  # pull_request:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'docs/openrpc.json'
   workflow_dispatch:
 
 permissions:
