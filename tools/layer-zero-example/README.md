@@ -288,7 +288,7 @@ That's a variant of OFT but using an already existing HTS token. Keep in mind th
 npx hardhat create-hts-token --network hedera_testnet
 ```
 
-- Deploying OFT on an EVM chain and Stargate HTS Connector on the Hedera chain. The Starget HTS Connector for existing token extends StargateHTSConnectorExistingToken and receives the HTS tokens address as constructor parameter. Also, overrides StargateOFT _inflow and _outflow with related HTS mint and burn precompile calls
+- Deploying OFT on an EVM chain and Stargate HTS Connector on the Hedera chain. The Stargate HTS Connector for existing token extends StargateHTSConnectorExistingToken and receives the HTS tokens address as constructor parameter. Also, overrides StargateOFT _inflow and _outflow with related HTS mint and burn precompile calls
 ```
 npx hardhat deploy-stargate-hts-connector-existing-token --token <existing_hts_token_address> --network hedera_testnet
 npx hardhat deploy-oft --decimals 8 --mint 1000 --network bsc_testnet

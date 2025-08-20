@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {StargateType} from "./interfaces/IStargate.sol";
-import {IERC20Minter} from "./interfaces/IERC20Minter.sol";
+import {StargateType} from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
+import {IERC20Minter} from "@stargatefinance/stg-evm-v2/src/interfaces/IERC20Minter.sol";
 import {FeeParams, StargateBase} from "./StargateBase.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "../hts/HederaTokenService.sol";

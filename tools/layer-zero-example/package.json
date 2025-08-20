@@ -10,6 +10,7 @@
     "@layerzerolabs/lz-v2-utilities": "^3.0.22",
     "@layerzerolabs/oapp-evm": "^0.3.0",
     "@layerzerolabs/onft-evm": "^0.1.0",
+    "@stargatefinance/stg-evm-v2": "^3.0.0",
     "dotenv": "^16.4.7"
   },
   "overrides": {
