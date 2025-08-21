@@ -571,34 +571,25 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-      const res = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
-        [createChildTx.hash, '0x0'],
-        requestId,
-      );
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, [
+        createChildTx.hash,
+        '0x0',
+      ]);
       expect(res).to.be.null;
     });
 
     it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-      const res = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
-        ['latest', '0x0'],
-        requestId,
-      );
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX, ['latest', '0x0']);
       expect(res).to.be.null;
     });
 
     it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const res = await relay.call(
-        RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,
-        [createChildTx.hash],
-        requestId,
-      );
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH, [createChildTx.hash]);
       expect(res).to.be.equal('0x0');
     });
 
     it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, ['latest'], requestId);
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, ['latest']);
       expect(res).to.be.equal('0x0');
     });
 
@@ -643,7 +634,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         const params = hasIndex ? [blockParam, scenario.indexParam] : [blockParam];
 
         it(`should fail to execute "${endpoint}" with ${scenario.description}`, async function () {
-          const promise = relay.call(endpoint, params, requestId);
+          const promise = relay.call(endpoint, params);
 
           await expect(promise).to.eventually.be.rejected.and.satisfy(
             (error) =>
