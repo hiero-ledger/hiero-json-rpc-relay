@@ -4,8 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { generateRandomHex } from '@hashgraph/json-rpc-relay/dist/formatters';
 import { Relay } from '@hashgraph/json-rpc-relay/dist/lib/relay';
 import crypto from 'crypto';
-import LRU from 'lru-cache';
-import LRUCache from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
@@ -32,7 +31,7 @@ export class SubscriptionService {
     this.logger = logger;
     this.subscriptions = {};
 
-    this.cache = new LRU({ max: ConfigService.get('CACHE_MAX'), ttl: CACHE_TTL });
+    this.cache = new LRUCache({ max: ConfigService.get('CACHE_MAX'), ttl: CACHE_TTL });
 
     const activeSubscriptionHistogramName = 'rpc_websocket_subscription_times';
     register.removeSingleMetric(activeSubscriptionHistogramName);
