@@ -455,7 +455,7 @@ export class EthImpl implements Eth {
    *
    * @param blockHash - The block hash
    * @param index - The uncle index
-   * @returns {Promise<null>} Always returns null
+   * @returns Always returns null
    */
   @rpcMethod
   @rpcParamValidationRules({
@@ -474,7 +474,7 @@ export class EthImpl implements Eth {
    *
    * @param blockNumOrTag - The block number or tag
    * @param index - The uncle index
-   * @returns {null} Always returns null
+   * @returns Always returns null
    */
   @rpcMethod
   @rpcParamValidationRules({
@@ -492,7 +492,7 @@ export class EthImpl implements Eth {
    * @rpcParamLayoutConfig decorated method parameter layout
    *
    * @param blockHash - The block hash
-   * @returns {string} Always returns '0x0'
+   * @returns Always returns '0x0'
    */
   @rpcMethod
   @rpcParamValidationRules({
