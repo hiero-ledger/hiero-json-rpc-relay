@@ -623,7 +623,7 @@
         {
           "name": "Block hash",
           "description": "Hash of a block",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/hash32"
           }
@@ -631,7 +631,7 @@
         {
           "name": "Index",
           "description": "Uncle index position",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/hex"
           }
@@ -653,7 +653,7 @@
         {
           "name": "Block",
           "description": "Block number or tag",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/BlockNumberOrTag"
           }
@@ -661,7 +661,7 @@
         {
           "name": "Index",
           "description": "Uncle index position",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/hex"
           }
@@ -683,7 +683,7 @@
         {
           "name": "Block hash",
           "description": "Hash of a block",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/hash32"
           }
@@ -707,7 +707,7 @@
         {
           "name": "Block",
           "description": "Block number or tag",
-          "required": true,
+          "required": false,
           "schema": {
             "$ref": "#/components/schemas/BlockNumberOrTag"
           }

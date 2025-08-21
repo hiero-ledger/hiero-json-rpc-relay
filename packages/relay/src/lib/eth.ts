@@ -459,8 +459,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: 'blockHash', required: true },
-    1: { type: 'hex', required: true },
+    0: { type: 'blockHash', required: false },
+    1: { type: 'hex', required: false },
   })
   getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
     return this.blockService.getUncleByBlockHashAndIndex(blockHash, index);
@@ -478,8 +478,8 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: 'blockNumber', required: true },
-    1: { type: 'hex', required: true },
+    0: { type: 'blockNumber', required: false },
+    1: { type: 'hex', required: false },
   })
   getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
     return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index);
@@ -496,7 +496,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: 'blockHash', required: true },
+    0: { type: 'blockHash', required: false },
   })
   getUncleCountByBlockHash(blockHash: string): string {
     return this.blockService.getUncleCountByBlockHash(blockHash);
@@ -513,7 +513,7 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamValidationRules({
-    0: { type: 'blockNumber', required: true },
+    0: { type: 'blockNumber', required: false },
   })
   getUncleCountByBlockNumber(blockNumOrTag: string): string {
     return this.blockService.getUncleCountByBlockNumber(blockNumOrTag);
