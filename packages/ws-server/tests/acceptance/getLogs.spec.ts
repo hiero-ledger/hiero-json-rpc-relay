@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { expect } from 'chai';
+import { ethers, WebSocketProvider } from 'ethers';
+
+import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 eth_getLogs', async function () {
   const EXPECTED_VALUE = 7;
@@ -62,12 +62,9 @@ describe('@web-socket-batch-2 eth_getLogs', async function () {
     '0x6080604052348015600f57600080fd5b507f4e7df42af9a017b7c655a28ef10cbc8f05b2b088f087ee02416cfa1a96ac3be26007604051603e91906091565b60405180910390a160aa565b6000819050919050565b6000819050919050565b6000819050919050565b6000607d6079607584604a565b605e565b6054565b9050919050565b608b816068565b82525050565b600060208201905060a460008301846084565b92915050565b603f8060b76000396000f3fe6080604052600080fdfea264697066735822122084db7fe76bde5c9c041d61bb40294c56dc6d339bdbc8e0cd285fc4008ccefc2c64736f6c63430008180033';
   // @ts-ignore
   const { mirrorNode, relay }: { mirrorNode: MirrorClient; relay: RelayClient } = global;
-  const requestId = 'getLogsTest_ws-server';
-  const requestDetails = new RequestDetails({ requestId: requestId, ipAddress: '0.0.0.0' });
 
-  let wsFilterObj: any,
-    accounts: AliasAccount[] = [],
-    ethersWsProvider: WebSocketProvider;
+  const accounts: AliasAccount[] = [];
+  let wsFilterObj: any, ethersWsProvider: WebSocketProvider;
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -75,13 +72,7 @@ describe('@web-socket-batch-2 eth_getLogs', async function () {
 
     const neededAccounts: number = 1;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
 

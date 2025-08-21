@@ -29,8 +29,8 @@ const unsubscribeAndCloseConnections = async (provider: ethers.WebSocketProvider
   return result;
 };
 
-const createLogs = async (contract: ethers.Contract, requestId) => {
-  const gasOptions = await Utils.gasOptions(requestId);
+const createLogs = async (contract: ethers.Contract) => {
+  const gasOptions = await Utils.gasOptions();
 
   const tx1 = await contract.log0(10, gasOptions);
   await tx1.wait();
@@ -80,13 +80,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
     const neededAccounts: number = 2;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestId,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
 
@@ -150,7 +144,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
 
       // perform an action on the SC that emits a Log1 event
-      await logContractSigner.log1(100, await Utils.gasOptions(requestId));
+      await logContractSigner.log1(100, await Utils.gasOptions());
       // wait 1s to expect the message
       await new Promise((resolve) => setTimeout(resolve, 4000));
 
@@ -183,7 +177,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       });
 
       //Generate the Logs.
-      const gasOptions = await Utils.gasOptions(requestId);
+      const gasOptions = await Utils.gasOptions();
       const tx1 = await logContractSigner.log1(100, gasOptions);
       await tx1.wait();
       const tx2 = await logContractSigner.log3(4, 6, 7, gasOptions);
@@ -252,7 +246,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           });
           await new Promise((resolve) => setTimeout(resolve, 500)); // wait for subscription to be created
 
-          const gasOptions = await Utils.gasOptions(requestId, 500_000);
+          const gasOptions = await Utils.gasOptions(500_000);
 
           // create event on contract 1
           const tx1 = await logContractSigner.log1(100, gasOptions);
@@ -556,7 +550,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
         });
 
         await new Promise((resolve) => setTimeout(resolve, initialWaitTime));
-        const gasOptions = await Utils.gasOptions(requestId);
+        const gasOptions = await Utils.gasOptions();
         const tx = await logContractSigner.log1(5, gasOptions);
         await tx.wait();
 
@@ -577,14 +571,14 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
     before(async function () {
       wsLogsProvider = await new ethers.WebSocketProvider(WS_RELAY_URL);
 
-      const logContractMirror = await mirrorNode.get(`/contracts/${logContractSigner.target}`, requestId);
+      const logContractMirror = await mirrorNode.get(`/contracts/${logContractSigner.target}`);
       const logContractLongZeroAddress = Utils.idToEvmAddress(logContractMirror.contract_id);
 
       logContractSigner2 = await Utils.deployContractWithEthersV2([], LogContractJson, accounts[0].wallet);
       logContractSigner3 = await Utils.deployContractWithEthersV2([], LogContractJson, accounts[0].wallet);
 
-      await createLogs(logContractSigner2, requestId);
-      const mirrorLogs = await mirrorNode.get(`/contracts/${logContractSigner2.target}/results/logs`, requestId);
+      await createLogs(logContractSigner2);
+      const mirrorLogs = await mirrorNode.get(`/contracts/${logContractSigner2.target}/results/logs`);
 
       expect(mirrorLogs).to.exist;
       expect(mirrorLogs.logs).to.exist;
@@ -643,7 +637,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       // Create logs from all deployed contracts
       for (let i = 0; i < cLen; i++) {
-        await createLogs(contracts[i], requestId);
+        await createLogs(contracts[i]);
       }
 
       await wsLogsProvider.websocket.close();
@@ -751,14 +745,12 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
         htsResult.receipt.tokenId,
         htsAccounts[1].privateKey,
         htsResult.client,
-        requestId,
       );
       await servicesNode.associateHTSToken(
         htsAccounts[2].accountId,
         htsResult.receipt.tokenId,
         htsAccounts[2].privateKey,
         htsResult.client,
-        requestId,
       );
 
       const tokenAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId.toString());

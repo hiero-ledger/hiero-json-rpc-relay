@@ -54,7 +54,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
   const EMPTY_HEX = '0x';
 
   const accounts: AliasAccount[] = [];
-  let requestId;
 
   let IERC20Metadata,
     IERC20,
@@ -84,13 +83,11 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
     createTokenCost;
 
   before(async () => {
-    requestId = Utils.generateRequestId();
-
     const hbarToWeibar = 100_000_000;
     createTokenCost = 35 * Constants.TINYBAR_TO_WEIBAR_COEF * hbarToWeibar;
     // create accounts
     const initialAccount: AliasAccount = global.accounts[0];
-    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, requestId);
+    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount);
 
     // Deploy a contract implementing HederaTokenService
     htsImpl = await Utils.deployContract(
@@ -107,17 +104,17 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       contractDeployer.wallet,
     );
 
-    const tokenManagementMirror = await mirrorNode.get(`/contracts/${TokenManager.target}`, requestId);
+    const tokenManagementMirror = await mirrorNode.get(`/contracts/${TokenManager.target}`);
 
     // create accounts
-    accounts[0] = await servicesNode.createAliasAccount(400, relay.provider, requestId);
-    accounts[1] = await servicesNode.createAliasAccount(200, relay.provider, requestId);
-    accounts[2] = await servicesNode.createAliasAccount(200, relay.provider, requestId);
+    accounts[0] = await servicesNode.createAliasAccount(400, relay.provider);
+    accounts[1] = await servicesNode.createAliasAccount(200, relay.provider);
+    accounts[2] = await servicesNode.createAliasAccount(200, relay.provider);
 
     await new Promise((r) => setTimeout(r, 5000));
-    await mirrorNode.get(`/accounts/${accounts[0].accountId}`, requestId);
-    await mirrorNode.get(`/accounts/${accounts[1].accountId}`, requestId);
-    await mirrorNode.get(`/accounts/${accounts[2].accountId}`, requestId);
+    await mirrorNode.get(`/accounts/${accounts[0].accountId}`);
+    await mirrorNode.get(`/accounts/${accounts[1].accountId}`);
+    await mirrorNode.get(`/accounts/${accounts[2].accountId}`);
 
     TokenManagementSigner = new ethers.Contract(
       TokenManager.target,
@@ -200,7 +197,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         htsResult1.receipt.tokenId,
         account.privateKey,
         htsResult1.client,
-        requestId,
       );
       await servicesNode.grantKyc({
         tokenId: htsResult1.receipt.tokenId,
@@ -214,7 +210,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         nftResult0.receipt.tokenId,
         account.privateKey,
         nftResult0.client,
-        requestId,
       );
     }
 
@@ -276,10 +271,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       tokenAddressAllFees,
     ];
     nftAddresses = [nftAddress, nftAddressRoyaltyFees];
-  });
-
-  this.beforeEach(async () => {
-    requestId = Utils.generateRequestId();
   });
 
   function getContract(address, abi, wallet) {
@@ -755,7 +746,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         data: CALLDATA_BALANCE_OF + accounts[0].address.replace('0x', ''),
       };
 
-      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
       expect(res).to.eq('0x'); // confirm no error
     });
 
@@ -767,12 +758,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         data: CALLDATA_BALANCE_OF + NON_EXISTING_ACCOUNT.padStart(64, '0'),
       };
 
-      await relay.callFailing(
-        Constants.ETH_ENDPOINTS.ETH_CALL,
-        [callData, 'latest'],
-        predefined.CONTRACT_REVERT(),
-        requestId,
-      );
+      await relay.callFailing(Constants.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], predefined.CONTRACT_REVERT());
     });
 
     it('Call to allowance method of an HTS token with non-existing owner account in call data returns error', async () => {
@@ -786,12 +772,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
           account2LongZero.replace('0x', '').padStart(64, '0'),
       };
 
-      await relay.callFailing(
-        Constants.ETH_ENDPOINTS.ETH_CALL,
-        [callData, 'latest'],
-        predefined.CONTRACT_REVERT(),
-        requestId,
-      );
+      await relay.callFailing(Constants.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], predefined.CONTRACT_REVERT());
     });
 
     it('Call to allowance method of an HTS token with non-existing spender account in call data returns error', async () => {
@@ -805,12 +786,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
           NON_EXISTING_ACCOUNT.padStart(64, '0'),
       };
 
-      await relay.callFailing(
-        Constants.ETH_ENDPOINTS.ETH_CALL,
-        [callData, 'latest'],
-        predefined.CONTRACT_REVERT(),
-        requestId,
-      );
+      await relay.callFailing(Constants.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], predefined.CONTRACT_REVERT());
     });
   });
 });

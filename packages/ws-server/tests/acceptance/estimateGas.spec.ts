@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import basicContractJson from '@hashgraph/json-rpc-server/tests/contracts/Basic.json';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import basicContractJson from '@hashgraph/json-rpc-server/tests/contracts/Basic.json';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { expect } from 'chai';
+import { ethers, WebSocketProvider } from 'ethers';
+
+import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-1 eth_estimateGas', async function () {
   const METHOD_NAME = 'eth_estimateGas';
@@ -16,14 +16,12 @@ describe('@web-socket-batch-1 eth_estimateGas', async function () {
 
   // @ts-ignore
   const { mirrorNode } = global;
-  let accounts: AliasAccount[] = [],
-    basicContract: ethers.Contract,
+  const accounts: AliasAccount[] = [];
+  let basicContract: ethers.Contract,
     currentPrice: number,
     expectedGas: number,
     gasPriceDeviation: number,
     ethersWsProvider: WebSocketProvider;
-
-  const requestDetails = new RequestDetails({ requestId: 'ws_estimateGasTest', ipAddress: '0.0.0.0' });
 
   before(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -31,13 +29,7 @@ describe('@web-socket-batch-1 eth_estimateGas', async function () {
     const neededAccounts: number = 1;
 
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialAmount,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialAmount)),
     );
     global.accounts.push(...accounts);
 

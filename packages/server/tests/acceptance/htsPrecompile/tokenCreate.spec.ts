@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import relayConstants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -64,7 +63,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar
 
-    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, requestId, initialAmount);
+    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     mainContract = await Utils.deployContract(TokenCreateJson.abi, TokenCreateJson.bytecode, contractDeployer.wallet);
     mainContractAddress = mainContract.target as string;
     const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`, requestId);
@@ -113,7 +112,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
   async function createHTSToken() {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
-    const gasOptions = await Utils.gasOptions(requestId, 15_000_000);
+    const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       ...gasOptions,
@@ -127,7 +126,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
   async function createNftHTSToken() {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
-    const gasOptions = await Utils.gasOptions(requestId, 15_000_000);
+    const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createNonFungibleTokenPublic(accounts[0].wallet.address, {
       value: BigInt('10000000000000000000'),
       ...gasOptions,
@@ -141,7 +140,7 @@ describe('@tokencreate HTS Precompile Token Create Acceptance Tests', async func
 
   async function createHTSTokenWithCustomFees() {
     const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
-    const gasOptions = await Utils.gasOptions(requestId, 15_000_000);
+    const gasOptions = await Utils.gasOptions(15_000_000);
     const tx = await mainContract.createFungibleTokenWithCustomFeesPublic(
       accounts[0].wallet.address,
       HTSTokenContractAddress,
