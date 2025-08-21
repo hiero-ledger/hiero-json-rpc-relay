@@ -384,6 +384,7 @@ npx hardhat test --grep "WHBARTests @bsc @test" --network bsc_testnet
 
 ### Useful information:
 - The addresses of endpoints [here](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/1030-lz-setup/tools/layer-zero-example/hardhat.config.js#L60) are the official LZ endpoints. A entire list of LZ supported endpoints can be found on https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts.
+- Creating an HTS token with `create-hts-token` command executes token transfer under the hood, and the signer must have enabled "Max. Auto. Associations". This can be achieved using AccountUpdateTransaction via the Hedera SDK. More info can be found [here](https://docs.hedera.com/hedera/sdks-and-apis/sdks/accounts-and-hbar/update-an-account).
 
 ### HTS Adapter vs HTS Connector
 - You could use a HTS Adapter when you already have an existing HTS token on the fly.
