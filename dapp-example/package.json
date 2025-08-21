@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.7",
-    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-env": "^7.28.3",
     "@cypress/webpack-batteries-included-preprocessor": "^3.1.2",
     "@cypress/webpack-preprocessor": "^5.0.2",
     "@synthetixio/synpress": "^3.7.3",
@@ -39,8 +39,8 @@
     "env-cmd": "^10.1.0",
     "http-server": "^14.1.1",
     "mocha-junit-reporter": "^2.2.1",
-    "start-server-and-test": "^2.0.12",
-    "webpack": "^5.101.0"
+    "start-server-and-test": "^2.0.13",
+    "webpack": "^5.101.3"
   },
   "scripts": {
     "start": "react-scripts start --openssl-legacy-provider",
