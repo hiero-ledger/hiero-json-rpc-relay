@@ -8,10 +8,7 @@ import { Gauge, Registry } from 'prom-client';
 import { Utils } from '../../../utils';
 import { ICacheClient } from './ICacheClient';
 
-interface LRUCacheOptions {
-  max: number;
-  ttl: number;
-}
+type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache.OptionsTTLLimit<string, any, unknown>;
 
 /**
  * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
@@ -29,6 +26,8 @@ export class LocalLRUCache implements ICacheClient {
     max: ConfigService.get('CACHE_MAX'),
     // Max time to live in ms, for items before they are considered stale.
     ttl: ConfigService.get('CACHE_TTL'),
+    // Disable the preemptively removing stale items from the cache
+    ttlAutopurge: false,
   };
 
   /**
