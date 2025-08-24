@@ -8,19 +8,19 @@
     "response": "{\"jsonrpc\":\"2.0\",\"id\":\"test_id\",\"result\":\"0xa54f4c3c00\"}"
   },
   "eth_getUncleByBlockHashAndIndex": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockHashAndIndex\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockHashAndIndex\",\"params\":[\"0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8\",\"0x0\"]}",
     "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleByBlockNumberAndIndex": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockNumberAndIndex\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleByBlockNumberAndIndex\",\"params\":[\"latest\",\"0x0\"]}",
     "response": "{\"result\":null,\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockHash": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockHash\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockHash\",\"params\":[\"0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8\"]}",
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_getUncleCountByBlockNumber": {
-    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockNumber\",\"params\":[]}",
+    "request": "{\"id\":\"test_id\",\"jsonrpc\":\"2.0\",\"method\":\"eth_getUncleCountByBlockNumber\",\"params\":[\"latest\"]}",
     "response": "{\"result\":\"0x0\",\"jsonrpc\":\"2.0\",\"id\":\"test_id\"}"
   },
   "eth_hashrate": {

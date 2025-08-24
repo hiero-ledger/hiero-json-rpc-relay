@@ -241,44 +241,54 @@ export class BlockService implements IBlockService {
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @returns null
+   *
+   * @param blockHash - The block hash
+   * @param index - The uncle index
+   * @returns null as Hedera does not support uncle blocks
    */
-  async getUncleByBlockHashAndIndex(): Promise<null> {
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getUncleByBlockHashAndIndex()');
+      this.logger.trace(`getUncleByBlockHashAndIndex(blockHash=${blockHash}, index=${index})`);
     }
     return null;
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
-   * @returns null
+   *
+   * @param blockNumOrTag - The block number or tag
+   * @param index - The uncle index
+   * @returns null as Hedera does not support uncle blocks
    */
-  async getUncleByBlockNumberAndIndex(): Promise<null> {
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getUncleByBlockNumberAndIndex()');
+      this.logger.trace(`getUncleByBlockNumberAndIndex(blockNumOrTag=${blockNumOrTag}, index=${index})`);
     }
     return null;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @returns '0x0'
+   *
+   * @param blockHash - The block hash
+   * @returns '0x0' as Hedera does not support uncle blocks
    */
-  async getUncleCountByBlockHash(): Promise<string> {
+  getUncleCountByBlockHash(blockHash: string): string {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getUncleCountByBlockHash()');
+      this.logger.trace(`getUncleCountByBlockHash(blockHash=${blockHash})`);
     }
     return constants.ZERO_HEX;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
-   * @returns '0x0'
+   *
+   * @param blockNumOrTag - The block number or tag
+   * @returns '0x0' as Hedera does not support uncle blocks
    */
-  async getUncleCountByBlockNumber(): Promise<string> {
+  getUncleCountByBlockNumber(blockNumOrTag: string): string {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getUncleCountByBlockNumber()');
+      this.logger.trace(`getUncleCountByBlockNumber(blockNumOrTag=${blockNumOrTag})`);
     }
     return constants.ZERO_HEX;
   }

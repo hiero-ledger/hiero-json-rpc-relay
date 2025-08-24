@@ -70,6 +70,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     '0a280a0a08541a061a04408888340a0a08061a061a0440889d2d0a0a08071a061a0440b0b63c120208011200'; // Eth gas = 853000
   const FEE_SCHEDULE_FILE_CONTENT_UPDATED =
     '0a280a0a08541a061a0440a8953a0a0a08061a061a0440889d2d0a0a08071a061a0440b0b63c120208011200'; // Eth gas = 953000
+  const RANDOM_BLOCK_HASH = '0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8'; // Eth gas = 953000
 
   let blockNumAfterCreateChildTx = 0;
 
@@ -570,46 +571,94 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.be.equal(expectedVersion);
     });
 
-    it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, [
-        createChildTx.hash,
-        0,
-      ]);
-      expect(res).to.be.null;
+    // Group tests for all uncle family methods with valid parameters (success cases)
+    const uncleEndpoints = [
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,
+        expected: '0x0',
+        validParams: [RANDOM_BLOCK_HASH],
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER,
+        expected: '0x0',
+        validParams: ['latest'],
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
+        expected: null,
+        validParams: [RANDOM_BLOCK_HASH, '0x0'],
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
+        expected: null,
+        validParams: ['latest', '0x0'],
+      },
+    ];
+
+    const paramTypes = [
+      { params: [], description: 'empty params' },
+      { params: 'valid', description: 'valid params' },
+    ];
+
+    uncleEndpoints.forEach(({ endpoint, expected, validParams }) => {
+      paramTypes.forEach(({ params, description }) => {
+        it(`should execute "${endpoint}" with ${description}`, async function () {
+          const actualParams = params === 'valid' ? validParams : []; // params is always [] for empty params case
+          const res = await relay.call(endpoint, actualParams);
+          expect(res).to.be.equal(expected);
+        });
+      });
     });
 
-    it('should execute "eth_getUncleByBlockHashAndIndex" for non-existing block hash and index=0', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX, [
-        Address.NON_EXISTING_BLOCK_HASH,
-        0,
-      ]);
-      expect(res).to.be.null;
-    });
+    // Group tests for all uncle family methods with invalid parameters
+    const invalidScenarios = [
+      { description: 'empty block identifier', blockParam: '', indexParam: '0x0' },
+      { description: 'invalid hex block identifier', blockParam: '0xhedera', indexParam: '0x0' },
+      { description: 'invalid index', blockParam: null, indexParam: '0xinvalidiIndex' }, // blockParam will be set per method
+    ];
 
-    it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX, [
-        createChildTx.blockNumber,
-        0,
-      ]);
-      expect(res).to.be.null;
-    });
+    const uncleMethods = [
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH,
+        validBlockParam: RANDOM_BLOCK_HASH,
+        hasIndex: false,
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER,
+        validBlockParam: 'latest',
+        hasIndex: false,
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_HASH_AND_INDEX,
+        validBlockParam: RANDOM_BLOCK_HASH,
+        hasIndex: true,
+      },
+      {
+        endpoint: RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX,
+        validBlockParam: 'latest',
+        hasIndex: true,
+      },
+    ];
 
-    it('should execute "eth_getUncleByBlockNumberAndIndex" for non-existing block number and index=0', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_BY_BLOCK_NUMBER_AND_INDEX, [
-        Address.NON_EXISTING_BLOCK_NUMBER,
-        0,
-      ]);
-      expect(res).to.be.null;
-    });
+    invalidScenarios.forEach((scenario) => {
+      uncleMethods.forEach(({ endpoint, validBlockParam, hasIndex }) => {
+        // Skip invalid index tests for count methods (they don't have an index parameter)
+        if (scenario.description === 'invalid index' && !hasIndex) {
+          return;
+        }
 
-    it('should execute "eth_getUncleCountByBlockHash"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_HASH, []);
-      expect(res).to.be.equal('0x0');
-    });
+        const blockParam = scenario.blockParam === null ? validBlockParam : scenario.blockParam;
+        const params = hasIndex ? [blockParam, scenario.indexParam] : [blockParam];
 
-    it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_UNCLE_COUNT_BY_BLOCK_NUMBER, []);
-      expect(res).to.be.equal('0x0');
+        it(`should fail to execute "${endpoint}" with ${scenario.description}`, async function () {
+          const promise = relay.call(endpoint, params);
+
+          await expect(promise).to.eventually.be.rejected.and.satisfy(
+            (error) =>
+              error.message.includes('server response 400 Bad Request') && error.message.includes('Invalid parameter'),
+          );
+        });
+      });
     });
 
     it('should return empty on "eth_accounts"', async function () {
