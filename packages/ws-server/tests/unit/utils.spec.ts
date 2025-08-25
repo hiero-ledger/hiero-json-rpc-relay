@@ -137,15 +137,13 @@ describe('Utilities unit tests', async function () {
       relayStub.eth.returns(sinon.createStubInstance(EthImpl));
       limiterStub = sinon.createStubInstance(ConnectionLimiter);
       wsMetricRegistryStub = sinon.createStubInstance(WsMetricRegistry);
-      wsMetricRegistryStub.getCounter.returns(sinon.createStubInstance(Counter));
-      wsMetricRegistryStub.getHistogram.returns(
-        sinon.createStubInstance(Histogram, {
-          labels: sinon.stub<[Partial<Record<any, string | number>>]>().returns({
-            observe: sinon.spy(),
-            startTimer: sinon.spy(),
-          }),
-        }),
-      );
+      const counterStub = { inc: sinon.stub() } as unknown as Counter;
+      wsMetricRegistryStub.getCounter.returns(counterStub);
+      const fakeHistogram = {
+        observe: sinon.stub(),
+        startTimer: sinon.stub(),
+      } as unknown as Histogram;
+      wsMetricRegistryStub.getHistogram.returns(fakeHistogram);
       ctxStub = {
         websocket: {
           id: 'mock-id',
