@@ -1291,6 +1291,34 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(fileInfo.size.toNumber()).to.eq(0);
       });
 
+      it('@xts should execute "eth_sendRawTransaction" and deploy a real contract which can be accessible', async function () {
+        // deploy contract
+        const deploymentTransaction = {
+          ...defaultLondonTransactionData,
+          value: 0,
+          data: basicContract.bytecode,
+          nonce: await relay.getAccountNonce(accounts[2].address),
+        };
+        const signedTx = await accounts[2].wallet.signTransaction(deploymentTransaction);
+        const deploymentTxHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(deploymentTxHash);
+
+        // confirm contract deployment successful via MN
+        const info = await mirrorNode.get(`/contracts/results/${deploymentTxHash}`);
+        expect(info).to.have.property('address');
+        expect(info.address).to.not.be.null;
+        const contractInfo = await mirrorNode.get(`/contracts/${info.address}`);
+        expect(contractInfo).to.have.property('bytecode');
+        expect(contractInfo.bytecode).to.not.be.null;
+
+        // confirm contract accessibility
+        const deployedContract = new ethers.Contract(info.address, basicContract.abi, accounts[2].wallet);
+        expect(await deployedContract.getAddress()).to.eq(contractInfo.evm_address);
+        expect(await deployedContract.getDeployedCode()).to.eq(contractInfo.runtime_bytecode);
+        const result = await deployedContract.ping();
+        expect(result).to.eq(1n);
+      });
+
       it('@xts should execute "eth_sendRawTransaction" of type 1 and deploy a real contract', async function () {
         //omitting the "to" and "nonce" fields when creating a new contract
         const transaction = {
