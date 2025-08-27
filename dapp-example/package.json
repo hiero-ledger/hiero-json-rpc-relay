@@ -27,7 +27,7 @@
     "mocha": "10.8.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.7",
+    "@babel/core": "^7.28.3",
     "@babel/preset-env": "^7.28.3",
     "@cypress/webpack-batteries-included-preprocessor": "^3.1.2",
     "@cypress/webpack-preprocessor": "^5.0.2",
