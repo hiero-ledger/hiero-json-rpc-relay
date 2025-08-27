@@ -234,7 +234,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
   it('handles transactions with null gas_used', async function () {
     const detailedResultsWithNullNullableValues = {
       ...defaultDetailedContractResultByHash,
-      gas_used: null,
+      gas_limit: null,
     };
     const uniqueTxHash = '0x14aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
 
