@@ -86,7 +86,7 @@
     "print-env": "npx lerna exec --scope @hashgraph/json-rpc-config-service -- npm run print-env"
   },
   "dependencies": {
-    "@ethereumjs/rlp": "^5.0.2",
+    "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
     "koa-cors": "^0.0.16",
