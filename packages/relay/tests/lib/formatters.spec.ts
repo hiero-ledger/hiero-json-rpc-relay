@@ -660,7 +660,7 @@ describe('Formatters', () => {
   describe('tinybarsToWeibars', () => {
     for (const allowNegativeValues of [true, false]) {
       it(`should convert tinybars to weibars allowNegativeValues = ${allowNegativeValues}`, () => {
-        expect(tinybarsToWeibars(10, allowNegativeValues)).to.eql(100000000000);
+        expect(tinybarsToWeibars(10, allowNegativeValues)).to.eql(BigInt(100000000000));
       });
 
       it(`should return null if null is passed allowNegativeValues = ${allowNegativeValues}`, () => {
@@ -668,7 +668,7 @@ describe('Formatters', () => {
       });
 
       it(`should return 0 for 0 input allowNegativeValues = ${allowNegativeValues}`, () => {
-        expect(tinybarsToWeibars(0, allowNegativeValues)).to.eql(0);
+        expect(tinybarsToWeibars(0, allowNegativeValues)).to.eql(BigInt(0));
       });
 
       it(`should throw an error when value is larger than the total supply of tinybars allowNegativeValues = ${allowNegativeValues}`, () => {
@@ -706,7 +706,7 @@ describe('Formatters', () => {
 
     it('should handle edge case values correctly', () => {
       expect(tinybarsToWeibars(constants.TOTAL_SUPPLY_TINYBARS, false)).to.eql(
-        constants.TOTAL_SUPPLY_TINYBARS * constants.TINYBAR_TO_WEIBAR_COEF,
+        BigInt(constants.TOTAL_SUPPLY_TINYBARS) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF),
       );
     });
   });

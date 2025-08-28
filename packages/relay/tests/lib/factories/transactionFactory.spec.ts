@@ -30,7 +30,7 @@ describe('TransactionFactory', () => {
       );
       expect(formattedResult.chainId).to.equal('0x12a');
       expect(formattedResult.from).to.equal('0x05fba803be258049a27b820088bab1cad2058871');
-      expect(formattedResult.gas).to.equal(expectedValues.gas ?? '0x61a80');
+      expect(formattedResult.gas).to.equal(expectedValues.gas ?? '0x7a120');
       expect(formattedResult.gasPrice).to.equal(expectedValues.gasPrice ?? '0x0');
       expect(formattedResult.hash).to.equal('0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd');
       expect(formattedResult.input).to.equal('0x08090033');
@@ -57,6 +57,7 @@ describe('TransactionFactory', () => {
       from: '0x05fba803be258049a27b820088bab1cad2058871',
       function_parameters: '0x08090033',
       gas_used: 400000,
+      gas_limit: 500_000,
       to: '0x0000000000000000000000000000000000000409',
       hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
       block_hash: '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
@@ -100,7 +101,7 @@ describe('TransactionFactory', () => {
       const formattedResult: any = createTransactionFromContractResult({
         ...contractResult,
         block_number: null,
-        gas_used: null,
+        gas_limit: null,
         gas_price: '0x',
         max_priority_fee_per_gas: '0x',
         max_fee_per_gas: '0x',

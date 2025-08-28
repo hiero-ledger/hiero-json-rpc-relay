@@ -258,7 +258,7 @@ const tinybarsToWeibars = (value: number | null, allowNegativeValues: boolean = 
   if (value && value > constants.TOTAL_SUPPLY_TINYBARS)
     throw new Error('Value cannot be more than the total supply of tinybars in the blockchain');
 
-  return value == null ? null : value * constants.TINYBAR_TO_WEIBAR_COEF;
+  return value == null ? null : BigInt(value) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
 };
 
 export {
