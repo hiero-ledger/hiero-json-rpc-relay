@@ -279,6 +279,62 @@ npx hardhat test --grep "HTSConnectorExistingToken @hedera @test" --network hede
 npx hardhat test --grep "HTSConnectorExistingToken @bsc @test" --network bsc_testnet
 ```
 
+### Stargate HTS Connector for existing HTS token
+
+That's a variant of OFT but using an already existing HTS token. Keep in mind that "supply key" of the token must contains the Stargate HTS Connector contract's address.
+
+- Create an HTS token
+```typescript
+npx hardhat create-hts-token --network hedera_testnet
+```
+
+- Deploying OFT on an EVM chain and Stargate HTS Connector on the Hedera chain. The Stargate HTS Connector for existing token extends StargateHTSConnectorExistingToken and receives the HTS tokens address as constructor parameter. Also, overrides StargateOFT _inflow and _outflow with related HTS mint and burn precompile calls
+```
+npx hardhat deploy-stargate-hts-connector-existing-token --token <existing_hts_token_address> --network hedera_testnet
+npx hardhat deploy-oft --decimals 8 --mint 1000 --network bsc_testnet
+```
+
+- In order to connect OFTs together, we need to set the peer of the target OFT, more info can be found here https://docs.layerzero.network/v2/developers/evm/getting-started#connecting-your-contracts
+```typescript
+npx hardhat set-peer --source <bsc_oft_address> --target <hedera_oft_address> --network bsc_testnet
+```
+
+- In order to connect OFTs together, we need to set the oft path of the Stargate HTS Connector
+```typescript
+npx hardhat set-stargate-oft-path --source <hedera_oft_address> --network hedera_testnet
+```
+
+- Fill the .env
+
+- Adding the StargateHTSConnectorExistingToken contract's address as a supply key of the existing HTS token
+```typescript
+npx hardhat test --grep "StargateHTSConnectorExistingToken @hedera @update-keys" --network hedera_testnet
+```
+
+- Funding the StargateHTSConnectorExistingToken contract
+```typescript
+npx hardhat test --grep "StargateHTSConnectorExistingToken @hedera @fund" --network hedera_testnet
+```
+
+- Approving Stargate HTS Connector to use some signer's tokens
+```typescript
+npx hardhat test --grep "StargateHTSConnectorExistingToken @hedera @approve" --network hedera_testnet
+```
+
+- On these steps, we're sending tokens from an EVM chain to Hedera and receiving HTS tokens and vice versa
+```typescript
+npx hardhat test --grep "StargateHTSConnectorExistingToken @bsc @send" --network bsc_testnet
+npx hardhat test --grep "StargateHTSConnectorExistingToken @hedera @send" --network hedera_testnet
+```
+
+- Wait a couple of minutes, the LZ progress can be tracked on https://testnet.layerzeroscan.com/tx/<tx_hash>
+
+- Finally we're checking whether the balances are expected on both source and destination chains
+```typescript
+npx hardhat test --grep "StargateHTSConnectorExistingToken @hedera @test" --network hedera_testnet
+npx hardhat test --grep "StargateHTSConnectorExistingToken @bsc @test" --network bsc_testnet
+```
+
 ### WHBAR flow
 
 Wrap and transfer HBARs across different chains.
@@ -328,6 +384,7 @@ npx hardhat test --grep "WHBARTests @bsc @test" --network bsc_testnet
 
 ### Useful information:
 - The addresses of endpoints [here](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/1030-lz-setup/tools/layer-zero-example/hardhat.config.js#L60) are the official LZ endpoints. A entire list of LZ supported endpoints can be found on https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts.
+- Creating an HTS token with `create-hts-token` command executes token transfer under the hood, and the signer must have enabled "Max. Auto. Associations". This can be achieved using AccountUpdateTransaction via the Hedera SDK. More info can be found [here](https://docs.hedera.com/hedera/sdks-and-apis/sdks/accounts-and-hbar/update-an-account).
 
 ### HTS Adapter vs HTS Connector
 - You could use a HTS Adapter when you already have an existing HTS token on the fly.
