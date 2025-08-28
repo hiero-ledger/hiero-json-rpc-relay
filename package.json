@@ -67,6 +67,7 @@
     "acceptancetest:serverconfig": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
     "acceptancetest:send_raw_transaction_extension": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
+    "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
     "build": "npx lerna run build",
     "build-and-test": "npx lerna run build && npx lerna run test",
     "build:docker": "docker build . -t ${npm_package_name}",

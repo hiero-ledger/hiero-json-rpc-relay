@@ -147,7 +147,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   describe('Jumbo Transaction', function () {
-    it('@release should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
+    it('@release @xts should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
       const isJumboTransaction = ConfigService.get('JUMBO_TX_ENABLED');
       // skip this test if JUMBO_TX_ENABLED is false
       if (!isJumboTransaction) {
