@@ -364,4 +364,12 @@ describe('Connection Limiter', function () {
       expect(ctx.websocket.subscriptions).to.eq(0);
     });
   });
+
+  describe('validateSubscriptionLimit', function () {
+    it('should return true if the limit is reached', function () {
+      const ctx = createMockContext({ subscriptions: 5 });
+
+      expect(connectionLimiter.validateSubscriptionLimit(ctx)).to.be.true;
+    });
+  });
 });
