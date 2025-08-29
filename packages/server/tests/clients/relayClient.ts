@@ -122,13 +122,15 @@ export default class RelayClient {
    * Polls for a valid transaction receipt by repeatedly checking until one is found.
    *
    * @param {string} txHash - The transaction hash to get the receipt for
+   * @param {number} attempts - Remaining attempts (default: 30)
    * @returns {Promise<ITransactionReceipt>} A promise that resolves to the transaction receipt
    */
-  async pollForValidTransactionReceipt(txHash: string): Promise<ITransactionReceipt> {
+  async pollForValidTransactionReceipt(txHash: string, attempts: number = 9): Promise<ITransactionReceipt> {
     const receipt = await this.provider.send(constants.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash]);
     if (receipt) return receipt;
+    if (attempts <= 1) throw new Error('Transaction receipt not found');
 
     await Utils.wait(1000);
-    return this.pollForValidTransactionReceipt(txHash);
+    return this.pollForValidTransactionReceipt(txHash, attempts - 1);
   }
 }
