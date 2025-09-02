@@ -36,7 +36,7 @@
     "cypress": "^13.13.2",
     "cypress-multi-reporters": "^2.0.5",
     "cypress-wait-until": "^3.0.2",
-    "env-cmd": "^10.1.0",
+    "env-cmd": "^11.0.0",
     "http-server": "^14.1.1",
     "mocha-junit-reporter": "^2.2.1",
     "start-server-and-test": "^2.0.13",
