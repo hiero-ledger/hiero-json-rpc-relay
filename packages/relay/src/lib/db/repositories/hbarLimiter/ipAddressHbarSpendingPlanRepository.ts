@@ -69,7 +69,7 @@ export class IPAddressHbarSpendingPlanRepository {
     for (const key of keys) {
       const addressPlan = await this.cache.getAsync<IIPAddressHbarSpendingPlan>(key, callingMethod);
       if (addressPlan?.planId === planId) {
-          this.logger.trace(`Removing IP address from HbarSpendingPlan with ID ${planId}`);
+        this.logger.trace('Removing IP address from HbarSpendingPlan with ID %s', planId);
         await this.cache.delete(key, callingMethod);
       }
     }
@@ -87,7 +87,7 @@ export class IPAddressHbarSpendingPlanRepository {
     if (!addressPlan) {
       throw new IPAddressHbarSpendingPlanNotFoundError(ipAddress);
     }
-    this.logger.trace(`Retrieved link between IP address and HbarSpendingPlan with ID ${addressPlan.planId}`);
+    this.logger.trace('Retrieved link between IP address and HbarSpendingPlan with ID %s', addressPlan.planId);
     return new IPAddressHbarSpendingPlan(addressPlan);
   }
 
@@ -101,7 +101,7 @@ export class IPAddressHbarSpendingPlanRepository {
   async save(addressPlan: IIPAddressHbarSpendingPlan, ttl: number): Promise<void> {
     const key = this.getKey(addressPlan.ipAddress);
     await this.cache.set(key, addressPlan, 'save', ttl);
-    this.logger.trace(`Linked new IP address to HbarSpendingPlan with ID ${addressPlan.planId}`);
+    this.logger.trace('Linked new IP address to HbarSpendingPlan with ID %s', addressPlan.planId);
   }
 
   /**
@@ -117,7 +117,7 @@ export class IPAddressHbarSpendingPlanRepository {
     const errorMessage = ipAddressSpendingPlan
       ? `Removed IP address from HbarSpendingPlan with ID ${ipAddressSpendingPlan.planId}`
       : `Trying to remove an IP address, which is not linked to a spending plan`;
-      this.logger.trace(`${errorMessage}`);
+    this.logger.trace('%s', errorMessage);
   }
 
   /**

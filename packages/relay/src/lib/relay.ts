@@ -260,7 +260,7 @@ export class Relay {
           this.logger.info('Pre-configured spending plans populated successfully');
         }
       })
-      .catch((e) => this.logger.warn(`Failed to load pre-configured spending plans: ${e.message}`));
+      .catch((e) => this.logger.warn('Failed to load pre-configured spending plans: %s', e.message));
   }
 
   /**
@@ -343,7 +343,7 @@ export class Relay {
     if (balance === BigInt(0)) {
       throw new Error(`Operator account '${operator}' has no balance`);
     } else {
-      this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
+      this.logger.info("Operator account '%s' has balance: %s", operator, balance);
     }
   }
 }

@@ -198,14 +198,17 @@ export class SDKClient {
     let queryCost: number | undefined = undefined;
     let status: string = '';
 
-    this.logger.info(`Execute ${queryConstructorName} query.`);
+    this.logger.info('Execute %s query.', queryConstructorName);
 
     try {
       queryResponse = await query.execute(client);
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = Status.Success.toString();
       this.logger.info(
-        `Successfully execute ${queryConstructorName} query: callerName=${callerName}, cost=${queryCost} tinybars`,
+        'Successfully execute %s query: callerName=%s, cost=%d tinybars',
+        queryConstructorName,
+        callerName,
+        queryCost,
       );
       return queryResponse;
     } catch (e: any) {
@@ -560,7 +563,7 @@ export class SDKClient {
         this.logger.warn('Fail to delete file with fileId: %s ', fileId);
       }
     } catch (error: any) {
-      this.logger.warn(`${error['message']} `);
+      this.logger.warn('%s', error['message']);
     }
   }
 
@@ -584,11 +587,11 @@ export class SDKClient {
     let transactionFee: number = 0;
     let txRecordChargeAmount: number = 0;
     try {
-        this.logger.debug(
-          'Get transaction record via consensus node: transactionId=%s, txConstructorName=%s',
-          transactionId,
-          txConstructorName,
-        );
+      this.logger.debug(
+        'Get transaction record via consensus node: transactionId=%s, txConstructorName=%s',
+        transactionId,
+        txConstructorName,
+      );
 
       const transactionRecord = await new TransactionRecordQuery()
         .setTransactionId(transactionId)

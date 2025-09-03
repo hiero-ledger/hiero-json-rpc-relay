@@ -105,9 +105,7 @@ export class LocalLRUCache implements ICacheClient {
     if (value !== undefined) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
       const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
-      }
+      this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
       return value;
     }
 

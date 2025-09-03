@@ -87,11 +87,11 @@ export class Precheck {
   async verifyAccount(tx: Transaction, requestDetails: RequestDetails): Promise<any> {
     const accountInfo = await this.mirrorNodeClient.getAccount(tx.from!, requestDetails);
     if (accountInfo == null) {
-        this.logger.trace(
-          'Failed to retrieve address \'%s\' account details from mirror node on verify account precheck for sendRawTransaction(transaction=%o)',
-          tx.from,
-          tx,
-        );
+      this.logger.trace(
+        "Failed to retrieve address '%s' account details from mirror node on verify account precheck for sendRawTransaction(transaction=%o)",
+        tx.from,
+        tx,
+      );
       throw predefined.RESOURCE_NOT_FOUND(`address '${tx.from}'.`);
     }
 
@@ -123,11 +123,7 @@ export class Precheck {
     const txChainId = prepend0x(Number(tx.chainId).toString(16));
     const passes = this.isLegacyUnprotectedEtx(tx) || txChainId === this.chain;
     if (!passes) {
-        this.logger.trace(
-          'Failed chainId precheck for sendRawTransaction(transaction=%o, chainId=%s)',
-          tx,
-          txChainId,
-        );
+      this.logger.trace('Failed chainId precheck for sendRawTransaction(transaction=%o, chainId=%s)', tx, txChainId);
       throw predefined.UNSUPPORTED_CHAIN_ID(txChainId, this.chain);
     }
   }
@@ -208,11 +204,11 @@ export class Precheck {
     const txTotalValue = tx.value + txGasPrice * tx.gasLimit;
 
     if (account == null) {
-        this.logger.trace(
-          'Failed to retrieve account details from mirror node on balance precheck for sendRawTransaction(transaction=%s, totalValue=%s)',
-          JSON.stringify(tx),
-          txTotalValue,
-        );
+      this.logger.trace(
+        'Failed to retrieve account details from mirror node on balance precheck for sendRawTransaction(transaction=%s, totalValue=%s)',
+        JSON.stringify(tx),
+        txTotalValue,
+      );
       throw predefined.RESOURCE_NOT_FOUND(`tx.from '${tx.from}'.`);
     }
 
@@ -223,11 +219,10 @@ export class Precheck {
     } catch (error: any) {
       this.logger.trace(
         'Error on balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, error=%s)',
-          JSON.stringify(tx),
-          txTotalValue,
-          error.message,
-        );
-      }
+        JSON.stringify(tx),
+        txTotalValue,
+        error.message,
+      );
       if (error instanceof JsonRpcError) {
         // preserve original error
         throw error;
@@ -237,12 +232,12 @@ export class Precheck {
     }
 
     if (!result.passes) {
-        this.logger.trace(
-          'Failed balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, accountTinyBarBalance=%s)',
-          JSON.stringify(tx),
-          txTotalValue,
-          tinybars,
-        );
+      this.logger.trace(
+        'Failed balance precheck for sendRawTransaction(transaction=%s, totalValue=%s, accountTinyBarBalance=%s)',
+        JSON.stringify(tx),
+        txTotalValue,
+        tinybars,
+      );
       throw predefined.INSUFFICIENT_ACCOUNT_BALANCE;
     }
   }
@@ -259,19 +254,19 @@ export class Precheck {
 
     if (gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD) {
       this.logger.trace(
-        `${failBaseLog} Gas Limit was too high: %s, block gas limit: %s`,
-          JSON.stringify(tx),
-          gasLimit,
-          constants.MAX_TRANSACTION_FEE_THRESHOLD,
-        );
+        failBaseLog + ' Gas Limit was too high: %s, block gas limit: %s',
+        JSON.stringify(tx),
+        gasLimit,
+        constants.MAX_TRANSACTION_FEE_THRESHOLD,
+      );
       throw predefined.GAS_LIMIT_TOO_HIGH(gasLimit, constants.MAX_TRANSACTION_FEE_THRESHOLD);
     } else if (gasLimit < intrinsicGasCost) {
-        this.logger.trace(
-          `${failBaseLog} Gas Limit was too low: %s, intrinsic gas cost: %s`,
-          JSON.stringify(tx),
-          gasLimit,
-          intrinsicGasCost,
-        );
+      this.logger.trace(
+        failBaseLog + ' Gas Limit was too low: %s, intrinsic gas cost: %s',
+        JSON.stringify(tx),
+        gasLimit,
+        intrinsicGasCost,
+      );
       throw predefined.GAS_LIMIT_TOO_LOW(gasLimit, intrinsicGasCost);
     }
   }
@@ -338,9 +333,11 @@ export class Precheck {
   transactionType(tx: Transaction) {
     // Blob transactions are not supported as per HIP 866
     if (tx.type === 3) {
-        this.logger.trace(
-          `Transaction with type=${tx.type} is unsupported for sendRawTransaction(transaction=${JSON.stringify(tx)})`,
-        );
+      this.logger.trace(
+        'Transaction with type=%s is unsupported for sendRawTransaction(transaction=%s)',
+        tx.type,
+        JSON.stringify(tx),
+      );
       throw predefined.UNSUPPORTED_TRANSACTION_TYPE;
     }
   }

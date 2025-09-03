@@ -328,7 +328,7 @@ export class RedisCache implements IRedisCacheClient {
   async keys(pattern: string, callingMethod: string): Promise<string[]> {
     const client = await this.getConnectedClient();
     const result = await client.keys(pattern);
-    this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
+    this.logger.trace('retrieving keys matching %s on %s call', pattern, callingMethod);
     return result;
   }
 }

@@ -161,14 +161,14 @@ export class ContractService implements IContractService {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
       if (response?.result) {
-        this.logger.info(`Returning gas: ${response.result}`);
+        this.logger.info('Returning gas: %s', response.result);
         return prepend0x(trimPrecedingZeros(response.result));
       } else {
-        this.logger.error(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
+        this.logger.error('No gas estimate returned from mirror-node: %o', response);
         return this.predefinedGasForTransaction(transaction, requestDetails);
       }
     } catch (e: any) {
-      this.logger.error(`Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`);
+      this.logger.error('Error raised while fetching estimateGas from mirror-node: %o', e);
       // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
       if (
         ConfigService.get('ESTIMATE_GAS_THROWS') &&
@@ -271,12 +271,12 @@ export class ContractService implements IContractService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-      this.logger.trace(
-        'getStorageAt(address=%s, slot=%s, blockNumberOrOrHashTag=%s)',
-        address,
-        slot,
-        blockNumberOrTagOrHash,
-      );
+    this.logger.trace(
+      'getStorageAt(address=%s, slot=%s, blockNumberOrOrHashTag=%s)',
+      address,
+      slot,
+      blockNumberOrTagOrHash,
+    );
 
     let result = constants.ZERO_HEX_32_BYTE; // if contract or slot not found then return 32 byte 0
 
@@ -324,14 +324,14 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     try {
-        this.logger.debug(
-          'Making eth_call on contract %s with gas %d and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.',
-          call.to,
-          gas,
-          call.data,
-          call.from,
-          block,
-        );
+      this.logger.debug(
+        'Making eth_call on contract %s with gas %d and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.',
+        call.to,
+        gas,
+        call.data,
+        call.from,
+        block,
+      );
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);
     } catch (e: any) {
@@ -511,12 +511,12 @@ export class ContractService implements IContractService {
     }
 
     if (e.isContractReverted()) {
-        this.logger.trace(
-          'mirror node eth_call request encountered contract revert. message: %s, details: %s, data: %s',
-          e.message,
-          e.detail,
-          e.data,
-        );
+      this.logger.trace(
+        'mirror node eth_call request encountered contract revert. message: %s, details: %s, data: %s',
+        e.message,
+        e.detail,
+        e.data,
+      );
       return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
     }
     // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
