@@ -997,11 +997,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           ...defaultLegacyTransactionData,
           value: ONE_TINYBAR,
           to: ethers.ZeroAddress,
-          nonce: await relay.getAccountNonce(accounts[0].address),
+          nonce: await relay.getAccountNonce(accounts[2].address),
           gasPrice: await relay.gasPrice(),
         };
 
-        const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+        const signedSendHbarTx = await accounts[2].wallet.signTransaction(sendHbarTx);
         const error = predefined.INTERNAL_ERROR('Transaction execution returns a null value');
 
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [
@@ -1040,11 +1040,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             ...defaultLegacyTransactionData,
             value: ONE_TINYBAR,
             to: address,
-            nonce: await relay.getAccountNonce(accounts[0].address),
+            nonce: await relay.getAccountNonce(accounts[2].address),
             gasPrice: await relay.gasPrice(),
           };
 
-          const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+          const signedSendHbarTx = await accounts[2].wallet.signTransaction(sendHbarTx);
           const txHash = await relay.sendRawTransaction(signedSendHbarTx);
           const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
 
@@ -1077,11 +1077,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             ...defaultLegacyTransactionData,
             value: ONE_TINYBAR,
             to: address,
-            nonce: await relay.getAccountNonce(accounts[0].address),
+            nonce: await relay.getAccountNonce(accounts[2].address),
             gasPrice: await relay.gasPrice(),
           };
 
-          const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+          const signedSendHbarTx = await accounts[2].wallet.signTransaction(sendHbarTx);
           const txHash = await relay.sendRawTransaction(signedSendHbarTx);
           const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
 
