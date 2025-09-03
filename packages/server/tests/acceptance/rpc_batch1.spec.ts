@@ -992,6 +992,116 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
       });
 
+      it('@xts should fail "eth_sendRawTransaction" for HBAR crypto transfer to zero addresses', async function () {
+        const sendHbarTx = {
+          ...defaultLegacyTransactionData,
+          value: ONE_TINYBAR,
+          to: ethers.ZeroAddress,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          gasPrice: await relay.gasPrice(),
+        };
+
+        const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+        const error = predefined.INTERNAL_ERROR('Transaction execution returns a null value');
+
+        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [
+          signedSendHbarTx,
+          requestDetails,
+        ]);
+      });
+
+      it('@xts should reject eth_sendRawTransaction requests for HBAR crypto transfers to reserved system account addresses (accounts ≤ 0.0.750) with INVALID_CONTRACT_ID.', async function () {
+        // https://github.com/hiero-ledger/hiero-consensus-node/blob/main/hedera-node/docs/system-accounts-operations.md
+        const hederaSystemAccounts = [
+          // system accounts
+          '0x0000000000000000000000000000000000000002', // 0.0.2 treasury
+          '0x0000000000000000000000000000000000000003', // 0.0.3
+          '0x0000000000000000000000000000000000000032', // 0.0.50 system admin
+          '0x0000000000000000000000000000000000000037', // 0.0.55 address book admin
+          '0x0000000000000000000000000000000000000039', // 0.0.57 exchange rates admin
+          '0x000000000000000000000000000000000000003a', // 0.0.58 freeze admin
+          '0x000000000000000000000000000000000000003b', // 0.0.59 system delete admin
+          '0x000000000000000000000000000000000000003c', // 0.0.60 system undelete admin
+
+          // system contracts (precompiles)
+          '0x0000000000000000000000000000000000000167', // 0.0.359 HTS
+          '0x0000000000000000000000000000000000000168', // 0.0.360 Exchange Rate
+          '0x0000000000000000000000000000000000000169', // 0.0.361 PRNG
+          '0x000000000000000000000000000000000000016a', // 0.0.362 HAS
+
+          // non-existent accounts
+          '0x00000000000000000000000000000000000001C2', // 0.0.450
+          '0x00000000000000000000000000000000000001FE', // 0.0.510
+          '0x00000000000000000000000000000000000002EE', // 0.0.750
+        ];
+
+        for (const address of hederaSystemAccounts) {
+          const sendHbarTx = {
+            ...defaultLegacyTransactionData,
+            value: ONE_TINYBAR,
+            to: address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+          const txHash = await relay.sendRawTransaction(signedSendHbarTx);
+          const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
+
+          expect(txReceipt.revertReason).to.not.be.null;
+          expect(txReceipt.revertReason).to.not.be.empty;
+          expect(Buffer.from((txReceipt.revertReason as string).slice(2), 'hex').toString('utf8')).to.equal(
+            'INVALID_CONTRACT_ID',
+          );
+        }
+      });
+
+      it('@xts should validate HBAR transfers to reserved system accounts based on account existence for accounts from 0.0.750 to 0.0.999', async function () {
+        const hederaSystemAccounts = [
+          // non-existent accounts
+          '0x00000000000000000000000000000000000002f1', // 0.0.753
+          '0x000000000000000000000000000000000000032A', // 0.0.810
+
+          // system accounts
+          '0x0000000000000000000000000000000000000320', // 0.0.800 staking reward account;
+          '0x0000000000000000000000000000000000000321', // 0.0.801 node reward account
+
+          // existent accounts
+          '0x00000000000000000000000000000000000003A2', // 0.0.930
+          '0x00000000000000000000000000000000000003A2', // 0.0.960
+          '0x00000000000000000000000000000000000003A2', // 0.0.999
+        ];
+
+        for (const address of hederaSystemAccounts) {
+          const sendHbarTx = {
+            ...defaultLegacyTransactionData,
+            value: ONE_TINYBAR,
+            to: address,
+            nonce: await relay.getAccountNonce(accounts[0].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+          const txHash = await relay.sendRawTransaction(signedSendHbarTx);
+          const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
+
+          // Crypto Transfers are successful if accounts exist
+          try {
+            const accountInfo = await global.mirrorNode.get(`/accounts/${address}`);
+            expect(accountInfo).to.exist;
+            expect(txReceipt.status).to.equal('0x1');
+            expect(txReceipt.revertReason).to.be.undefined;
+          } catch (error) {
+            expect(error.status).to.equal(404);
+            expect(txReceipt.revertReason).to.not.be.null;
+            expect(txReceipt.revertReason).to.not.be.empty;
+            expect(Buffer.from((txReceipt.revertReason as string).slice(2), 'hex').toString('utf8')).to.equal(
+              'INVALID_ALIAS_KEY',
+            );
+          }
+        }
+      });
+
       it('@xts should execute "eth_sendRawTransaction" for deterministic deployment transaction', async function () {
         // send gas money to the proxy deployer
         const sendHbarTx = {
