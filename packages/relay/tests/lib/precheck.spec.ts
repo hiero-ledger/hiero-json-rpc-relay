@@ -870,8 +870,8 @@ describe('Precheck', async function () {
         error = e;
       }
       expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE.message);
-      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE.code);
+      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE(3).message);
+      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE(3).code);
     });
   });
 
