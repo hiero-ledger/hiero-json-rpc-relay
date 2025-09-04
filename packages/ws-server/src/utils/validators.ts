@@ -67,13 +67,3 @@ export const validateSubscribeEthLogsParams = async (
     }
   }
 };
-
-/**
- * Validates whether a given string is a 32-byte hexadecimal string.
- * Checks if the string starts with '0x' followed by 64 hexadecimal characters.
- * @param {string} hash - The string to be validated.
- * @returns {boolean} Returns true if the string is a valid 32-byte hexadecimal string, otherwise false.
- */
-export const validate32bytesHexaString = (hash: string): boolean => {
-  return /^0x[0-9a-fA-F]{64}$/.test(hash);
-};
