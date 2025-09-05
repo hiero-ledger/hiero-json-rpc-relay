@@ -6,13 +6,11 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
-import { predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
-import RelayAssertions from '../../assertions';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
 import {
   BLOCK_HASH,
