@@ -172,6 +172,7 @@ export class Log {
   public readonly address: string;
   public readonly blockHash: string;
   public readonly blockNumber: string;
+  public readonly blockTimestamp: string;
   public readonly data: string;
   public readonly logIndex: string;
   public readonly removed: boolean;
@@ -183,6 +184,7 @@ export class Log {
     this.address = args.address;
     this.blockHash = args.blockHash;
     this.blockNumber = args.blockNumber;
+    this.blockTimestamp = args.blockTimestamp;
     this.data = args.data;
     this.logIndex = args.logIndex;
     this.removed = args.removed;
