@@ -280,7 +280,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       const signed = await signTransaction(type3tx);
 
       await RelayAssertions.assertRejection(
-        predefined.UNSUPPORTED_TRANSACTION_TYPE,
+        predefined.UNSUPPORTED_TRANSACTION_TYPE(3),
         ethImpl.sendRawTransaction,
         false,
         ethImpl,
