@@ -56,6 +56,8 @@ export interface Eth {
 
   coinbase(): JsonRpcError;
 
+  simulateV1(): JsonRpcError;
+
   blobBaseFee(): JsonRpcError;
 
   estimateGas(

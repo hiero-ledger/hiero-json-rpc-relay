@@ -506,6 +506,7 @@ describe('Open RPC Specification', function () {
 
     const unsupportedMethods = {
       eth_coinbase: () => ns.eth.coinbase(),
+      eth_simulateV1: () => ns.eth.simulateV1(),
       eth_blobBaseFee: () => ns.eth.blobBaseFee(),
       eth_getWork: () => ns.eth.getWork(),
       eth_newPendingTransactionFilter: () => ns.eth.newPendingTransactionFilter(),

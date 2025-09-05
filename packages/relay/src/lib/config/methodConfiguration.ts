@@ -37,6 +37,9 @@ export const methodConfiguration: MethodRateLimitConfiguration = {
   eth_coinbase: {
     total: tier2rateLimit,
   },
+  eth_simulateV1: {
+    total: tier2rateLimit,
+  },
   eth_blobBaseFee: {
     total: tier2rateLimit,
   },
