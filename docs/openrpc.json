@@ -1012,6 +1012,16 @@
       }
     },
     {
+      "name": "eth_simulateV1",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
       "name": "net_listening",
       "summary": "Returns true if client is actively listening for network connections.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
