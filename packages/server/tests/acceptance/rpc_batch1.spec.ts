@@ -193,6 +193,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         for (const i in logs) {
           expect(logs[i]).to.have.property('address');
           expect(logs[i]).to.have.property('logIndex');
+          expect(logs[i]).to.have.property('blockTimestamp');
 
           const key = `${logs[i].transactionHash}---${logs[i].logIndex}`;
           txIndexLogIndexMapping.push(key);
@@ -654,6 +655,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res[0].status).to.equal('0x1');
         expect(res[0]).to.have.property('transactionHash');
         expect(res[0].transactionHash).to.equal(createChildTx.hash);
+        expect(res[0].logs).to.not.be.empty;
+        res[0].logs.map((log) =>
+          expect(log.blockTimestamp).to.equal(numberTo0x(Number(mirrorBlock.timestamp.to.split('.')[0]))),
+        );
       });
 
       it('should execute "eth_getBlockReceipts" with block number successfully', async function () {

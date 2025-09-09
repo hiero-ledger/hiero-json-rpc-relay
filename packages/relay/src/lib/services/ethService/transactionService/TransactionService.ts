@@ -355,7 +355,7 @@ export class TransactionService implements ITransactionService {
         address: log.address,
         blockHash: toHash32(receiptResponse.block_hash),
         blockNumber: numberTo0x(receiptResponse.block_number),
-        blockTimestamp: numberTo0x(receiptResponse.timestamp.split('.')[0]),
+        blockTimestamp: numberTo0x(Number(receiptResponse.timestamp.split('.')[0])),
         data: log.data,
         logIndex: numberTo0x(log.index),
         removed: false,

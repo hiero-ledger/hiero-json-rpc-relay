@@ -99,7 +99,7 @@ export const expectLogData = (res, log, tx) => {
   expect(res.address).to.eq(log.address);
   expect(res.blockHash).to.eq(toHash32(tx.block_hash));
   expect(res.blockHash.length).to.eq(66);
-  expect(res.blockTimestamp).to.eq(numberTo0x(tx.timestamp.split('.')[0]));
+  expect(res.blockTimestamp).to.eq(numberTo0x(Number(tx.timestamp.split('.')[0])));
   expect(res.blockNumber).to.eq(numberTo0x(tx.block_number));
   expect(res.data).to.eq(log.data);
   expect(res.logIndex).to.eq(numberTo0x(log.index));

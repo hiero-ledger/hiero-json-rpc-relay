@@ -211,7 +211,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts[1].logs.length).to.equal(1);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
-      expect(receipts[1].logs[0].blockTimestamp).to.equal(numberTo0x(defaultLogs1[0].timestamp.split('.')[0]));
+      expect(receipts[1].logs[0].blockTimestamp).to.equal(numberTo0x(Number(defaultLogs1[0].timestamp.split('.')[0])));
     });
 
     it('should handle null to field for contract creation transactions', async function () {
