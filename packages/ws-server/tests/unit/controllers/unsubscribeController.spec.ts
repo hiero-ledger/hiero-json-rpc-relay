@@ -70,10 +70,10 @@ describe('Unsubscribe Controller', function () {
   });
 
   describe('handleEthUnsubscribe', async function () {
-    it('should not be able to unsubscribe if SUBSCRIPTIONS_ENABLED is disabled', async function () {
-      stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
+    let defaultParams: any;
 
-      const resp = await handleEthUnsubscribe({
+    beforeEach(() => {
+      defaultParams = {
         request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
         method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
         params: [subscriptionId],
@@ -84,7 +84,12 @@ describe('Unsubscribe Controller', function () {
         ctx: createMockContext(),
         requestDetails: requestDetails,
         subscriptionService: stubSubscriptionService,
-      });
+      };
+    });
+
+    it('should not be able to unsubscribe if SUBSCRIPTIONS_ENABLED is disabled', async function () {
+      stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
+      const resp = await handleEthUnsubscribe(defaultParams);
 
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.contain('WS Subscriptions are disabled');
@@ -92,19 +97,7 @@ describe('Unsubscribe Controller', function () {
 
     it('should be able to unsubscribe', async function () {
       stubSubscriptionService.unsubscribe.returns(subscriptionId);
-
-      const resp = await handleEthUnsubscribe({
-        request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
-        params: [subscriptionId],
-        relay: stubRelay,
-        logger: mockLogger,
-        limiter: stubConnectionLimiter,
-        mirrorNodeClient: stubMirrorNodeClient,
-        ctx: createMockContext(),
-        requestDetails: requestDetails,
-        subscriptionService: stubSubscriptionService,
-      });
+      const resp = await handleEthUnsubscribe(defaultParams);
 
       expect(resp.result).to.be.true;
     });

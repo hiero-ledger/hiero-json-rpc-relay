@@ -75,10 +75,10 @@ describe('Subscribe Controller', function () {
   });
 
   describe('handleEthSubscribe', async function () {
-    it('should not be able to subscribe if SUBSCRIPTIONS_ENABLED is disabled', async function () {
-      stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
+    let defaultParams: any;
 
-      const resp = await handleEthSubscribe({
+    beforeEach(() => {
+      defaultParams = {
         request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
         method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
         params: [constants.SUBSCRIBE_EVENTS.NEW_HEADS, {}],
@@ -89,7 +89,12 @@ describe('Subscribe Controller', function () {
         ctx: createMockContext(),
         requestDetails: requestDetails,
         subscriptionService: stubSubscriptionService,
-      });
+      };
+    });
+
+    it('should not be able to subscribe if SUBSCRIPTIONS_ENABLED is disabled', async function () {
+      stubConfigService.withArgs('SUBSCRIPTIONS_ENABLED').returns(false);
+      const resp = await handleEthSubscribe(defaultParams);
 
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.contain('WS Subscriptions are disabled');
@@ -97,18 +102,9 @@ describe('Subscribe Controller', function () {
 
     it('should be able to subscribe for logs ', async function () {
       stubSubscriptionService.subscribe.returns(subscriptionId);
-
       const resp = await handleEthSubscribe({
-        request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+        ...defaultParams,
         params: [constants.SUBSCRIBE_EVENTS.LOGS, {}],
-        relay: stubRelay,
-        logger: mockLogger,
-        limiter: stubConnectionLimiter,
-        mirrorNodeClient: stubMirrorNodeClient,
-        ctx: createMockContext(),
-        requestDetails: requestDetails,
-        subscriptionService: stubSubscriptionService,
       });
 
       expect(resp.result).to.equal(subscriptionId);
@@ -120,16 +116,8 @@ describe('Subscribe Controller', function () {
 
       try {
         await handleEthSubscribe({
-          request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-          method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+          ...defaultParams,
           params: [constants.SUBSCRIBE_EVENTS.LOGS, { address: [contractAddress1, contractAddress2] }],
-          relay: stubRelay,
-          logger: mockLogger,
-          limiter: stubConnectionLimiter,
-          mirrorNodeClient: stubMirrorNodeClient,
-          ctx: createMockContext(),
-          requestDetails: requestDetails,
-          subscriptionService: stubSubscriptionService,
         });
         Assertions.expectedError();
       } catch (e) {
@@ -141,18 +129,7 @@ describe('Subscribe Controller', function () {
       stubConfigService.withArgs('WS_NEW_HEADS_ENABLED').returns(false);
 
       try {
-        await handleEthSubscribe({
-          request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-          method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
-          params: [constants.SUBSCRIBE_EVENTS.NEW_HEADS, {}],
-          relay: stubRelay,
-          logger: mockLogger,
-          limiter: stubConnectionLimiter,
-          mirrorNodeClient: stubMirrorNodeClient,
-          ctx: createMockContext(),
-          requestDetails: requestDetails,
-          subscriptionService: stubSubscriptionService,
-        });
+        await handleEthSubscribe(defaultParams);
         Assertions.expectedError();
       } catch (e: any) {
         expect(e.code).to.equal(-32601);
@@ -162,19 +139,7 @@ describe('Subscribe Controller', function () {
     it('should be able to subscribe to new heads', async function () {
       stubSubscriptionService.subscribe.returns(subscriptionId);
       stubConfigService.withArgs('WS_NEW_HEADS_ENABLED').returns(true);
-
-      const resp = await handleEthSubscribe({
-        request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
-        params: [constants.SUBSCRIBE_EVENTS.NEW_HEADS, {}],
-        relay: stubRelay,
-        logger: mockLogger,
-        limiter: stubConnectionLimiter,
-        mirrorNodeClient: stubMirrorNodeClient,
-        ctx: createMockContext(),
-        requestDetails: requestDetails,
-        subscriptionService: stubSubscriptionService,
-      });
+      const resp = await handleEthSubscribe(defaultParams);
 
       expect(resp.result).to.equal(subscriptionId);
     });
@@ -182,16 +147,8 @@ describe('Subscribe Controller', function () {
     it('should throw unsupported method for non-existing method', async function () {
       try {
         await handleEthSubscribe({
-          request: { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-          method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+          ...defaultParams,
           params: [nonExistingMethod, {}],
-          relay: stubRelay,
-          logger: mockLogger,
-          limiter: stubConnectionLimiter,
-          mirrorNodeClient: stubMirrorNodeClient,
-          ctx: createMockContext(),
-          requestDetails: requestDetails,
-          subscriptionService: stubSubscriptionService,
         });
       } catch (e: any) {
         expect(e.code).to.equal(-32601);

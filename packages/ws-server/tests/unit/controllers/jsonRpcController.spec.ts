@@ -67,44 +67,10 @@ describe('JSON Rpc Controller', function () {
   });
 
   describe('getRequestResult', async function () {
-    it('should throw invalid request if id is missing from request body', async function () {
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+    let defaultRequestParams: any;
 
-      expect(resp.error.code).to.equal(-32600);
-      expect(resp.error.message).to.include('Invalid Request');
-    });
-
-    it('should throw method not found if passed method is not existing', async function () {
-      const nonExistingMethod = 'eth_non-existing-method';
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
-
-      expect(resp.error.code).to.equal(-32601);
-      expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
-    });
-
-    it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
-      stubConnectionLimiter.shouldRateLimitOnMethod.returns(true);
-      const resp = await getRequestResult(
+    beforeEach(() => {
+      defaultRequestParams = [
         createMockContext(),
         stubRelay,
         mockLogger,
@@ -114,7 +80,29 @@ describe('JSON Rpc Controller', function () {
         stubWsMetricRegistry,
         requestDetails,
         stubSubscriptionService,
-      );
+      ];
+    });
+
+    it('should throw invalid request if id is missing from request body', async function () {
+      defaultRequestParams[3] = { method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = await getRequestResult(...defaultRequestParams);
+
+      expect(resp.error.code).to.equal(-32600);
+      expect(resp.error.message).to.include('Invalid Request');
+    });
+
+    it('should throw method not found if passed method is not existing', async function () {
+      const nonExistingMethod = 'eth_non-existing-method';
+      defaultRequestParams[3] = { id: '2', method: nonExistingMethod, jsonrpc: '2.0' } as IJsonRpcRequest;
+      const resp = await getRequestResult(...defaultRequestParams);
+
+      expect(resp.error.code).to.equal(-32601);
+      expect(resp.error.message).to.include(`Method ${nonExistingMethod} not found`);
+    });
+
+    it('should throw IP Rate Limit exceeded error if .shouldRateLimitOnMethod returns true', async function () {
+      stubConnectionLimiter.shouldRateLimitOnMethod.returns(true);
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32605);
       expect(resp.error.message).to.include('IP Rate limit exceeded');
@@ -122,17 +110,12 @@ describe('JSON Rpc Controller', function () {
 
     it('should throw Max Subscription error if subscription limit is reached', async function () {
       stubConnectionLimiter.validateSubscriptionLimit.returns(false);
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      defaultRequestParams[3] = {
+        id: '2',
+        method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+        jsonrpc: '2.0',
+      } as IJsonRpcRequest;
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32608);
       expect(resp.error.message).to.include('Exceeded maximum allowed subscriptions');
@@ -140,17 +123,12 @@ describe('JSON Rpc Controller', function () {
 
     it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
       stubConnectionLimiter.validateSubscriptionLimit.returns(true);
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      defaultRequestParams[3] = {
+        id: '2',
+        method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+        jsonrpc: '2.0',
+      } as IJsonRpcRequest;
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.include('WS Subscriptions are disabled');
@@ -158,17 +136,12 @@ describe('JSON Rpc Controller', function () {
 
     it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
       stubConnectionLimiter.validateSubscriptionLimit.returns(true);
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      defaultRequestParams[3] = {
+        id: '2',
+        method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
+        jsonrpc: '2.0',
+      } as IJsonRpcRequest;
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32207);
       expect(resp.error.message).to.include('WS Subscriptions are disabled');
@@ -177,34 +150,14 @@ describe('JSON Rpc Controller', function () {
     it('should be able to execute `eth_chainId` and get a proper response', async function () {
       const chainId = '0x12a';
       stubRelay.executeRpcMethod.returns(chainId);
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.result).to.equal(chainId);
     });
 
     it('should be able to handle the error as JsonRpcError if an internal error is thrown within the relay execution', async function () {
       stubRelay.executeRpcMethod.throws(predefined.INTERNAL_ERROR);
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32603);
       expect(resp.error.message).to.include('Unknown error invoking RPC');
@@ -214,17 +167,7 @@ describe('JSON Rpc Controller', function () {
       delete mockLogger.isLevelEnabled;
 
       stubRelay.executeRpcMethod.throws(new Error('custom error'));
-      const resp = await getRequestResult(
-        createMockContext(),
-        stubRelay,
-        mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest,
-        stubConnectionLimiter,
-        stubMirrorNodeClient,
-        stubWsMetricRegistry,
-        requestDetails,
-        stubSubscriptionService,
-      );
+      const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32603);
     });
