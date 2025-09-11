@@ -284,7 +284,7 @@ describe('Debug API Test Suite', async function () {
   });
 
   this.beforeEach(() => {
-    cacheService.clear(requestDetails);
+    cacheService.clear();
   });
 
   describe('debug_traceTransaction', async function () {
@@ -640,6 +640,81 @@ describe('Debug API Test Suite', async function () {
             expect(address).to.eq(accountAddress);
           });
         });
+
+        describe('formatActionsResult with CREATE actions', async function () {
+          it('should handle CREATE action with to=null without making MN lookup', async function () {
+            const createActionWithNullTo = {
+              actions: [
+                {
+                  call_depth: 0,
+                  call_operation_type: 'CREATE',
+                  call_type: 'CREATE',
+                  caller: '0.0.1016',
+                  caller_type: 'ACCOUNT',
+                  from: '0x00000000000000000000000000000000000003f8',
+                  gas: 247000,
+                  gas_used: 77324,
+                  index: 0,
+                  input: '0x608060405234801561001057600080fd5b50',
+                  recipient: '0.0.1033',
+                  recipient_type: 'CONTRACT',
+                  result_data: '0x',
+                  result_data_type: 'OUTPUT',
+                  timestamp: '1696438011.462526383',
+                  to: null, // This should not trigger MN lookup
+                  value: 0,
+                },
+              ],
+            };
+
+            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+
+            const result = await debugService.formatActionsResult(createActionWithNullTo.actions, requestDetails);
+
+            expect(result).to.be.an('array').with.lengthOf(1);
+            expect(result[0]).to.have.property('type', 'CREATE');
+            expect(result[0]).to.have.property('from', '0xc37f417fa09933335240fca72dd257bfbde9c275');
+            expect(result[0]).to.have.property('to', null);
+            expect(result[0]).to.have.property('input', '0x608060405234801561001057600080fd5b50');
+          });
+
+          it('should handle CREATE action with to=null and skip getContract call', async function () {
+            const createActionWithNullTo = {
+              actions: [
+                {
+                  call_depth: 0,
+                  call_operation_type: 'CREATE',
+                  call_type: 'CREATE',
+                  caller: '0.0.1016',
+                  caller_type: 'ACCOUNT',
+                  from: '0x00000000000000000000000000000000000003f8',
+                  gas: 247000,
+                  gas_used: 77324,
+                  index: 1, // Non-zero index to test getContract path
+                  input: '0x608060405234801561001057600080fd5b50',
+                  recipient: '0.0.1033',
+                  recipient_type: 'CONTRACT',
+                  result_data: '0x',
+                  result_data_type: 'OUTPUT',
+                  timestamp: '1696438011.462526383',
+                  to: null, // Should skip getContract call
+                  value: 0,
+                },
+              ],
+            };
+
+            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+            // No mock for getContract call - should not be called
+
+            const result = await debugService.formatActionsResult(createActionWithNullTo.actions, requestDetails);
+
+            expect(result).to.be.an('array').with.lengthOf(1);
+            expect(result[0]).to.have.property('type', 'CREATE');
+            expect(result[0]).to.have.property('to', null);
+            expect(result[0]).to.have.property('input', '0x608060405234801561001057600080fd5b50');
+            expect(result[0]).to.have.property('output', '0x');
+          });
+        });
       });
     });
   });
@@ -710,7 +785,7 @@ describe('Debug API Test Suite', async function () {
       sinon.restore();
       restMock.reset();
       web3Mock.reset();
-      cacheService.clear(requestDetails);
+      cacheService.clear();
     });
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
@@ -999,7 +1074,7 @@ describe('Debug API Test Suite', async function () {
       sinon.restore();
       restMock.reset();
       web3Mock.reset();
-      cacheService.clear(requestDetails);
+      cacheService.clear();
     });
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {

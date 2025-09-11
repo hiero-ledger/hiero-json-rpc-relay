@@ -257,16 +257,18 @@ export class DebugImpl implements Debug {
   async formatActionsResult(result: any, requestDetails: RequestDetails): Promise<[] | any> {
     return await Promise.all(
       result.map(async (action, index) => {
-        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
-          action.from,
-          action.to,
-          requestDetails,
-        );
+        // Skip resolving entity type for CREATE operations with to=null (contract creation)
+        // MN responds with 400 for contracts/null; avoid querying in this case
+        const shouldSkipToResolution = action.call_operation_type === CallType.CREATE && !action.to;
+
+        // Resolve 'from' normally; resolve 'to' only if present to avoid MN lookups for CREATE with to=null
+        const resolvedFrom = await this.resolveAddress(action.from, requestDetails);
+        const resolvedTo = shouldSkipToResolution ? action.to : await this.resolveAddress(action.to, requestDetails);
 
         // The actions endpoint does not return input and output for the calls so we get them from another endpoint
         // The first one is excluded because we take its input and output from the contracts/results/{transactionIdOrHash} endpoint
         const contract =
-          index !== 0 && action.call_operation_type === CallType.CREATE
+          index !== 0 && action.call_operation_type === CallType.CREATE && action.to
             ? await this.mirrorNodeClient.getContract(action.to, requestDetails)
             : undefined;
 
