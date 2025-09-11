@@ -2,18 +2,20 @@
 
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
 import pino from 'pino';
 import sinon from 'sinon';
 
-import { contractAddress1 } from '../../../relay/tests/helpers';
-import Assertions from '../../../server/tests/helpers/assertions';
+import { contractAddress1, contractAddress2 } from '../../../relay/tests/helpers';
 import { validateSubscribeEthLogsParams } from '../../dist/utils/validators';
 import { WS_CONSTANTS } from '../../src/utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../../src/utils/utils';
 import { WsTestHelper } from '../helper';
 
 const logger = pino({ level: 'silent' });
+
+import chaiAsPromised from 'chai-as-promised';
+chai.use(chaiAsPromised);
 
 describe('validations unit test', async function () {
   const FAKE_REQUEST_ID = '3';
@@ -107,35 +109,29 @@ describe('validations unit test', async function () {
     it('should throw error if passed address as string is non-existing', async function () {
       stubMirrorNodeClient.resolveEntityType.returns(false);
 
-      try {
-        await validateSubscribeEthLogsParams(
+      await expect(
+        validateSubscribeEthLogsParams(
           {
             address: contractAddress1,
           },
           stubMirrorNodeClient,
           requestDetails,
-        );
-        Assertions.expectedError();
-      } catch (e) {
-        expect(e.code).to.equal(-32602);
-      }
+        ),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
     });
 
     it('should throw error if passed address as array is non-existing', async function () {
       stubMirrorNodeClient.resolveEntityType.returns(false);
 
-      try {
-        await validateSubscribeEthLogsParams(
+      await expect(
+        validateSubscribeEthLogsParams(
           {
-            address: [contractAddress1],
+            address: [contractAddress1, contractAddress2],
           },
           stubMirrorNodeClient,
           requestDetails,
-        );
-        Assertions.expectedError();
-      } catch (e) {
-        expect(e.code).to.equal(-32602);
-      }
+        ),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
     });
 
     it('should be able to pass address as a string', async function () {

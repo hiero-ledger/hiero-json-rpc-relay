@@ -5,18 +5,19 @@ import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { Relay } from '@hashgraph/json-rpc-relay/dist/lib/relay';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types/RequestDetails';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import Koa from 'koa';
 import { Counter } from 'prom-client';
 import sinon from 'sinon';
 
 import { contractAddress1, contractAddress2 } from '../../../../relay/tests/helpers';
-import Assertions from '../../../../server/tests/helpers/assertions';
 import { handleEthSubscribe } from '../../../dist/controllers/subscribeController';
 import WsMetricRegistry from '../../../dist/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../dist/service/subscriptionService';
 import ConnectionLimiter from '../../../src/metrics/connectionLimiter';
 import { WS_CONSTANTS } from '../../../src/utils/constants';
+chai.use(chaiAsPromised);
 
 function createMockContext(): Koa.Context {
   return {
@@ -114,26 +115,18 @@ describe('Subscribe Controller', function () {
       stubMirrorNodeClient.resolveEntityType.returns(true);
       stubSubscriptionService.subscribe.returns(subscriptionId);
 
-      try {
-        await handleEthSubscribe({
+      await expect(
+        handleEthSubscribe({
           ...defaultParams,
           params: [constants.SUBSCRIBE_EVENTS.LOGS, { address: [contractAddress1, contractAddress2] }],
-        });
-        Assertions.expectedError();
-      } catch (e) {
-        expect(e.code).to.equal(-32602);
-      }
+        }),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
     });
 
     it('should not be able to subscribe to new heads if WS_NEW_HEADS_ENABLED is disabled', async function () {
       stubConfigService.withArgs('WS_NEW_HEADS_ENABLED').returns(false);
 
-      try {
-        await handleEthSubscribe(defaultParams);
-        Assertions.expectedError();
-      } catch (e: any) {
-        expect(e.code).to.equal(-32601);
-      }
+      await expect(handleEthSubscribe(defaultParams)).to.be.eventually.rejected.and.have.property('code', -32601);
     });
 
     it('should be able to subscribe to new heads', async function () {
@@ -145,14 +138,12 @@ describe('Subscribe Controller', function () {
     });
 
     it('should throw unsupported method for non-existing method', async function () {
-      try {
-        await handleEthSubscribe({
+      await expect(
+        handleEthSubscribe({
           ...defaultParams,
           params: [nonExistingMethod, {}],
-        });
-      } catch (e: any) {
-        expect(e.code).to.equal(-32601);
-      }
+        }),
+      ).to.be.eventually.rejected.and.have.property('code', -32601);
     });
   });
 });
