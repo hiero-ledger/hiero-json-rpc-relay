@@ -6,10 +6,6 @@ import { ConfigService } from '../../../config-service/dist/services';
 import * as webSocketServer from '../../dist/webSocketServer';
 
 describe('main', () => {
-  afterEach(() => {
-    sinon.restore();
-  });
-
   it('should start server if ensureOperatorHasBalance succeeds', async () => {
     const appListenStub = sinon.stub(webSocketServer.app, 'listen');
     const configGetStub = sinon.stub(ConfigService, 'get').returns('127.0.0.1');
