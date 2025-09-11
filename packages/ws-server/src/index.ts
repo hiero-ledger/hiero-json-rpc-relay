@@ -5,17 +5,7 @@ import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
 import { app, httpApp, logger, relay } from './webSocketServer';
 
-export const deps: any = {
-  relay,
-  logger,
-  ConfigService,
-  app,
-  httpApp,
-  constants,
-  process,
-};
-
-export async function main() {
+async function main() {
   try {
     await relay.ensureOperatorHasBalance();
   } catch (error) {
