@@ -705,6 +705,10 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_COINBASE, []);
     });
 
+    it('should not support "eth_simulateV1"', async function () {
+      await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_SIMULATEV1, []);
+    });
+
     it('should not support "eth_blobBaseFee"', async function () {
       await relay.callUnsupported(RelayCalls.ETH_ENDPOINTS.ETH_BLOB_BASE_FEE, []);
     });

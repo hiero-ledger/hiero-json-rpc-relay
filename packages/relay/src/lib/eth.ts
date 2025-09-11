@@ -644,6 +644,23 @@ export class EthImpl implements Eth {
   /**
    * Always returns UNSUPPORTED_METHOD error.
    *
+   * @rpcMethod Exposed as eth_coinbase RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
+   *
+   * @returns An error indicating the method is not supported
+   */
+  @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  simulateV1(): JsonRpcError {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace('simulateV1()');
+    }
+    return predefined.UNSUPPORTED_METHOD;
+  }
+
+  /**
+   * Always returns UNSUPPORTED_METHOD error.
+   *
    * @rpcMethod Exposed as eth_blobBaseFee RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
