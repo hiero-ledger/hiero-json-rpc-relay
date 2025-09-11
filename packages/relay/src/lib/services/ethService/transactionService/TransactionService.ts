@@ -13,7 +13,6 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
-  IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
@@ -356,6 +355,7 @@ export class TransactionService implements ITransactionService {
         address: log.address,
         blockHash: toHash32(receiptResponse.block_hash),
         blockNumber: numberTo0x(receiptResponse.block_number),
+        blockTimestamp: numberTo0x(Number(receiptResponse.timestamp.split('.')[0])),
         data: log.data,
         logIndex: numberTo0x(log.index),
         removed: false,
@@ -369,16 +369,13 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
 
-    const transactionReceiptParams: IRegularTransactionReceiptParams = {
+    return TransactionReceiptFactory.createRegularReceipt({
       effectiveGas,
       from,
       logs,
       receiptResponse,
       to,
-    };
-    const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
-
-    return receipt;
+    });
   }
 
   /**
