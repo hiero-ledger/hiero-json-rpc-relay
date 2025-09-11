@@ -95,6 +95,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
         address: '0x0000000000000000000000000000000000001389',
         blockHash: '0xd693b532a80fed6392b428604171fb32fdbf953728a3a7ecc7d4062b1652c042',
         blockNumber: '0x11',
+        blockTimestamp: '0x28ee6',
         data: '0x0123',
         logIndex: '0x0',
         removed: false,

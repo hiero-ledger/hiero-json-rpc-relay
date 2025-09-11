@@ -12,10 +12,10 @@
     "prep-and-stress": "npm run prep && npm run stress-test"
   },
   "dependencies": {
-    "env-cmd": "^10.1.0",
+    "env-cmd": "^11.0.0",
     "ethers": "^6.15.0"
   },
   "devDependencies": {
-    "@types/k6": "^1.1.1"
+    "@types/k6": "^1.2.0"
   }
 }

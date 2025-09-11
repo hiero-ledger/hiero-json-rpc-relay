@@ -6,13 +6,11 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
-import { predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
-import RelayAssertions from '../../assertions';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
 import {
   BLOCK_HASH,
@@ -213,6 +211,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts[1].logs.length).to.equal(1);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
+      expect(receipts[1].logs[0].blockTimestamp).to.equal(numberTo0x(Number(defaultLogs1[0].timestamp.split('.')[0])));
     });
 
     it('should handle null to field for contract creation transactions', async function () {

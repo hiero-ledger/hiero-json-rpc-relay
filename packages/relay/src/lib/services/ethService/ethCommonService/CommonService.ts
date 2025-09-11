@@ -365,6 +365,7 @@ export class CommonService implements ICommonService {
       logs.push(
         new Log({
           address: log.address,
+          blockTimestamp: numberTo0x(Number(log.timestamp.split('.')[0])),
           blockHash: toHash32(log.block_hash),
           blockNumber: numberTo0x(log.block_number),
           data: log.data,
