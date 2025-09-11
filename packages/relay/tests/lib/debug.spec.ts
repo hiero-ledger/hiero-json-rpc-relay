@@ -61,6 +61,28 @@ describe('Debug API Test Suite', async function () {
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
 
+  // Helper to reduce repetition when creating CREATE actions for tests
+  const makeCreateAction = (overrides: Partial<any> = {}) => ({
+    call_depth: 0,
+    call_operation_type: 'CREATE',
+    call_type: 'CREATE',
+    caller: '0.0.1016',
+    caller_type: 'ACCOUNT',
+    from: senderAddress,
+    gas: 247000,
+    gas_used: 77324,
+    index: 0,
+    input: '0x',
+    recipient: '0.0.1033',
+    recipient_type: 'CONTRACT',
+    result_data: '0x',
+    result_data_type: 'OUTPUT',
+    timestamp: '1696438011.462526383',
+    to: contractAddress,
+    value: 0,
+    ...overrides,
+  });
+
   const opcodeLoggerConfigs = [
     {
       disableStack: true,
@@ -199,44 +221,19 @@ describe('Debug API Test Suite', async function () {
 
   const contractsResultsActionsResult = {
     actions: [
-      {
-        call_depth: 0,
-        call_operation_type: 'CREATE',
-        call_type: 'CREATE',
-        caller: '0.0.1016',
-        caller_type: 'ACCOUNT',
-        from: '0x00000000000000000000000000000000000003f8',
-        gas: 247000,
-        gas_used: 77324,
-        index: 0,
-        input: '0x',
-        recipient: '0.0.1033',
-        recipient_type: 'CONTRACT',
-        result_data: '0x',
-        result_data_type: 'OUTPUT',
-        timestamp: '1696438011.462526383',
-        to: '0x0000000000000000000000000000000000000409',
-        value: 0,
-      },
-      {
+      makeCreateAction({ index: 0 }),
+      makeCreateAction({
         call_depth: 1,
-        call_operation_type: 'CREATE',
-        call_type: 'CREATE',
         caller: '0.0.1033',
         caller_type: 'CONTRACT',
-        from: '0x0000000000000000000000000000000000000409',
+        from: contractAddress,
         gas: 189733,
         gas_used: 75,
         index: 1,
-        input: '0x',
         recipient: '0.0.1034',
         recipient_type: 'CONTRACT',
-        result_data: '0x',
-        result_data_type: 'OUTPUT',
-        timestamp: '1696438011.462526383',
-        to: '0x000000000000000000000000000000000000040a',
-        value: 0,
-      },
+        to: contractAddress2,
+      }),
     ],
   };
 
@@ -644,27 +641,7 @@ describe('Debug API Test Suite', async function () {
         describe('formatActionsResult with CREATE actions', async function () {
           it('should handle CREATE action with to=null without making MN lookup', async function () {
             const createActionWithNullTo = {
-              actions: [
-                {
-                  call_depth: 0,
-                  call_operation_type: 'CREATE',
-                  call_type: 'CREATE',
-                  caller: '0.0.1016',
-                  caller_type: 'ACCOUNT',
-                  from: '0x00000000000000000000000000000000000003f8',
-                  gas: 247000,
-                  gas_used: 77324,
-                  index: 0,
-                  input: '0x608060405234801561001057600080fd5b50',
-                  recipient: '0.0.1033',
-                  recipient_type: 'CONTRACT',
-                  result_data: '0x',
-                  result_data_type: 'OUTPUT',
-                  timestamp: '1696438011.462526383',
-                  to: null, // This should not trigger MN lookup
-                  value: 0,
-                },
-              ],
+              actions: [makeCreateAction({ to: null, input: '0x608060405234801561001057600080fd5b50', index: 0 })],
             };
 
             restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
@@ -680,27 +657,7 @@ describe('Debug API Test Suite', async function () {
 
           it('should handle CREATE action with to=null and skip getContract call', async function () {
             const createActionWithNullTo = {
-              actions: [
-                {
-                  call_depth: 0,
-                  call_operation_type: 'CREATE',
-                  call_type: 'CREATE',
-                  caller: '0.0.1016',
-                  caller_type: 'ACCOUNT',
-                  from: '0x00000000000000000000000000000000000003f8',
-                  gas: 247000,
-                  gas_used: 77324,
-                  index: 1, // Non-zero index to test getContract path
-                  input: '0x608060405234801561001057600080fd5b50',
-                  recipient: '0.0.1033',
-                  recipient_type: 'CONTRACT',
-                  result_data: '0x',
-                  result_data_type: 'OUTPUT',
-                  timestamp: '1696438011.462526383',
-                  to: null, // Should skip getContract call
-                  value: 0,
-                },
-              ],
+              actions: [makeCreateAction({ to: null, input: '0x608060405234801561001057600080fd5b50', index: 1 })],
             };
 
             restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
@@ -969,44 +926,25 @@ describe('Debug API Test Suite', async function () {
     const accountAddress = '0x00000000000000000000000000000000000003f8';
 
     const actionsResponseMock = [
-      {
-        call_depth: 0,
-        call_operation_type: 'CREATE',
-        call_type: 'CREATE',
+      makeCreateAction({
         caller: accountId,
         caller_type: 'ACCOUNT',
         from: accountAddress,
-        gas: 247000,
-        gas_used: 77324,
-        index: 0,
-        input: '0x',
         recipient: contractId,
-        recipient_type: 'CONTRACT',
-        result_data: '0x',
-        result_data_type: 'OUTPUT',
-        timestamp: mockTimestamp,
         to: contractAddress,
-        value: 0,
-      },
-      {
+        timestamp: mockTimestamp,
+        index: 0,
+      }),
+      makeCreateAction({
         call_depth: 1,
-        call_operation_type: 'CREATE',
-        call_type: 'CREATE',
         caller: contractId,
         caller_type: 'CONTRACT',
         from: contractAddress,
-        gas: 189733,
-        gas_used: 75,
-        index: 1,
-        input: '0x',
         recipient: '0.0.1034',
-        recipient_type: 'CONTRACT',
-        result_data: '0x',
-        result_data_type: 'OUTPUT',
-        timestamp: mockTimestamp,
         to: '0x000000000000000000000000000000000000040a',
-        value: 0,
-      },
+        timestamp: mockTimestamp,
+        index: 1,
+      }),
     ];
 
     const contractEntityMock = {
