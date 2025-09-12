@@ -33,12 +33,16 @@ const mainLogger = pino({
   // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
   mixin: () => {
     const store = context.getStore();
-    return store
-      ? {
-          connectionId: `[Connection ID: ${store.connectionId}] `,
-          requestId: `[Request ID: ${store.requestId}] `,
-        }
-      : {};
+    if (store) {
+      // generate a new uuid for each request within a single connection
+      store.requestId = uuid();
+
+      return {
+        connectionId: `[Connection ID: ${store.connectionId}] `,
+        requestId: `[Request ID: ${store.requestId}] `,
+      };
+    }
+    return {};
   },
   transport: {
     target: 'pino-pretty',
