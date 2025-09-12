@@ -92,7 +92,7 @@ export function getSkippedMethodCategory(methodName) {
   };
 
   if (UNSUPPORTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'discarded';
+    return 'unsupported';
   }
 
   if (NOT_IMPLEMENTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
