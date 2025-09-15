@@ -182,7 +182,7 @@ export class Precheck {
   balance(tx: Transaction, accountBalance: number): void {
     const txGasPrice = BigInt(tx.gasPrice || tx.maxFeePerGas! + tx.maxPriorityFeePerGas!);
     const txTotalValue = tx.value + txGasPrice * tx.gasLimit;
-    const accountBalanceInWeiBars = BigInt(accountBalance.toString()) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+    const accountBalanceInWeiBars = BigInt(accountBalance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
 
     if (accountBalanceInWeiBars < txTotalValue) {
       throw predefined.INSUFFICIENT_ACCOUNT_BALANCE;
