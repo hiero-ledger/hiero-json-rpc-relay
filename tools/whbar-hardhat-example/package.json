@@ -7,7 +7,7 @@
     "hardhat": "^2.26.1"
   },
   "dependencies": {
-    "@hashgraph/sdk": "^2.69.0",
+    "@hashgraph/sdk": "^2.72.0",
     "dotenv": "^17.2.1"
   },
   "overrides": {
