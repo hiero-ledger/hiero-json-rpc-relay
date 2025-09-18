@@ -33,16 +33,12 @@ const mainLogger = pino({
   // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
   mixin: () => {
     const store = context.getStore();
-    if (store) {
-      // generate a new uuid for each request within a single connection
-      store.requestId = uuid();
-
-      return {
-        connectionId: `[Connection ID: ${store.connectionId}] `,
-        requestId: `[Request ID: ${store.requestId}] `,
-      };
-    }
-    return {};
+    return store
+      ? {
+          connectionId: `[Connection ID: ${store.connectionId}] `,
+          requestId: `[Request ID: ${store.requestId}] `,
+        }
+      : {};
   },
   transport: {
     target: 'pino-pretty',
@@ -75,10 +71,8 @@ const app = websockify(new Koa());
 
 app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
   const connectionId = subscriptionService.generateId();
-  const requestId = uuid();
   ctx.websocket.id = connectionId;
-  ctx.websocket.requestId = requestId;
-  return context.run({ requestId, connectionId }, next);
+  next();
 });
 
 app.ws.use(async (ctx: Koa.Context) => {
@@ -89,12 +83,6 @@ app.ws.use(async (ctx: Koa.Context) => {
   const startTime = process.hrtime();
   ctx.websocket.limiter = limiter;
   ctx.websocket.wsMetricRegistry = wsMetricRegistry;
-
-  const requestDetails = new RequestDetails({
-    requestId: ctx.websocket.requestId,
-    ipAddress: ctx.request.ip,
-    connectionId: ctx.websocket.id,
-  });
 
   logger.info(
     // @ts-ignore
@@ -119,9 +107,17 @@ app.ws.use(async (ctx: Koa.Context) => {
   limiter.applyLimits(ctx);
 
   // listen on message event
-  ctx.websocket.on(
-    'message',
-    AsyncResource.bind(async (msg) => {
+  ctx.websocket.on('message', async (msg) => {
+    const requestId = uuid();
+    ctx.websocket.requestId = requestId;
+
+    const requestDetails = new RequestDetails({
+      requestId,
+      ipAddress: ctx.request.ip,
+      connectionId: ctx.websocket.id,
+    });
+
+    context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
       // Increment the total messages counter for each message received
       wsMetricRegistry.getCounter('totalMessageCounter').inc();
 
@@ -229,8 +225,8 @@ app.ws.use(async (ctx: Koa.Context) => {
       // Update the connection duration histogram with the calculated duration
       const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
       wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
-    }),
-  );
+    });
+  });
 
   if (pingInterval > 0) {
     setInterval(async () => {
