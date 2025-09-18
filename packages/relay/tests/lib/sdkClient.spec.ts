@@ -435,6 +435,22 @@ describe('SdkClient', async function () {
         await expect(callSubmit(buffer)).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
       });
     });
+
+    it('should wrap every error in a SDKClientError if transaction execution fails', async () => {
+      sinon.stub(EthereumTransaction.prototype, 'execute').throwsException();
+
+      expect(
+        sdkClient.executeTransaction(
+          new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+          mockedCallerName,
+          requestDetails,
+          true,
+          randomAccountAddress,
+        ),
+      ).to.eventually.be.rejected.and.satisfy((err: any) => {
+        expect(err?.constructor?.name).to.equal(SDKClientError.constructor.name);
+      });
+    });
   });
 
   describe('HBAR Limiter', async () => {
