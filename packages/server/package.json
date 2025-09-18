@@ -26,7 +26,7 @@
     "@types/uuid": "^10.0.0",
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
-    "chai": "^4.3.6",
+    "chai": "^6.0.1",
     "ethers": "^6.15.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^11.7.1",
