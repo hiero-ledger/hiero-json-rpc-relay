@@ -311,10 +311,10 @@ export class AccountService implements IAccountService {
       return await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
     } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
       return await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
-    } else {
-      // return a '-39001: Unknown block' error per api-spec
-      throw predefined.UNKNOWN_BLOCK();
     }
+
+    // return a '-39001: Unknown block' error per api-spec
+    throw predefined.UNKNOWN_BLOCK();
   }
 
   /**
