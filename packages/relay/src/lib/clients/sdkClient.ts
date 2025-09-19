@@ -329,15 +329,7 @@ export class SDKClient {
       }
 
       if (!transactionResponse) {
-        // Transactions may experience "SDK timeout exceeded" or "Connection Dropped" errors from the SDK, yet they may still be able to reach the consensus layer.
-        // Throw Connection Drop and Timeout errors as additional handling logic is expected in a higher layer.
-        if (sdkClientError.isConnectionDropped() || sdkClientError.isTimeoutExceeded()) {
-          throw sdkClientError;
-        } else {
-          throw predefined.INTERNAL_ERROR(
-            `Transaction execution returns a null value: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
-          );
-        }
+        throw sdkClientError;
       }
       return transactionResponse;
     } finally {
