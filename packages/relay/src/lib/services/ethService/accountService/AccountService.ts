@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
@@ -10,7 +9,6 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { RequestDetails } from '../../../types';
 import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
 import { CacheService } from '../../cacheService/cacheService';
-import { CommonService } from '../ethCommonService/CommonService';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
 
@@ -300,41 +298,23 @@ export class AccountService implements IAccountService {
       this.logger.trace(`getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
     }
 
-    // cache considerations for high load
-    const cacheKey = `eth_getTransactionCount_${address}_${blockNumOrTag}`;
-    let nonceCount = await this.cacheService.getAsync(cacheKey, constants.ETH_GET_TRANSACTION_COUNT);
-    if (nonceCount) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(nonceCount)}`);
-      }
-      return nonceCount;
-    }
-
     const blockNum = Number(blockNumOrTag);
     if (blockNum === 0 || blockNum === 1) {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       // if latest or pending, get latest ethereumNonce from mirror node account API
-      nonceCount = await this.getAccountLatestEthereumNonce(address, requestDetails);
+      return await this.getAccountLatestEthereumNonce(address, requestDetails);
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
-      nonceCount = await this.getAccountNonceForEarliestBlock(requestDetails);
+      return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {
-      nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
+      return await this.getAccountNonceForHistoricBlock(address, blockNum, requestDetails);
     } else if (blockNumOrTag.length == constants.BLOCK_HASH_LENGTH && blockNumOrTag.startsWith(constants.EMPTY_HEX)) {
-      nonceCount = await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
-    } else {
-      // return a '-39001: Unknown block' error per api-spec
-      throw predefined.UNKNOWN_BLOCK();
+      return await this.getAccountNonceForHistoricBlock(address, blockNumOrTag, requestDetails);
     }
 
-    const cacheTtl =
-      blockNumOrTag === constants.BLOCK_EARLIEST || !isNaN(blockNum)
-        ? constants.CACHE_TTL.ONE_DAY
-        : this.ethGetTransactionCountCacheTtl; // cache historical values longer as they don't change
-    await this.cacheService.set(cacheKey, nonceCount, constants.ETH_GET_TRANSACTION_COUNT, cacheTtl);
-
-    return nonceCount;
+    // return a '-39001: Unknown block' error per api-spec
+    throw predefined.UNKNOWN_BLOCK();
   }
 
   /**
