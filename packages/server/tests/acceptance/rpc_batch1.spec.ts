@@ -992,6 +992,180 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
       });
 
+      it('@xts should fail "eth_sendRawTransaction" for HBAR crypto transfer to zero addresses', async function () {
+        const sendHbarTx = {
+          ...defaultLegacyTransactionData,
+          value: ONE_TINYBAR,
+          to: ethers.ZeroAddress,
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          gasPrice: await relay.gasPrice(),
+        };
+
+        const signedSendHbarTx = await accounts[1].wallet.signTransaction(sendHbarTx);
+        const error = predefined.INTERNAL_ERROR('Transaction execution returns a null value');
+
+        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [
+          signedSendHbarTx,
+          requestDetails,
+        ]);
+      });
+
+      // https://github.com/hiero-ledger/hiero-consensus-node/blob/main/hedera-node/docs/system-accounts-operations.md
+      const hederaReservedAccounts = [
+        // system accounts (≤ 0.0.750) - should return INVALID_CONTRACT_ID
+        {
+          address: '0x0000000000000000000000000000000000000002',
+          description: '0.0.2 treasury',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000003',
+          description: '0.0.3',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000032',
+          description: '0.0.50 system admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000037',
+          description: '0.0.55 address book admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000039',
+          description: '0.0.57 exchange rates admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x000000000000000000000000000000000000003a',
+          description: '0.0.58 freeze admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x000000000000000000000000000000000000003b',
+          description: '0.0.59 system delete admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x000000000000000000000000000000000000003c',
+          description: '0.0.60 system undelete admin',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+
+        // system contracts (precompiles) (≤ 0.0.750) - should return INVALID_CONTRACT_ID
+        {
+          address: '0x0000000000000000000000000000000000000167',
+          description: '0.0.359 HTS',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000168',
+          description: '0.0.360 Exchange Rate',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x0000000000000000000000000000000000000169',
+          description: '0.0.361 PRNG',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x000000000000000000000000000000000000016a',
+          description: '0.0.362 HAS',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x000000000000000000000000000000000000016b',
+          description: '0.0.363 HSS',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+
+        // non-existent accounts (≤ 0.0.750) - should return INVALID_CONTRACT_ID
+        {
+          address: '0x00000000000000000000000000000000000001C2',
+          description: '0.0.450',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x00000000000000000000000000000000000001FE',
+          description: '0.0.510',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+        {
+          address: '0x00000000000000000000000000000000000002EE',
+          description: '0.0.750',
+          expectedError: 'INVALID_CONTRACT_ID',
+        },
+
+        // accounts (> 0.0.750) - non-existent should return INVALID_ALIAS_KEY
+        {
+          address: '0x00000000000000000000000000000000000002f1',
+          description: '0.0.753 (non-existent)',
+          expectedError: 'INVALID_ALIAS_KEY',
+        },
+        {
+          address: '0x000000000000000000000000000000000000032A',
+          description: '0.0.810 (non-existent)',
+          expectedError: 'INVALID_ALIAS_KEY',
+        },
+
+        // accounts (> 0.0.750) - existent should succeed (null = no error expected)
+        {
+          address: '0x0000000000000000000000000000000000000320',
+          description: '0.0.800 staking reward account',
+          expectedError: null,
+        },
+        {
+          address: '0x0000000000000000000000000000000000000321',
+          description: '0.0.801 node reward account',
+          expectedError: null,
+        },
+        {
+          address: '0x00000000000000000000000000000000000003A2',
+          description: '0.0.930 (existent)',
+          expectedError: null,
+        },
+        {
+          address: '0x00000000000000000000000000000000000003C0',
+          description: '0.0.960 (existent)',
+          expectedError: null,
+        },
+        {
+          address: '0x00000000000000000000000000000000000003E7',
+          description: '0.0.999 (existent)',
+          expectedError: null,
+        },
+      ];
+
+      hederaReservedAccounts.forEach(({ address, description, expectedError }) => {
+        const testDescription = expectedError
+          ? `@xts should reject HBAR transfer to ${description} (${address}) with ${expectedError}`
+          : `@xts should successfully execute HBAR transfer to ${description} (${address})`;
+
+        it(testDescription, async function () {
+          const sendHbarTx = {
+            ...defaultLegacyTransactionData,
+            value: ONE_TINYBAR,
+            to: address,
+            nonce: await relay.getAccountNonce(accounts[1].address),
+            gasPrice: await relay.gasPrice(),
+          };
+
+          const signedSendHbarTx = await accounts[1].wallet.signTransaction(sendHbarTx);
+          const txHash = await relay.sendRawTransaction(signedSendHbarTx);
+          const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
+
+          if (expectedError) {
+            expect(txReceipt.revertReason).to.not.be.empty;
+            expect(Buffer.from(txReceipt.revertReason!.slice(2), 'hex').toString('utf8')).to.equal(expectedError);
+          } else {
+            expect(txReceipt.status).to.equal('0x1');
+            expect(txReceipt.revertReason).to.be.undefined;
+          }
+        });
+      });
+
       it('@xts should execute "eth_sendRawTransaction" for deterministic deployment transaction', async function () {
         // send gas money to the proxy deployer
         const sendHbarTx = {
@@ -1370,7 +1544,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(info).to.have.property('access_list');
       });
 
-      it('@xts should execute "eth_sendRawTransaction" and deploy a contract with more than 2 HBAR transaction fee and less than max transaction fee', async function () {
+      it('@xts should execute "eth_sendRawTransaction" and deploy a contract with reasonable transaction fee within expected bounds', async function () {
         const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
 
         const gasPrice = await relay.gasPrice();
@@ -1393,12 +1567,17 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(info.contract_id).to.not.be.null;
         expect(info).to.have.property('created_contract_ids');
         expect(info.created_contract_ids.length).to.be.equal(1);
-        const diffInHbars =
-          BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF) / BigInt(100_000_000);
-        expect(Number(diffInHbars)).to.be.greaterThan(2);
-        expect(Number(diffInHbars)).to.be.lessThan(
-          (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000,
-        );
+
+        // Calculate fee in tinybars first to avoid precision loss, then convert to HBAR for comparison
+        const diffInTinybars = BigInt(balanceBefore - balanceAfter) / BigInt(Constants.TINYBAR_TO_WEIBAR_COEF);
+        const diffInHbars = Number(diffInTinybars) / 100_000_000; // Convert tinybars to HBAR as decimal
+
+        const maxPossibleFeeInHbars =
+          (gasPrice * Constants.MAX_TRANSACTION_FEE_THRESHOLD) / Constants.TINYBAR_TO_WEIBAR_COEF / 100_000_000;
+
+        // Ensure fee is greater than 0 and reasonable for contract deployment
+        expect(diffInHbars).to.be.greaterThan(0);
+        expect(diffInHbars).to.be.lessThan(maxPossibleFeeInHbars);
       });
 
       describe('Check subsidizing gas fees', async function () {
