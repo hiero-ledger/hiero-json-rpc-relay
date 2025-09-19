@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
@@ -10,7 +9,6 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { RequestDetails } from '../../../types';
 import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
 import { CacheService } from '../../cacheService/cacheService';
-import { CommonService } from '../ethCommonService/CommonService';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
 
