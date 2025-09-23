@@ -672,8 +672,6 @@ describe('Validator', async () => {
       { tracer: Constants.TracerType.CallTracer, tracerConfig: {} },
       { tracer: Constants.TracerType.CallTracer },
       { tracerConfig: { onlyTopCall: true } },
-      // CallTracer config at top level
-      { tracer: Constants.TracerType.CallTracer, onlyTopCall: true },
       // OpcodeLoggerConfig
       {
         tracer: Constants.TracerType.OpcodeLogger,
@@ -706,21 +704,6 @@ describe('Validator', async () => {
       {
         input: { tracer: 'invalid', tracerConfig: {} },
         error: expectInvalidParam("'tracer' for TracerConfigWrapper", TYPES.tracerType.error, 'invalid'),
-      },
-      // CallTracer config properties with wrong tracer type
-      {
-        input: { tracer: Constants.TracerType.OpcodeLogger, onlyTopCall: true },
-        error: expectInvalidParam(
-          1,
-          'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
-        ),
-      },
-      {
-        input: { onlyTopCall: true }, // defaults to opcodeLogger
-        error: expectInvalidParam(
-          1,
-          'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
-        ),
       },
       // OpcodeLogger config properties with wrong tracer type
       {

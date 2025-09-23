@@ -126,13 +126,13 @@ export class DebugImpl implements Debug {
     // Extract tracer config from either nested tracerConfig or top-level properties
     let tracerConfig = tracerObject?.tracerConfig ?? {};
 
-    // If no nested tracerConfig is provided, check for top-level tracer config properties
+    // If no nested tracerConfig is provided, check for top-level opcodeLogger config properties
     if (!tracerObject?.tracerConfig && tracerObject) {
       const { tracer: _, tracerConfig: __, ...topLevelConfig } = tracerObject;
-      // Only include valid tracer config properties
-      const validConfigKeys = ['onlyTopCall', 'enableMemory', 'disableStack', 'disableStorage'];
+      // Only include valid opcodeLogger config properties (callTracer properties are never at top level)
+      const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage'];
       const filteredConfig = Object.keys(topLevelConfig)
-        .filter((key) => validConfigKeys.includes(key))
+        .filter((key) => validOpcodeLoggerKeys.includes(key))
         .reduce((obj, key) => {
           obj[key] = topLevelConfig[key];
           return obj;

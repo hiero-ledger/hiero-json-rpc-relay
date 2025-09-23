@@ -674,22 +674,6 @@ describe('@debug API Acceptance Tests', function () {
         );
       });
 
-      it('should reject top-level callTracer config with wrong tracer type', async function () {
-        const invalidFormat = {
-          tracer: TracerType.OpcodeLogger,
-          onlyTopCall: true, // callTracer property with opcodeLogger tracer
-        };
-
-        await relay.callFailing(
-          DEBUG_TRACE_TRANSACTION,
-          [createChildTx.hash, invalidFormat],
-          predefined.INVALID_PARAMETER(
-            1,
-            'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
-          ),
-        );
-      });
-
       it('should reject top-level opcodeLogger config with wrong tracer type', async function () {
         const invalidFormat = {
           tracer: TracerType.CallTracer,
