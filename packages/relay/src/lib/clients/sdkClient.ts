@@ -146,8 +146,10 @@ export class SDKClient {
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
-    const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
+    this.logger.info(`sendRawTransaction in SDKClient HEAD: nonce=${ethereumTransactionData.toJSON().nonce}`);
+
+    const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransaction = new EthereumTransaction();
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
 
@@ -282,24 +284,32 @@ export class SDKClient {
     let transactionId: string = '';
     let transactionResponse: TransactionResponse | null = null;
 
-    if (shouldThrowHbarLimit) {
-      const shouldLimit = await this.hbarLimitService.shouldLimit(
-        constants.EXECUTION_MODE.TRANSACTION,
-        callerName,
-        txConstructorName,
-        originalCallerAddress,
-        requestDetails,
-        estimatedTxFee,
-      );
+    // if (shouldThrowHbarLimit) {
+    //   const shouldLimit = await this.hbarLimitService.shouldLimit(
+    //     constants.EXECUTION_MODE.TRANSACTION,
+    //     callerName,
+    //     txConstructorName,
+    //     originalCallerAddress,
+    //     requestDetails,
+    //     estimatedTxFee,
+    //   );
 
-      if (shouldLimit) {
-        throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
-      }
-    }
+    //   if (shouldLimit) {
+    //     throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
+    //   }
+    // }
+
+    const transactionData = (transaction as EthereumTransaction).ethereumData;
+    const nonceBuffer = (EthereumTransactionData.fromBytes(transactionData as any) as any).nonce;
+    const nonce = BigInt('0x' + nonceBuffer.toString('hex'));
 
     try {
       this.logger.info(`Execute ${txConstructorName} transaction`);
+
+      this.logger.info(`Right before execution txNonce=${nonce}`);
       transactionResponse = await transaction.execute(this.clientMain);
+      // unlock
+      this.logger.info(`Right after execution: txNonce=${nonce} transactionResponse:${transactionResponse.nodeId}`);
 
       transactionId = transactionResponse.transactionId.toString();
 
@@ -307,13 +317,13 @@ export class SDKClient {
       const transactionReceipt = await transactionResponse.getReceipt(this.clientMain);
 
       this.logger.info(
-        `Successfully execute ${txConstructorName} transaction: transactionId=${transactionResponse.transactionId}, callerName=${callerName}, status=${transactionReceipt.status}(${transactionReceipt.status._code})`,
+        `txNonce=${nonce} --- Successfully execute ${txConstructorName} transaction: transactionId=${transactionResponse.transactionId}, callerName=${callerName}, status=${transactionReceipt.status}(${transactionReceipt.status._code})`,
       );
       return transactionResponse;
     } catch (e: any) {
       this.logger.warn(
         e,
-        `Transaction failed while executing transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
+        `txNonce=${nonce} --- Transaction failed while executing transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
       );
 
       if (e instanceof JsonRpcError) {

@@ -7,6 +7,7 @@ import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/service
 import { MethodRateLimitConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import parse from 'co-body';
+import { Transaction } from 'ethers';
 import Koa from 'koa';
 import { Logger } from 'pino';
 import { Histogram, Registry } from 'prom-client';
@@ -99,6 +100,10 @@ export default class KoaJsonRpc {
     } else if (!this.isValidJsonRpcRequest(body)) {
       response = jsonRespError(body.id, spec.InvalidRequest, requestId);
     } else {
+      if (body.method === 'eth_sendRawTransaction') {
+        const rawTx = Transaction.from(body.params![0]).toJSON();
+        console.info('--- json rpc id ---', body.id, '--- tx ---', requestId, rawTx);
+      }
       response = await this.getRequestResult(body, ctx.ip, requestId);
       ctx.state.methodName = body.method;
     }

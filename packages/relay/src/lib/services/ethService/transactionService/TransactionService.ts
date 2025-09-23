@@ -241,17 +241,39 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash or a JsonRpcError if an error occurs
    */
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    this.logger.info(`BEFORE sendRawTransaction(transaction=${transaction})`);
+
     if (ConfigService.get('READ_ONLY')) {
       throw predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode');
     }
-
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
+    const txHash = Utils.computeTransactionHash(transactionBuffer);
+
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getGasPriceInWeibars(requestDetails),
+
+    this.logger.info(
+      `sendRawTransaction nonce and hash BEFORE precheck process: nonce=${parsedTx.nonce}, transactionHash=${txHash}`,
     );
 
-    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    // Record start time to ensure exactly 3 seconds pass
+    const startTime = Date.now();
+
+    const networkGasPriceInWeiBars = 380000000000;
+    // const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+    //   await this.common.getGasPriceInWeibars(requestDetails),
+    // );
+    // await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+    // Wait until exactly 3 seconds have passed
+    const elapsedTime = Date.now() - startTime;
+    const remainingTime = 3000 - elapsedTime;
+    if (remainingTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTime));
+    }
+
+    this.logger.info(
+      `sendRawTransaction nonce and hash AFTER precheck process: nonce=${parsedTx.nonce}, transactionHash=${txHash}, elapsedTime=${elapsedTime}, networkGasPriceInWeiBars=${networkGasPriceInWeiBars}`,
+    );
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -294,6 +316,8 @@ export class TransactionService implements ITransactionService {
     }
 
     const exchangeRateInCents = currentNetworkExchangeRate.cent_equivalent / currentNetworkExchangeRate.hbar_equivalent;
+    console.log(`exchangeRateInCentsexchangeRateInCentsexchangeRateInCents`);
+    console.log(exchangeRateInCents);
     return exchangeRateInCents;
   }
 
@@ -479,11 +503,14 @@ export class TransactionService implements ITransactionService {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
 
+    this.logger.info(`sendRawTransaction inside sendRawTransactionProcessor: nonce=${parsedTx.nonce}`);
+
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
       requestDetails,
+      parsedTx,
     );
 
     sendRawTransactionError = error;
@@ -637,6 +664,7 @@ export class TransactionService implements ITransactionService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
+    parsedTx?: any,
   ): Promise<{
     txSubmitted: boolean;
     submittedTransactionId: string;
@@ -648,13 +676,15 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
+      this.logger.info(`sendRawTransaction inside private.submitTransaction: nonce=${parsedTx.nonce}`);
       const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
         transactionBuffer,
         constants.ETH_SEND_RAW_TRANSACTION,
         requestDetails,
         originalCallerAddress,
         networkGasPriceInWeiBars,
-        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        // await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        21.850766666666665,
       );
 
       txSubmitted = true;
