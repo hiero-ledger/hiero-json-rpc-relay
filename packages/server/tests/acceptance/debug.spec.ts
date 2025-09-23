@@ -674,10 +674,10 @@ describe('@debug API Acceptance Tests', function () {
         );
       });
 
-      it('should reject top-level opcodeLogger config with wrong tracer type', async function () {
+      it('should reject top-level config when tracer is explicitly set', async function () {
         const invalidFormat = {
-          tracer: TracerType.CallTracer,
-          enableMemory: true, // opcodeLogger property with callTracer tracer
+          tracer: TracerType.OpcodeLogger,
+          enableMemory: true, // Not allowed - tracer is explicitly set
         };
 
         await relay.callFailing(
@@ -685,7 +685,7 @@ describe('@debug API Acceptance Tests', function () {
           [createChildTx.hash, invalidFormat],
           predefined.INVALID_PARAMETER(
             1,
-            'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+            "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
           ),
         );
       });

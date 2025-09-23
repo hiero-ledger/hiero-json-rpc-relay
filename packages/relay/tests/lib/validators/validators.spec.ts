@@ -687,11 +687,6 @@ describe('Validator', async () => {
       { tracer: Constants.TracerType.OpcodeLogger, tracerConfig: {} },
       { tracer: Constants.TracerType.OpcodeLogger },
       { tracerConfig: { enableMemory: true, disableStack: false, disableStorage: true } },
-      // OpcodeLogger config at top level
-      { tracer: Constants.TracerType.OpcodeLogger, enableMemory: true, disableStack: false, disableStorage: true },
-      { tracer: Constants.TracerType.OpcodeLogger, enableMemory: true },
-      { tracer: Constants.TracerType.OpcodeLogger, disableStack: false },
-      { tracer: Constants.TracerType.OpcodeLogger, disableStorage: true },
       // Top level opcodeLogger config without explicit tracer (defaults to opcodeLogger)
       { enableMemory: true, disableStack: false, disableStorage: true },
       { enableMemory: true },
@@ -728,11 +723,12 @@ describe('Validator', async () => {
           "Cannot specify tracer config properties both at top level and in 'tracerConfig' for TracerConfigWrapper",
         ),
       },
+      // Top-level config with explicit tracer (not allowed)
       {
-        input: { tracer: Constants.TracerType.CallTracer, onlyTopCall: true, tracerConfig: { onlyTopCall: false } },
+        input: { tracer: Constants.TracerType.OpcodeLogger, enableMemory: true },
         error: expectInvalidParam(
           1,
-          "Cannot specify tracer config properties both at top level and in 'tracerConfig' for TracerConfigWrapper",
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
         ),
       },
       {
