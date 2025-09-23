@@ -106,6 +106,11 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
         nullable: false,
         required: false,
       },
+      fullStorage: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
     },
   },
   tracerConfigWrapper: {
@@ -135,6 +140,11 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
         required: false,
       },
       disableStorage: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      fullStorage: {
         type: 'boolean',
         nullable: false,
         required: false,

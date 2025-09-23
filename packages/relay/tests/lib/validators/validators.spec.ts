@@ -692,6 +692,8 @@ describe('Validator', async () => {
       { enableMemory: true },
       { disableStack: false },
       { disableStorage: true },
+      { fullStorage: false }, // Non-standard but accepted for Remix compatibility
+      { enableMemory: true, disableStack: false, disableStorage: true, fullStorage: false },
       // Empty object
       {},
     ],
@@ -700,19 +702,19 @@ describe('Validator', async () => {
         input: { tracer: 'invalid', tracerConfig: {} },
         error: expectInvalidParam("'tracer' for TracerConfigWrapper", TYPES.tracerType.error, 'invalid'),
       },
-      // OpcodeLogger config properties with wrong tracer type
+      // Config properties with explicit tracer (not allowed in simplified model)
       {
         input: { tracer: Constants.TracerType.CallTracer, enableMemory: true },
         error: expectInvalidParam(
           1,
-          'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
         ),
       },
       {
         input: { tracer: Constants.TracerType.CallTracer, disableStack: false },
         error: expectInvalidParam(
           1,
-          'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
         ),
       },
       // Both top-level and nested config

@@ -129,13 +129,18 @@ export class DebugImpl implements Debug {
     // If no nested tracerConfig is provided AND no tracer is explicitly set,
     // check for top-level opcodeLogger config properties (defaults to opcodeLogger)
     if (!tracerObject?.tracerConfig && !tracerObject?.tracer && tracerObject) {
-      const { tracer: _, tracerConfig: __, ...topLevelConfig } = tracerObject;
+      const topLevelConfig = Object.fromEntries(
+        Object.entries(tracerObject).filter(([key]) => key !== 'tracer' && key !== 'tracerConfig'),
+      );
       // Only include valid opcodeLogger config properties
-      const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage'];
+      const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage', 'fullStorage'];
       const filteredConfig = Object.keys(topLevelConfig)
         .filter((key) => validOpcodeLoggerKeys.includes(key))
         .reduce((obj, key) => {
-          obj[key] = topLevelConfig[key];
+          // Filter out non-standard parameters that shouldn't be passed to the actual tracer
+          if (key !== 'fullStorage') {
+            obj[key] = topLevelConfig[key];
+          }
           return obj;
         }, {} as any);
 
