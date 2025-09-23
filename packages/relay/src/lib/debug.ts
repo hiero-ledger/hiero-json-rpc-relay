@@ -122,7 +122,26 @@ export class DebugImpl implements Debug {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
-    const tracerConfig = tracerObject?.tracerConfig ?? {};
+
+    // Extract tracer config from either nested tracerConfig or top-level properties
+    let tracerConfig = tracerObject?.tracerConfig ?? {};
+
+    // If no nested tracerConfig is provided, check for top-level tracer config properties
+    if (!tracerObject?.tracerConfig && tracerObject) {
+      const { tracer: _, tracerConfig: __, ...topLevelConfig } = tracerObject;
+      // Only include valid tracer config properties
+      const validConfigKeys = ['onlyTopCall', 'enableMemory', 'disableStack', 'disableStorage'];
+      const filteredConfig = Object.keys(topLevelConfig)
+        .filter((key) => validConfigKeys.includes(key))
+        .reduce((obj, key) => {
+          obj[key] = topLevelConfig[key];
+          return obj;
+        }, {} as any);
+
+      if (Object.keys(filteredConfig).length > 0) {
+        tracerConfig = filteredConfig;
+      }
+    }
 
     try {
       DebugImpl.requireDebugAPIEnabled();
@@ -131,7 +150,7 @@ export class DebugImpl implements Debug {
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const onlyTopCall = (tracerObject?.tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
+        const onlyTopCall = (tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
         return await this.prestateTracer(transactionIdOrHash, onlyTopCall, requestDetails);
       }
 

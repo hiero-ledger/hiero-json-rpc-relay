@@ -605,7 +605,7 @@ describe('@debug API Acceptance Tests', function () {
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER(
             1,
-            "callTracer 'tracerConfig' for TracerConfigWrapper is only valid when tracer=callTracer",
+            'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
           ),
         );
       });
@@ -620,7 +620,88 @@ describe('@debug API Acceptance Tests', function () {
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER(
             1,
-            "opcodeLogger 'tracerConfig' for TracerConfigWrapper is only valid when tracer=opcodeLogger",
+            'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+          ),
+        );
+      });
+
+      it('should support both nested and top-level tracer config parameter formats', async function () {
+        // Test the nested format (original format)
+        const nestedFormat = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: {
+            enableMemory: true,
+            disableStack: false,
+            disableStorage: true,
+          },
+        };
+
+        const nestedResult = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, nestedFormat]);
+        expect(nestedResult).to.exist;
+        expect(nestedResult.structLogs).to.exist;
+
+        // Test the top-level format (new format from our fix)
+        const topLevelFormat = {
+          enableMemory: true,
+          disableStack: false,
+          disableStorage: true,
+        };
+
+        const topLevelResult = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, topLevelFormat]);
+        expect(topLevelResult).to.exist;
+        expect(topLevelResult.structLogs).to.exist;
+
+        // Both formats should produce similar results
+        expect(topLevelResult.structLogs).to.have.length.greaterThan(0);
+        expect(nestedResult.structLogs).to.have.length.greaterThan(0);
+      });
+
+      it('should reject mixed format (top-level and nested config)', async function () {
+        const mixedFormat = {
+          enableMemory: true,
+          tracerConfig: {
+            disableStack: false,
+          },
+        };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, mixedFormat],
+          predefined.INVALID_PARAMETER(
+            1,
+            "Cannot specify tracer config properties both at top level and in 'tracerConfig' for TracerConfigWrapper",
+          ),
+        );
+      });
+
+      it('should reject top-level callTracer config with wrong tracer type', async function () {
+        const invalidFormat = {
+          tracer: TracerType.OpcodeLogger,
+          onlyTopCall: true, // callTracer property with opcodeLogger tracer
+        };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidFormat],
+          predefined.INVALID_PARAMETER(
+            1,
+            'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
+          ),
+        );
+      });
+
+      it('should reject top-level opcodeLogger config with wrong tracer type', async function () {
+        const invalidFormat = {
+          tracer: TracerType.CallTracer,
+          enableMemory: true, // opcodeLogger property with callTracer tracer
+        };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidFormat],
+          predefined.INVALID_PARAMETER(
+            1,
+            'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
           ),
         );
       });
