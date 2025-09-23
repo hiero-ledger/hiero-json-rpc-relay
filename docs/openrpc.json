@@ -1176,7 +1176,7 @@
           "schema": {
             "$ref": "#/components/schemas/TracerConfigWrapper"
           },
-          "description": "Configuration object for the tracer."
+          "description": "Configuration object for the tracer. Supports two formats: 1) Standard nested format with 'tracer' and 'tracerConfig' properties, 2) Simplified format with opcodeLogger config properties directly at top level (when no explicit 'tracer' is specified, defaults to opcodeLogger)."
         }
       ],
       "result": {
@@ -1665,6 +1665,10 @@
           },
           "disableStorage": {
             "type": "boolean"
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Non-standard parameter sometimes sent by Remix - accepted for compatibility but ignored in implementation"
           }
         }
       },
@@ -1694,6 +1698,22 @@
           },
           "tracerConfig": {
             "$ref": "#/components/schemas/TracerConfig"
+          },
+          "enableMemory": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStack": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Non-standard parameter for Remix compatibility - accepted but ignored. Only valid when no explicit 'tracer' is specified."
           }
         }
       },

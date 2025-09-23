@@ -106,6 +106,11 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
         nullable: false,
         required: false,
       },
+      fullStorage: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
     },
   },
   tracerConfigWrapper: {
@@ -120,6 +125,27 @@ export const OBJECTS_VALIDATIONS: { [key: string]: IObjectSchema } = {
       },
       tracerConfig: {
         type: 'tracerConfig',
+        nullable: false,
+        required: false,
+      },
+      // OpcodeLogger config properties at top level
+      enableMemory: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      disableStack: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      disableStorage: {
+        type: 'boolean',
+        nullable: false,
+        required: false,
+      },
+      fullStorage: {
+        type: 'boolean',
         nullable: false,
         required: false,
       },
@@ -236,32 +262,52 @@ export function validateTracerConfigWrapper(param: any): boolean {
   const valid = validateSchema(schema, param);
   const { tracer, tracerConfig } = param;
 
-  if (!tracerConfig) {
-    return valid;
-  }
-
   const callTracerKeys = Object.keys(OBJECTS_VALIDATIONS.callTracerConfig.properties);
   const opcodeLoggerKeys = Object.keys(OBJECTS_VALIDATIONS.opcodeLoggerConfig.properties);
 
-  const configKeys = Object.keys(tracerConfig);
-  const hasCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
-  const hasOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
+  // Check for opcodeLogger config properties at the top level
+  const topLevelKeys = Object.keys(param);
+  const hasTopLevelOpcodeLoggerKeys = topLevelKeys.some((k) => opcodeLoggerKeys.includes(k));
 
-  // we want to accept ICallTracerConfig only if the tracer is callTracer
-  // this config is not valid for opcodeLogger and vice versa
-  // accept only IOpcodeLoggerConfig with opcodeLogger tracer
-  if (hasCallTracerKeys && tracer === TracerType.OpcodeLogger) {
+  // Check for tracer config properties in nested tracerConfig
+  let hasNestedCallTracerKeys = false;
+  let hasNestedOpcodeLoggerKeys = false;
+  if (tracerConfig) {
+    const configKeys = Object.keys(tracerConfig);
+    hasNestedCallTracerKeys = configKeys.some((k) => callTracerKeys.includes(k));
+    hasNestedOpcodeLoggerKeys = configKeys.some((k) => opcodeLoggerKeys.includes(k));
+  }
+
+  // Don't allow both top-level and nested config properties at the same time
+  if (hasTopLevelOpcodeLoggerKeys && tracerConfig) {
     throw predefined.INVALID_PARAMETER(
       1,
-      `callTracer 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.CallTracer}`,
+      `Cannot specify tracer config properties both at top level and in 'tracerConfig' for ${schema.name}`,
     );
   }
 
-  if (hasOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+  // Don't allow top-level config properties when tracer is explicitly specified
+  if (hasTopLevelOpcodeLoggerKeys && tracer) {
     throw predefined.INVALID_PARAMETER(
       1,
-      `opcodeLogger 'tracerConfig' for ${schema.name} is only valid when tracer=${TracerType.OpcodeLogger}`,
+      `Cannot specify tracer config properties at top level when 'tracer' is explicitly set for ${schema.name}`,
     );
   }
+
+  // Validate nested config properties with tracer types (existing logic)
+  if (hasNestedCallTracerKeys && tracer === TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `callTracer config properties for ${schema.name} are only valid when tracer=${TracerType.CallTracer}`,
+    );
+  }
+
+  if (hasNestedOpcodeLoggerKeys && tracer !== TracerType.OpcodeLogger) {
+    throw predefined.INVALID_PARAMETER(
+      1,
+      `opcodeLogger config properties for ${schema.name} are only valid when tracer=${TracerType.OpcodeLogger}`,
+    );
+  }
+
   return valid;
 }
