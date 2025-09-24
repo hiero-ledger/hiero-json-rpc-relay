@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
 import { Admin, Eth, Net, Web3 } from '../index';
 import { Utils } from '../utils';
