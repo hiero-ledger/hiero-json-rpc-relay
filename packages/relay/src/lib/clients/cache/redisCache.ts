@@ -6,7 +6,6 @@ import { Registry } from 'prom-client';
 import { createClient } from 'redis';
 
 import { Utils } from '../../../utils';
-import { RedisCacheError } from '../../errors/RedisCacheError';
 import { IRedisCacheClient } from './IRedisCacheClient';
 
 /**
@@ -51,15 +50,6 @@ export class RedisCache implements IRedisCacheClient {
     this.logger = logger;
     this.register = register;
     this.client = client;
-
-    this.client.on('error', (error) => {
-      const redisError = new RedisCacheError(error);
-      if (redisError.isSocketClosed()) {
-        logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
-      } else {
-        logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
-      }
-    });
   }
 
   async getConnectedClient(): Promise<ReturnType<typeof createClient>> {

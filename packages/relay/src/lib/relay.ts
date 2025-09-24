@@ -17,6 +17,7 @@ import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSp
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
+import { RedisCacheError } from './errors/RedisCacheError';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { CacheService } from './services/cacheService/cacheService';
@@ -364,10 +365,17 @@ export class Relay {
     redisClient.on('ready', () => {
       this.logger.info(`Redis client connected to ${redisUrl}`);
     });
-    redisClient.on('error', (error) => {
-      this.logger.error(error, 'Redis connection could not be established!');
+    redisClient.on('end', () => {
+      this.logger.info('Disconnected from Redis server!');
     });
-
+    redisClient.on('error', (error) => {
+      const redisError = new RedisCacheError(error);
+      if (redisError.isSocketClosed()) {
+        this.logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
+      } else {
+        this.logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
+      }
+    });
     return redisClient;
   }
 }
