@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import type { RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
 import { LocalLRUCache, RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
@@ -83,7 +83,7 @@ export class CacheService {
     logger: Logger,
     register: Registry = new Registry(),
     reservedKeys: Set<string> = new Set(),
-    redisClient?: RedisClientType,
+    redisClient?: ReturnType<typeof createClient>,
   ) {
     this.logger = logger;
     this.register = register;

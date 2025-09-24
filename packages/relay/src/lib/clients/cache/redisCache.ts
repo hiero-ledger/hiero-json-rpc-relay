@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
-import type { RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
 import { Utils } from '../../../utils';
 import { RedisCacheError } from '../../errors/RedisCacheError';
@@ -39,13 +39,7 @@ export class RedisCache implements IRedisCacheClient {
    * The Redis client.
    * @private
    */
-  private readonly client: RedisClientType;
-
-  /**
-   * Boolean showing if the connection to the Redis client has finished.
-   * @private
-   */
-  private connected: Promise<boolean>;
+  private readonly client: ReturnType<typeof createClient>;
 
   /**
    * Creates an instance of `RedisCache`.
@@ -53,33 +47,12 @@ export class RedisCache implements IRedisCacheClient {
    * @param {Logger} logger - The logger instance.
    * @param {Registry} register - The metrics registry.
    */
-  public constructor(logger: Logger, register: Registry, client: RedisClientType) {
+  public constructor(logger: Logger, register: Registry, client: ReturnType<typeof createClient>) {
     this.logger = logger;
     this.register = register;
     this.client = client;
-    this.connected = this.client
-      .connect()
-      .then(() => true)
-      .catch((error) => {
-        this.logger.error(error, 'Redis connection could not be established!');
-        return false;
-      });
-    this.client.on('ready', async () => {
-      this.connected = Promise.resolve(true);
-      const connections = await this.getNumberOfConnections().catch((error) => {
-        this.logger.error(error);
-        return 0;
-      });
-      logger.info(
-        `Connected to Redis server (${ConfigService.get('REDIS_URL')}) successfully! Number of connections: ${connections}`,
-      );
-    });
-    this.client.on('end', () => {
-      this.connected = Promise.resolve(false);
-      logger.info('Disconnected from Redis server!');
-    });
+
     this.client.on('error', (error) => {
-      this.connected = Promise.resolve(false);
       const redisError = new RedisCacheError(error);
       if (redisError.isSocketClosed()) {
         logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
@@ -89,8 +62,8 @@ export class RedisCache implements IRedisCacheClient {
     });
   }
 
-  async getConnectedClient(): Promise<RedisClientType> {
-    return this.isConnected().then(() => this.client);
+  async getConnectedClient(): Promise<ReturnType<typeof createClient>> {
+    return this.client.isConnected().then(() => this.client);
   }
 
   /**

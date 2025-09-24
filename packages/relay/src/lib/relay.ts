@@ -131,21 +131,12 @@ export class Relay {
     // Initialize Redis client for cache (DB index defaults to 0)
     const redisUrl = ConfigService.get('REDIS_URL')!;
     const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-    const cacheRedisClient: RedisClientType = createClient({
-      url: redisUrl,
-      socket: {
-        reconnectStrategy: (retries: number) => retries * reconnectDelay,
-      },
-    });
+    const redisClient = this.createAndConnectRedisClient(redisUrl, reconnectDelay);
+
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-    this.cacheService = new CacheService(
-      logger.child({ name: 'cache-service' }),
-      register,
-      reservedKeys,
-      cacheRedisClient,
-    );
+    this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,
@@ -354,5 +345,29 @@ export class Relay {
     } else {
       this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
     }
+  }
+
+  private createAndConnectRedisClient(redisUrl: string, reconnectDelay: number): ReturnType<typeof createClient> {
+    const redisClient = createClient({
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: (retries: number) => retries * reconnectDelay,
+      },
+    });
+    redisClient
+      .connect()
+      .then(() => true)
+      .catch((error) => {
+        this.logger.error(error, 'Redis connection could not be established!');
+        return false;
+      });
+    redisClient.on('ready', () => {
+      this.logger.info(`Redis client connected to ${redisUrl}`);
+    });
+    redisClient.on('error', (error) => {
+      this.logger.error(error, 'Redis connection could not be established!');
+    });
+
+    return redisClient;
   }
 }
