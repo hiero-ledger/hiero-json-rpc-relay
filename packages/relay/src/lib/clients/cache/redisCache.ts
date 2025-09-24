@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
-import { createClient, RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { Utils } from '../../../utils';
 import { RedisCacheError } from '../../errors/RedisCacheError';
@@ -53,22 +53,10 @@ export class RedisCache implements IRedisCacheClient {
    * @param {Logger} logger - The logger instance.
    * @param {Registry} register - The metrics registry.
    */
-  public constructor(logger: Logger, register: Registry) {
+  public constructor(logger: Logger, register: Registry, client: RedisClientType) {
     this.logger = logger;
     this.register = register;
-
-    const redisUrl = ConfigService.get('REDIS_URL')!;
-    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-    this.client = createClient({
-      url: redisUrl,
-      socket: {
-        reconnectStrategy: (retries: number) => {
-          const delay = retries * reconnectDelay;
-          logger.warn(`Trying to reconnect with Redis, retry #${retries}. Delay is ${delay} ms...`);
-          return delay;
-        },
-      },
-    });
+    this.client = client;
     this.connected = this.client
       .connect()
       .then(() => true)
@@ -82,7 +70,9 @@ export class RedisCache implements IRedisCacheClient {
         this.logger.error(error);
         return 0;
       });
-      logger.info(`Connected to Redis server (${redisUrl}) successfully! Number of connections: ${connections}`);
+      logger.info(
+        `Connected to Redis server (${ConfigService.get('REDIS_URL')}) successfully! Number of connections: ${connections}`,
+      );
     });
     this.client.on('end', () => {
       this.connected = Promise.resolve(false);

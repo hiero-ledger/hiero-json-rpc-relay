@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
+import { createClient, RedisClientType } from 'redis';
 
 import { Admin, Eth, Net, Web3 } from '../index';
 import { Utils } from '../utils';
@@ -127,11 +128,24 @@ export class Relay {
     register: Registry,
   ) {
     logger.info('Configurations successfully loaded');
-
+    // Initialize Redis client for cache (DB index defaults to 0)
+    const redisUrl = ConfigService.get('REDIS_URL')!;
+    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
+    const cacheRedisClient: RedisClientType = createClient({
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: (retries: number) => retries * reconnectDelay,
+      },
+    });
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-    this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys);
+    this.cacheService = new CacheService(
+      logger.child({ name: 'cache-service' }),
+      register,
+      reservedKeys,
+      cacheRedisClient,
+    );
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,

@@ -3,6 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
+import type { RedisClientType } from 'redis';
 
 import { LocalLRUCache, RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
@@ -78,7 +79,12 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(logger: Logger, register: Registry = new Registry(), reservedKeys: Set<string> = new Set()) {
+  public constructor(
+    logger: Logger,
+    register: Registry = new Registry(),
+    reservedKeys: Set<string> = new Set(),
+    redisClient?: RedisClientType,
+  ) {
     this.logger = logger;
     this.register = register;
 
@@ -88,7 +94,7 @@ export class CacheService {
     this.shouldMultiSet = ConfigService.get('MULTI_SET');
 
     if (this.isSharedCacheEnabled) {
-      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register);
+      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register, redisClient!);
     }
 
     /**
