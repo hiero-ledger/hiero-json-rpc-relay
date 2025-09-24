@@ -7,6 +7,7 @@ import findConfig from 'find-config';
 import fs from 'fs';
 import pino, { Logger } from 'pino';
 import { Registry } from 'prom-client';
+import { createClient } from 'redis';
 import sinon from 'sinon';
 
 import { HbarSpendingPlanConfigService } from '../../../src/lib/config/hbarSpendingPlanConfigService';
@@ -158,7 +159,13 @@ describe('HbarSpendingPlanConfigService', function () {
 
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-      cacheService = new CacheService(logger.child({ name: 'cache-service' }), registry, reservedKeys);
+      const redisClient = createClient({ url: 'redis://127.0.0.1:6384' });
+      cacheService = new CacheService(
+        logger.child({ name: 'cache-service' }),
+        registry,
+        reservedKeys,
+        redisClient as any,
+      );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
         logger.child({ name: 'hbar-spending-plan-repository' }),

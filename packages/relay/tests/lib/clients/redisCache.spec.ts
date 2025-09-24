@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import { createClient, RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import { RedisCache } from '../../../src/lib/clients';
@@ -20,14 +20,15 @@ describe('RedisCache Test Suite', async function () {
   const callingMethod = 'RedisCacheTest';
 
   let redisCache: RedisCache;
-  let redisClientSpy: sinon.SinonSpiedInstance<RedisClientType>;
+  let rawClient: RedisClientType;
 
   useInMemoryRedisServer(logger, 6379);
 
   this.beforeAll(async () => {
-    redisCache = new RedisCache(logger.child({ name: `cache` }), registry);
-    redisCache['options'].ttl = 100; // set default cache ttl to 100ms for testing
-    redisClientSpy = sinon.spy(redisCache['client']);
+    rawClient = createClient({ url: 'redis://127.0.0.1:6379' });
+    redisCache = new RedisCache(logger.child({ name: `cache` }), registry, rawClient);
+    redisCache['options'].ttl = 100;
+    sinon.spy(rawClient, 'set');
   });
 
   this.beforeEach(async () => {
@@ -96,7 +97,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(rawClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -113,7 +114,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 1100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(rawClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -130,7 +131,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = -1;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value));
+      sinon.assert.calledOnceWithExactly(rawClient.set as sinon.SinonSpy, key, JSON.stringify(value));
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);

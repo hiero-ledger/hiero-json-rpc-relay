@@ -4,6 +4,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
 import { Registry } from 'prom-client';
+import { createClient } from 'redis';
 import * as sinon from 'sinon';
 
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
@@ -259,7 +260,8 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     this.beforeAll(async () => {
-      cacheService = new CacheService(logger, registry);
+      const redisClient = createClient({ url: 'redis://127.0.0.1:6381' });
+      cacheService = new CacheService(logger, registry, new Set(), redisClient as any);
     });
 
     this.afterAll(async () => {
