@@ -9,6 +9,7 @@ import { Counter, Registry } from 'prom-client';
 import { SDKClient } from '../../clients';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
+import { RawTxSynchronizeService } from '../rawTxSynchronizeService/RawTxSynchronizeService';
 
 export default class HAPIService {
   /**
@@ -242,6 +243,7 @@ export default class HAPIService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    rawTxSynchronizeService: RawTxSynchronizeService,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     return this.getSDKClient().submitEthereumTransaction(
       transactionBuffer,
@@ -250,6 +252,7 @@ export default class HAPIService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       currentNetworkExchangeRateInCents,
+      rawTxSynchronizeService,
     );
   }
 
