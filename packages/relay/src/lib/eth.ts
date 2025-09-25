@@ -151,7 +151,6 @@ export class EthImpl implements Eth {
       hapiService,
       logger,
       mirrorNodeClient,
-      this.rawTxSynchronizeService,
     );
   }
 
@@ -960,7 +959,9 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async sendRawTransaction(transaction: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
-    return await this.transactionService.sendRawTransaction(transaction, requestDetails);
+    return await this.rawTxSynchronizeService.runExclusive(transaction, async () => {
+      return await this.transactionService.sendRawTransaction(transaction, requestDetails);
+    });
   }
 
   /**
