@@ -27,7 +27,7 @@ import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService } from '../services';
+import { CommonService, RawTxSynchronizeService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
@@ -145,6 +145,7 @@ export class SDKClient {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    rawTxSynchronizeService: RawTxSynchronizeService,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -190,6 +191,7 @@ export class SDKClient {
         requestDetails,
         true,
         originalCallerAddress,
+        rawTxSynchronizeService,
       ),
     };
   }
@@ -276,6 +278,7 @@ export class SDKClient {
     requestDetails: RequestDetails,
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
+    rawTxSynchronizeService?: RawTxSynchronizeService,
     estimatedTxFee?: number,
   ): Promise<TransactionResponse> {
     const txConstructorName = transaction.constructor.name;
@@ -333,6 +336,11 @@ export class SDKClient {
       }
       return transactionResponse;
     } finally {
+      // Eventually release the transaction mutex lock if it was acquired by the sender
+      if (rawTxSynchronizeService) {
+        await rawTxSynchronizeService.releaseLock(originalCallerAddress);
+      }
+
       if (transactionId?.length) {
         this.eventEmitter.emit('execute_transaction', {
           transactionId,
