@@ -272,7 +272,7 @@ export class Precheck {
   transactionType(tx: Transaction) {
     // Blob transactions are not supported as per HIP 866
     if (tx.type === 3) {
-      throw predefined.UNSUPPORTED_TRANSACTION_TYPE(tx.type);
+      throw predefined.UNSUPPORTED_TRANSACTION_TYPE_3;
     }
   }
 
