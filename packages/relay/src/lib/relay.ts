@@ -189,6 +189,7 @@ export class Relay {
 
     hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       this.metricService.captureTransactionMetrics(args).then();
+      // TODO: Call transactionPoolService.onConsensusResult(args) when service is available
     });
 
     hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {

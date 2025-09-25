@@ -19,6 +19,7 @@ export interface IExecuteQueryEventPayload {
 
 export interface IExecuteTransactionEventPayload {
   transactionId: string;
+  transactionHash?: string;
   txConstructorName: string;
   operatorAccountId: string;
   requestDetails: RequestDetails;
