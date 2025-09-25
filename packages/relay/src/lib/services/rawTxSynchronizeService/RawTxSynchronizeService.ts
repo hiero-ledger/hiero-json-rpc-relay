@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Mutex, withTimeout } from 'async-mutex';
+import { Transaction } from 'ethers';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
@@ -49,62 +50,54 @@ export class RawTxSynchronizeService {
   }
 
   /**
-   * Acquires a mutex lock for the specified sender address with timeout.
+   * Executes a callback under an exclusive per-sender mutex with timeout protection.
    *
-   * This method implements timeout-based lock acquisition. The call will wait for the mutex
-   * to become available but will timeout after the configured duration to prevent
-   * deadlocks and ensure resource availability.
+   * The lock is automatically released once the callback settles (resolve or reject). If the lock cannot be
+   * acquired within the configured timeout, an error is thrown mirroring the previous behaviour.
    *
-   * @param sender - The sender address (wallet address) to acquire the lock for
-   * @returns Promise that resolves when the lock is successfully acquired
-   * @throws Error if the lock acquisition fails due to timeout or internal errors
+   * @param rawTransaction - The raw transaction payload used to derive the sender address
+   * @param callback - The critical section to execute while the sender lock is held
+   * @returns The callback result
    */
-  async acquireLock(sender: string): Promise<void> {
-    const mutex = this.getOrCreateMutex(sender);
+  async runExclusive<T>(rawTransaction: string, callback: () => Promise<T> | T): Promise<T> {
+    const senderAddress = this.extractSender(rawTransaction);
+
+    if (!senderAddress) {
+      this.logger.warn('Unable to derive sender from raw transaction. Executing callback without synchronization.');
+      return await callback();
+    }
+
+    const mutex = this.getOrCreateMutex(senderAddress);
     const timeoutMutex = withTimeout(mutex, RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS);
+    const waitStartedAt = Date.now();
+    let lockAcquired = false;
 
     try {
-      // Acquire the mutex lock with timeout protection
-      await timeoutMutex.acquire();
-      this.logger.debug(
-        `Lock acquired for sender: ${sender}, timeout: ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
-      );
+      return await timeoutMutex.runExclusive(async () => {
+        const waitDurationMs = Date.now() - waitStartedAt;
+        this.logger.debug(
+          `Lock acquired for sender: ${senderAddress}, waited ${waitDurationMs}ms (timeout: ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms)`,
+        );
+        lockAcquired = true;
+
+        return await callback();
+      });
     } catch (error) {
       if (error instanceof Error && error.message.includes('timeout')) {
         throw new Error(
-          `Failed to acquire lock for sender ${sender}: timeout after ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
+          `Failed to acquire lock for sender ${senderAddress}: timeout after ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
         );
       }
-      this.logger.error(`Failed to acquire lock for ${sender}:`, error);
+
+      this.logger.error(`Failed to execute exclusive section for ${senderAddress}:`, error);
       throw error;
+    } finally {
+      // only log release event if lock was actually acquired
+      if (lockAcquired) {
+        this.logger.debug(`Lock released for sender: ${senderAddress}`);
+      }
     }
-  }
-
-  /**
-   * Releases the mutex lock for the specified sender address.
-   *
-   * This method safely releases a previously acquired lock using the mutex instance and performs cleanup
-   * to prevent resource leaks. It's safe to call even if no lock is held for the sender.
-   *
-   * @param sender - The sender address to release the lock for
-   * @returns Promise that resolves when the lock is successfully released
-   */
-  async releaseLock(sender: string): Promise<void> {
-    const mutex = this.localLockStates.get(sender);
-    if (!mutex || !mutex.isLocked()) {
-      this.logger.debug(`No active lock to release for sender: ${sender}`);
-      return;
-    }
-
-    try {
-      mutex.release();
-      this.logger.debug(`Lock released for sender: ${sender}`);
-    } catch (error) {
-      this.logger.error(`Error releasing lock for ${sender}:`, error);
-    }
-  }
-
-  /**
+  } /**
    * Retrieves an existing mutex for the sender or creates a new one if needed.
    *
    * @private
@@ -118,5 +111,19 @@ export class RawTxSynchronizeService {
       this.localLockStates.set(sender, mutex);
     }
     return mutex;
+  }
+
+  /**
+   * Parses the raw transaction and returns the normalized sender address if available.
+   *
+   * @param rawTransaction - The serialized transaction payload (with or without 0x prefix)
+   * @returns The lowercase sender address, or null when parsing fails or sender is absent
+   */
+  private extractSender(rawTransaction: string): string | null | undefined {
+    try {
+      return Transaction.from(rawTransaction).from?.toLowerCase();
+    } catch {
+      return null;
+    }
   }
 }
