@@ -137,9 +137,6 @@ export class RawTxSynchronizeService {
         release: undefined,
       };
       this.localLockStates.set(sender, lockState);
-      this.logger.debug(`Created new lock state for sender: ${sender}`);
-    } else {
-      this.logger.debug(`Reusing existing lock state for sender: ${sender}`);
     }
     return lockState;
   }
