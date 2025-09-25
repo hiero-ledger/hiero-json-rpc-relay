@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService } from '../../index';
+import { ICommonService, RawTxSynchronizeService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -73,6 +73,13 @@ export class TransactionService implements ITransactionService {
   private readonly chain: string;
 
   /**
+   * The service responsible for synchronizing raw transaction submissions to ensure nonce ordering.
+   * @private
+   * @readonly
+   */
+  private readonly rawTxSynchronizeService: RawTxSynchronizeService;
+
+  /**
    * Constructor for the TransactionService class.
    */
   constructor(
@@ -83,6 +90,7 @@ export class TransactionService implements ITransactionService {
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
+    rawTxSynchronizeService: RawTxSynchronizeService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -91,6 +99,7 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
+    this.rawTxSynchronizeService = rawTxSynchronizeService;
     this.precheck = new Precheck(mirrorNodeClient, logger, chain);
   }
 
@@ -247,6 +256,12 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
+
+    // Acquire a lock for the sender before any side effects or asynchronous calls to ensure proper nonce ordering
+    if (parsedTx.from) {
+      await this.rawTxSynchronizeService.acquireLock(parsedTx.from);
+    }
+
     const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
       await this.common.getGasPriceInWeibars(requestDetails),
     );
@@ -260,7 +275,13 @@ export class TransactionService implements ITransactionService {
      */
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
+      this.sendRawTransactionProcessor(
+        transactionBuffer,
+        parsedTx,
+        networkGasPriceInWeiBars,
+        this.rawTxSynchronizeService,
+        requestDetails,
+      );
       return Utils.computeTransactionHash(transactionBuffer);
     }
 
@@ -272,6 +293,7 @@ export class TransactionService implements ITransactionService {
       transactionBuffer,
       parsedTx,
       networkGasPriceInWeiBars,
+      this.rawTxSynchronizeService,
       requestDetails,
     );
   }
@@ -469,6 +491,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
+    rawTxSynchronizeService: RawTxSynchronizeService,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
@@ -483,6 +506,7 @@ export class TransactionService implements ITransactionService {
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
+      rawTxSynchronizeService,
       requestDetails,
     );
 
@@ -636,6 +660,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
+    rawTxSynchronizeService: RawTxSynchronizeService,
     requestDetails: RequestDetails,
   ): Promise<{
     txSubmitted: boolean;
@@ -655,6 +680,7 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        rawTxSynchronizeService,
       );
 
       txSubmitted = true;

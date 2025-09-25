@@ -19,6 +19,7 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
+  RawTxSynchronizeService,
   TransactionService,
 } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
@@ -108,6 +109,12 @@ export class EthImpl implements Eth {
   private readonly transactionService: ITransactionService;
 
   /**
+   * The service responsible for synchronizing raw transaction submissions to ensure nonce ordering.
+   * @private
+   */
+  private readonly rawTxSynchronizeService: RawTxSynchronizeService;
+
+  /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
    * using Hedera Hashgraph as the underlying network.
    *
@@ -134,6 +141,8 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
+    this.rawTxSynchronizeService = new RawTxSynchronizeService(logger);
+
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -142,6 +151,7 @@ export class EthImpl implements Eth {
       hapiService,
       logger,
       mirrorNodeClient,
+      this.rawTxSynchronizeService,
     );
   }
 
