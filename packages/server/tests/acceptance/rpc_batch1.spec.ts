@@ -1054,7 +1054,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           expectedError: 'INVALID_CONTRACT_ID',
         },
 
-        // system contracts (precompiles) (≤ 0.0.750) - should return INVALID_CONTRACT_ID
+        // system contracts (≤ 0.0.750) - should return INVALID_CONTRACT_ID
         {
           address: '0x0000000000000000000000000000000000000167',
           description: '0.0.359 HTS',
