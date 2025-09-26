@@ -27,7 +27,7 @@ import { Logger } from 'pino';
 
 import { weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService } from '../services';
+import { CommonService, RawTxSynchronizeService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
@@ -135,6 +135,8 @@ export class SDKClient {
    * @param {string} originalCallerAddress - The address of the original caller making the request.
    * @param {number} networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
    * @param {number} currentNetworkExchangeRateInCents - The exchange rate in cents of the current network.
+   * @param {RawTxSynchronizeService} rawTxSynchronizeService - The service for managing transaction locks.
+   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<{ txResponse: TransactionResponse; fileId: FileId | null }>}
    * @throws {SDKClientError} Throws an error if no file ID is created or if the preemptive fee check fails.
    */
@@ -145,6 +147,8 @@ export class SDKClient {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    rawTxSynchronizeService: RawTxSynchronizeService,
+    lockSessionKey: string | null,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -190,6 +194,8 @@ export class SDKClient {
         requestDetails,
         true,
         originalCallerAddress,
+        rawTxSynchronizeService,
+        lockSessionKey,
       ),
     };
   }
@@ -266,7 +272,9 @@ export class SDKClient {
    * @param requestDetails - The request details for logging and tracking.
    * @param shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
    * @param originalCallerAddress - The address of the original caller making the request.
+   * @param rawTxSynchronizeService - The service for managing transaction locks.
    * @param estimatedTxFee - The optional total estimated transaction fee.
+   * @param lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns - A promise that resolves to the transaction response.
    * @throws {SDKClientError} - Throws if an error occurs during transaction execution.
    */
@@ -276,6 +284,8 @@ export class SDKClient {
     requestDetails: RequestDetails,
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
+    rawTxSynchronizeService?: RawTxSynchronizeService,
+    lockSessionKey?: string | null,
     estimatedTxFee?: number,
   ): Promise<TransactionResponse> {
     const txConstructorName = transaction.constructor.name;
@@ -333,6 +343,11 @@ export class SDKClient {
       }
       return transactionResponse;
     } finally {
+      // Eventually release the transaction mutex lock if it was acquired by the sender
+      if (rawTxSynchronizeService && lockSessionKey) {
+        await rawTxSynchronizeService.releaseLock(originalCallerAddress, lockSessionKey);
+      }
+
       if (transactionId?.length) {
         this.eventEmitter.emit('execute_transaction', {
           transactionId,
