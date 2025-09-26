@@ -753,7 +753,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     let basicContractAddress: string;
 
     async function createNftHTSToken(account) {
-      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[0].wallet);
+      const mainContract = new ethers.Contract(mainContractAddress, TokenCreateJson.abi, accounts[2].wallet);
       const tx = await mainContract.createNonFungibleTokenPublic(account.wallet.address, {
         value: BigInt('30000000000000000000'),
         ...Helper.GAS.LIMIT_5_000_000,
@@ -769,7 +769,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     }
 
     before(async () => {
-      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[0].wallet);
+      basicContract = await Utils.deployContract(basicContractJson.abi, basicContractJson.bytecode, accounts[2].wallet);
       basicContractAddress = basicContract.target as string;
 
       blockBeforeContractCreation = (await mirrorNode.get(`/blocks?limit=1&order=desc`)).blocks[0].number;
