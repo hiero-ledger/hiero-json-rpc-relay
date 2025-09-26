@@ -2,6 +2,8 @@
 
 import { Transaction } from 'ethers';
 
+import { IExecuteTransactionEventPayload } from './events';
+
 /**
  * Result of attempting to add a transaction to the pending list.
  *
@@ -27,9 +29,10 @@ export interface TransactionPoolService {
   /**
    * Handles consensus results and updates the pool state accordingly.
    *
+   * @param payload - The transaction execution event payload containing transaction details.
    * @returns A promise that resolves when the consensus result has been received.
    */
-  onConsensusResult(): Promise<void>;
+  onConsensusResult(payload: IExecuteTransactionEventPayload): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.
@@ -63,19 +66,20 @@ export interface PendingTransactionStorage {
    * Attempts to add a pending transaction entry for the given address.
    *
    * @param addr - The account address.
+   * @param txHash - The transaction hash to add to the pending list.
    * @param expectedPending - The expected number of pending transactions.
    * @returns A promise that resolves to an {@link AddToListResult}.
    */
-  addToList(addr: string, expectedPending: number): Promise<AddToListResult>;
+  addToList(addr: string, txHash: string, expectedPending: number): Promise<AddToListResult>;
 
   /**
    * Removes a transaction from the pending list of the given address.
    *
    * @param address - The account address whose transaction should be removed.
-   * @param transaction - The transaction identifier (e.g., hash).
+   * @param txHash - The transaction hash to remove.
    * @returns A promise that resolves to the updated pending count.
    */
-  removeFromList(address: string, transaction: string): Promise<number>;
+  removeFromList(address: string, txHash: string): Promise<number>;
 
   /**
    * Removes all pending transactions across all addresses.
