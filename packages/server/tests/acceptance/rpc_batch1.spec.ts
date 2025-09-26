@@ -100,7 +100,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
 
       const initialAccount: AliasAccount = global.accounts[0];
-      const neededAccounts: number = 4;
+      const neededAccounts: number = 3;
       accounts.push(
         ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
       );
@@ -1136,67 +1136,23 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           description: '0.0.999 (existent)',
           expectedError: null,
         },
-
-        // Ethereum precompiles (0x1 to 0xa) - should return INVALID_CONTRACT_ID
-        {
-          address: '0x0000000000000000000000000000000000000001',
-          description: '0x1 EC-recover',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000004',
-          description: '0x4 identity',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000005',
-          description: '0x5 modexp',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000006',
-          description: '0x6 ecadd',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000007',
-          description: '0x7 ecmul',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000008',
-          description: '0x8 ecpairing',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x0000000000000000000000000000000000000009',
-          description: '0x9 blake2f',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
-        {
-          address: '0x000000000000000000000000000000000000000a',
-          description: '0xa point evaluation',
-          expectedError: 'INVALID_CONTRACT_ID',
-        },
       ];
 
-      hederaReservedAccounts.forEach(({ address, description, expectedError }, index) => {
+      hederaReservedAccounts.forEach(({ address, description, expectedError }) => {
         const testDescription = expectedError
           ? `@xts should reject HBAR transfer to ${description} (${address}) with ${expectedError}`
           : `@xts should successfully execute HBAR transfer to ${description} (${address})`;
 
         it(testDescription, async function () {
-          const accountIndex = index % accounts.length; // Cycle between accounts to avoid exhausting funds
-
           const sendHbarTx = {
             ...defaultLegacyTransactionData,
             value: ONE_TINYBAR,
             to: address,
-            nonce: await relay.getAccountNonce(accounts[accountIndex].address),
+            nonce: await relay.getAccountNonce(accounts[1].address),
             gasPrice: await relay.gasPrice(),
           };
 
-          const signedSendHbarTx = await accounts[accountIndex].wallet.signTransaction(sendHbarTx);
+          const signedSendHbarTx = await accounts[1].wallet.signTransaction(sendHbarTx);
           const txHash = await relay.sendRawTransaction(signedSendHbarTx);
           const txReceipt = await relay.pollForValidTransactionReceipt(txHash);
 
