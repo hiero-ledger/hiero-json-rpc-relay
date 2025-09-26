@@ -100,7 +100,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
 
       const initialAccount: AliasAccount = global.accounts[0];
-      const neededAccounts: number = 6;
+      const neededAccounts: number = 4;
       accounts.push(
         ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
       );
@@ -1002,12 +1002,15 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         };
 
         const signedSendHbarTx = await accounts[1].wallet.signTransaction(sendHbarTx);
-        const error = predefined.INTERNAL_ERROR('Transaction execution returns a null value');
 
-        await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [
-          signedSendHbarTx,
-          requestDetails,
-        ]);
+        try {
+          await relay.sendRawTransaction(signedSendHbarTx);
+          Assertions.expectedError();
+        } catch (e: any) {
+          const { error } = e?.response ? e.response.bodyJson : e;
+          expect(error.code).to.eq(predefined.INTERNAL_ERROR().code);
+          expect(error.message).to.contain(`failed precheck with status INVALID_SOLIDITY_ADDRESS against node account`);
+        }
       });
 
       // https://github.com/hiero-ledger/hiero-consensus-node/blob/main/hedera-node/docs/system-accounts-operations.md
@@ -1589,24 +1592,24 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@xts should execute "eth_sendRawTransaction" and deploy a contract with reasonable transaction fee within expected bounds', async function () {
-        const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
+        const balanceBefore = await relay.getBalance(accounts[3].wallet.address, 'latest');
 
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[2].address),
+          nonce: await relay.getAccountNonce(accounts[3].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
           data: '0x' + '00'.repeat(100),
         };
 
-        const signedTx = await accounts[2].wallet.signTransaction(transaction);
+        const signedTx = await accounts[3].wallet.signTransaction(transaction);
         const transactionHash = await relay.sendRawTransaction(signedTx);
         await relay.pollForValidTransactionReceipt(transactionHash);
         const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-        const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
+        const balanceAfter = await relay.getBalance(accounts[3].wallet.address, 'latest');
         expect(info).to.have.property('contract_id');
         expect(info.contract_id).to.not.be.null;
         expect(info).to.have.property('created_contract_ids');
