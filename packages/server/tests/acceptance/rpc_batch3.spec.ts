@@ -1917,7 +1917,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
 
     it('Should return a batch of requests', async function () {
-      const testAccount = await Utils.createAliasAccount(mirrorNode, accounts[0]);
+      // bump up the balance due to a bug in local-node https://github.com/hiero-ledger/hiero-local-node/issues/1129
+      const testAccount = await Utils.createAliasAccount(mirrorNode, accounts[0], '1150000000');
 
       {
         const payload = [
