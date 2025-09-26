@@ -150,6 +150,14 @@ export const TYPES = {
     },
     error: 'Expected TracerConfigWrapper which contains a valid TracerType and/or TracerConfig',
   },
+  stateOverride: {
+    test: (param: any) => {
+      // Must be an object if provided
+      // TODO: This validation should be more detailed when state override is officially supported.
+      return typeof param === 'object' && !Array.isArray(param);
+    },
+    error: 'Expected StateOverride object (currently accepting any object structure)',
+  },
 } satisfies {
   [paramTypeName: string]: {
     test: (param: any) => boolean;
