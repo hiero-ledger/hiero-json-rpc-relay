@@ -36,7 +36,9 @@ describe('RPC', function () {
     expect(res).to.be.equal('initial_msg');
   });
 
-  it('should NOT throw exception upon empty hex response (0x)', async function () {
+  // block this due to a regression in MN -> will be fixed in MN@0.140.0
+  // TODO: unblock this after MN@0.140.0
+  xit('should NOT throw exception upon empty hex response (0x)', async function () {
     const provider = new hre.ethers.getDefaultProvider(process.env.RELAY_ENDPOINT);
     const result = await provider.call({
       to: '0x00000000000000000000000000000000002e7a5d', // random non-existed address
