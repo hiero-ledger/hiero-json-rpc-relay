@@ -5,7 +5,7 @@ import { Transaction } from 'ethers';
 import { Logger, pino } from 'pino';
 import * as sinon from 'sinon';
 
-import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/TransactionPoolService';
+import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
 import { IExecuteTransactionEventPayload } from '../../../../src/lib/types/events';
 import { AddToListResult, PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
 
