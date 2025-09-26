@@ -220,6 +220,12 @@ describe('SdkClient', async function () {
     };
 
     const callSubmit = (buffer: Buffer) => {
+      // Create a mock RawTxSynchronizeService for test
+      const mockRawTxSynchronizeService = {
+        acquireLock: sinon.stub().resolves('mock-session-key'),
+        releaseLock: sinon.stub().resolves(),
+      } as any;
+
       return sdkClient.submitEthereumTransaction(
         buffer,
         mockedCallerName,
@@ -227,6 +233,8 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
+        mockRawTxSynchronizeService,
+        'mock-session-key',
       );
     };
 
@@ -333,6 +341,8 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
+            sinon.match.object, // rawTxSynchronizeService
+            sinon.match.string, // lockSessionKey
           ),
         ).to.be.true;
 
@@ -639,6 +649,12 @@ describe('SdkClient', async function () {
         .returns(true);
 
       try {
+        // Create a mock RawTxSynchronizeService for test
+        const mockRawTxSynchronizeService = {
+          acquireLock: sinon.stub().resolves('mock-session-key'),
+          releaseLock: sinon.stub().resolves(),
+        } as any;
+
         await sdkClient.submitEthereumTransaction(
           transactionBuffer,
           mockedCallerName,
@@ -646,6 +662,8 @@ describe('SdkClient', async function () {
           randomAccountAddress,
           mockedNetworkGasPrice,
           mockedExchangeRateIncents,
+          mockRawTxSynchronizeService,
+          'mock-session-key',
         );
         expect.fail(`Expected an error but nothing was thrown`);
       } catch (error: any) {
@@ -698,6 +716,12 @@ describe('SdkClient', async function () {
         .withArgs(mockedTransactionRecordFee)
         .exactly(fileAppendChunks + 2);
 
+      // Create a mock RawTxSynchronizeService for test
+      const mockRawTxSynchronizeService = {
+        acquireLock: sinon.stub().resolves('mock-session-key'),
+        releaseLock: sinon.stub().resolves(),
+      } as any;
+
       await sdkClient.submitEthereumTransaction(
         transactionBuffer,
         mockedCallerName,
@@ -705,6 +729,8 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
+        mockRawTxSynchronizeService,
+        'mock-session-key',
       );
 
       expect(queryStub.called).to.be.true;
