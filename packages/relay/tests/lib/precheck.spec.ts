@@ -442,7 +442,7 @@ describe('Precheck', async function () {
       };
 
       try {
-        precheck.balance(parsedTransaction, account.balance.balance);
+        precheck.balance(parsedTransaction, account.balance);
         expectedError();
       } catch (e: any) {
         expect(e).to.exist;
@@ -459,7 +459,7 @@ describe('Precheck', async function () {
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account.balance.balance);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -471,7 +471,7 @@ describe('Precheck', async function () {
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account.balance.balance);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -483,7 +483,7 @@ describe('Precheck', async function () {
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account.balance.balance);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -495,7 +495,7 @@ describe('Precheck', async function () {
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account.balance.balance);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -507,7 +507,7 @@ describe('Precheck', async function () {
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account.balance.balance);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -529,7 +529,7 @@ describe('Precheck', async function () {
         },
       };
 
-      expect(() => precheck.balance(tx, account.balance.balance)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
 
     it('should calculate balance correctly when transaction has null gasPrice but valid maxFeePerGas and maxPriorityFeePerGas', async function () {
@@ -550,7 +550,7 @@ describe('Precheck', async function () {
         },
       };
 
-      expect(() => precheck.balance(tx, account.balance.balance)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
 
     it('should still pass when transaction has null gasPrice, null maxFeePerGas, and null maxPriorityFeePerGas', async function () {
@@ -570,7 +570,7 @@ describe('Precheck', async function () {
         },
       };
 
-      expect(() => precheck.balance(tx, account.balance.balance)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
   });
 

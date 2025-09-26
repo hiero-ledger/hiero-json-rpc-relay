@@ -102,12 +102,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       balance: {
         balance: Hbar.from(100_000_000_000, HbarUnit.Hbar).to(HbarUnit.Tinybar),
       },
+      ethereum_nonce: 0,
     };
     const RECEIVER_ACCOUNT_RES = {
       account: ACCOUNT_ADDRESS_1,
       balance: {
         balance: Hbar.from(1, HbarUnit.Hbar).to(HbarUnit.Tinybar),
       },
+      ethereum_nonce: 0,
       receiver_sig_required: false,
     };
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
