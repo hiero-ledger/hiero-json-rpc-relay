@@ -5,8 +5,10 @@ import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { IPAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/ipAddressHbarSpendingPlan';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
@@ -27,8 +29,22 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: IPAddressHbarSpendingPlanRepository;
+    let redisClientManager: RedisClientManager;
+    let redisClient: RedisClientType | undefined;
 
-    before(() => {
+    if (isSharedCacheEnabled) {
+      useInMemoryRedisServer(logger, 6383);
+    } else {
+      overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
+    }
+    before(async () => {
+      if (isSharedCacheEnabled) {
+        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6383', 1000);
+        await redisClientManager.connect();
+        redisClient = redisClientManager.getClient();
+      } else {
+        redisClient = undefined;
+      }
       cacheService = new CacheService(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
@@ -37,18 +53,8 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       );
     });
 
-    if (isSharedCacheEnabled) {
-      useInMemoryRedisServer(logger, 6383);
-    } else {
-      overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
-    }
-
     afterEach(async () => {
       await cacheService.clear();
-    });
-
-    after(async () => {
-      await cacheService.disconnectRedisClient();
     });
 
     describe('existsByAddress', () => {

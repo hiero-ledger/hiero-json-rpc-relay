@@ -4,8 +4,10 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
 import { Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import {
   HbarSpendingPlanNotActiveError,
@@ -28,12 +30,8 @@ describe('HbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: HbarSpendingPlanRepository;
-
-    before(async () => {
-      cacheService = new CacheService(logger, registry);
-      cacheServiceSpy = sinon.spy(cacheService);
-      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
-    });
+    let redisClientManager: RedisClientManager;
+    let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
       useInMemoryRedisServer(logger, 6380);
@@ -41,12 +39,21 @@ describe('HbarSpendingPlanRepository', function () {
       overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
     }
 
-    afterEach(async () => {
-      await cacheService.clear();
+    before(async () => {
+      if (isSharedCacheEnabled) {
+        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6380', 1000);
+        await redisClientManager.connect();
+        redisClient = redisClientManager.getClient();
+      } else {
+        redisClient = undefined;
+      }
+      cacheService = new CacheService(logger, registry, new Set(), redisClient);
+      cacheServiceSpy = sinon.spy(cacheService);
+      repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
     });
 
-    after(async () => {
-      await cacheService.disconnectRedisClient();
+    afterEach(async () => {
+      await cacheService.clear();
     });
 
     describe('create', () => {

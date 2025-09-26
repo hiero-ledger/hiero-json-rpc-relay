@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ICacheClient } from './ICacheClient';
 import { RequestDetails } from '../../types';
+import type { ICacheClient } from './ICacheClient';
 
 export interface IRedisCacheClient extends ICacheClient {
-  disconnect: () => Promise<void>;
   incrBy(key: string, amount: number, callingMethod: string, requestDetails: RequestDetails): Promise<number>;
   rPush(key: string, value: any, callingMethod: string, requestDetails: RequestDetails): Promise<number>;
   lRange(
