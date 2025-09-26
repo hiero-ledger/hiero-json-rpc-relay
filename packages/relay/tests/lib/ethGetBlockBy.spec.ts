@@ -130,10 +130,6 @@ describe('eth_getBlockBy', async function () {
     restMock.reset();
   });
 
-  this.afterAll(async () => {
-    await cacheService.disconnectRedisClient();
-  });
-
   const mirrorLogToModelLog = (mirrorLog) => {
     return new Log({
       address: mirrorLog.address,

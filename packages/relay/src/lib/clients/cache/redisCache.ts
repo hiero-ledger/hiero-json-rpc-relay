@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
-import { createClient } from 'redis';
+import { RedisClientType } from 'redis';
 
 import { Utils } from '../../../utils';
 import { IRedisCacheClient } from './IRedisCacheClient';
@@ -38,7 +38,7 @@ export class RedisCache implements IRedisCacheClient {
    * The Redis client.
    * @private
    */
-  private readonly client: ReturnType<typeof createClient>;
+  private readonly client: RedisClientType;
 
   /**
    * Creates an instance of `RedisCache`.
@@ -46,14 +46,10 @@ export class RedisCache implements IRedisCacheClient {
    * @param {Logger} logger - The logger instance.
    * @param {Registry} register - The metrics registry.
    */
-  public constructor(logger: Logger, register: Registry, client: ReturnType<typeof createClient>) {
+  public constructor(logger: Logger, register: Registry, client: RedisClientType) {
     this.logger = logger;
     this.register = register;
     this.client = client;
-  }
-
-  async getConnectedClient(): Promise<ReturnType<typeof createClient>> {
-    return this.client.isConnected().then(() => this.client);
   }
 
   /**
@@ -64,8 +60,7 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The cached value or null if not found.
    */
   async get(key: string, callingMethod: string): Promise<any> {
-    const client = await this.getConnectedClient();
-    const result = await client.get(key);
+    const result = await this.client.get(key);
     if (result) {
       if (this.logger.isLevelEnabled('trace')) {
         const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -88,13 +83,12 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the value is cached.
    */
   async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
-    const client = await this.getConnectedClient();
     const serializedValue = JSON.stringify(value);
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
     if (resolvedTtl > 0) {
-      await client.set(key, serializedValue, { PX: resolvedTtl });
+      await this.client.set(key, serializedValue, { PX: resolvedTtl });
     } else {
-      await client.set(key, serializedValue);
+      await this.client.set(key, serializedValue);
     }
 
     const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -116,7 +110,6 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the values are cached.
    */
   async multiSet(keyValuePairs: Record<string, any>, callingMethod: string): Promise<void> {
-    const client = await this.getConnectedClient();
     // Serialize values
     const serializedKeyValuePairs: Record<string, string> = {};
     for (const [key, value] of Object.entries(keyValuePairs)) {
@@ -124,7 +117,7 @@ export class RedisCache implements IRedisCacheClient {
     }
 
     // Perform mSet operation
-    await client.mSet(serializedKeyValuePairs);
+    await this.client.mSet(serializedKeyValuePairs);
 
     // Log the operation
     const entriesLength = Object.keys(keyValuePairs).length;
@@ -142,10 +135,9 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the values are cached.
    */
   async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    const client = await this.getConnectedClient();
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
 
-    const pipeline = client.multi();
+    const pipeline = this.client.multi();
 
     for (const [key, value] of Object.entries(keyValuePairs)) {
       const serializedValue = JSON.stringify(value);
@@ -170,64 +162,11 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the value is deleted from the cache.
    */
   async delete(key: string, callingMethod: string): Promise<void> {
-    const client = await this.getConnectedClient();
-    await client.del(key);
+    await this.client.del(key);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
     }
     // TODO: add metrics
-  }
-
-  /**
-   * Clears the entire cache.
-   *
-   * @returns {Promise<void>} A Promise that resolves when the cache is cleared.
-   */
-  async clear(): Promise<void> {
-    const client = await this.getConnectedClient();
-    await client.flushAll();
-  }
-
-  /**
-   * Checks if the client is connected to the Redis server.
-   *
-   * @returns {Promise<boolean>} A Promise that resolves to true if the client is connected, false otherwise.
-   */
-  async isConnected(): Promise<boolean> {
-    return this.connected;
-  }
-
-  /**
-   * Retrieves the number of connections to the Redis server.
-   *
-   * @returns {Promise<number>} A Promise that resolves to the number of connections.
-   * @throws {Error} If an error occurs while retrieving the number of connections.
-   */
-  async getNumberOfConnections(): Promise<number> {
-    const client = await this.getConnectedClient();
-    const clientList = await client.clientList();
-    return clientList.length;
-  }
-
-  /**
-   * Connects the client to the Redis server.
-   *
-   * @returns {Promise<void>} A Promise that resolves when the client is connected.
-   * @throws {Error} If an error occurs while connecting to Redis.
-   */
-  async connect(): Promise<void> {
-    await this.client.connect();
-  }
-
-  /**
-   * Disconnects the client from the Redis server.
-   *
-   * @returns {Promise<void>} A Promise that resolves when the client is disconnected.
-   * @throws {Error} If an error occurs while disconnecting from Redis.
-   */
-  async disconnect(): Promise<void> {
-    const client = await this.getConnectedClient();
-    await client.quit();
   }
 
   /**
@@ -239,8 +178,7 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The value of the key after incrementing
    */
   async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    const client = await this.getConnectedClient();
-    const result = await client.incrBy(key, amount);
+    const result = await this.client.incrBy(key, amount);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`incrementing ${key} by ${amount} on ${callingMethod} call`);
     }
@@ -257,8 +195,7 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The list of elements in the range
    */
   async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
-    const client = await this.getConnectedClient();
-    const result = await client.lRange(key, start, end);
+    const result = await this.client.lRange(key, start, end);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`retrieving range [${start}:${end}] from ${key} on ${callingMethod} call`);
     }
@@ -274,9 +211,8 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The length of the list after pushing
    */
   async rPush(key: string, value: any, callingMethod: string): Promise<number> {
-    const client = await this.getConnectedClient();
     const serializedValue = JSON.stringify(value);
-    const result = await client.rPush(key, serializedValue);
+    const result = await this.client.rPush(key, serializedValue);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`pushing ${serializedValue} to ${key} on ${callingMethod} call`);
     }
@@ -290,11 +226,19 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The list of keys matching the pattern
    */
   async keys(pattern: string, callingMethod: string): Promise<string[]> {
-    const client = await this.getConnectedClient();
-    const result = await client.keys(pattern);
+    const result = await this.client.keys(pattern);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
     }
     return result;
+  }
+
+  /**
+   * Clears the entire cache.
+   *
+   * @returns {Promise<void>} A Promise that resolves when the cache is cleared.
+   */
+  async clear(): Promise<void> {
+    await this.client.flushAll();
   }
 }

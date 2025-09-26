@@ -4,12 +4,13 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { createClient } from 'redis';
+import { RedisClientType } from 'redis';
 
 import { Admin, Eth, Net, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
+import { RedisClientManager } from './clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
 import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -17,7 +18,6 @@ import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSp
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
-import { RedisCacheError } from './errors/RedisCacheError';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
 import { CacheService } from './services/cacheService/cacheService';
@@ -118,6 +118,11 @@ export class Relay {
   private readonly rpcMethodDispatcher: RpcMethodDispatcher;
 
   /**
+   * The Redis client we use for connecting to Redis
+   */
+  private redisClient: RedisClientType | undefined;
+
+  /**
    * Initializes the main components of the relay service, including Hedera network clients,
    * Ethereum-compatible interfaces, caching, metrics, and subscription management.
    *
@@ -129,15 +134,15 @@ export class Relay {
     register: Registry,
   ) {
     logger.info('Configurations successfully loaded');
-    // Initialize Redis client for cache (DB index defaults to 0)
-    const redisUrl = ConfigService.get('REDIS_URL')!;
-    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-    const redisClient = this.createAndConnectRedisClient(redisUrl, reconnectDelay);
-
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-    this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient);
+    this.cacheService = new CacheService(
+      logger.child({ name: 'cache-service' }),
+      register,
+      reservedKeys,
+      this.redisClient,
+    );
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       this.cacheService,
@@ -336,7 +341,10 @@ export class Relay {
     return this.mirrorNodeClient;
   }
 
-  async ensureOperatorHasBalance() {
+  /**
+   * Initializes required clients and services
+   */
+  async init() {
     if (ConfigService.get('READ_ONLY')) return;
 
     const operator = this.operatorAccountId!.toString();
@@ -346,36 +354,23 @@ export class Relay {
     } else {
       this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
     }
+
+    const redisUrl = ConfigService.get('REDIS_URL')!;
+    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
+    if (this.isRedisEnabled()) {
+      const redisManager = new RedisClientManager(this.logger, redisUrl, reconnectDelay);
+
+      await redisManager.connect();
+      this.redisClient = redisManager.getClient();
+    } else {
+      this.redisClient = undefined;
+    }
   }
 
-  private createAndConnectRedisClient(redisUrl: string, reconnectDelay: number): ReturnType<typeof createClient> {
-    const redisClient = createClient({
-      url: redisUrl,
-      socket: {
-        reconnectStrategy: (retries: number) => retries * reconnectDelay,
-      },
-    });
-    redisClient
-      .connect()
-      .then(() => true)
-      .catch((error) => {
-        this.logger.error(error, 'Redis connection could not be established!');
-        return false;
-      });
-    redisClient.on('ready', () => {
-      this.logger.info(`Redis client connected to ${redisUrl}`);
-    });
-    redisClient.on('end', () => {
-      this.logger.info('Disconnected from Redis server!');
-    });
-    redisClient.on('error', (error) => {
-      const redisError = new RedisCacheError(error);
-      if (redisError.isSocketClosed()) {
-        this.logger.error(`Error occurred with Redis Connection when closing socket: ${redisError.message}`);
-      } else {
-        this.logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
-      }
-    });
-    return redisClient;
+  /**
+   * Checks whether Redis caching is enabled based on environment variables.
+   */
+  private isRedisEnabled(): boolean {
+    return ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
   }
 }

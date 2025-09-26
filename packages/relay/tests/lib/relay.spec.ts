@@ -108,7 +108,7 @@ describe('Relay', () => {
   describe('ensureOperatorHasBalance', function () {
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
       it('should never throw', async function () {
-        await expect(relay.ensureOperatorHasBalance()).to.not.be.rejectedWith();
+        await expect(relay.init()).to.not.be.rejectedWith();
       });
     });
 
@@ -136,7 +136,7 @@ describe('Relay', () => {
           },
         };
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
-        await expect(relay.ensureOperatorHasBalance()).to.not.be.rejectedWith();
+        await expect(relay.init()).to.not.be.rejectedWith();
       });
 
       it('should throw when operator has no balance', async function () {
@@ -149,14 +149,14 @@ describe('Relay', () => {
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.ensureOperatorHasBalance()).to.be.rejectedWith(message);
+        await expect(relay.init()).to.be.rejectedWith(message);
       });
 
       it('should throw when operator has not been found', async function () {
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(404, JSON.stringify({}));
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.ensureOperatorHasBalance()).to.be.rejectedWith(message);
+        await expect(relay.init()).to.be.rejectedWith(message);
       });
     });
   });
