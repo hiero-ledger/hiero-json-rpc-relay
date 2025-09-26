@@ -100,7 +100,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
 
       const initialAccount: AliasAccount = global.accounts[0];
-      const neededAccounts: number = 4;
+      const neededAccounts: number = 6;
       accounts.push(
         ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
       );
