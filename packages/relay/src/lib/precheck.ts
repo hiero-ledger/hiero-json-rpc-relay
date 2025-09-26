@@ -10,6 +10,7 @@ import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
 import { RequestDetails } from './types';
+import { IAccountBalance } from './types/mirrorNode';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -74,7 +75,7 @@ export class Precheck {
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
     const signerAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
     this.nonce(parsedTx, signerAccountInfo.ethereum_nonce);
-    this.balance(parsedTx, signerAccountInfo.balance.balance);
+    this.balance(parsedTx, signerAccountInfo.balance);
     await this.receiverAccount(parsedTx, requestDetails);
   }
 
@@ -95,11 +96,15 @@ export class Precheck {
   /**
    * Checks the nonce of the transaction.
    * @param tx - The transaction.
-   * @param accountInfoNonce - The nonce of the account.
+   * @param accountNonce - The nonce of the account.
    */
-  nonce(tx: Transaction, accountInfoNonce: number): void {
-    if (accountInfoNonce > tx.nonce) {
-      throw predefined.NONCE_TOO_LOW(tx.nonce, accountInfoNonce);
+  nonce(tx: Transaction, accountNonce: number | undefined): void {
+    if (accountNonce == undefined) {
+      throw predefined.RESOURCE_NOT_FOUND(`Account nonce unavailable for address: ${tx.from}.`);
+    }
+
+    if (accountNonce > tx.nonce) {
+      throw predefined.NONCE_TOO_LOW(tx.nonce, accountNonce);
     }
   }
 
@@ -177,12 +182,16 @@ export class Precheck {
   /**
    * Checks the balance of the sender account.
    * @param tx - The transaction.
-   * @param accountBalance - The account balance in tinybars.
+   * @param accountBalance - The account balance information.
    */
-  balance(tx: Transaction, accountBalance: number): void {
+  balance(tx: Transaction, accountBalance: IAccountBalance | undefined): void {
+    if (accountBalance?.balance == undefined) {
+      throw predefined.RESOURCE_NOT_FOUND(`Account balance unavailable for address: ${tx.from}.`);
+    }
+
     const txGasPrice = BigInt(tx.gasPrice || tx.maxFeePerGas! + tx.maxPriorityFeePerGas!);
     const txTotalValue = tx.value + txGasPrice * tx.gasLimit;
-    const accountBalanceInWeiBars = BigInt(accountBalance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+    const accountBalanceInWeiBars = BigInt(accountBalance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
 
     if (accountBalanceInWeiBars < txTotalValue) {
       throw predefined.INSUFFICIENT_ACCOUNT_BALANCE;
