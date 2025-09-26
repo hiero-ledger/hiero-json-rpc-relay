@@ -129,52 +129,54 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       clock.restore();
     });
 
-    it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
-      const signed = await signTransaction({
-        ...transaction,
-        data: '0x' + '22'.repeat(13000),
+    withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
+      it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
+        const signed = await signTransaction({
+          ...transaction,
+          data: '0x' + '22'.repeat(13000),
+        });
+        const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
+
+        const FILE_ID = new FileId(0, 0, 5644);
+        sdkClientStub.submitEthereumTransaction.restore();
+        sdkClientStub.createFile.restore();
+        sdkClientStub.executeAllTransaction.restore();
+
+        sdkClientStub.fileAppendChunkSize = 2048;
+        sdkClientStub.clientMain = { operatorAccountId: '', operatorKey: null };
+
+        const fileInfoMock = sinon.stub(FileInfo);
+        fileInfoMock.size = new Long(26000);
+        sdkClientStub.executeQuery.resolves(fileInfoMock);
+
+        // simulates error after first append by returning only one transaction response
+        sinon.stub(FileAppendTransaction.prototype, 'executeAll').resolves([{ transactionId: transactionId }]);
+
+        const eventEmitterMock = sinon.createStubInstance(EventEmitter);
+        sdkClientStub.eventEmitter = eventEmitterMock;
+
+        const hbarLimiterMock = sinon.createStubInstance(HbarLimitService);
+        sdkClientStub.hbarLimitService = hbarLimiterMock;
+
+        const txResponseMock = sinon.createStubInstance(TransactionResponse);
+        sdkClientStub.executeTransaction.resolves(txResponseMock);
+
+        txResponseMock.getReceipt.restore();
+        sinon.stub(txResponseMock, 'getReceipt').onFirstCall().resolves({ fileId: FILE_ID });
+        txResponseMock.transactionId = TransactionId.fromString(transactionIdServicesFormat);
+
+        sdkClientStub.logger = pino({ level: 'silent' });
+        sdkClientStub.deleteFile.resolves();
+
+        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
+
+        const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+        if (useAsyncTxProcessing) await clock.tickAsync(1);
+
+        expect(eventEmitterMock.emit.callCount).to.equal(1);
+        expect(hbarLimiterMock.shouldLimit.callCount).to.equal(1);
+        expect(resultingHash).to.equal(expectedTxHash);
       });
-      const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
-
-      const FILE_ID = new FileId(0, 0, 5644);
-      sdkClientStub.submitEthereumTransaction.restore();
-      sdkClientStub.createFile.restore();
-      sdkClientStub.executeAllTransaction.restore();
-
-      sdkClientStub.fileAppendChunkSize = 2048;
-      sdkClientStub.clientMain = { operatorAccountId: '', operatorKey: null };
-
-      const fileInfoMock = sinon.stub(FileInfo);
-      fileInfoMock.size = new Long(26000);
-      sdkClientStub.executeQuery.resolves(fileInfoMock);
-
-      // simulates error after first append by returning only one transaction response
-      sinon.stub(FileAppendTransaction.prototype, 'executeAll').resolves([{ transactionId: transactionId }]);
-
-      const eventEmitterMock = sinon.createStubInstance(EventEmitter);
-      sdkClientStub.eventEmitter = eventEmitterMock;
-
-      const hbarLimiterMock = sinon.createStubInstance(HbarLimitService);
-      sdkClientStub.hbarLimitService = hbarLimiterMock;
-
-      const txResponseMock = sinon.createStubInstance(TransactionResponse);
-      sdkClientStub.executeTransaction.resolves(txResponseMock);
-
-      txResponseMock.getReceipt.restore();
-      sinon.stub(txResponseMock, 'getReceipt').onFirstCall().resolves({ fileId: FILE_ID });
-      txResponseMock.transactionId = TransactionId.fromString(transactionIdServicesFormat);
-
-      sdkClientStub.logger = pino({ level: 'silent' });
-      sdkClientStub.deleteFile.resolves();
-
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
-
-      const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
-      if (useAsyncTxProcessing) await clock.tickAsync(1);
-
-      expect(eventEmitterMock.emit.callCount).to.equal(1);
-      expect(hbarLimiterMock.shouldLimit.callCount).to.equal(1);
-      expect(resultingHash).to.equal(expectedTxHash);
     });
 
     it('should return a predefined GAS_LIMIT_TOO_HIGH instead of NUMERIC_FAULT as precheck exception', async function () {
