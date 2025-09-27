@@ -331,9 +331,7 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getFilterLogs(${filterId})`);
-    }
+    this.logger.trace('getFilterLogs(%s)', filterId);
     return this.filterService.getFilterLogs(filterId, requestDetails);
   }
 
