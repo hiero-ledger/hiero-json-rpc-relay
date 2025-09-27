@@ -468,9 +468,7 @@ export class CommonService implements ICommonService {
    * @param requestDetails
    */
   public async gasPrice(requestDetails: RequestDetails): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`eth_gasPrice`);
-    }
+    this.logger.trace('eth_gasPrice');
 
     try {
       const gasPrice = Utils.addPercentageBufferToGasPrice(await this.getGasPriceInWeibars(requestDetails));

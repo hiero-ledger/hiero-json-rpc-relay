@@ -126,9 +126,7 @@ export class HbarSpendingPlanRepository {
   async addAmountToSpendingHistory(id: string, amount: number): Promise<number> {
     await this.checkExistsAndActive(id);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Adding ${amount} to spending history for HbarSpendingPlan with ID ${id}...`);
-    }
+    this.logger.trace('Adding %s to spending history for HbarSpendingPlan with ID %s...', amount, id);
     const key = this.getSpendingHistoryKey(id);
     const entry: IHbarSpendingRecord = { amount, timestamp: new Date() };
     return this.cache.rPush(key, entry, 'addAmountToSpendingHistory');
@@ -152,15 +150,11 @@ export class HbarSpendingPlanRepository {
    * @returns - A promise that resolves when the operation is complete.
    */
   async resetAmountSpentOfAllPlans(): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Resetting the \`amountSpent\` entries for all HbarSpendingPlans...`);
-    }
+    this.logger.trace('Resetting the `amountSpent` entries for all HbarSpendingPlans...');
     const callerMethod = this.resetAmountSpentOfAllPlans.name;
     const keys = await this.cache.keys(this.getAmountSpentKey('*'), callerMethod);
     await Promise.all(keys.map((key) => this.cache.delete(key, callerMethod)));
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Successfully reset ${keys.length} "amountSpent" entries for HbarSpendingPlans.`);
-    }
+    this.logger.trace('Successfully reset %s "amountSpent" entries for HbarSpendingPlans.', keys.length);
   }
 
   /**

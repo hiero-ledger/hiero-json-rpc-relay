@@ -366,9 +366,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('newBlockFilter()');
-    }
     return this.filterService.newBlockFilter(requestDetails);
   }
 
@@ -386,9 +383,6 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async uninstallFilter(filterId: string): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`uninstallFilter(${filterId})`);
-    }
     return this.filterService.uninstallFilter(filterId);
   }
 
