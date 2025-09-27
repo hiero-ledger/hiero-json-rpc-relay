@@ -331,7 +331,6 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
-    this.logger.trace('getFilterLogs(%s)', filterId);
     return this.filterService.getFilterLogs(filterId, requestDetails);
   }
 
@@ -350,7 +349,6 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
-    this.logger.trace('getFilterChanges(%s)', filterId);
     return this.filterService.getFilterChanges(filterId, requestDetails);
   }
 
@@ -398,7 +396,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   newPendingTransactionFilter(): JsonRpcError {
-    this.logger.trace('newPendingTransactionFilter()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -935,8 +932,6 @@ export class EthImpl implements Eth {
       `call({to=${call.to}, from=${call.from}, data=${callData}, gas=${call.gas}, gasPrice=${call.gasPrice} blockParam=${blockParam}, estimate=${call.estimate})`,
     );
     // log request info and increment metrics counter
-    const callDataSize = callData ? callData.length : 0;
-    this.logger.trace('call data size: %s', callDataSize);
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_CALL,
