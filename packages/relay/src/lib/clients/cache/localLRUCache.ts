@@ -127,9 +127,7 @@ export class LocalLRUCache implements ICacheClient {
   public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(key); // in milliseconds
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`);
-    }
+    this.logger.trace('returning remaining TTL %s:%s on %s call', key, remainingTtl, callingMethod);
     return remainingTtl;
   }
 
@@ -195,9 +193,7 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
-    }
+    this.logger.trace('delete cache for %s on %s call', key, callingMethod);
     const cache = this.getCacheInstance(key);
     cache.delete(key);
   }
@@ -254,9 +250,7 @@ export class LocalLRUCache implements ICacheClient {
 
     const matchingKeys = keys.filter((key) => regex.test(key));
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
-    }
+    this.logger.trace('retrieving keys matching %s on %s call', pattern, callingMethod);
     return matchingKeys;
   }
 

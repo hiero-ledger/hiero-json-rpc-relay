@@ -205,9 +205,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`blockNumber()`);
-    }
     return await this.common.getLatestBlockNumber(requestDetails);
   }
 
@@ -224,9 +221,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   chainId(): string {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`chainId()`);
-    }
     return this.chain;
   }
 
@@ -297,9 +291,6 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async mining(): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('mining()');
-    }
     return false;
   }
 
@@ -984,9 +975,7 @@ export class EthImpl implements Eth {
     );
     // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`call data size: ${callDataSize}`);
-    }
+    this.logger.trace('call data size: %s', callDataSize);
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_CALL,

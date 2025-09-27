@@ -108,11 +108,11 @@ export class Precheck {
    * @param accountInfoNonce - The nonce of the account.
    */
   nonce(tx: Transaction, accountInfoNonce: number): void {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `Nonce precheck for sendRawTransaction(tx.nonce=${tx.nonce}, accountInfoNonce=${accountInfoNonce})`,
-      );
-    }
+    this.logger.trace(
+      'Nonce precheck for sendRawTransaction(tx.nonce=%s, accountInfoNonce=%s)',
+      tx.nonce,
+      accountInfoNonce,
+    );
 
     if (accountInfoNonce > tx.nonce) {
       throw predefined.NONCE_TOO_LOW(tx.nonce, accountInfoNonce);

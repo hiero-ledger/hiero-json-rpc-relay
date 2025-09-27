@@ -149,9 +149,7 @@ export class RedisCache implements IRedisCacheClient {
     const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
       resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
     }`;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${message}`);
-    }
+    this.logger.trace('%s', message);
     // TODO: add metrics
   }
 

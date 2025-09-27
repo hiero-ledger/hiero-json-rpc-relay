@@ -557,11 +557,11 @@ export class SDKClient {
     let transactionFee: number = 0;
     let txRecordChargeAmount: number = 0;
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Get transaction record via consensus node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
-        );
-      }
+      this.logger.debug(
+        'Get transaction record via consensus node: transactionId=%s, txConstructorName=%s',
+        transactionId,
+        txConstructorName,
+      );
 
       const transactionRecord = await new TransactionRecordQuery()
         .setTransactionId(transactionId)

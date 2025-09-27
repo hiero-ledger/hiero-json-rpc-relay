@@ -174,9 +174,7 @@ export class HbarLimitService implements IHbarLimitService {
    * @returns {Promise<void>} - A promise that resolves when the operation is complete.
    */
   async resetLimiter(requestDetails: RequestDetails): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Resetting HBAR rate limiter...`);
-    }
+    this.logger.trace('Resetting HBAR rate limiter...');
     await this.hbarSpendingPlanRepository.resetAmountSpentOfAllPlans();
     const remainingBudget = await this.getRemainingBudget(requestDetails);
     this.hbarLimitRemainingGauge.set(remainingBudget.toTinybars().toNumber());
@@ -218,9 +216,7 @@ export class HbarLimitService implements IHbarLimitService {
       return false;
     }
     const signer = `signerAddress=${evmAddress}`;
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Checking if signer account should be limited: ${signer}`);
-    }
+    this.logger.debug('Checking if signer account should be limited: %s', signer);
     let spendingPlan = await this.getSpendingPlan(evmAddress, requestDetails);
     if (!spendingPlan) {
       // Create a basic spending plan if none exists for the evm address
@@ -434,9 +430,7 @@ export class HbarLimitService implements IHbarLimitService {
       try {
         return await this.getSpendingPlanByEvmAddress(evmAddress);
       } catch (error) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
-        }
+        this.logger.debug('Spending plan not found: evmAddress=%s', evmAddress);
       }
     }
 
@@ -444,9 +438,7 @@ export class HbarLimitService implements IHbarLimitService {
       try {
         return await this.getSpendingPlanByIPAddress(requestDetails);
       } catch (error) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(` Spending plan not found for IP address.`);
-        }
+        this.logger.debug('Spending plan not found for IP address.');
       }
     }
 

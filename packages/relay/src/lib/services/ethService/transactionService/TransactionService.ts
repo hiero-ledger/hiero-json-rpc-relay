@@ -106,9 +106,7 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
-    }
+    this.logger.trace('getTransactionByBlockHashAndIndex(hash=%s, index=%s)', blockHash, transactionIndex);
 
     try {
       return await this.getTransactionByBlockHashOrBlockNumAndIndex(

@@ -42,9 +42,7 @@ export class HbarSpendingPlanRepository {
     if (!plan) {
       throw new HbarSpendingPlanNotFoundError(id);
     }
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Retrieved subscription with ID ${id}`);
-    }
+    this.logger.debug('Retrieved subscription with ID %s', id);
     return {
       ...plan,
       createdAt: new Date(plan.createdAt),
