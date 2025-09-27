@@ -112,9 +112,7 @@ export class HbarSpendingPlanConfigService {
     const spendingPlanConfig = ConfigService.get('HBAR_SPENDING_PLANS_CONFIG');
 
     if (!spendingPlanConfig) {
-      if (logger.isLevelEnabled('trace')) {
-        logger.trace('HBAR_SPENDING_PLANS_CONFIG is undefined');
-      }
+      logger.trace('HBAR_SPENDING_PLANS_CONFIG is undefined');
       return [];
     }
 
@@ -123,22 +121,17 @@ export class HbarSpendingPlanConfigService {
       return JSON.parse(spendingPlanConfig) as SpendingPlanConfig[];
     } catch (jsonParseError: any) {
       // If parsing as JSON fails, treat it as a file path
-      if (logger.isLevelEnabled('trace')) {
-        logger.trace(
-          `Failed to parse HBAR_SPENDING_PLAN as JSON: ${jsonParseError.message}, now treating it as a file path...`,
-        );
-      }
+      logger.trace(
+        'Failed to parse HBAR_SPENDING_PLAN as JSON: %s, now treating it as a file path...',
+        jsonParseError.message,
+      );
       try {
         const configFilePath = findConfig(spendingPlanConfig);
         if (configFilePath && fs.existsSync(configFilePath)) {
           const fileContent = fs.readFileSync(configFilePath, 'utf-8');
           return JSON.parse(fileContent) as SpendingPlanConfig[];
         } else {
-          if (logger.isLevelEnabled('trace')) {
-            logger.trace(
-              `HBAR Spending Configuration file not found at path "${configFilePath ?? spendingPlanConfig}"`,
-            );
-          }
+          logger.trace('HBAR Spending Configuration file not found at path "%s"', configFilePath ?? spendingPlanConfig);
           return [];
         }
       } catch (fileError: any) {
@@ -217,11 +210,11 @@ export class HbarSpendingPlanConfigService {
    */
   private async updatePlanAssociations(spendingPlanConfigs: SpendingPlanConfig[]): Promise<void> {
     for (const planConfig of spendingPlanConfigs) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `Updating associations for HBAR spending plan '${planConfig.name}' with ID ${planConfig.id}...`,
-        );
-      }
+      this.logger.trace(
+        "Updating associations for HBAR spending plan '%s' with ID %s...",
+        planConfig.name,
+        planConfig.id,
+      );
       await this.deleteObsoleteEvmAddressAssociations(planConfig);
       await this.deleteObsoleteIpAddressAssociations(planConfig);
       await this.updateEvmAddressAssociations(planConfig);
