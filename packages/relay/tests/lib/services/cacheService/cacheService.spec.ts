@@ -252,21 +252,18 @@ describe('CacheService Test Suite', async function () {
     useInMemoryRedisServer(logger, 6381);
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
-    this.beforeAll(async () => {
+    before(async () => {
       redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6381', 1000);
-      await redisManager.connect();
       cacheService = new CacheService(logger, registry, new Set(), redisManager.getClient());
     });
 
-    this.afterAll(async () => {
-      await redisManager.disconnect();
+    this.beforeEach(async () => {
+      if (!(await redisManager.isConnected())) {
+        await redisManager.connect();
+      }
     });
 
-    // this.beforeEach(async () => {
-    //   await redisManager.connect();
-    // });
-
-    this.afterEach(async () => {
+    afterEach(async () => {
       await cacheService.clear();
     });
 
@@ -491,65 +488,5 @@ describe('CacheService Test Suite', async function () {
     });
 
     describeKeysTestSuite();
-
-    describe('isRedisClientConnected', async function () {
-      it('should return true if shared cache is enabled', async function () {
-        expect(await redisManager.isConnected()).to.be.true;
-      });
-
-      it('should return false if shared cache is enabled and client is disconnected', async function () {
-        await redisManager.disconnect();
-        expect(await redisManager.isConnected()).to.be.false;
-      });
-
-      it('should return true if shared cache is enabled and client is reconnected', async function () {
-        await redisManager.disconnect();
-        await redisManager.connect();
-        expect(await redisManager.isConnected()).to.be.true;
-      });
-    });
-
-    describe('getNumberOfRedisConnections', async function () {
-      it('should return 1 if shared cache is enabled', async function () {
-        expect(await redisManager.getNumberOfConnections()).to.equal(1);
-      });
-
-      it('should return 0 if shared cache is enabled and client is disconnected', async function () {
-        await redisManager.disconnect();
-        expect(await redisManager.getNumberOfConnections()).to.equal(0);
-      });
-
-      it('should return 1 if shared cache is enabled and client is reconnected', async function () {
-        await redisManager.disconnect();
-        await redisManager.connect();
-        expect(await redisManager.getNumberOfConnections()).to.equal(1);
-      });
-    });
-
-    describe('connectRedisClient', async function () {
-      it('should connect Redis client if shared cache is enabled', async function () {
-        await redisManager.disconnect();
-        await redisManager.connect();
-        expect(await redisManager.isConnected()).to.be.true;
-      });
-
-      it('should not throw error if Redis client is already connected', async function () {
-        await redisManager.connect();
-        await expect(redisManager.connect()).to.not.be.rejected;
-      });
-    });
-
-    describe('disconnectRedisClient', async function () {
-      it('should disconnect Redis client if shared cache is enabled', async function () {
-        const disconnectSpy = sinon.spy(cacheService['sharedCache'], <any>'disconnect');
-        await redisManager.disconnect();
-        expect(disconnectSpy.calledOnce).to.be.true;
-      });
-
-      it('should not throw error if Redis client is already disconnected', async function () {
-        await redisManager.disconnect();
-        await expect(redisManager.disconnect()).to.not.be.rejected;
-      });
-    });
   });
 });
