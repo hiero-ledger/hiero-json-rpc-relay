@@ -951,6 +951,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transaction', required: true },
     1: { type: 'blockParams', required: true },
+    2: { type: 'stateOverride', required: false },
   })
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
