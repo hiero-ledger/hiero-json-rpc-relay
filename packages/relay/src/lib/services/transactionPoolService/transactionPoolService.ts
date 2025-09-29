@@ -103,8 +103,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
   async removeTransaction(address: string, txHash: string): Promise<number> {
-    const newCount = await this.storage.removeFromList(address, txHash);
-    return newCount;
+    return await this.storage.removeFromList(address, txHash);
   }
 
   /**
