@@ -7,7 +7,7 @@ import { app, httpApp, logger, relay } from './webSocketServer';
 
 async function main() {
   try {
-    await relay.ensureOperatorHasBalance();
+    await relay.init();
   } catch (error) {
     logger.fatal(error);
     process.exit(1);
