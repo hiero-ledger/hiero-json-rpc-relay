@@ -37,6 +37,14 @@ import { AliasAccount } from '../types/AliasAccount';
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 
 describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
+  // With Jumbo TX enabled, deployment skips HFS (the main source of HBAR cost).
+  // Combined with HIP-1084 (Zero-Cost EthereumTransaction on Success),
+  // the cost difference becomes zero. As a result, no spending limit is applied
+  // and this test fails.To avoid this, this suite overrides JUMBO_TX_ENABLED to false.
+  overrideEnvsInMochaDescribe({
+    JUMBO_TX_ENABLED: false,
+  });
+
   // @ts-ignore
   const {
     mirrorNode,
