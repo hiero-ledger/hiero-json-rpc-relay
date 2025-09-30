@@ -3,8 +3,7 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 
-import { LocalPendingTransactionStorage } from '../../../../src/lib/services/nonceManagement/LocalPendingTransactionStorage';
-import { AddToListResult } from '../../../../src/lib/types/transactionPool';
+import { LocalPendingTransactionStorage } from '../../../../src/lib/services/transactionPoolService/LocalPendingTransactionStorage';
 
 describe('LocalPendingTransactionStorage Test Suite', function () {
   let storage: LocalPendingTransactionStorage;
