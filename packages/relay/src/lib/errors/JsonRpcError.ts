@@ -155,9 +155,9 @@ export const predefined = {
     code: -32601,
     message: 'Not yet implemented',
   }),
-  UNSUPPORTED_TRANSACTION_TYPE: new JsonRpcError({
+  UNSUPPORTED_TRANSACTION_TYPE_3: new JsonRpcError({
     code: -32611,
-    message: 'Unsupported transaction type',
+    message: `Unsupported transaction type: txType=3`,
   }),
   VALUE_TOO_LOW: new JsonRpcError({
     code: -32602,
