@@ -605,7 +605,7 @@ describe('@debug API Acceptance Tests', function () {
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER(
             1,
-            "callTracer 'tracerConfig' for TracerConfigWrapper is only valid when tracer=callTracer",
+            'callTracer config properties for TracerConfigWrapper are only valid when tracer=callTracer',
           ),
         );
       });
@@ -620,7 +620,89 @@ describe('@debug API Acceptance Tests', function () {
           [createChildTx.hash, invalidTracerConfig],
           predefined.INVALID_PARAMETER(
             1,
-            "opcodeLogger 'tracerConfig' for TracerConfigWrapper is only valid when tracer=opcodeLogger",
+            'opcodeLogger config properties for TracerConfigWrapper are only valid when tracer=opcodeLogger',
+          ),
+        );
+      });
+
+      it('should support both nested and top-level tracer config parameter formats', async function () {
+        // Test the nested format (original format)
+        const nestedFormat = {
+          tracer: TracerType.OpcodeLogger,
+          tracerConfig: {
+            enableMemory: true,
+            disableStack: false,
+            disableStorage: true,
+          },
+        };
+
+        const nestedResult = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, nestedFormat]);
+        expect(nestedResult).to.exist;
+        expect(nestedResult.structLogs).to.exist;
+
+        // Test the top-level format (new format from our fix)
+        const topLevelFormat = {
+          enableMemory: true,
+          disableStack: false,
+          disableStorage: true,
+        };
+
+        // Test with fullStorage parameter (Remix compatibility)
+        const topLevelWithFullStorage = {
+          enableMemory: true,
+          disableStack: false,
+          disableStorage: true,
+          fullStorage: false, // Non-standard parameter sent by Remix
+        };
+
+        const topLevelResult = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, topLevelFormat]);
+        expect(topLevelResult).to.exist;
+        expect(topLevelResult.structLogs).to.exist;
+
+        // Test that fullStorage parameter is accepted (Remix compatibility)
+        const fullStorageResult = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          createChildTx.hash,
+          topLevelWithFullStorage,
+        ]);
+        expect(fullStorageResult).to.exist;
+        expect(fullStorageResult.structLogs).to.exist;
+
+        // All formats should produce similar results
+        expect(topLevelResult.structLogs).to.have.length.greaterThan(0);
+        expect(nestedResult.structLogs).to.have.length.greaterThan(0);
+        expect(fullStorageResult.structLogs).to.have.length.greaterThan(0);
+      });
+
+      it('should reject mixed format (top-level and nested config)', async function () {
+        const mixedFormat = {
+          enableMemory: true,
+          tracerConfig: {
+            disableStack: false,
+          },
+        };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, mixedFormat],
+          predefined.INVALID_PARAMETER(
+            1,
+            "Cannot specify tracer config properties both at top level and in 'tracerConfig' for TracerConfigWrapper",
+          ),
+        );
+      });
+
+      it('should reject top-level config when tracer is explicitly set', async function () {
+        const invalidFormat = {
+          tracer: TracerType.OpcodeLogger,
+          enableMemory: true, // Not allowed - tracer is explicitly set
+        };
+
+        await relay.callFailing(
+          DEBUG_TRACE_TRANSACTION,
+          [createChildTx.hash, invalidFormat],
+          predefined.INVALID_PARAMETER(
+            1,
+            "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
           ),
         );
       });
