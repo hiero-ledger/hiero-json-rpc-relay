@@ -334,7 +334,6 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
-        // Convert transaction hash from Uint8Array to hex string
         const transactionHash = transactionResponse?.transactionHash
           ? '0x' + Buffer.from(transactionResponse.transactionHash).toString('hex')
           : undefined;

@@ -53,10 +53,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Transaction hash is required for storage');
     }
 
-    // Get current pending count to determine expected value for atomic operation
     const currentPending = await this.storage.getList(address);
-
-    // Attempt atomic addition to the pending list
     const result = await this.storage.addToList(address, txHash, currentPending);
 
     if (!result.ok) {
@@ -80,7 +77,6 @@ export class TransactionPoolService implements ITransactionPoolService {
       return;
     }
 
-    // Remove the transaction from the pool
     const remainingCount = await this.removeTransaction(originalCallerAddress, transactionHash);
 
     this.logger.debug(
