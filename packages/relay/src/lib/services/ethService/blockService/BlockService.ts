@@ -155,11 +155,11 @@ export class BlockService implements IBlockService {
 
     const receiptPromises = contractResults.map(async (contractResult) => {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-          );
-        }
+        this.logger.debug(
+          'Transaction with hash %s is skipped due to hedera-specific validation failure (%s)',
+          contractResult.hash,
+          contractResult.result,
+        );
         return null;
       }
 

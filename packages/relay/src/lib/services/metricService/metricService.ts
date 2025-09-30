@@ -151,11 +151,13 @@ export default class MetricService {
     requestDetails,
     originalCallerAddress,
   }: IExecuteQueryEventPayload): Promise<void> => {
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Capturing transaction fee charged to operator: executionMode=${executionMode} transactionId=${transactionId}, txConstructorName=${txConstructorName}, cost=${cost} tinybars`,
-      );
-    }
+    this.logger.debug(
+      'Capturing transaction fee charged to operator: executionMode=%s transactionId=%s, txConstructorName=%s, cost=%s tinybars',
+      executionMode,
+      transactionId,
+      txConstructorName,
+      cost,
+    );
 
     await this.hbarLimitService.addExpense(cost, originalCallerAddress ?? '', requestDetails);
     this.captureMetrics(executionMode, txConstructorName, status, cost, gasUsed);

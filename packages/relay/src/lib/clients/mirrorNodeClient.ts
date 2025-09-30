@@ -148,7 +148,7 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: CacheService;
 
-  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
+  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
@@ -224,9 +224,7 @@ export class MirrorNodeClient {
       retries: mirrorNodeRetries,
       retryDelay: (retryCount, error) => {
         const delay = mirrorNodeRetryDelay * retryCount;
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`Retry delay ${delay} ms on '${error?.request?.path}'`);
-        }
+        this.logger.trace("Retry delay %s ms on '%s'", delay, error?.request?.path);
         return delay;
       },
       retryCondition: (error) => {
@@ -451,11 +449,12 @@ export class MirrorNodeClient {
     const acceptedErrorResponses = MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.get(pathLabel);
 
     if (error.response && acceptedErrorResponses?.includes(effectiveStatusCode)) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `An accepted error occurred while communicating with the mirror node server: method=${method}, path=${path}, status=${effectiveStatusCode}`,
-        );
-      }
+      this.logger.debug(
+        'An accepted error occurred while communicating with the mirror node server: method=%s, path=%s, status=%s',
+        method,
+        path,
+        effectiveStatusCode,
+      );
       return null;
     }
 
@@ -496,9 +495,7 @@ export class MirrorNodeClient {
 
     if (page === pageMax) {
       // max page reached
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Max page reached ${pageMax} with ${results.length} results`);
-      }
+      this.logger.trace('Max page reached %s with %s results', pageMax, results.length);
       throw predefined.PAGINATION_MAX(pageMax);
     }
 
@@ -1539,11 +1536,11 @@ export class MirrorNodeClient {
     operatorAccountId: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionRecordMetric> {
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Get transaction record via mirror node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
-      );
-    }
+    this.logger.debug(
+      'Get transaction record via mirror node: transactionId=%s, txConstructorName=%s',
+      transactionId,
+      txConstructorName,
+    );
 
     // Create a modified copy of requestDetails
     const modifiedRequestDetails = new RequestDetails({

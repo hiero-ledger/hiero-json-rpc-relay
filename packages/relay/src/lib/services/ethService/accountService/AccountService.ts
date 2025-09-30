@@ -99,9 +99,7 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`);
-    }
+    this.logger.trace('getBalance(account=%s, blockNumberOrTag=%s)', account, blockNumberOrTagOrHash);
 
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)

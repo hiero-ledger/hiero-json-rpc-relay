@@ -115,10 +115,6 @@ export class DebugImpl implements Debug {
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
-    }
-
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;

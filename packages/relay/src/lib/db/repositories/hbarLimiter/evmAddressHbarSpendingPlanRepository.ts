@@ -69,9 +69,7 @@ export class EvmAddressHbarSpendingPlanRepository {
     for (const key of keys) {
       const addressPlan = await this.cache.getAsync<IEvmAddressHbarSpendingPlan>(key, callingMethod);
       if (addressPlan?.planId === planId) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`Removing EVM address ${addressPlan.evmAddress} from HbarSpendingPlan with ID ${planId}`);
-        }
+        this.logger.trace('Removing EVM address %s from HbarSpendingPlan with ID %s', addressPlan.evmAddress, planId);
         await this.cache.delete(key, callingMethod);
       }
     }
@@ -89,11 +87,11 @@ export class EvmAddressHbarSpendingPlanRepository {
     if (!addressPlan) {
       throw new EvmAddressHbarSpendingPlanNotFoundError(evmAddress);
     }
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Retrieved link between EVM address ${evmAddress} and HbarSpendingPlan with ID ${addressPlan.planId}`,
-      );
-    }
+    this.logger.debug(
+      'Retrieved link between EVM address %s and HbarSpendingPlan with ID %s',
+      evmAddress,
+      addressPlan.planId,
+    );
     return new EvmAddressHbarSpendingPlan(addressPlan);
   }
 
@@ -107,11 +105,11 @@ export class EvmAddressHbarSpendingPlanRepository {
   async save(addressPlan: IEvmAddressHbarSpendingPlan, ttl: number): Promise<void> {
     const key = this.getKey(addressPlan.evmAddress);
     await this.cache.set(key, addressPlan, 'save', ttl);
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(
-        `Linked EVM address ${addressPlan.evmAddress} to HbarSpendingPlan with ID ${addressPlan.planId}`,
-      );
-    }
+    this.logger.debug(
+      'Linked EVM address %s to HbarSpendingPlan with ID %s',
+      addressPlan.evmAddress,
+      addressPlan.planId,
+    );
   }
 
   /**
@@ -127,9 +125,7 @@ export class EvmAddressHbarSpendingPlanRepository {
     const errorMessage = evmAddressPlan
       ? `Removed EVM address ${evmAddress} from HbarSpendingPlan with ID ${evmAddressPlan.planId}`
       : `Trying to remove EVM address ${evmAddress}, which is not linked to a spending plan`;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${errorMessage}`);
-    }
+    this.logger.trace('%s', errorMessage);
   }
 
   /**

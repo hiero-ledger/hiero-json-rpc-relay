@@ -139,9 +139,7 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    */
   public async maxPriorityFeePerGas(): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('maxPriorityFeePerGas()');
-    }
+    this.logger.trace('maxPriorityFeePerGas()');
 
     return constants.ZERO_HEX;
   }
