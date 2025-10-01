@@ -5,8 +5,10 @@ import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { EvmAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
@@ -16,7 +18,7 @@ import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../he
 
 chai.use(chaiAsPromised);
 
-describe('EvmAddressHbarSpendingPlanRepository', function () {
+describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanRepository', function () {
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
   const ttl = 86_400_000; // 1 day
@@ -25,15 +27,8 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: EvmAddressHbarSpendingPlanRepository;
-
-    before(async () => {
-      cacheService = new CacheService(logger, registry);
-      cacheServiceSpy = sinon.spy(cacheService);
-      repository = new EvmAddressHbarSpendingPlanRepository(
-        cacheService,
-        logger.child({ name: 'EvmAddressHbarSpendingPlanRepository' }),
-      );
-    });
+    let redisManager: RedisClientManager;
+    let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
       useInMemoryRedisServer(logger, 6382);
@@ -41,12 +36,24 @@ describe('EvmAddressHbarSpendingPlanRepository', function () {
       overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
     }
 
-    afterEach(async () => {
-      await cacheService.clear();
+    before(async () => {
+      if (isSharedCacheEnabled) {
+        redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6382', 1000);
+        await redisManager.connect();
+        redisClient = redisManager.getClient();
+      } else {
+        redisClient = undefined;
+      }
+      cacheService = new CacheService(logger, registry, new Set(), redisClient);
+      cacheServiceSpy = sinon.spy(cacheService);
+      repository = new EvmAddressHbarSpendingPlanRepository(
+        cacheService,
+        logger.child({ name: 'EvmAddressHbarSpendingPlanRepository' }),
+      );
     });
 
-    after(async () => {
-      await cacheService.disconnectRedisClient();
+    afterEach(async () => {
+      await cacheService.clear();
     });
 
     describe('existsByAddress', () => {
