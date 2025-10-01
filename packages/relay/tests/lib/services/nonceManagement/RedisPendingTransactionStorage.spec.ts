@@ -10,10 +10,10 @@ import { useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
 
-describe('@redis-pending RedisPendingTransactionStorage Test Suite', function () {
+describe('RedisPendingTransactionStorage Test Suite', function () {
   this.timeout(10000);
 
-  const logger = pino({ level: 'info' });
+  const logger = pino({ level: 'silent' });
 
   let redisClient: RedisClientType;
   let storage: RedisPendingTransactionStorage;
