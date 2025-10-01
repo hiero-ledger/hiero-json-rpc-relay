@@ -639,7 +639,7 @@ describe('Debug API Test Suite', async function () {
         });
 
         describe('formatActionsResult with CREATE actions', async function () {
-          it('should handle CREATE action with to=null without making MN lookup', async function () {
+          it('should handle CREATE with to=null and return expected fields', async function () {
             const createActionWithNullTo = {
               actions: [makeCreateAction({ to: null, input: '0x608060405234801561001057600080fd5b50', index: 0 })],
             };
@@ -655,14 +655,14 @@ describe('Debug API Test Suite', async function () {
             expect(result[0]).to.have.property('input', '0x608060405234801561001057600080fd5b50');
           });
 
-          it('should handle CREATE action with to=null and skip getContract call', async function () {
+          it('should handle CREATE with to=null and skip getContract call', async function () {
             const createActionWithNullTo = {
               actions: [makeCreateAction({ to: null, input: '0x608060405234801561001057600080fd5b50', index: 1 })],
             };
 
             restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
             // No mock for getContract call - should not be called
-
+            const getContractSpy = sinon.spy(mirrorNodeInstance, 'getContract');
             const result = await debugService.formatActionsResult(createActionWithNullTo.actions, requestDetails);
 
             expect(result).to.be.an('array').with.lengthOf(1);
@@ -670,6 +670,8 @@ describe('Debug API Test Suite', async function () {
             expect(result[0]).to.have.property('to', null);
             expect(result[0]).to.have.property('input', '0x608060405234801561001057600080fd5b50');
             expect(result[0]).to.have.property('output', '0x');
+            expect(getContractSpy.called).to.be.false;
+            getContractSpy.restore();
           });
         });
       });
