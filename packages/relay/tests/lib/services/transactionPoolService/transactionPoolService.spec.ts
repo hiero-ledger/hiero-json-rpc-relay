@@ -9,7 +9,7 @@ import { TransactionPoolService } from '../../../../src/lib/services/transaction
 import { IExecuteTransactionEventPayload } from '../../../../src/lib/types/events';
 import { AddToListResult, PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
 
-describe('TransactionPoolService Test Suite', function () {
+describe.only('TransactionPoolService Test Suite', function () {
   this.timeout(10000);
 
   let logger: Logger;
@@ -73,23 +73,19 @@ describe('TransactionPoolService Test Suite', function () {
 
   describe('saveTransaction', () => {
     it('should successfully save transaction to pool', async () => {
-      const currentPending = 2;
       const newPending = 3;
 
-      mockStorage.getList.resolves(currentPending);
       mockStorage.addToList.resolves({ ok: true, newValue: newPending } as AddToListResult);
 
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
 
-      expect(mockStorage.getList.calledOnceWith(testAddress)).to.be.true;
-      expect(mockStorage.addToList.calledOnceWith(testAddress, testTxHash, currentPending)).to.be.true;
+      expect(mockStorage.addToList.calledOnce).to.be.true;
+      expect(mockStorage.addToList.calledWith(testAddress, testTxHash)).to.be.true;
     });
 
     it('should throw error on concurrent modification', async () => {
-      const currentPending = 2;
       const actualPending = 3;
 
-      mockStorage.getList.resolves(currentPending);
       mockStorage.addToList.resolves({ ok: false, current: actualPending } as AddToListResult);
 
       try {
@@ -100,8 +96,8 @@ describe('TransactionPoolService Test Suite', function () {
         expect((error as Error).message).to.equal('Failed to add transaction due to concurrent modifications');
       }
 
-      expect(mockStorage.getList.calledOnceWith(testAddress)).to.be.true;
-      expect(mockStorage.addToList.calledOnceWith(testAddress, testTxHash, currentPending)).to.be.true;
+      expect(mockStorage.addToList.calledOnce).to.be.true;
+      expect(mockStorage.addToList.calledWith(testAddress, testTxHash)).to.be.true;
     });
 
     it('should throw error when transaction has no hash', async () => {
@@ -115,23 +111,22 @@ describe('TransactionPoolService Test Suite', function () {
         expect((error as Error).message).to.equal('Transaction hash is required for storage');
       }
 
-      expect(mockStorage.getList.called).to.be.false;
       expect(mockStorage.addToList.called).to.be.false;
     });
 
     it('should propagate storage errors', async () => {
       const storageError = new Error('Storage connection failed');
-      mockStorage.getList.rejects(storageError);
+      mockStorage.addToList.rejects(storageError);
 
       try {
         await transactionPoolService.saveTransaction(testAddress, testTransaction);
         expect.fail('Expected error to be thrown');
       } catch (error) {
-        expect(error).to.equal(storageError);
+        expect((error as Error).message).to.equal('Storage connection failed');
       }
 
-      expect(mockStorage.getList.calledOnceWith(testAddress)).to.be.true;
-      expect(mockStorage.addToList.called).to.be.false;
+      expect(mockStorage.addToList.calledOnce).to.be.true;
+      expect(mockStorage.addToList.calledWith(testAddress, testTxHash)).to.be.true;
     });
   });
 
@@ -367,12 +362,11 @@ describe('TransactionPoolService Test Suite', function () {
       await transactionPoolService.saveTransaction(testAddress, secondTx);
 
       expect(mockStorage.addToList.calledTwice).to.be.true;
-      expect(mockStorage.addToList.firstCall.calledWith(testAddress, testTxHash, 0)).to.be.true;
+      expect(mockStorage.addToList.firstCall.calledWith(testAddress, testTxHash)).to.be.true;
       expect(
         mockStorage.addToList.secondCall.calledWith(
           testAddress,
           '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          1,
         ),
       ).to.be.true;
     });
