@@ -93,7 +93,7 @@ describe.only('TransactionPoolService Test Suite', function () {
         expect.fail('Expected error to be thrown');
       } catch (error) {
         expect(error).to.be.instanceOf(Error);
-        expect((error as Error).message).to.equal('Failed to add transaction due to concurrent modifications');
+        expect((error as Error).message).to.equal('Failed to add transaction to list');
       }
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
