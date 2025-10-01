@@ -5,6 +5,11 @@ import { AddToListResult, PendingTransactionStorage } from '../../types/transact
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
   /**
+   * Number of elements to scan per step.
+   */
+  private elementsPerStep = 500;
+
+  /**
    * Prefix used to namespace all keys managed by this storage.
    *
    * @remarks
@@ -25,8 +30,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param addr - Account address whose pending list key should be derived.
    * @returns The Redis key (e.g., `pending:<address>`).
    */
-  private keyFor(addr: string): string {
-    return `${this.keyPrefix}${addr}`;
+  private keyFor(address: string): string {
+    return `${this.keyPrefix}${address}`;
   }
 
   /**
@@ -42,10 +47,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param txHash - Transaction hash to append.
    * @returns Result indicating success and the new list length.
    */
-  async addToList(addr: string, txHash: string): Promise<AddToListResult> {
-    const key = this.keyFor(addr);
+  async addToList(address: string, txHash: string): Promise<AddToListResult> {
+    const key = this.keyFor(address);
     await this.redisClient.sAdd(key, txHash);
     const newLen = await this.redisClient.sCard(key);
+
     return { ok: true, newValue: newLen };
   }
 
@@ -59,8 +65,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   async removeFromList(address: string, txHash: string): Promise<number> {
     const key = this.keyFor(address);
     await this.redisClient.sRem(key, txHash);
-    const newLen = await this.redisClient.sCard(key);
-    return newLen;
+
+    return await this.redisClient.sCard(key);
   }
 
   /**
@@ -73,7 +79,10 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   async removeAll(): Promise<void> {
     let pipeline = this.redisClient.multi();
     let batched = 0;
-    for await (const key of this.redisClient.scanIterator({ MATCH: `${this.keyPrefix}*`, COUNT: 500 })) {
+    for await (const key of this.redisClient.scanIterator({
+      MATCH: `${this.keyPrefix}*`,
+      COUNT: this.elementsPerStep,
+    })) {
       pipeline.del(key);
       batched++;
       if (batched % 100 === 0) {
@@ -90,9 +99,9 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param addr - Account address to query.
    * @returns The current pending count (0 if the list does not exist).
    */
-  async getList(addr: string): Promise<number> {
-    const key = this.keyFor(addr);
-    const len = await this.redisClient.sCard(key);
-    return len;
+  async getList(address: string): Promise<number> {
+    const key = this.keyFor(address);
+
+    return await this.redisClient.sCard(key);
   }
 }
