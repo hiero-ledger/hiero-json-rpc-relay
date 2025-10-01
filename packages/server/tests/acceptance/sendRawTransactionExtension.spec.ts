@@ -298,7 +298,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
   });
 
-  describe('Nonce Ordering Synchronization', function () {
+  describe.only('Nonce Ordering Synchronization', function () {
     const TRANSACTION_COUNT = 10;
 
     const createSequentialTransactions = async (
