@@ -53,8 +53,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Transaction hash is required for storage');
     }
 
-    const currentPending = await this.storage.getList(address);
-    const result = await this.storage.addToList(address, txHash, currentPending);
+    const result = await this.storage.addToList(address, txHash);
 
     if (!result.ok) {
       throw new Error('Failed to add transaction due to concurrent modifications');

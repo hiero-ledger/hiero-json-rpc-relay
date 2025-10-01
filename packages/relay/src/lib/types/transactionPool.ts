@@ -67,10 +67,9 @@ export interface PendingTransactionStorage {
    *
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
-   * @param expectedPending - The expected number of pending transactions.
    * @returns A promise that resolves to an {@link AddToListResult}.
    */
-  addToList(addr: string, txHash: string, expectedPending: number): Promise<AddToListResult>;
+  addToList(addr: string, txHash: string): Promise<AddToListResult>;
 
   /**
    * Removes a transaction from the pending list of the given address.
