@@ -15,4 +15,4 @@ export * from '../types/rateLimiter';
 export * from './rateLimiterService/LruRateLimitStore';
 export * from './rateLimiterService/RedisRateLimitStore';
 export * from './rateLimiterService/rateLimiterService';
-export * from './rawTxSynchronizeService/RawTxSynchronizeService';
+export * from './lockService/LockService';

@@ -220,8 +220,8 @@ describe('SdkClient', async function () {
     };
 
     const callSubmit = (buffer: Buffer) => {
-      // Create a mock RawTxSynchronizeService for test
-      const mockRawTxSynchronizeService = {
+      // Create a mock LockService for test
+      const mockLockService = {
         acquireLock: sinon.stub().resolves('mock-session-key'),
         releaseLock: sinon.stub().resolves(),
       } as any;
@@ -233,7 +233,7 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
-        mockRawTxSynchronizeService,
+        mockLockService,
         'mock-session-key',
       );
     };
@@ -341,7 +341,7 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
-            sinon.match.object, // rawTxSynchronizeService
+            sinon.match.object, // lockService
             sinon.match.string, // lockSessionKey
           ),
         ).to.be.true;
@@ -649,8 +649,8 @@ describe('SdkClient', async function () {
         .returns(true);
 
       try {
-        // Create a mock RawTxSynchronizeService for test
-        const mockRawTxSynchronizeService = {
+        // Create a mock LockService for test
+        const mockLockService = {
           acquireLock: sinon.stub().resolves('mock-session-key'),
           releaseLock: sinon.stub().resolves(),
         } as any;
@@ -662,7 +662,7 @@ describe('SdkClient', async function () {
           randomAccountAddress,
           mockedNetworkGasPrice,
           mockedExchangeRateIncents,
-          mockRawTxSynchronizeService,
+          mockLockService,
           'mock-session-key',
         );
         expect.fail(`Expected an error but nothing was thrown`);
@@ -716,8 +716,8 @@ describe('SdkClient', async function () {
         .withArgs(mockedTransactionRecordFee)
         .exactly(fileAppendChunks + 2);
 
-      // Create a mock RawTxSynchronizeService for test
-      const mockRawTxSynchronizeService = {
+      // Create a mock LockService for test
+      const mockLockService = {
         acquireLock: sinon.stub().resolves('mock-session-key'),
         releaseLock: sinon.stub().resolves(),
       } as any;
@@ -729,7 +729,7 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
-        mockRawTxSynchronizeService,
+        mockLockService,
         'mock-session-key',
       );
 

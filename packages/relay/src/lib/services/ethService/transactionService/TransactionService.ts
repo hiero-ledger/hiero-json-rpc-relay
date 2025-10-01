@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService, RawTxSynchronizeService } from '../../index';
+import { ICommonService, LockService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -73,11 +73,11 @@ export class TransactionService implements ITransactionService {
   private readonly chain: string;
 
   /**
-   * The service responsible for synchronizing raw transaction submissions to ensure nonce ordering.
+   * The service responsible for managing locks to ensure proper resource synchronization.
    * @private
    * @readonly
    */
-  private readonly rawTxSynchronizeService: RawTxSynchronizeService;
+  private readonly lockService: LockService;
 
   /**
    * Constructor for the TransactionService class.
@@ -90,7 +90,7 @@ export class TransactionService implements ITransactionService {
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
-    rawTxSynchronizeService: RawTxSynchronizeService,
+    lockService: LockService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -99,7 +99,7 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
-    this.rawTxSynchronizeService = rawTxSynchronizeService;
+    this.lockService = lockService;
     this.precheck = new Precheck(mirrorNodeClient, logger, chain);
   }
 
@@ -260,7 +260,7 @@ export class TransactionService implements ITransactionService {
 
     // Acquire a lock for the sender before any side effects or asynchronous calls to ensure proper nonce ordering
     if (parsedTx.from) {
-      lockSessionKey = await this.rawTxSynchronizeService.acquireLock(parsedTx.from);
+      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
     }
 
     try {
@@ -281,7 +281,7 @@ export class TransactionService implements ITransactionService {
           transactionBuffer,
           parsedTx,
           networkGasPriceInWeiBars,
-          this.rawTxSynchronizeService,
+          this.lockService,
           lockSessionKey,
           requestDetails,
         );
@@ -296,14 +296,14 @@ export class TransactionService implements ITransactionService {
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        this.rawTxSynchronizeService,
+        this.lockService,
         lockSessionKey,
         requestDetails,
       );
     } catch (error) {
       // Release the lock on any error to prevent lock starvation
       if (lockSessionKey && parsedTx.from) {
-        await this.rawTxSynchronizeService.releaseLock(parsedTx.from, lockSessionKey);
+        await this.lockService.releaseLock(parsedTx.from, lockSessionKey);
       }
       throw error;
     }
@@ -495,7 +495,7 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
-   * @param {RawTxSynchronizeService} rawTxSynchronizeService - The service for managing transaction locks.
+   * @param {LockService} lockService - The service for managing locks.
    * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
@@ -504,7 +504,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    rawTxSynchronizeService: RawTxSynchronizeService,
+    lockService: LockService,
     lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
@@ -520,7 +520,7 @@ export class TransactionService implements ITransactionService {
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
-      rawTxSynchronizeService,
+      lockService,
       lockSessionKey,
       requestDetails,
     );
@@ -668,7 +668,7 @@ export class TransactionService implements ITransactionService {
    * @param transactionBuffer The raw transaction buffer
    * @param originalCallerAddress The address of the original caller
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
-   * @param rawTxSynchronizeService The service for managing transaction locks
+   * @param lockService The service for managing locks
    * @param lockSessionKey The session key for the acquired lock, null if no lock was acquired
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<{txSubmitted: boolean, submittedTransactionId: string, error: any}>} A promise that resolves to an object containing transaction submission details
@@ -677,7 +677,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
-    rawTxSynchronizeService: RawTxSynchronizeService,
+    lockService: LockService,
     lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<{
@@ -698,7 +698,7 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        rawTxSynchronizeService,
+        lockService,
         lockSessionKey,
       );
 

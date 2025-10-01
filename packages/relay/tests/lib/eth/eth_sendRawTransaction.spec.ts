@@ -120,9 +120,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
 
       // Mock the lock service methods to prevent actual locking in tests
-      const rawTxSyncService = (ethImpl as any).transactionService.rawTxSynchronizeService;
-      sinon.stub(rawTxSyncService, 'acquireLock').resolves('mock-session-key');
-      sinon.stub(rawTxSyncService, 'releaseLock').resolves();
+      const lockService = (ethImpl as any).transactionService.lockService;
+      sinon.stub(lockService, 'acquireLock').resolves('mock-session-key');
+      sinon.stub(lockService, 'releaseLock').resolves();
 
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));

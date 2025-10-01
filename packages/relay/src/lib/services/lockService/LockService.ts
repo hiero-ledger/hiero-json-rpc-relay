@@ -8,7 +8,7 @@ import { Logger } from 'pino';
 import { createClient, RedisClientType } from 'redis';
 
 /**
- * Represents the state of a lock for a specific sender address.
+ * Represents the state of a lock for a specific resource.
  * Encapsulates both the mutex and the active session keys for that lock.
  */
 interface LockState {
@@ -18,14 +18,14 @@ interface LockState {
   activeSessionKeys: Set<string>;
 }
 
-export class RawTxSynchronizeService {
+export class LockService {
   /** Lock acquisition timeout - how long a request waits before giving up (5 minutes) */
   private static readonly DEFAULT_LOCK_TIMEOUT_MS = 300_000;
 
   /** Local lock cleanup TTL - prevents memory leaks from abandoned locks (15 minutes) */
   private static readonly DEFAULT_LOCK_STATE_TTL_MS = 15 * 60 * 1000;
 
-  /** Maximum concurrent sender locks to track (LRU eviction beyond this) */
+  /** Maximum concurrent resource locks to track (LRU eviction beyond this) */
   private static readonly MAX_LOCKS = 1000;
 
   /** Redis lock auto-expiration TTL - prevents deadlock if process crashes (30 seconds) */
@@ -36,7 +36,7 @@ export class RawTxSynchronizeService {
 
   private readonly logger: Logger;
 
-  /** LRU cache with TTL for managing sender lock states with automatic cleanup */
+  /** LRU cache with TTL for managing resource lock states with automatic cleanup */
   private readonly localLockStates: LRUCache<string, LockState>;
 
   /** Redis client for distributed locking */
@@ -46,7 +46,7 @@ export class RawTxSynchronizeService {
   private redisConnected: boolean = false;
 
   /**
-   * Creates a new RawTxSynchronizeService instance.
+   * Creates a new LockService instance.
    *
    * Initializes either Redis-based distributed locking or local mutex based on configuration.
    * Redis mode is enabled when REDIS_ENABLED is true and REDIS_URL is provided.
@@ -67,38 +67,38 @@ export class RawTxSynchronizeService {
   }
 
   /**
-   * Acquires a mutex lock for the specified sender address with timeout.
+   * Acquires a mutex lock for the specified resource with timeout.
    *
    * Routes to Redis-based distributed lock or local mutex based on configuration.
    * Returns a unique session key for lock release and double-release protection.
    *
-   * @param sender - The sender address (wallet address) to acquire the lock for
+   * @param lockId - The unique identifier of the resource to acquire the lock for
    * @returns Promise that resolves to a unique session key when the lock is successfully acquired
    * @throws Error if the lock acquisition fails due to timeout or internal errors
    */
-  async acquireLock(sender: string): Promise<string> {
+  async acquireLock(lockId: string): Promise<string> {
     if (this.redisConnected) {
-      return await this.acquireRedisLock(sender);
+      return await this.acquireRedisLock(lockId);
     } else {
-      return await this.acquireLocalLock(sender);
+      return await this.acquireLocalLock(lockId);
     }
   }
 
   /**
-   * Releases the mutex lock for the specified sender address using a session key.
+   * Releases the mutex lock for the specified resource using a session key.
    *
    * Routes to Redis-based distributed lock or local mutex based on configuration.
    * Provides double-release protection through session key validation.
    *
-   * @param sender - The sender address to release the lock for
+   * @param lockId - The unique identifier of the resource to release the lock for
    * @param sessionKey - The unique session key returned from acquireLock()
    * @returns Promise that resolves when the lock is successfully released or if already released
    */
-  async releaseLock(sender: string, sessionKey: string): Promise<void> {
+  async releaseLock(lockId: string, sessionKey: string): Promise<void> {
     if (this.redisConnected) {
-      await this.releaseRedisLock(sender, sessionKey);
+      await this.releaseRedisLock(lockId, sessionKey);
     } else {
-      await this.releaseLocalLock(sender, sessionKey);
+      await this.releaseLocalLock(lockId, sessionKey);
     }
   }
 
@@ -111,15 +111,15 @@ export class RawTxSynchronizeService {
    */
   private initializeLocalLockStates(): LRUCache<string, LockState> {
     return new LRUCache<string, LockState>({
-      max: RawTxSynchronizeService.MAX_LOCKS,
-      ttl: RawTxSynchronizeService.DEFAULT_LOCK_STATE_TTL_MS,
-      dispose: (lockState: LockState, sender: string) => {
+      max: LockService.MAX_LOCKS,
+      ttl: LockService.DEFAULT_LOCK_STATE_TTL_MS,
+      dispose: (lockState: LockState, lockId: string) => {
         if (lockState.mutex.isLocked()) {
           try {
             lockState.mutex.release();
-            this.logger.debug(`Active lock auto-released during cleanup for sender: ${sender}`);
+            this.logger.debug(`Active lock auto-released during cleanup for resource: ${lockId}`);
           } catch (error) {
-            this.logger.warn(`Error auto-releasing lock during cleanup for sender: ${sender}`, error);
+            this.logger.warn(`Error auto-releasing lock during cleanup for resource: ${lockId}`, error);
           }
         }
         lockState.activeSessionKeys.clear();
@@ -151,46 +151,46 @@ export class RawTxSynchronizeService {
     // Connection state handlers
     this.redisClient.on('ready', () => {
       this.redisConnected = true;
-      this.logger.info(`RawTxSynchronizeService: Redis distributed locking enabled (${redisUrl})`);
+      this.logger.info(`LockService: Redis distributed locking enabled (${redisUrl})`);
     });
 
     this.redisClient.on('end', () => {
       this.redisConnected = false;
-      this.logger.warn('RawTxSynchronizeService: Redis disconnected');
+      this.logger.warn('LockService: Redis disconnected');
     });
 
     this.redisClient.on('error', (error) => {
       this.redisConnected = false;
-      this.logger.error(`RawTxSynchronizeService Redis error: ${error.message}`);
+      this.logger.error(`LockService Redis error: ${error.message}`);
     });
 
     // Async connection initialization
     this.redisClient.connect().catch((error) => {
-      this.logger.error(`RawTxSynchronizeService: Failed to connect to Redis: ${error.message}`);
+      this.logger.error(`LockService: Failed to connect to Redis: ${error.message}`);
     });
   }
 
   /**
-   * Acquires a local mutex lock for the specified sender address.
+   * Acquires a local mutex lock for the specified resource.
    *
    * Uses async-mutex with timeout protection and session key tracking.
    *
    * @private
-   * @param sender - The sender address to acquire the lock for
+   * @param lockId - The unique identifier of the resource to acquire the lock for
    * @returns Promise that resolves to a unique session key when the lock is acquired
    * @throws Error if lock acquisition fails or timeout occurs
    */
-  private async acquireLocalLock(sender: string): Promise<string> {
-    let lockState = this.localLockStates.get(sender);
+  private async acquireLocalLock(lockId: string): Promise<string> {
+    let lockState = this.localLockStates.get(lockId);
     if (!lockState) {
       lockState = {
         mutex: new Mutex(),
         activeSessionKeys: new Set<string>(),
       };
-      this.localLockStates.set(sender, lockState);
+      this.localLockStates.set(lockId, lockState);
     }
 
-    const timeoutMutex = withTimeout(lockState.mutex, RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS);
+    const timeoutMutex = withTimeout(lockState.mutex, LockService.DEFAULT_LOCK_TIMEOUT_MS);
     const waitStartedAt = Date.now();
     const sessionKey = randomUUID();
 
@@ -199,15 +199,15 @@ export class RawTxSynchronizeService {
       lockState.activeSessionKeys.add(sessionKey);
 
       const waitDurationMs = Date.now() - waitStartedAt;
-      this.logger.debug(`Local lock acquired: ${sender}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+      this.logger.debug(`Local lock acquired: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
       return sessionKey;
     } catch (error) {
       if (error instanceof Error && error.message.includes('timeout')) {
         throw new Error(
-          `Failed to acquire lock for sender ${sender}: timeout after ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
+          `Failed to acquire lock for resource ${lockId}: timeout after ${LockService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
         );
       }
-      this.logger.error(`Failed to acquire lock for ${sender}:`, error);
+      this.logger.error(`Failed to acquire lock for ${lockId}:`, error);
       throw error;
     }
   }
@@ -225,69 +225,69 @@ export class RawTxSynchronizeService {
    *   before acquiring the lock to maintain FIFO ordering
    *
    * @private
-   * @param sender - The sender address to acquire the lock for
+   * @param lockId - The unique identifier of the resource to acquire the lock for
    * @returns Promise that resolves to a unique session key when the lock is acquired
    * @throws Error if Redis operations fail or timeout occurs
    */
-  private async acquireRedisLock(sender: string): Promise<string> {
-    const queueKey = `lock:queue:${sender}`;
-    const lockKey = `lock:${sender}`;
+  private async acquireRedisLock(lockId: string): Promise<string> {
+    const queueKey = `lock:queue:${lockId}`;
+    const lockKey = `lock:${lockId}`;
     const sessionKey = randomUUID();
     const waitStartedAt = Date.now();
 
     try {
       // Join the FIFO queue
       await this.redisClient!.lPush(queueKey, sessionKey);
-      this.logger.debug(`Joined lock queue: ${sender}, session: ${sessionKey}`);
+      this.logger.debug(`Joined lock queue: ${lockId}, session: ${sessionKey}`);
 
       // Poll until first in queue and can acquire the lock, or until exceeding timeout
-      while (Date.now() - waitStartedAt < RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS) {
+      while (Date.now() - waitStartedAt < LockService.DEFAULT_LOCK_TIMEOUT_MS) {
         const firstInQueue = await this.redisClient!.lIndex(queueKey, -1);
 
         if (firstInQueue === sessionKey) {
           // Atomically acquire lock if available
           const acquired = await this.redisClient!.set(lockKey, sessionKey, {
             NX: true,
-            PX: RawTxSynchronizeService.REDIS_LOCK_TTL_MS,
+            PX: LockService.REDIS_LOCK_TTL_MS,
           });
 
           if (acquired) {
             await this.redisClient!.rPop(queueKey);
             const waitDurationMs = Date.now() - waitStartedAt;
-            this.logger.debug(`Redis lock acquired: ${sender}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+            this.logger.debug(`Redis lock acquired: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
             return sessionKey;
           }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, RawTxSynchronizeService.REDIS_POLL_INTERVAL_MS));
+        await new Promise((resolve) => setTimeout(resolve, LockService.REDIS_POLL_INTERVAL_MS));
       }
 
       // cleanup and throw if lock timeouted
       await this.redisClient!.lRem(queueKey, 1, sessionKey);
       throw new Error(
-        `Failed to acquire Redis lock for sender ${sender}: timeout after ${RawTxSynchronizeService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
+        `Failed to acquire Redis lock for resource ${lockId}: timeout after ${LockService.DEFAULT_LOCK_TIMEOUT_MS}ms`,
       );
     } catch (error) {
       // Cleanup queue entry on any error
       await this.redisClient!.lRem(queueKey, 1, sessionKey).catch((cleanupError) => {
-        this.logger.warn(`Failed to cleanup queue entry for ${sender}:`, cleanupError);
+        this.logger.warn(`Failed to cleanup queue entry for ${lockId}:`, cleanupError);
       });
       throw error;
     }
   }
 
   /**
-   * Releases a local mutex lock for the specified sender address.
+   * Releases a local mutex lock for the specified resource.
    *
    * Validates session key before releasing to prevent double-release.
    *
    * @private
-   * @param sender - The sender address to release the lock for
+   * @param lockId - The unique identifier of the resource to release the lock for
    * @param sessionKey - The unique session key returned from acquireLocalLock()
    * @returns Promise that resolves when the lock is released
    */
-  private async releaseLocalLock(sender: string, sessionKey: string): Promise<void> {
-    const lockState = this.localLockStates.get(sender);
+  private async releaseLocalLock(lockId: string, sessionKey: string): Promise<void> {
+    const lockState = this.localLockStates.get(lockId);
 
     if (!lockState || !lockState.activeSessionKeys.has(sessionKey)) {
       // lock already released or expired from LRU cache
@@ -296,9 +296,9 @@ export class RawTxSynchronizeService {
 
     try {
       lockState.mutex.release();
-      this.logger.debug(`Local lock released: ${sender}, session: ${sessionKey}`);
+      this.logger.debug(`Local lock released: ${lockId}, session: ${sessionKey}`);
     } catch (error) {
-      this.logger.error(`Error releasing local lock for ${sender}:`, error);
+      this.logger.error(`Error releasing local lock for ${lockId}:`, error);
     } finally {
       lockState.activeSessionKeys.delete(sessionKey);
     }
@@ -311,12 +311,12 @@ export class RawTxSynchronizeService {
    * another process could acquire the lock between GET and DEL operations.
    *
    * @private
-   * @param sender - The sender address to release the lock for
+   * @param lockId - The unique identifier of the resource to release the lock for
    * @param sessionKey - The unique session key returned from acquireRedisLock()
    * @returns Promise that resolves when the lock is released
    */
-  private async releaseRedisLock(sender: string, sessionKey: string): Promise<void> {
-    const lockKey = `lock:${sender}`;
+  private async releaseRedisLock(lockId: string, sessionKey: string): Promise<void> {
+    const lockKey = `lock:${lockId}`;
 
     /**
      * Lua script for atomic lock release with session validation.
@@ -338,11 +338,11 @@ export class RawTxSynchronizeService {
       });
 
       if (result === 1) {
-        this.logger.debug(`Redis lock released: ${sender}, session: ${sessionKey}`);
+        this.logger.debug(`Redis lock released: ${lockId}, session: ${sessionKey}`);
       }
       // Note: result === 0 means already released or wrong session - this is expected, no log needed
     } catch (error) {
-      this.logger.error(`Error releasing Redis lock for ${sender}:`, error);
+      this.logger.error(`Error releasing Redis lock for ${lockId}:`, error);
     }
   }
 }
