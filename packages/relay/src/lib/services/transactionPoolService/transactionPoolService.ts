@@ -56,7 +56,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const result = await this.storage.addToList(address, txHash);
 
     if (!result.ok) {
-      throw new Error('Failed to add transaction due to concurrent modifications');
+      throw new Error('Failed to add transaction to list');
     }
 
     this.logger.debug({ address, txHash, pendingCount: result.newValue }, 'Transaction saved to pool');
