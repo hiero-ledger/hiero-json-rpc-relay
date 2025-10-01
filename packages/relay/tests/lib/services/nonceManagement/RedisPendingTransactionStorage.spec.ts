@@ -18,10 +18,10 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   let redisClient: RedisClientType;
   let storage: RedisPendingTransactionStorage;
 
-  useInMemoryRedisServer(logger, 6380);
+  useInMemoryRedisServer(logger, 6390);
 
   before(async () => {
-    redisClient = createClient({ url: 'redis://127.0.0.1:6380' });
+    redisClient = createClient({ url: 'redis://127.0.0.1:6390' });
     await redisClient.connect();
     storage = new RedisPendingTransactionStorage(redisClient);
   });
