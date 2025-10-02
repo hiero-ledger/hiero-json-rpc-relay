@@ -1492,6 +1492,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should delete the file created while execute "eth_sendRawTransaction" to deploy a large contract', async function () {
+        // Jumbo TX skips HFS and writes contract directly to state, so no
+        // file exists to delete.To avoid this, this test overrides JUMBO_TX_ENABLED to false.
+        ConfigServiceTestHelper.dynamicOverride('JUMBO_TX_ENABLED', false);
+
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,

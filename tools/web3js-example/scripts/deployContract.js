@@ -16,7 +16,6 @@ module.exports = async (contractParam) => {
   });
   const contract = await greeter.send({
     from: wallet[0].address,
-    gas: 300000,
   });
 
   console.log(`Greeter deployed to: ${contract._address}`);
