@@ -33,24 +33,13 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
-   * Attempts to add a pending transaction entry for the given address.
-   *
-   * This implementation checks that the current pending count matches the expected count
-   * before adding a new entry, providing optimistic concurrency control.
+   * Adds a pending transaction entry for the given address.
    *
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
-   * @param expectedPending - The expected number of pending transactions before addition
    * @returns Promise resolving to AddToListResult indicating success or failure
    */
-  async addToList(addr: string, txHash: string, expectedPending: number): Promise<AddToListResult> {
-    const currentCount = await this.getList(addr);
-
-    // Check if the current count matches expectations (optimistic concurrency control)
-    if (currentCount !== expectedPending) {
-      return { ok: false, current: currentCount };
-    }
-
+  async addToList(addr: string, txHash: string): Promise<AddToListResult> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());

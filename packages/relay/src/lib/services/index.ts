@@ -16,3 +16,4 @@ export * from './rateLimiterService/LruRateLimitStore';
 export * from './rateLimiterService/RedisRateLimitStore';
 export * from './rateLimiterService/rateLimiterService';
 export * from './transactionPoolService/LocalPendingTransactionStorage';
+export * from './transactionPoolService/transactionPoolService';

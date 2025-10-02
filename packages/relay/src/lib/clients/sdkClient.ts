@@ -25,7 +25,7 @@ import {
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 
-import { weibarHexToTinyBarInt } from '../../formatters';
+import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
 import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
@@ -334,8 +334,13 @@ export class SDKClient {
       return transactionResponse;
     } finally {
       if (transactionId?.length) {
+        const transactionHash = transactionResponse?.transactionHash
+          ? prepend0x(Buffer.from(transactionResponse.transactionHash).toString('hex'))
+          : undefined;
+
         this.eventEmitter.emit('execute_transaction', {
           transactionId,
+          transactionHash,
           txConstructorName,
           operatorAccountId: this.clientMain.operatorAccountId!.toString(),
           requestDetails,
