@@ -16,6 +16,7 @@ import { CommonService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
+import { LockService } from '../../../src/lib/services/lockService/LockService';
 
 export function contractResultsByNumberByIndexURL(number: number, index: number): string {
   return `contracts/results?block.number=${number}&transaction.index=${index}&limit=100&order=asc`;
@@ -59,11 +60,13 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     duration,
   );
 
-  const hapiServiceInstance = new HAPIService(logger, registry, hbarLimitService);
+  const lockService = new LockService(logger);
+
+  const hapiServiceInstance = new HAPIService(logger, registry, hbarLimitService, lockService);
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, lockService);
 
   return {
     cacheService,
