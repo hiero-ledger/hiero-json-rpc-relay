@@ -9,6 +9,7 @@ import { Counter, Registry } from 'prom-client';
 import { SDKClient } from '../../clients';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
+import { LockService } from '../lockService/LockService';
 
 export default class HAPIService {
   /**
@@ -93,8 +94,14 @@ export default class HAPIService {
    * @param logger - The logger instance used for logging.
    * @param register - The registry instance for metrics and other services.
    * @param hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
+   * @param lockService - Service for managing access control locks.
    */
-  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
+  constructor(
+    logger: Logger,
+    register: Registry,
+    hbarLimitService: HbarLimitService,
+    public readonly lockService: LockService,
+  ) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();
@@ -190,6 +197,7 @@ export default class HAPIService {
       this.logger.child({ name: `consensus-node` }),
       this.eventEmitter,
       this.hbarLimitService,
+      this.lockService,
     );
   }
 
@@ -242,6 +250,7 @@ export default class HAPIService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    lockSessionKey: string | null,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     return this.getSDKClient().submitEthereumTransaction(
       transactionBuffer,
@@ -250,6 +259,7 @@ export default class HAPIService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       currentNetworkExchangeRateInCents,
+      lockSessionKey,
     );
   }
 

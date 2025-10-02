@@ -36,7 +36,6 @@ import { generateEthTestEnv } from './eth-helpers';
 use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
-let getSdkClientStub: sinon.SinonStub;
 
 describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function () {
   this.timeout(10000);
@@ -58,15 +57,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
-
   this.afterEach(() => {
-    getSdkClientStub.restore();
     restMock.resetHandlers();
   });
 
@@ -119,6 +115,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sinon.restore();
       sdkClientStub = sinon.createStubInstance(SDKClient);
       sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+
+      // Mock the lock service methods to prevent actual locking in tests
+      const lockService = (ethImpl as any).transactionService.lockService;
+      sinon.stub(lockService, 'acquireLock').resolves('mock-session-key');
+      sinon.stub(lockService, 'releaseLock').resolves();
+
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
       JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));

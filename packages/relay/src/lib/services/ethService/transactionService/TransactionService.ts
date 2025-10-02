@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService } from '../../index';
+import { ICommonService, LockService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -73,6 +73,13 @@ export class TransactionService implements ITransactionService {
   private readonly chain: string;
 
   /**
+   * The service responsible for managing locks to ensure proper resource synchronization.
+   * @private
+   * @readonly
+   */
+  private readonly lockService: LockService;
+
+  /**
    * Constructor for the TransactionService class.
    */
   constructor(
@@ -83,6 +90,7 @@ export class TransactionService implements ITransactionService {
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
+    lockService: LockService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -91,6 +99,7 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
+    this.lockService = lockService;
     this.precheck = new Precheck(mirrorNodeClient, logger, chain);
   }
 
@@ -247,33 +256,55 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getGasPriceInWeibars(requestDetails),
-    );
+    let lockSessionKey: string | null = null;
 
-    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return Utils.computeTransactionHash(transactionBuffer);
+    // Acquire a lock for the sender before any side effects or asynchronous calls to ensure proper nonce ordering
+    if (parsedTx.from) {
+      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      requestDetails,
-    );
+    try {
+      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+        await this.common.getGasPriceInWeibars(requestDetails),
+      );
+
+      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
+       * the transaction hash is calculated and returned immediately after passing all prechecks.
+       * All transaction processing logic is then handled asynchronously in the background.
+       */
+      const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+      if (useAsyncTxProcessing) {
+        this.sendRawTransactionProcessor(
+          transactionBuffer,
+          parsedTx,
+          networkGasPriceInWeiBars,
+          lockSessionKey,
+          requestDetails,
+        );
+        return Utils.computeTransactionHash(transactionBuffer);
+      }
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
+       * wait for all transaction processing logic to complete before returning the transaction hash.
+       */
+      return await this.sendRawTransactionProcessor(
+        transactionBuffer,
+        parsedTx,
+        networkGasPriceInWeiBars,
+        lockSessionKey,
+        requestDetails,
+      );
+    } catch (error) {
+      // Release the lock on any error to prevent lock starvation
+      if (lockSessionKey && parsedTx.from) {
+        await this.lockService.releaseLock(parsedTx.from, lockSessionKey);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -462,6 +493,7 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
+   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
@@ -469,6 +501,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
+    lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
@@ -483,6 +516,7 @@ export class TransactionService implements ITransactionService {
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
+      lockSessionKey,
       requestDetails,
     );
 
@@ -629,6 +663,7 @@ export class TransactionService implements ITransactionService {
    * @param transactionBuffer The raw transaction buffer
    * @param originalCallerAddress The address of the original caller
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
+   * @param lockSessionKey The session key for the acquired lock, null if no lock was acquired
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<{txSubmitted: boolean, submittedTransactionId: string, error: any}>} A promise that resolves to an object containing transaction submission details
    */
@@ -636,6 +671,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
+    lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<{
     txSubmitted: boolean;
@@ -655,6 +691,7 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        lockSessionKey,
       );
 
       txSubmitted = true;
