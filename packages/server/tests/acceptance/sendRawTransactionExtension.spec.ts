@@ -298,7 +298,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
   });
 
-  describe('Nonce Ordering Synchronization', function () {
+  describe('Per-Account Transaction Locking', function () {
     const TRANSACTION_COUNT = 10;
 
     const createSequentialTransactions = async (
@@ -331,7 +331,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const submitTransactions = async (signedTransactions: string[]): Promise<string[]> => {
       const transactionPromises: Promise<string>[] = [];
 
-      // Fire all transactions as rapidly as possible to test nonce ordering synchronization
+      // Submit all transactions simultaneously to test account lock serialization
       for (const signedTx of signedTransactions) {
         const txPromise = relay.sendRawTransaction(signedTx);
         transactionPromises.push(txPromise);
@@ -379,7 +379,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         recipientAddress,
       );
 
-      // Submit all transactions rapidly to test nonce ordering synchronization under stress
+      // Submit all transactions concurrently to test account lock service enforces serialization
       const transactionHashes = await submitTransactions(signedTransactions);
 
       // Validate all transactions were processed successfully with correct nonce ordering
@@ -420,7 +420,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       );
     });
 
-    it('@release should not impact performance of other RPC calls while nonce-mutex system is active', async function () {
+    it('@release should not block non-transactional RPC calls while account locks are held', async function () {
       const testAccount = accounts[3];
       const senderAccount = accounts[0]; // Different account for sendRawTransaction activity
       const recipientAddress = accounts[1].address;
@@ -434,7 +434,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         recipientAddress,
       );
 
-      // Execute RPC calls concurrently with sendRawTransaction calls to test true isolation
+      // Execute RPC calls concurrently with sendRawTransaction to verify account locks don't block other operations
       const [transactionHashes, rpcResults] = await Promise.all([
         submitTransactions(signedTransactions),
         Promise.all([
