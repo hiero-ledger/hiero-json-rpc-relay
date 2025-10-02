@@ -19,10 +19,9 @@ export interface LockStrategy {
    * - Error handling and cleanup
    *
    * @param lockId - Unique identifier of the resource to lock
-   * @returns Promise resolving to a unique session key for lock release
-   * @throws Error if lock acquisition fails or times out
+   * @returns Promise resolving to a unique session key for lock release, or null if acquisition times out
    */
-  acquireLock(lockId: string): Promise<string>;
+  acquireLock(lockId: string): Promise<string | null>;
 
   /**
    * Releases a previously acquired lock.

@@ -64,13 +64,11 @@ export class LocalLockStrategy implements LockStrategy {
    * Acquires a local mutex lock for the specified resource.
    *
    * Uses async-mutex with timeout protection and session key tracking.
-   * If the lock is not available, waits up to lockAcquisitionTimeoutMs before throwing.
    *
    * @param lockId - The unique identifier of the resource to acquire the lock for
-   * @returns Promise that resolves to a unique session key when the lock is acquired
-   * @throws Error if lock acquisition fails or timeout occurs
+   * @returns Promise that resolves to a unique session key when the lock is acquired, or null if error occurs
    */
-  async acquireLock(lockId: string): Promise<string> {
+  async acquireLock(lockId: string): Promise<string | null> {
     const lockKey = this.buildLockKey(lockId);
     let lockState = this.lockStates.get(lockKey);
 
@@ -95,13 +93,22 @@ export class LocalLockStrategy implements LockStrategy {
 
       return sessionKey;
     } catch (error) {
+      const waitDurationMs = Date.now() - waitStartedAt;
       if (error instanceof Error && error.message.includes('timeout')) {
-        throw new Error(
-          `Failed to acquire lock for resource ${lockId}: timeout after ${this.lockAcquisitionTimeoutMs}ms`,
+        this.logger.warn(`Lock acquisition timeout: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+      } else {
+        this.logger.warn(
+          `Unexpected error during local lock acquisition for ${lockId} after ${waitDurationMs}ms for session ${sessionKey}`,
+          error,
         );
       }
-      this.logger.error(`Failed to acquire lock for ${lockId}:`, error);
-      throw error;
+
+      // cleanup lock state if lock was acquired
+      this.releaseLock(lockId, sessionKey);
+
+      // Return null to signal that the lock was not acquired, allowing other processes
+      // to continue without interruption instead of being blocked by an exception.
+      return null;
     }
   }
 
