@@ -32,6 +32,7 @@ import {
   RpcNamespaceRegistry,
 } from './types';
 import { Web3Impl } from './web3';
+import { LockService } from './services';
 
 export class Relay {
   /**
@@ -153,8 +154,8 @@ export class Relay {
       register,
       duration,
     );
-
-    const hapiService = new HAPIService(logger, register, hbarLimitService);
+    const lockService = new LockService(logger);
+    const hapiService = new HAPIService(logger, register, hbarLimitService, lockService);
 
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
@@ -181,6 +182,7 @@ export class Relay {
       logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
+      lockService,
     );
 
     (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {

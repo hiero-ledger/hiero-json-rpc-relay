@@ -27,6 +27,7 @@ import { NetImpl } from '../../src/lib/net';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
+import { LockService } from '../../src/lib/services/lockService/LockService';
 import { RequestDetails } from '../../src/lib/types';
 import { Web3Impl } from '../../src/lib/web3';
 import {
@@ -125,10 +126,11 @@ describe('Open RPC Specification', function () {
       duration,
     );
 
-    clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
+    const lockService = new LockService(logger);
+
+    clientServiceInstance = new ClientService(logger, registry, hbarLimitService, lockService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
-    sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, lockService);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
 
     // mocked data

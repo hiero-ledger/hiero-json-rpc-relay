@@ -109,12 +109,6 @@ export class EthImpl implements Eth {
   private readonly transactionService: ITransactionService;
 
   /**
-   * The service responsible for managing locks to ensure proper resource synchronization.
-   * @private
-   */
-  private readonly lockService: LockService;
-
-  /**
    * Constructs an instance of the service responsible for handling Ethereum JSON-RPC methods
    * using Hedera Hashgraph as the underlying network.
    *
@@ -123,6 +117,7 @@ export class EthImpl implements Eth {
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
    * @param {CacheService} cacheService - Service for managing cached data.
+   * @param {LockService} lockService - Service for managing access control locks.
    */
   constructor(
     hapiService: HAPIService,
@@ -130,6 +125,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: CacheService,
+    public readonly lockService: LockService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -141,7 +137,6 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.lockService = new LockService(logger);
 
     this.transactionService = new TransactionService(
       cacheService,

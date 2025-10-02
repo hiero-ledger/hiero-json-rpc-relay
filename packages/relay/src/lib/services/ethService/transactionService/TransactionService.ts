@@ -281,7 +281,6 @@ export class TransactionService implements ITransactionService {
           transactionBuffer,
           parsedTx,
           networkGasPriceInWeiBars,
-          this.lockService,
           lockSessionKey,
           requestDetails,
         );
@@ -296,7 +295,6 @@ export class TransactionService implements ITransactionService {
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        this.lockService,
         lockSessionKey,
         requestDetails,
       );
@@ -495,7 +493,6 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
-   * @param {LockService} lockService - The service for managing locks.
    * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
@@ -504,7 +501,6 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    lockService: LockService,
     lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
@@ -520,7 +516,6 @@ export class TransactionService implements ITransactionService {
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
-      lockService,
       lockSessionKey,
       requestDetails,
     );
@@ -668,7 +663,6 @@ export class TransactionService implements ITransactionService {
    * @param transactionBuffer The raw transaction buffer
    * @param originalCallerAddress The address of the original caller
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
-   * @param lockService The service for managing locks
    * @param lockSessionKey The session key for the acquired lock, null if no lock was acquired
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<{txSubmitted: boolean, submittedTransactionId: string, error: any}>} A promise that resolves to an object containing transaction submission details
@@ -677,7 +671,6 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
-    lockService: LockService,
     lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<{
@@ -698,7 +691,6 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        lockService,
         lockSessionKey,
       );
 

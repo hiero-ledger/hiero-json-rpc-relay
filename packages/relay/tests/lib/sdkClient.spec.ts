@@ -39,6 +39,7 @@ import { SDKClientError } from '../../src/lib/errors/SDKClientError';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
+import { LockService } from '../../src/lib/services/lockService/LockService';
 import MetricService from '../../src/lib/services/metricService/metricService';
 import { RequestDetails } from '../../src/lib/types';
 import { Utils } from '../../src/utils';
@@ -74,6 +75,7 @@ describe('SdkClient', async function () {
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
+  let lockService: LockService;
 
   const requestDetails = new RequestDetails({ requestId: 'sdkClientTest', ipAddress: '0.0.0.0' });
 
@@ -96,8 +98,16 @@ describe('SdkClient', async function () {
       duration,
     );
 
+    lockService = new LockService(logger);
+
     const eventEmitter = new EventEmitter<TypedEvents>();
-    sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
+    sdkClient = new SDKClient(
+      hederaNetwork,
+      logger,
+      eventEmitter,
+      hbarLimitService,
+      lockService,
+    ) as unknown as SDKClientTest;
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -148,7 +158,7 @@ describe('SdkClient', async function () {
 
     this.beforeEach(() => {
       if (ConfigService.get('OPERATOR_KEY_FORMAT') !== 'BAD_FORMAT') {
-        hapiService = new HAPIService(logger, registry, hbarLimitService);
+        hapiService = new HAPIService(logger, registry, hbarLimitService, lockService);
       }
     });
 
@@ -188,7 +198,7 @@ describe('SdkClient', async function () {
     withOverriddenEnvsInMochaTest({ OPERATOR_KEY_FORMAT: 'BAD_FORMAT' }, () => {
       it('It should throw an Error when an unexpected string is set', async () => {
         try {
-          new HAPIService(logger, registry, hbarLimitService);
+          new HAPIService(logger, registry, hbarLimitService, lockService);
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (e: any) {
           expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');
@@ -220,12 +230,6 @@ describe('SdkClient', async function () {
     };
 
     const callSubmit = (buffer: Buffer) => {
-      // Create a mock LockService for test
-      const mockLockService = {
-        acquireLock: sinon.stub().resolves('mock-session-key'),
-        releaseLock: sinon.stub().resolves(),
-      } as any;
-
       return sdkClient.submitEthereumTransaction(
         buffer,
         mockedCallerName,
@@ -233,7 +237,6 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
-        mockLockService,
         'mock-session-key',
       );
     };
@@ -341,7 +344,6 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
-            sinon.match.object, // lockService
             sinon.match.string, // lockSessionKey
           ),
         ).to.be.true;
@@ -649,12 +651,6 @@ describe('SdkClient', async function () {
         .returns(true);
 
       try {
-        // Create a mock LockService for test
-        const mockLockService = {
-          acquireLock: sinon.stub().resolves('mock-session-key'),
-          releaseLock: sinon.stub().resolves(),
-        } as any;
-
         await sdkClient.submitEthereumTransaction(
           transactionBuffer,
           mockedCallerName,
@@ -662,7 +658,6 @@ describe('SdkClient', async function () {
           randomAccountAddress,
           mockedNetworkGasPrice,
           mockedExchangeRateIncents,
-          mockLockService,
           'mock-session-key',
         );
         expect.fail(`Expected an error but nothing was thrown`);
@@ -716,12 +711,6 @@ describe('SdkClient', async function () {
         .withArgs(mockedTransactionRecordFee)
         .exactly(fileAppendChunks + 2);
 
-      // Create a mock LockService for test
-      const mockLockService = {
-        acquireLock: sinon.stub().resolves('mock-session-key'),
-        releaseLock: sinon.stub().resolves(),
-      } as any;
-
       await sdkClient.submitEthereumTransaction(
         transactionBuffer,
         mockedCallerName,
@@ -729,7 +718,6 @@ describe('SdkClient', async function () {
         randomAccountAddress,
         mockedNetworkGasPrice,
         mockedExchangeRateIncents,
-        mockLockService,
         'mock-session-key',
       );
 
