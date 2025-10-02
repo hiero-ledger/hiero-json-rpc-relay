@@ -8,18 +8,9 @@ import { LockStrategy } from './LockStrategy';
 import { RedisLockStrategy } from './RedisLockStrategy';
 
 export class LockService {
-  /** Lock acquisition timeout - how long a request waits before giving up (5 minutes) */
-  private static readonly DEFAULT_LOCK_TIMEOUT_MS = 300_000;
-
-  /** Prevents memory leaks from abandoned locks (15 minutes) */
-  private static readonly LOCK_TTL_MS = 15 * 60 * 1000;
-
-  /** Maximum concurrent resource locks to track (LRU eviction beyond this) */
-  private static readonly MAX_LOCKS = 1000;
-
-  /** Redis queue polling interval - checks FIFO position every 50ms */
-  private static readonly REDIS_POLL_INTERVAL_MS = 50;
-
+  /**
+   * The underlying lock strategy used for lock operations.
+   */
   private readonly lockStrategy: LockStrategy;
 
   /**
@@ -30,31 +21,16 @@ export class LockService {
    */
   constructor(logger: Logger) {
     // Initialize LocalLockStrategy as default lock strategy
-    this.lockStrategy = new LocalLockStrategy(
-      logger.child({ name: 'local-lock' }),
-      LockService.DEFAULT_LOCK_TIMEOUT_MS,
-      LockService.LOCK_TTL_MS,
-      LockService.MAX_LOCKS,
-    );
+    this.lockStrategy = new LocalLockStrategy(logger.child({ name: 'local-lock' }));
 
     // Initialize RedisLockStrategy
-    const redisLockStrategy = new RedisLockStrategy(
-      logger.child({ name: 'redis-lock' }),
-      LockService.DEFAULT_LOCK_TIMEOUT_MS,
-      LockService.LOCK_TTL_MS,
-      LockService.REDIS_POLL_INTERVAL_MS,
-    );
+    const redisLockStrategy = new RedisLockStrategy(logger.child({ name: 'redis-lock' }));
 
     if (this.isRedisEnabled()) {
-      // Switch to RedisLockStrategy if redis is enabled
       this.lockStrategy = redisLockStrategy;
-      logger.info(
-        `Using Redis distributed locking for main Lock Service: lockTimeoutMs=${LockService.DEFAULT_LOCK_TIMEOUT_MS}, lockTtlMs=${LockService.LOCK_TTL_MS}`,
-      );
+      logger.info('Lock Service main strategy set to Redis-distributed locking.');
     } else {
-      logger.info(
-        `Using local in-memory locking for main Lock Service: lockTimeoutMs=${LockService.DEFAULT_LOCK_TIMEOUT_MS}, lockTtlMs=${LockService.LOCK_TTL_MS}, maxLocks=${LockService.MAX_LOCKS}`,
-      );
+      logger.info('Lock Service main strategy set to local in-memory locking.');
     }
   }
 
