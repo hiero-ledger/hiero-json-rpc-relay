@@ -192,6 +192,7 @@ export class Relay {
       logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
+      this.redisClient,
     );
 
     (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
