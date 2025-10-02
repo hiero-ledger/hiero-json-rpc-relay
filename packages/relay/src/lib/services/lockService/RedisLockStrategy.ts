@@ -8,24 +8,35 @@ import { createClient, type RedisClientType } from 'redis';
 import { LockStrategy } from './LockStrategy';
 
 export class RedisLockStrategy implements LockStrategy {
+  /**
+   * Maximum time in milliseconds to wait for lock acquisition before timing out.
+   */
+  private readonly lockAcquisitionTimeoutMs = ConfigService.get('LOCK_ACQUISITION_TIMEOUT_MS');
+
+  /**
+   * Maximum duration in milliseconds that a lock can exist before automatic expiration in Redis.
+   */
+  private readonly lockTtlMs = ConfigService.get('LOCK_TTL_MS');
+
+  /**
+   * Polling interval in milliseconds for checking queue position during lock acquisition.
+   * Lower values provide faster lock acquisition but increase Redis load.
+   */
+  private readonly acquisitionPollIntervalMs = ConfigService.get('LOCK_REDIS_ACQUISITION_POLL_INTERVAL_MS');
+
+  /** Redis client instance for distributed locking operations. */
   private redisClient?: RedisClientType;
+
+  /** Tracks Redis connection status. */
   private _isConnected: boolean = false;
 
   /**
    * Creates a new RedisLockStrategy instance and initializes Redis connection
-   * if enabled and resource is properly provided.
+   * if enabled and properly configured.
    *
    * @param logger - Logger instance for debugging and monitoring
-   * @param lockTimeoutMs - Lock acquisition timeout in milliseconds
-   * @param lockTtlMs - Redis lock TTL in milliseconds (auto-expiration)
-   * @param pollIntervalMs - Polling interval for queue checking in milliseconds
    */
-  constructor(
-    private readonly logger: Logger,
-    private readonly lockTimeoutMs: number,
-    private readonly lockTtlMs: number,
-    private readonly pollIntervalMs: number,
-  ) {
+  constructor(private readonly logger: Logger) {
     // Initialize Redis client only if enabled and URL is provided
     if (ConfigService.get('REDIS_ENABLED')) {
       try {
@@ -59,6 +70,10 @@ export class RedisLockStrategy implements LockStrategy {
           this._isConnected = false;
           this.logger.error('Error occurred with Redis Connection during Redis Lock Strategy initialization:', error);
         });
+
+        this.logger.info(
+          `Redis lock strategy initialized: lockAcquisitionTimeoutMs=${this.lockAcquisitionTimeoutMs}ms, lockTtlMs=${this.lockTtlMs}ms, acquisitionPollIntervalMs=${this.acquisitionPollIntervalMs}ms`,
+        );
       } catch (error) {
         this._isConnected = false;
         this.logger.error('Failed to create Redis client for Redis Lock Strategy:', error);
@@ -87,12 +102,12 @@ export class RedisLockStrategy implements LockStrategy {
     const waitStartedAt = Date.now();
 
     try {
-      // Join the FIFO queue
+      // Join the FIFO queue - adds the session key to the front of the queue
       await this.redisClient.lPush(queueKey, sessionKey);
       this.logger.debug(`New item joined lock queue: lockId=${lockId}, session=${sessionKey}`);
 
       // Poll until first in queue and can acquire the lock, or until exceeding timeout
-      while (Date.now() - waitStartedAt < this.lockTimeoutMs) {
+      while (Date.now() - waitStartedAt < this.lockAcquisitionTimeoutMs) {
         const firstInQueue = await this.redisClient.lIndex(queueKey, -1);
 
         if (firstInQueue === sessionKey) {
@@ -106,6 +121,7 @@ export class RedisLockStrategy implements LockStrategy {
 
           if (acquired) {
             // Successfully acquired lock, remove self from queue
+            // removes the session key from the end of the queue
             await this.redisClient.rPop(queueKey);
             const waitDurationMs = Date.now() - waitStartedAt;
             this.logger.debug(
@@ -115,14 +131,17 @@ export class RedisLockStrategy implements LockStrategy {
           }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
+        await new Promise((resolve) => setTimeout(resolve, this.acquisitionPollIntervalMs));
       }
 
       // Cleanup and throw if lock timed out
       await this.redisClient.lRem(queueKey, 1, sessionKey);
-      throw new Error(`Failed to acquire Redis lock for resource ${lockId}: timeout after ${this.lockTimeoutMs}ms`);
+      throw new Error(
+        `Failed to acquire Redis lock for resource ${lockId}: timeout after ${this.lockAcquisitionTimeoutMs}ms`,
+      );
     } catch (error) {
       // Cleanup queue entry on any error
+      // `lRem` removes the first occurrence of the session key from the queue list
       await this.redisClient.lRem(queueKey, 1, sessionKey).catch((cleanupError) => {
         this.logger.warn(`Failed to cleanup queue entry for ${lockId}:`, cleanupError);
       });

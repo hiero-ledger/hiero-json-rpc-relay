@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Mutex, withTimeout } from 'async-mutex';
 import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
@@ -19,25 +20,29 @@ interface LockState {
 }
 
 export class LocalLockStrategy implements LockStrategy {
+  /**
+   * Maximum time in milliseconds to wait for lock acquisition before timing out.
+   */
+  private readonly lockAcquisitionTimeoutMs = ConfigService.get('LOCK_ACQUISITION_TIMEOUT_MS');
+
+  /**
+   * LRU cache storing lock states indexed by lock ID.
+   * Automatically evicts least recently used locks when capacity is exceeded.
+   */
   private readonly lockStates: LRUCache<string, LockState>;
 
   /**
    * Creates a new LocalLockStrategy instance.
    *
    * @param logger - Logger instance for debugging and monitoring
-   * @param lockTimeoutMs - Lock acquisition timeout in milliseconds
-   * @param stateTtlMs - Lock state TTL for cleanup in milliseconds
-   * @param maxLocks - Maximum number of locks to track in LRU cache
    */
-  constructor(
-    private readonly logger: Logger,
-    private readonly lockTimeoutMs: number,
-    private readonly stateTtlMs: number,
-    private readonly maxLocks: number,
-  ) {
+  constructor(private readonly logger: Logger) {
+    const lockLocalMaxCapacity = ConfigService.get('LOCK_LOCAL_MAX_CAPACITY');
+    const lockTtlMs = ConfigService.get('LOCK_TTL_MS');
+
     this.lockStates = new LRUCache<string, LockState>({
-      max: this.maxLocks,
-      ttl: this.stateTtlMs,
+      max: lockLocalMaxCapacity,
+      ttl: lockTtlMs,
       dispose: (lockState: LockState, lockId: string) => {
         if (lockState.mutex.isLocked()) {
           try {
@@ -50,13 +55,16 @@ export class LocalLockStrategy implements LockStrategy {
         lockState.activeSessionKeys.clear();
       },
     });
+    this.logger.info(
+      `Local lock strategy initialized: lockAcquisitionTimeoutMs=${this.lockAcquisitionTimeoutMs}ms, lockTtlMs=${lockTtlMs}ms, lockLocalMaxCapacity=${lockLocalMaxCapacity}`,
+    );
   }
 
   /**
    * Acquires a local mutex lock for the specified resource.
    *
    * Uses async-mutex with timeout protection and session key tracking.
-   * If the lock is not available, waits up to lockTimeoutMs before throwing.
+   * If the lock is not available, waits up to lockAcquisitionTimeoutMs before throwing.
    *
    * @param lockId - The unique identifier of the resource to acquire the lock for
    * @returns Promise that resolves to a unique session key when the lock is acquired
@@ -74,7 +82,7 @@ export class LocalLockStrategy implements LockStrategy {
       this.lockStates.set(lockKey, lockState);
     }
 
-    const timeoutMutex = withTimeout(lockState.mutex, this.lockTimeoutMs);
+    const timeoutMutex = withTimeout(lockState.mutex, this.lockAcquisitionTimeoutMs);
     const waitStartedAt = Date.now();
     const sessionKey = randomUUID();
 
@@ -88,7 +96,9 @@ export class LocalLockStrategy implements LockStrategy {
       return sessionKey;
     } catch (error) {
       if (error instanceof Error && error.message.includes('timeout')) {
-        throw new Error(`Failed to acquire lock for resource ${lockId}: timeout after ${this.lockTimeoutMs}ms`);
+        throw new Error(
+          `Failed to acquire lock for resource ${lockId}: timeout after ${this.lockAcquisitionTimeoutMs}ms`,
+        );
       }
       this.logger.error(`Failed to acquire lock for ${lockId}:`, error);
       throw error;
