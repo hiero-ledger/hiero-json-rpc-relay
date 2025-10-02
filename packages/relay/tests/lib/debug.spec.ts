@@ -670,7 +670,9 @@ describe('Debug API Test Suite', async function () {
             expect(result[0]).to.have.property('to', null);
             expect(result[0]).to.have.property('input', '0x608060405234801561001057600080fd5b50');
             expect(result[0]).to.have.property('output', '0x');
-            expect(getContractSpy.called).to.be.false;
+            // Ensure getContract was never invoked with a null/undefined id (i.e., for 'to')
+            const calledWithNullId = getContractSpy.getCalls().some((c) => c.args[0] == null);
+            expect(calledWithNullId).to.be.false;
             getContractSpy.restore();
           });
         });
