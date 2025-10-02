@@ -88,12 +88,12 @@ export class RedisLockStrategy implements LockStrategy {
    * or times out after the configured duration.
    *
    * @param lockId - The unique identifier for the resource to lock.
-   * @returns A promise that resolves to the session key if the lock is successfully acquired.
-   * @throws {Error} If the Redis client is not connected or if the lock acquisition times out.
+   * @returns A promise that resolves to the session key if the lock is successfully acquired, or null if error occurs.
    */
-  async acquireLock(lockId: string): Promise<string> {
+  async acquireLock(lockId: string): Promise<string | null> {
     if (!this._isConnected || !this.redisClient) {
-      throw new Error('Redis client is not connected. Cannot acquire distributed lock.');
+      this.logger.warn('Redis client is not connected. Cannot acquire distributed lock.');
+      return null;
     }
 
     const queueKey = `lock:queue:${lockId}`;
@@ -134,18 +134,25 @@ export class RedisLockStrategy implements LockStrategy {
         await new Promise((resolve) => setTimeout(resolve, this.acquisitionPollIntervalMs));
       }
 
-      // Cleanup and throw if lock timed out
-      await this.redisClient.lRem(queueKey, 1, sessionKey);
-      throw new Error(
-        `Failed to acquire Redis lock for resource ${lockId}: timeout after ${this.lockAcquisitionTimeoutMs}ms`,
-      );
+      // lock acquisition process timed out
+      throw new Error('Lock acquisition timeout');
     } catch (error) {
-      // Cleanup queue entry on any error
+      const waitDurationMs = Date.now() - waitStartedAt;
+      if (error instanceof Error && error.message.includes('timeout')) {
+        this.logger.warn(`Lock acquisition timeout: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+      } else {
+        this.logger.warn(`Unexpected error during lock acquisition for ${lockId} after ${waitDurationMs}ms:`, error);
+      }
+
+      // Cleanup session from queue on any error
       // `lRem` removes the first occurrence of the session key from the queue list
       await this.redisClient.lRem(queueKey, 1, sessionKey).catch((cleanupError) => {
         this.logger.warn(`Failed to cleanup queue entry for ${lockId}:`, cleanupError);
       });
-      throw error;
+
+      // Return null to signal that the lock was not acquired, allowing other processes
+      // to continue without interruption instead of being blocked by an exception.
+      return null;
     }
   }
 

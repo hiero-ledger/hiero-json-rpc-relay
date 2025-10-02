@@ -38,10 +38,9 @@ export class LockService {
    * Acquires a lock for the specified resource.
    *
    * @param lockId - The unique identifier of the resource to lock
-   * @returns Promise resolving to a unique session key for lock release
-   * @throws Error if lock acquisition fails or times out
+   * @returns Promise resolving to a unique session key for lock release, or null if lock is not properly acquired
    */
-  async acquireLock(lockId: string): Promise<string> {
+  async acquireLock(lockId: string): Promise<string | null> {
     return this.lockStrategy.acquireLock(lockId);
   }
 
