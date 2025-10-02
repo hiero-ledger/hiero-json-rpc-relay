@@ -471,8 +471,40 @@ export class DebugImpl implements Debug {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
 
-      // return empty array if no actions
-      if (actionsResponse.length === 0) return null;
+      // If there are no actions, return a root transaction object with empty calls
+      if (actionsResponse.length === 0) {
+        const {
+          from,
+          to,
+          amount,
+          gas_limit: gas,
+          gas_used: gasUsed,
+          function_parameters: input,
+          call_result: output,
+          error_message: error,
+          result,
+        } = transactionsResponse;
+
+        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
+
+        const value = amount === 0 ? DebugImpl.zeroHex : numberTo0x(amount);
+        const errorResult = result !== constants.SUCCESS ? result : undefined;
+        const type = resolvedTo ? 'CALL' : 'CREATE';
+
+        return {
+          type,
+          from: resolvedFrom,
+          to: resolvedTo,
+          value,
+          gas: numberTo0x(gas),
+          gasUsed: numberTo0x(gasUsed),
+          input,
+          output: result !== constants.SUCCESS ? error : output,
+          ...(result !== constants.SUCCESS && { error: errorResult }),
+          ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error) }),
+          calls: [],
+        };
+      }
 
       const { call_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
