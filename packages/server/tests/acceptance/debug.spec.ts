@@ -319,6 +319,39 @@ describe('@debug API Acceptance Tests', function () {
         predefined.INVALID_PARAMETER("'tracer' for TracerConfigWrapper", 'Expected TracerType, value: InvalidTracer'),
       );
     });
+
+    it('@release should handle CREATE transactions with to=null in trace results', async function () {
+      // Just use the existing basic contract deployment to test CREATE transactions
+      // The deployment block should contain a CREATE transaction
+      const deploymentBlockHex = numberTo0x(deploymentBlockNumber);
+
+      // Call debug_traceBlockByNumber for the deployment block
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        deploymentBlockHex,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+
+      expect(result).to.be.an('array');
+      expect(result.length).to.be.at.least(1);
+
+      // Find a CREATE transaction in the result (from contract deployment)
+      const createTxTrace = result.find((trace) => trace.result && trace.result.type === 'CREATE');
+      expect(createTxTrace).to.exist;
+      expect(createTxTrace.result).to.exist;
+
+      // Verify it's a CREATE transaction with proper structure
+      expect(createTxTrace.result.type).to.equal('CREATE');
+      expect(createTxTrace.result.from).to.exist;
+      expect(createTxTrace.result.to).to.exist;
+      expect(createTxTrace.result.gas).to.exist;
+      expect(createTxTrace.result.gasUsed).to.exist;
+      expect(createTxTrace.result.input).to.exist;
+      expect(createTxTrace.result.output).to.exist;
+
+      // This test verifies that CREATE actions with to=null don't cause Mirror Node lookup errors
+      // The main goal is that the debug_traceBlockByNumber call succeeds without throwing
+      // "Invalid parameter: contractid" errors when processing CREATE transactions
+    });
   });
 
   describe('debug_traceTransaction', () => {
