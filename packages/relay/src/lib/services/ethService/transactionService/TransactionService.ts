@@ -484,19 +484,19 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    // although we validdate on earlier stages that we have
+    // although we validate in earlier stages that we have
     // a signed transaction, we need to assert it again here in order to satisfy the type checker
     this.assertSignedTransaction(parsedTx);
     let sendRawTransactionError: any;
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
+    // Save the transaction to the transaction pool before submitting it to the network
+    await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
+
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
-
-    // Save the transaction to the transaction pool before submitting it to the network
-    await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
 
     const { txSubmitted, submittedTransactionId, error } = await this.submitTransaction(
       transactionBuffer,
@@ -527,9 +527,6 @@ export class TransactionService implements ITransactionService {
           this.mirrorNodeClient.getMirrorNodeRequestRetryCount(),
         );
 
-        // Remove the transaction from the transaction pool after successful submission
-        await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
-
         if (!contractResult) {
           if (
             sendRawTransactionError instanceof SDKClientError &&
@@ -552,12 +549,15 @@ export class TransactionService implements ITransactionService {
           );
         }
 
+        // Remove the transaction from the transaction pool after successful submission
+        await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
+
         return contractResult.hash;
       } catch (e: any) {
         sendRawTransactionError = e;
       }
     }
-
+    this.logger.info('Removing transaction from transaction pool after unsuccessful submission');
     // Remove the transaction from the transaction pool after unsuccessful submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash);
 

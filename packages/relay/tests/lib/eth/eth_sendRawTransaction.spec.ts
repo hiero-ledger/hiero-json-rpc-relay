@@ -162,7 +162,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sinon.stub(txResponseMock, 'getReceipt').onFirstCall().resolves({ fileId: FILE_ID });
       txResponseMock.transactionId = TransactionId.fromString(transactionIdServicesFormat);
 
-      sdkClientStub.logger = pino({ level: 'silent' });
+      sdkClientStub.logger = pino({ level: 'info' });
       sdkClientStub.deleteFile.resolves();
 
       restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
@@ -288,6 +288,34 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       );
     });
 
+    it('should save and remove transaction from transaction pool on success path', async function () {
+      const signed = await signTransaction(transaction);
+      const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+      const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+      const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
+      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+
+      const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+      expect(result).to.equal(ethereumHash);
+      sinon.assert.calledOnce(saveStub);
+      sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+      sinon.assert.calledOnce(removeStub);
+      sinon.assert.calledWith(removeStub, accountAddress, ethereumHash);
+
+      saveStub.restore();
+      removeStub.restore();
+    });
+
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
       it('[USE_ASYNC_TX_PROCESSING=true] should throw internal error when transaction returned from mirror node is null', async function () {
         const signed = await signTransaction(transaction);
@@ -305,6 +333,35 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         expect(response.code).to.equal(predefined.INTERNAL_ERROR().code);
         expect(`Error invoking RPC: ${response.message}`).to.equal(predefined.INTERNAL_ERROR(response.message).message);
+      });
+
+      it.only('should save and remove transaction (fallback path uses parsedTx.hash)', async function () {
+        const signed = await signTransaction(transaction);
+        const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
+        const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+        const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+        const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
+        // Cause MN polling to fail, forcing fallback
+        restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: TransactionId.fromString(transactionIdServicesFormat),
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+        sinon.assert.calledOnce(saveStub);
+        sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+        sinon.assert.calledOnce(removeStub);
+        sinon.assert.calledWith(removeStub, accountAddress, expectedTxHash);
+
+        saveStub.restore();
+        removeStub.restore();
       });
 
       it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transactionID is invalid', async function () {
