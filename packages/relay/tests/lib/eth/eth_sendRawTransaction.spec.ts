@@ -162,7 +162,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       sinon.stub(txResponseMock, 'getReceipt').onFirstCall().resolves({ fileId: FILE_ID });
       txResponseMock.transactionId = TransactionId.fromString(transactionIdServicesFormat);
 
-      sdkClientStub.logger = pino({ level: 'info' });
+      sdkClientStub.logger = pino({ level: 'silent' });
       sdkClientStub.deleteFile.resolves();
 
       restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
@@ -335,7 +335,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         expect(`Error invoking RPC: ${response.message}`).to.equal(predefined.INTERNAL_ERROR(response.message).message);
       });
 
-      it.only('should save and remove transaction (fallback path uses parsedTx.hash)', async function () {
+      it('should save and remove transaction (fallback path uses parsedTx.hash)', async function () {
         const signed = await signTransaction(transaction);
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
         const txPool = ethImpl['transactionService']['transactionPoolService'] as any;

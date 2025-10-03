@@ -557,7 +557,7 @@ export class TransactionService implements ITransactionService {
         sendRawTransactionError = e;
       }
     }
-    this.logger.info('Removing transaction from transaction pool after unsuccessful submission');
+
     // Remove the transaction from the transaction pool after unsuccessful submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash);
 
