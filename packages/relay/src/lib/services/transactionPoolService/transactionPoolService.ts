@@ -64,33 +64,6 @@ export class TransactionPoolService implements ITransactionPoolService {
   }
 
   /**
-   * Handles consensus results and updates the pool state accordingly.
-   *
-   * @param payload - The transaction execution event payload containing transaction details.
-   * @returns A promise that resolves when the consensus result has been processed.
-   */
-  async onConsensusResult(payload: IExecuteTransactionEventPayload): Promise<void> {
-    const { transactionHash, originalCallerAddress, transactionId } = payload;
-
-    if (!transactionHash) {
-      this.logger.warn({ transactionId }, 'Transaction hash not available in execution event');
-      return;
-    }
-
-    const remainingCount = await this.removeTransaction(originalCallerAddress, transactionHash);
-
-    this.logger.debug(
-      {
-        transactionHash,
-        address: originalCallerAddress,
-        transactionId,
-        remainingCount,
-      },
-      'Transaction removed from pool after consensus',
-    );
-  }
-
-  /**
    * Removes a specific transaction from the pending pool.
    * This is typically called when a transaction is confirmed or fails on the consensus layer.
    *
