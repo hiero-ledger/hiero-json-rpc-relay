@@ -9,6 +9,7 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { RequestDetails } from '../../../types';
 import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
 import { CacheService } from '../../cacheService/cacheService';
+import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
 
@@ -71,17 +72,30 @@ export class AccountService implements IAccountService {
   private readonly mirrorNodeClient: MirrorNodeClient;
 
   /**
+   * The interface through which we interact with the transaction pool.
+   * @private
+   */
+  private readonly transactionPoolService: TransactionPoolService;
+
+  /**
    * @constructor
    * @param cacheService
    * @param common
    * @param logger
    * @param mirrorNodeClient
    */
-  constructor(cacheService: CacheService, common: ICommonService, logger: Logger, mirrorNodeClient: MirrorNodeClient) {
+  constructor(
+    cacheService: CacheService,
+    common: ICommonService,
+    logger: Logger,
+    mirrorNodeClient: MirrorNodeClient,
+    transactionPoolService: TransactionPoolService,
+  ) {
     this.cacheService = cacheService;
     this.common = common;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
+    this.transactionPoolService = transactionPoolService;
   }
 
   /**
@@ -303,8 +317,11 @@ export class AccountService implements IAccountService {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
-      // if latest or pending, get latest ethereumNonce from mirror node account API
-      return await this.getAccountLatestEthereumNonce(address, requestDetails);
+      const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
+      if (blockNumOrTag == constants.BLOCK_PENDING) {
+        return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
+      }
+      return mnNonce;
     } else if (blockNumOrTag === constants.BLOCK_EARLIEST) {
       return await this.getAccountNonceForEarliestBlock(requestDetails);
     } else if (!isNaN(blockNum) && blockNumOrTag.length != constants.BLOCK_HASH_LENGTH && blockNum > 0) {

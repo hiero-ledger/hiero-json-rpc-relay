@@ -137,7 +137,6 @@ export class EthImpl implements Eth {
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
-    this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
     const storage = this.redisClient
       ? new RedisPendingTransactionStorage(this.redisClient)
@@ -149,6 +148,13 @@ export class EthImpl implements Eth {
       this.common,
       this.eventEmitter,
       hapiService,
+      logger,
+      mirrorNodeClient,
+      transactionPoolService,
+    );
+    this.accountService = new AccountService(
+      cacheService,
+      this.common,
       logger,
       mirrorNodeClient,
       transactionPoolService,

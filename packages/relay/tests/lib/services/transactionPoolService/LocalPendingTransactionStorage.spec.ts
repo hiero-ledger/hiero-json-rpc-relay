@@ -5,7 +5,7 @@ import * as sinon from 'sinon';
 
 import { LocalPendingTransactionStorage } from '../../../../src/lib/services/transactionPoolService/LocalPendingTransactionStorage';
 
-describe.only('LocalPendingTransactionStorage Test Suite', function () {
+describe('LocalPendingTransactionStorage Test Suite', function () {
   let storage: LocalPendingTransactionStorage;
 
   const testAddress1 = '0x742d35cc6db9027d0e0ba7d3c9e5a96f';
