@@ -47,13 +47,14 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
-    const txHash = tx.hash?.toLowerCase();
+    const txHash = tx.hash;
+    const addressLowerCased = address.toLowerCase();
 
     if (!txHash) {
       throw new Error('Transaction hash is required for storage');
     }
 
-    const result = await this.storage.addToList(address, txHash);
+    const result = await this.storage.addToList(addressLowerCased, txHash);
 
     if (!result.ok) {
       throw new Error('Failed to add transaction to list');
@@ -80,7 +81,7 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     this.logger.debug(
       {
-        transactionHash: transactionHash.toLowerCase(),
+        transactionHash,
         address: originalCallerAddress,
         transactionId,
         remainingCount,
@@ -98,8 +99,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
   async removeTransaction(address: string, txHash: string): Promise<number> {
-    const txHashLowerCased = txHash.toLowerCase();
-    return await this.storage.removeFromList(address, txHashLowerCased);
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.removeFromList(addressLowerCased, txHash);
   }
 
   /**
@@ -109,7 +110,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   async getPendingCount(address: string): Promise<number> {
-    return await this.storage.getList(address);
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.getList(addressLowerCased);
   }
 
   /**
