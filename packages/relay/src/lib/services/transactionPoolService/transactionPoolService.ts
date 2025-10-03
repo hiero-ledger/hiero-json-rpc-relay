@@ -47,7 +47,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
-    const txHash = tx.hash;
+    const txHash = tx.hash?.toLowerCase();
 
     if (!txHash) {
       throw new Error('Transaction hash is required for storage');
@@ -80,7 +80,7 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     this.logger.debug(
       {
-        transactionHash,
+        transactionHash: transactionHash.toLowerCase(),
         address: originalCallerAddress,
         transactionId,
         remainingCount,
@@ -98,7 +98,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
   async removeTransaction(address: string, txHash: string): Promise<number> {
-    return await this.storage.removeFromList(address, txHash);
+    const txHashLowerCased = txHash.toLowerCase();
+    return await this.storage.removeFromList(address, txHashLowerCased);
   }
 
   /**
