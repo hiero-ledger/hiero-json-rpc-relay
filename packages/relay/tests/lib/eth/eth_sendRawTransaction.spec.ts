@@ -352,7 +352,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           fileId: null,
         });
 
-        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+        await ethImpl.sendRawTransaction(signed, requestDetails);
 
         sinon.assert.calledOnce(saveStub);
         sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
