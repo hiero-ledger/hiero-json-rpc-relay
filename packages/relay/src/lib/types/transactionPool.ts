@@ -2,8 +2,6 @@
 
 import { Transaction } from 'ethers';
 
-import { IExecuteTransactionEventPayload } from './events';
-
 /**
  * Result of attempting to add a transaction to the pending list.
  *
@@ -25,14 +23,6 @@ export interface TransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   saveTransaction(address: string, tx: Transaction): Promise<void>;
-
-  /**
-   * Handles consensus results and updates the pool state accordingly.
-   *
-   * @param payload - The transaction execution event payload containing transaction details.
-   * @returns A promise that resolves when the consensus result has been received.
-   */
-  onConsensusResult(payload: IExecuteTransactionEventPayload): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.

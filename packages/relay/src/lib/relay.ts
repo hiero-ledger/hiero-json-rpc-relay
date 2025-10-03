@@ -192,6 +192,7 @@ export class Relay {
       logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
+      this.redisClient,
     );
 
     (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
@@ -200,7 +201,6 @@ export class Relay {
 
     hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
       this.metricService.captureTransactionMetrics(args).then();
-      // TODO: Call transactionPoolService.onConsensusResult(args) when service is available
     });
 
     hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {

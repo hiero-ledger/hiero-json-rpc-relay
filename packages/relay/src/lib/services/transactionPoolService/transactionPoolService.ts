@@ -48,45 +48,19 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
     const txHash = tx.hash;
+    const addressLowerCased = address.toLowerCase();
 
     if (!txHash) {
       throw new Error('Transaction hash is required for storage');
     }
 
-    const result = await this.storage.addToList(address, txHash);
+    const result = await this.storage.addToList(addressLowerCased, txHash);
 
     if (!result.ok) {
       throw new Error('Failed to add transaction to list');
     }
 
     this.logger.debug({ address, txHash, pendingCount: result.newValue }, 'Transaction saved to pool');
-  }
-
-  /**
-   * Handles consensus results and updates the pool state accordingly.
-   *
-   * @param payload - The transaction execution event payload containing transaction details.
-   * @returns A promise that resolves when the consensus result has been processed.
-   */
-  async onConsensusResult(payload: IExecuteTransactionEventPayload): Promise<void> {
-    const { transactionHash, originalCallerAddress, transactionId } = payload;
-
-    if (!transactionHash) {
-      this.logger.warn({ transactionId }, 'Transaction hash not available in execution event');
-      return;
-    }
-
-    const remainingCount = await this.removeTransaction(originalCallerAddress, transactionHash);
-
-    this.logger.debug(
-      {
-        transactionHash,
-        address: originalCallerAddress,
-        transactionId,
-        remainingCount,
-      },
-      'Transaction removed from pool after consensus',
-    );
   }
 
   /**
@@ -98,7 +72,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
   async removeTransaction(address: string, txHash: string): Promise<number> {
-    return await this.storage.removeFromList(address, txHash);
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.removeFromList(addressLowerCased, txHash);
   }
 
   /**
@@ -108,7 +83,8 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   async getPendingCount(address: string): Promise<number> {
-    return await this.storage.getList(address);
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.getList(addressLowerCased);
   }
 
   /**
