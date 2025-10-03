@@ -9,7 +9,7 @@ import { TransactionPoolService } from '../../../../src/lib/services/transaction
 import { IExecuteTransactionEventPayload } from '../../../../src/lib/types/events';
 import { AddToListResult, PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
 
-describe.only('TransactionPoolService Test Suite', function () {
+describe('TransactionPoolService Test Suite', function () {
   this.timeout(10000);
 
   let logger: Logger;

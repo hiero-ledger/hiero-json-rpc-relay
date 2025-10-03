@@ -605,7 +605,7 @@ describe('Precheck', async function () {
       mock.onGet(`accounts/${parsedTx.from}${limitOrderPostFix}`).reply(200, JSON.stringify(mirrorAccount));
 
       try {
-        precheck.nonce(parsedTx, mirrorAccount.ethereum_nonce, requestDetails);
+        precheck.nonce(parsedTx, mirrorAccount.ethereum_nonce);
         expectedError();
       } catch (e: any) {
         expect(e).to.eql(predefined.NONCE_TOO_LOW(parsedTx.nonce, mirrorAccount.ethereum_nonce));
@@ -622,7 +622,7 @@ describe('Precheck', async function () {
 
       mock.onGet(`accounts/${parsedTx.from}${limitOrderPostFix}`).reply(200, JSON.stringify(mirrorAccount));
 
-      precheck.nonce(parsedTx, mirrorAccount.ethereum_nonce, requestDetails);
+      precheck.nonce(parsedTx, mirrorAccount.ethereum_nonce);
     });
   });
 
