@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService } from '../../index';
+import { ICommonService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -66,6 +66,8 @@ export class TransactionService implements ITransactionService {
    */
   private readonly precheck: Precheck;
 
+  private readonly transactionPoolService: TransactionPoolService;
+
   /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
    * @private
@@ -83,6 +85,7 @@ export class TransactionService implements ITransactionService {
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
+    transactionPoolService: TransactionPoolService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -91,7 +94,8 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
-    this.precheck = new Precheck(mirrorNodeClient, logger, chain);
+    this.precheck = new Precheck(mirrorNodeClient, logger, chain, transactionPoolService);
+    this.transactionPoolService = transactionPoolService;
   }
 
   /**
@@ -456,6 +460,15 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
+   * Narrows an ethers Transaction to one that definitely has a non-null hash.
+   */
+  private assertSignedTransaction(tx: EthersTransaction): asserts tx is EthersTransaction & { hash: string } {
+    if (tx.hash == null) {
+      throw predefined.INVALID_ARGUMENTS('Expected a signed transaction with a non-null hash');
+    }
+  }
+
+  /**
    * Asynchronously processes a raw transaction by submitting it to the network, managing HFS, polling the MN, handling errors, and returning the transaction hash.
    *
    * @async
@@ -471,9 +484,15 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
+    // although we validate in earlier stages that we have
+    // a signed transaction, we need to assert it again here in order to satisfy the type checker
+    this.assertSignedTransaction(parsedTx);
     let sendRawTransactionError: any;
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
+
+    // Save the transaction to the transaction pool before submitting it to the network
+    await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
@@ -530,11 +549,17 @@ export class TransactionService implements ITransactionService {
           );
         }
 
+        // Remove the transaction from the transaction pool after successful submission
+        await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
+
         return contractResult.hash;
       } catch (e: any) {
         sendRawTransactionError = e;
       }
     }
+
+    // Remove the transaction from the transaction pool after unsuccessful submission
+    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash);
 
     // If this point is reached, it means that no valid transaction hash was returned. Therefore, an error must have occurred.
     return await this.sendRawTransactionErrorHandler(

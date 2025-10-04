@@ -13,7 +13,7 @@ describe('main', () => {
   it('should start server if ensureOperatorHasBalance succeeds', async () => {
     const appListenStub = sinon.stub(webSocketServer.app, 'listen');
     const configGetStub = sinon.stub(ConfigService, 'get').returns('127.0.0.1');
-    const ensureBalanceStub = sinon.stub(webSocketServer.relay, 'ensureOperatorHasBalance').resolves();
+    const initStub = sinon.stub(webSocketServer.relay, 'init').resolves();
     const httpAppListenStub = sinon.stub(webSocketServer.httpApp, 'listen');
     const loggerFatalStub = sinon.stub(webSocketServer.logger, 'fatal');
 
@@ -21,7 +21,7 @@ describe('main', () => {
 
     expect(appListenStub.calledOnce).to.be.true;
     expect(configGetStub.calledWith('SERVER_HOST')).to.be.true;
-    expect(ensureBalanceStub.calledOnce).to.be.true;
+    expect(initStub.calledOnce).to.be.true;
     expect(httpAppListenStub.calledOnce).to.be.true;
     expect(loggerFatalStub.notCalled).to.be.true;
   });

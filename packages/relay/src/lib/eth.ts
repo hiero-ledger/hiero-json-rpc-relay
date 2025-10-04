@@ -2,6 +2,7 @@
 
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
+import { RedisClientType } from 'redis';
 
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
@@ -19,6 +20,8 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
+  LocalPendingTransactionStorage,
+  TransactionPoolService,
   TransactionService,
 } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
@@ -26,6 +29,7 @@ import { FeeService } from './services/ethService/feeService/FeeService';
 import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
+import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
 import {
   IContractCallRequest,
   IFeeHistory,
@@ -123,6 +127,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: CacheService,
+    public readonly redisClient: RedisClientType | undefined,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -132,8 +137,11 @@ export class EthImpl implements Eth {
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
-    this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
+    const storage = this.redisClient
+      ? new RedisPendingTransactionStorage(this.redisClient)
+      : new LocalPendingTransactionStorage();
+    const transactionPoolService = new TransactionPoolService(storage, logger);
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -142,6 +150,14 @@ export class EthImpl implements Eth {
       hapiService,
       logger,
       mirrorNodeClient,
+      transactionPoolService,
+    );
+    this.accountService = new AccountService(
+      cacheService,
+      this.common,
+      logger,
+      mirrorNodeClient,
+      transactionPoolService,
     );
   }
 

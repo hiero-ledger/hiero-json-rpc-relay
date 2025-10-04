@@ -3,7 +3,7 @@
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import sinon from 'sinon';
+import sinon, { stub } from 'sinon';
 
 import { Eth, predefined } from '../../../src';
 import { numberTo0x } from '../../../src/formatters';
@@ -141,11 +141,13 @@ describe('@ethGetTransactionCount eth_getTransactionCount spec', async function 
     expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
   });
 
-  it('should return latest nonce for pending block', async () => {
+  it('should return pending nonce for pending block', async () => {
+    const pendingTxs: number = 2;
+    stub(ethImpl['accountService']['transactionPoolService'], 'getPendingCount').returns(pendingTxs);
     restMock.onGet(accountPath).reply(200, JSON.stringify(mockData.account));
     const nonce = await ethImpl.getTransactionCount(MOCK_ACCOUNT_ADDR, constants.BLOCK_PENDING, requestDetails);
     expect(nonce).to.exist;
-    expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce));
+    expect(nonce).to.equal(numberTo0x(mockData.account.ethereum_nonce + pendingTxs));
   });
 
   it('should return 0x0 nonce for earliest block with valid block', async () => {

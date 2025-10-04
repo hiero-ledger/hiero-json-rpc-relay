@@ -25,13 +25,6 @@ export interface TransactionPoolService {
   saveTransaction(address: string, tx: Transaction): Promise<void>;
 
   /**
-   * Handles consensus results and updates the pool state accordingly.
-   *
-   * @returns A promise that resolves when the consensus result has been received.
-   */
-  onConsensusResult(): Promise<void>;
-
-  /**
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
@@ -64,10 +57,9 @@ export interface PendingTransactionStorage {
    *
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
-   * @param expectedPending - The expected number of pending transactions.
    * @returns A promise that resolves to an {@link AddToListResult}.
    */
-  addToList(addr: string, txHash: string, expectedPending: number): Promise<AddToListResult>;
+  addToList(addr: string, txHash: string): Promise<AddToListResult>;
 
   /**
    * Removes a transaction from the pending list of the given address.

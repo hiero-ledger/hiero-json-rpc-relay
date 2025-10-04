@@ -8,7 +8,7 @@ import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
-import { CommonService } from './services';
+import { CommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 
 /**
@@ -18,6 +18,7 @@ export class Precheck {
   private readonly mirrorNodeClient: MirrorNodeClient;
   private readonly chain: string;
   private readonly logger: Logger;
+  private readonly transactionPoolService: TransactionPoolService;
 
   /**
    * Creates an instance of Precheck.
@@ -25,10 +26,16 @@ export class Precheck {
    * @param {Logger} logger - The logger instance.
    * @param {string} chainId - The chain ID.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, chainId: string) {
+  constructor(
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+    chainId: string,
+    transactionPoolService: TransactionPoolService,
+  ) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.chain = chainId;
+    this.transactionPoolService = transactionPoolService;
   }
 
   /**
@@ -70,7 +77,10 @@ export class Precheck {
     this.transactionType(parsedTx);
     this.gasLimit(parsedTx);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-    this.nonce(parsedTx, mirrorAccountInfo.ethereum_nonce);
+    this.nonce(
+      parsedTx,
+      mirrorAccountInfo.ethereum_nonce + (await this.transactionPoolService.getPendingCount(parsedTx.from!)),
+    );
     this.chainId(parsedTx);
     this.value(parsedTx);
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
@@ -105,17 +115,15 @@ export class Precheck {
   /**
    * Checks the nonce of the transaction.
    * @param tx - The transaction.
-   * @param accountInfoNonce - The nonce of the account.
+   * @param signerNonce - The nonce of the account.
    */
-  nonce(tx: Transaction, accountInfoNonce: number): void {
+  nonce(tx: Transaction, signerNonce: number): void {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `Nonce precheck for sendRawTransaction(tx.nonce=${tx.nonce}, accountInfoNonce=${accountInfoNonce})`,
-      );
+      this.logger.trace(`Nonce precheck for sendRawTransaction(tx.nonce=${tx.nonce}, signerNonce=${signerNonce})`);
     }
 
-    if (accountInfoNonce > tx.nonce) {
-      throw predefined.NONCE_TOO_LOW(tx.nonce, accountInfoNonce);
+    if (signerNonce > tx.nonce) {
+      throw predefined.NONCE_TOO_LOW(tx.nonce, signerNonce);
     }
   }
 
