@@ -94,10 +94,11 @@ export default class RelayClient {
 
   /**
    * @param evmAddress
+   * @param blockTag
    * Returns: The nonce of the account with the provided `evmAddress`
    */
-  async getAccountNonce(evmAddress: string): Promise<number> {
-    const nonce = await this.provider.send('eth_getTransactionCount', [evmAddress, 'latest']);
+  async getAccountNonce(evmAddress: string, blockTag: string = 'latest'): Promise<number> {
+    const nonce = await this.provider.send('eth_getTransactionCount', [evmAddress, blockTag]);
     return Number(nonce);
   }
 
