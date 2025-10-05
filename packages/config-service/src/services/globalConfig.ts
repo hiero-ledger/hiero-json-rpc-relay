@@ -368,11 +368,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 3000, // 3 seconds
   },
-  LOCK_LOCAL_MAX_CAPACITY: {
-    type: 'number',
-    required: false,
-    defaultValue: 1000,
-  },
   LOCK_ACQUISITION_POLL_INTERVAL_MS: {
     type: 'number',
     required: false,

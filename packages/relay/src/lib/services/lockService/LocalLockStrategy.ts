@@ -1,23 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Mutex, withTimeout } from 'async-mutex';
 import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
 import { LockStrategy } from './LockStrategy';
-
-/**
- * Represents the state of a lock for a specific resource.
- * Encapsulates both the mutex and the active session keys for that lock.
- */
-interface LockState {
-  /** The mutex used for synchronization */
-  mutex: Mutex;
-  /** Set of active session keys that can release this lock */
-  activeSessionKeys: Set<string>;
-}
 
 export class LocalLockStrategy implements LockStrategy {
   /**
@@ -26,10 +14,37 @@ export class LocalLockStrategy implements LockStrategy {
   private readonly lockAcquisitionTimeoutMs = ConfigService.get('LOCK_ACQUISITION_TIMEOUT_MS');
 
   /**
-   * LRU cache storing lock states indexed by lock ID.
-   * Automatically evicts least recently used locks when capacity is exceeded.
+   * Maximum duration in milliseconds that a lock can exist before automatic expiration.
    */
-  private readonly lockStates: LRUCache<string, LockState>;
+  private readonly lockTtlMs = ConfigService.get('LOCK_TTL_MS');
+
+  /**
+   * Polling interval in milliseconds for checking queue position during lock acquisition.
+   */
+  private readonly acquisitionPollIntervalMs = ConfigService.get('LOCK_ACQUISITION_POLL_INTERVAL_MS');
+
+  /**
+   * LRU cache configuration for lock storage.
+   *
+   * - ttl: Locks auto-expire after lockTtlMs to prevent deadlocks
+   * - ttlAutopurge: true ensures expired locks are removed automatically to prevent memory leaks from lock accumulation
+   */
+  private readonly lockLruCacheOptions = {
+    ttl: this.lockTtlMs,
+    ttlAutopurge: true,
+  } as const;
+
+  /**
+   * LRU cache mapping lock keys to current holder's session key.
+   */
+  private readonly lockStorage: LRUCache<string, string>;
+
+  /**
+   * Plain Map mapping lock keys to FIFO arrays of waiting session keys.
+   * Queues are coordination metadata with no TTL - they exist as long as
+   * transactions are queued, and are deleted deterministically when empty.
+   */
+  private readonly sessionQueues: Map<string, string[]>;
 
   /**
    * Creates a new LocalLockStrategy instance.
@@ -37,61 +52,58 @@ export class LocalLockStrategy implements LockStrategy {
    * @param logger - Logger instance for debugging and monitoring
    */
   constructor(private readonly logger: Logger) {
-    const lockLocalMaxCapacity = ConfigService.get('LOCK_LOCAL_MAX_CAPACITY');
-    const lockTtlMs = ConfigService.get('LOCK_TTL_MS');
-
-    this.lockStates = new LRUCache<string, LockState>({
-      max: lockLocalMaxCapacity,
-      ttl: lockTtlMs,
-      dispose: (lockState: LockState, lockId: string) => {
-        if (lockState.mutex.isLocked()) {
-          try {
-            lockState.mutex.release();
-            this.logger.debug(`Active lock auto-released during cleanup for resource: ${lockId}`);
-          } catch (error) {
-            this.logger.warn(`Error auto-releasing lock during cleanup for resource: ${lockId}`, error);
-          }
-        }
-        lockState.activeSessionKeys.clear();
-      },
-    });
+    this.lockStorage = new LRUCache<string, string>(this.lockLruCacheOptions);
+    this.sessionQueues = new Map<string, string[]>();
     this.logger.info(
-      `Local lock strategy initialized: lockAcquisitionTimeoutMs=${this.lockAcquisitionTimeoutMs}ms, lockTtlMs=${lockTtlMs}ms, lockLocalMaxCapacity=${lockLocalMaxCapacity}`,
+      `Local lock strategy initialized: lockAcquisitionTimeoutMs=${this.lockAcquisitionTimeoutMs}ms, lockTtlMs=${this.lockTtlMs}ms, acquisitionPollIntervalMs=${this.acquisitionPollIntervalMs}ms`,
     );
   }
 
   /**
-   * Acquires a local mutex lock for the specified resource.
+   * Acquires a local lock for the specified resource.
    *
-   * Uses async-mutex with timeout protection and session key tracking.
-   *
-   * @param lockId - The unique identifier of the resource to acquire the lock for
-   * @returns Promise that resolves to a unique session key when the lock is acquired, or null if error occurs
+   * @param lockId - The unique identifier for the resource to lock.
+   * @returns A promise that resolves to the session key if the lock is successfully acquired, or null if error occurs.
    */
   async acquireLock(lockId: string): Promise<string | null> {
     const lockKey = this.buildLockKey(lockId);
-    let lockState = this.lockStates.get(lockKey);
+    const sessionKey = randomUUID();
+    const waitStartedAt = Date.now();
 
-    if (!lockState) {
-      lockState = {
-        mutex: new Mutex(),
-        activeSessionKeys: new Set<string>(),
-      };
-      this.lockStates.set(lockKey, lockState);
+    // Get or create session queue for this lock
+    let sessionQueue = this.sessionQueues.get(lockKey);
+    if (!sessionQueue) {
+      sessionQueue = [];
+      this.sessionQueues.set(lockKey, sessionQueue);
     }
 
-    const timeoutMutex = withTimeout(lockState.mutex, this.lockAcquisitionTimeoutMs);
-    const waitStartedAt = Date.now();
-    const sessionKey = randomUUID();
-
     try {
-      await timeoutMutex.acquire();
-      lockState.activeSessionKeys.add(sessionKey);
+      // Enqueue the session key
+      sessionQueue.unshift(sessionKey);
+      this.logger.debug(`New item joined lock queue: lockId=${lockId}, session=${sessionKey}`);
 
-      const waitDurationMs = Date.now() - waitStartedAt;
-      this.logger.debug(`Local lock acquired: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+      // Poll until first in queue to acquire the lock, or until exceeding timeout
+      while (Date.now() - waitStartedAt < this.lockAcquisitionTimeoutMs) {
+        const firstInQueue = sessionQueue[sessionQueue.length - 1];
 
-      return sessionKey;
+        // Check if this session is first in queue and lock is not held
+        if (firstInQueue === sessionKey && !this.lockStorage.has(lockKey)) {
+          // Acquire lock only when lock does not exist
+          // This ensures only one client can hold the lock at a time
+          this.lockStorage.set(lockKey, sessionKey);
+
+          const waitDurationMs = Date.now() - waitStartedAt;
+          this.logger.debug(`Local lock acquired: ${lockId}, waited ${waitDurationMs}ms, session: ${sessionKey}`);
+
+          return sessionKey;
+        }
+
+        // Wait before next poll
+        await new Promise((resolve) => setTimeout(resolve, this.acquisitionPollIntervalMs));
+      }
+
+      // Lock acquisition process timed out
+      throw new Error('Lock acquisition timeout');
     } catch (error) {
       const waitDurationMs = Date.now() - waitStartedAt;
       if (error instanceof Error && error.message.includes('timeout')) {
@@ -103,20 +115,28 @@ export class LocalLockStrategy implements LockStrategy {
         );
       }
 
-      // cleanup lock state if lock was acquired
-      this.releaseLock(lockId, sessionKey);
-
       // Return null to signal that the lock was not acquired, allowing other processes
       // to continue without interruption instead of being blocked by an exception.
       return null;
+    } finally {
+      // Remove session key from queue regardless of success or failure
+      const sessionKeyIndex = sessionQueue.indexOf(sessionKey);
+      if (sessionKeyIndex !== -1) {
+        sessionQueue.splice(sessionKeyIndex, 1);
+      }
+
+      // Automatically deletes the queue entry if it becomes empty after removal - avoid accumulation
+      if (sessionQueue.length === 0) {
+        this.sessionQueues.delete(lockKey);
+      }
     }
   }
 
   /**
-   * Releases a local mutex lock for the specified resource.
+   * Releases a local lock for the specified resource.
    *
-   * Validates session key before releasing to prevent double-release.
-   * Silently succeeds if lock is already released or expired from LRU cache.
+   * Validates session key before releasing to prevent unauthorized release.
+   * Silently succeeds if lock is already released.
    *
    * @param lockId - The unique identifier of the resource to release the lock for
    * @param sessionKey - The unique session key returned from acquireLock()
@@ -124,21 +144,18 @@ export class LocalLockStrategy implements LockStrategy {
    */
   async releaseLock(lockId: string, sessionKey: string): Promise<void> {
     const lockKey = this.buildLockKey(lockId);
-    const lockState = this.lockStates.get(lockKey);
+    const currenSessionKey = this.lockStorage.get(lockKey);
 
-    if (!lockState || !lockState.activeSessionKeys.has(sessionKey)) {
-      // Lock already released or expired from LRU cache
-      // Skip this case to avoid double-release attempts
-      return;
-    }
-
-    try {
-      lockState.mutex.release();
-      this.logger.debug(`Local lock released: ${lockId}, session: ${sessionKey}`);
-    } catch (error) {
-      this.logger.error(`Error releasing local lock for ${lockId}:`, error);
-    } finally {
-      lockState.activeSessionKeys.delete(sessionKey);
+    // Ensure the lock is still valid and owned by the current session before releasing,
+    // preventing double-release or invalid session releases.
+    if (currenSessionKey === sessionKey) {
+      try {
+        // Delete lock entry to release the lock
+        this.lockStorage.delete(lockKey);
+        this.logger.debug(`Local lock released: ${lockId}, session: ${sessionKey}`);
+      } catch (error) {
+        this.logger.warn(`Error releasing local lock for ${lockId}:`, error);
+      }
     }
   }
 
