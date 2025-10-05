@@ -373,7 +373,7 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
-  LOCK_REDIS_ACQUISITION_POLL_INTERVAL_MS: {
+  LOCK_ACQUISITION_POLL_INTERVAL_MS: {
     type: 'number',
     required: false,
     defaultValue: 50,

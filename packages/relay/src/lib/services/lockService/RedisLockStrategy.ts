@@ -20,9 +20,8 @@ export class RedisLockStrategy implements LockStrategy {
 
   /**
    * Polling interval in milliseconds for checking queue position during lock acquisition.
-   * Lower values provide faster lock acquisition but increase Redis load.
    */
-  private readonly acquisitionPollIntervalMs = ConfigService.get('LOCK_REDIS_ACQUISITION_POLL_INTERVAL_MS');
+  private readonly acquisitionPollIntervalMs = ConfigService.get('LOCK_ACQUISITION_POLL_INTERVAL_MS');
 
   /** Redis client instance for distributed locking operations. */
   private redisClient?: RedisClientType;
@@ -83,9 +82,6 @@ export class RedisLockStrategy implements LockStrategy {
 
   /**
    * Acquires a distributed lock for the specified resource using Redis.
-   * This method implements a FIFO queue-based locking strategy to ensure order fairness.
-   * It joins a queue for the lock, polls until it's the first in line and can acquire the lock,
-   * or times out after the configured duration.
    *
    * @param lockId - The unique identifier for the resource to lock.
    * @returns A promise that resolves to the session key if the lock is successfully acquired, or null if error occurs.
@@ -102,14 +98,15 @@ export class RedisLockStrategy implements LockStrategy {
     const waitStartedAt = Date.now();
 
     try {
-      // Join the FIFO queue - adds the session key to the front of the queue
+      // Enqueue the session key
       await this.redisClient.lPush(queueKey, sessionKey);
       this.logger.debug(`New item joined lock queue: lockId=${lockId}, session=${sessionKey}`);
 
-      // Poll until first in queue and can acquire the lock, or until exceeding timeout
+      // Poll until first in queue to acquire the lock, or until exceeding timeout
       while (Date.now() - waitStartedAt < this.lockAcquisitionTimeoutMs) {
         const firstInQueue = await this.redisClient.lIndex(queueKey, -1);
 
+        // Check if this session is first in queue
         if (firstInQueue === sessionKey) {
           // Atomically acquire lock if available
           // set NX (set if Not eXists) new lockKey with sessionKey and PX (milliseconds) TTL
@@ -120,9 +117,7 @@ export class RedisLockStrategy implements LockStrategy {
           });
 
           if (acquired) {
-            // Successfully acquired lock, remove self from queue
-            // removes the session key from the end of the queue
-            await this.redisClient.rPop(queueKey);
+            // Successfully acquired lock
             const waitDurationMs = Date.now() - waitStartedAt;
             this.logger.debug(
               `Redis lock acquired: lockId=${lockId}, waited=${waitDurationMs}ms, session=${sessionKey}`,
@@ -144,20 +139,23 @@ export class RedisLockStrategy implements LockStrategy {
         this.logger.warn(`Unexpected error during lock acquisition for ${lockId} after ${waitDurationMs}ms:`, error);
       }
 
-      // Cleanup session from queue on any error
+      // Return null to signal that the lock was not acquired, allowing other processes
+      // to continue without interruption instead of being blocked by an exception.
+      return null;
+    } finally {
+      // Remove session from queue regardless of success or failure
       // `lRem` removes the first occurrence of the session key from the queue list
       await this.redisClient.lRem(queueKey, 1, sessionKey).catch((cleanupError) => {
         this.logger.warn(`Failed to cleanup queue entry for ${lockId}:`, cleanupError);
       });
-
-      // Return null to signal that the lock was not acquired, allowing other processes
-      // to continue without interruption instead of being blocked by an exception.
-      return null;
     }
   }
 
   /**
-   * Releases a Redis-based distributed lock using Lua script for atomic validation.
+   * Releases a Redis-based distributed lock for the specified resource.
+   *
+   * Atomically validates session key using Lua script before releasing to prevent unauthorized release.
+   * Silently succeeds if lock is already released.
    *
    * @param lockId - The unique identifier of the resource to release the lock for
    * @param sessionKey - The unique session key returned from acquireLock()
@@ -172,9 +170,7 @@ export class RedisLockStrategy implements LockStrategy {
     const lockKey = this.buildLockKey(lockId);
 
     try {
-      // Lua script for atomic lock release with session validation.
-      // Prevents lock hijacking by verifying session key before deletion.
-      // Atomicity is critical - checks and deletes must be a single operation.
+      // Lua script for atomic lock release with session key validation.
       const REDIS_RELEASE_SCRIPT = `
         if redis.call("get", KEYS[1]) == ARGV[1] then
             return redis.call("del", KEYS[1])
@@ -191,7 +187,6 @@ export class RedisLockStrategy implements LockStrategy {
       if (result === 1) {
         this.logger.debug(`Redis lock released: ${lockId}, session: ${sessionKey}`);
       }
-      // Note: result === 0 means already released or wrong session - this is expected, no log needed
     } catch (error) {
       this.logger.error(`Error releasing Redis lock for ${lockId}:`, error);
     }
