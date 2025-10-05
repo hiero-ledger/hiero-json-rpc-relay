@@ -346,17 +346,17 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expectedStartNonce: number,
     ): Promise<void> => {
       // Poll for all transaction receipts
-      for (const txHash of transactionHashes) {
-        await relay.pollForValidTransactionReceipt(txHash);
-      }
+      await Promise.all(transactionHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
 
       // Validate each transaction result and nonce ordering
-      for (let i = 0; i < transactionHashes.length; i++) {
-        const info = await mirrorNode.get(`/contracts/results/${transactionHashes[i]}`);
+      const infos = await Promise.all(
+        transactionHashes.map((txHash) => mirrorNode.get(`/contracts/results/${txHash}`)),
+      );
+      infos.forEach((info, index) => {
         expect(info).to.exist;
         expect(info.result).to.equal('SUCCESS');
-        expect(info.nonce).to.equal(expectedStartNonce + i);
-      }
+        expect(info.nonce).to.equal(expectedStartNonce + index);
+      });
     };
 
     const validateFinalNonce = async (senderAccount: AliasAccount, expectedNonce: number): Promise<void> => {
@@ -455,7 +455,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(result).to.not.be.undefined;
       });
 
-      // Validate that sendRawTransaction calls completed successfully (mutex worked)
+      // Validate that sendRawTransaction calls completed successfully (lock worked)
       expect(transactionHashes).to.have.lengthOf(TRANSACTION_COUNT);
       await validateFinalNonce(senderAccount, currentNonce + TRANSACTION_COUNT);
     });
