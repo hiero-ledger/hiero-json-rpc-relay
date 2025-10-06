@@ -257,6 +257,11 @@ export class TransactionService implements ITransactionService {
 
     await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
 
+    // Save the transaction to the transaction pool before submitting it to the network
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    }
+
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
      * the transaction hash is calculated and returned immediately after passing all prechecks.
@@ -491,11 +496,6 @@ export class TransactionService implements ITransactionService {
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
-    // Save the transaction to the transaction pool before submitting it to the network
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
-    }
-
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
@@ -506,6 +506,11 @@ export class TransactionService implements ITransactionService {
       networkGasPriceInWeiBars,
       requestDetails,
     );
+
+    // Remove the transaction from the transaction pool after successful submission
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
+    }
 
     sendRawTransactionError = error;
 
@@ -551,19 +556,10 @@ export class TransactionService implements ITransactionService {
           );
         }
 
-        // Remove the transaction from the transaction pool after successful submission
-        if (ConfigService.get('ENABLE_TX_POOL')) {
-          await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
-        }
         return contractResult.hash;
       } catch (e: any) {
         sendRawTransactionError = e;
       }
-    }
-
-    // Remove the transaction from the transaction pool after unsuccessful submission
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
     }
 
     // If this point is reached, it means that no valid transaction hash was returned. Therefore, an error must have occurred.

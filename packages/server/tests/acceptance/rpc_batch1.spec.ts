@@ -858,7 +858,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             expect(nonceLatest).to.equal(noncePending);
           });
 
-          it('should have equal nonces (pending and latest_ for contract reverted transaction', async () => {
+          it('should have equal nonces (pending and latest) for contract reverted transaction', async () => {
             const reverterContract = await Utils.deployContract(
               reverterContractJson.abi,
               reverterContractJson.bytecode,
