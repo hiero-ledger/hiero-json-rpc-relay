@@ -288,35 +288,35 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       );
     });
 
-    it('should save and remove transaction from transaction pool on success path', async function () {
-      const signed = await signTransaction(transaction);
-      const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+      it('should save and remove transaction from transaction pool on success path', async function () {
+        const signed = await signTransaction(transaction);
+        const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
 
-      const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
-      const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+        const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+        const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
 
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-      sdkClientStub.submitEthereumTransaction.resolves({
-        txResponse: {
-          transactionId: TransactionId.fromString(transactionIdServicesFormat),
-        } as unknown as TransactionResponse,
-        fileId: null,
+        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: TransactionId.fromString(transactionIdServicesFormat),
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+        expect(result).to.equal(ethereumHash);
+        sinon.assert.calledOnce(saveStub);
+        sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+        sinon.assert.calledOnce(removeStub);
+        sinon.assert.calledWith(removeStub, accountAddress, ethereumHash);
+
+        saveStub.restore();
+        removeStub.restore();
       });
 
-      const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-
-      expect(result).to.equal(ethereumHash);
-      sinon.assert.calledOnce(saveStub);
-      sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
-
-      sinon.assert.calledOnce(removeStub);
-      sinon.assert.calledWith(removeStub, accountAddress, ethereumHash);
-
-      saveStub.restore();
-      removeStub.restore();
-    });
-
-    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
       it('[USE_ASYNC_TX_PROCESSING=true] should throw internal error when transaction returned from mirror node is null', async function () {
         const signed = await signTransaction(transaction);
 
