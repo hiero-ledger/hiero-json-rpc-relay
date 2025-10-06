@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
@@ -318,7 +319,7 @@ export class AccountService implements IAccountService {
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (blockNumOrTag == constants.BLOCK_PENDING) {
+      if (ConfigService.get('ENABLE_TX_POOL') && blockNumOrTag == constants.BLOCK_PENDING) {
         return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
       }
       return mnNonce;

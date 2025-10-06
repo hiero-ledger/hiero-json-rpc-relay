@@ -492,7 +492,9 @@ export class TransactionService implements ITransactionService {
     const originalCallerAddress = parsedTx.from?.toString() || '';
 
     // Save the transaction to the transaction pool before submitting it to the network
-    await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.saveTransaction(originalCallerAddress, parsedTx);
+    }
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
@@ -550,8 +552,9 @@ export class TransactionService implements ITransactionService {
         }
 
         // Remove the transaction from the transaction pool after successful submission
-        await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
-
+        if (ConfigService.get('ENABLE_TX_POOL')) {
+          await this.transactionPoolService.removeTransaction(originalCallerAddress, contractResult.hash);
+        }
         return contractResult.hash;
       } catch (e: any) {
         sendRawTransactionError = e;
@@ -559,7 +562,9 @@ export class TransactionService implements ITransactionService {
     }
 
     // Remove the transaction from the transaction pool after unsuccessful submission
-    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash);
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
+    }
 
     // If this point is reached, it means that no valid transaction hash was returned. Therefore, an error must have occurred.
     return await this.sendRawTransactionErrorHandler(

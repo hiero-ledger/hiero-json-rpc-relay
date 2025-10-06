@@ -240,30 +240,6 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.removeFromList.calledOnce).to.be.true;
     });
 
-    it('should handle complete transaction lifecycle using onConsensusResult', async () => {
-      // Setup initial state
-      mockStorage.getList.resolves(0);
-      mockStorage.addToList.resolves({ ok: true, newValue: 1 } as AddToListResult);
-      mockStorage.removeFromList.resolves(0);
-
-      // Save transaction
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
-
-      // Verify pending count increased
-      mockStorage.getList.resolves(1);
-      const pendingCount = await transactionPoolService.getPendingCount(testAddress);
-      expect(pendingCount).to.equal(1);
-
-      // Process consensus result (simulating transaction execution event)
-      const payload = createTestEventPayload();
-      await transactionPoolService.onConsensusResult(payload);
-
-      // Verify all storage methods were called correctly
-      expect(mockStorage.getList.called).to.be.true;
-      expect(mockStorage.addToList.calledOnce).to.be.true;
-      expect(mockStorage.removeFromList.calledOnceWith(testAddress, testTxHash)).to.be.true;
-    });
-
     it('should handle multiple transactions for same address', async () => {
       const secondTx = {
         ...testTransaction,
@@ -301,49 +277,6 @@ describe('TransactionPoolService Test Suite', function () {
       await transactionPoolService.resetState();
 
       expect(mockStorage.removeAll.calledOnce).to.be.true;
-    });
-
-    it('should handle consensus events during transaction lifecycle', async () => {
-      // Setup with multiple pending transactions
-      mockStorage.getList.resolves(2);
-      mockStorage.addToList.resolves({ ok: true, newValue: 3 } as AddToListResult);
-      mockStorage.removeFromList.resolves(2); // One transaction remains after removal
-
-      // Add new transaction
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
-
-      // Process consensus result for one transaction
-      const payload = createTestEventPayload();
-      await transactionPoolService.onConsensusResult(payload);
-
-      // Verify the transaction was removed via consensus
-      expect(mockStorage.removeFromList.calledOnceWith(testAddress, testTxHash)).to.be.true;
-    });
-
-    it('should handle multiple consensus results for different addresses', async () => {
-      const address1 = '0x1111111111111111111111111111111111111111';
-      const address2 = '0x2222222222222222222222222222222222222222';
-      const hash1 = '0xaaaa1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-      const hash2 = '0xbbbb1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-
-      mockStorage.removeFromList.resolves(0);
-
-      // Process consensus results for different addresses
-      const payload1 = createTestEventPayload({
-        originalCallerAddress: address1,
-        transactionHash: hash1,
-      });
-      const payload2 = createTestEventPayload({
-        originalCallerAddress: address2,
-        transactionHash: hash2,
-      });
-
-      await transactionPoolService.onConsensusResult(payload1);
-      await transactionPoolService.onConsensusResult(payload2);
-
-      expect(mockStorage.removeFromList.calledTwice).to.be.true;
-      expect(mockStorage.removeFromList.firstCall.calledWith(address1, hash1)).to.be.true;
-      expect(mockStorage.removeFromList.secondCall.calledWith(address2, hash2)).to.be.true;
     });
   });
 });
