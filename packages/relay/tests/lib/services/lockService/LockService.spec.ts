@@ -4,10 +4,11 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomUUID } from 'crypto';
 import pino from 'pino';
+import * as redisModule from 'redis';
 import sinon from 'sinon';
 
-import { LockService } from '../../../../src/lib/services/lockService/LockService';
 import { LocalLockStrategy } from '../../../../src/lib/services/lockService/LocalLockStrategy';
+import { LockService } from '../../../../src/lib/services/lockService/LockService';
 import { RedisLockStrategy } from '../../../../src/lib/services/lockService/RedisLockStrategy';
 import { overrideEnvsInMochaDescribe } from '../../../helpers';
 
@@ -123,12 +124,11 @@ describe('LockService Test Suite', function () {
 
       beforeEach(() => {
         // Mock Redis client to prevent actual connection
-        const redisModule = require('redis');
         const mockRedisClient = {
           connect: sinon.stub().resolves(),
           on: sinon.stub(),
         };
-        sinon.stub(redisModule, 'createClient').returns(mockRedisClient);
+        sinon.stub(redisModule, 'createClient').returns(mockRedisClient as any);
       });
 
       it('should initialize with RedisLockStrategy', () => {
@@ -223,12 +223,11 @@ describe('LockService Test Suite', function () {
 
       beforeEach(() => {
         // Mock Redis client to prevent actual connection
-        const redisModule = require('redis');
         const mockRedisClient = {
           connect: sinon.stub().resolves(),
           on: sinon.stub(),
         };
-        sinon.stub(redisModule, 'createClient').returns(mockRedisClient);
+        sinon.stub(redisModule, 'createClient').returns(mockRedisClient as any);
       });
 
       it('should successfully acquire lock', async () => {
@@ -347,12 +346,11 @@ describe('LockService Test Suite', function () {
 
       beforeEach(() => {
         // Mock Redis client to prevent actual connection
-        const redisModule = require('redis');
         const mockRedisClient = {
           connect: sinon.stub().resolves(),
           on: sinon.stub(),
         };
-        sinon.stub(redisModule, 'createClient').returns(mockRedisClient);
+        sinon.stub(redisModule, 'createClient').returns(mockRedisClient as any);
       });
 
       it('should successfully release lock', async () => {
@@ -457,12 +455,11 @@ describe('LockService Test Suite', function () {
 
       beforeEach(() => {
         // Mock Redis client to prevent actual connection
-        const redisModule = require('redis');
         const mockRedisClient = {
           connect: sinon.stub().resolves(),
           on: sinon.stub(),
         };
-        sinon.stub(redisModule, 'createClient').returns(mockRedisClient);
+        sinon.stub(redisModule, 'createClient').returns(mockRedisClient as any);
       });
 
       it('should complete acquire and release cycle', async () => {

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomUUID } from 'crypto';
 import pino from 'pino';
+import * as redisModule from 'redis';
 import sinon from 'sinon';
 
 import { RedisLockStrategy } from '../../../../src/lib/services/lockService/RedisLockStrategy';
 import { overrideEnvsInMochaDescribe } from '../../../helpers';
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 chai.use(chaiAsPromised);
 
@@ -49,7 +50,6 @@ describe('RedisLockStrategy Test Suite', function () {
     };
 
     // Stub the redis module's createClient to return our mock
-    const redisModule = require('redis');
     sinon.stub(redisModule, 'createClient').returns(mockRedisClient);
 
     // Create strategy instance
@@ -103,7 +103,6 @@ describe('RedisLockStrategy Test Suite', function () {
 
     it('should handle connection failure gracefully', () => {
       sinon.restore();
-      const redisModule = require('redis');
       const failingClient = {
         ...mockRedisClient,
         connect: sinon.stub().rejects(new Error('Connection failed')),
@@ -221,7 +220,7 @@ describe('RedisLockStrategy Test Suite', function () {
         const otherSessionUUID = randomUUID();
 
         // Session is first in queue after 2 polls
-        mockRedisClient.lIndex.callsFake(async (_key: string, value: string) => {
+        mockRedisClient.lIndex.callsFake(async () => {
           pollCount++;
           if (pollCount > 2) {
             const calls = mockRedisClient.lPush.getCalls();
