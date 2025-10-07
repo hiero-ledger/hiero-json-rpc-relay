@@ -768,6 +768,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       describe('Transaction Pool feature', async () => {
         describe('ENABLE_TX_POOL = true', async () => {
+          beforeEach(async () => {
+            await new Promise(r => setTimeout(r, 2000));
+          });
           overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: true });
           it('should have equal nonces (pending and latest) after successful validated transaction', async () => {
             const tx = {
