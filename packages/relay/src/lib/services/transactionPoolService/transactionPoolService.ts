@@ -3,7 +3,6 @@
 import { Transaction } from 'ethers';
 import { Logger } from 'pino';
 
-import { IExecuteTransactionEventPayload } from '../../types/events';
 import {
   PendingTransactionStorage,
   TransactionPoolService as ITransactionPoolService,

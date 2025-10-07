@@ -7,7 +7,7 @@ import { Logger } from 'pino';
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { JsonRpcError, predefined } from './errors/JsonRpcError';
+import { predefined } from './errors/JsonRpcError';
 import { CommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 import { IAccountBalance } from './types/mirrorNode';
