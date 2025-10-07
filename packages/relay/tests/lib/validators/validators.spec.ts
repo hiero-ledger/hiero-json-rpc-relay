@@ -687,6 +687,13 @@ describe('Validator', async () => {
       { tracer: Constants.TracerType.OpcodeLogger, tracerConfig: {} },
       { tracer: Constants.TracerType.OpcodeLogger },
       { tracerConfig: { enableMemory: true, disableStack: false, disableStorage: true } },
+      // Top level opcodeLogger config without explicit tracer (defaults to opcodeLogger)
+      { enableMemory: true, disableStack: false, disableStorage: true },
+      { enableMemory: true },
+      { disableStack: false },
+      { disableStorage: true },
+      { fullStorage: false }, // Non-standard but accepted for Remix compatibility
+      { enableMemory: true, disableStack: false, disableStorage: true, fullStorage: false },
       // Empty object
       {},
     ],
@@ -694,6 +701,37 @@ describe('Validator', async () => {
       {
         input: { tracer: 'invalid', tracerConfig: {} },
         error: expectInvalidParam("'tracer' for TracerConfigWrapper", TYPES.tracerType.error, 'invalid'),
+      },
+      // Config properties with explicit tracer (not allowed in simplified model)
+      {
+        input: { tracer: Constants.TracerType.CallTracer, enableMemory: true },
+        error: expectInvalidParam(
+          1,
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
+        ),
+      },
+      {
+        input: { tracer: Constants.TracerType.CallTracer, disableStack: false },
+        error: expectInvalidParam(
+          1,
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
+        ),
+      },
+      // Both top-level and nested config
+      {
+        input: { enableMemory: true, tracerConfig: { disableStack: false } },
+        error: expectInvalidParam(
+          1,
+          "Cannot specify tracer config properties both at top level and in 'tracerConfig' for TracerConfigWrapper",
+        ),
+      },
+      // Top-level config with explicit tracer (not allowed)
+      {
+        input: { tracer: Constants.TracerType.OpcodeLogger, enableMemory: true },
+        error: expectInvalidParam(
+          1,
+          "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
+        ),
       },
       {
         input: { tracer: Constants.TracerType.CallTracer, tracerConfig: { onlyTopCall: 'invalid' } },

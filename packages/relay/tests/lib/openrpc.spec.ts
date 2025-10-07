@@ -193,6 +193,7 @@ describe('Open RPC Specification', function () {
         balance: {
           balance: 100000000000,
         },
+        ethereum_nonce: 0,
       }),
     );
     mock
