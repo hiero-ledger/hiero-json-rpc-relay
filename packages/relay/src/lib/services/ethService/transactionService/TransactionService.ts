@@ -445,7 +445,7 @@ export class TransactionService implements ITransactionService {
 
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (e: any) {
-      this.logger.error(`Precheck failed: transaction=${JSON.stringify(parsedTx)}`);
+      this.logger.error(e, `Precheck failed: errorMessage=${e.message}`);
       throw this.common.genericErrorHandler(e);
     }
   }

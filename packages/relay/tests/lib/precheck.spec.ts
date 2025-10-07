@@ -183,7 +183,7 @@ describe('Precheck', async function () {
   describe('chainId', async function () {
     it('should pass for matching chainId', async function () {
       try {
-        precheck.chainId(parsedTxWithMatchingChainId, requestDetails);
+        precheck.chainId(parsedTxWithMatchingChainId);
       } catch (e: any) {
         expect(e).to.not.exist;
       }
@@ -191,7 +191,7 @@ describe('Precheck', async function () {
 
     it('should pass when chainId=0x0', async function () {
       try {
-        precheck.chainId(parsedtxWithChainId0x0, requestDetails);
+        precheck.chainId(parsedtxWithChainId0x0);
       } catch (e: any) {
         expect(e).to.not.exist;
       }
@@ -199,7 +199,7 @@ describe('Precheck', async function () {
 
     it('should not pass for non-matching chainId', async function () {
       try {
-        precheck.chainId(parsedTxWithNonMatchingChainId, requestDetails);
+        precheck.chainId(parsedTxWithNonMatchingChainId);
         expectedError();
       } catch (e: any) {
         expect(e).to.exist;
@@ -233,7 +233,7 @@ describe('Precheck', async function () {
               ? `Transaction gas limit '${gasLimit}' exceeds max gas per sec limit '${constants.MAX_TRANSACTION_FEE_THRESHOLD}'`
               : `Transaction gas limit provided '${gasLimit}' is insufficient of intrinsic gas required `;
           try {
-            await precheck.gasLimit(parsedTx, requestDetails);
+            await precheck.gasLimit(parsedTx);
             expectedError();
           } catch (e: any) {
             expect(e).to.exist;
@@ -255,7 +255,7 @@ describe('Precheck', async function () {
           const parsedTx = ethers.Transaction.from(signed);
 
           try {
-            precheck.gasLimit(parsedTx, requestDetails);
+            precheck.gasLimit(parsedTx);
           } catch (e: any) {
             expect(e).to.not.exist;
           }
@@ -276,11 +276,11 @@ describe('Precheck', async function () {
     overrideEnvsInMochaDescribe({ GAS_PRICE_TINY_BAR_BUFFER: 10000000000 }); // 1 tinybar
 
     it('should pass for gas price gt to required gas price', async function () {
-      expect(() => precheck.gasPrice(parsedTxWithMatchingChainId, 10, requestDetails)).to.not.throw;
+      expect(() => precheck.gasPrice(parsedTxWithMatchingChainId, 10)).to.not.throw;
     });
 
     it('should pass for gas price equal to required gas price', async function () {
-      expect(() => precheck.gasPrice(parsedTxWithMatchingChainId, defaultGasPrice, requestDetails)).to.not.throw;
+      expect(() => precheck.gasPrice(parsedTxWithMatchingChainId, defaultGasPrice)).to.not.throw;
     });
 
     it('should recognize if a signed raw transaction is the deterministic deployment transaction', async () => {
@@ -304,7 +304,6 @@ describe('Precheck', async function () {
       const result = precheck.gasPrice(
         parsedDeterministicDeploymentTransaction,
         100 * constants.TINYBAR_TO_WEIBAR_COEF,
-        requestDetails,
       );
       expect(result).to.not.exist;
     });
@@ -312,7 +311,7 @@ describe('Precheck', async function () {
     it('should not pass for gas price not enough', async function () {
       const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
       try {
-        precheck.gasPrice(parsedTxWithMatchingChainId, minGasPrice, requestDetails);
+        precheck.gasPrice(parsedTxWithMatchingChainId, minGasPrice);
         expectedError();
       } catch (e: any) {
         expect(e).to.exist;
@@ -324,7 +323,7 @@ describe('Precheck', async function () {
 
     it('should pass for gas price not enough but within buffer', async function () {
       const adjustedGasPrice = parsedTxGasPrice + Number(constants.GAS_PRICE_TINY_BAR_BUFFER);
-      precheck.gasPrice(parsedTxWithMatchingChainId, adjustedGasPrice, requestDetails);
+      precheck.gasPrice(parsedTxWithMatchingChainId, adjustedGasPrice);
     });
 
     it('should pass for gas price if the transaction has valid gasPrice but null maxFeePerGas and null maxPriorityFeePerGas', async function () {
@@ -335,7 +334,7 @@ describe('Precheck', async function () {
         maxPriorityFeePerGas: null,
       } as Transaction;
 
-      expect(() => precheck.gasPrice(parsedTx, 50, requestDetails)).to.not.throw();
+      expect(() => precheck.gasPrice(parsedTx, 50)).to.not.throw();
     });
 
     it('should pass for gas price if the transaction has null gasPrice but valid maxFeePerGas and valid maxPriorityFeePerGas', async function () {
@@ -346,7 +345,7 @@ describe('Precheck', async function () {
         maxPriorityFeePerGas: BigInt(100),
       } as Transaction;
 
-      expect(() => precheck.gasPrice(parsedTx, 50, requestDetails)).to.not.throw();
+      expect(() => precheck.gasPrice(parsedTx, 50)).to.not.throw();
     });
 
     it('should not pass for gas price if the transaction has null gasPrice and null maxFeePerGas and null maxPriorityFeePerGas', async function () {
@@ -360,7 +359,7 @@ describe('Precheck', async function () {
       const parsedTx = ethers.Transaction.from(signed);
       const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
 
-      expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
+      expect(() => precheck.gasPrice(parsedTx, minGasPrice)).to.throw(
         `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
       );
     });
@@ -375,7 +374,7 @@ describe('Precheck', async function () {
         const parsedTx = ethers.Transaction.from(signed);
         const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
 
-        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice)).to.throw(
           `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
         );
       });
@@ -391,7 +390,7 @@ describe('Precheck', async function () {
         const parsedTx = ethers.Transaction.from(signed);
         const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
 
-        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.throw(
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice)).to.throw(
           `Gas price '0' is below configured minimum gas price '${minGasPrice}'`,
         );
       });
@@ -408,7 +407,7 @@ describe('Precheck', async function () {
         const parsedTx = ethers.Transaction.from(signed);
         const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
 
-        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.not.throw();
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice)).to.not.throw();
       });
     });
 
@@ -422,7 +421,7 @@ describe('Precheck', async function () {
         const parsedTx = ethers.Transaction.from(signed);
         const minGasPrice = 1000 * constants.TINYBAR_TO_WEIBAR_COEF;
 
-        expect(() => precheck.gasPrice(parsedTx, minGasPrice, requestDetails)).to.not.throw();
+        expect(() => precheck.gasPrice(parsedTx, minGasPrice)).to.not.throw();
       });
     });
   });
@@ -438,12 +437,12 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(1, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(1, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
       try {
-        precheck.balance(parsedTransaction, account, requestDetails);
+        precheck.balance(parsedTransaction, account.balance);
         expectedError();
       } catch (e: any) {
         expect(e).to.exist;
@@ -452,28 +451,15 @@ describe('Precheck', async function () {
       }
     });
 
-    it('should not pass for no account found', async function () {
-      const account = null;
-
-      try {
-        precheck.balance(parsedTransaction, account, requestDetails);
-        expectedError();
-      } catch (e: any) {
-        expect(e).to.exist;
-        expect(e.code).to.eq(-32001);
-        expect(e.message).to.contain('Requested resource not found');
-      }
-    });
-
     it('should pass for 10 hbar', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(10, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(10, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account, requestDetails);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -481,11 +467,11 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(100, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(100, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account, requestDetails);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -493,11 +479,11 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(10_000, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(10_000, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account, requestDetails);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -505,11 +491,11 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(100_000, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(100_000, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account, requestDetails);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -517,11 +503,11 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: Hbar.from(50_000_000_000, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+          balance: Hbar.from(50_000_000_000, HbarUnit.Hbar).to(HbarUnit.Tinybar).toNumber(),
         },
       };
 
-      const result = precheck.balance(parsedTransaction, account, requestDetails);
+      const result = precheck.balance(parsedTransaction, account.balance);
       expect(result).to.not.exist;
     });
 
@@ -539,11 +525,11 @@ describe('Precheck', async function () {
         account: accountId,
         balance: {
           // Set balance higher than value + (gasPrice * gasLimit)
-          balance: (BigInt(1000) + BigInt(100) * BigInt(21000) + BigInt(1000)).toString(),
+          balance: Number(BigInt(1000) + BigInt(100) * BigInt(21000) + BigInt(1000)),
         },
       };
 
-      expect(() => precheck.balance(tx, account, requestDetails)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
 
     it('should calculate balance correctly when transaction has null gasPrice but valid maxFeePerGas and maxPriorityFeePerGas', async function () {
@@ -560,11 +546,11 @@ describe('Precheck', async function () {
         account: accountId,
         balance: {
           // Set balance higher than value + ((maxFeePerGas + maxPriorityFeePerGas) * gasLimit)
-          balance: (BigInt(1000) + BigInt(200) * BigInt(21000) + BigInt(1000)).toString(),
+          balance: Number(BigInt(1000) + BigInt(200) * BigInt(21000) + BigInt(1000)),
         },
       };
 
-      expect(() => precheck.balance(tx, account, requestDetails)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
 
     it('should still pass when transaction has null gasPrice, null maxFeePerGas, and null maxPriorityFeePerGas', async function () {
@@ -580,11 +566,11 @@ describe('Precheck', async function () {
       const account = {
         account: accountId,
         balance: {
-          balance: BigInt(1000).toString(), // Any balance would fail as txTotalValue calculation would error
+          balance: 1000, // Any balance would fail as txTotalValue calculation would error
         },
       };
 
-      expect(() => precheck.balance(tx, account, requestDetails)).to.not.throw();
+      expect(() => precheck.balance(tx, account.balance)).to.not.throw();
     });
   });
 
@@ -626,7 +612,7 @@ describe('Precheck', async function () {
     });
   });
 
-  describe('account', async function () {
+  describe('verifyAccount', async function () {
     let parsedTx: Transaction;
     let mirrorAccount: any;
     const defaultNonce: number = 3;
@@ -843,7 +829,7 @@ describe('Precheck', async function () {
 
     it('should accept legacy transactions', async () => {
       const signedLegacy = await signTransaction(defaultTx);
-      expect(() => precheck.transactionType(ethers.Transaction.from(signedLegacy), requestDetails)).not.to.throw;
+      expect(() => precheck.transactionType(ethers.Transaction.from(signedLegacy))).not.to.throw;
     });
 
     it('should accept London transactions', async () => {
@@ -853,7 +839,7 @@ describe('Precheck', async function () {
         maxPriorityFeePerGas: defaultGasPrice,
         maxFeePerGas: defaultGasPrice,
       });
-      expect(() => precheck.transactionType(ethers.Transaction.from(signedLondon), requestDetails)).not.to.throw;
+      expect(() => precheck.transactionType(ethers.Transaction.from(signedLondon))).not.to.throw;
     });
 
     it('should reject Cancun transactions', async () => {
@@ -865,13 +851,13 @@ describe('Precheck', async function () {
           maxFeePerBlobGas: defaultGasPrice,
           blobVersionedHashes: [blobVersionedHash],
         });
-        precheck.transactionType(ethers.Transaction.from(signedCancun), requestDetails);
+        precheck.transactionType(ethers.Transaction.from(signedCancun));
       } catch (e) {
         error = e;
       }
       expect(error).to.be.an.instanceOf(JsonRpcError);
-      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE.message);
-      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE.code);
+      expect(error.message).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.message);
+      expect(error.code).to.equal(predefined.UNSUPPORTED_TRANSACTION_TYPE_3.code);
     });
   });
 
