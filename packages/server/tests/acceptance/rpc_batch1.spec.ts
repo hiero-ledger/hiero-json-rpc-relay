@@ -836,7 +836,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const txHash2 = await relay.sendRawTransaction(signedTx2);
             await new Promise((r) => setTimeout(r, 100));
             const txHash3 = await relay.sendRawTransaction(signedTx3);
-
             await Promise.all([
               relay.pollForValidTransactionReceipt(txHash1),
               relay.pollForValidTransactionReceipt(txHash2),
