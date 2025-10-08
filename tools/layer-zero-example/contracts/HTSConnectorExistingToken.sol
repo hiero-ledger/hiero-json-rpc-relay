@@ -60,7 +60,7 @@ abstract contract HTSConnectorExistingToken is OFTCore, KeyHelper, HederaTokenSe
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
 
-        int256 transferResponse = HederaTokenService.transferToken(htsTokenAddress, _from, address(this), int64(uint64(_amountLD)));
+        int256 transferResponse = HederaTokenService.transferToken(htsTokenAddress, _from, address(this), int64(uint64(amountSentLD)));
         require(transferResponse == HederaTokenService.SUCCESS_CODE, "HTS: Transfer failed");
 
         (int256 response,) = HederaTokenService.burnToken(htsTokenAddress, int64(uint64(amountSentLD)), new int64[](0));
