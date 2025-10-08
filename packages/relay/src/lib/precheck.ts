@@ -7,7 +7,7 @@ import { Logger } from 'pino';
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
-import { JsonRpcError, predefined } from './errors/JsonRpcError';
+import { predefined } from './errors/JsonRpcError';
 import { CommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 import { IAccountBalance } from './types/mirrorNode';
@@ -80,9 +80,9 @@ export class Precheck {
     this.gasLimit(parsedTx);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
     const signerNonce =
-      mirrorAccountInfo.ethereum_nonce + ConfigService.get('ENABLE_TX_POOL')
+      mirrorAccountInfo.ethereum_nonce + (ConfigService.get('ENABLE_TX_POOL')
         ? await this.transactionPoolService.getPendingCount(parsedTx.from!)
-        : 0;
+        : 0);
     this.nonce(parsedTx, signerNonce);
     this.chainId(parsedTx);
     this.value(parsedTx);

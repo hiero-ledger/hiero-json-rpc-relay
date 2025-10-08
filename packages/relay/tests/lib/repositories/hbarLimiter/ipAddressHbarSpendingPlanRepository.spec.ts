@@ -5,7 +5,6 @@ import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
@@ -30,7 +29,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: IPAddressHbarSpendingPlanRepository;
     let redisClientManager: RedisClientManager;
-    let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
       useInMemoryRedisServer(logger, 6383);
@@ -41,9 +39,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       if (isSharedCacheEnabled) {
         redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6383', 1000);
         await redisClientManager.connect();
-        redisClient = redisClientManager.getClient();
-      } else {
-        redisClient = undefined;
       }
       cacheService = new CacheService(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);

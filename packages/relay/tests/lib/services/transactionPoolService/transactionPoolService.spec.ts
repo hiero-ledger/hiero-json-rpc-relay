@@ -6,7 +6,6 @@ import { Logger, pino } from 'pino';
 import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
-import { IExecuteTransactionEventPayload } from '../../../../src/lib/types/events';
 import { AddToListResult, PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
 
 describe('TransactionPoolService Test Suite', function () {
@@ -18,7 +17,6 @@ describe('TransactionPoolService Test Suite', function () {
 
   const testAddress = '0x742d35cc6629c0532c262d2d73f4c8e1a1b7b7b7';
   const testTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-  const testTransactionId = '0.0.123@1234567890.123456789';
   const testTransaction: Transaction = {
     hash: testTxHash,
     data: '0x',
@@ -29,21 +27,6 @@ describe('TransactionPoolService Test Suite', function () {
     gasPrice: 1000000000n,
     nonce: 1,
   } as Transaction;
-
-  const createTestEventPayload = (
-    overrides?: Partial<IExecuteTransactionEventPayload>,
-  ): IExecuteTransactionEventPayload => ({
-    transactionId: testTransactionId,
-    transactionHash: testTxHash,
-    txConstructorName: 'EthereumTransaction',
-    operatorAccountId: '0.0.2',
-    requestDetails: {
-      requestId: 'test-request-id',
-      ipAddress: '127.0.0.1',
-    } as any,
-    originalCallerAddress: testAddress,
-    ...overrides,
-  });
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });
