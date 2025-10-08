@@ -515,7 +515,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       ];
     });
 
-    //TODO After adding the additional expects after getTokenKeyPublic in tokenManagementContract, the whole describe can be deleted. -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
     describe('Function with HederaTokenService.getTokenKey(token, keyType)', async () => {
       const keyTypes = {
         ADMIN: 1,
@@ -528,13 +527,9 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       };
 
       it(`keyType = ADMIN`, async () => {
-        const res = await htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['ADMIN']);
-        expect(res).to.exist;
-        expect(res.inheritAccountKey).to.eq(false);
-        expect(res.contractId).to.eq(ZERO_HEX);
-        expect(res.ed25519).to.eq(EMPTY_HEX);
-        expect(res.ECDSA_secp256k1).to.eq(EMPTY_HEX);
-        expect(res.delegatableContractId).to.eq(ZERO_HEX);
+        await expect(htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['ADMIN'])).to.be.rejectedWith(
+          'execution reverted',
+        );
       });
 
       it(`keyType = KYC`, async () => {
@@ -558,33 +553,21 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       });
 
       it(`keyType = SUPPLY`, async () => {
-        const res = await htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['SUPPLY']);
-        expect(res).to.exist;
-        expect(res.inheritAccountKey).to.eq(false);
-        expect(res.contractId).to.eq(ZERO_HEX);
-        expect(res.ed25519).to.eq(EMPTY_HEX);
-        expect(res.ECDSA_secp256k1).to.eq(EMPTY_HEX);
-        expect(res.delegatableContractId).to.eq(ZERO_HEX);
+        await expect(htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['SUPPLY'])).to.be.rejectedWith(
+          'execution reverted',
+        );
       });
 
       it(`keyType = FEE`, async () => {
-        const res = await htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['FEE']);
-        expect(res).to.exist;
-        expect(res.inheritAccountKey).to.eq(false);
-        expect(res.contractId).to.eq(ZERO_HEX);
-        expect(res.ed25519).to.eq(EMPTY_HEX);
-        expect(res.ECDSA_secp256k1).to.eq(EMPTY_HEX);
-        expect(res.delegatableContractId).to.eq(ZERO_HEX);
+        await expect(htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['FEE'])).to.be.rejectedWith(
+          'execution reverted',
+        );
       });
 
       it(`keyType = PAUSE`, async () => {
-        const res = await htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['PAUSE']);
-        expect(res).to.exist;
-        expect(res.inheritAccountKey).to.eq(false);
-        expect(res.contractId).to.eq(ZERO_HEX);
-        expect(res.ed25519).to.eq(EMPTY_HEX);
-        expect(res.ECDSA_secp256k1).to.eq(EMPTY_HEX);
-        expect(res.delegatableContractId).to.eq(ZERO_HEX);
+        await expect(htsImpl.getTokenKeyPublic.staticCall(tokenAddress, keyTypes['PAUSE'])).to.be.rejectedWith(
+          'execution reverted',
+        );
       });
     });
   });
