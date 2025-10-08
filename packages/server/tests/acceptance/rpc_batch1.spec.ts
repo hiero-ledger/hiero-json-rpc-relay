@@ -767,6 +767,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       };
 
       describe('Transaction Pool feature', async () => {
+        overrideEnvsInMochaDescribe({ USE_ASYNC_TX_PROCESSING: true });
         describe('ENABLE_TX_POOL = true', async () => {
           beforeEach(async () => {
             await new Promise(r => setTimeout(r, 2000));
