@@ -80,9 +80,9 @@ export class Precheck {
     this.gasLimit(parsedTx);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
     const signerNonce =
-      mirrorAccountInfo.ethereum_nonce + ConfigService.get('ENABLE_TX_POOL')
+      mirrorAccountInfo.ethereum_nonce + (ConfigService.get('ENABLE_TX_POOL')
         ? await this.transactionPoolService.getPendingCount(parsedTx.from!)
-        : 0;
+        : 0);
     this.nonce(parsedTx, signerNonce);
     this.chainId(parsedTx);
     this.value(parsedTx);

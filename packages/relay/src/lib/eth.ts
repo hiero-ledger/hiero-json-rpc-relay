@@ -142,6 +142,7 @@ export class EthImpl implements Eth {
       ? new RedisPendingTransactionStorage(this.redisClient)
       : new LocalPendingTransactionStorage();
     const transactionPoolService = new TransactionPoolService(storage, logger);
+    transactionPoolService.resetState();
     this.transactionService = new TransactionService(
       cacheService,
       chain,

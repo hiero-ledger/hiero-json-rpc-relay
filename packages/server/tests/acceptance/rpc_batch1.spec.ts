@@ -887,8 +887,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             expect(nonceLatest).to.equal(noncePending);
           });
 
-          it('scenario #5', async () => {});
-
           it('should have difference between pending and latest nonce when a single transaction has been sent', async () => {
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const signedTx1 = await accounts[1].wallet.signTransaction({
