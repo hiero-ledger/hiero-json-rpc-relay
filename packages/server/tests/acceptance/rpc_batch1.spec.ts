@@ -773,7 +773,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             await new Promise(r => setTimeout(r, 2000));
           });
           overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: true });
-          it('should have equal nonces (pending and latest) after successful validated transaction', async () => {
+          it('should have equal nonces (pending and latest) after successfully validated transaction', async () => {
             const tx = {
               ...defaultLondonTransactionData,
               to: accounts[2].address,
