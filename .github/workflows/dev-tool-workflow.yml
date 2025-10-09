@@ -56,8 +56,7 @@ jobs:
         run: npx lerna run build
 
       - name: Start the hedera local node
-        # run: npx hedera start -d
-        run: npx hedera restart -d --verbose=trace --network-tag=0.65.1 --mirror-tag=0.140.0-rc1
+        run: npx hedera start -d
 
       - name: Stop the local node's relay
         run: docker stop json-rpc-relay
