@@ -138,7 +138,7 @@ export class BlockService implements IBlockService {
 
     const [contractResults, logs] = await Promise.all([
       this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-      this.common.getLogsWithParams(null, paramTimestamp, requestDetails)
+      this.common.getLogsWithParams(null, paramTimestamp, requestDetails),
     ]);
 
     if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
