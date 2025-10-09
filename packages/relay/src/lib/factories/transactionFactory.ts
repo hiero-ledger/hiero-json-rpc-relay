@@ -108,7 +108,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     nonce: nanOrNumberTo0x(cr.nonce),
     r: cr.r === null ? '0x0' : stripLeadingZeroForSignatures(cr.r.substring(0, 66)),
     s: cr.s === null ? '0x0' : stripLeadingZeroForSignatures(cr.s.substring(0, 66)),
-    to: cr.to?.substring(0, 42) ?? null,
+    to: cr.to === null ? null : cr.to.substring(0, 42),
     transactionIndex: nullableNumberTo0x(cr.transaction_index),
     type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
     v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
