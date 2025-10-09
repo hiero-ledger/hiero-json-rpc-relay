@@ -37,6 +37,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
+import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
 
 const Address = RelayCalls;
 
@@ -814,9 +815,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const tx1 = {
               ...defaultLondonTransactionData,
               to: null,
-              data: '0x' + '00'.repeat(5121),
+              data: basicContractJson.bytecode,
               nonce: accountNonce,
-              gasLimit: 41484,
+              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
             };
             const tx2 = {
               ...defaultLondonTransactionData,
@@ -827,18 +828,18 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const tx3 = {
               ...defaultLondonTransactionData,
               to: null,
-              data: '0x' + '00'.repeat(5121),
+              data: basicContractJson.bytecode,
               nonce: accountNonce + 1,
-              gasLimit: 41484,
+              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
             };
             const signedTx1 = await accounts[1].wallet.signTransaction(tx1);
             const signedTx2 = await accounts[1].wallet.signTransaction(tx2);
             const signedTx3 = await accounts[1].wallet.signTransaction(tx3);
 
             const txHash1 = await relay.sendRawTransaction(signedTx1);
-            await new Promise((r) => setTimeout(r, 100));
+            await new Promise((r) => setTimeout(r, 500));
             const txHash2 = await relay.sendRawTransaction(signedTx2);
-            await new Promise((r) => setTimeout(r, 100));
+            await new Promise((r) => setTimeout(r, 500));
             const txHash3 = await relay.sendRawTransaction(signedTx3);
             await Promise.all([
               relay.pollForValidTransactionReceipt(txHash1),
