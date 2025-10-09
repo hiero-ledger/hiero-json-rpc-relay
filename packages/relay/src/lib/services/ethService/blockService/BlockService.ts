@@ -136,15 +136,17 @@ export class BlockService implements IBlockService {
       timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
 
-    const contractResults = await this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp);
-    if (!contractResults || contractResults.length === 0) {
+    const [contractResults, logs] = await Promise.all([
+      this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
+      this.common.getLogsWithParams(null, paramTimestamp, requestDetails)
+    ]);
+
+    if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
       return [];
     }
 
     const receipts: ITransactionReceipt[] = [];
     const effectiveGas = numberTo0x(await this.common.getGasPriceInWeibars(block.timestamp.from.split('.')[0]));
-
-    const logs = await this.common.getLogsWithParams(null, paramTimestamp, requestDetails);
 
     const logsByHash = new Map<string, Log[]>();
     for (const log of logs) {

@@ -643,6 +643,30 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(blockResult.transactions.filter((tx) => tx.hash == txHash)[0].value).to.equal('0xffffffffffffff9c');
       });
 
+      it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function() {
+        const tokenId = await servicesNode.createToken(1000);
+        await accounts[2].client.associateToken(tokenId);
+        const transaction = new TransferTransaction()
+          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .setTransactionMemo('Relay test token transfer');
+        const resp = await transaction.execute(servicesNode.client);
+        await resp.getRecord(servicesNode.client);
+        await Utils.wait(1000);
+        const logsRes = await mirrorNode.get(`/contracts/results/logs?limit=1`);
+        const blockNumber = logsRes.logs[0].block_number;
+        const formattedBlockNumber = prepend0x(blockNumber.toString(16));
+        const contractId = logsRes.logs[0].contract_id;
+        const transactionHash = logsRes.logs[0].transaction_hash;
+        if (contractId !== tokenId.toString()) {
+          return;
+        }
+
+        const receipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [formattedBlockNumber]);
+        expect(receipts).to.not.be.empty;
+        expect(receipts.filter(receipt => receipt.transactionHash === transactionHash)).to.not.be.empty;
+      });
+
       it('should execute "eth_getBlockReceipts" with block hash successfully', async function () {
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [
           mirrorBlock.hash.substring(0, 66),
