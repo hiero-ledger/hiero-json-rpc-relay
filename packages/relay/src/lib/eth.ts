@@ -19,6 +19,7 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
+  LockService,
   TransactionService,
 } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
@@ -116,6 +117,7 @@ export class EthImpl implements Eth {
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
    * @param {CacheService} cacheService - Service for managing cached data.
+   * @param {LockService} lockService - Service for managing access control locks.
    */
   constructor(
     hapiService: HAPIService,
@@ -123,6 +125,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: CacheService,
+    public readonly lockService: LockService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -134,6 +137,7 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
+
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -142,6 +146,7 @@ export class EthImpl implements Eth {
       hapiService,
       logger,
       mirrorNodeClient,
+      this.lockService,
     );
   }
 
