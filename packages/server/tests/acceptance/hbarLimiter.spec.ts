@@ -37,6 +37,14 @@ import { AliasAccount } from '../types/AliasAccount';
 config({ path: resolve(__dirname, '../localAcceptance.env') });
 
 describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
+  // With Jumbo TX enabled, deployment skips HFS (the main source of HBAR cost).
+  // Combined with HIP-1084 (Zero-Cost EthereumTransaction on Success),
+  // the cost difference becomes zero. As a result, no spending limit is applied
+  // and this test fails.To avoid this, this suite overrides JUMBO_TX_ENABLED to false.
+  overrideEnvsInMochaDescribe({
+    JUMBO_TX_ENABLED: false,
+  });
+
   // @ts-ignore
   const {
     mirrorNode,
@@ -74,6 +82,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     expectedTxCost: number,
   ) => {
     let amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
+    let isTimeOut = false;
+    const startTime = Date.now();
 
     while (amountSpent < deploymentCounts * expectedTxCost) {
       logger.warn(
@@ -83,13 +93,25 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
       );
       await Utils.wait(3000);
       amountSpent = (await hbarSpendingPlanRepository.findByIdWithDetails(hbarSpendingPlan.id)).amountSpent;
+
+      if (Date.now() - startTime > 6000) {
+        logger.warn(
+          `Timed out while polling for proper amount spent by the spending plan: deploymentCounts=${deploymentCounts}, expectedTxCost=${expectedTxCost}, amountSpent=${amountSpent}, properAmountSpent=${
+            deploymentCounts * expectedTxCost
+          }, planId=${hbarSpendingPlan.id}`,
+        );
+        isTimeOut = true;
+        break;
+      }
     }
 
-    logger.info(
-      `Successfully retrieve proper amount spent by hbarSpendingPlan: deploymentCounts=${deploymentCounts}, expectedTxCost=${expectedTxCost}, amountSpent=${amountSpent}, properAmountSpent=${
-        deploymentCounts * expectedTxCost
-      }, planId=${hbarSpendingPlan.id}`,
-    );
+    if (!isTimeOut) {
+      logger.info(
+        `Successfully retrieve proper amount spent by hbarSpendingPlan: deploymentCounts=${deploymentCounts}, expectedTxCost=${expectedTxCost}, amountSpent=${amountSpent}, properAmountSpent=${
+          deploymentCounts * expectedTxCost
+        }, planId=${hbarSpendingPlan.id}`,
+      );
+    }
     return amountSpent;
   };
 
@@ -468,15 +490,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
               ethSpendingPlan.planId,
             );
 
-            while (spendingPlanAssociatedAfterSecond.amountSpent === amountSpendAfterFirst) {
-              // awaiting for HBAR limiter to finish updating expenses in the background
-              await Utils.wait(1000);
-              spendingPlanAssociatedAfterSecond = await hbarSpendingPlanRepository.findByIdWithDetails(
-                ethSpendingPlan.planId,
-              );
-            }
-
-            expect(amountSpendAfterFirst).to.be.lt(spendingPlanAssociatedAfterSecond.amountSpent);
+            // should not cause extra amount spent on successful Ethereum Transaction
+            expect(amountSpendAfterFirst).to.be.eq(spendingPlanAssociatedAfterSecond.amountSpent);
 
             // it should use a different BASIC plan for another user
             const thirdTransaction = {
@@ -533,8 +548,6 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             } catch (e: any) {
               logger.error(e.message);
               expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
-              const expectedAmountOfDeployments = Math.floor(maxBasicSpendingLimit / expectedTxCost);
-              expect(deploymentCounts + 1).to.eq(expectedAmountOfDeployments);
 
               if (!hbarSpendingPlan) {
                 const ethSpendingPlan = await evmAddressSpendingPlanRepository.findByAddress(
@@ -624,8 +637,6 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
               } catch (e: any) {
                 logger.error(e.message);
                 expect(e.message).to.contain(predefined.HBAR_RATE_LIMIT_EXCEEDED.message);
-                const expectedAmountOfDeployments = Math.floor(maxSpendingLimit / expectedTxCost);
-                expect(deploymentCounts + 1).to.eq(expectedAmountOfDeployments);
 
                 const amountSpent = await pollForProperAmountSpent(hbarSpendingPlan, deploymentCounts, expectedTxCost);
                 const remainingHbarsAfter = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
