@@ -52,227 +52,233 @@ const mainLogger = pino({
   },
 });
 
-const register = new Registry();
-const logger = mainLogger.child({ name: 'rpc-ws-server' });
-const relay = new Relay(logger, register);
+export async function initializeWsServer() {
+  const register = new Registry();
+  const logger = mainLogger.child({ name: 'rpc-ws-server' });
+  const relay = await Relay.init(logger, register);
 
-const subscriptionService = new SubscriptionService(relay, logger, register);
+  const subscriptionService = new SubscriptionService(relay, logger, register);
 
-const mirrorNodeClient = relay.mirrorClient();
+  const mirrorNodeClient = relay.mirrorClient();
 
-const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
-const rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
-const limiter = new ConnectionLimiter(logger, register, rateLimiter);
-const wsMetricRegistry = new WsMetricRegistry(register);
+  const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
+  const rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
+  const limiter = new ConnectionLimiter(logger, register, rateLimiter);
+  const wsMetricRegistry = new WsMetricRegistry(register);
 
-const pingInterval = ConfigService.get('WS_PING_INTERVAL');
+  const pingInterval = ConfigService.get('WS_PING_INTERVAL');
 
-const app = websockify(new Koa());
+  const app = websockify(new Koa());
 
-app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
-  const connectionId = subscriptionService.generateId();
-  ctx.websocket.id = connectionId;
-  next();
-});
+  app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
+    const connectionId = subscriptionService.generateId();
+    ctx.websocket.id = connectionId;
+    next();
+  });
 
-app.ws.use(async (ctx: Koa.Context) => {
-  // Increment the total opened connections
-  wsMetricRegistry.getCounter('totalOpenedConnections').inc();
+  app.ws.use(async (ctx: Koa.Context) => {
+    // Increment the total opened connections
+    wsMetricRegistry.getCounter('totalOpenedConnections').inc();
 
-  // Record the start time when the connection is established
-  const startTime = process.hrtime();
-  ctx.websocket.limiter = limiter;
-  ctx.websocket.wsMetricRegistry = wsMetricRegistry;
+    // Record the start time when the connection is established
+    const startTime = process.hrtime();
+    ctx.websocket.limiter = limiter;
+    ctx.websocket.wsMetricRegistry = wsMetricRegistry;
 
-  logger.info(
-    // @ts-ignore
-    `New connection established. Current active connections: ${ctx.app.server._connections}`,
-  );
+    logger.info(
+      // @ts-ignore
+      `New connection established. Current active connections: ${ctx.app.server._connections}`,
+    );
 
-  // Close event handle
-  // https://nodejs.org/api/async_context.html#static-method-asyncresourcebindfn-type-thisarg
-  // https://nodejs.org/api/async_context.html#troubleshooting-context-loss
-  ctx.websocket.on(
-    'close',
-    AsyncResource.bind(async (code, message) => {
-      logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
-      await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
-    }),
-  );
+    // Close event handle
+    // https://nodejs.org/api/async_context.html#static-method-asyncresourcebindfn-type-thisarg
+    // https://nodejs.org/api/async_context.html#troubleshooting-context-loss
+    ctx.websocket.on(
+      'close',
+      AsyncResource.bind(async (code, message) => {
+        logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
+        await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
+      }),
+    );
 
-  // Increment limit counters
-  limiter.incrementCounters(ctx);
+    // Increment limit counters
+    limiter.incrementCounters(ctx);
 
-  // Limit checks
-  limiter.applyLimits(ctx);
+    // Limit checks
+    limiter.applyLimits(ctx);
 
-  // listen on message event
-  ctx.websocket.on('message', async (msg) => {
-    const requestId = uuid();
-    ctx.websocket.requestId = requestId;
+    // listen on message event
+    ctx.websocket.on('message', async (msg) => {
+      const requestId = uuid();
+      ctx.websocket.requestId = requestId;
 
-    const requestDetails = new RequestDetails({
-      requestId,
-      ipAddress: ctx.request.ip,
-      connectionId: ctx.websocket.id,
-    });
+      const requestDetails = new RequestDetails({
+        requestId,
+        ipAddress: ctx.request.ip,
+        connectionId: ctx.websocket.id,
+      });
 
-    context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
-      // Increment the total messages counter for each message received
-      wsMetricRegistry.getCounter('totalMessageCounter').inc();
+      context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
+        // Increment the total messages counter for each message received
+        wsMetricRegistry.getCounter('totalMessageCounter').inc();
 
-      // Record the start time when a new message is received
-      const msgStartTime = process.hrtime();
+        // Record the start time when a new message is received
+        const msgStartTime = process.hrtime();
 
-      // Reset the TTL timer for inactivity upon receiving a message from the client
-      limiter.resetInactivityTTLTimer(ctx.websocket);
-      // parse the received message from the client into a JSON object
-      let request: IJsonRpcRequest | IJsonRpcRequest[];
-      try {
-        request = JSON.parse(msg.toString('ascii'));
-      } catch (e) {
-        // Log an error if the message cannot be decoded and send an invalid request error to the client
-        logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
-        ctx.websocket.send(JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)));
-        return;
-      }
-
-      // check if request is a batch request (array) or a signle request (JSON)
-      if (Array.isArray(request)) {
-        if (logger.isLevelEnabled('trace')) {
-          logger.trace(`Receive batch request=${JSON.stringify(request)}`);
-        }
-
-        // Increment metrics for batch_requests
-        wsMetricRegistry.getCounter('methodsCounter').labels(WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME).inc();
-        wsMetricRegistry
-          .getCounter('methodsCounterByIp')
-          .labels(ctx.request.ip, WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME)
-          .inc();
-
-        // send error if batch request feature is not enabled
-        if (!getWsBatchRequestsEnabled()) {
-          const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
-          logger.warn(`${JSON.stringify(batchRequestDisabledError)}`);
-          ctx.websocket.send(
-            JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]),
-          );
+        // Reset the TTL timer for inactivity upon receiving a message from the client
+        limiter.resetInactivityTTLTimer(ctx.websocket);
+        // parse the received message from the client into a JSON object
+        let request: IJsonRpcRequest | IJsonRpcRequest[];
+        try {
+          request = JSON.parse(msg.toString('ascii'));
+        } catch (e) {
+          // Log an error if the message cannot be decoded and send an invalid request error to the client
+          logger.warn(`Could not decode message from connection, message: ${msg}, error: ${e}`);
+          ctx.websocket.send(JSON.stringify(jsonRespError(null, predefined.INVALID_REQUEST, requestDetails.requestId)));
           return;
         }
 
-        // send error if batch request exceed max batch size
-        if (request.length > getBatchRequestsMaxSize()) {
-          const batchRequestAmountMaxExceed = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(
-            request.length,
-            getBatchRequestsMaxSize(),
-          );
-          logger.warn(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
-          ctx.websocket.send(
-            JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
-          );
-          return;
-        }
-
-        // process requests
-        const requestPromises = request.map((item: any) => {
-          if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
-            return jsonRespError(item.id, spec.BatchRequestsMethodNotPermitted(item.method), requestDetails.requestId);
+        // check if request is a batch request (array) or a signle request (JSON)
+        if (Array.isArray(request)) {
+          if (logger.isLevelEnabled('trace')) {
+            logger.trace(`Receive batch request=${JSON.stringify(request)}`);
           }
-          return getRequestResult(
+
+          // Increment metrics for batch_requests
+          wsMetricRegistry.getCounter('methodsCounter').labels(WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME).inc();
+          wsMetricRegistry
+            .getCounter('methodsCounterByIp')
+            .labels(ctx.request.ip, WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME)
+            .inc();
+
+          // send error if batch request feature is not enabled
+          if (!getWsBatchRequestsEnabled()) {
+            const batchRequestDisabledError = predefined.WS_BATCH_REQUESTS_DISABLED;
+            logger.warn(`${JSON.stringify(batchRequestDisabledError)}`);
+            ctx.websocket.send(
+              JSON.stringify([jsonRespError(null, batchRequestDisabledError, requestDetails.requestId)]),
+            );
+            return;
+          }
+
+          // send error if batch request exceed max batch size
+          if (request.length > getBatchRequestsMaxSize()) {
+            const batchRequestAmountMaxExceed = predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(
+              request.length,
+              getBatchRequestsMaxSize(),
+            );
+            logger.warn(`${JSON.stringify(batchRequestAmountMaxExceed)}`);
+            ctx.websocket.send(
+              JSON.stringify([jsonRespError(null, batchRequestAmountMaxExceed, requestDetails.requestId)]),
+            );
+            return;
+          }
+
+          // process requests
+          const requestPromises = request.map((item: any) => {
+            if (ConfigService.get('BATCH_REQUESTS_DISALLOWED_METHODS').includes(item.method)) {
+              return jsonRespError(
+                item.id,
+                spec.BatchRequestsMethodNotPermitted(item.method),
+                requestDetails.requestId,
+              );
+            }
+            return getRequestResult(
+              ctx,
+              relay,
+              logger,
+              item,
+              limiter,
+              mirrorNodeClient,
+              wsMetricRegistry,
+              requestDetails,
+              subscriptionService,
+            );
+          });
+
+          // resolve all promises
+          const responses = await Promise.all(requestPromises);
+
+          // send to client
+          sendToClient(ctx.websocket, request, responses, logger);
+        } else {
+          if (logger.isLevelEnabled('trace')) {
+            logger.trace(`Receive single request=${JSON.stringify(request)}`);
+          }
+
+          // process requests
+          const response = await getRequestResult(
             ctx,
             relay,
             logger,
-            item,
+            request,
             limiter,
             mirrorNodeClient,
             wsMetricRegistry,
             requestDetails,
             subscriptionService,
           );
-        });
 
-        // resolve all promises
-        const responses = await Promise.all(requestPromises);
-
-        // send to client
-        sendToClient(ctx.websocket, request, responses, logger);
-      } else {
-        if (logger.isLevelEnabled('trace')) {
-          logger.trace(`Receive single request=${JSON.stringify(request)}`);
+          // send to client
+          sendToClient(ctx.websocket, request, response, logger);
         }
 
-        // process requests
-        const response = await getRequestResult(
-          ctx,
-          relay,
-          logger,
-          request,
-          limiter,
-          mirrorNodeClient,
-          wsMetricRegistry,
-          requestDetails,
-          subscriptionService,
-        );
+        // Calculate the duration of the connection
+        const msgEndTime = process.hrtime(msgStartTime);
+        const msgDurationInMiliSeconds = (msgEndTime[0] + msgEndTime[1] / 1e9) * 1000; // Convert duration to miliseconds
 
-        // send to client
-        sendToClient(ctx.websocket, request, response, logger);
-      }
-
-      // Calculate the duration of the connection
-      const msgEndTime = process.hrtime(msgStartTime);
-      const msgDurationInMiliSeconds = (msgEndTime[0] + msgEndTime[1] / 1e9) * 1000; // Convert duration to miliseconds
-
-      // Update the connection duration histogram with the calculated duration
-      const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
-      wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
+        // Update the connection duration histogram with the calculated duration
+        const methodLabel = Array.isArray(request) ? WS_CONSTANTS.BATCH_REQUEST_METHOD_NAME : request.method;
+        wsMetricRegistry.getHistogram('messageDuration').labels(methodLabel).observe(msgDurationInMiliSeconds);
+      });
     });
+
+    if (pingInterval > 0) {
+      setInterval(async () => {
+        ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
+      }, pingInterval);
+    }
   });
 
-  if (pingInterval > 0) {
-    setInterval(async () => {
-      ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
-    }, pingInterval);
-  }
-});
+  const koaJsonRpc = new KoaJsonRpc(logger, register, relay);
+  const httpApp = koaJsonRpc.getKoaApp();
+  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 
-const koaJsonRpc = new KoaJsonRpc(logger, register, relay);
-const httpApp = koaJsonRpc.getKoaApp();
-collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
-
-httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
-  // prometheus metrics exposure
-  if (ctx.url === '/metrics') {
-    ctx.status = 200;
-    ctx.body = await register.metrics();
-  } else if (ctx.url === '/health/liveness') {
-    //liveness endpoint
-    ctx.status = 200;
-  } else if (ctx.url === '/health/readiness') {
-    // readiness endpoint
-    try {
-      const result = relay.eth().chainId();
-      if (result.includes('0x12')) {
-        ctx.status = 200;
-        ctx.body = 'OK';
-      } else {
-        ctx.body = 'DOWN';
-        ctx.status = 503; // UNAVAILABLE
+  httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
+    // prometheus metrics exposure
+    if (ctx.url === '/metrics') {
+      ctx.status = 200;
+      ctx.body = await register.metrics();
+    } else if (ctx.url === '/health/liveness') {
+      //liveness endpoint
+      ctx.status = 200;
+    } else if (ctx.url === '/health/readiness') {
+      // readiness endpoint
+      try {
+        const result = relay.eth().chainId();
+        if (result.includes('0x12')) {
+          ctx.status = 200;
+          ctx.body = 'OK';
+        } else {
+          ctx.body = 'DOWN';
+          ctx.status = 503; // UNAVAILABLE
+        }
+      } catch (e) {
+        logger.error(e);
+        throw e;
       }
-    } catch (e) {
-      logger.error(e);
-      throw e;
+    } else {
+      return await next();
     }
-  } else {
-    return await next();
-  }
-});
+  });
 
-process.on('unhandledRejection', (reason, p) => {
-  logger.error(`Unhandled Rejection at: Promise: ${JSON.stringify(p)}, reason: ${reason}`);
-});
+  process.on('unhandledRejection', (reason, p) => {
+    logger.error(`Unhandled Rejection at: Promise: ${JSON.stringify(p)}, reason: ${reason}`);
+  });
 
-process.on('uncaughtException', (err) => {
-  logger.error(err, 'Uncaught Exception!');
-});
+  process.on('uncaughtException', (err) => {
+    logger.error(err, 'Uncaught Exception!');
+  });
 
-export { app, httpApp, relay, logger };
+  return { app, httpApp, logger };
+}

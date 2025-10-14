@@ -9,7 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 // Constants
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { app as wsApp } from '@hashgraph/json-rpc-ws-server/dist/webSocketServer';
+import { initializeWsServer } from '@hashgraph/json-rpc-ws-server/dist/webSocketServer';
 // Hashgraph SDK
 import { AccountId, Hbar } from '@hashgraph/sdk';
 import chai from 'chai';
@@ -20,9 +20,9 @@ import { Server } from 'http';
 import pino from 'pino';
 import { GCProfiler } from 'v8';
 
-// Server related
-import app from '../../dist/server';
 import { setServerTimeout } from '../../src/koaJsonRpc/lib/utils';
+// Server related
+import { initializeServer } from '../../src/server';
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
@@ -94,7 +94,7 @@ describe('RPC Server Acceptance Tests', function () {
     logger.info(`E2E_RELAY_HOST: ${ConfigService.get('E2E_RELAY_HOST')}`);
 
     if (global.relayIsLocal) {
-      runLocalRelay();
+      await runLocalRelay();
     }
 
     // cache start balance
@@ -158,8 +158,9 @@ describe('RPC Server Acceptance Tests', function () {
     });
   });
 
-  function loadTest(testFile) {
+  function loadTest(testFile: string): void {
     if (testFile !== 'index.spec.ts' && testFile.endsWith('.spec.ts')) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require(`./${testFile}`);
     }
   }
@@ -178,17 +179,19 @@ describe('RPC Server Acceptance Tests', function () {
     }
   }
 
-  function runLocalRelay() {
+  async function runLocalRelay() {
     // start local relay, relay instance in local should not be running
 
     logger.info(`Start relay on port ${constants.RELAY_PORT}`);
     logger.info(`Start relay on host ${constants.RELAY_HOST}`);
+    const { app } = await initializeServer();
     const relayServer = app.listen({ port: constants.RELAY_PORT });
     global.relayServer = relayServer;
     setServerTimeout(relayServer);
 
     if (ConfigService.get('TEST_WS_SERVER')) {
       logger.info(`Start ws-server on port ${constants.WEB_SOCKET_PORT}`);
+      const { app: wsApp } = await initializeWsServer();
       global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT });
     }
   }

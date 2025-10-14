@@ -39,7 +39,6 @@ module.exports = {
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-var-requires": "warn",
         "@typescript-eslint/no-unused-vars": "warn",
-        "@typescript-eslint/ban-types": "warn",
         "no-trailing-spaces": "error",
         "no-useless-escape": "warn",
         "prefer-const": "error",

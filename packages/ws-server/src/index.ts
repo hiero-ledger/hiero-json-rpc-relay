@@ -3,19 +3,21 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
-import { app, httpApp, logger, relay } from './webSocketServer';
+import { initializeWsServer } from './webSocketServer';
 
 async function main() {
   try {
-    await relay.ensureOperatorHasBalance();
+    // Initialize WebSocket server with the fully initialized Relay
+    const { app, httpApp } = await initializeWsServer();
+
+    const host = ConfigService.get('SERVER_HOST');
+    app.listen({ port: constants.WEB_SOCKET_PORT, host });
+    httpApp.listen({ port: constants.WEB_SOCKET_HTTP_PORT, host });
   } catch (error) {
-    logger.fatal(error);
+    // If initialization fails, logger might not be available
+    console.error('Failed to initialize WebSocket server:', error);
     process.exit(1);
   }
-
-  const host = ConfigService.get('SERVER_HOST');
-  app.listen({ port: constants.WEB_SOCKET_PORT, host });
-  httpApp.listen({ port: constants.WEB_SOCKET_HTTP_PORT, host });
 }
 
 main();
