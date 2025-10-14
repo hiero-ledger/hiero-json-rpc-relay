@@ -20,9 +20,9 @@ import { Server } from 'http';
 import pino from 'pino';
 import { GCProfiler } from 'v8';
 
-import { setServerTimeout } from '../../src/koaJsonRpc/lib/utils';
+import { setServerTimeout } from '../../dist/koaJsonRpc/lib/utils';
 // Server related
-import { initializeServer } from '../../src/server';
+import { initializeServer } from '../../dist/server';
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
