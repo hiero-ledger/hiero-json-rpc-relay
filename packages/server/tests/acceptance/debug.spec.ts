@@ -14,10 +14,10 @@ import RelayCall from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import basicContractJson from '../contracts/Basic.json';
-import parentContractJson from '../contracts/Parent.json';
-import reverterContractJson from '../contracts/Reverter.json';
 import deployerContractJson from '../contracts/Deployer.json';
 import mockContractJson from '../contracts/MockContract.json';
+import parentContractJson from '../contracts/Parent.json';
+import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -105,7 +105,7 @@ describe('@debug API Acceptance Tests', function () {
     deployerContract = await Utils.deployContract(
       deployerContractJson.abi,
       deployerContractJson.bytecode,
-      accounts[0].wallet
+      accounts[0].wallet,
     );
     deployerContractAddress = deployerContract.target as string;
   });
@@ -116,13 +116,13 @@ describe('@debug API Acceptance Tests', function () {
         relay,
         deployerContractAddress,
         accounts[0].address,
-        '0xdbb6f04a' // deployViaCreate2() selector
+        '0xdbb6f04a', // deployViaCreate2() selector
       );
       const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
 
       const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
         receipt.blockNumber,
-        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
       ]);
 
       expect(result).to.not.be.empty;
