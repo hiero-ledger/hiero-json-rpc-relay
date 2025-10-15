@@ -10,12 +10,12 @@ import { Server } from 'node:http';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { setServerTimeout } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/utils';
-import app from '@hashgraph/json-rpc-server/dist/server';
+import { initializeServer } from '@hashgraph/json-rpc-server/dist/server';
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
 import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
 import ServicesClient from '@hashgraph/json-rpc-server/tests/clients/servicesClient';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import { app as wsApp } from '@hashgraph/json-rpc-ws-server/dist/webSocketServer';
+import { initializeWsServer } from '@hashgraph/json-rpc-ws-server/dist/webSocketServer';
 import { AccountId, Hbar } from '@hashgraph/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -67,7 +67,7 @@ describe('RPC Server Acceptance Tests', function () {
     logger.info(`E2E_RELAY_HOST: ${ConfigService.get('E2E_RELAY_HOST')}`);
 
     if (global.relayIsLocal) {
-      runLocalRelay();
+      await runLocalRelay();
     }
 
     // cache start balance
@@ -139,20 +139,23 @@ describe('RPC Server Acceptance Tests', function () {
 
   function loadTest(testFile) {
     if (testFile !== 'index.spec.ts' && testFile.endsWith('.spec.ts')) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require(`./${testFile}`);
     }
   }
 
-  function runLocalRelay() {
+  async function runLocalRelay() {
     // start local relay, relay instance in local should not be running
 
     logger.info(`Start relay on port ${constants.RELAY_PORT}`);
+    const { app } = await initializeServer();
     const relayServer = app.listen({ port: constants.RELAY_PORT });
     global.relayServer = relayServer;
     setServerTimeout(relayServer);
 
     if (ConfigService.get('TEST_WS_SERVER')) {
       logger.info(`Start ws-server on port ${constants.WEB_SOCKET_PORT}`);
+      const { app: wsApp } = await initializeWsServer();
       global.socketServer = wsApp.listen({ port: constants.WEB_SOCKET_PORT });
     }
   }
