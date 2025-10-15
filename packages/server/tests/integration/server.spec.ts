@@ -29,6 +29,7 @@ import {
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
+import { initializeServer } from '../../dist/server';
 import RelayCalls from '../../tests/helpers/constants';
 import Assertions, { requestIdRegex } from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
@@ -46,7 +47,7 @@ describe('RPC Server', function () {
     RATE_LIMIT_DISABLED: true,
   });
 
-  before(function () {
+  before(async function () {
     // Stub getAllMasked to avoid maskUpEnv errors for unknown envs
     getAllMaskedStub = sinon.stub(ConfigService, 'getAllMasked').returns({
       BATCH_REQUESTS_MAX_SIZE: '100',
@@ -62,7 +63,8 @@ describe('RPC Server', function () {
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../src/server')];
 
-    app = require('../../src/server').default;
+    const result = await initializeServer();
+    app = result.app;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
 
@@ -167,7 +169,7 @@ describe('RPC Server', function () {
         const address = configuredServer.address();
 
         try {
-          expect(address).to.not.be.null;
+          expect(address).to.not.be.null; // eslint-disable-line @typescript-eslint/no-unused-expressions
           if (address && typeof address === 'object') {
             expect(address.address).to.equal(CUSTOMIZE_HOST);
             expect(address.port.toString()).to.equal(CUSTOMIZE_PORT);
@@ -190,7 +192,7 @@ describe('RPC Server', function () {
     const calls = populatePreconfiguredSpendingPlansSpy.getCalls();
     expect(calls.length).to.be.equal(1);
     await calls[0].returnValue;
-    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
+    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
   });
 
   it('should execute "eth_chainId"', async function () {
@@ -232,6 +234,7 @@ describe('RPC Server', function () {
 
   withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: true }, async function () {
     xit('supports optionality of request id when configured', async function () {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
       const app2 = require('../../src/server').default;
       const port = `1${ConfigService.get('E2E_SERVER_PORT')}`;
       const testServer2 = app2.listen(port);
@@ -2572,97 +2575,89 @@ describe('RPC Server', function () {
       });
 
       it('should execute with CallTracer type and valid CallTracerConfig', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } }],
-            id: 1,
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } }],
+          id: 1,
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with OpcodeLogger type and valid OpcodeLoggerConfig', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [
-              contractHash1,
-              {
-                tracer: TracerType.OpcodeLogger,
-                tracerConfig: { disableStack: false, disableStorage: false, enableMemory: true },
-              },
-            ],
-            id: 1,
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [
+            contractHash1,
+            {
+              tracer: TracerType.OpcodeLogger,
+              tracerConfig: { disableStack: false, disableStorage: false, enableMemory: true },
+            },
+          ],
+          id: 1,
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with PrestateTracer type and valid PrestateTracerConfig', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1, { tracer: TracerType.PrestateTracer }],
-            id: 1,
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1, { tracer: TracerType.PrestateTracer }],
+          id: 1,
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with PrestateTracer type and onlyTopCall option', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
-            id: 1,
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
+          id: 1,
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with valid hash', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1],
-            id: '2',
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1],
+          id: '2',
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with valid hash and valid TracerType string', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1, { tracer: TracerType.CallTracer }],
-            id: '2',
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1, { tracer: TracerType.CallTracer }],
+          id: '2',
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with valid hash, valid TracerType and empty TracerConfig', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: {} }],
-            id: '2',
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: {} }],
+          id: '2',
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should execute with valid hash, no TracerType and no TracerConfig', async () => {
-        expect(
-          await testClient.post('/', {
-            jsonrpc: '2.0',
-            method: 'debug_traceTransaction',
-            params: [contractHash1],
-            id: '2',
-          }),
-        ).to.not.throw;
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceTransaction',
+          params: [contractHash1],
+          id: '2',
+        });
+        expect(response.status).to.eq(200);
       });
 
       it('should fail with missing transaction hash', async () => {
@@ -3194,7 +3189,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.be.empty;
+        expect(response.data.result).to.be.empty; // eslint-disable-line @typescript-eslint/no-unused-expressions
       });
 
       it('should return empty array when contract results is an empty array', async () => {
@@ -3209,7 +3204,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.be.empty;
+        expect(response.data.result).to.be.empty; // eslint-disable-line @typescript-eslint/no-unused-expressions
       });
 
       it('should fail when block not found', async () => {
@@ -3311,10 +3306,12 @@ class BaseTest {
       response.headers,
       `Default response: headers should have '${requestIdHeaderName}' property`,
     ).to.have.property(requestIdHeaderName);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.headers[requestIdHeaderName],
       `Default response: 'headers[${requestIdHeaderName}]' should not be null`,
     ).not.to.be.null;
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.headers[requestIdHeaderName],
       `Default response: 'headers[${requestIdHeaderName}]' should not be undefined`,
@@ -3432,6 +3429,7 @@ class BaseTest {
       code,
     );
     expect(response.data.error, "Error response: 'error' should have 'message' property").to.have.property('message');
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.data.error.message.endsWith(message),
       "Error response: 'data.error.message' should end with passed 'message' value",

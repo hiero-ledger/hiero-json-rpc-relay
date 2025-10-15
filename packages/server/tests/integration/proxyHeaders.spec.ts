@@ -16,6 +16,7 @@ import {
   useInMemoryRedisServer,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
+import { initializeServer } from '../../dist/server';
 import RelayCalls from '../../tests/helpers/constants';
 
 describe('Proxy Headers Integration Tests', function () {
@@ -32,7 +33,7 @@ describe('Proxy Headers Integration Tests', function () {
 
   let testServer: Server;
   let testClient: AxiosInstance;
-  let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
+  let app: Koa;
 
   // Simple static test IPs - each test uses different IP ranges to avoid conflicts
   const TEST_IP_A = '192.168.1.100';
@@ -48,8 +49,9 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_IPV6 = '2001:db8::1';
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
-  before(function () {
-    app = require('../../src/server').default;
+  before(async function () {
+    const result = await initializeServer();
+    app = result.app;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
   });
@@ -86,11 +88,21 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithForwardedIP(ip: string, id: string = '1') {
-    return testClient.post('/', createRequestWithIP(id, ip), {
-      headers: {
-        'X-Forwarded-For': ip,
-      },
-    });
+    try {
+      return await testClient.post('/', createRequestWithIP(id, ip), {
+        headers: {
+          'X-Forwarded-For': ip,
+        },
+      });
+    } catch (error: any) {
+      console.error('[TEST] Request failed:', {
+        message: error.message,
+        hasResponse: !!error.response,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data,
+      });
+      throw error;
+    }
   }
 
   async function makeRequestWithoutForwardedIP(id: string = '1') {
