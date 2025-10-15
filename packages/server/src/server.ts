@@ -127,7 +127,7 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
  * Initialize the server components
  */
 export async function initializeServer() {
-  const relay = await Relay.init(logger, register);
+  const relay = await Relay.init(logger.child({ name: 'relay' }), register);
 
   const koaJsonRpc = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
     limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
