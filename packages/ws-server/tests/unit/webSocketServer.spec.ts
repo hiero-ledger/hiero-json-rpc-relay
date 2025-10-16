@@ -145,7 +145,7 @@ describe('webSocketServer websocket handling', () => {
     const wsServer = await webSocketServer.initializeWsServer();
     app = wsServer.app;
 
-    // Start the WebSocket server
+    // Start the WebSocket server and wait for it to start
     await new Promise<void>((resolve) => {
       server = app.listen(0, '127.0.0.1', () => resolve());
     });
