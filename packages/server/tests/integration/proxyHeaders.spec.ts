@@ -33,7 +33,6 @@ describe('Proxy Headers Integration Tests', function () {
 
   let testServer: Server;
   let testClient: AxiosInstance;
-  let app: Koa;
 
   // Simple static test IPs - each test uses different IP ranges to avoid conflicts
   const TEST_IP_A = '192.168.1.100';
