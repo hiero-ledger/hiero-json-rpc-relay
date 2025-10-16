@@ -51,18 +51,18 @@ describe('WebSocket Server Main', () => {
 
     await new Promise((resolve) => setInterval(resolve, 100));
 
-    expect(initializeWsServerStub.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(configGetStub.calledWith('SERVER_HOST')).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(initializeWsServerStub.calledOnce).to.equal(true);
+    expect(configGetStub.calledWith('SERVER_HOST')).to.equal(true);
 
-    expect(mockApp.listen.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(mockApp.listen.calledWith({ port: constants.WEB_SOCKET_PORT, host: '127.0.0.1' })).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(mockApp.listen.calledOnce).to.equal(true);
+    expect(mockApp.listen.calledWith({ port: constants.WEB_SOCKET_PORT, host: '127.0.0.1' })).to.equal(true);
 
-    expect(mockHttpApp.listen.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(mockHttpApp.listen.calledWith({ port: constants.WEB_SOCKET_HTTP_PORT, host: '127.0.0.1' })).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(mockHttpApp.listen.calledOnce).to.equal(true);
+    expect(mockHttpApp.listen.calledWith({ port: constants.WEB_SOCKET_HTTP_PORT, host: '127.0.0.1' })).to.equal(true);
 
     // Verify no errors were logged
-    expect(consoleErrorStub.called).to.be.false; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(processExitStub.called).to.be.false; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(consoleErrorStub.called).to.equal(false);
+    expect(processExitStub.called).to.equal(false);
   });
 
   it('should handle initialization errors and exit gracefully', async () => {
@@ -74,13 +74,13 @@ describe('WebSocket Server Main', () => {
 
     await new Promise((resolve) => setInterval(resolve, 100));
 
-    expect(consoleErrorStub.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(consoleErrorStub.calledWith('Failed to initialize WebSocket server:', testError)).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(consoleErrorStub.calledOnce).to.equal(true);
+    expect(consoleErrorStub.calledWith('Failed to initialize WebSocket server:', testError)).to.equal(true);
 
-    expect(processExitStub.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(processExitStub.calledWith(1)).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(processExitStub.calledOnce).to.equal(true);
+    expect(processExitStub.calledWith(1)).to.equal(true);
 
-    expect(mockApp.listen.called).to.be.false; // eslint-disable-line @typescript-eslint/no-unused-expressions
-    expect(mockHttpApp.listen.called).to.be.false; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(mockApp.listen.called).to.equal(false);
+    expect(mockHttpApp.listen.called).to.equal(false);
   });
 });
