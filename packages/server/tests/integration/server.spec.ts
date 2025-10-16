@@ -63,8 +63,7 @@ describe('RPC Server', function () {
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../src/server')];
 
-    const result = await initializeServer();
-    app = result.app;
+    const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
 

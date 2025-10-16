@@ -50,8 +50,7 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
   before(async function () {
-    const result = await initializeServer();
-    app = result.app;
+    const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
   });
@@ -90,21 +89,11 @@ describe('Proxy Headers Integration Tests', function () {
   }
 
   async function makeRequestWithForwardedIP(ip: string, id: string = '1') {
-    try {
-      return await testClient.post('/', createRequestWithIP(id, ip), {
-        headers: {
-          'X-Forwarded-For': ip,
-        },
-      });
-    } catch (error: any) {
-      console.error('[TEST] Request failed:', {
-        message: error.message,
-        hasResponse: !!error.response,
-        responseStatus: error.response?.status,
-        responseData: error.response?.data,
-      });
-      throw error;
-    }
+    return testClient.post('/', createRequestWithIP(id, ip), {
+      headers: {
+        'X-Forwarded-For': ip,
+      },
+    });
   }
 
   async function makeRequestWithoutForwardedIP(id: string = '1') {
