@@ -16,7 +16,7 @@ import {
   useInMemoryRedisServer,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
-import { initializeServer } from '../../dist/server';
+import { initializeServer, register } from '../../dist/server';
 import RelayCalls from '../../tests/helpers/constants';
 
 describe('Proxy Headers Integration Tests', function () {
@@ -62,6 +62,8 @@ describe('Proxy Headers Integration Tests', function () {
         console.error(err);
       }
     });
+    // Clear the Prometheus registry to avoid conflicts with other test files
+    register.clear();
   });
 
   this.timeout(10000);
