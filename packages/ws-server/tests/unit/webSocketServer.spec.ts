@@ -14,14 +14,8 @@ import * as webSocketServer from '../../dist/webSocketServer';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
-    const address = server.address();
-    if (!address || typeof address === 'string') {
-      reject(new Error('Invalid server address'));
-      return;
-    }
-
     http
-      .get(`http://127.0.0.1:${address.port}${path}`, (res) => {
+      .get(`http://127.0.0.1:${server.address()?.port}${path}`, (res) => {
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
