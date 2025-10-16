@@ -52,9 +52,9 @@ const mainLogger = pino({
   },
 });
 
+export const logger = mainLogger.child({ name: 'rpc-ws-server' });
 export async function initializeWsServer() {
   const register = new Registry();
-  const logger = mainLogger.child({ name: 'rpc-ws-server' });
   const relay = await Relay.init(logger, register);
 
   const subscriptionService = new SubscriptionService(relay, logger, register);

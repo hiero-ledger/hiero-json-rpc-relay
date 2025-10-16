@@ -231,8 +231,7 @@ describe('RPC Server', function () {
 
   withOverriddenEnvsInMochaTest({ REQUEST_ID_IS_OPTIONAL: true }, async function () {
     xit('supports optionality of request id when configured', async function () {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-      const app2 = require('../../src/server').default;
+      const { app: app2 } = await initializeServer();
       const port = `1${ConfigService.get('E2E_SERVER_PORT')}`;
       const testServer2 = app2.listen(port);
 

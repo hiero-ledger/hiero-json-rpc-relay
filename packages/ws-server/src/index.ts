@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 
-import { initializeWsServer } from './webSocketServer';
+import { initializeWsServer, logger } from './webSocketServer';
 
 async function main() {
   try {
@@ -14,8 +14,7 @@ async function main() {
     app.listen({ port: constants.WEB_SOCKET_PORT, host });
     httpApp.listen({ port: constants.WEB_SOCKET_HTTP_PORT, host });
   } catch (error) {
-    // If initialization fails, logger might not be available
-    console.error('Failed to initialize WebSocket server:', error);
+    logger.fatal(error);
     process.exit(1);
   }
 }
