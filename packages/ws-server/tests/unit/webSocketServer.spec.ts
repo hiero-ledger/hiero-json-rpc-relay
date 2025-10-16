@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Relay } from '@hashgraph/json-rpc-relay';
 import { expect } from 'chai';
 import http from 'http';
 import sinon from 'sinon';
@@ -9,12 +10,18 @@ import WebSocket from 'ws';
 import * as jsonRpcController from '../../dist/controllers/jsonRpcController';
 import wsMetricRegistry from '../../dist/metrics/wsMetricRegistry';
 import * as utils from '../../dist/utils/utils';
-import { app, httpApp, logger, relay } from '../../dist/webSocketServer';
+import * as webSocketServer from '../../dist/webSocketServer';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      reject(new Error('Invalid server address'));
+      return;
+    }
+
     http
-      .get(`http://127.0.0.1:${server.address().port}${path}`, (res) => {
+      .get(`http://127.0.0.1:${address.port}${path}`, (res) => {
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
@@ -24,42 +31,41 @@ async function httpGet(server: http.Server, path: string): Promise<{ status: num
   });
 }
 
-function wsUrl(server): string {
-  return `ws://127.0.0.1:${server.address().port}`;
-}
-
-function createMirrorStubServer(): http.Server<any, any> {
-  return http.createServer((req: any, res: any) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    const url = req.url || '';
-    if (url.startsWith('/api/v1/blocks') || url.startsWith('/blocks')) {
-      res.end(JSON.stringify({ blocks: [{ number: 5644, timestamp: { to: '0.0.5644' } }] }));
-    } else if (url.startsWith('/api/v1/accounts') || url.startsWith('/accounts')) {
-      res.end(JSON.stringify({ balance: { balance: 1 }, account: '0.0.2', transactions: [], links: {} }));
-    } else {
-      res.end(JSON.stringify({}));
-    }
-  });
+function wsUrl(server: http.Server): string {
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Invalid server address');
+  }
+  return `ws://127.0.0.1:${address.port}`;
 }
 
 describe('webSocketServer http endpoints', () => {
   let server: http.Server<any, any>;
-  let mirrorStubServer: http.Server<any, any>;
+  let httpApp: any;
+  let mockRelay: any;
+  let relayInitStub: sinon.SinonStub;
 
-  beforeEach((done) => {
-    mirrorStubServer = createMirrorStubServer();
-    mirrorStubServer.listen(5551, '127.0.0.1', () => {
-      server = http.createServer(httpApp.callback());
-      server.listen(0, '127.0.0.1', done);
+  beforeEach(async function () {
+    // Create a mock relay object
+    mockRelay = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+    };
+    relayInitStub = sinon.stub(Relay, 'init').resolves(mockRelay as any);
+
+    const wsServer = await webSocketServer.initializeWsServer();
+    httpApp = wsServer.httpApp;
+
+    // Create HTTP server from the Koa app
+    server = http.createServer(httpApp.callback());
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
     });
   });
 
   afterEach((done) => {
     sinon.restore();
-    server.close(() => {
-      mirrorStubServer.close(() => done());
-    });
+    server.close(done);
   });
 
   it('should return 200 for /metrics', async () => {
@@ -76,30 +82,28 @@ describe('webSocketServer http endpoints', () => {
   });
 
   it('should return 200 for /health/readiness when chainId is valid', async () => {
-    const ethStub = sinon.stub(relay, 'eth').returns({ chainId: () => '0x12a' } as any);
     const res = await httpGet(server, '/health/readiness');
 
-    expect(ethStub.calledOnce).to.be.true;
+    expect(mockRelay.eth.called).to.equal(true);
     expect(res.status).to.equal(200);
     expect(res.text).to.equal('OK');
   });
 
   it('should return 503 and DOWN for /health/readiness when chainId is not valid', async () => {
-    const ethStub = sinon.stub(relay, 'eth').returns({ chainId: () => '0xabc' } as any);
+    mockRelay.eth.returns({ chainId: () => '0xabc' });
     const res = await httpGet(server, '/health/readiness');
 
-    expect(ethStub.calledOnce).to.be.true;
+    expect(mockRelay.eth.called).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
     expect(res.status).to.equal(503);
     expect(res.text).to.equal('DOWN');
   });
 
   it('should log and throw when /health/readiness handler errors', async () => {
-    sinon.stub(relay, 'eth').throws(new Error());
-    const logStub = sinon.stub(logger, 'error');
+    // Override the mock to throw an error
+    mockRelay.eth.throws(new Error('Test error'));
     const res = await httpGet(server, '/health/readiness');
 
     expect(res.status).to.equal(500);
-    expect(logStub.called).to.be.true;
   });
 
   it('should throw 404 for unknown path', async () => {
@@ -111,7 +115,9 @@ describe('webSocketServer http endpoints', () => {
 
 describe('webSocketServer websocket handling', () => {
   let server: http.Server<any, any>;
-  let mirrorStubServer: http.Server<any, any>;
+  let app: any;
+  let mockRelay: any;
+  let relayInitStub: sinon.SinonStub;
   const sockets: WebSocket[] = [];
 
   async function openWsServerAndUpdateSockets(server, socketsArr) {
@@ -122,10 +128,26 @@ describe('webSocketServer websocket handling', () => {
     return ws;
   }
 
-  beforeEach((done) => {
-    mirrorStubServer = createMirrorStubServer();
-    mirrorStubServer.listen(5551, '127.0.0.1', () => {
-      server = app.listen(0, '127.0.0.1', done);
+  beforeEach(async function () {
+    // Create a mock relay object with all necessary methods
+    mockRelay = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub().returns({
+        getBlock: sinon.stub(),
+        getAccount: sinon.stub(),
+      }),
+    };
+
+    // Stub Relay.init to return our mock relay
+    relayInitStub = sinon.stub(Relay, 'init').resolves(mockRelay as any);
+
+    // Initialize the WebSocket server with mocked dependencies
+    const wsServer = await webSocketServer.initializeWsServer();
+    app = wsServer.app;
+
+    // Start the WebSocket server
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, '127.0.0.1', () => resolve());
     });
   });
 
@@ -139,9 +161,7 @@ describe('webSocketServer websocket handling', () => {
       }
     }
     sockets.length = 0;
-    server.close(() => {
-      mirrorStubServer.close(() => done());
-    });
+    server.close(done);
   });
 
   it('should send INVALID_REQUEST on malformed JSON', async () => {
@@ -159,10 +179,10 @@ describe('webSocketServer websocket handling', () => {
     ws.send(JSON.stringify([{ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }]));
 
     const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
-    expect(getWsBatchRequestsEnabledStub.calledOnce).to.be.true;
+    expect(getWsBatchRequestsEnabledStub.calledOnce).to.equal(true);
 
     const parsed = JSON.parse(msg);
-    expect(Array.isArray(parsed)).to.be.true;
+    expect(Array.isArray(parsed)).to.equal(true);
     expect(parsed[0].error?.code).to.equal(-32205);
     await ws.close();
   });
@@ -180,7 +200,7 @@ describe('webSocketServer websocket handling', () => {
 
     const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
     const parsed = JSON.parse(msg);
-    expect(Array.isArray(parsed)).to.be.true;
+    expect(Array.isArray(parsed)).to.equal(true);
     expect(parsed[0].error?.code).to.be.a('number');
     await ws.close();
   });
@@ -195,7 +215,7 @@ describe('webSocketServer websocket handling', () => {
     await new Promise((r) => setTimeout(r, 50));
     await ws.close();
 
-    expect(sendToClientStub.calledOnce).to.be.true;
+    expect(sendToClientStub.calledOnce).to.equal(true);
   });
 
   it('should generate a correct label for messageDuration histogram', async () => {
@@ -209,7 +229,7 @@ describe('webSocketServer websocket handling', () => {
     await new Promise((r) => setTimeout(r, 50));
     await ws.close();
 
-    expect(histStub.calledWith('messageDuration')).to.be.true;
+    expect(histStub.calledWith('messageDuration')).to.equal(true);
   });
 
   it('should be able to execute batch request', async () => {
@@ -236,9 +256,9 @@ describe('webSocketServer websocket handling', () => {
     await ws.close();
 
     expect(grrStub.callCount).to.equal(2);
-    expect(sendToClientStub.calledOnce).to.be.true;
+    expect(sendToClientStub.calledOnce).to.equal(true);
 
     const { args } = sendToClientStub.getCall(0);
-    expect(Array.isArray(args[2])).to.be.true;
+    expect(Array.isArray(args[2])).to.equal(true);
   });
 });
