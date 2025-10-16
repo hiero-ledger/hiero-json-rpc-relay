@@ -4,7 +4,6 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import Axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
-import Koa from 'koa';
 import { pino } from 'pino';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
