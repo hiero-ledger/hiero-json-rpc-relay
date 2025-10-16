@@ -167,7 +167,7 @@ describe('RPC Server', function () {
         const address = configuredServer.address();
 
         try {
-          expect(address).to.not.be.null; // eslint-disable-line @typescript-eslint/no-unused-expressions
+          expect(address).to.not.equal(null);
           if (address && typeof address === 'object') {
             expect(address.address).to.equal(CUSTOMIZE_HOST);
             expect(address.port.toString()).to.equal(CUSTOMIZE_PORT);
@@ -189,7 +189,7 @@ describe('RPC Server', function () {
     const calls = populatePreconfiguredSpendingPlansSpy.getCalls();
     expect(calls.length).to.be.equal(1);
     await calls[0].returnValue;
-    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.equal(true);
   });
 
   it('should execute "eth_chainId"', async function () {
@@ -3194,7 +3194,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.be.empty; // eslint-disable-line @typescript-eslint/no-unused-expressions
+        expect(response.data.result).to.have.lengthOf(0);
       });
 
       it('should return empty array when contract results is an empty array', async () => {
