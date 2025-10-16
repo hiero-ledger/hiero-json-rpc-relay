@@ -43,7 +43,6 @@ describe('webSocketServer http endpoints', () => {
   let server: http.Server<any, any>;
   let httpApp: any;
   let mockRelay: any;
-  let relayInitStub: sinon.SinonStub;
 
   beforeEach(async function () {
     // Create a mock relay object
@@ -51,7 +50,7 @@ describe('webSocketServer http endpoints', () => {
       eth: sinon.stub().returns({ chainId: () => '0x12a' }),
       mirrorClient: sinon.stub(),
     };
-    relayInitStub = sinon.stub(Relay, 'init').resolves(mockRelay as any);
+    sinon.stub(Relay, 'init').resolves(mockRelay as any);
 
     const wsServer = await webSocketServer.initializeWsServer();
     httpApp = wsServer.httpApp;
@@ -93,7 +92,7 @@ describe('webSocketServer http endpoints', () => {
     mockRelay.eth.returns({ chainId: () => '0xabc' });
     const res = await httpGet(server, '/health/readiness');
 
-    expect(mockRelay.eth.called).to.be.true; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    expect(mockRelay.eth.called).to.equal(true);
     expect(res.status).to.equal(503);
     expect(res.text).to.equal('DOWN');
   });
@@ -116,8 +115,6 @@ describe('webSocketServer http endpoints', () => {
 describe('webSocketServer websocket handling', () => {
   let server: http.Server<any, any>;
   let app: any;
-  let mockRelay: any;
-  let relayInitStub: sinon.SinonStub;
   const sockets: WebSocket[] = [];
 
   async function openWsServerAndUpdateSockets(server, socketsArr) {
@@ -129,18 +126,6 @@ describe('webSocketServer websocket handling', () => {
   }
 
   beforeEach(async function () {
-    // Create a mock relay object with all necessary methods
-    mockRelay = {
-      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
-      mirrorClient: sinon.stub().returns({
-        getBlock: sinon.stub(),
-        getAccount: sinon.stub(),
-      }),
-    };
-
-    // Stub Relay.init to return our mock relay
-    relayInitStub = sinon.stub(Relay, 'init').resolves(mockRelay as any);
-
     // Initialize the WebSocket server with mocked dependencies
     const wsServer = await webSocketServer.initializeWsServer();
     app = wsServer.app;
