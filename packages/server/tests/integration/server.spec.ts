@@ -63,7 +63,7 @@ describe('RPC Server', function () {
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../src/server')];
 
-    const { app } = await initializeServer();
+    app = (await initializeServer()).app;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();
 
@@ -162,7 +162,6 @@ describe('RPC Server', function () {
     const CUSTOMIZE_PORT = '7545';
     const CUSTOMIZE_HOST = '127.0.0.1';
     const configuredServer = app.listen({ port: CUSTOMIZE_PORT, host: CUSTOMIZE_HOST });
-
     return new Promise<void>((resolve, reject) => {
       configuredServer.on('listening', () => {
         const address = configuredServer.address();
@@ -180,7 +179,6 @@ describe('RPC Server', function () {
           configuredServer.close(() => reject(error));
         }
       });
-
       configuredServer.on('error', (error) => {
         reject(error);
       });
@@ -2574,89 +2572,97 @@ describe('RPC Server', function () {
       });
 
       it('should execute with CallTracer type and valid CallTracerConfig', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } }],
-          id: 1,
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } }],
+            id: 1,
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with OpcodeLogger type and valid OpcodeLoggerConfig', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [
-            contractHash1,
-            {
-              tracer: TracerType.OpcodeLogger,
-              tracerConfig: { disableStack: false, disableStorage: false, enableMemory: true },
-            },
-          ],
-          id: 1,
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [
+              contractHash1,
+              {
+                tracer: TracerType.OpcodeLogger,
+                tracerConfig: { disableStack: false, disableStorage: false, enableMemory: true },
+              },
+            ],
+            id: 1,
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with PrestateTracer type and valid PrestateTracerConfig', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1, { tracer: TracerType.PrestateTracer }],
-          id: 1,
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.PrestateTracer }],
+            id: 1,
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with PrestateTracer type and onlyTopCall option', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
-          id: 1,
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } }],
+            id: 1,
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with valid hash', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1],
-          id: '2',
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1],
+            id: '2',
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with valid hash and valid TracerType string', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1, { tracer: TracerType.CallTracer }],
-          id: '2',
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.CallTracer }],
+            id: '2',
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with valid hash, valid TracerType and empty TracerConfig', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: {} }],
-          id: '2',
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1, { tracer: TracerType.CallTracer, tracerConfig: {} }],
+            id: '2',
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should execute with valid hash, no TracerType and no TracerConfig', async () => {
-        const response = await testClient.post('/', {
-          jsonrpc: '2.0',
-          method: 'debug_traceTransaction',
-          params: [contractHash1],
-          id: '2',
-        });
-        expect(response.status).to.eq(200);
+        await expect(
+          testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [contractHash1],
+            id: '2',
+          }),
+        ).to.be.fulfilled.and.eventually.have.property('status', 200);
       });
 
       it('should fail with missing transaction hash', async () => {
