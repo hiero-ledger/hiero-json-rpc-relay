@@ -192,10 +192,4 @@ export const methodConfiguration = new Proxy({} as MethodRateLimitConfiguration,
   get(target, prop) {
     return getMethodConfiguration()[prop as keyof MethodRateLimitConfiguration];
   },
-  ownKeys() {
-    return Reflect.ownKeys(getMethodConfiguration());
-  },
-  getOwnPropertyDescriptor(target, prop) {
-    return Reflect.getOwnPropertyDescriptor(getMethodConfiguration(), prop);
-  },
 });
