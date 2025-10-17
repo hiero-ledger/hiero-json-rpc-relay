@@ -8,6 +8,7 @@ import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
 import { RedisCache } from '../../../src/lib/clients';
+import { RedisClientManager } from '../../../src/lib/clients/redisClientManager';
 import { useInMemoryRedisServer } from '../../helpers';
 
 chai.use(chaiAsPromised);
@@ -20,27 +21,33 @@ describe('RedisCache Test Suite', async function () {
   const callingMethod = 'RedisCacheTest';
 
   let redisCache: RedisCache;
-  let redisClientSpy: sinon.SinonSpiedInstance<RedisClientType>;
+  let redisClientManager: RedisClientManager;
+  let redisClient: RedisClientType;
 
   useInMemoryRedisServer(logger, 6379);
 
   this.beforeAll(async () => {
-    redisCache = new RedisCache(logger.child({ name: `cache` }), registry);
-    redisCache['options'].ttl = 100; // set default cache ttl to 100ms for testing
-    redisClientSpy = sinon.spy(redisCache['client']);
+    redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6379', 1000);
+
+    await redisClientManager.connect();
+    redisClient = redisClientManager.getClient();
+    redisCache = new RedisCache(logger.child({ name: `cache` }), registry, redisClient);
+    redisCache['options'].ttl = 100;
+    sinon.spy(redisClient, 'set');
   });
 
   this.beforeEach(async () => {
-    if (!(await redisCache.isConnected())) {
-      await redisCache.connect();
+    logger.info('before each');
+    if (!(await redisClientManager.isConnected())) {
+      await redisClientManager.connect();
     }
     await redisCache.clear();
     sinon.resetHistory();
   });
 
   this.afterAll(async () => {
-    if (await redisCache.isConnected()) {
-      await redisCache.disconnect();
+    if (await redisClientManager.isConnected()) {
+      await redisClientManager.disconnect();
     }
   });
 
@@ -96,7 +103,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -113,7 +120,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 1100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -130,7 +137,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = -1;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClientSpy.set, key, JSON.stringify(value));
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value));
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -406,49 +413,49 @@ describe('RedisCache Test Suite', async function () {
 
   describe('Connect Test Suite', () => {
     it('should connect to the Redis cache', async () => {
-      await redisCache.disconnect();
-      await redisCache.connect();
-      await expect(redisCache.isConnected()).to.eventually.be.true;
+      await redisClientManager.disconnect();
+      await redisClientManager.connect();
+      await expect(redisClientManager.isConnected()).to.be.true;
     });
 
     it('should throw an error when the client is already connected', async () => {
-      await expect(redisCache.connect()).to.eventually.be.rejectedWith('Socket already opened');
-      await expect(redisCache.isConnected()).to.eventually.be.true;
+      await expect(redisClientManager.connect()).to.eventually.be.rejectedWith('Socket already opened');
+      await expect(redisClientManager.isConnected()).to.be.true;
     });
   });
 
   describe('Is Connected Test Suite', () => {
     it('should return true when connected', async () => {
-      await expect(redisCache.isConnected()).to.eventually.be.true;
+      await expect(redisClientManager.isConnected()).to.be.true;
     });
 
     it('should return false when disconnected', async () => {
-      await redisCache.disconnect();
-      await expect(redisCache.isConnected()).to.eventually.be.false;
+      await redisClientManager.disconnect();
+      await expect(redisClientManager.isConnected()).to.be.false;
     });
   });
 
   describe('Number of Connections Test Suite', () => {
     it('should return the number of connections', async () => {
-      await expect(redisCache.getNumberOfConnections()).to.eventually.equal(1);
+      await expect(redisClientManager.getNumberOfConnections()).to.eventually.equal(1);
     });
 
     it('should throw an error when the client is closed', async () => {
-      await redisCache.disconnect();
-      await expect(redisCache.getNumberOfConnections()).to.eventually.be.rejectedWith('The client is closed');
+      await redisClientManager.disconnect();
+      await expect(redisClientManager.getNumberOfConnections()).to.eventually.be.rejectedWith('The client is closed');
     });
   });
 
   describe('Disconnect Test Suite', () => {
     it('should disconnect from the Redis cache', async () => {
-      await redisCache.disconnect();
-      await expect(redisCache.isConnected()).to.eventually.be.false;
+      await redisClientManager.disconnect();
+      await expect(redisClientManager.isConnected()).to.be.false;
     });
 
     it('should do nothing when already disconnected', async () => {
-      await redisCache.disconnect();
-      await expect(redisCache.disconnect()).to.eventually.be.rejectedWith('The client is closed');
-      await expect(redisCache.isConnected()).to.eventually.be.false;
+      await redisClientManager.disconnect();
+      await expect(redisClientManager.disconnect()).to.eventually.be.rejectedWith('The client is closed');
+      await expect(redisClientManager.isConnected()).to.be.false;
     });
   });
 });
