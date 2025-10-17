@@ -4,14 +4,25 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import sinon from 'sinon';
 
 import { Relay } from '../../src';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
-const relay = new Relay(logger, new Registry());
 
 describe('Web3', function () {
+  let relay: Relay;
+
+  before(async () => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    relay = await Relay.init(logger, new Registry());
+  });
+
+  after(() => {
+    sinon.restore();
+  });
+
   withOverriddenEnvsInMochaTest({ npm_package_version: '1.0.0' }, () => {
     it('should return "relay/1.0.0"', async function () {
       const clientVersion = relay.web3().clientVersion();

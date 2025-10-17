@@ -4,18 +4,21 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import Axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import { Server } from 'http';
-import Koa from 'koa';
 import { pino } from 'pino';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
 
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 
+import { Relay } from '@hashgraph/json-rpc-relay';
+import sinon from 'sinon';
+
 import {
   overrideEnvsInMochaDescribe,
   useInMemoryRedisServer,
   withOverriddenEnvsInMochaTest,
 } from '../../../relay/tests/helpers';
+import { initializeServer, register } from '../../dist/server';
 import RelayCalls from '../../tests/helpers/constants';
 
 describe('Proxy Headers Integration Tests', function () {
@@ -32,7 +35,6 @@ describe('Proxy Headers Integration Tests', function () {
 
   let testServer: Server;
   let testClient: AxiosInstance;
-  let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   // Simple static test IPs - each test uses different IP ranges to avoid conflicts
   const TEST_IP_A = '192.168.1.100';
@@ -48,18 +50,22 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_IPV6 = '2001:db8::1';
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
-  before(function () {
-    app = require('../../src/server').default;
+  before(async function () {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
   });
 
   after(function () {
+    sinon.restore();
     testServer.close((err) => {
       if (err) {
         console.error(err);
       }
     });
+    // Clear the Prometheus registry to avoid conflicts with other test files
+    register.clear();
   });
 
   this.timeout(10000);

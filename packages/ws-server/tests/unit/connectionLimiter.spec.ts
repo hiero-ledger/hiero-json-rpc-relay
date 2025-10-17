@@ -62,6 +62,10 @@ describe('Connection Limiter', function () {
     configServiceStub.withArgs('WS_SUBSCRIPTION_LIMIT').returns(10);
     configServiceStub.withArgs('LIMIT_DURATION').returns(60000);
     configServiceStub.withArgs('IP_RATE_LIMIT_STORE').returns('LRU');
+    // methodConfiguration now uses lazy evaluation, so we need to stub the tier rate limits
+    configServiceStub.withArgs('TIER_1_RATE_LIMIT').returns(100);
+    configServiceStub.withArgs('TIER_2_RATE_LIMIT').returns(800);
+    configServiceStub.withArgs('TIER_3_RATE_LIMIT').returns(1600);
 
     const rateLimiter = new IPRateLimiterService(mockLogger, mockRegistry, 9000);
 
