@@ -362,6 +362,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 'trace',
   },
+  LOG_FORMAT: {
+    type: 'string',
+    required: false,
+    defaultValue: 'pretty',
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
