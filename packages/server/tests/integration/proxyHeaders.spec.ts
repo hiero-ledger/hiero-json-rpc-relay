@@ -10,6 +10,9 @@ import { ConfigServiceTestHelper } from '../../../config-service/tests/configSer
 
 ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 
+import { Relay } from '@hashgraph/json-rpc-relay';
+import sinon from 'sinon';
+
 import {
   overrideEnvsInMochaDescribe,
   useInMemoryRedisServer,
@@ -26,7 +29,6 @@ describe('Proxy Headers Integration Tests', function () {
 
   // Test with rate limiting enabled and a low limit to make testing easier
   overrideEnvsInMochaDescribe({
-    READ_ONLY: true,
     RATE_LIMIT_DISABLED: false,
     TIER_2_RATE_LIMIT: 3, // Low limit for easy testing
   });
@@ -49,12 +51,14 @@ describe('Proxy Headers Integration Tests', function () {
   const TEST_METHOD = RelayCalls.ETH_ENDPOINTS.ETH_CHAIN_ID;
 
   before(async function () {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
     const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();
   });
 
   after(function () {
+    sinon.restore();
     testServer.close((err) => {
       if (err) {
         console.error(err);
