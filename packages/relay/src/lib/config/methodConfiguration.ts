@@ -188,6 +188,8 @@ export function getMethodConfiguration(): MethodRateLimitConfiguration {
 
 // Backwards compatibility: Export a Proxy that lazily calls getMethodConfiguration()
 // This allows existing code to use `methodConfiguration.eth_chainId` without changes
+// A Proxy is used for lazy evaluation to ensure test configuration overrides work correctly
+// (ConfigService is read at access time, not module load time).
 export const methodConfiguration = new Proxy({} as MethodRateLimitConfiguration, {
   get(target, prop) {
     return getMethodConfiguration()[prop as keyof MethodRateLimitConfiguration];
