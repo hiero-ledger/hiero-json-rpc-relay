@@ -168,7 +168,7 @@ describe('RPC Server', function () {
         const address = configuredServer.address();
 
         try {
-          expect(address).to.not.equal(null);
+          expect(address).to.not.be.null;
           if (address && typeof address === 'object') {
             expect(address.address).to.equal(CUSTOMIZE_HOST);
             expect(address.port.toString()).to.equal(CUSTOMIZE_PORT);
@@ -190,7 +190,7 @@ describe('RPC Server', function () {
     const calls = populatePreconfiguredSpendingPlansSpy.getCalls();
     expect(calls.length).to.be.equal(1);
     await calls[0].returnValue;
-    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.equal(true);
+    expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
   });
 
   it('should execute "eth_chainId"', async function () {
@@ -3194,7 +3194,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(0);
+        expect(response.data.result).to.be.empty;
       });
 
       it('should return empty array when contract results is an empty array', async () => {
@@ -3311,12 +3311,10 @@ class BaseTest {
       response.headers,
       `Default response: headers should have '${requestIdHeaderName}' property`,
     ).to.have.property(requestIdHeaderName);
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.headers[requestIdHeaderName],
       `Default response: 'headers[${requestIdHeaderName}]' should not be null`,
     ).not.to.be.null;
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.headers[requestIdHeaderName],
       `Default response: 'headers[${requestIdHeaderName}]' should not be undefined`,
@@ -3434,7 +3432,6 @@ class BaseTest {
       code,
     );
     expect(response.data.error, "Error response: 'error' should have 'message' property").to.have.property('message');
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     expect(
       response.data.error.message.endsWith(message),
       "Error response: 'data.error.message' should end with passed 'message' value",

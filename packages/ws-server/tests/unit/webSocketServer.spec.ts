@@ -77,7 +77,7 @@ describe('webSocketServer http endpoints', () => {
   it('should return 200 for /health/readiness when chainId is valid', async () => {
     const res = await httpGet(server, '/health/readiness');
 
-    expect(mockRelay.eth.called).to.equal(true);
+    expect(mockRelay.eth.called).to.be.true;
     expect(res.status).to.equal(200);
     expect(res.text).to.equal('OK');
   });
@@ -86,7 +86,7 @@ describe('webSocketServer http endpoints', () => {
     mockRelay.eth.returns({ chainId: () => '0xabc' });
     const res = await httpGet(server, '/health/readiness');
 
-    expect(mockRelay.eth.called).to.equal(true);
+    expect(mockRelay.eth.called).to.be.true;
     expect(res.status).to.equal(503);
     expect(res.text).to.equal('DOWN');
   });
@@ -161,10 +161,10 @@ describe('webSocketServer websocket handling', () => {
     ws.send(JSON.stringify([{ id: 1, jsonrpc: '2.0', method: 'eth_blockNumber', params: [] }]));
 
     const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
-    expect(getWsBatchRequestsEnabledStub.calledOnce).to.equal(true);
+    expect(getWsBatchRequestsEnabledStub.calledOnce).to.be.true;
 
     const parsed = JSON.parse(msg);
-    expect(Array.isArray(parsed)).to.equal(true);
+    expect(Array.isArray(parsed)).to.be.true;
     expect(parsed[0].error?.code).to.equal(-32205);
     await ws.close();
   });
@@ -182,7 +182,7 @@ describe('webSocketServer websocket handling', () => {
 
     const msg = await new Promise<string>((resolve) => ws.on('message', (data) => resolve(data.toString())));
     const parsed = JSON.parse(msg);
-    expect(Array.isArray(parsed)).to.equal(true);
+    expect(Array.isArray(parsed)).to.be.true;
     expect(parsed[0].error?.code).to.be.a('number');
     await ws.close();
   });
@@ -197,7 +197,7 @@ describe('webSocketServer websocket handling', () => {
     await new Promise((r) => setTimeout(r, 50));
     await ws.close();
 
-    expect(sendToClientStub.calledOnce).to.equal(true);
+    expect(sendToClientStub.calledOnce).to.be.true;
   });
 
   it('should generate a correct label for messageDuration histogram', async () => {
@@ -211,7 +211,7 @@ describe('webSocketServer websocket handling', () => {
     await new Promise((r) => setTimeout(r, 50));
     await ws.close();
 
-    expect(histStub.calledWith('messageDuration')).to.equal(true);
+    expect(histStub.calledWith('messageDuration')).to.be.true;
   });
 
   it('should be able to execute batch request', async () => {
@@ -238,9 +238,9 @@ describe('webSocketServer websocket handling', () => {
     await ws.close();
 
     expect(grrStub.callCount).to.equal(2);
-    expect(sendToClientStub.calledOnce).to.equal(true);
+    expect(sendToClientStub.calledOnce).to.be.true;
 
     const { args } = sendToClientStub.getCall(0);
-    expect(Array.isArray(args[2])).to.equal(true);
+    expect(Array.isArray(args[2])).to.be.true;
   });
 });
