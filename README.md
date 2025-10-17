@@ -1,6 +1,6 @@
 <div align="center">
 
-# Hedera JSON RPC Relay
+# Hiero JSON-RPC Relay
 
 [![Build](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions)
 [![Release](https://img.shields.io/github/v/release/hiero-ledger/hiero-json-rpc-relay)](https://github.com/hiero-ledger/hiero-json-rpc-relay/releases)
@@ -14,315 +14,192 @@
 
 </div>
 
+The Hiero JSON-RPC Relay is an open-source implementation of the Ethereum JSON-RPC API that allows developers to interact with the Hedera network using familiar Web3 tools such as MetaMask, Hardhat, and web3.js.
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Docker](#docker)
+  - [Configuration](#configuration)
+- [Paymaster (Gasless Transactions)](#paymaster-gasless-transactions)
+  - [Overview](#overview-1)
+  - [Why It Matters](#why-it-matters)
+  - [Configuration Overview](#configuration-overview)
+  - [Behavior Summary](#behavior-summary)
+  - [Example Configuration](#example-configuration)
+  - [Example Use Cases](#example-use-cases)
+  - [Best Practices](#best-practices)
+  - [References](#references)
+- [Testing](#testing)
+- [Metrics](#metrics)
+- [License](#license)
+
 ## Overview
 
-Implementation of an Ethereum JSON RPC APIs for Hedera Hashgraph. Utilises both Hedera Consensus Nodes and Mirror nodes
-to support RPC queries as defined in
-the [JSON RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false)
+The relay serves as a compatibility layer between Ethereum-style JSON-RPC calls and the Hedera Consensus Service, enabling seamless smart contract interactions on Hedera while maintaining compatibility with existing EVM tools and workflows.
 
-## Building
+## Features
 
-### Pre-requirements
+- Full support for `eth_*` JSON-RPC methods
+- Mirror Node integration for state queries
+- Consensus Node integration for transaction submission
+- WebSocket (`eth_subscribe`, `eth_unsubscribe`, `eth_chainId`) and HTTP support
+- Docker, Docker Compose, and Helm deployment
+- Metrics endpoint for Prometheus/Grafana
+- Conformity tests for Ethereum JSON-RPC compliance
 
-You must have installed
+## Getting Started
 
-- [node (version 20)](https://nodejs.org/en/about/)
-- [npm](https://www.npmjs.com/)
-- [pnpm](https://pnpm.io/)
-- [Docker](https://docs.docker.com/engine/reference/commandline/docker/)
+### Prerequisites
 
-We also recommend installing the "prettier" plugin in IntelliJ.
+- Node.js 20+
+- npm or pnpm
+- Access to a Hedera network (mainnet, testnet, or previewnet)
 
-### Steps
+### Installation
 
-From the root of the project workspace:
-
-1. Run `npm install`. This will create populate and link `node_modules`.
-2. Run `npm run build`. This will clean and compile the relay library and the server.
-3. Run `npm run start`. This will start the server on port `7546`.
-
-Alternatively, after `npm install`, from within the IDE, you should see the `Start Relay Microservice`
-run configuration. You should be able to just run that configuration, and it should start the server on port `7546`.
-
-## Testing
-
-### Best Practices
-
-- It is highly recommended to read the [Testing Guide](docs/testing-guide.md) for detailed testing strategies and best practices.
-
-### Postman
-
-First ensure newman is installed locally using `npm`, then execute `newman`.
-
-```shell
-npm install -g newman
-newman run packages/server/tests/postman.json --env-var baseUrl=http://localhost:7546
+```bash
+git clone https://github.com/hiero-ledger/hiero-json-rpc-relay.git
+cd hiero-json-rpc-relay
+npm install
+npm run build
+npm run start
 ```
 
-To enable Postman test to run via helm deployment add
+### Docker
 
+```bash
+docker compose up --build
 ```
-test:
-  enabled: true
-  schedule: '@daily' #How often to run the Postman test
-  baseUrl: "http://127.0.0.1:7546" # Relay URL to run the test against
-```
-
-### Acceptance Tests
-
-The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.
-
-## Conformity Tests
-
-This project includes a set of **conformity tests** to ensure compliance with the [Ethereum JSON-RPC specification](https://ethereum.org/en/developers/docs/apis/json-rpc/). These tests verify that our implementation behaves consistently with the standard, covering expected methods, formats, and edge cases.
-
-For details see [`CONFORMITY_TESTING.md`](./CONFORMITY_TESTING.md).
-
-#### Configuration
-
-The JSON RPC Relay offers multiple environment variable configuration porperties to configure the relay for appropriate use.
-More details can be found at [Configuration](/docs/configuration.md)
-As in the case of a fully deployed relay the acceptance tests utilize the `.env` file. See the [Configuration](#configuration) for setup details.
-
-The following table highlights some initial configuration values to consider
-
-| Config            | Default | Description                                                                                                                                                                                                                                                                                            |
-| ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CHAIN_ID`        | `0x12a` | The network chain id. Local and previewnet envs should use `0x12a` (298). Previewnet, Testnet and Mainnet should use `0x129` (297), `0x128` (296) and `0x127` (295) respectively                                                                                                                       |
-| `HEDERA_NETWORK`  | ``      | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`                                                                                                                                                       |
-| `MIRROR_NODE_URL` | ``      | The Mirror Node API endpoint. Official endpoints are Previewnet (https://previewnet.mirrornode.hedera.com), Testnet (https://testnet.mirrornode.hedera.com), Mainnet (https://mainnet-public.mirrornode.hedera.com). See [Mirror Node REST API](https://docs.hedera.com/hedera/sdks-and-apis/rest-api) |
-
-#### Run
-
-Tests may be run using the following command
-
-```shell
-npm run acceptancetest
-```
-
-## Deployment
-
-The Relay supports Docker image building and Docker Compose container management using the provided [Dockerfile](Dockerfile) and [docker-compose](docker-compose.yml) files.
-
-> **_NOTE:_** docker compose is for development purposes only.
-
-### Bumping version
-
-In order to bump version for all packages and files altogether there is an npm task called 'bump-version' that needs a parameter called `semver` and optional parameter `snapshot` with the version to bump and boolean respectively:
-
-```
-npm run bump-version --semver=0.21.0-rc1 --snapshot=true
-```
-
-`snapshot` parameter is `false` by default.
-
-### Image Build (optional)
-
-A new docker image may be created from a local copy of the repo.
-Run the following command, substituting `<owner>` as desired
-
-```shell
-docker build -t <owner>/hedera-json-rpc-relay .
-```
-
-After building, the image may be tagged by running the following command, substituting `<version>` as desired
-
-```shell
-docker tag <owner>/hedera-json-rpc-relay:latest ghcr.io/hiero-ledger/hiero-json-rpc-relay:main
-```
-
-> **_NOTE:_** image is tagged using `ghcr.io/hiero-ledger/hiero-json-rpc-relay:main` to agree with [docker compose](docker-compose.yml). Modify build commands or file as needed.
 
 ### Configuration
 
-The relay application currently utilizes [dotenv](https://github.com/motdotla/dotenv) to manage configurations.
-Key values are pulled from a `.env` file and reference as `process.env.<KEY>` in the application.
+The relay is configured via environment variables. You can copy `.env.example` to `.env` and edit as needed.
 
-To modify the default values
+| Variable | Description | Default |
+|-----------|-------------|----------|
+| `HEDERA_NETWORK` | The Hedera network to connect to (`mainnet`, `testnet`, `previewnet`) | `testnet` |
+| `MIRROR_NODE_URL` | URL of the mirror node REST API |  |
+| `OPERATOR_ID` | Operator account ID used to submit transactions |  |
+| `OPERATOR_KEY` | Operator private key (ECDSA or ED25519) |  |
+| `PORT_HTTP` | HTTP port for JSON-RPC requests | `7546` |
+| `PORT_WS` | WebSocket port | `8546` |
+| `LOG_LEVEL` | Logging verbosity | `info` |
 
-1. Rename [.env.example file](.env.example) to `.env`
-2. Populate the expected fields
-3. Update the `relay` service volumes section in the [docker-compose](docker-compose.yml) file from `./.env.sample:/home/node/app/.env.sample` to `./.env:/home/node/app/.env`
+## Paymaster (Gasless Transactions)
 
-Custom values provided will now be incorporated on startup of the relay
+Starting in v0.71, the relay supports a Paymaster-style mode that allows operators to sponsor gas fees for selected users or contracts — enabling gasless transactions and simpler onboarding.
 
-### Starting
+### Overview
 
-To start the relay, a docker container may be created using the following command
+In traditional Web3 environments, every transaction must include a gas payment from the user’s account. This can be a major UX barrier for mainstream or onboarding-focused applications.
 
-```shell
-docker compose up -d
+Hedera’s Paymaster-style model (via the JSON-RPC Relay) lets a relay or operator sponsor gas fees for certain users or contract calls — safely, predictably, and transparently.
+
+### Why It Matters
+
+- **Better user experience:** Users can perform blockchain actions (e.g., mint, vote, update state) without holding HBAR, lowering entry friction.
+- **Flexible monetization models:** Apps and relays can sponsor user activity and handle costs off-chain, via credits, fiat billing, or usage quotas.
+- **Expanded enterprise and consumer use cases:** Promotions or onboarding campaigns, sponsored partner apps, delegated submission by a backend, gasless NFT or DeFi interactions.
+- **Seamless integration:** Fees can be paid by the relay without changing `msg.sender`, so existing contracts, wallets, and tools continue to work as-is — no special signatures or code changes required.
+
+### Configuration Overview
+
+Starting from v0.71, three parameters govern paymaster behavior:
+
+| Parameter | Description | Type | Default |
+| ---------- | ------------ | ---- | -------- |
+| `PAYMASTER_ENABLED` | Enables paymaster functionality. Must be true for gas subsidies to apply. | Boolean | false |
+| `PAYMASTER_WHITELIST` | Comma-separated list of addresses (EOAs or contracts) eligible for gas sponsorship. Use "*" to allow all. | String | "" |
+| `MAX_GAS_ALLOWANCE_HBAR` | Maximum gas subsidy (in HBAR) per write transaction. Only applies if paymaster is enabled and address is whitelisted. | Decimal (HBAR) | 0 |
+
+**Note:** `MAX_GAS_ALLOWANCE_HBAR` is subordinated to the paymaster settings. It has no effect unless both `PAYMASTER_ENABLED=true` and the transaction’s sender is included in the whitelist.
+
+**Technical note:** For the paymaster subsidy to work correctly, the sender must explicitly set the gas price to `0` to indicate they do not intend to pay any fees. This is necessary both on the client side and the network side. On the client side, it prevents errors in tools that check whether the user’s balance is sufficient to cover transaction costs. On the network side, it signals to Hedera that the sender is not paying, allowing the relay to safely attach the gas allowance while preserving transaction integrity.
+
+### Behavior Summary
+
+1. Enable paymaster mode explicitly by setting `PAYMASTER_ENABLED=true`.
+2. Define which users or contracts can receive subsidies with `PAYMASTER_WHITELIST`.
+   - Use specific addresses for tight control.
+   - Use "*" to allow all transactions (not recommended for production).
+3. When both are active:
+   - The relay attaches a max gas allowance (in HBAR) to qualifying write transactions.
+   - The payer account (configured in the relay) covers up to that cap in gas costs.
+   - If execution costs exceed the cap or sender is not whitelisted, no subsidy is applied.
+
+### Example Configuration
+
+```bash
+# Enable paymaster mode
+PAYMASTER_ENABLED=true
+
+# Allow all addresses (demo or testnet only)
+PAYMASTER_WHITELIST=*
+
+# Subsidize up to 0.15 HBAR per write transaction
+MAX_GAS_ALLOWANCE_HBAR=0.15
 ```
 
-> **_NOTE:_** If you encounter `unauthorized` when pulling image, then ensure you're logged in with `docker login ghcr.io` or use a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) to authorize your login.
+Example for production:
 
-By default the relay will be made accessible on port `7546` and the websocket server - on port `8546`
-
-#### Request Test
-
-The following curl commands may be used to quickly test a running relay instance is function
-
-From a command prompt/terminal run the command
-
-```shell
-curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"2","method":"eth_chainId","params":[null]}' http://localhost:7546
+```bash
+# Restrict sponsorship to known contract addresses
+PAYMASTER_ENABLED=true
+PAYMASTER_WHITELIST=0xabc123...,0xdef456...
+MAX_GAS_ALLOWANCE_HBAR=0.10
 ```
 
-The expected response should be `{"result":"0x12a","jsonrpc":"2.0","id":"2"}`
-Where the `result` value matches the .env `CHAIN_ID` configuration value or the current deault value of `298`
+## Testing
 
-```shell
-curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"2","method":"eth_gasPrice","params":[null]}' http://localhost:7546
+You can verify the relay by running:
+
+```bash
+npm run test
 ```
 
-The expected response should be of the form `{"result":"0x10bc1576c00","jsonrpc":"2.0","id":"2"}`
-Where result returns a valid hexadecimal number
+Example query:
 
-### Helm Chart
-
-This repos `charts` directory contains the templates and values to deploy Hedera's json-rpc relay to a K8s cluster. This directory is packaged and distributed via helm repo.
-To get started, first install the helm repo:
-
+```bash
+curl -X POST -H 'Content-Type: application/json'   -d '{"jsonrpc":"2.0","id":"2","method":"eth_chainId","params":[null]}'   http://localhost:7546
 ```
-helm repo add hedera-json-rpc-relay https://hashgraph.github.io/hedera-json-rpc-relay/charts
-helm repo update
-```
-
-now install the helm chart:
-
-```
-helm install [RELEASE_NAME] charts/hedera-json-rpc -f /path/to/values.yaml
-```
-
-To see the values that have been deployed:
-
-```
-helm show values hedera-json-rpc-relay
-```
-
-Deploy an installation with custom values file:
-
-```
-helm install custom-hedera-json-rpc-relay -f path/to/values/file.yaml ./charts/hedera-json-rpc --debug
-```
-
-##### Deploy Helm Chart locally on minikube
-
-1.  Minikube must be running and the set context
-2.  GHCR.io requires authorization to pull the image. This auth will require a Github PAT to be generated
-
-- Acquire PAT, username, and, (primary) email address from Github.
-- Manually create a secret on kubernetes with the following command. The $ must be replaced
-  ```
-  kubectl create secret docker-registry ghcr-registry-auth \
-  --docker-server=https://ghcr.io \
-  --docker-username=$GH_USERNAME \
-  --docker-password=$GH_PAT \
-  --docker-email=$GH_EMAIL
-  ```
-
-3. Deploy this helm chart with the addtional [environment/minikube.yaml](environment/minikube.yaml) file
-
-```
-helm upgrade -f environments/minkube.yaml jrpc-test ./
-```
-
-4. Port forward the pod IP to localhost
-
-```
-kubectl port-forward $POD_NAME 7546:7546
-```
-
-##### Monitoring
-
-The hedera-json-rpc-relay ships with a metrics endpoint at `/metrics`. Here is an example scrape config that can be used by [prometheus](https://prometheus.io/docs/introduction/overview/):
-
-```
-        scrape_configs:
-        - job_name: hedera-json-rpc
-          honor_timestamps: true
-          scrape_interval: 15s
-          scrape_timeout: 10s
-          scheme: http
-          metrics_path: /metrics
-          kubernetes_sd_configs:
-            - role: pod
-          relabel_configs:
-            - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_container_port_number ]
-              action: replace
-              target_label: __address__
-              regex: ([^:]+)(?::\d+)?;(\d+)
-              replacement: $1:$2
-            - source_labels: [__meta_kubernetes_namespace]
-              action: replace
-              target_label: namespace
-            - source_labels: [__meta_kubernetes_pod_name]
-              action: replace
-              target_label: pod
-```
-
-Please note that the `/metrics` endpoint is also a default scrape configurations for prometheus. The `job_name` of `kubernetes-pods` is generally deployed as a default with prometheus; in the case where this scrape_config is present metrics will start getting populated by that scrape_config and no other configurations are necessary.
-
-##### Dashboard
-
-[Grafana JSON Dashboards](https://github.com/hiero-ledger/hiero-json-rpc-relay/tree/main/charts/hedera-json-rpc-relay/dashboards) can be used as the dashboard for hedera-json-rpc-relay.
-
-##### Admin-specific RPC methods
-
-- GET `/config` - To provide more transparency and operational insight to the developers, the hiero-json-rpc-relay exposes all environment variables. Such information could aid in troubleshooting and understanding the context in which the relay is running.
 
 Expected response:
 
-```
-{
-    "relay": {
-        "version": "0.70.0-SNAPSHOT",
-        "config": {
-            "CHAIN_ID": "0x128",
-            "CLIENT_TRANSPORT_SECURITY": "false",
-            "CONSENSUS_MAX_EXECUTION_TIME": "15000",
-            ...
-        }
-    },
-    "upstreamDependencies": [
-        {
-            "service": "consensusNode",
-            "version": "0.59.3",
-            "config": {
-                "SDK_REQUEST_TIMEOUT": "10000"
-            }
-        },
-        {
-            "service": "mirrorNode",
-            "config": {
-                "MIRROR_NODE_AGENT_CACHEABLE_DNS": "true",
-                "MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX": "200",
-                "MIRROR_NODE_CONTRACT_RESULTS_PG_MAX": "25",
-                ...
-            }
-        }
-    ]
-}
+```json
+{"jsonrpc":"2.0","id":"2","result":"0x128"}
 ```
 
-## Support
 
-If you have a question on how to use the product, please see our
-[support guide](https://github.com/hashgraph/.github/blob/main/SUPPORT.md).
+### Example Use Cases
 
-## Contributing
+| Scenario | Description | Typical Settings |
+| -------- | ------------ | ---------------- |
+| App onboarding | Cover gas for first user actions | `PAYMASTER_ENABLED=true`, `PAYMASTER_WHITELIST=*`, `MAX_GAS_ALLOWANCE_HBAR=0.2` |
+| Enterprise backend | Relay service submits and sponsors app-level writes | `PAYMASTER_ENABLED=true`, `PAYMASTER_WHITELIST=<app contracts>`, `MAX_GAS_ALLOWANCE_HBAR=0.5` |
+| Community relay | Sponsored dApp with capped user updates | `PAYMASTER_ENABLED=true`, `PAYMASTER_WHITELIST=*`, `MAX_GAS_ALLOWANCE_HBAR=0.1` |
 
-Contributions are welcome. Please see the
-[contributing guide](https://github.com/hashgraph/.github/blob/main/CONTRIBUTING.md)
-to see how you can get involved.
+### Best Practices
 
-## Code of Conduct
+- Always explicitly enable paymaster mode — subsidies are disabled by default.
+- Use `PAYMASTER_WHITELIST` to limit risk exposure.
+- Start with a small gas cap (e.g., 0.1 HBAR) and monitor usage.
+- Track and log relay-side spend for auditing or off-chain billing.
+- Avoid `PAYMASTER_WHITELIST=*` in production unless fully sandboxed.
 
-This project is governed by the
-[Contributor Covenant Code of Conduct](https://github.com/hashgraph/.github/blob/main/CODE_OF_CONDUCT.md). By
-participating, you are expected to uphold this code of conduct. Please report unacceptable behavior
-to [oss@hedera.com](mailto:oss@hedera.com).
+### References
+
+- [PR #3941: Paymaster Use Cases and Rationale](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/3941)
+- [Relay Configuration Docs](https://github.com/hiero-ledger/hiero-json-rpc-relay)
+
+
+## Metrics
+
+A Prometheus metrics endpoint is available at `/metrics` for operational monitoring.
 
 ## License
 
-[Apache License 2.0](LICENSE)
+Apache 2.0
