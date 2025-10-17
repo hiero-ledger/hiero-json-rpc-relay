@@ -45,6 +45,7 @@ describe('RPC Server', function () {
 
   overrideEnvsInMochaDescribe({
     RATE_LIMIT_DISABLED: true,
+    READ_ONLY: true,
   });
 
   before(async function () {

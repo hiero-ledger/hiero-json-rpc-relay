@@ -26,6 +26,7 @@ describe('Proxy Headers Integration Tests', function () {
 
   // Test with rate limiting enabled and a low limit to make testing easier
   overrideEnvsInMochaDescribe({
+    READ_ONLY: true,
     RATE_LIMIT_DISABLED: false,
     TIER_2_RATE_LIMIT: 3, // Low limit for easy testing
   });

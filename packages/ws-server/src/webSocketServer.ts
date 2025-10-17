@@ -280,5 +280,5 @@ export async function initializeWsServer() {
     logger.error(err, 'Uncaught Exception!');
   });
 
-  return { app, httpApp, logger };
+  return { app, httpApp };
 }

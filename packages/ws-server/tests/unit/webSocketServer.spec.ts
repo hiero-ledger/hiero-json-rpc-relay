@@ -121,8 +121,12 @@ describe('webSocketServer websocket handling', () => {
 
   beforeEach(async function () {
     // Initialize the WebSocket server with mocked dependencies
-    const wsServer = await webSocketServer.initializeWsServer();
-    app = wsServer.app;
+    const mockRelay = {
+      eth: sinon.stub().returns({ chainId: () => '0x12a' }),
+      mirrorClient: sinon.stub(),
+    };
+    sinon.stub(Relay, 'init').resolves(mockRelay as any);
+    const { app } = await webSocketServer.initializeWsServer();
 
     // Start the WebSocket server and wait for it to start
     await new Promise<void>((resolve) => {
