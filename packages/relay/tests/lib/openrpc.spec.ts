@@ -193,6 +193,7 @@ describe('Open RPC Specification', function () {
         balance: {
           balance: 100000000000,
         },
+        ethereum_nonce: 0,
       }),
     );
     mock
@@ -424,27 +425,27 @@ describe('Open RPC Specification', function () {
   });
 
   it('should execute "eth_getUncleByBlockHashAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockHashAndIndex(requestDetails);
+    const response = ethImpl.getUncleByBlockHashAndIndex(blockHash, '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockHashAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
+    const response = ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleByBlockNumberAndIndex"', async function () {
-    const response = await ethImpl.getUncleByBlockNumberAndIndex(requestDetails);
+    const response = ethImpl.getUncleByBlockNumberAndIndex(numberTo0x(blockNumber), '0x0');
     validateResponseSchema(methodsResponseSchema.eth_getUncleByBlockNumberAndIndex, response);
   });
 
   it('should execute "eth_getUncleCountByBlockHash"', async function () {
-    const response = await ethImpl.getUncleCountByBlockHash(requestDetails);
+    const response = ethImpl.getUncleCountByBlockHash(blockHash);
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockHash, response);
   });
 
   it('should execute "eth_getUncleCountByBlockNumber"', async function () {
-    const response = await ethImpl.getUncleCountByBlockNumber(requestDetails);
+    const response = ethImpl.getUncleCountByBlockNumber(numberTo0x(blockNumber));
     validateResponseSchema(methodsResponseSchema.eth_getUncleCountByBlockNumber, response);
   });
 
@@ -506,6 +507,7 @@ describe('Open RPC Specification', function () {
 
     const unsupportedMethods = {
       eth_coinbase: () => ns.eth.coinbase(),
+      eth_simulateV1: () => ns.eth.simulateV1(),
       eth_blobBaseFee: () => ns.eth.blobBaseFee(),
       eth_getWork: () => ns.eth.getWork(),
       eth_newPendingTransactionFilter: () => ns.eth.newPendingTransactionFilter(),

@@ -13,7 +13,6 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
-  IRegularTransactionReceiptParams,
   ISyntheticTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
@@ -278,39 +277,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Send transaction - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public sendTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sendTransaction()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Sign transaction - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public signTransaction(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('signTransaction()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
-   * Sign - not supported
-   * @returns A JsonRpcError indicating that the method is not supported
-   */
-  public sign(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('sign()');
-    }
-    return predefined.UNSUPPORTED_METHOD;
-  }
-
-  /**
    * Retrieves the current network exchange rate of HBAR to USD in cents.
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<number>} A promise that resolves to the current exchange rate in cents
@@ -389,6 +355,7 @@ export class TransactionService implements ITransactionService {
         address: log.address,
         blockHash: toHash32(receiptResponse.block_hash),
         blockNumber: numberTo0x(receiptResponse.block_number),
+        blockTimestamp: numberTo0x(Number(receiptResponse.timestamp.split('.')[0])),
         data: log.data,
         logIndex: numberTo0x(log.index),
         removed: false,
@@ -402,16 +369,13 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
 
-    const transactionReceiptParams: IRegularTransactionReceiptParams = {
+    return TransactionReceiptFactory.createRegularReceipt({
       effectiveGas,
       from,
       logs,
       receiptResponse,
       to,
-    };
-    const receipt: ITransactionReceipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams);
-
-    return receipt;
+    });
   }
 
   /**
@@ -477,7 +441,7 @@ export class TransactionService implements ITransactionService {
 
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (e: any) {
-      this.logger.error(`Precheck failed: transaction=${JSON.stringify(parsedTx)}`);
+      this.logger.error(e, `Precheck failed: errorMessage=${e.message}`);
       throw this.common.genericErrorHandler(e);
     }
   }
@@ -684,16 +648,14 @@ export class TransactionService implements ITransactionService {
     let error = null;
 
     try {
-      const sendRawTransactionResult = await this.hapiService
-        .getSDKClient()
-        .submitEthereumTransaction(
-          transactionBuffer,
-          constants.ETH_SEND_RAW_TRANSACTION,
-          requestDetails,
-          originalCallerAddress,
-          networkGasPriceInWeiBars,
-          await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        );
+      const sendRawTransactionResult = await this.hapiService.submitEthereumTransaction(
+        transactionBuffer,
+        constants.ETH_SEND_RAW_TRANSACTION,
+        requestDetails,
+        originalCallerAddress,
+        networkGasPriceInWeiBars,
+        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+      );
 
       txSubmitted = true;
       fileId = sendRawTransactionResult.fileId;
@@ -716,14 +678,7 @@ export class TransactionService implements ITransactionService {
        */
       if (fileId) {
         this.hapiService
-          .getSDKClient()
-          .deleteFile(
-            fileId,
-            requestDetails,
-            constants.ETH_SEND_RAW_TRANSACTION,
-            fileId.toString(),
-            originalCallerAddress,
-          )
+          .deleteFile(fileId, requestDetails, constants.ETH_SEND_RAW_TRANSACTION, originalCallerAddress)
           .then();
       }
     }

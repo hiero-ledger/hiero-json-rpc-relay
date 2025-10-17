@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
 import pino from 'pino';
+import sinon from 'sinon';
 
+import { contractAddress1, contractAddress2 } from '../../../relay/tests/helpers';
+import { validateSubscribeEthLogsParams } from '../../dist/utils/validators';
 import { WS_CONSTANTS } from '../../src/utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../../src/utils/utils';
 import { WsTestHelper } from '../helper';
 
 const logger = pino({ level: 'silent' });
+
+import chaiAsPromised from 'chai-as-promised';
+chai.use(chaiAsPromised);
 
 describe('validations unit test', async function () {
   const FAKE_REQUEST_ID = '3';
@@ -80,6 +87,75 @@ describe('validations unit test', async function () {
 
     UNSUPPORTED_METHODS.forEach((method) => {
       expect(verifySupportedMethod(method)).to.be.false;
+    });
+  });
+
+  describe('validateSubscribeEthLogsParams', async function () {
+    let stubMirrorNodeClient: MirrorNodeClient;
+    const requestDetails = new RequestDetails({
+      requestId: '3',
+      ipAddress: '0.0.0.0',
+      connectionId: '9',
+    });
+
+    beforeEach(() => {
+      stubMirrorNodeClient = sinon.createStubInstance(MirrorNodeClient);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should throw error if passed address as string is non-existing', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(false);
+
+      await expect(
+        validateSubscribeEthLogsParams(
+          {
+            address: contractAddress1,
+          },
+          stubMirrorNodeClient,
+          requestDetails,
+        ),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
+    });
+
+    it('should throw error if passed address as array is non-existing', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(false);
+
+      await expect(
+        validateSubscribeEthLogsParams(
+          {
+            address: [contractAddress1, contractAddress2],
+          },
+          stubMirrorNodeClient,
+          requestDetails,
+        ),
+      ).to.be.eventually.rejected.and.have.property('code', -32602);
+    });
+
+    it('should be able to pass address as a string', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(true);
+
+      await validateSubscribeEthLogsParams(
+        {
+          address: contractAddress1,
+        },
+        stubMirrorNodeClient,
+        requestDetails,
+      );
+    });
+
+    it('should be able to pass address as an array', async function () {
+      stubMirrorNodeClient.resolveEntityType.returns(true);
+
+      await validateSubscribeEthLogsParams(
+        {
+          address: [contractAddress1],
+        },
+        stubMirrorNodeClient,
+        requestDetails,
+      );
     });
   });
 });

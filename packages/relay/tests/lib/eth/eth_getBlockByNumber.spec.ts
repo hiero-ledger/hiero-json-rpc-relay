@@ -54,12 +54,13 @@ import {
   DEFAULT_LOGS,
   DEFAULT_NETWORK_FEES,
   GAS_USED_1,
-  GAS_USED_2,
   LATEST_BLOCK_QUERY,
   LATEST_BLOCK_RESPONSE,
   LINKS_NEXT_RES,
   LOG_QUERY,
   LOGS_RESPONSE_MOCK,
+  MAX_GAS_LIMIT_HEX,
+  MAX_GAS_LIMIT2_HEX,
   MOST_RECENT_BLOCK,
   NO_SUCH_BLOCK_EXISTS_RES,
   NOT_FOUND_RES,
@@ -107,8 +108,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   function verifyTransactions(transactions: Array<Transaction>) {
     expect(transactions.length).equal(2);
     expect(transactions[0].hash).equal(CONTRACT_HASH_1);
+    expect(transactions[0].gas).equal(MAX_GAS_LIMIT_HEX);
     expect(transactions[1].hash).equal(CONTRACT_HASH_2);
-    expect(transactions[1].gas).equal(hashNumber(GAS_USED_2));
+    expect(transactions[1].gas).equal(MAX_GAS_LIMIT2_HEX);
   }
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });

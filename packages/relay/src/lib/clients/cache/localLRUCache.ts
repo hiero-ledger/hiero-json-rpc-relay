@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import LRUCache, { LimitedByCount, LimitedByTTL } from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { Utils } from '../../../utils';
 import { ICacheClient } from './ICacheClient';
+
+type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache.OptionsTTLLimit<string, any, unknown>;
 
 /**
  * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
@@ -19,11 +21,13 @@ export class LocalLRUCache implements ICacheClient {
    *
    * @private
    */
-  private readonly options: LimitedByCount & LimitedByTTL = {
+  private readonly options: LRUCacheOptions = {
     // The maximum number (or size) of items that remain in the cache (assuming no TTL pruning or explicit deletions).
     max: ConfigService.get('CACHE_MAX'),
     // Max time to live in ms, for items before they are considered stale.
     ttl: ConfigService.get('CACHE_TTL'),
+    // Disable the preemptively removing stale items from the cache
+    ttlAutopurge: false,
   };
 
   /**

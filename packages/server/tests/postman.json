@@ -448,7 +448,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockHashAndIndex\",\n    \"params\": []\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockHashAndIndex\",\n    \"params\": [\"0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8\", \"0x0\"]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -487,7 +487,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockNumberAndIndex\",\n    \"params\": []\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleByBlockNumberAndIndex\",\n    \"params\": [\"latest\", \"0x0\"]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -510,6 +510,7 @@
             "exec": [
               "pm.test(\"Success\", () => {",
               "    var response = pm.response.json();",
+              "    console.log(response);",
               "    pm.expect(JSON.stringify(response.error)).to.equal(undefined);",
               "    pm.expect(response.result).to.equal(\"0x0\");",
               "    pm.expect(response.id).to.equal(\"test_id\");",
@@ -526,7 +527,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleCountByBlockHash\",\n    \"params\": []\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleCountByBlockHash\",\n    \"params\": [\"0xa291866ddf5dfd7ac83d079614ac60ab412df7c55e4d91408b2f365581405ca8\"]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -565,7 +566,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleCountByBlockNumber\",\n    \"params\": []\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getUncleCountByBlockNumber\",\n    \"params\": [\"latest\"]\n}",
           "options": {
             "raw": {
               "language": "json"

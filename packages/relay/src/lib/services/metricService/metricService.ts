@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
-import { MirrorNodeClient, SDKClient } from '../../clients';
 import constants from '../../constants';
 import {
   IExecuteQueryEventPayload,
@@ -14,60 +12,38 @@ import {
 } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
+interface ITransactionMetricsCollector {
+  getTransactionRecordMetrics(
+    transactionId: string,
+    txConstructorName: string,
+    operatorAccountId: string,
+    requestDetails?: RequestDetails,
+  ): Promise<ITransactionRecordMetric>;
+}
+
 export default class MetricService {
   /**
    * Logger instance for logging information.
-   * @type {Logger}
-   * @readonly
-   * @private
    */
   private readonly logger: Logger;
 
   /**
-   * Main SDK client for executing queries.
-   * @type {SDKClient}
-   * @readonly
-   * @private
-   */
-  private readonly sdkClient: SDKClient;
-
-  /**
-   * Main Mirror Node client for retrieving transaction records.
-   * @type {MirrorNodeClient}
-   * @readonly
-   * @private
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
    * Histogram for capturing the cost of transactions and queries.
-   * @type {Histogram}
-   * @readonly
-   * @private
    */
   private readonly consensusNodeClientHistogramCost: Histogram;
 
   /**
    * Histogram for capturing the gas fee of transactions and queries.
-   * @type {Histogram}
-   * @readonly
-   * @private
    */
   private readonly consensusNodeClientHistogramGasFee: Histogram;
 
   /**
    * Counter for tracking Ethereum executions.
-   * @type {Counter}
-   * @readonly
-   * @private
    */
   readonly ethExecutionsCounter: Counter;
 
   /**
    * An instance of the HbarLimitService that tracks hbar expenses and limits.
-   * @private
-   * @readonly
-   * @type {HbarLimitService}
    */
   private readonly hbarLimitService: HbarLimitService;
 
@@ -75,21 +51,18 @@ export default class MetricService {
    * Constructs an instance of the MetricService responsible for tracking and recording various metrics
    * related to Hedera network interactions and resource usage.
    *
-   * @param {Logger} logger - Logger instance for logging system messages.
-   * @param {SDKClient} sdkClient - Client for interacting with the Hedera SDK.
-   * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
-   * @param {Registry} register - Registry instance for registering metrics.
+   * @param logger - Logger instance for logging system messages.
+   * @param metricsCollector - `SDKClient` or `HAPIService` for fetching transaction record metrics from the Consensus Node.
+   * @param register - Registry instance for registering metrics.
+   * @param hbarLimitService - An instance of the HbarLimitService that tracks hbar expenses and limits.
    */
   constructor(
     logger: Logger,
-    sdkClient: SDKClient,
-    mirrorNodeClient: MirrorNodeClient,
+    private readonly metricsCollector: ITransactionMetricsCollector,
     register: Registry,
     hbarLimitService: HbarLimitService,
   ) {
     this.logger = logger;
-    this.sdkClient = sdkClient;
-    this.mirrorNodeClient = mirrorNodeClient;
     this.hbarLimitService = hbarLimitService;
     this.consensusNodeClientHistogramCost = this.initCostMetric(register);
     this.consensusNodeClientHistogramGasFee = this.initGasMetric(register);
@@ -263,20 +236,14 @@ export default class MetricService {
     operatorAccountId: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionRecordMetric | undefined> {
-    const defaultToConsensusNode = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE');
-
     // retrieve transaction metrics
     try {
-      if (defaultToConsensusNode) {
-        return await this.sdkClient.getTransactionRecordMetrics(transactionId, txConstructorName, operatorAccountId);
-      } else {
-        return await this.mirrorNodeClient.getTransactionRecordMetrics(
-          transactionId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
-      }
+      return await this.metricsCollector.getTransactionRecordMetrics(
+        transactionId,
+        txConstructorName,
+        operatorAccountId,
+        requestDetails,
+      );
     } catch (error: any) {
       this.logger.warn(error, `Could not fetch transaction record: error=${error.message}`);
     }

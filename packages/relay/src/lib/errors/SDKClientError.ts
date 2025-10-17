@@ -5,14 +5,12 @@ import { Status } from '@hashgraph/sdk';
 export class SDKClientError extends Error {
   public status: Status = Status.Unknown;
   public nodeAccountId: string | undefined;
-  private validNetworkError: boolean = false;
   private failedTransactionId: string | undefined;
 
   constructor(e: any, message?: string, transactionId?: string, nodeId?: string | undefined) {
     super(e?.status?._code ? e.message : message);
 
     if (e?.status?._code) {
-      this.validNetworkError = true;
       this.status = e.status;
     }
     this.failedTransactionId = transactionId || '';
@@ -26,30 +24,6 @@ export class SDKClientError extends Error {
 
   get transactionId(): string | undefined {
     return this.failedTransactionId;
-  }
-
-  public isValidNetworkError(): boolean {
-    return this.validNetworkError;
-  }
-
-  public isInvalidAccountId(): boolean {
-    return this.isValidNetworkError() && this.statusCode === Status.InvalidAccountId._code;
-  }
-
-  public isInvalidContractId(): boolean {
-    return (
-      this.isValidNetworkError() &&
-      (this.statusCode === Status.InvalidContractId._code ||
-        this.message?.includes(Status.InvalidContractId.toString()))
-    );
-  }
-
-  public isContractDeleted(): boolean {
-    return this.statusCode == Status.ContractDeleted._code;
-  }
-
-  public isInsufficientTxFee(): boolean {
-    return this.statusCode === Status.InsufficientTxFee._code;
   }
 
   public isContractRevertExecuted(): boolean {

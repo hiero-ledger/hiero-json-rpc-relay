@@ -1,8 +1,8 @@
 {
   "name": "root",
-  "version": "0.71.0-SNAPSHOT",
+  "version": "0.73.0-SNAPSHOT",
   "devDependencies": {
-    "@hashgraph/hedera-local": "^2.32.5",
+    "@hashgraph/hedera-local": "^2.39.0",
     "@open-rpc/schema-utils-js": "^2.1.2",
     "@types/chai-as-promised": "^8.0.2",
     "@types/co-body": "6.1.3",
@@ -10,8 +10,8 @@
     "@types/koa-cors": "^0.0.6",
     "@types/lodash": "^4.17.7",
     "@types/sinon": "^10.0.20",
-    "@typescript-eslint/eslint-plugin": "^6.5.0",
-    "@typescript-eslint/parser": "^6.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.44.1",
+    "@typescript-eslint/parser": "^8.44.0",
     "ajv": "^8.16.0",
     "ajv-formats": "^3.0.1",
     "axios-mock-adapter": "^2.1.0",
@@ -21,7 +21,7 @@
     "eslint": "^8.48.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-header": "^3.1.1",
-    "eslint-plugin-n": "^15.7.0",
+    "eslint-plugin-n": "^17.21.3",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.9",
@@ -67,6 +67,7 @@
     "acceptancetest:serverconfig": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
     "acceptancetest:send_raw_transaction_extension": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
+    "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
     "build": "npx lerna run build",
     "build-and-test": "npx lerna run build && npx lerna run test",
     "build:docker": "docker build . -t ${npm_package_name}",
@@ -86,7 +87,7 @@
     "print-env": "npx lerna exec --scope @hashgraph/json-rpc-config-service -- npm run print-env"
   },
   "dependencies": {
-    "@ethereumjs/rlp": "^5.0.2",
+    "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
     "koa-cors": "^0.0.16",
@@ -95,7 +96,7 @@
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
     "pnpm": "^10.0.0",
-    "prom-client": "^14.0.1",
+    "prom-client": "^15.1.3",
     "redis": "^5.8.0"
   },
   "overrides": {

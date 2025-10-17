@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
@@ -142,7 +141,6 @@ export class Utils {
     associatedAccounts: AliasAccount[],
     owner: AliasAccount,
     servicesNode: ServicesClient,
-    requestId?: string,
   ) => {
     const htsResult = await servicesNode.createHTS({
       tokenName,
@@ -159,9 +157,8 @@ export class Utils {
         htsResult.receipt.tokenId!,
         account.privateKey,
         htsResult.client,
-        requestId,
       );
-      await servicesNode.approveHTSToken(account.accountId, htsResult.receipt.tokenId!, htsResult.client, requestId);
+      await servicesNode.approveHTSToken(account.accountId, htsResult.receipt.tokenId!, htsResult.client);
     }
 
     // Setup initial balance of token owner account
@@ -170,7 +167,6 @@ export class Utils {
       htsResult.receipt.tokenId!,
       initialSupply,
       htsResult.client.operatorAccountId!,
-      requestId,
     );
     const evmAddress = Utils.idToEvmAddress(htsResult.receipt.tokenId!.toString());
     return new ethers.Contract(evmAddress, abi, owner.wallet);
@@ -180,11 +176,11 @@ export class Utils {
     return num.startsWith('0x') ? num : '0x' + num;
   };
 
-  static gasOptions = async (requestId: string, gasLimit = 1_500_000) => {
+  static gasOptions = async (gasLimit = 1_500_000) => {
     const relay: RelayClient = global.relay;
     return {
       gasLimit: gasLimit,
-      gasPrice: await relay.gasPrice(requestId),
+      gasPrice: await relay.gasPrice(),
     };
   };
 
@@ -199,13 +195,12 @@ export class Utils {
     relay: RelayClient,
     callData: { from: string; to: any; gas: string; data: string },
     blockNumber: string,
-    requestId: string,
   ): Promise<string> => {
     let numberOfCalls = 0;
-    let res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, blockNumber], requestId);
+    let res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, blockNumber]);
     while (res === '0x' && numberOfCalls < 3) {
       await new Promise((r) => setTimeout(r, 2000));
-      res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, blockNumber], requestId);
+      res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, blockNumber]);
       numberOfCalls++;
     }
     return res;
@@ -236,7 +231,6 @@ export class Utils {
     CHAIN_ID: string | number,
     accounts: AliasAccount[],
     rpcServer: any,
-    requestId: any,
     mirrorNodeServer: any,
   ) => {
     const transaction = {
@@ -244,30 +238,28 @@ export class Utils {
       gasLimit: numberTo0x(30000),
       chainId: Number(CHAIN_ID),
       to: accounts[1].address,
-      nonce: await rpcServer.getAccountNonce(accounts[0].address, requestId),
-      maxFeePerGas: await rpcServer.gasPrice(requestId),
+      nonce: await rpcServer.getAccountNonce(accounts[0].address),
+      maxFeePerGas: await rpcServer.gasPrice(),
     };
 
     const signedTx = await accounts[0].wallet.signTransaction(transaction);
-    const transactionHash = await rpcServer.sendRawTransaction(signedTx, requestId);
+    const transactionHash = await rpcServer.sendRawTransaction(signedTx);
 
-    await mirrorNodeServer.get(`/contracts/results/${transactionHash}`, requestId);
+    await mirrorNodeServer.get(`/contracts/results/${transactionHash}`);
 
-    return await rpcServer.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash], requestId);
+    return await rpcServer.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
   };
   /**
    * Creates an alias account on the mirror node with the provided details.
    *
    * @param {MirrorClient} mirrorNode The mirror node client.
    * @param {AliasAccount} creator The creator account for the alias.
-   * @param {string} requestId The unique identifier for the request.
    * @param {string} balanceInTinyBar The initial balance for the alias account in tiny bars. Defaults to 10 HBAR.
    * @returns {Promise<AliasAccount>} A promise resolving to the created alias account.
    */
   static readonly createAliasAccount = async (
     mirrorNode: MirrorClient,
     creator: AliasAccount,
-    requestId: string,
     balanceInTinyBar: string = '1000000000', //10 HBAR
   ): Promise<AliasAccount> => {
     const signer = creator.wallet;
@@ -282,13 +274,12 @@ export class Utils {
       value: accountBalance,
     });
 
-    const mirrorNodeAccount = (await mirrorNode.get(`/accounts/${address}`, requestId)).account;
+    const mirrorNodeAccount = (await mirrorNode.get(`/accounts/${address}`)).account;
     const accountId = AccountId.fromString(mirrorNodeAccount);
     const client: ServicesClient = new ServicesClient(
       ConfigService.get('HEDERA_NETWORK')!,
       accountId.toString(),
       privateKey.toStringDer(),
-      creator.client.getLogger(),
     );
 
     const account: AliasAccount = {
@@ -309,16 +300,10 @@ export class Utils {
     initialAccount: AliasAccount,
     neededAccounts: number,
     initialAmountInTinyBar: string,
-    requestDetails: RequestDetails,
   ): Promise<AliasAccount[]> {
     const accounts: AliasAccount[] = [];
     for (let i = 0; i < neededAccounts; i++) {
-      const account = await Utils.createAliasAccount(
-        mirrorNode,
-        initialAccount,
-        requestDetails.requestId,
-        initialAmountInTinyBar,
-      );
+      const account = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmountInTinyBar);
       if (global.logger.isLevelEnabled('trace')) {
         global.logger.trace(
           `Create new Eth compatible account w alias: ${account.address} and balance ~${initialAmountInTinyBar} wei`,
@@ -480,16 +465,16 @@ export class Utils {
     });
   }
 
-  static async getReceipt(relay: RelayClient, transactionProps: object, requestId: string, wallet: ethers.Wallet) {
+  static async getReceipt(relay: RelayClient, transactionProps: object, wallet: ethers.Wallet) {
     const signedTx = await wallet.signTransaction(transactionProps);
-    const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+    const transactionHash = await relay.sendRawTransaction(signedTx);
 
     // Wait for transaction to be processed
     const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
     return receipt;
   }
 
-  static async buildTransaction(relay: RelayClient, to: string, from: string, data: string, requestId: string) {
+  static async buildTransaction(relay: RelayClient, to: string, from: string, data: string) {
     const chainId = ConfigService.get('CHAIN_ID');
     return {
       to,
@@ -497,8 +482,8 @@ export class Utils {
       gasLimit: numberTo0x(3_000_000),
       chainId: chainId,
       type: 2,
-      maxFeePerGas: await relay.gasPrice(requestId),
-      maxPriorityFeePerGas: await relay.gasPrice(requestId),
+      maxFeePerGas: await relay.gasPrice(),
+      maxPriorityFeePerGas: await relay.gasPrice(),
       data,
       nonce: await relay.getAccountNonce(from),
     };

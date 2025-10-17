@@ -122,7 +122,32 @@ export class DebugImpl implements Debug {
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
-    const tracerConfig = tracerObject?.tracerConfig ?? {};
+
+    // Extract tracer config from either nested tracerConfig or top-level properties
+    let tracerConfig = tracerObject?.tracerConfig ?? {};
+
+    // If no nested tracerConfig is provided AND no tracer is explicitly set,
+    // check for top-level opcodeLogger config properties (defaults to opcodeLogger)
+    if (!tracerObject?.tracerConfig && !tracerObject?.tracer && tracerObject) {
+      const topLevelConfig = Object.fromEntries(
+        Object.entries(tracerObject).filter(([key]) => key !== 'tracer' && key !== 'tracerConfig'),
+      );
+      // Only include valid opcodeLogger config properties
+      const validOpcodeLoggerKeys = ['enableMemory', 'disableStack', 'disableStorage', 'fullStorage'];
+      const filteredConfig = Object.keys(topLevelConfig)
+        .filter((key) => validOpcodeLoggerKeys.includes(key))
+        .reduce((obj, key) => {
+          // Filter out non-standard parameters that shouldn't be passed to the actual tracer
+          if (key !== 'fullStorage') {
+            obj[key] = topLevelConfig[key];
+          }
+          return obj;
+        }, {} as any);
+
+      if (Object.keys(filteredConfig).length > 0) {
+        tracerConfig = filteredConfig;
+      }
+    }
 
     try {
       DebugImpl.requireDebugAPIEnabled();
@@ -131,7 +156,7 @@ export class DebugImpl implements Debug {
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const onlyTopCall = (tracerObject?.tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
+        const onlyTopCall = (tracerConfig as ICallTracerConfig)?.onlyTopCall ?? false;
         return await this.prestateTracer(transactionIdOrHash, onlyTopCall, requestDetails);
       }
 
@@ -266,7 +291,9 @@ export class DebugImpl implements Debug {
         // The actions endpoint does not return input and output for the calls so we get them from another endpoint
         // The first one is excluded because we take its input and output from the contracts/results/{transactionIdOrHash} endpoint
         const contract =
-          index !== 0 && action.call_operation_type === CallType.CREATE
+          index !== 0 && (
+            action.call_operation_type === CallType.CREATE || action.call_operation_type === CallType.CREATE2
+          ) && action.to
             ? await this.mirrorNodeClient.getContract(action.to, requestDetails)
             : undefined;
 

@@ -50,6 +50,7 @@ export enum TracerType {
 }
 
 export enum CallType {
+  CREATE2 = 'CREATE2',
   CREATE = 'CREATE',
   CALL = 'CALL',
 }

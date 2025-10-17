@@ -32,7 +32,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   }: { servicesNode: ServicesClient; mirrorNode: MirrorClient; relay: RelayClient; initialBalance: string } = global;
 
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
-  const requestId = 'sendRawTransactionPrecheck';
   const requestDetails = new RequestDetails({ requestId: 'sendRawTransactionPrecheck', ipAddress: '0.0.0.0' });
   const sendRawTransaction = relay.sendRawTransaction;
 
@@ -44,13 +43,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const initialAccount: AliasAccount = global.accounts[0];
     const neededAccounts: number = 3;
     accounts.push(
-      ...(await Utils.createMultipleAliasAccounts(
-        mirrorNode,
-        initialAccount,
-        neededAccounts,
-        initialBalance,
-        requestDetails,
-      )),
+      ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
     global.accounts.push(...accounts);
   });
@@ -58,11 +51,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('Prechecks', function () {
     describe('transactionSize', function () {
       it('@release should execute "eth_sendRawTransaction" with regular transaction size within the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
+        const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+          nonce: await relay.getAccountNonce(accounts[1].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
@@ -72,20 +65,20 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
         expect(signedTx.length).to.be.lt(Constants.SEND_RAW_TRANSACTION_SIZE_LIMIT);
 
-        const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
         await relay.pollForValidTransactionReceipt(transactionHash);
 
-        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         expect(info).to.exist;
         expect(info.result).to.equal('SUCCESS');
       });
 
       it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the SEND_RAW_TRANSACTION_SIZE_LIMIT - 130kb limit', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
+        const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+          nonce: await relay.getAccountNonce(accounts[1].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
@@ -106,11 +99,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
     describe('callDataSize', function () {
       it('@release should execute "eth_sendRawTransaction" with regular transaction size within the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
+        const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+          nonce: await relay.getAccountNonce(accounts[1].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
@@ -120,20 +113,20 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
         expect(signedTx.length).to.be.lt(Constants.CALL_DATA_SIZE_LIMIT);
 
-        const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
         await relay.pollForValidTransactionReceipt(transactionHash);
 
-        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         expect(info).to.exist;
         expect(info.result).to.equal('SUCCESS');
       });
 
       it('@release should fail "eth_sendRawTransaction" when transaction size exceeds the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
-        const gasPrice = await relay.gasPrice(requestId);
+        const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
           chainId: Number(CHAIN_ID),
-          nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+          nonce: await relay.getAccountNonce(accounts[1].address),
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
           gasLimit: defaultGasLimit,
@@ -154,18 +147,18 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   describe('Jumbo Transaction', function () {
-    it('@release should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
+    it('@release @xts should execute "eth_sendRawTransaction" with Jumbo Transaction', async function () {
       const isJumboTransaction = ConfigService.get('JUMBO_TX_ENABLED');
       // skip this test if JUMBO_TX_ENABLED is false
       if (!isJumboTransaction) {
         this.skip();
       }
 
-      const gasPrice = await relay.gasPrice(requestId);
+      const gasPrice = await relay.gasPrice();
       const transaction = {
         type: 2,
         chainId: Number(CHAIN_ID),
-        nonce: await relay.getAccountNonce(accounts[1].address, requestId),
+        nonce: await relay.getAccountNonce(accounts[1].address),
         maxPriorityFeePerGas: gasPrice,
         maxFeePerGas: gasPrice,
         gasLimit: defaultGasLimit,
@@ -174,10 +167,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       };
 
       const signedTx = await accounts[1].wallet.signTransaction(transaction);
-      const transactionHash = await relay.sendRawTransaction(signedTx, requestId);
+      const transactionHash = await relay.sendRawTransaction(signedTx);
       await relay.pollForValidTransactionReceipt(transactionHash);
 
-      const info = await mirrorNode.get(`/contracts/results/${transactionHash}`, requestId);
+      const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
       expect(info).to.exist;
     });
   });
@@ -219,7 +212,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const transaction = {
         type: 2,
         chainId: Number(CHAIN_ID),
-        nonce: await relay.getAccountNonce(senderAccount.address, requestId),
+        nonce: await relay.getAccountNonce(senderAccount.address),
         maxPriorityFeePerGas: zeroGasPrice,
         maxFeePerGas: zeroGasPrice,
         gasLimit: defaultGasLimit,
@@ -233,11 +226,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const verifySuccessfulTransaction = async (txHash: string, signerAddress: string, initialBalance: bigint) => {
       await relay.pollForValidTransactionReceipt(txHash);
 
-      const info = await mirrorNode.get(`/contracts/results/${txHash}`, requestId);
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`);
       expect(info).to.exist;
       expect(info.result).to.equal('SUCCESS');
 
-      const finalBalance = await relay.getBalance(signerAddress, 'latest', requestId);
+      const finalBalance = await relay.getBalance(signerAddress, 'latest');
       expect(initialBalance).to.be.equal(finalBalance);
     };
 
@@ -245,9 +238,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       // configure paymaster for all addresses
       configurePaymaster(true, ['*'], MAX_ALLOWANCE);
 
-      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
       const signedTx = await createAndSignTransaction(accounts[2]);
-      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+      const txHash = await relay.sendRawTransaction(signedTx);
 
       await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
     });
@@ -255,9 +248,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     it('should process zero-fee transactions to existing accounts when Paymaster is enabled globally', async function () {
       configurePaymaster(true, ['*'], MAX_ALLOWANCE);
 
-      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
       const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
-      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+      const txHash = await relay.sendRawTransaction(signedTx);
 
       await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
     });
@@ -266,9 +259,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       // Configure paymaster for specific address
       configurePaymaster(true, [accounts[0].address], MAX_ALLOWANCE);
 
-      const initialBalance = await relay.getBalance(accounts[2].address, 'latest', requestId);
+      const initialBalance = await relay.getBalance(accounts[2].address, 'latest');
       const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
-      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+      const txHash = await relay.sendRawTransaction(signedTx);
 
       await verifySuccessfulTransaction(txHash, accounts[2].address, initialBalance);
     });
@@ -296,10 +289,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       configurePaymaster(true, ['*'], 0);
 
       const signedTx = await createAndSignTransaction(accounts[2], accounts[0].address);
-      const txHash = await relay.sendRawTransaction(signedTx, requestId);
+      const txHash = await relay.sendRawTransaction(signedTx);
       await relay.pollForValidTransactionReceipt(txHash);
 
-      const info = await mirrorNode.get(`/contracts/results/${txHash}`, requestId);
+      const info = await mirrorNode.get(`/contracts/results/${txHash}`);
       expect(info).to.exist;
       expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
     });

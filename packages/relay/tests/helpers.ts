@@ -99,6 +99,7 @@ export const expectLogData = (res, log, tx) => {
   expect(res.address).to.eq(log.address);
   expect(res.blockHash).to.eq(toHash32(tx.block_hash));
   expect(res.blockHash.length).to.eq(66);
+  expect(res.blockTimestamp).to.eq(numberTo0x(Number(tx.timestamp.split('.')[0])));
   expect(res.blockNumber).to.eq(numberTo0x(tx.block_number));
   expect(res.data).to.eq(log.data);
   expect(res.logIndex).to.eq(numberTo0x(log.index));
@@ -367,6 +368,7 @@ export const blockTransactionCount = 77;
 export const gasUsed1 = 200000;
 export const gasUsed2 = 800000;
 export const maxGasLimit = 250000;
+export const maxGasLimit2 = maxGasLimit - 1000;
 export const firstTransactionTimestampSeconds = '1653077541';
 export const contractAddress1 = '0x000000000000000000000000000000000000055f';
 export const contractTimestamp1 = `${firstTransactionTimestampSeconds}.983983199`;
@@ -466,7 +468,7 @@ export const defaultContractResults = {
       from: LONG_ZERO_ADDRESS,
       function_parameters:
         '0x2b6adf430000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000084865792c204d6121000000000000000000000000000000000000000000000000',
-      gas_limit: maxGasLimit - 1000,
+      gas_limit: maxGasLimit2,
       gas_used: gasUsed2,
       hash: contractHash2,
       timestamp: `${contractTimestamp2}`,

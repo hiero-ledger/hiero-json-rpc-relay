@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import assert from 'node:assert';
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
   AccountId,
-  Client,
   EthereumTransaction,
   ExchangeRate,
   FileAppendTransaction,
@@ -53,14 +54,23 @@ import { transactionBuffer } from './fixtures/transactionBufferFixture';
 const registry = new Registry();
 const logger = pino({ level: 'silent' });
 
+// @ts-expect-error: Interface 'SDKClientTest' incorrectly extends interface 'SDKClient'.
+interface SDKClientTest extends SDKClient {
+  createFile: SDKClient['createFile'];
+  executeAllTransaction: SDKClient['executeAllTransaction'];
+  executeTransaction: SDKClient['executeTransaction'];
+  executeQuery: SDKClient['executeQuery'];
+  calculateTxRecordChargeAmount: SDKClient['calculateTxRecordChargeAmount'];
+  getTransferAmountSumForAccount: SDKClient['getTransferAmountSumForAccount'];
+  clientMain: SDKClient['clientMain'];
+}
+
 describe('SdkClient', async function () {
   this.timeout(20000);
 
-  let client: Client;
   let mock: MockAdapter;
-  let sdkClient: SDKClient;
+  let sdkClient: SDKClientTest;
   let instance: AxiosInstance;
-  let eventEmitter: EventEmitter<TypedEvents>;
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
@@ -71,18 +81,7 @@ describe('SdkClient', async function () {
 
   before(() => {
     const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
-    if (hederaNetwork in constants.CHAIN_IDS) {
-      client = Client.forName(hederaNetwork);
-    } else {
-      client = Client.forNetwork(JSON.parse(hederaNetwork));
-    }
-
-    client = client.setOperator(
-      AccountId.fromString(ConfigService.get('OPERATOR_ID_MAIN')!),
-      Utils.createPrivateKeyBasedOnFormat(ConfigService.get('OPERATOR_KEY_MAIN')!),
-    );
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    eventEmitter = new EventEmitter<TypedEvents>();
 
     cacheService = new CacheService(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
@@ -97,7 +96,8 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    sdkClient = new SDKClient(client, logger, eventEmitter, hbarLimitService);
+    const eventEmitter = new EventEmitter<TypedEvents>();
+    sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -119,12 +119,13 @@ describe('SdkClient', async function () {
 
     // Note: Since the main capturing metric logic of the `MetricService` class works by listening to specific events,
     //       this class does not need an instance but must still be initiated.
-    const metricService = new MetricService(logger, sdkClient, mirrorNodeClient, registry, hbarLimitService);
     eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      metricService.captureTransactionMetrics(args).then();
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).captureTransactionMetrics(args).then();
     });
     eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      metricService.addExpenseAndCaptureMetrics(args);
+      const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
+      new MetricService(logger, metricsCollector, registry, hbarLimitService).addExpenseAndCaptureMetrics(args);
     });
   });
 
@@ -288,7 +289,7 @@ describe('SdkClient', async function () {
 
     withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
       it('should not create a file when size <= fileAppendChunkSize', async () => {
-        const createFileStub = sinon.stub(sdkClient as any, 'createFile');
+        const createFileStub = sinon.stub(sdkClient, 'createFile');
         const transactionStub = sinon
           .stub(EthereumTransaction.prototype, 'execute')
           .resolves(getMockedTransactionResponse());
@@ -306,9 +307,9 @@ describe('SdkClient', async function () {
       });
 
       it('should create a file when size > fileAppendChunkSize', async () => {
-        const createFileStub = sinon.stub(sdkClient as any, 'createFile').resolves(fileId);
+        const createFileStub = sinon.stub(sdkClient, 'createFile').resolves(fileId);
         const executeTransactionStub = sinon
-          .stub(sdkClient as any, 'executeTransaction')
+          .stub(sdkClient, 'executeTransaction')
           .resolves(getMockedTransactionResponse());
 
         hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
@@ -318,10 +319,8 @@ describe('SdkClient', async function () {
         expect(
           createFileStub.calledOnceWithExactly(
             sinon.match.instanceOf(Uint8Array),
-            sdkClient.getMainClientInstance(),
             requestDetails,
             mockedCallerName,
-            sinon.match.string,
             randomAccountAddress,
             mockedExchangeRateIncents,
           ),
@@ -331,7 +330,6 @@ describe('SdkClient', async function () {
           executeTransactionStub.calledOnceWithExactly(
             sinon.match.instanceOf(EthereumTransaction),
             mockedCallerName,
-            sinon.match.string,
             requestDetails,
             true,
             randomAccountAddress,
@@ -361,10 +359,10 @@ describe('SdkClient', async function () {
 
         // Setup stubs for internal methods called by createFile
         const executeTransactionStub = sinon
-          .stub(sdkClient as any, 'executeTransaction')
-          .resolves(mockTransactionResponse);
-        const executeAllTransactionStub = sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
-        const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery').resolves({
+          .stub(sdkClient, 'executeTransaction')
+          .resolves(mockTransactionResponse as unknown as TransactionResponse);
+        const executeAllTransactionStub = sinon.stub(sdkClient, 'executeAllTransaction').resolves();
+        const executeQueryStub = sinon.stub(sdkClient, 'executeQuery').resolves({
           size: { isZero: () => false, toString: () => '1000' },
         });
 
@@ -383,26 +381,26 @@ describe('SdkClient', async function () {
         const firstExecuteCall = executeTransactionStub.firstCall.args;
         expect(firstExecuteCall[0]).to.be.instanceOf(FileCreateTransaction);
         expect(firstExecuteCall[1]).to.equal(mockedCallerName);
-        expect(firstExecuteCall[4]).to.be.false; // shouldThrowHbarLimit is false in createFile
+        expect(firstExecuteCall[3]).to.be.false; // shouldThrowHbarLimit is false in createFile
 
         // Verify second call is for EthereumTransaction (main flow)
         const secondExecuteCall = executeTransactionStub.secondCall.args;
         expect(secondExecuteCall[0]).to.be.instanceOf(EthereumTransaction);
         expect(secondExecuteCall[1]).to.equal(mockedCallerName);
-        expect(secondExecuteCall[4]).to.be.true; // shouldThrowHbarLimit is true in main flow
+        expect(secondExecuteCall[3]).to.be.true; // shouldThrowHbarLimit is true in main flow
 
         // Verify executeAllTransaction was called for FileAppendTransaction
         expect(executeAllTransactionStub.calledOnce).to.be.true;
         const executeAllArgs = executeAllTransactionStub.firstCall.args;
         expect(executeAllArgs[0]).to.be.instanceOf(FileAppendTransaction);
         expect(executeAllArgs[1]).to.equal(mockedCallerName);
-        expect(executeAllArgs[4]).to.be.false; // shouldThrowHbarLimit is false
+        expect(executeAllArgs[3]).to.be.false; // shouldThrowHbarLimit is false
 
         // Verify executeQuery was called for FileInfoQuery
         expect(executeQueryStub.calledOnce).to.be.true;
         const executeQueryArgs = executeQueryStub.firstCall.args;
         expect(executeQueryArgs[0]).to.be.instanceOf(FileInfoQuery);
-        expect(executeQueryArgs[2]).to.equal(mockedCallerName);
+        expect(executeQueryArgs[1]).to.equal(mockedCallerName);
 
         // Verify Ethereum transaction setup
         expect(setEthereumDataStub.called).to.be.true;
@@ -421,9 +419,9 @@ describe('SdkClient', async function () {
           getReceipt: sinon.stub().resolves(mockReceipt),
         };
 
-        sinon.stub(sdkClient as any, 'executeTransaction').resolves(mockTransactionResponse);
-        sinon.stub(sdkClient as any, 'executeAllTransaction').resolves();
-        const executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+        sinon.stub(sdkClient, 'executeTransaction').resolves(mockTransactionResponse as unknown as TransactionResponse);
+        sinon.stub(sdkClient, 'executeAllTransaction').resolves();
+        const executeQueryStub = sinon.stub(sdkClient, 'executeQuery');
         executeQueryStub.resolves({ size: { isZero: () => true, toString: () => '0' } });
         hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
 
@@ -432,9 +430,25 @@ describe('SdkClient', async function () {
       });
 
       it('throws an error when createFile returns null', async () => {
-        sinon.stub(sdkClient as any, 'createFile').resolves(null);
+        sinon.stub(sdkClient, 'createFile').resolves(null);
         const buffer = await createTransactionBuffer(chunkSize + 1);
         await expect(callSubmit(buffer)).to.be.rejectedWith(SDKClientError, 'No fileId created for transaction.');
+      });
+    });
+
+    it('should wrap every error in a SDKClientError if transaction execution fails', async () => {
+      sinon.stub(EthereumTransaction.prototype, 'execute').throwsException();
+
+      expect(
+        sdkClient.executeTransaction(
+          new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+          mockedCallerName,
+          requestDetails,
+          true,
+          randomAccountAddress,
+        ),
+      ).to.eventually.be.rejected.and.satisfy((err: any) => {
+        expect(err?.constructor?.name).to.equal(SDKClientError.constructor.name);
       });
     });
   });
@@ -528,8 +542,8 @@ describe('SdkClient', async function () {
         nodeId: accountId,
         transactionHash: Uint8Array.from([1, 2, 3, 4]),
         transactionId,
-        getReceipt: (_client: Client) => Promise.resolve(transactionReceipt),
-        getRecord: (_client: Client) => {
+        getReceipt: () => Promise.resolve(transactionReceipt),
+        getRecord: () => {
           const transactionFee = getMockedTransaction(transactionType, false).transactionFee;
           const transfers = getMockedTransaction(transactionType, false).transfers;
           return Promise.resolve({
@@ -562,7 +576,6 @@ describe('SdkClient', async function () {
     };
     const mockedCallerName = 'caller_name';
     const mockedConstructorName = 'constructor_name';
-    const mockedInteractingEntity = 'interacting_entity';
 
     let hbarLimitServiceMock: sinon.SinonMock;
     let sdkClientMock: sinon.SinonMock;
@@ -599,7 +612,6 @@ describe('SdkClient', async function () {
       await sdkClient.executeAllTransaction(
         new FileAppendTransaction(),
         mockedCallerName,
-        mockedInteractingEntity,
         requestDetails,
         true,
         randomAccountAddress,
@@ -609,24 +621,84 @@ describe('SdkClient', async function () {
       expect(txRecordStub.called).to.be.true;
     });
 
-    it('should rate limit before creating file', async () => {
-      const transactionStub = sinon
-        .stub(EthereumTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(EthereumTransaction.name));
+    withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
+      it('should rate limit before creating file', async () => {
+        const transactionStub = sinon
+          .stub(EthereumTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(EthereumTransaction.name));
 
-      hbarLimitServiceMock
-        .expects('shouldLimit')
-        .withArgs(
-          constants.EXECUTION_MODE.TRANSACTION,
-          mockedCallerName,
-          createFileConstructorName,
-          randomAccountAddress,
-          sinon.match.any,
-        )
-        .once()
-        .returns(true);
+        hbarLimitServiceMock
+          .expects('shouldLimit')
+          .withArgs(
+            constants.EXECUTION_MODE.TRANSACTION,
+            mockedCallerName,
+            createFileConstructorName,
+            randomAccountAddress,
+            sinon.match.any,
+          )
+          .once()
+          .returns(true);
 
-      try {
+        try {
+          await sdkClient.submitEthereumTransaction(
+            transactionBuffer,
+            mockedCallerName,
+            requestDetails,
+            randomAccountAddress,
+            mockedNetworkGasPrice,
+            mockedExchangeRateIncents,
+          );
+          expect.fail(`Expected an error but nothing was thrown`);
+        } catch (error: any) {
+          expect(error.message).to.equal('HBAR Rate limit exceeded');
+        }
+
+        expect(transactionStub.called).to.be.false;
+      });
+
+      it('should execute submitEthereumTransaction add expenses to limiter for large transaction data', async () => {
+        const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(transactionBuffer.length / FILE_APPEND_CHUNK_SIZE));
+        const queryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+
+        const transactionStub = sinon
+          .stub(EthereumTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(EthereumTransaction.name));
+        const createFileStub = sinon
+          .stub(FileCreateTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
+        const appendFileStub = sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves(
+            Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
+          );
+
+        const transactionRecordStub = sinon.stub(TransactionRecordQuery.prototype, 'execute');
+        // first transactionRecordStub call for FileCreate
+        transactionRecordStub.onCall(0).resolves(getMockedTransactionRecord(FileCreateTransaction.name));
+
+        // next fileAppendChunks transactionRecordStub calls for FileAppend
+        let i = 1;
+        for (i; i <= fileAppendChunks; i++) {
+          transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(FileAppendTransaction.name));
+        }
+
+        // last transactionRecordStub call for EthereumTransaction
+        transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(EthereumTransaction.name));
+
+        hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
+
+        // addExpense for mockedTransactionRecordFee will be called for a total of:
+        //   - fileAppendChunks times for fileAppend transactions
+        //   - 1 time for fileCreate transaction
+        //   - 1 time for defaultTransaction Ethereum transaction
+        hbarLimitServiceMock
+          .expects('addExpense')
+          .withArgs(mockedTransactionRecordFee)
+          .exactly(fileAppendChunks + 2);
+
         await sdkClient.submitEthereumTransaction(
           transactionBuffer,
           mockedCallerName,
@@ -635,306 +707,234 @@ describe('SdkClient', async function () {
           mockedNetworkGasPrice,
           mockedExchangeRateIncents,
         );
-        expect.fail(`Expected an error but nothing was thrown`);
-      } catch (error: any) {
-        expect(error.message).to.equal('HBAR Rate limit exceeded');
-      }
 
-      expect(transactionStub.called).to.be.false;
-    });
+        expect(queryStub.called).to.be.true;
+        expect(transactionStub.called).to.be.true;
+        expect(createFileStub.called).to.be.true;
+        expect(appendFileStub.called).to.be.true;
+      });
 
-    it('should execute submitEthereumTransaction add expenses to limiter for large transaction data', async () => {
-      const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(transactionBuffer.length / FILE_APPEND_CHUNK_SIZE));
-      const queryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+      it('should execute FileCreateTransaction with callData.length > fileAppendChunkSize and add expenses to limiter', async () => {
+        const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
+        const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
 
-      const transactionStub = sinon
-        .stub(EthereumTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(EthereumTransaction.name));
-      const createFileStub = sinon
-        .stub(FileCreateTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
-      const appendFileStub = sinon
-        .stub(FileAppendTransaction.prototype, 'executeAll')
-        .resolves(
-          Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
+        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const createFileStub = sinon
+          .stub(FileCreateTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
+        const appendFileStub = sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves(
+            Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
+          );
+        const transactionRecordStub = sinon.stub(TransactionRecordQuery.prototype, 'execute');
+
+        transactionRecordStub.onCall(0).resolves(getMockedTransactionRecord(FileCreateTransaction.name));
+        for (let i = 1; i <= fileAppendChunks; i++) {
+          transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(FileAppendTransaction.name));
+        }
+
+        hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
+        // addExpense for mockedTransactionRecordFee will be called for a total of:
+        //   - fileAppendChunks times for fileAppend transactions
+        //   - 1 time for fileCreate transaction
+        hbarLimitServiceMock
+          .expects('addExpense')
+          .withArgs(mockedTransactionRecordFee)
+          .exactly(fileAppendChunks + 1);
+
+        const response = await sdkClient.createFile(
+          callData,
+          requestDetails,
+          mockedCallerName,
+          randomAccountAddress,
+          mockedExchangeRateIncents,
         );
 
-      const transactionRecordStub = sinon.stub(TransactionRecordQuery.prototype, 'execute');
-      // first transactionRecordStub call for FileCreate
-      transactionRecordStub.onCall(0).resolves(getMockedTransactionRecord(FileCreateTransaction.name));
+        expect(response).to.eq(fileId);
+        expect(fileInfoQueryStub.called).to.be.true;
+        expect(createFileStub.called).to.be.true;
+        expect(appendFileStub.called).to.be.true;
+        expect(transactionRecordStub.called).to.be.true;
+      });
 
-      // next fileAppendChunks transactionRecordStub calls for FileAppend
-      let i = 1;
-      for (i; i <= fileAppendChunks; i++) {
-        transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(FileAppendTransaction.name));
-      }
+      it('should execute executeAllTransaction and add expenses to limiter', async () => {
+        const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
+        const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
+        const estimatedFileAppendTxFee = mockedTransactionRecordFee * fileAppendChunks;
 
-      // last transactionRecordStub call for EthereumTransaction
-      transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(EthereumTransaction.name));
+        const appendFileStub = sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves(
+            Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
+          );
 
-      hbarLimitServiceMock.expects('shouldLimit').twice().returns(false);
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
+        const transactionRecordStub = sinon
+          .stub(TransactionRecordQuery.prototype, 'execute')
+          .resolves(getMockedTransactionRecord(FileAppendTransaction.name));
 
-      // addExpense for mockedTransactionRecordFee will be called for a total of:
-      //   - fileAppendChunks times for fileAppend transactions
-      //   - 1 time for fileCreate transaction
-      //   - 1 time for defaultTransaction Ethereum transaction
-      hbarLimitServiceMock
-        .expects('addExpense')
-        .withArgs(mockedTransactionRecordFee)
-        .exactly(fileAppendChunks + 2);
+        hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
+        // addExpense for mockedTransactionRecordFee will be called for a total of:
+        //   - fileAppendChunks times for fileAppend transactions
+        hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).exactly(fileAppendChunks);
 
-      await sdkClient.submitEthereumTransaction(
-        transactionBuffer,
-        mockedCallerName,
-        requestDetails,
-        randomAccountAddress,
-        mockedNetworkGasPrice,
-        mockedExchangeRateIncents,
-      );
-
-      expect(queryStub.called).to.be.true;
-      expect(transactionStub.called).to.be.true;
-      expect(createFileStub.called).to.be.true;
-      expect(appendFileStub.called).to.be.true;
-    });
-
-    it('should execute FileCreateTransaction with callData.length > fileAppendChunkSize and add expenses to limiter', async () => {
-      const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
-      const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
-
-      const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
-      const createFileStub = sinon
-        .stub(FileCreateTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
-      const appendFileStub = sinon
-        .stub(FileAppendTransaction.prototype, 'executeAll')
-        .resolves(
-          Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
-        );
-      const transactionRecordStub = sinon.stub(TransactionRecordQuery.prototype, 'execute');
-
-      transactionRecordStub.onCall(0).resolves(getMockedTransactionRecord(FileCreateTransaction.name));
-      for (let i = 1; i <= fileAppendChunks; i++) {
-        transactionRecordStub.onCall(i).resolves(getMockedTransactionRecord(FileAppendTransaction.name));
-      }
-
-      hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
-      // addExpense for mockedTransactionRecordFee will be called for a total of:
-      //   - fileAppendChunks times for fileAppend transactions
-      //   - 1 time for fileCreate transaction
-      hbarLimitServiceMock
-        .expects('addExpense')
-        .withArgs(mockedTransactionRecordFee)
-        .exactly(fileAppendChunks + 1);
-
-      const response = await sdkClient.createFile(
-        callData,
-        client,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-        mockedExchangeRateIncents,
-      );
-
-      expect(response).to.eq(fileId);
-      expect(fileInfoQueryStub.called).to.be.true;
-      expect(createFileStub.called).to.be.true;
-      expect(appendFileStub.called).to.be.true;
-      expect(transactionRecordStub.called).to.be.true;
-    });
-
-    it('should execute executeAllTransaction and add expenses to limiter', async () => {
-      const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
-      const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
-      const estimatedFileAppendTxFee = mockedTransactionRecordFee * fileAppendChunks;
-
-      const appendFileStub = sinon
-        .stub(FileAppendTransaction.prototype, 'executeAll')
-        .resolves(
-          Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
-        );
-
-      const transactionRecordStub = sinon
-        .stub(TransactionRecordQuery.prototype, 'execute')
-        .resolves(getMockedTransactionRecord(FileAppendTransaction.name));
-
-      hbarLimitServiceMock.expects('shouldLimit').once().returns(false);
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileAppendFee).exactly(fileAppendChunks);
-      // addExpense for mockedTransactionRecordFee will be called for a total of:
-      //   - fileAppendChunks times for fileAppend transactions
-      hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).exactly(fileAppendChunks);
-
-      await sdkClient.executeAllTransaction(
-        new FileAppendTransaction(),
-        mockedCallerName,
-        mockedInteractingEntity,
-        requestDetails,
-        true,
-        randomAccountAddress,
-        estimatedFileAppendTxFee,
-      );
-
-      expect(appendFileStub.called).to.be.true;
-      expect(transactionRecordStub.called).to.be.true;
-    });
-
-    it('should rate limit before executing executeAllTransaction', async () => {
-      const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
-      const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
-      const estimatedFileAppendTxFee = mockedTransactionRecordFee * fileAppendChunks;
-
-      const appendFileStub = sinon
-        .stub(FileAppendTransaction.prototype, 'executeAll')
-        .resolves(
-          Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
-        );
-
-      hbarLimitServiceMock.expects('shouldLimit').once().returns(true);
-
-      try {
         await sdkClient.executeAllTransaction(
           new FileAppendTransaction(),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           true,
           randomAccountAddress,
           estimatedFileAppendTxFee,
         );
-        expect.fail(`Expected an error but nothing was thrown`);
-      } catch (error: any) {
-        expect(error.message).to.equal('HBAR Rate limit exceeded');
-      }
 
-      expect(appendFileStub.called).to.be.false;
-    });
+        expect(appendFileStub.called).to.be.true;
+        expect(transactionRecordStub.called).to.be.true;
+      });
 
-    it('should execute FileCreateTransaction with callData.length <= fileAppendChunkSize and add expenses to limiter', async () => {
-      const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE);
+      it('should rate limit before executing executeAllTransaction', async () => {
+        const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE * 2 + 1);
+        const fileAppendChunks = Math.min(MAX_CHUNKS, Math.ceil(callData.length / FILE_APPEND_CHUNK_SIZE));
+        const estimatedFileAppendTxFee = mockedTransactionRecordFee * fileAppendChunks;
 
-      const createFileStub = sinon
-        .stub(FileCreateTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
-      const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
-      const transactionRecordStub = sinon
-        .stub(TransactionRecordQuery.prototype, 'execute')
-        .resolves(getMockedTransactionRecord(FileCreateTransaction.name));
+        const appendFileStub = sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves(
+            Array.from({ length: fileAppendChunks }, () => getMockedTransactionResponse(FileAppendTransaction.name)),
+          );
 
-      hbarLimitServiceMock
-        .expects('shouldLimit')
-        .withArgs(
-          constants.EXECUTION_MODE.TRANSACTION,
+        hbarLimitServiceMock.expects('shouldLimit').once().returns(true);
+
+        try {
+          await sdkClient.executeAllTransaction(
+            new FileAppendTransaction(),
+            mockedCallerName,
+            requestDetails,
+            true,
+            randomAccountAddress,
+            estimatedFileAppendTxFee,
+          );
+          expect.fail(`Expected an error but nothing was thrown`);
+        } catch (error: any) {
+          expect(error.message).to.equal('HBAR Rate limit exceeded');
+        }
+
+        expect(appendFileStub.called).to.be.false;
+      });
+
+      it('should execute FileCreateTransaction with callData.length <= fileAppendChunkSize and add expenses to limiter', async () => {
+        const callData = new Uint8Array(FILE_APPEND_CHUNK_SIZE);
+
+        const createFileStub = sinon
+          .stub(FileCreateTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(FileCreateTransaction.name));
+        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const transactionRecordStub = sinon
+          .stub(TransactionRecordQuery.prototype, 'execute')
+          .resolves(getMockedTransactionRecord(FileCreateTransaction.name));
+
+        hbarLimitServiceMock
+          .expects('shouldLimit')
+          .withArgs(
+            constants.EXECUTION_MODE.TRANSACTION,
+            mockedCallerName,
+            createFileConstructorName,
+            randomAccountAddress,
+            sinon.match.any,
+          )
+          .once()
+          .returns(false);
+
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
+
+        const response = await sdkClient.createFile(
+          callData,
+          requestDetails,
           mockedCallerName,
-          createFileConstructorName,
           randomAccountAddress,
-          sinon.match.any,
-        )
-        .once()
-        .returns(false);
+          mockedExchangeRateIncents,
+        );
 
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileCreateFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
+        expect(response).to.eq(fileId);
+        expect(createFileStub.called).to.be.true;
+        expect(fileInfoQueryStub.called).to.be.true;
+        expect(transactionRecordStub.called).to.be.true;
+      });
 
-      const response = await sdkClient.createFile(
-        callData,
-        client,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-        mockedExchangeRateIncents,
-      );
+      it('should execute FileDeleteTransaction and add expenses to limiter', async () => {
+        const deleteFileStub = sinon
+          .stub(FileDeleteTransaction.prototype, 'execute')
+          .resolves(getMockedTransactionResponse(FileDeleteTransaction.name));
+        const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
+        const transactionRecordStub = sinon
+          .stub(TransactionRecordQuery.prototype, 'execute')
+          .resolves(getMockedTransactionRecord(FileDeleteTransaction.name));
 
-      expect(response).to.eq(fileId);
-      expect(createFileStub.called).to.be.true;
-      expect(fileInfoQueryStub.called).to.be.true;
-      expect(transactionRecordStub.called).to.be.true;
-    });
+        hbarLimitServiceMock.expects('addExpense').withArgs(fileDeleteFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
+        hbarLimitServiceMock.expects('shouldLimit').never();
 
-    it('should execute FileDeleteTransaction and add expenses to limiter', async () => {
-      const deleteFileStub = sinon
-        .stub(FileDeleteTransaction.prototype, 'execute')
-        .resolves(getMockedTransactionResponse(FileDeleteTransaction.name));
-      const fileInfoQueryStub = sinon.stub(FileInfoQuery.prototype, 'execute').resolves(fileInfo as any);
-      const transactionRecordStub = sinon
-        .stub(TransactionRecordQuery.prototype, 'execute')
-        .resolves(getMockedTransactionRecord(FileDeleteTransaction.name));
+        await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
-      hbarLimitServiceMock.expects('addExpense').withArgs(fileDeleteFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
-      hbarLimitServiceMock.expects('shouldLimit').never();
+        expect(deleteFileStub.called).to.be.true;
+        expect(fileInfoQueryStub.called).to.be.true;
+        expect(transactionRecordStub.called).to.be.true;
+      });
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      it('should execute FileInfoQuery (without paymentTransactionId) and add expenses to limiter', async () => {
+        const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
+        const queryCostStub = sinon.stub(Query.prototype, 'getCost');
 
-      expect(deleteFileStub.called).to.be.true;
-      expect(fileInfoQueryStub.called).to.be.true;
-      expect(transactionRecordStub.called).to.be.true;
-    });
+        hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
 
-    it('should execute FileInfoQuery (without paymentTransactionId) and add expenses to limiter', async () => {
-      const queryStub = sinon.stub(Query.prototype, 'execute').resolves(fileInfo);
-      const queryCostStub = sinon.stub(Query.prototype, 'getCost');
-
-      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
-
-      const result = await sdkClient.executeQuery(
-        new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
-        client,
-        mockedCallerName,
-        requestDetails,
-      );
-
-      expect(result).to.equal(fileInfo);
-      expect(queryStub.called).to.be.true;
-      expect(queryCostStub.called).to.be.false;
-    });
-
-    it('should execute EthereumTransaction and add expenses to limiter', async () => {
-      const transactionResponse = getMockedTransactionResponse(EthereumTransaction.name);
-      const transactionStub = sinon.stub(EthereumTransaction.prototype, 'execute').resolves(transactionResponse);
-      const transactionRecordStub = sinon
-        .stub(TransactionRecordQuery.prototype, 'execute')
-        .resolves(getMockedTransactionRecord(EthereumTransaction.name));
-
-      hbarLimitServiceMock
-        .expects('shouldLimit')
-        .withArgs(
-          constants.EXECUTION_MODE.TRANSACTION,
+        const result = await sdkClient.executeQuery(
+          new FileInfoQuery().setFileId(fileId).setQueryPayment(Hbar.fromTinybars(defaultTransactionFee)),
           mockedCallerName,
-          EthereumTransaction.name,
+          requestDetails,
+        );
+
+        expect(result).to.equal(fileInfo);
+        expect(queryStub.called).to.be.true;
+        expect(queryCostStub.called).to.be.false;
+      });
+
+      it('should execute EthereumTransaction and add expenses to limiter', async () => {
+        const transactionResponse = getMockedTransactionResponse(EthereumTransaction.name);
+        const transactionStub = sinon.stub(EthereumTransaction.prototype, 'execute').resolves(transactionResponse);
+        const transactionRecordStub = sinon
+          .stub(TransactionRecordQuery.prototype, 'execute')
+          .resolves(getMockedTransactionRecord(EthereumTransaction.name));
+
+        hbarLimitServiceMock
+          .expects('shouldLimit')
+          .withArgs(
+            constants.EXECUTION_MODE.TRANSACTION,
+            mockedCallerName,
+            EthereumTransaction.name,
+            randomAccountAddress,
+            sinon.match.any,
+          )
+          .once()
+          .returns(false);
+
+        hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
+        hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
+
+        const response = await sdkClient.executeTransaction(
+          new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+          mockedCallerName,
+          requestDetails,
+          true,
           randomAccountAddress,
-          sinon.match.any,
-        )
-        .once()
-        .returns(false);
+        );
 
-      hbarLimitServiceMock.expects('addExpense').withArgs(defaultTransactionFee).once();
-      hbarLimitServiceMock.expects('addExpense').withArgs(mockedTransactionRecordFee).once();
-
-      const response = await sdkClient.executeTransaction(
-        new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
-        mockedCallerName,
-        mockedInteractingEntity,
-        requestDetails,
-        true,
-        randomAccountAddress,
-      );
-
-      expect(response).to.eq(transactionResponse);
-      expect(transactionStub.called).to.be.true;
-      expect(transactionRecordStub.called).to.be.true;
+        expect(response).to.eq(transactionResponse);
+        expect(transactionStub.called).to.be.true;
+        expect(transactionRecordStub.called).to.be.true;
+      });
     });
 
     withOverriddenEnvsInMochaTest({ GET_RECORD_DEFAULT_TO_CONSENSUS_NODE: false }, () => {
@@ -984,7 +984,6 @@ describe('SdkClient', async function () {
         const response = await sdkClient.executeTransaction(
           new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           true,
           randomAccountAddress,
@@ -1017,7 +1016,6 @@ describe('SdkClient', async function () {
         transactionId.toString(),
         mockedConstructorName,
         accountId.toString(),
-        requestDetails,
       );
 
       expect(transactionRecordStub.called).to.be.true;
@@ -1035,7 +1033,6 @@ describe('SdkClient', async function () {
           transactionId.toString(),
           mockedConstructorName,
           accountId.toString(),
-          requestDetails,
         );
         expect.fail('should have thrown an error');
       } catch (error: any) {
@@ -1048,6 +1045,7 @@ describe('SdkClient', async function () {
       const accountId = ConfigService.get('OPERATOR_ID_MAIN');
       const mockedTxRecord = getMockedTransactionRecord(EthereumTransaction.name, true);
 
+      assert(accountId !== undefined, 'Variable `OPERATOR_ID_MAIN` is not configured properly');
       const transactionFee = sdkClient.getTransferAmountSumForAccount(mockedTxRecord, accountId);
       expect(transactionFee).to.eq(defaultTransactionFee);
     });
@@ -1056,7 +1054,6 @@ describe('SdkClient', async function () {
   describe('deleteFile', () => {
     const fileId = FileId.fromString('0.0.1234');
     const mockedCallerName = 'deleteFileTest';
-    const mockedInteractingEntity = '0.0.5678';
     const randomAccountAddress = random20BytesAddress();
     const accountId = AccountId.fromString('0.0.1234');
     const transactionId = TransactionId.generate(accountId);
@@ -1076,14 +1073,14 @@ describe('SdkClient', async function () {
           }),
       }) as unknown as TransactionResponse;
 
-    let executeTransactionStub: sinon.SinonStub;
-    let executeQueryStub: sinon.SinonStub;
+    let executeTransactionStub: sinon.SinonStubbedMember<SDKClientTest['executeTransaction']>;
+    let executeQueryStub: sinon.SinonStubbedMember<SDKClientTest['executeQuery']>;
     let loggerWarnStub: sinon.SinonStub;
     let loggerTraceStub: sinon.SinonStub;
 
     beforeEach(() => {
-      executeTransactionStub = sinon.stub(sdkClient as any, 'executeTransaction');
-      executeQueryStub = sinon.stub(sdkClient as any, 'executeQuery');
+      executeTransactionStub = sinon.stub(sdkClient, 'executeTransaction');
+      executeQueryStub = sinon.stub(sdkClient, 'executeQuery');
       loggerWarnStub = sinon.stub(logger, 'warn');
       loggerTraceStub = sinon.stub(logger, 'trace');
       sinon.stub(logger, 'isLevelEnabled').returns(true);
@@ -1100,19 +1097,12 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(
         executeTransactionStub.calledOnceWithExactly(
           sinon.match.instanceOf(FileDeleteTransaction),
           mockedCallerName,
-          mockedInteractingEntity,
           requestDetails,
           false,
           randomAccountAddress,
@@ -1122,7 +1112,6 @@ describe('SdkClient', async function () {
       expect(
         executeQueryStub.calledOnceWithExactly(
           sinon.match.instanceOf(FileInfoQuery),
-          sdkClient.getMainClientInstance(),
           mockedCallerName,
           requestDetails,
           randomAccountAddress,
@@ -1141,13 +1130,7 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify warning is logged when file is not deleted
       expect(loggerWarnStub.calledOnce, 'logger.warn should be called when deletion fails').to.be.true;
@@ -1161,13 +1144,7 @@ describe('SdkClient', async function () {
 
       executeTransactionStub.rejects(error);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify error handling
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
@@ -1183,13 +1160,7 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.rejects(queryError);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       // Assert - Verify both methods were called and error was logged
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called').to.be.true;
@@ -1208,33 +1179,22 @@ describe('SdkClient', async function () {
       executeTransactionStub.resolves(mockTransactionResponse);
       executeQueryStub.resolves(mockFileInfo);
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(setFileIdSpy.calledWith(fileId), 'setFileId should be called with correct fileId').to.be.true;
       expect(setMaxTransactionFeeSpy.calledOnce, 'setMaxTransactionFee should be called').to.be.true;
+
+      assert(setMaxTransactionFeeSpy.firstCall.args[0] instanceof Hbar);
       expect(setMaxTransactionFeeSpy.firstCall.args[0].toTinybars().toNumber(), 'Max fee should be 2 HBAR').to.equal(
         200000000,
       );
-      expect(freezeWithSpy.calledWith(sdkClient.getMainClientInstance()), 'freezeWith should be called with client').to
-        .be.true;
+      expect(freezeWithSpy.calledWith(sdkClient.clientMain), 'freezeWith should be called with client').to.be.true;
     });
 
     it('should configure FileInfoQuery correctly', async () => {
       const setFileIdSpy = sinon.spy(FileInfoQuery.prototype, 'setFileId');
 
-      await sdkClient.deleteFile(
-        fileId,
-        requestDetails,
-        mockedCallerName,
-        mockedInteractingEntity,
-        randomAccountAddress,
-      );
+      await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
 
       expect(setFileIdSpy.calledWith(fileId)).to.be.true;
     });
@@ -1248,13 +1208,7 @@ describe('SdkClient', async function () {
       deleteFileStub.rejects({ status: { _code: 17 }, message: 'Transaction Record Not Found' });
 
       try {
-        await sdkClient.deleteFile(
-          fileId,
-          requestDetails,
-          mockedCallerName,
-          mockedInteractingEntity,
-          randomAccountAddress,
-        );
+        await sdkClient.deleteFile(fileId, requestDetails, mockedCallerName, randomAccountAddress);
       } catch (error: any) {
         expect(error.code).to.equal(-32010);
         expect(error.message).to.equal('Request timeout. Please try again.');
@@ -1284,15 +1238,10 @@ describe('SdkClient', async function () {
           ],
         };
         sinon.stub(TransactionRecordQuery.prototype, 'execute').resolves(fakeRecord);
-        sinon.stub(sdkClient as any, 'calculateTxRecordChargeAmount').returns(1234);
-        sinon.stub(sdkClient as any, 'getTransferAmountSumForAccount').returns(300);
+        sinon.stub(sdkClient, 'calculateTxRecordChargeAmount').returns(1234);
+        sinon.stub(sdkClient, 'getTransferAmountSumForAccount').returns(300);
 
-        const metrics = await sdkClient.getTransactionRecordMetrics(
-          txId,
-          txConstructorName,
-          operatorAccountId,
-          requestDetails,
-        );
+        const metrics = await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId);
 
         expect(metrics.gasUsed).to.eq(fakeGasUsed.toNumber());
         expect(metrics.transactionFee).to.eq(300);
@@ -1304,7 +1253,7 @@ describe('SdkClient', async function () {
         const error = { status: { _code: 404 }, message: 'Not Found' };
         sinon.stub(TransactionRecordQuery.prototype, 'execute').throws(error);
         try {
-          await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId, requestDetails);
+          await sdkClient.getTransactionRecordMetrics(txId, txConstructorName, operatorAccountId);
           expect.fail('should have thrown');
         } catch (err: any) {
           expect(err).to.be.instanceOf(SDKClientError);

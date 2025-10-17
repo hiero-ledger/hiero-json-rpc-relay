@@ -101,7 +101,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     blockHash: toHash32(cr.block_hash),
     blockNumber: nullableNumberTo0x(cr.block_number),
     from: cr.from.substring(0, 42),
-    gas: nanOrNumberTo0x(cr.gas_used),
+    gas: nanOrNumberTo0x(cr.gas_limit),
     gasPrice,
     hash: cr.hash.substring(0, 66),
     input: cr.function_parameters,

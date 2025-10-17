@@ -3,7 +3,7 @@
   "info": {
     "title": "Hedera JSON-RPC Specification",
     "description": "A specification of the implemented Ethereum JSON RPC APIs interface for Hedera clients and adheres to the Ethereum execution APIs schema.",
-    "version": "0.71.0-SNAPSHOT"
+    "version": "0.73.0-SNAPSHOT"
   },
   "servers": [
     {
@@ -118,17 +118,21 @@
       "name": "eth_coinbase",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_blobBaseFee",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_estimateGas",
@@ -615,7 +619,22 @@
       "name": "eth_getUncleByBlockHashAndIndex",
       "summary": "Returns information about a uncle of a block by hash and uncle index position.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block hash",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        {
+          "name": "Index",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleByBlockHashAndIndex result",
         "schema": {
@@ -628,7 +647,22 @@
       "name": "eth_getUncleByBlockNumberAndIndex",
       "summary": "Returns information about a uncle of a block by number and uncle index position.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "Index",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleByBlockNumberAndIndex result",
         "schema": {
@@ -641,7 +675,15 @@
       "name": "eth_getUncleCountByBlockHash",
       "summary": "Returns the number of uncles in a block from a block matching the given block hash.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block hash",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleCountByBlockHash result",
         "schema": {
@@ -656,7 +698,15 @@
       "name": "eth_getUncleCountByBlockNumber",
       "summary": "Returns the number of transactions in a block matching the given block number.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
-      "params": [],
+      "params": [
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
       "result": {
         "name": "eth_getUncleCountByBlockNumber result",
         "schema": {
@@ -671,9 +721,11 @@
       "name": "eth_getWork",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_hashrate",
@@ -786,9 +838,11 @@
       "name": "eth_newPendingTransactionFilter",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }],
+        }
+      ],
       "tags": [
         {
           "name": "alpha API"
@@ -863,9 +917,11 @@
       "name": "eth_protocolVersion",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_sendRawTransaction",
@@ -891,33 +947,41 @@
       "name": "eth_sendTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_signTransaction",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_sign",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_submitHashrate",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_submitWork",
@@ -946,6 +1010,16 @@
           "type": "boolean"
         }
       }
+    },
+    {
+      "name": "eth_simulateV1",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
     },
     {
       "name": "net_listening",
@@ -977,9 +1051,11 @@
       "name": "net_peerCount",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "web3_clientVersion",
@@ -1100,7 +1176,7 @@
           "schema": {
             "$ref": "#/components/schemas/TracerConfigWrapper"
           },
-          "description": "Configuration object for the tracer."
+          "description": "Configuration object for the tracer. Supports two formats: 1) Standard nested format with 'tracer' and 'tracerConfig' properties, 2) Simplified format with opcodeLogger config properties directly at top level (when no explicit 'tracer' is specified, defaults to opcodeLogger)."
         }
       ],
       "result": {
@@ -1253,17 +1329,21 @@
       "name": "eth_getProof",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     },
     {
       "name": "eth_createAccessList",
       "summary": "Always returns UNSUPPORTED_METHOD error.",
       "params": [],
-      "errors": [{
+      "errors": [
+        {
           "$ref": "#/components/errors/unsupportedError"
-      }]
+        }
+      ]
     }
   ],
   "components": {
@@ -1585,6 +1665,10 @@
           },
           "disableStorage": {
             "type": "boolean"
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Non-standard parameter sometimes sent by Remix - accepted for compatibility but ignored in implementation"
           }
         }
       },
@@ -1614,6 +1698,22 @@
           },
           "tracerConfig": {
             "$ref": "#/components/schemas/TracerConfig"
+          },
+          "enableMemory": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStack": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Non-standard parameter for Remix compatibility - accepted but ignored. Only valid when no explicit 'tracer' is specified."
           }
         }
       },

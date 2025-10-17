@@ -159,7 +159,7 @@ export default class Assertions {
       mirrorNodeResponse.from.toLowerCase(),
     );
     expect(relayResponse.gas, "Assert transaction: 'gas' should equal mirrorNode response").to.eq(
-      ethers.toQuantity(mirrorNodeResponse.gas_used),
+      ethers.toQuantity(mirrorNodeResponse.gas_limit),
     );
     // expect(relayResponse.gasPrice).to.eq(mirrorNodeResponse.gas_price); // FIXME must not be null!
     expect(relayResponse.hash, "Assert transaction: 'hash' should equal mirrorNode response").to.eq(

@@ -56,6 +56,8 @@ export interface Eth {
 
   coinbase(): JsonRpcError;
 
+  simulateV1(): JsonRpcError;
+
   blobBaseFee(): JsonRpcError;
 
   estimateGas(
@@ -113,13 +115,13 @@ export interface Eth {
 
   getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<Receipt | null>;
 
-  getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): null;
 
-  getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<any>;
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null;
 
-  getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string>;
+  getUncleCountByBlockHash(blockHash: string): string;
 
-  getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string>;
+  getUncleCountByBlockNumber(blockNumOrTag: string): string;
 
   getWork(): JsonRpcError;
 

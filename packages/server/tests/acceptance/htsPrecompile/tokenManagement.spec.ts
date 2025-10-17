@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import relayConstants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -50,7 +49,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     const initialAccount: AliasAccount = global.accounts[0];
     const initialAmount: string = '5000000000'; //50 Hbar
 
-    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, requestId, initialAmount);
+    const contractDeployer = await Utils.createAliasAccount(mirrorNode, initialAccount, initialAmount);
     mainContract = await Utils.deployContract(
       TokenManagementJson.abi,
       TokenManagementJson.bytecode,
@@ -58,7 +57,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     );
     mainContractAddress = mainContract.target as string;
 
-    const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`, requestId);
+    const mainContractMirror = await mirrorNode.get(`/contracts/${mainContractAddress}`);
 
     accounts[0] = await servicesNode.createAccountWithContractIdKey(
       mainContractMirror.contract_id,
@@ -75,7 +74,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     global.accounts.push(...accounts);
     // allow mirror node a 2 full record stream write windows (2 sec) and a buffer to persist setup details
     await new Promise((r) => setTimeout(r, 2000));
-    await mirrorNode.get(`/accounts/${accounts[1].accountId}`, requestId);
+    await mirrorNode.get(`/accounts/${accounts[1].accountId}`);
 
     HTSTokenContractAddress = await createHTSToken();
     NftHTSTokenContractAddress = await createNftHTSToken();
@@ -437,7 +436,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     }
 
     async function mirrorNodeAddressReq(address) {
-      const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`, requestId);
+      const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`);
       return accountEvmAddress.evm_address;
     }
 
@@ -764,7 +763,7 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     //Expiry Info auto renew account returns account id from type - 0x000000000000000000000000000000000000048C
     //We expect account to be evm address, but because we can't compute one address for the other, we have to make a mirror node query to get expiry info auto renew evm address
     async function mirrorNodeAddressReq(address) {
-      const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`, requestId);
+      const accountEvmAddress = await mirrorNode.get(`/accounts/${address}?transactiontype=cryptotransfer`);
       return accountEvmAddress.evm_address;
     }
 

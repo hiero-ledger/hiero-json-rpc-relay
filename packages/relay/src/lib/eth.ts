@@ -126,13 +126,14 @@ export class EthImpl implements Eth {
   ) {
     this.chain = chain;
     this.logger = logger;
+    this.eventEmitter = new EventEmitter<TypedEvents>();
+
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.filterService = new FilterService(mirrorNodeClient, logger, cacheService, this.common);
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.accountService = new AccountService(cacheService, this.common, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    this.eventEmitter = new EventEmitter<TypedEvents>();
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -452,13 +453,17 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleByBlockHashAndIndex RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<null>} Always returns null
+   * @param blockHash - The block hash
+   * @param index - The uncle index
+   * @returns Always returns null
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleByBlockHashAndIndex(requestDetails: RequestDetails): Promise<null> {
-    return this.blockService.getUncleByBlockHashAndIndex(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockHash', required: false },
+    1: { type: 'hex', required: false },
+  })
+  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
+    return this.blockService.getUncleByBlockHashAndIndex(blockHash, index);
   }
 
   /**
@@ -467,13 +472,17 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleByBlockNumberAndIndex RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<null>} Always returns null
+   * @param blockNumOrTag - The block number or tag
+   * @param index - The uncle index
+   * @returns Always returns null
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleByBlockNumberAndIndex(requestDetails: RequestDetails): Promise<null> {
-    return this.blockService.getUncleByBlockNumberAndIndex(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockNumber', required: false },
+    1: { type: 'hex', required: false },
+  })
+  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
+    return this.blockService.getUncleByBlockNumberAndIndex(blockNumOrTag, index);
   }
 
   /**
@@ -482,13 +491,15 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleCountByBlockHash RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param {RequestDetails} requestDetails - Details about the request for logging and tracking
-   * @returns {Promise<string>} Always returns '0x0'
+   * @param blockHash - The block hash
+   * @returns Always returns '0x0'
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleCountByBlockHash(requestDetails: RequestDetails): Promise<string> {
-    return this.blockService.getUncleCountByBlockHash(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockHash', required: false },
+  })
+  getUncleCountByBlockHash(blockHash: string): string {
+    return this.blockService.getUncleCountByBlockHash(blockHash);
   }
 
   /**
@@ -497,13 +508,15 @@ export class EthImpl implements Eth {
    * @rpcMethod Exposed as eth_getUncleCountByBlockNumber RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
    *
-   * @param requestDetails - Details about the request for logging and tracking
+   * @param blockNumOrTag - The block number or tag
    * @returns Always returns '0x0'
    */
   @rpcMethod
-  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async getUncleCountByBlockNumber(requestDetails: RequestDetails): Promise<string> {
-    return this.blockService.getUncleCountByBlockNumber(requestDetails);
+  @rpcParamValidationRules({
+    0: { type: 'blockNumber', required: false },
+  })
+  getUncleCountByBlockNumber(blockNumOrTag: string): string {
+    return this.blockService.getUncleCountByBlockNumber(blockNumOrTag);
   }
 
   /**
@@ -563,7 +576,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   signTransaction(): JsonRpcError {
-    return this.transactionService.signTransaction();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
@@ -577,7 +590,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sign(): JsonRpcError {
-    return this.transactionService.sign();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
@@ -591,7 +604,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   sendTransaction(): JsonRpcError {
-    return this.transactionService.sendTransaction();
+    return predefined.UNSUPPORTED_METHOD;
   }
 
   /**
@@ -624,6 +637,23 @@ export class EthImpl implements Eth {
   coinbase(): JsonRpcError {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace('coinbase()');
+    }
+    return predefined.UNSUPPORTED_METHOD;
+  }
+
+  /**
+   * Always returns UNSUPPORTED_METHOD error.
+   *
+   * @rpcMethod Exposed as eth_coinbase RPC endpoint
+   * @rpcParamLayoutConfig decorated method parameter layout
+   *
+   * @returns An error indicating the method is not supported
+   */
+  @rpcMethod
+  @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
+  simulateV1(): JsonRpcError {
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace('simulateV1()');
     }
     return predefined.UNSUPPORTED_METHOD;
   }
@@ -938,6 +968,7 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: 'transaction', required: true },
     1: { type: 'blockParams', required: true },
+    2: { type: 'stateOverride', required: false },
   })
   @cache({
     skipParams: [{ index: '1', value: constants.NON_CACHABLE_BLOCK_PARAMS }],

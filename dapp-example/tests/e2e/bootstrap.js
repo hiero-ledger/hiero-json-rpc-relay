@@ -134,7 +134,7 @@ const deployHederaTokenService = async function (wallet) {
   const contractArtifact = require('../../src/contracts/HederaTokenService.json');
 
   const contractFactory = new ethers.ContractFactory(contractArtifact.abi, contractArtifact.bytecode, wallet);
-  const contract = await contractFactory.deploy({ gasLimit: 1_000_000 });
+  const contract = await contractFactory.deploy();
   await contract.waitForDeployment();
   const contractAddress = contract.target;
 

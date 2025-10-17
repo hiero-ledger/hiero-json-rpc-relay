@@ -15,7 +15,17 @@ export const CUSTOM_FIELDS = [
   'eth_sendRawTransaction.summary',
 ];
 
-export const DISCARDED_METHODS = ['engine_*'];
+export const UNSUPPORTED_METHODS = [
+  'engine_*',
+  'eth_coinbase',
+  'eth_blobBaseFee',
+  'eth_syncing',
+  'eth_getProof',
+  'eth_createAccessList',
+  'eth_sendTransaction',
+  'eth_sign',
+  'eth_signTransaction',
+];
 
 export const NOT_IMPLEMENTED_METHODS = [
   'debug_getBadBlocks',
@@ -23,13 +33,9 @@ export const NOT_IMPLEMENTED_METHODS = [
   'debug_getRawHeader',
   'debug_getRawReceipts',
   'debug_getRawTransaction',
-  'eth_coinbase',
-  'eth_blobBaseFee',
-  'eth_syncing',
-  'eth_getProof',
 ];
 
-export const SKIPPED_METHODS = [...DISCARDED_METHODS, ...NOT_IMPLEMENTED_METHODS];
+export const SKIPPED_METHODS = [...UNSUPPORTED_METHODS, ...NOT_IMPLEMENTED_METHODS];
 
 export function shouldSkipMethod(methodName, path) {
   if (!methodName) return false;
@@ -85,8 +91,8 @@ export function getSkippedMethodCategory(methodName) {
     return false;
   };
 
-  if (DISCARDED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'discarded';
+  if (UNSUPPORTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
+    return 'unsupported';
   }
 
   if (NOT_IMPLEMENTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {

@@ -60,15 +60,10 @@ describe('RPC Server Acceptance Tests', function () {
   const INITIAL_BALANCE = ConfigService.get('INITIAL_BALANCE');
 
   global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL;
-  global.servicesNode = new ServicesClient(
-    NETWORK,
-    OPERATOR_ID,
-    OPERATOR_KEY,
-    logger.child({ name: `services-test-client` }),
-  );
-  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL, logger.child({ name: `mirror-node-test-client` }));
-  global.metrics = new MetricsClient(RELAY_URL, logger.child({ name: `metrics-test-client` }));
-  global.relay = new RelayClient(RELAY_URL, logger.child({ name: `relay-test-client` }));
+  global.servicesNode = new ServicesClient(NETWORK, OPERATOR_ID, OPERATOR_KEY);
+  global.mirrorNode = new MirrorClient(MIRROR_NODE_URL);
+  global.metrics = new MetricsClient(RELAY_URL);
+  global.relay = new RelayClient(RELAY_URL);
   global.logger = logger;
   global.initialBalance = INITIAL_BALANCE;
 
@@ -107,12 +102,11 @@ describe('RPC Server Acceptance Tests', function () {
     const initialAccount: AliasAccount = await global.servicesNode.createInitialAliasAccount(
       RELAY_URL,
       CHAIN_ID,
-      Utils.generateRequestId(),
       ConfigService.get('TEST_INITIAL_ACCOUNT_STARTING_BALANCE'),
     );
 
     global.accounts = new Array<AliasAccount>(initialAccount);
-    await global.mirrorNode.get(`/accounts/${initialAccount.address}`, Utils.generateRequestId());
+    await global.mirrorNode.get(`/accounts/${initialAccount.address}`);
   });
 
   after(async function () {
