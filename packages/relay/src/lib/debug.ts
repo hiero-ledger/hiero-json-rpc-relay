@@ -291,7 +291,9 @@ export class DebugImpl implements Debug {
         // The actions endpoint does not return input and output for the calls so we get them from another endpoint
         // The first one is excluded because we take its input and output from the contracts/results/{transactionIdOrHash} endpoint
         const contract =
-          index !== 0 && action.call_operation_type === CallType.CREATE && action.to
+          index !== 0 && (
+            action.call_operation_type === CallType.CREATE || action.call_operation_type === CallType.CREATE2
+          ) && action.to
             ? await this.mirrorNodeClient.getContract(action.to, requestDetails)
             : undefined;
 

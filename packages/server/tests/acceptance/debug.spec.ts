@@ -14,6 +14,8 @@ import RelayCall from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import basicContractJson from '../contracts/Basic.json';
+import deployerContractJson from '../contracts/Deployer.json';
+import mockContractJson from '../contracts/MockContract.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
@@ -37,6 +39,8 @@ describe('@debug API Acceptance Tests', function () {
   let deploymentBlockNumber: number;
   let parentContract: ethers.Contract;
   let parentContractAddress: string;
+  let deployerContract: ethers.Contract;
+  let deployerContractAddress: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let mirrorContractDetails: any;
 
@@ -97,9 +101,37 @@ describe('@debug API Acceptance Tests', function () {
       accounts[0].wallet,
     );
     reverterContractAddress = reverterContract.target as string;
+
+    deployerContract = await Utils.deployContract(
+      deployerContractJson.abi,
+      deployerContractJson.bytecode,
+      accounts[0].wallet,
+    );
+    deployerContractAddress = deployerContract.target as string;
   });
 
   describe('debug_traceBlockByNumber', () => {
+    it('should trace a block containing a contract call tx that executes CREATE2 opcode using CallTracer', async () => {
+      const transaction = await Utils.buildTransaction(
+        relay,
+        deployerContractAddress,
+        accounts[0].address,
+        '0xdbb6f04a', // deployViaCreate2() selector
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        receipt.blockNumber,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+
+      expect(result).to.not.be.empty;
+      expect(result[0].result.calls).to.not.be.empty;
+      expect(result[0].result.calls[0].type).to.equal('CREATE2');
+      expect(result[0].result.calls[0].input).to.equal(mockContractJson.bytecode);
+      expect(result[0].result.calls[0].output).to.equal(mockContractJson.deployedBytecode);
+    });
+
     it('@release should trace a block containing successful transactions using CallTracer', async function () {
       // Create a transaction that will be included in the next block
       const transaction = await Utils.buildTransaction(
