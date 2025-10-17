@@ -14,7 +14,7 @@ describe('Test Core Hedera User Scenarios', function () {
     cy.visit('http://localhost:3000');
     cy.wait(10000);
     cy.contains('Connect Account').click();
-    cy.acceptMetamaskAccess().should('be.true');
+    cy.connectToDapp().should('be.true');
     cy.switchToCypressWindow();
 
     // check the UI
@@ -38,7 +38,7 @@ describe('Test Core Hedera User Scenarios', function () {
 
       //Adding cy.wait аs temporary fix due to issue in synpress library https://github.com/Synthetixio/synpress/issues/795
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       // test a view call
       cy.get('#btnReadGreeting').should('not.be.disabled').click();
@@ -48,7 +48,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#updateGreetingText').type('updated_text');
       cy.get('#btnUpdateGreeting').should('not.be.disabled').click();
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
       cy.waitUntil(() => cy.get('#contractUpdateMsg').should('have.text', ' Updated text: updated_text '));
 
       // test the updated msg
@@ -64,7 +64,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#htsTokenAmountField').clear().type(1000).trigger('change');
       cy.get('#htsTokenTransferBtn').should('not.be.disabled').click();
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       cy.waitUntil(() => cy.get('#htsTokenMsg').should('have.text', ' Done '));
     }).timeout(testTimeoutMs);
@@ -74,7 +74,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#sendHbarsAmountField').clear().type('10000000000000000').trigger('change');
       cy.get('#sendHbarsBtn').should('not.be.disabled').click();
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       cy.waitUntil(() => cy.get('#sendHbarMsg').should('have.text', ' Done '));
       cy.waitUntil(() => cy.get('#toBalanceAfterTransfer').should('have.text', ' Balance after transfer: 0.01 '));
@@ -85,7 +85,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#sendHbarsAmountField').clear().type('60000000000000000000').trigger('change');
       cy.get('#sendHbarsBtn').should('not.be.disabled').click();
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       cy.waitUntil(() => cy.get('#sendHbarMsg').should('have.text', ' Done '));
       cy.waitUntil(() => cy.get('#toBalanceAfterTransfer').should('have.text', ' Balance after transfer: 60.01 '));
@@ -95,7 +95,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#hollowAccountAddressField').clear().type(hollowAccount2.address);
       cy.get('#activateHollowAccountBtn').should('not.be.disabled').click();
       cy.wait(10000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       cy.waitUntil(() => cy.get('#activateHollowAccountMsg').should('have.text', ' Done '));
     }).timeout(testTimeoutMs);
@@ -112,20 +112,21 @@ describe('Test Core Hedera User Scenarios', function () {
   function mandatoryTests(pkToImport = null, accountNumber = 1, shouldAssociateWithHTS = false) {
     if (pkToImport) {
       it('Should switch to hollow account', { retries: retries }, function () {
-        cy.disconnectMetamaskWalletFromAllDapps();
-        cy.importMetamaskAccount(pkToImport);
-        cy.switchMetamaskAccount(accountNumber);
+        // Note: disconnectMetamaskWalletFromAllDapps is not available in v4
+        // Workaround: Manual wallet management may be needed
+        cy.importWalletFromPrivateKey(pkToImport);
+        cy.switchAccount(accountNumber);
 
         cy.visit('http://localhost:3000');
         cy.contains('Connect Account').click();
-        cy.acceptMetamaskAccess().should('be.true');
+        cy.connectToDapp().should('be.true');
         cy.switchToCypressWindow();
       });
     }
 
     it('Show alias', { retries: retries }, function () {
       cy.get('#showAliasBtn').should('not.be.disabled').click();
-      cy.confirmMetamaskSignatureRequest();
+      cy.confirmSignature();
       cy.waitUntil(() => cy.get('#aliasField').invoke('text').should('have.length', 66));
     }).timeout(testTimeoutMs);
 
@@ -135,7 +136,7 @@ describe('Test Core Hedera User Scenarios', function () {
       cy.get('#sendHbarsAmountField').clear().type('10000000000000000').trigger('change');
       cy.get('#sendHbarsBtn').should('not.be.disabled').click();
       cy.wait(15000);
-      cy.confirmMetamaskTransaction();
+      cy.confirmTransaction();
 
       cy.waitUntil(() => cy.get('#sendHbarMsg').should('have.text', ' Done '));
     }).timeout(testTimeoutMs);
@@ -146,7 +147,7 @@ describe('Test Core Hedera User Scenarios', function () {
         cy.get('#htsTokenAssociateAddressField').clear().type(bootstrapInfo.HTS_SECOND_ADDRESS).trigger('change');
         cy.get('#htsTokenAssociateBtn').should('not.be.disabled').click();
         cy.wait(10000);
-        cy.confirmMetamaskTransaction();
+        cy.confirmTransaction();
 
         cy.waitUntil(() => cy.get('#htsTokenAssociateMsg').should('have.text', ' Done '));
       }).timeout(testTimeoutMs);

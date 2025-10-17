@@ -26,4 +26,7 @@ yarn-error.log*
 /screenshots
 /cypress
 
+/downloads
+.cache-synpress
+
 src/contracts/.bootstrapInfo.json

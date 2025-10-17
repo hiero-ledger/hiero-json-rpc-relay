@@ -46,10 +46,12 @@
     "start": "react-scripts start --openssl-legacy-provider",
     "build": "react-scripts build --openssl-legacy-provider",
     "bootstrap": "env-cmd node tests/e2e/bootstrap.js",
-    "test": "env-cmd npx synpress run -cf synpress.js",
+    "build:cache": "npx synpress",
+    "build:cache:headless": "npx synpress --headless",
+    "test": "env-cmd npx cypress run --browser chrome --headed",
     "start-prod": "http-server build -p 3000 -a localhost",
     "eject": "react-scripts eject",
-    "test:ci": "npm ci && npm run bootstrap && npm run build && start-server-and-test 'start' http-get://localhost:3000 'npm run test'"
+    "test:ci": "npm ci && npm run bootstrap && npm run build && npm run build:cache:headless && start-server-and-test 'start' http-get://localhost:3000 'npm run test'"
   },
   "eslintConfig": {
     "extends": [
