@@ -3209,7 +3209,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.be.empty; // eslint-disable-line @typescript-eslint/no-unused-expressions
+        expect(response.data.result).to.be.empty;
       });
 
       it('should fail when block not found', async () => {
