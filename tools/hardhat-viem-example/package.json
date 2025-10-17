@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
-    "hardhat": "^2.26.1"
+    "hardhat": "^3.0.7"
   },
   "overrides": {
     "elliptic": "^6.6.1",
