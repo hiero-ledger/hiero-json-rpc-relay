@@ -139,7 +139,8 @@ describe('RPC Server Acceptance Tests', function () {
 
   function loadTest(testFile) {
     if (testFile !== 'index.spec.ts' && testFile.endsWith('.spec.ts')) {
-      import(`./${testFile}`);
+      //eslint-disable-next-line @typescript-eslint/no-require-imports
+      require(`./${testFile}`);
     }
   }
 
