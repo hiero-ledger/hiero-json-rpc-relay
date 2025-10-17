@@ -29,6 +29,16 @@ module.exports = {
                 "sourceType": "script",
             },
         },
+        {
+            "files": [
+                "**/*.spec.ts",
+                "**/*.test.ts",
+                "**/tests/**/*.ts",
+            ],
+            "rules": {
+                "@typescript-eslint/no-unused-expressions": "off",
+            },
+        },
     ],
     "parserOptions": {
         "ecmaVersion": "latest",
