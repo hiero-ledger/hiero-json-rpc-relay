@@ -108,7 +108,6 @@ describe('webSocketServer http endpoints', () => {
 
 describe('webSocketServer websocket handling', () => {
   let server: http.Server<any, any>;
-  let app: any;
   const sockets: WebSocket[] = [];
 
   async function openWsServerAndUpdateSockets(server, socketsArr) {
