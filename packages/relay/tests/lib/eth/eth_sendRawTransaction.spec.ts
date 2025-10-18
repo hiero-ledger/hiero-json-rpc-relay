@@ -14,9 +14,9 @@ import {
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { EventEmitter } from 'events';
 import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
+import { EventEmitter } from 'events';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
 import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
@@ -138,35 +138,47 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
 
         const FILE_ID = new FileId(0, 0, 5644);
-        sdkClientStub.submitEthereumTransaction.restore();
-        sdkClientStub.createFile.restore();
-        sdkClientStub.executeAllTransaction.restore();
+        const sdkClientInternals = sdkClientStub as unknown as Record<string, any>;
+        const enableCallThrough = (
+          method: 'submitEthereumTransaction' | 'createFile' | 'executeAllTransaction',
+        ): void => {
+          (sdkClientInternals[method] as sinon.SinonStub).callsFake(function (this: SDKClient, ...args: unknown[]) {
+            return (SDKClient.prototype[method] as unknown as (...methodArgs: unknown[]) => unknown).apply(this, args);
+          });
+        };
+        enableCallThrough('submitEthereumTransaction');
+        enableCallThrough('createFile');
+        enableCallThrough('executeAllTransaction');
 
-        sdkClientStub.fileAppendChunkSize = 2048;
-        sdkClientStub.clientMain = { operatorAccountId: '', operatorKey: null };
+        sdkClientInternals.fileAppendChunkSize = 2048;
+        sdkClientInternals.clientMain = { operatorAccountId: '', operatorKey: null };
+        sdkClientInternals.logger = pino({ level: 'silent' });
 
-        const fileInfoMock = sinon.stub(FileInfo);
-        fileInfoMock.size = new Long(26000);
-        sdkClientStub.executeQuery.resolves(fileInfoMock);
+        const fileInfoMock = { size: new Long(26000) } as unknown as FileInfo;
+        (sdkClientInternals.executeQuery as sinon.SinonStub).resolves(fileInfoMock);
 
         // simulates error after first append by returning only one transaction response
-        sinon.stub(FileAppendTransaction.prototype, 'executeAll').resolves([{ transactionId: transactionId }]);
+        sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves([{ transactionId: TransactionId.fromString(transactionIdServicesFormat) } as TransactionResponse]);
 
         const eventEmitterMock = sinon.createStubInstance(EventEmitter);
-        sdkClientStub.eventEmitter = eventEmitterMock;
+        sdkClientInternals.eventEmitter = eventEmitterMock;
 
         const hbarLimiterMock = sinon.createStubInstance(HbarLimitService);
-        sdkClientStub.hbarLimitService = hbarLimiterMock;
+        sdkClientInternals.hbarLimitService = hbarLimiterMock;
 
         const txResponseMock = sinon.createStubInstance(TransactionResponse);
-        sdkClientStub.executeTransaction.resolves(txResponseMock);
+        (sdkClientInternals.executeTransaction as sinon.SinonStub).resolves(txResponseMock);
 
-        txResponseMock.getReceipt.restore();
-        sinon.stub(txResponseMock, 'getReceipt').onFirstCall().resolves({ fileId: FILE_ID });
-        txResponseMock.transactionId = TransactionId.fromString(transactionIdServicesFormat);
+        txResponseMock.getReceipt
+          .onFirstCall()
+          .resolves({ fileId: FILE_ID } as unknown as import('@hashgraph/sdk').TransactionReceipt);
+        Object.assign(txResponseMock, {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        });
 
-        sdkClientStub.logger = pino({ level: 'silent' });
-        sdkClientStub.deleteFile.resolves();
+        (sdkClientInternals.deleteFile as sinon.SinonStub).resolves();
 
         restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
 
@@ -248,7 +260,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
     it('should not send second transaction on error different from timeout', async function () {
       restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-      const repeatedRequestSpy = sinon.spy(ethImpl['transactionService']['mirrorNodeClient'], 'repeatedRequest');
+      const repeatedRequestSpy = sinon.spy((ethImpl as any).transactionService.mirrorNodeClient, 'repeatedRequest');
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
