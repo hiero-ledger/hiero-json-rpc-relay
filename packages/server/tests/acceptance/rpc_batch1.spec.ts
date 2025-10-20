@@ -7,6 +7,7 @@ import { formatTransactionId, numberTo0x, prepend0x } from '@hashgraph/json-rpc-
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
+import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '@hashgraph/json-rpc-relay/src/lib/validators';
 import {
@@ -37,7 +38,6 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
-import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
 
 const Address = RelayCalls;
 
@@ -734,6 +734,30 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         expect(res).to.be.null;
       });
+
+      it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function () {
+        const tokenId = await servicesNode.createToken(1000);
+        await accounts[2].client.associateToken(tokenId);
+        const transaction = new TransferTransaction()
+          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .setTransactionMemo('Relay test token transfer');
+        const resp = await transaction.execute(servicesNode.client);
+        await resp.getRecord(servicesNode.client);
+        await Utils.wait(1000);
+        const logsRes = await mirrorNode.get(`/contracts/results/logs?limit=1`);
+        const blockNumber = logsRes.logs[0].block_number;
+        const formattedBlockNumber = prepend0x(blockNumber.toString(16));
+        const contractId = logsRes.logs[0].contract_id;
+        const transactionHash = logsRes.logs[0].transaction_hash;
+        if (contractId !== tokenId.toString()) {
+          return;
+        }
+
+        const receipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [formattedBlockNumber]);
+        expect(receipts).to.not.be.empty;
+        expect(receipts.filter((receipt) => receipt.transactionHash === transactionHash)).to.not.be.empty;
+      });
     });
 
     describe('Transaction related RPC Calls', () => {
@@ -771,7 +795,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         overrideEnvsInMochaDescribe({ USE_ASYNC_TX_PROCESSING: true });
         describe('ENABLE_TX_POOL = true', async () => {
           beforeEach(async () => {
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise((r) => setTimeout(r, 2000));
           });
           overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: true });
           it('should have equal nonces (pending and latest) after successfully validated transaction', async () => {
@@ -1776,6 +1800,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should delete the file created while execute "eth_sendRawTransaction" to deploy a large contract', async function () {
+        // Jumbo TX skips HFS and writes contract directly to state, so no
+        // file exists to delete.To avoid this, this test overrides JUMBO_TX_ENABLED to false.
+        ConfigServiceTestHelper.dynamicOverride('JUMBO_TX_ENABLED', false);
+
         const gasPrice = await relay.gasPrice();
         const transaction = {
           type: 2,
