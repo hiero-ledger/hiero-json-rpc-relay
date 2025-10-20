@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
-import { Logger } from 'pino';
 
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
@@ -18,24 +17,16 @@ import { IAccountBalance } from './types/mirrorNode';
 export class Precheck {
   private readonly mirrorNodeClient: MirrorNodeClient;
   private readonly chain: string;
-  private readonly logger: Logger;
   private readonly transactionPoolService: TransactionPoolService;
 
   /**
    * Creates an instance of Precheck.
    * @param mirrorNodeClient - The MirrorNodeClient instance.
-   * @param logger - The logger instance.
    * @param chainId - The chain ID.
    * @param transactionPoolService
    */
-  constructor(
-    mirrorNodeClient: MirrorNodeClient,
-    logger: Logger,
-    chainId: string,
-    transactionPoolService: TransactionPoolService,
-  ) {
+  constructor(mirrorNodeClient: MirrorNodeClient, chainId: string, transactionPoolService: TransactionPoolService) {
     this.mirrorNodeClient = mirrorNodeClient;
-    this.logger = logger;
     this.chain = chainId;
     this.transactionPoolService = transactionPoolService;
   }
@@ -80,15 +71,13 @@ export class Precheck {
     this.gasLimit(parsedTx);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
     const signerNonce =
-      mirrorAccountInfo.ethereum_nonce + (ConfigService.get('ENABLE_TX_POOL')
-        ? await this.transactionPoolService.getPendingCount(parsedTx.from!)
-        : 0);
+      mirrorAccountInfo.ethereum_nonce +
+      (ConfigService.get('ENABLE_TX_POOL') ? await this.transactionPoolService.getPendingCount(parsedTx.from!) : 0);
     this.nonce(parsedTx, signerNonce);
     this.chainId(parsedTx);
     this.value(parsedTx);
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
-    const signerAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-    this.balance(parsedTx, signerAccountInfo.balance);
+    this.balance(parsedTx, mirrorAccountInfo.balance);
     await this.receiverAccount(parsedTx, requestDetails);
   }
 
