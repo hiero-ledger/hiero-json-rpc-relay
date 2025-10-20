@@ -408,7 +408,7 @@ describe('Debug API Test Suite', async function () {
             gasUsed: '0x3a980',
             input: '0x1',
             output: '0x2',
-            calls: undefined,
+            calls: [],
           };
           const result = await debugService.traceTransaction(
             transactionHash,
@@ -419,8 +419,11 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.deep.equal(expectedResult);
         });
 
-        it('Should return root transaction with empty calls if no actions found', async function () {
-          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+        it('Test call tracer with single action (no internal calls) returns empty calls array', async function () {
+          const singleActionResponse = {
+            actions: [contractsResultsActionsResult.actions[0]], // Only the root action
+          };
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(singleActionResponse));
 
           const result = await debugService.traceTransaction(
             transactionHash,
@@ -428,8 +431,8 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          const expectedRoot = {
-            type: 'CALL',
+          const expectedResult = {
+            type: 'CREATE',
             from: accountsResult.evm_address,
             to: contractResult.evm_address,
             value: '0x0',
@@ -440,7 +443,7 @@ describe('Debug API Test Suite', async function () {
             calls: [],
           };
 
-          expect(result).to.deep.equal(expectedRoot);
+          expect(result).to.deep.equal(expectedResult);
         });
       });
 

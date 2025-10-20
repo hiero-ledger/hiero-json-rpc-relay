@@ -291,9 +291,9 @@ export class DebugImpl implements Debug {
         // The actions endpoint does not return input and output for the calls so we get them from another endpoint
         // The first one is excluded because we take its input and output from the contracts/results/{transactionIdOrHash} endpoint
         const contract =
-          index !== 0 && (
-            action.call_operation_type === CallType.CREATE || action.call_operation_type === CallType.CREATE2
-          ) && action.to
+          index !== 0 &&
+          (action.call_operation_type === CallType.CREATE || action.call_operation_type === CallType.CREATE2) &&
+          action.to
             ? await this.mirrorNodeClient.getContract(action.to, requestDetails)
             : undefined;
 
@@ -473,41 +473,6 @@ export class DebugImpl implements Debug {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
 
-      // If there are no actions, return a root transaction object with empty calls
-      if (actionsResponse.length === 0) {
-        const {
-          from,
-          to,
-          amount,
-          gas_limit: gas,
-          gas_used: gasUsed,
-          function_parameters: input,
-          call_result: output,
-          error_message: error,
-          result,
-        } = transactionsResponse;
-
-        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
-
-        const value = amount === 0 ? DebugImpl.zeroHex : numberTo0x(amount);
-        const errorResult = result !== constants.SUCCESS ? result : undefined;
-        const type = resolvedTo ? 'CALL' : 'CREATE';
-
-        return {
-          type,
-          from: resolvedFrom,
-          to: resolvedTo,
-          value,
-          gas: numberTo0x(gas),
-          gasUsed: numberTo0x(gasUsed),
-          input,
-          output: result !== constants.SUCCESS ? error : output,
-          ...(result !== constants.SUCCESS && { error: errorResult }),
-          ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error) }),
-          calls: [],
-        };
-      }
-
       const { call_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
 
@@ -542,7 +507,7 @@ export class DebugImpl implements Debug {
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? undefined : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? [] : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);
