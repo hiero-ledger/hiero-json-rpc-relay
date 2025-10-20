@@ -235,6 +235,7 @@ export class RedisCache implements IRedisCacheClient {
 
   /**
    * Clears the entire cache leaving out the transaction pool.
+   * Uses pipelining for efficient bulk deletion with UNLINK (non-blocking).
    *
    * @returns {Promise<void>} A Promise that resolves when the cache is cleared.
    */
@@ -244,11 +245,18 @@ export class RedisCache implements IRedisCacheClient {
     // Filter out keys that start with "pending:"
     const keysToDelete = allKeys.filter((key) => !key.startsWith('pending:'));
 
-    // Delete the filtered keys if there are any
     if (keysToDelete.length > 0) {
-      await this.client.del(keysToDelete);
+      // Use pipeline for efficient bulk deletion
+      const pipeline = this.client.multi();
+
+      for (const key of keysToDelete) {
+        pipeline.unlink(key); // UNLINK is non-blocking version of DEL
+      }
+
+      await pipeline.exec();
+
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Cleared cache`);
+        this.logger.trace('Cleared cache');
       }
     }
   }
