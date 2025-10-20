@@ -8,7 +8,7 @@ It covers the background and motivation, configuration, storage backends, reques
 
 ### Background and motivation
 
-Hedera does not maintain an Ethereum-style mempool. Mirror Node (MN) imports account state (including `ethereum_nonce`) with a slight delay. If clients fire multiple transactions rapidly and compute nonces from MN only, race conditions can lead to consensus failures (e.g., a later tx reaching the network before an earlier one).
+Hedera does not maintain an Ethereum-style mempool. Mirror Node (MN) imports account state (including `ethereum_nonce`) with a slight delay. If clients fire multiple transactions rapidly and compute nonces from MN only, nonces won't be correct and this can lead to errors.
 
 To reduce these failures, the relay can maintain a per-address set of “pending” transactions it has seen and accepted, and expose that state to:
 
@@ -101,7 +101,7 @@ These rules ensure the pool reflects only transactions that the relay has accept
 
 - After a tx is processed (success or failure), `pending` equals `latest` for that signer because the pending entry is removed.
 - While one or more transactions are pending for a signer, `pending` is greater than `latest` when `ENABLE_TX_POOL = true`.
-- With the feature disabled, behavior matches today’s MN-only semantics; race conditions (WRONG_NONCE) remain possible.
+- With the feature disabled, behavior matches today’s MN-only semantics.
 
 
 ---

@@ -347,7 +347,7 @@ export class Relay {
   /**
    * Initializes required clients and services
    */
-  async init() {
+  async initializeRelay() {
     if (ConfigService.get('READ_ONLY')) return;
 
     const operator = this.operatorAccountId!.toString();
@@ -396,7 +396,7 @@ export class Relay {
     const relay = new Relay(logger, register);
 
     // Check operator balance if not in read-only mode
-    await relay.init();
+    await relay.initializeRelay();
 
     return relay;
   }
