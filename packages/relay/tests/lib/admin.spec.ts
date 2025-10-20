@@ -3,30 +3,41 @@
 import { expect } from 'chai';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import sinon from 'sinon';
 
 import { Relay } from '../../src/lib/relay';
-import { RequestDetails } from '../../src/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 
 const logger = pino({ level: 'silent' });
 let relay: Relay;
 
-const requestDetails = new RequestDetails({ requestId: 'admin', ipAddress: '0.0.0.0' });
 describe('Admin', async function () {
+  // we used to initialize the relay by using the constructor, but now we use the init method
+  // which checks the operator balance, we want to stub this method, its not part of the test
+  before(() => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+  });
+
+  after(() => {
+    sinon.restore();
+  });
+
   it('should execute config', async () => {
-    relay = new Relay(logger, new Registry());
-    const res = await relay.admin().config(requestDetails);
+    relay = await Relay.init(logger, new Registry());
+    const res = await relay.admin().config();
     expect(res).to.haveOwnProperty('relay');
     expect(res).to.haveOwnProperty('upstreamDependencies');
 
     expect(res.relay).to.haveOwnProperty('version');
     expect(res.relay).to.haveOwnProperty('config');
-    expect(res.relay.config).to.not.be.empty;
+    const keys = Object.keys(res.relay.config);
+    expect(keys).to.have.length.greaterThan(0);
 
     for (const service of res.upstreamDependencies) {
       expect(service).to.haveOwnProperty('config');
       expect(service).to.haveOwnProperty('service');
-      expect(service.config).to.not.be.empty;
+      const keys = Object.keys(service.config);
+      expect(keys).to.have.length.greaterThan(0);
     }
   });
 
@@ -41,10 +52,10 @@ describe('Admin', async function () {
       },
       () => {
         it(`should return a valid consensus version for ${networkName}`, async () => {
-          const tempRelay = new Relay(logger, new Registry());
-          const res = await tempRelay.admin().config(requestDetails);
+          const tempRelay = await Relay.init(logger, new Registry());
+          const res = await tempRelay.admin().config();
           const regex = /^\d+\.\d+\.\d+.*$/;
-          expect(res.upstreamDependencies[0].version.match(regex)).to.not.be.empty;
+          expect(res.upstreamDependencies[0].version.match(regex)).to.have.length.greaterThan(0);
         });
       },
     );
@@ -56,8 +67,8 @@ describe('Admin', async function () {
     },
     () => {
       it(`should return a valid consensus version for local network`, async () => {
-        const tempRelay = new Relay(logger, new Registry());
-        const res = await tempRelay.admin().config(requestDetails);
+        const tempRelay = await Relay.init(logger, new Registry());
+        const res = await tempRelay.admin().config();
         expect(res.upstreamDependencies[0].version).to.equal('local');
       });
     },

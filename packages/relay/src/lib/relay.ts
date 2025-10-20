@@ -116,13 +116,13 @@ export class Relay {
   private readonly rpcMethodDispatcher: RpcMethodDispatcher;
 
   /**
-   * Initializes the main components of the relay service, including Hedera network clients,
-   * Ethereum-compatible interfaces, caching, metrics, and subscription management.
+   * Private constructor to prevent direct instantiation.
+   * Use Relay.init() static factory method instead.
    *
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {Registry} register - Registry instance for registering metrics.
    */
-  constructor(
+  private constructor(
     private readonly logger: Logger,
     register: Registry,
   ) {
@@ -340,5 +340,29 @@ export class Relay {
     } else {
       this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
     }
+  }
+
+  /**
+   * Static factory method to create and initialize a Relay instance.
+   * This is the recommended way to create a Relay instance as it ensures
+   * all async initialization (operator balance check) is complete.
+   *
+   * @param {Logger} logger - Logger instance for logging system messages.
+   * @param {Registry} register - Registry instance for registering metrics.
+   * @returns {Promise<Relay>} A fully initialized Relay instance.
+   *
+   * @example
+   * ```typescript
+   * const relay = await Relay.init(logger, register);
+   * ```
+   */
+  static async init(logger: Logger, register: Registry): Promise<Relay> {
+    // Create Relay instance
+    const relay = new Relay(logger, register);
+
+    // Check operator balance if not in read-only mode
+    await relay.ensureOperatorHasBalance();
+
+    return relay;
   }
 }
