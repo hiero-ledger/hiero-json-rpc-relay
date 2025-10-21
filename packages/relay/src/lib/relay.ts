@@ -25,6 +25,8 @@ import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
+import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
+import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
@@ -325,6 +327,10 @@ export class Relay {
       : this.mirrorNodeClient;
     this.metricService = new MetricService(this.logger, metricsCollector, this.register, hbarLimitService);
 
+    const storage = this.redisClient
+      ? new RedisPendingTransactionStorage(this.redisClient)
+      : new LocalPendingTransactionStorage();
+
     // Create Eth implementation with connected Redis client
     this.ethImpl = new EthImpl(
       hapiService,
@@ -332,7 +338,7 @@ export class Relay {
       this.logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
-      this.redisClient,
+      storage,
     );
 
     // Set up event listeners
