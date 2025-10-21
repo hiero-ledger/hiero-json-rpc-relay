@@ -171,7 +171,7 @@ const _CONFIG = {
   ENABLE_TX_POOL: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   ESTIMATE_GAS_THROWS: {
     type: 'boolean',
