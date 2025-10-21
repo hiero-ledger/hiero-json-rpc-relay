@@ -1133,6 +1133,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         gasUsed: '0x249f00',
         input: '',
         output: '',
+        calls: [],
       };
       const successResultCreateWithDepth = {
         ...defaultResponseFields,
@@ -1152,6 +1153,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       const successResultCall = {
         ...defaultResponseFields,
         type: 'CALL',
+        calls: [],
       };
       const successResultCallWithDepth = {
         ...successResultCall,
@@ -1173,12 +1175,14 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         error: 'CONTRACT_EXECUTION_EXCEPTION',
         revertReason: 'INSUFFICIENT_STACK_ITEMS',
         gasUsed: '0x2dc6c0',
+        calls: [],
       };
       const failingResultCall = {
         ...defaultResponseFields,
         type: 'CALL',
         error: 'CONTRACT_REVERT_EXECUTED',
         revertReason: 'Some revert message',
+        calls: [],
       };
 
       describe('Test transactions of type 0', async function () {
