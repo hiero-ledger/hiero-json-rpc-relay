@@ -6,6 +6,7 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
+import { Relay } from '../../src';
 import { Web3Impl } from '../../src/lib/web3';
 import { withOverriddenEnvsInMochaTest } from '../helpers';
 

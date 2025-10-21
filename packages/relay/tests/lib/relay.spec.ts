@@ -19,8 +19,9 @@ describe('Relay', () => {
   const register = new Registry();
   let relay: Relay;
 
-  beforeEach(() => {
-    relay = new Relay(logger, register);
+  beforeEach(async () => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    relay = await Relay.init(logger, register);
   });
 
   afterEach(() => {
@@ -65,7 +66,7 @@ describe('Relay', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: 'spendingPlansConfig.example.json' });
 
       it('should populate preconfigured spending plans successfully', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -78,7 +79,7 @@ describe('Relay', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: nonExistingFile });
 
       it('should not throw an error', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -94,7 +95,7 @@ describe('Relay', () => {
       });
 
       it('should log a warning', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).not.to.be.rejected;
@@ -108,7 +109,7 @@ describe('Relay', () => {
   describe('ensureOperatorHasBalance', function () {
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
       it('should never throw', async function () {
-        await expect(relay.init()).to.not.be.rejectedWith();
+        await expect(relay.initializeRelay()).to.not.be.rejectedWith();
       });
     });
 
@@ -136,7 +137,7 @@ describe('Relay', () => {
           },
         };
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
-        await expect(relay.init()).to.not.be.rejectedWith();
+        await expect(relay.initializeRelay()).to.not.be.rejectedWith();
       });
 
       it('should throw when operator has no balance', async function () {
@@ -149,14 +150,14 @@ describe('Relay', () => {
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.init()).to.be.rejectedWith(message);
+        await expect(relay.initializeRelay()).to.be.rejectedWith(message);
       });
 
       it('should throw when operator has not been found', async function () {
         restMock.onGet(`accounts/${operatorId}?limit=100`).reply(404, JSON.stringify({}));
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.init()).to.be.rejectedWith(message);
+        await expect(relay.initializeRelay()).to.be.rejectedWith(message);
       });
     });
   });
