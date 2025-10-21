@@ -59,7 +59,9 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Failed to add transaction to list');
     }
 
-    this.logger.debug({ address, txHash, pendingCount: result.newValue }, 'Transaction saved to pool');
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug({ address, txHash, pendingCount: result.newValue }, 'Transaction saved to pool');
+    }
   }
 
   /**
