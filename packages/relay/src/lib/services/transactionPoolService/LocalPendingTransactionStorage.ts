@@ -13,12 +13,8 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   // Maps address to a Set of transaction hashes for that address
   private readonly pendingTransactions: Map<string, Set<string>>;
 
-  // Maps transaction hash to RLP-encoded transaction data (for future use)
-  private readonly transactionData: Map<string, string>;
-
   constructor() {
     this.pendingTransactions = new Map();
-    this.transactionData = new Map();
   }
 
   /**
@@ -70,9 +66,6 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
       }
     }
 
-    // Also remove from transaction data map
-    this.transactionData.delete(txHash);
-
     return addressTransactions ? addressTransactions.size : 0;
   }
 
@@ -83,6 +76,5 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeAll(): Promise<void> {
     this.pendingTransactions.clear();
-    this.transactionData.clear();
   }
 }
