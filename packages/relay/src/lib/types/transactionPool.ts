@@ -25,6 +25,15 @@ export interface TransactionPoolService {
   saveTransaction(address: string, tx: Transaction): Promise<void>;
 
   /**
+   * Removes a transaction from the transaction pool for the given address.
+   *
+   * @param address - The account address that submitted the transaction.
+   * @param txHash - The hash of the transaction to remove.
+   * @returns A promise that resolves to the new pending transaction count for the address.
+   */
+  removeTransaction(address: string, txHash: string): Promise<number>;
+
+  /**
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
