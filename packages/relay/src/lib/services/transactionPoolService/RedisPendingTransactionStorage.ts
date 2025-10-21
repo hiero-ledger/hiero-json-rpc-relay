@@ -64,10 +64,6 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
 
   /**
    * Removes all keys managed by this storage (all `pending:*`).
-   *
-   * @remarks
-   * Iterates keys using `SCAN` via `scanIterator` to avoid blocking Redis, and
-   * batches deletions using a pipeline for efficiency.
    */
   async removeAll(): Promise<void> {
     const keys = await this.redisClient.keys('pending:');

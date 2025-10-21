@@ -24,12 +24,6 @@ describe('RedisClientManager Test Suite', async function () {
     await redisClientManager.connect();
   });
 
-  //   this.beforeEach(async () => {
-  //     if (!(await redisClientManager.isConnected())) {
-  //       await redisClientManager.connect();
-  //     }
-  //   });
-
   this.afterAll(async () => {
     if (await redisClientManager.isConnected()) {
       await redisClientManager.disconnect();
