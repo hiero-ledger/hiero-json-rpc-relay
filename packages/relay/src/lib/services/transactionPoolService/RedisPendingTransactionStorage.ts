@@ -5,11 +5,6 @@ import { AddToListResult, PendingTransactionStorage } from '../../types/transact
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
   /**
-   * Number of elements to scan per step.
-   */
-  private elementsPerStep = 500;
-
-  /**
    * Prefix used to namespace all keys managed by this storage.
    *
    * @remarks
@@ -38,10 +33,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Appends a transaction hash to the pending list for the provided address.
    *
    * @remarks
-   * This uses Redis `RPUSH`, which is atomic. The integer result from Redis is
+   * This uses Redis `SADD`, which is atomic. The integer result from Redis is
    * the new length of the list after the append.
-   *
-   * Duplicate values are not prevented by this method.
    *
    * @param addr - Account address whose pending list will be appended to.
    * @param txHash - Transaction hash to append.
@@ -77,20 +70,13 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * batches deletions using a pipeline for efficiency.
    */
   async removeAll(): Promise<void> {
-    let pipeline = this.redisClient.multi();
-    let batched = 0;
-    for await (const key of this.redisClient.scanIterator({
-      MATCH: `${this.keyPrefix}*`,
-      COUNT: this.elementsPerStep,
-    })) {
-      pipeline.del(key);
-      batched++;
-      if (batched % 100 === 0) {
-        await pipeline.execAsPipeline();
-        pipeline = this.redisClient.multi();
+    const keys = await this.redisClient.keys('pending:');
+
+    if (keys.length > 0) {
+      for (const key of keys) {
+        this.redisClient.unlink(key);
       }
     }
-    await pipeline.execAsPipeline();
   }
 
   /**
