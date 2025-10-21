@@ -39,8 +39,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   describe('addToList (Set-based)', () => {
     it('adds first transaction and returns size 1', async () => {
       const res = await storage.addToList(addr1, tx1);
-      expect(res.ok).to.equal(true);
-      if (res.ok) expect(res.newValue).to.equal(1);
+      expect(res).to.equal(1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
@@ -48,8 +47,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     it('deduplicates the same transaction hash', async () => {
       await storage.addToList(addr1, tx1);
       const res = await storage.addToList(addr1, tx1);
-      expect(res.ok).to.equal(true);
-      if (res.ok) expect(res.newValue).to.equal(1);
+      expect(res).to.equal(1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
@@ -57,8 +55,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     it('adds multiple distinct tx hashes and returns correct size', async () => {
       await storage.addToList(addr1, tx1);
       const r2 = await storage.addToList(addr1, tx2);
-      expect(r2.ok).to.equal(true);
-      if (r2.ok) expect(r2.newValue).to.equal(2);
+      expect(r2).to.equal(2);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });

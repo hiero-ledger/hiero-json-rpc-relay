@@ -68,13 +68,10 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
   });
 
   describe('addToList', () => {
-    it('should successfully add transaction when expected count matches', async () => {
+    it('should successfully add transaction and return new count', async () => {
       const result = await storage.addToList(testAddress1, testTxHash1);
 
-      expect(result.ok).to.be.true;
-      if (result.ok) {
-        expect(result.newValue).to.equal(1);
-      }
+      expect(result).to.equal(1);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -83,17 +80,11 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     it('should successfully add multiple transactions in sequence', async () => {
       // Add first transaction
       const result1 = await storage.addToList(testAddress1, testTxHash1);
-      expect(result1.ok).to.be.true;
-      if (result1.ok) {
-        expect(result1.newValue).to.equal(1);
-      }
+      expect(result1).to.equal(1);
 
       // Add second transaction
       const result2 = await storage.addToList(testAddress1, testTxHash2);
-      expect(result2.ok).to.be.true;
-      if (result2.ok) {
-        expect(result2.newValue).to.equal(2);
-      }
+      expect(result2).to.equal(2);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(2);
@@ -102,11 +93,11 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     it('should handle adding transactions to multiple addresses', async () => {
       // Add to first address
       const result1 = await storage.addToList(testAddress1, testTxHash1);
-      expect(result1.ok).to.be.true;
+      expect(result1).to.equal(1);
 
       // Add to second address
       const result2 = await storage.addToList(testAddress2, testTxHash2);
-      expect(result2.ok).to.be.true;
+      expect(result2).to.equal(1);
 
       const count1 = await storage.getList(testAddress1);
       const count2 = await storage.getList(testAddress2);
@@ -115,17 +106,14 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       expect(count2).to.equal(1);
     });
 
-    it('should fail when trying to add same transaction hash to same address', async () => {
+    it('should handle adding same transaction hash to same address idempotently', async () => {
       // Add transaction first time
       const result1 = await storage.addToList(testAddress1, testTxHash1);
-      expect(result1.ok).to.be.true;
+      expect(result1).to.equal(1);
 
       // Try to add same transaction hash again
       const result2 = await storage.addToList(testAddress1, testTxHash1);
-      expect(result2.ok).to.be.true; // Set adds duplicate, but count should still be 1
-      if (result2.ok) {
-        expect(result2.newValue).to.equal(1); // Set doesn't add duplicates
-      }
+      expect(result2).to.equal(1); // Set doesn't add duplicates
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -134,7 +122,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
     it('should initialize new address with empty set', async () => {
       const result = await storage.addToList(testAddress1, testTxHash1);
 
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(1);
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
     });
@@ -265,7 +253,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       await storage.removeAll();
 
       const result = await storage.addToList(testAddress1, testTxHash2);
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(1);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -280,14 +268,14 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
       // Add first transaction
       let result = await storage.addToList(testAddress1, testTxHash1);
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(1);
 
       count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
 
       // Add second transaction
       result = await storage.addToList(testAddress1, testTxHash2);
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(2);
 
       count = await storage.getList(testAddress1);
       expect(count).to.equal(2);
@@ -341,7 +329,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
       // Add more
       const result = await storage.addToList(testAddress1, '0xnew');
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(2);
 
       // Verify final state
       const count1 = await storage.getList(testAddress1);
@@ -355,7 +343,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
   describe('Edge cases', () => {
     it('should handle empty string address', async () => {
       const result = await storage.addToList('', testTxHash1);
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(1);
 
       const count = await storage.getList('');
       expect(count).to.equal(1);
@@ -363,7 +351,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
     it('should handle empty string transaction hash', async () => {
       const result = await storage.addToList(testAddress1, '');
-      expect(result.ok).to.be.true;
+      expect(result).to.equal(1);
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(1);
@@ -378,7 +366,7 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
       // Add many transactions
       for (let i = 0; i < largeCount; i++) {
         const result = await storage.addToList(testAddress1, `0x${i.toString(16).padStart(64, '0')}`);
-        expect(result.ok).to.be.true;
+        expect(result).to.be.a('number');
       }
 
       const count = await storage.getList(testAddress1);

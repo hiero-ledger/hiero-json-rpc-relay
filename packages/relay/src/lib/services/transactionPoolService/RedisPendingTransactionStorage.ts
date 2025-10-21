@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { RedisClientType } from 'redis';
 
-import { AddToListResult, PendingTransactionStorage } from '../../types/transactionPool';
+import { PendingTransactionStorage } from '../../types/transactionPool';
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
   /**
@@ -38,14 +38,12 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param addr - Account address whose pending list will be appended to.
    * @param txHash - Transaction hash to append.
-   * @returns Result indicating success and the new list length.
+   * @returns The new pending transaction count after the addition.
    */
-  async addToList(address: string, txHash: string): Promise<AddToListResult> {
+  async addToList(address: string, txHash: string): Promise<number> {
     const key = this.keyFor(address);
     await this.redisClient.sAdd(key, txHash);
-    const newLen = await this.redisClient.sCard(key);
-
-    return { ok: true, newValue: newLen };
+    return await this.redisClient.sCard(key);
   }
 
   /**

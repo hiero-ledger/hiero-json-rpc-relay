@@ -6,7 +6,7 @@ import { Logger, pino } from 'pino';
 import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
-import { AddToListResult, PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
+import { PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
 
 describe('TransactionPoolService Test Suite', function () {
   this.timeout(10000);
@@ -58,26 +58,9 @@ describe('TransactionPoolService Test Suite', function () {
     it('should successfully save transaction to pool', async () => {
       const newPending = 3;
 
-      mockStorage.addToList.resolves({ ok: true, newValue: newPending } as AddToListResult);
+      mockStorage.addToList.resolves(newPending);
 
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
-
-      expect(mockStorage.addToList.calledOnce).to.be.true;
-      expect(mockStorage.addToList.calledWith(testAddress, testTxHash)).to.be.true;
-    });
-
-    it('should throw error on concurrent modification', async () => {
-      const actualPending = 3;
-
-      mockStorage.addToList.resolves({ ok: false, current: actualPending } as AddToListResult);
-
-      try {
-        await transactionPoolService.saveTransaction(testAddress, testTransaction);
-        expect.fail('Expected error to be thrown');
-      } catch (error) {
-        expect(error).to.be.instanceOf(Error);
-        expect((error as Error).message).to.equal('Failed to add transaction to list');
-      }
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
       expect(mockStorage.addToList.calledWith(testAddress, testTxHash)).to.be.true;
@@ -202,7 +185,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should handle complete transaction lifecycle', async () => {
       // Setup initial state
       mockStorage.getList.resolves(0);
-      mockStorage.addToList.resolves({ ok: true, newValue: 1 } as AddToListResult);
+      mockStorage.addToList.resolves(1);
       mockStorage.removeFromList.resolves(0);
 
       // Save transaction
@@ -231,12 +214,12 @@ describe('TransactionPoolService Test Suite', function () {
 
       // First transaction
       mockStorage.getList.resolves(0);
-      mockStorage.addToList.resolves({ ok: true, newValue: 1 } as AddToListResult);
+      mockStorage.addToList.resolves(1);
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
 
       // Second transaction
       mockStorage.getList.resolves(1);
-      mockStorage.addToList.resolves({ ok: true, newValue: 2 } as AddToListResult);
+      mockStorage.addToList.resolves(2);
       await transactionPoolService.saveTransaction(testAddress, secondTx);
 
       expect(mockStorage.addToList.calledTwice).to.be.true;

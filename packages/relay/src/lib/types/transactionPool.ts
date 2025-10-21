@@ -3,15 +3,6 @@
 import { Transaction } from 'ethers';
 
 /**
- * Result of attempting to add a transaction to the pending list.
- *
- * This type provides information about whether the operation succeeded and the resulting state is as following:
- * - `{ ok: true; newValue: number }` — The transaction was added successfully and the new pending count is returned.
- * - `{ ok: false; current: number }` — The transaction was not added and the current pending count is returned.
- */
-export type AddToListResult = { ok: true; newValue: number } | { ok: false; current: number };
-
-/**
  * Service responsible for managing pending transactions in the pool and coordinating with consensus results.
  */
 export interface TransactionPoolService {
@@ -66,9 +57,9 @@ export interface PendingTransactionStorage {
    *
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
-   * @returns A promise that resolves to an {@link AddToListResult}.
+   * @returns A promise that resolves to the new pending transaction count.
    */
-  addToList(addr: string, txHash: string): Promise<AddToListResult>;
+  addToList(addr: string, txHash: string): Promise<number>;
 
   /**
    * Removes a transaction from the pending list of the given address.

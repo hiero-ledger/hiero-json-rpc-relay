@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AddToListResult, PendingTransactionStorage } from '../../types/transactionPool';
+import { PendingTransactionStorage } from '../../types/transactionPool';
 
 /**
  * Local in-memory implementation of PendingTransactionStorage.
@@ -33,9 +33,9 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
-   * @returns Promise resolving to AddToListResult indicating success or failure
+   * @returns Promise resolving to the new pending transaction count
    */
-  async addToList(addr: string, txHash: string): Promise<AddToListResult> {
+  async addToList(addr: string, txHash: string): Promise<number> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -44,7 +44,7 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(txHash);
 
-    return { ok: true, newValue: addressTransactions.size };
+    return addressTransactions.size;
   }
 
   /**
