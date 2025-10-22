@@ -90,6 +90,7 @@
     "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
+    "async-mutex": "^0.5.0",
     "koa-cors": "^0.0.16",
     "koa-websocket": "^7.0.0",
     "lerna": "^8.1.9",
