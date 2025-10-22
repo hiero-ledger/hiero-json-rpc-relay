@@ -418,8 +418,7 @@ describe('Debug API Test Suite', async function () {
 
           expect(result).to.deep.equal(expectedResult);
         });
-
-        it('Test call tracer with single action (no internal calls) returns empty calls array', async function () {
+        it('should return empty calls array when using callTracer with single action (no internal calls)', async function () {
           const singleActionResponse = {
             actions: [contractsResultsActionsResult.actions[0]], // Only the root action
           };

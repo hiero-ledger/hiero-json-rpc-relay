@@ -459,7 +459,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult | null> {
+  ): Promise<CallTracerResult> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
