@@ -53,9 +53,9 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Transaction hash is required for storage');
     }
 
-    const pendingCount = await this.storage.addToList(addressLowerCased, txHash);
+    await this.storage.addToList(addressLowerCased, txHash);
 
-    this.logger.debug({ address, txHash, pendingCount }, 'Transaction saved to pool');
+    this.logger.debug({ address, txHash }, 'Transaction saved to pool');
   }
 
   /**
@@ -66,13 +66,11 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param txHash - The hash of the transaction to remove.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  async removeTransaction(address: string, txHash: string): Promise<number> {
+  async removeTransaction(address: string, txHash: string): Promise<void> {
     const addressLowerCased = address.toLowerCase();
-    const remainingCount = await this.storage.removeFromList(addressLowerCased, txHash);
+    await this.storage.removeFromList(addressLowerCased, txHash);
 
-    this.logger.debug({ address, txHash, remainingCount }, 'Transaction removed from pool');
-
-    return remainingCount;
+    this.logger.debug({ address, txHash }, 'Transaction removed from pool');
   }
 
   /**

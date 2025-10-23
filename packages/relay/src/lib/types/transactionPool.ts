@@ -22,7 +22,7 @@ export interface TransactionPoolService {
    * @param txHash - The hash of the transaction to remove.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  removeTransaction(address: string, txHash: string): Promise<number>;
+  removeTransaction(address: string, txHash: string): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.
@@ -57,18 +57,16 @@ export interface PendingTransactionStorage {
    *
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
-   * @returns A promise that resolves to the new pending transaction count.
    */
-  addToList(addr: string, txHash: string): Promise<number>;
+  addToList(addr: string, txHash: string): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.
    *
    * @param address - The account address whose transaction should be removed.
    * @param txHash - The transaction hash to remove.
-   * @returns A promise that resolves to the updated pending count.
    */
-  removeFromList(address: string, txHash: string): Promise<number>;
+  removeFromList(address: string, txHash: string): Promise<void>;
 
   /**
    * Removes all pending transactions across all addresses.

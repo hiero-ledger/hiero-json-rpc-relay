@@ -40,10 +40,12 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param txHash - Transaction hash to append.
    * @returns The new pending transaction count after the addition.
    */
-  async addToList(address: string, txHash: string): Promise<number> {
+  async addToList(address: string, txHash: string): Promise<void> {
     const key = this.keyFor(address);
-    await this.redisClient.sAdd(key, txHash);
-    return await this.redisClient.sCard(key);
+
+    // doing this to be able to atomically add the transaction hash
+    // and set the expiration time
+    await this.redisClient.multi().sAdd(key, txHash).expire(key, 30).execAsPipeline();
   }
 
   /**
@@ -51,13 +53,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - Account address whose pending list should be modified.
    * @param txHash - Transaction hash to remove from the list.
-   * @returns The updated number of pending transactions for the address.
    */
-  async removeFromList(address: string, txHash: string): Promise<number> {
+  async removeFromList(address: string, txHash: string): Promise<void> {
     const key = this.keyFor(address);
-    await this.redisClient.sRem(key, txHash);
 
-    return await this.redisClient.sCard(key);
+    await this.redisClient.sRem(key, txHash);
   }
 
   /**
