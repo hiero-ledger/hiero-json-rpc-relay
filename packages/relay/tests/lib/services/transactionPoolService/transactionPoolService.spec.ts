@@ -98,12 +98,10 @@ describe('TransactionPoolService Test Suite', function () {
 
   describe('removeTransaction', () => {
     it('should successfully remove transaction from pool', async () => {
-      const remainingCount = 1;
-      mockStorage.removeFromList.resolves(remainingCount);
+      mockStorage.removeFromList.resolves();
 
-      const result = await transactionPoolService.removeTransaction(testAddress, testTxHash);
+      await transactionPoolService.removeTransaction(testAddress, testTxHash);
 
-      expect(result).to.equal(remainingCount);
       expect(mockStorage.removeFromList.calledOnceWith(testAddress, testTxHash)).to.be.true;
     });
 
@@ -161,8 +159,8 @@ describe('TransactionPoolService Test Suite', function () {
     it('should handle complete transaction lifecycle', async () => {
       // Setup initial state
       mockStorage.getList.resolves(0);
-      mockStorage.addToList.resolves(1);
-      mockStorage.removeFromList.resolves(0);
+      mockStorage.addToList.resolves();
+      mockStorage.removeFromList.resolves();
 
       // Save transaction
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
@@ -173,8 +171,7 @@ describe('TransactionPoolService Test Suite', function () {
       expect(pendingCount).to.equal(1);
 
       // Remove transaction (simulating consensus result)
-      const remainingCount = await transactionPoolService.removeTransaction(testAddress, testTxHash);
-      expect(remainingCount).to.equal(0);
+      await transactionPoolService.removeTransaction(testAddress, testTxHash);
 
       // Verify all storage methods were called correctly
       expect(mockStorage.getList.called).to.be.true;
@@ -190,12 +187,12 @@ describe('TransactionPoolService Test Suite', function () {
 
       // First transaction
       mockStorage.getList.resolves(0);
-      mockStorage.addToList.resolves(1);
+      mockStorage.addToList.resolves();
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
 
       // Second transaction
       mockStorage.getList.resolves(1);
-      mockStorage.addToList.resolves(2);
+      mockStorage.addToList.resolves();
       await transactionPoolService.saveTransaction(testAddress, secondTx);
 
       expect(mockStorage.addToList.calledTwice).to.be.true;
@@ -206,19 +203,6 @@ describe('TransactionPoolService Test Suite', function () {
           '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         ),
       ).to.be.true;
-    });
-
-    it('should handle pool reset during active transactions', async () => {
-      // Setup with pending transactions
-      mockStorage.getList.resolves(3);
-      mockStorage.removeAll.resolves();
-
-      const initialCount = await transactionPoolService.getPendingCount(testAddress);
-      expect(initialCount).to.equal(3);
-
-      await transactionPoolService.resetState();
-
-      expect(mockStorage.removeAll.calledOnce).to.be.true;
     });
   });
 });

@@ -33,9 +33,8 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
-   * @returns Promise resolving to the new pending transaction count
    */
-  async addToList(addr: string, txHash: string): Promise<number> {
+  async addToList(addr: string, txHash: string): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -43,8 +42,6 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(txHash);
-
-    return addressTransactions.size;
   }
 
   /**
@@ -52,9 +49,8 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    *
    * @param address - The account address whose transaction should be removed
    * @param txHash - The transaction hash to remove
-   * @returns Promise resolving to the updated pending count
    */
-  async removeFromList(address: string, txHash: string): Promise<number> {
+  async removeFromList(address: string, txHash: string): Promise<void> {
     const addressTransactions = this.pendingTransactions.get(address);
 
     if (addressTransactions) {
@@ -65,8 +61,6 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
         this.pendingTransactions.delete(address);
       }
     }
-
-    return addressTransactions ? addressTransactions.size : 0;
   }
 
   /**

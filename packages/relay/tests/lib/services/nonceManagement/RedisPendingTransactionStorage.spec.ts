@@ -38,24 +38,21 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
   describe('addToList (Set-based)', () => {
     it('adds first transaction and returns size 1', async () => {
-      const res = await storage.addToList(addr1, tx1);
-      expect(res).to.equal(1);
+      await storage.addToList(addr1, tx1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('deduplicates the same transaction hash', async () => {
       await storage.addToList(addr1, tx1);
-      const res = await storage.addToList(addr1, tx1);
-      expect(res).to.equal(1);
+      await storage.addToList(addr1, tx1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('adds multiple distinct tx hashes and returns correct size', async () => {
       await storage.addToList(addr1, tx1);
-      const r2 = await storage.addToList(addr1, tx2);
-      expect(r2).to.equal(2);
+      await storage.addToList(addr1, tx2);
       const count = await storage.getList(addr1);
       expect(count).to.equal(2);
     });
@@ -79,16 +76,14 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
     it('removes existing tx and returns new size', async () => {
       await storage.addToList(addr1, tx1);
       await storage.addToList(addr1, tx2);
-      const remaining = await storage.removeFromList(addr1, tx1);
-      expect(remaining).to.equal(1);
+      await storage.removeFromList(addr1, tx1);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
 
     it('is idempotent when removing non-existent tx', async () => {
       await storage.addToList(addr1, tx1);
-      const remaining = await storage.removeFromList(addr1, tx2);
-      expect(remaining).to.equal(1);
+      await storage.removeFromList(addr1, tx2);
       const count = await storage.getList(addr1);
       expect(count).to.equal(1);
     });
