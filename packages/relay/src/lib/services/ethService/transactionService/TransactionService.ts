@@ -489,9 +489,6 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    // although we validate in earlier stages that we have
-    // a signed transaction, we need to assert it again here in order to satisfy the type checker
-    this.assertSignedTransaction(parsedTx);
     let sendRawTransactionError: any;
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
