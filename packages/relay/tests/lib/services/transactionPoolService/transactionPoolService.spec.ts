@@ -157,30 +157,6 @@ describe('TransactionPoolService Test Suite', function () {
     });
   });
 
-  describe('resetState', () => {
-    it('should successfully reset transaction pool state', async () => {
-      mockStorage.removeAll.resolves();
-
-      await transactionPoolService.resetState();
-
-      expect(mockStorage.removeAll.calledOnce).to.be.true;
-    });
-
-    it('should propagate storage errors', async () => {
-      const storageError = new Error('Storage reset failed');
-      mockStorage.removeAll.rejects(storageError);
-
-      try {
-        await transactionPoolService.resetState();
-        expect.fail('Expected error to be thrown');
-      } catch (error) {
-        expect(error).to.equal(storageError);
-      }
-
-      expect(mockStorage.removeAll.calledOnce).to.be.true;
-    });
-  });
-
   describe('Integration scenarios', () => {
     it('should handle complete transaction lifecycle', async () => {
       // Setup initial state

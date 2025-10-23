@@ -137,7 +137,6 @@ export class EthImpl implements Eth {
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
     const transactionPoolService = new TransactionPoolService(storage, logger);
-    transactionPoolService.resetState();
     this.transactionService = new TransactionService(
       cacheService,
       chain,

@@ -31,13 +31,6 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   getPendingCount(address: string): Promise<number>;
-
-  /**
-   * Clears the transaction pool state (on application restart or crash).
-   *
-   * @returns A promise that resolves once the state has been reset.
-   */
-  resetState(): Promise<void>;
 }
 
 /**

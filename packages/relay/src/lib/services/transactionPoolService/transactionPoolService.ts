@@ -83,17 +83,4 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
     return await this.storage.getList(addressLowerCased);
   }
-
-  /**
-   * Clears the transaction pool state (typically called on application restart).
-   *
-   * @returns A promise that resolves once the state has been reset.
-   */
-  async resetState(): Promise<void> {
-    this.logger.info('Resetting transaction pool state');
-
-    await this.storage.removeAll();
-
-    this.logger.info('Transaction pool state successfully reset');
-  }
 }
