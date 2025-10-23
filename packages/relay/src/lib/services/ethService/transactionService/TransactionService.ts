@@ -465,15 +465,6 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Narrows an ethers Transaction to one that definitely has a non-null hash.
-   */
-  private assertSignedTransaction(tx: EthersTransaction): asserts tx is EthersTransaction & { hash: string } {
-    if (tx.hash == null) {
-      throw predefined.INVALID_ARGUMENTS('Expected a signed transaction with a non-null hash');
-    }
-  }
-
-  /**
    * Asynchronously processes a raw transaction by submitting it to the network, managing HFS, polling the MN, handling errors, and returning the transaction hash.
    *
    * @async
