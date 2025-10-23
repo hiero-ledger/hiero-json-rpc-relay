@@ -64,7 +64,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Removes all keys managed by this storage (all `pending:*`).
    */
   async removeAll(): Promise<void> {
-    const keys = await this.redisClient.keys(this.keyPrefix);
+    const keys = await this.redisClient.keys(`${this.keyPrefix}*`);
 
     if (keys.length > 0) {
       for (const key of keys) {
