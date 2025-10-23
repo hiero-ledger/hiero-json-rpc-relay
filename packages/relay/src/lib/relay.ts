@@ -389,7 +389,7 @@ export class Relay {
   private async connectRedisClient() {
     const redisUrl = ConfigService.get('REDIS_URL')!;
     const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-    if (this.isRedisEnabled()) {
+    if (ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL')) {
       const redisManager = new RedisClientManager(this.logger, redisUrl, reconnectDelay);
 
       await redisManager.connect();
@@ -407,13 +407,6 @@ export class Relay {
     } else {
       this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
     }
-  }
-
-  /**
-   * Checks whether Redis caching is enabled based on environment variables.
-   */
-  private isRedisEnabled(): boolean {
-    return ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
   }
 
   /**
