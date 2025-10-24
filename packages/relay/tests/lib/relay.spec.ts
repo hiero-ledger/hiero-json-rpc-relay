@@ -20,6 +20,7 @@ describe('Relay', () => {
   let relay: Relay;
 
   beforeEach(async () => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
     relay = await Relay.init(logger, register);
   });
 
@@ -106,6 +107,10 @@ describe('Relay', () => {
   });
 
   describe('ensureOperatorHasBalance', function () {
+    beforeEach(() => {
+      sinon.restore();
+    });
+
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
       it('should never throw', async function () {
         await expect(relay.initializeRelay()).to.not.be.rejectedWith();
