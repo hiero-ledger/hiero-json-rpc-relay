@@ -37,7 +37,6 @@ import { Utils } from '../helpers/utils';
 const MISSING_PARAM_ERROR = 'Missing value for required parameter';
 
 describe('RPC Server', function () {
-  this.timeout(10000);
   let testServer: Server;
   let testClient: AxiosInstance;
   let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
@@ -62,8 +61,6 @@ describe('RPC Server', function () {
 
     // Set up spy BEFORE requiring the server module to catch the constructor call
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
-
-    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
 
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../src/server')];
