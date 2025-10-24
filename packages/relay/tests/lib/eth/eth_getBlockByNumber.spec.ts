@@ -7,7 +7,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { Logger } from 'pino';
 import sinon from 'sinon';
 
-import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
+import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
@@ -163,8 +163,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     try {
       await ethImpl.blockNumber(requestDetails);
-    } catch (error) {
-      // eslint-disable-next-line no-empty
+    } catch {
+      // Expected to throw, ignore
     }
     const blockNumber = await ethImpl.blockNumber(requestDetails);
 

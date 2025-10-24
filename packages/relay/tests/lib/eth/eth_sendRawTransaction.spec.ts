@@ -14,9 +14,9 @@ import {
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
-import { EventEmitter } from 'events';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
 import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
