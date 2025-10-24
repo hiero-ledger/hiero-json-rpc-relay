@@ -47,6 +47,7 @@ describe('RPC Server', function () {
   let app: Koa<Koa.DefaultState, Koa.DefaultContext>;
 
   overrideEnvsInMochaDescribe({
+    REDIS_ENABLED: false,
     RATE_LIMIT_DISABLED: true,
     READ_ONLY: true,
   });
@@ -66,7 +67,6 @@ describe('RPC Server', function () {
 
     // Clear the module cache to ensure a fresh server instance
     delete require.cache[require.resolve('../../src/server')];
-
     app = (await initializeServer()).app;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();

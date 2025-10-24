@@ -3,6 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 
 import { LocalLRUCache, RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
@@ -78,17 +79,22 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(logger: Logger, register: Registry = new Registry(), reservedKeys: Set<string> = new Set()) {
+  public constructor(
+    logger: Logger,
+    register: Registry = new Registry(),
+    reservedKeys: Set<string> = new Set(),
+    redisClient?: RedisClientType,
+  ) {
     this.logger = logger;
     this.register = register;
 
     this.internalCache = new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys);
     this.sharedCache = this.internalCache;
-    this.isSharedCacheEnabled = !ConfigService.get('TEST') && this.isRedisEnabled();
+    this.isSharedCacheEnabled = !ConfigService.get('TEST') && redisClient !== undefined;
     this.shouldMultiSet = ConfigService.get('MULTI_SET');
 
     if (this.isSharedCacheEnabled) {
-      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register);
+      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register, redisClient!);
     }
 
     /**
@@ -105,82 +111,6 @@ export class CacheService {
       registers: [register],
       labelNames: ['callingMethod', 'cacheType', 'method'],
     });
-  }
-
-  /**
-   * Checks if the shared cache instance is connected to a Redis server.
-   *
-   * @returns {Promise<boolean>} A Promise that resolves with a boolean indicating whether the Redis client is connected.
-   */
-  async isRedisClientConnected(): Promise<boolean> {
-    if (this.sharedCache instanceof RedisCache) {
-      return this.sharedCache.isConnected();
-    }
-    return false;
-  }
-
-  /**
-   * Connects the Redis client if it is not already connected.
-   *
-   * @returns {Promise<void>} A Promise that resolves when the client is connected.
-   */
-  async connectRedisClient(): Promise<void> {
-    if (this.sharedCache instanceof RedisCache) {
-      try {
-        if (await this.sharedCache.isConnected()) {
-          return;
-        }
-        await this.sharedCache.connect();
-      } catch (e) {
-        const redisError = new RedisCacheError(e);
-        this.logger.error(`Error occurred when connecting to Redis. ${redisError}`);
-      }
-    }
-  }
-
-  /**
-   * Disconnects the Redis client if it is connected.
-   *
-   * @returns {Promise<void>} A Promise that resolves when the client is disconnected.
-   */
-  async disconnectRedisClient(): Promise<void> {
-    if (this.sharedCache instanceof RedisCache) {
-      try {
-        if (!(await this.sharedCache.isConnected())) {
-          return;
-        }
-        await this.sharedCache.disconnect();
-      } catch (e) {
-        const redisError = new RedisCacheError(e);
-        this.logger.error(`Error occurred when disconnecting from Redis. ${redisError}`);
-      }
-    }
-  }
-
-  /**
-   * Retrieves the number of active connections to the Redis server.
-   *
-   * @returns {Promise<number>} A Promise that resolves with the number of active connections.
-   */
-  async getNumberOfRedisConnections(): Promise<number> {
-    if (this.sharedCache instanceof RedisCache) {
-      try {
-        return await this.sharedCache.getNumberOfConnections();
-      } catch (e) {
-        const redisError = new RedisCacheError(e);
-        this.logger.error(`Error occurred when getting the number of Redis connections. ${redisError}`);
-      }
-    }
-    return 0;
-  }
-
-  /**
-   * Checks whether Redis caching is enabled based on environment variables.
-   * @private
-   * @returns {boolean} Returns true if Redis caching is enabled, otherwise false.
-   */
-  public isRedisEnabled(): boolean {
-    return ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
   }
 
   /**

@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService } from '../../index';
+import { ICommonService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -66,6 +66,8 @@ export class TransactionService implements ITransactionService {
    */
   private readonly precheck: Precheck;
 
+  private readonly transactionPoolService: TransactionPoolService;
+
   /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
    * @private
@@ -83,6 +85,7 @@ export class TransactionService implements ITransactionService {
     hapiService: HAPIService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
+    transactionPoolService: TransactionPoolService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -91,7 +94,8 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
-    this.precheck = new Precheck(mirrorNodeClient, logger, chain);
+    this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
+    this.transactionPoolService = transactionPoolService;
   }
 
   /**
@@ -254,6 +258,11 @@ export class TransactionService implements ITransactionService {
     );
 
     await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+    // Save the transaction to the transaction pool before submitting it to the network
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    }
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -487,6 +496,11 @@ export class TransactionService implements ITransactionService {
       networkGasPriceInWeiBars,
       requestDetails,
     );
+
+    // Remove the transaction from the transaction pool after submission
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
+    }
 
     sendRawTransactionError = error;
 

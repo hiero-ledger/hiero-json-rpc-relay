@@ -269,10 +269,10 @@ export class Utils {
     const address = wallet.address;
 
     // create hollow account
-    await signer.sendTransaction({
+    await (await signer.sendTransaction({
       to: wallet.address,
       value: accountBalance,
-    });
+    })).wait();
 
     const mirrorNodeAccount = (await mirrorNode.get(`/accounts/${address}`)).account;
     const accountId = AccountId.fromString(mirrorNodeAccount);

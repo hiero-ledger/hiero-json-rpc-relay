@@ -486,7 +486,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
             const txReceiptSecond = await relay.pollForValidTransactionReceipt(txHashSecond);
             expect(txReceiptSecond).to.not.be.null;
 
-            let spendingPlanAssociatedAfterSecond = await hbarSpendingPlanRepository.findByIdWithDetails(
+            const spendingPlanAssociatedAfterSecond = await hbarSpendingPlanRepository.findByIdWithDetails(
               ethSpendingPlan.planId,
             );
 

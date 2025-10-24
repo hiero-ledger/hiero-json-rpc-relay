@@ -5,6 +5,7 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import sinon from 'sinon';
 
 import { Relay } from '../../../src';
 import { RequestDetails } from '../../../src/lib/types';
@@ -18,8 +19,9 @@ describe('@ethCommon', async function () {
 
   const requestDetails = new RequestDetails({ requestId: 'eth_commonTest', ipAddress: '0.0.0.0' });
 
-  this.beforeAll(() => {
-    relay = new Relay(pino({ level: 'silent' }), new Registry());
+  this.beforeAll(async () => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 
   describe('@ethCommon', async function () {
