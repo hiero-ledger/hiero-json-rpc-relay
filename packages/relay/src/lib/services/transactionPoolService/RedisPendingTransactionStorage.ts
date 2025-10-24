@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisClientType } from 'redis';
 
 import { PendingTransactionStorage } from '../../types/transactionPool';
@@ -11,6 +12,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Using a prefix allows efficient scanning and cleanup of related keys
    */
   private readonly keyPrefix = 'pending:';
+
+  /**
+   * The time-to-live (TTL) for the pending transaction storage in seconds.
+   */
+  private readonly storageTtl = 30;
 
   /**
    * Creates a new Redis-backed pending transaction storage.
@@ -45,7 +51,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
 
     // doing this to be able to atomically add the transaction hash
     // and set the expiration time
-    await this.redisClient.multi().sAdd(key, txHash).expire(key, 30).execAsPipeline();
+    await this.redisClient.multi().sAdd(key, txHash).expire(key, this.storageTtl).execAsPipeline();
   }
 
   /**
