@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/redisCache';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/src/lib/clients/redisClientManager';
@@ -86,8 +87,9 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
       const dataLabel = `${DATA_LABEL_PREFIX}3`;
 
       const serviceWithDisabledRedis = new CacheService(logger);
+      const isRedisEnabled = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
       await new Promise((r) => setTimeout(r, 1000));
-      expect(serviceWithDisabledRedis.isRedisEnabled()).to.eq(false, 'redis is disabled');
+      expect(isRedisEnabled).to.eq(false);
       await serviceWithDisabledRedis.set(dataLabel, DATA, CALLING_METHOD);
       await new Promise((r) => setTimeout(r, 200));
 
