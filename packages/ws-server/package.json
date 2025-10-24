@@ -15,7 +15,7 @@
     "koa-cors": "^0.0.16",
     "koa-websocket": "^7.0.0",
     "lru-cache": "^11.1.0",
-    "pino": "^9.7.0",
+    "pino": "^10.1.0",
     "pino-pretty": "^7.6.1"
   },
   "devDependencies": {
