@@ -39,7 +39,7 @@
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
     "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
-    "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
+    "lint": "npx eslint .",
     "start": "node dist/index.js",
     "test": "c8 ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit"
   }
