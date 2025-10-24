@@ -40,7 +40,7 @@
     "compile": "tsc -b tsconfig.json",
     "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
     "start": "node dist/index.js",
-    "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
+    "lint": "npx eslint .",
     "test": "c8 ts-mocha --recursive './tests/unit/**/*.spec.ts' --exit"
   }
 }
