@@ -614,6 +614,16 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  TRANSACTION_POOL_MGET_BATCH_SIZE: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
+  },
+  TRANSACTION_POOL_STORAGE_TTL_SECONDS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
+  },
   TIER_1_RATE_LIMIT: {
     type: 'number',
     required: false,

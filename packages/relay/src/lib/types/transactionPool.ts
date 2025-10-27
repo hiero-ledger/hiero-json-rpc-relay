@@ -31,6 +31,21 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   getPendingCount(address: string): Promise<number>;
+
+  /**
+   * Retrieves all pending transaction hashes and their RLP payloads for a given address.
+   *
+   * @param address - The account address to query.
+   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   */
+  getTransactions(address: string): Promise<Map<string, string>>;
+
+  /**
+   * Retrieves all pending transactions across all addresses.
+   *
+   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   */
+  getAllTransactions(): Promise<Map<string, string>>;
 }
 
 /**
@@ -67,4 +82,50 @@ export interface PendingTransactionStorage {
    * @returns A promise that resolves once all entries have been cleared.
    */
   removeAll(): Promise<void>;
+
+  /**
+   * Saves the full transaction payload (RLP hex) to storage.
+   *
+   * @param txHash - The transaction hash (key).
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
+   */
+  saveTransactionPayload(txHash: string, rlpHex: string): Promise<void>;
+
+  /**
+   * Retrieves the full transaction payload (RLP hex) from storage.
+   *
+   * @param txHash - The transaction hash to retrieve.
+   * @returns The RLP hex string, or null if not found.
+   */
+  getTransactionPayload(txHash: string): Promise<string | null>;
+
+  /**
+   * Retrieves multiple transaction payloads (RLP hex) from storage.
+   *
+   * @param txHashes - Array of transaction hashes to retrieve.
+   * @returns Array of RLP hex strings (null for missing transactions).
+   */
+  getTransactionPayloads(txHashes: string[]): Promise<(string | null)[]>;
+
+  /**
+   * Removes the full transaction payload from storage.
+   *
+   * @param txHash - The transaction hash to remove.
+   */
+  removeTransactionPayload(txHash: string): Promise<void>;
+
+  /**
+   * Retrieves all pending transaction hashes across all addresses.
+   *
+   * @returns Array of all pending transaction hashes.
+   */
+  getAllTransactionHashes(): Promise<string[]>;
+
+  /**
+   * Retrieves pending transaction hashes for a specific address.
+   *
+   * @param address - The account address to query.
+   * @returns Array of transaction hashes for the address.
+   */
+  getTransactionHashes(address: string): Promise<string[]>;
 }
