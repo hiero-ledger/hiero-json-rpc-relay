@@ -13,8 +13,16 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   // Maps address to a Set of transaction hashes for that address
   private readonly pendingTransactions: Map<string, Set<string>>;
 
+  // Global set of all pending transaction hashes
+  private readonly globalTransactionIndex: Set<string>;
+
+  // Maps transaction hash to RLP hex payload
+  private readonly transactionPayloads: Map<string, string>;
+
   constructor() {
     this.pendingTransactions = new Map();
+    this.globalTransactionIndex = new Set();
+    this.transactionPayloads = new Map();
   }
 
   /**
@@ -70,5 +78,68 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeAll(): Promise<void> {
     this.pendingTransactions.clear();
+    this.globalTransactionIndex.clear();
+    this.transactionPayloads.clear();
+  }
+
+  /**
+   * Saves the full transaction payload (RLP hex) to storage.
+   *
+   * @param txHash - The transaction hash (key)
+   * @param rlpHex - The RLP-encoded transaction as a hex string
+   */
+  async saveTransactionPayload(txHash: string, rlpHex: string): Promise<void> {
+    this.transactionPayloads.set(txHash, rlpHex);
+    this.globalTransactionIndex.add(txHash);
+  }
+
+  /**
+   * Retrieves the full transaction payload (RLP hex) from storage.
+   *
+   * @param txHash - The transaction hash to retrieve
+   * @returns The RLP hex string, or null if not found
+   */
+  async getTransactionPayload(txHash: string): Promise<string | null> {
+    return this.transactionPayloads.get(txHash) ?? null;
+  }
+
+  /**
+   * Retrieves multiple transaction payloads (RLP hex) from storage.
+   *
+   * @param txHashes - Array of transaction hashes to retrieve
+   * @returns Array of RLP hex strings (null for missing transactions)
+   */
+  async getTransactionPayloads(txHashes: string[]): Promise<(string | null)[]> {
+    return txHashes.map((hash) => this.transactionPayloads.get(hash) ?? null);
+  }
+
+  /**
+   * Removes the full transaction payload from storage.
+   *
+   * @param txHash - The transaction hash to remove
+   */
+  async removeTransactionPayload(txHash: string): Promise<void> {
+    this.transactionPayloads.delete(txHash);
+    this.globalTransactionIndex.delete(txHash);
+  }
+
+  /**
+   * Retrieves all pending transaction hashes across all addresses.
+   *
+   * @returns Array of all pending transaction hashes
+   */
+  async getAllTransactionHashes(): Promise<string[]> {
+    return Array.from(this.globalTransactionIndex);
+  }
+
+  /**
+   * Retrieves pending transaction hashes for a specific address.
+   *
+   * @param address - The account address to query
+   * @returns Array of transaction hashes for the address
+   */
+  async getTransactionHashes(address: string): Promise<string[]> {
+    const addressTransactions = this.pendingTransactions.get(address);
+    return addressTransactions ? Array.from(addressTransactions) : [];
   }
 }
