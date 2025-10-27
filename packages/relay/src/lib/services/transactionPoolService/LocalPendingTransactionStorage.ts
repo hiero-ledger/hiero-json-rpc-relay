@@ -42,7 +42,7 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
    */
-  async addToList(addr: string, txHash: string): Promise<void> {
+  async addToList(addr: string, txHash: string, rlpHex?: string): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -50,6 +50,11 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(txHash);
+
+    if (rlpHex !== undefined) {
+      this.transactionPayloads.set(txHash, rlpHex);
+      this.globalTransactionIndex.add(txHash);
+    }
   }
 
   /**
@@ -69,6 +74,10 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
         this.pendingTransactions.delete(address);
       }
     }
+
+    // Remove payload and global index entry
+    this.transactionPayloads.delete(txHash);
+    this.globalTransactionIndex.delete(txHash);
   }
 
   /**
@@ -80,17 +89,6 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     this.pendingTransactions.clear();
     this.globalTransactionIndex.clear();
     this.transactionPayloads.clear();
-  }
-
-  /**
-   * Saves the full transaction payload (RLP hex) to storage.
-   *
-   * @param txHash - The transaction hash (key)
-   * @param rlpHex - The RLP-encoded transaction as a hex string
-   */
-  async saveTransactionPayload(txHash: string, rlpHex: string): Promise<void> {
-    this.transactionPayloads.set(txHash, rlpHex);
-    this.globalTransactionIndex.add(txHash);
   }
 
   /**
@@ -111,16 +109,6 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    */
   async getTransactionPayloads(txHashes: string[]): Promise<(string | null)[]> {
     return txHashes.map((hash) => this.transactionPayloads.get(hash) ?? null);
-  }
-
-  /**
-   * Removes the full transaction payload from storage.
-   *
-   * @param txHash - The transaction hash to remove
-   */
-  async removeTransactionPayload(txHash: string): Promise<void> {
-    this.transactionPayloads.delete(txHash);
-    this.globalTransactionIndex.delete(txHash);
   }
 
   /**
