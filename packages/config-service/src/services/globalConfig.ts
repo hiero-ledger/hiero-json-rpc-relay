@@ -362,10 +362,10 @@ const _CONFIG = {
     required: false,
     defaultValue: 'trace',
   },
-  LOG_FORMAT: {
-    type: 'string',
+  PRETTY_LOGS_ENABLED: {
+    type: 'boolean',
     required: false,
-    defaultValue: 'pretty',
+    defaultValue: true,
   },
   MAX_BLOCK_RANGE: {
     type: 'number',
