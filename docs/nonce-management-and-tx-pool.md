@@ -1,4 +1,6 @@
-### Nonce management and transaction pool
+## This is an experimental issue hiddne behind a flag ENABLE_TX_POOL
+
+## Nonce management and transaction pool
 
 This document explains how a per-address pending pool adds a pending count to Mirror Node nonces for rapid multi-transaction sends.
 
