@@ -18,7 +18,7 @@ import { spec } from './koaJsonRpc/lib/RpcError';
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
 
-const logFormat = ConfigService.get('LOG_FORMAT');
+const prettyLogsEnabled = ConfigService.get('PRETTY_LOGS_ENABLED');
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
@@ -28,8 +28,8 @@ const mainLogger = pino({
     const store = context.getStore();
     return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
   },
-  // Only use pino-pretty when LOG_FORMAT is set to 'pretty' (default)
-  ...(logFormat === 'pretty' && {
+  // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
+  ...(prettyLogsEnabled && {
     transport: {
       target: 'pino-pretty',
       options: {
