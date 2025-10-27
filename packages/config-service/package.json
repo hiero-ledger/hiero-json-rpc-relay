@@ -9,7 +9,7 @@
     "build": "pnpm run clean && pnpm run compile",
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
-    "lint": "npx eslint .",
+    "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
     "format": "npx prettier --ignore-path ../../.gitignore --write \"**/*.+(js|ts|json)\"",
     "test": "c8 ts-mocha --recursive './tests/**/*.spec.ts' './tests/**/**/*.spec.ts' --exit",
     "print-env": "node src/commands/printEnvs.ts"
