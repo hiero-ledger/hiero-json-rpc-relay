@@ -156,12 +156,15 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param txHash - Transaction hash to append.
    * @returns The new pending transaction count after the addition.
    */
-  async addToList(address: string, txHash: string): Promise<void> {
+  async addToList(address: string, txHash: string, rlpHex?: string): Promise<void> {
     const key = this.keyFor(address);
-
-    // doing this to be able to atomically add the transaction hash
-    // and set the expiration time
-    await this.redisClient.multi().sAdd(key, txHash).expire(key, this.storageTtl).execAsPipeline();
+    const multi = this.redisClient.multi();
+    multi.sAdd(key, txHash).expire(key, this.storageTtl);
+    if (rlpHex !== undefined) {
+      const txKey = this.txKeyFor(txHash);
+      multi.sAdd(this.globalIndexKey, txHash).set(txKey, rlpHex, { EX: this.storageTtl });
+    }
+    await multi.execAsPipeline();
   }
 
   /**
@@ -172,8 +175,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeFromList(address: string, txHash: string): Promise<void> {
     const key = this.keyFor(address);
-
-    await this.redisClient.sRem(key, txHash);
+    const txKey = this.txKeyFor(txHash);
+    await this.redisClient.multi().sRem(key, txHash).sRem(this.globalIndexKey, txHash).unlink(txKey).execAsPipeline();
   }
 
   /**
@@ -200,22 +203,6 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     const key = this.keyFor(address);
 
     return await this.redisClient.sCard(key);
-  }
-
-  /**
-   * Saves the full transaction payload (RLP hex) to storage.
-   *
-   * @param txHash - The transaction hash (key)
-   * @param rlpHex - The RLP-encoded transaction as a hex string
-   */
-  async saveTransactionPayload(txHash: string, rlpHex: string): Promise<void> {
-    const txKey = this.txKeyFor(txHash);
-
-    await this.redisClient
-      .multi()
-      .sAdd(this.globalIndexKey, txHash)
-      .set(txKey, rlpHex, { EX: this.storageTtl })
-      .execAsPipeline();
   }
 
   /**
@@ -253,17 +240,6 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     }
 
     return results;
-  }
-
-  /**
-   * Removes the full transaction payload from storage.
-   *
-   * @param txHash - The transaction hash to remove
-   */
-  async removeTransactionPayload(txHash: string): Promise<void> {
-    const txKey = this.txKeyFor(txHash);
-
-    await this.redisClient.multi().sRem(this.globalIndexKey, txHash).unlink(txKey).execAsPipeline();
   }
 
   /**

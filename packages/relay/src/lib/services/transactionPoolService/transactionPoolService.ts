@@ -54,12 +54,10 @@ export class TransactionPoolService implements ITransactionPoolService {
     }
 
     const rlpHex = tx.serialized;
-    await this.storage.saveTransactionPayload(txHash, rlpHex);
-    this.logger.debug({ address, txHash, rlpLength: rlpHex.length }, 'Transaction payload saved to pool');
+    await this.storage.addToList(addressLowerCased, txHash, rlpHex);
 
-    await this.storage.addToList(addressLowerCased, txHash);
-
-    this.logger.debug({ address, txHash }, 'Transaction saved to pool');
+    const rlpBytes = (rlpHex.startsWith('0x') ? rlpHex.length - 2 : rlpHex.length) / 2;
+    this.logger.debug({ address, txHash, rlpBytes }, 'Transaction saved to pool');
   }
 
   /**
@@ -74,7 +72,6 @@ export class TransactionPoolService implements ITransactionPoolService {
     const addressLowerCased = address.toLowerCase();
 
     await this.storage.removeFromList(addressLowerCased, txHash);
-    await this.storage.removeTransactionPayload(txHash);
 
     this.logger.debug({ address, txHash }, 'Transaction removed from pool');
   }
