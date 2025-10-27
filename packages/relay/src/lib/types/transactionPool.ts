@@ -66,7 +66,11 @@ export interface PendingTransactionStorage {
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
    */
-  addToList(addr: string, txHash: string): Promise<void>;
+  /**
+   * Adds a pending transaction for the given address. If rlpHex is provided,
+   * storage must atomically index the transaction and persist its payload.
+   */
+  addToList(addr: string, txHash: string, rlpHex?: string): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.
@@ -84,14 +88,6 @@ export interface PendingTransactionStorage {
   removeAll(): Promise<void>;
 
   /**
-   * Saves the full transaction payload (RLP hex) to storage.
-   *
-   * @param txHash - The transaction hash (key).
-   * @param rlpHex - The RLP-encoded transaction as a hex string.
-   */
-  saveTransactionPayload(txHash: string, rlpHex: string): Promise<void>;
-
-  /**
    * Retrieves the full transaction payload (RLP hex) from storage.
    *
    * @param txHash - The transaction hash to retrieve.
@@ -106,13 +102,6 @@ export interface PendingTransactionStorage {
    * @returns Array of RLP hex strings (null for missing transactions).
    */
   getTransactionPayloads(txHashes: string[]): Promise<(string | null)[]>;
-
-  /**
-   * Removes the full transaction payload from storage.
-   *
-   * @param txHash - The transaction hash to remove.
-   */
-  removeTransactionPayload(txHash: string): Promise<void>;
 
   /**
    * Retrieves all pending transaction hashes across all addresses.
