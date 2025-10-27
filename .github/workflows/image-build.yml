@@ -56,6 +56,15 @@ jobs:
       - name: Test server
         run: |
           sleep 15  # Wait for the server to start
+          
+          # Check if container is running
+          docker ps -a
+          
+          # Check container logs
+          echo "=== Container Logs ==="
+          docker logs relay
+          echo "======================"
+          
           response=$(curl -s http://localhost:7546/health/liveness)
           if [ "$response" = "OK" ]; then
             echo "Server responded with 'OK'. Test passed!"
