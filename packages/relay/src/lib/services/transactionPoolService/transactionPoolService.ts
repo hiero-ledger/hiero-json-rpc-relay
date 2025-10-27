@@ -53,6 +53,10 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Transaction hash is required for storage');
     }
 
+    const rlpHex = tx.serialized;
+    await this.storage.saveTransactionPayload(txHash, rlpHex);
+    this.logger.debug({ address, txHash, rlpLength: rlpHex.length }, 'Transaction payload saved to pool');
+
     await this.storage.addToList(addressLowerCased, txHash);
 
     this.logger.debug({ address, txHash }, 'Transaction saved to pool');
@@ -68,7 +72,9 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async removeTransaction(address: string, txHash: string): Promise<void> {
     const addressLowerCased = address.toLowerCase();
+
     await this.storage.removeFromList(addressLowerCased, txHash);
+    await this.storage.removeTransactionPayload(txHash);
 
     this.logger.debug({ address, txHash }, 'Transaction removed from pool');
   }
@@ -82,5 +88,96 @@ export class TransactionPoolService implements ITransactionPoolService {
   async getPendingCount(address: string): Promise<number> {
     const addressLowerCased = address.toLowerCase();
     return await this.storage.getList(addressLowerCased);
+  }
+
+  /**
+   * Retrieves all pending transaction hashes and their RLP payloads for a given address.
+   *
+   * @param address - The account address to query.
+   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   */
+  async getTransactions(address: string): Promise<Map<string, string>> {
+    const addressLowerCased = address.toLowerCase();
+    const transactionMap = new Map<string, string>();
+
+    const hashes = await this.storage.getTransactionHashes(addressLowerCased);
+
+    if (hashes.length === 0) {
+      return transactionMap;
+    }
+
+    const payloads = await this.storage.getTransactionPayloads(hashes);
+
+    let validCount = 0;
+    let nullCount = 0;
+
+    for (let i = 0; i < hashes.length; i++) {
+      const payload = payloads[i];
+      if (payload !== null) {
+        transactionMap.set(hashes[i], payload);
+        validCount++;
+      } else {
+        nullCount++;
+      }
+    }
+
+    this.logger.debug(
+      { address, totalHashes: hashes.length, validPayloads: validCount, nullPayloads: nullCount },
+      'Retrieved transactions for address',
+    );
+
+    return transactionMap;
+  }
+
+  /**
+   * Retrieves all pending transactions across all addresses.
+   * Returns a map of transaction hash to RLP hex.
+   *
+   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   */
+  async getAllTransactions(): Promise<Map<string, string>> {
+    const transactionMap = new Map<string, string>();
+
+    if (!this.storage.getAllTransactionHashes || !this.storage.getTransactionPayloads) {
+      this.logger.debug('Storage does not support global transaction retrieval');
+      return transactionMap;
+    }
+
+    const startTime = Date.now();
+
+    const hashes = await this.storage.getAllTransactionHashes();
+
+    if (hashes.length === 0) {
+      return transactionMap;
+    }
+
+    const payloads = await this.storage.getTransactionPayloads(hashes);
+
+    let validCount = 0;
+    let nullCount = 0;
+
+    for (let i = 0; i < hashes.length; i++) {
+      const payload = payloads[i];
+      if (payload !== null) {
+        transactionMap.set(hashes[i], payload);
+        validCount++;
+      } else {
+        nullCount++;
+      }
+    }
+
+    const duration = Date.now() - startTime;
+
+    this.logger.debug(
+      {
+        totalHashes: hashes.length,
+        validPayloads: validCount,
+        nullPayloads: nullCount,
+        durationMs: duration,
+      },
+      'Retrieved all transactions from pool',
+    );
+
+    return transactionMap;
   }
 }
