@@ -93,7 +93,7 @@
     "@ethereumjs/util": "^9.1.0",
     "koa-cors": "^0.0.16",
     "koa-websocket": "^7.0.0",
-    "lerna": "^8.1.9",
+    "lerna": "^9.0.0",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
     "pnpm": "^10.0.0",
