@@ -1,4 +1,5 @@
-## This is an experimental issue hiddne behind a flag ENABLE_TX_POOL
+> [!NOTE]
+> This is an experimental feature hidden behind a flag `ENABLE_TX_POOL`
 
 ## Nonce management and transaction pool
 
