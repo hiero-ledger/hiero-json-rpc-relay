@@ -2,6 +2,8 @@
 
 # Hedera JSON RPC Relay
 
+<!--- Hello Hashgraph-->
+
 [![Build](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions/workflows/test.yml/badge.svg)](https://github.com/hiero-ledger/hiero-json-rpc-relay/actions)
 [![Release](https://img.shields.io/github/v/release/hiero-ledger/hiero-json-rpc-relay)](https://github.com/hiero-ledger/hiero-json-rpc-relay/releases)
 [![RPC API Methods](https://img.shields.io/badge/api-docs-green.svg)](docs/rpc-api.md)
