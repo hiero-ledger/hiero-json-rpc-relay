@@ -16,6 +16,7 @@ import chaiExclude from 'chai-exclude';
 import { BaseContract, ethers } from 'ethers';
 
 import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
+import { GAS_LIMIT } from '../../../relay/tests/lib/eth/eth-config';
 import RelayCall from '../../tests/helpers/constants';
 import Helper from '../../tests/helpers/constants';
 import Address from '../../tests/helpers/constants';
@@ -741,6 +742,70 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
   });
 
+  describe('eth_getTransactionByHash', async function () {
+    let defaultTransactionFields: any;
+    let deployerContract: ethers.Contract;
+    let deployerContractAddress: string;
+
+    before(async () => {
+      const defaultGasPrice = await relay.gasPrice();
+      defaultTransactionFields = {
+        to: null,
+        from: accounts[0].address,
+        gasPrice: defaultGasPrice,
+        chainId: Number(CHAIN_ID),
+        gasLimit: GAS_LIMIT,
+        type: 2,
+        maxFeePerGas: defaultGasPrice,
+        maxPriorityFeePerGas: defaultGasPrice,
+      };
+
+      deployerContract = await Utils.deployContract(
+        DeployerContractJson.abi,
+        DeployerContractJson.bytecode,
+        accounts[0].wallet,
+      );
+      deployerContractAddress = deployerContract.target.toLowerCase() as string;
+    });
+
+    it('should return to = null for contract deployment tx', async () => {
+      const { hash } = deployerContract.deploymentTransaction();
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [hash]);
+      expect(res.to).to.be.null;
+    });
+
+    it('should return to = target contract for a transaction that executes CREATE', async () => {
+      const transactionHash = await relay.sendRawTransaction(
+        await accounts[0].wallet.signTransaction({
+          ...defaultTransactionFields,
+          to: deployerContractAddress,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          data: '0x6e6662b9', // deployViaCreate() selector
+        }),
+      );
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+      expect(res.to).to.equal(deployerContractAddress);
+    });
+
+    it('should return to = target contract for a transaction that executes CREATE2', async () => {
+      const transactionHash = await relay.sendRawTransaction(
+        await accounts[0].wallet.signTransaction({
+          ...defaultTransactionFields,
+          to: deployerContractAddress,
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          data: '0xdbb6f04a', // deployViaCreate2()
+        }),
+      );
+      await relay.pollForValidTransactionReceipt(transactionHash);
+
+      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+      expect(res.to).to.equal(deployerContractAddress);
+    });
+  });
+
   describe('eth_getTransactionCount', async function () {
     let deployerContract: ethers.Contract;
     let deployerContractTx: ethers.TransactionReceipt;
@@ -1133,6 +1198,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         gasUsed: '0x249f00',
         input: '',
         output: '',
+        calls: [],
       };
       const successResultCreateWithDepth = {
         ...defaultResponseFields,
@@ -1152,6 +1218,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       const successResultCall = {
         ...defaultResponseFields,
         type: 'CALL',
+        calls: [],
       };
       const successResultCallWithDepth = {
         ...successResultCall,
@@ -1173,12 +1240,14 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         error: 'CONTRACT_EXECUTION_EXCEPTION',
         revertReason: 'INSUFFICIENT_STACK_ITEMS',
         gasUsed: '0x2dc6c0',
+        calls: [],
       };
       const failingResultCall = {
         ...defaultResponseFields,
         type: 'CALL',
         error: 'CONTRACT_REVERT_EXECUTED',
         revertReason: 'Some revert message',
+        calls: [],
       };
 
       describe('Test transactions of type 0', async function () {

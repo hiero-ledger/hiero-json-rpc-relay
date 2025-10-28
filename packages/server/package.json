@@ -14,7 +14,7 @@
     "koa-cors": "^0.0.16",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
-    "uuid": "^11.1.0"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@hashgraph/sdk": "^2.63.0",
@@ -22,11 +22,11 @@
     "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.12",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^17.0.31",
+    "@types/node": "^24.9.1",
     "@types/uuid": "^10.0.0",
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
-    "chai": "^4.3.6",
+    "chai": "^6.0.1",
     "ethers": "^6.15.0",
     "execution-apis": "git://github.com/ethereum/execution-apis.git#7907424db935b93c2fe6a3c0faab943adebe8557",
     "mocha": "^11.7.1",
@@ -39,7 +39,7 @@
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
     "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
-    "lint": "npx eslint --ext .js,.ts . --ignore-path ../../.eslintignore",
+    "lint": "npx eslint .",
     "start": "node dist/index.js",
     "test": "c8 ts-mocha --recursive './tests/integration/*.spec.ts' './tests/integration/**/*.spec.ts' --exit"
   }

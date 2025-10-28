@@ -291,7 +291,9 @@ export class DebugImpl implements Debug {
         // The actions endpoint does not return input and output for the calls so we get them from another endpoint
         // The first one is excluded because we take its input and output from the contracts/results/{transactionIdOrHash} endpoint
         const contract =
-          index !== 0 && action.call_operation_type === CallType.CREATE && action.to
+          index !== 0 &&
+          (action.call_operation_type === CallType.CREATE || action.call_operation_type === CallType.CREATE2) &&
+          action.to
             ? await this.mirrorNodeClient.getContract(action.to, requestDetails)
             : undefined;
 
@@ -457,7 +459,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult | null> {
+  ): Promise<CallTracerResult> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
@@ -470,9 +472,6 @@ export class DebugImpl implements Debug {
       if (!actionsResponse || !transactionsResponse) {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
-
-      // return empty array if no actions
-      if (actionsResponse.length === 0) return null;
 
       const { call_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
@@ -508,7 +507,7 @@ export class DebugImpl implements Debug {
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? undefined : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? [] : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);

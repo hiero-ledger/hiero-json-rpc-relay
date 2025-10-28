@@ -242,10 +242,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       .onGet(`contracts/results/${uniqueTxHash}`)
       .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.not.be.null;
-
-    expect(result).to.exist;
-    if (result) expect(result.gas).to.eq('0x0');
+    expect(result!.gas).to.eq('0x0');
   });
 
   it('handles transactions with null amount', async function () {
@@ -259,10 +256,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       .onGet(`contracts/results/${uniqueTxHash}`)
       .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.not.be.null;
-
-    expect(result).to.exist;
-    if (result) expect(result.value).to.eq('0x0');
+    expect(result!.value).to.eq('0x0');
   });
 
   it('handles transactions with v as null', async function () {
@@ -277,10 +271,7 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       .onGet(`contracts/results/${uniqueTxHash}`)
       .reply(200, JSON.stringify(detailedResultsWithNullNullableValues));
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
-    expect(result).to.not.be.null;
-
-    expect(result).to.exist;
-    if (result) expect(result.v).to.eq('0x0');
+    expect(result!.v).to.eq('0x0');
   });
 
   it('should throw an error if transaction_index is falsy', async function () {
@@ -298,7 +289,6 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
       expect.fail('should have thrown an error');
     } catch (error) {
-      expect(error).to.exist;
       expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
     }
   });
@@ -317,7 +307,6 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
       expect.fail('should have thrown an error');
     } catch (error) {
-      expect(error).to.exist;
       expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
     }
   });
@@ -338,7 +327,6 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
       expect.fail('should have thrown an error');
     } catch (error) {
-      expect(error).to.exist;
       expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
     }
   });
@@ -354,5 +342,18 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       maxFeePerGas: '0x55',
       maxPriorityFeePerGas: '0x43',
     });
+  });
+
+  it('returns to field for transaction with contract revert on contract creation', async function () {
+    const detailedResultsWithNullTo = {
+      ...defaultDetailedContractResultByHash,
+      to: null,
+    };
+
+    const uniqueTxHash = '0x15aad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+
+    restMock.onGet(`contracts/results/${uniqueTxHash}`).reply(200, JSON.stringify(detailedResultsWithNullTo));
+    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
+    expect(result?.to).to.eq(null);
   });
 });
