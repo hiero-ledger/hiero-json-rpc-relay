@@ -35,6 +35,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   const tx1 = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const tx2 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const tx3 = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+  const rlp1 = '0xf86c018502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
+  const rlp2 = '0xf86c028502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
+  const rlp3 = '0xf86c038502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
 
   describe('addToList (Set-based)', () => {
     it('adds first transaction and returns size 1', async () => {
@@ -90,10 +93,6 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   });
 
   describe('removeAll', () => {
-    after(async () => {
-      await redisClient.quit();
-    });
-
     it('deletes all pending:* keys', async () => {
       await storage.addToList(addr1, tx1);
       await storage.addToList(addr1, tx2);
@@ -105,6 +104,105 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       const c2 = await storage.getList(addr2);
       expect(c1).to.equal(0);
       expect(c2).to.equal(0);
+    });
+  });
+
+  describe('Payload handling (new functionality)', () => {
+    it('should save payload and index atomically when RLP provided', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+
+      const count = await storage.getList(addr1);
+      expect(count).to.equal(1);
+
+      const payload = await storage.getTransactionPayload(tx1);
+      expect(payload).to.equal(rlp1);
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.include(tx1);
+    });
+
+    it('should save address index without payload when RLP not provided', async () => {
+      await storage.addToList(addr1, tx1);
+
+      const count = await storage.getList(addr1);
+      expect(count).to.equal(1);
+
+      const payload = await storage.getTransactionPayload(tx1);
+      expect(payload).to.be.null;
+    });
+
+    it('should remove payload and indexes atomically', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+
+      await storage.removeFromList(addr1, tx1);
+
+      const count = await storage.getList(addr1);
+      expect(count).to.equal(0);
+
+      const payload = await storage.getTransactionPayload(tx1);
+      expect(payload).to.be.null;
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.not.include(tx1);
+    });
+
+    it('should handle multiple transactions with payloads', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+      await storage.addToList(addr1, tx2, rlp2);
+      await storage.addToList(addr2, tx3, rlp3);
+
+      const count1 = await storage.getList(addr1);
+      const count2 = await storage.getList(addr2);
+      expect(count1).to.equal(2);
+      expect(count2).to.equal(1);
+
+      const payload1 = await storage.getTransactionPayload(tx1);
+      const payload2 = await storage.getTransactionPayload(tx2);
+      const payload3 = await storage.getTransactionPayload(tx3);
+      expect(payload1).to.equal(rlp1);
+      expect(payload2).to.equal(rlp2);
+      expect(payload3).to.equal(rlp3);
+    });
+
+    it('should handle batch payload retrieval', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+      await storage.addToList(addr1, tx2, rlp2);
+      await storage.addToList(addr2, tx3, rlp3);
+
+      const payloads = await storage.getTransactionPayloads([tx1, tx2, tx3]);
+      expect(payloads).to.deep.equal([rlp1, rlp2, rlp3]);
+    });
+
+    it('should handle batch retrieval with missing payloads', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+      await storage.addToList(addr1, tx3, rlp3);
+
+      const payloads = await storage.getTransactionPayloads([tx1, tx2, tx3]);
+      expect(payloads[0]).to.equal(rlp1);
+      expect(payloads[1]).to.be.null;
+      expect(payloads[2]).to.equal(rlp3);
+    });
+
+    it('should get transaction hashes for address', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+      await storage.addToList(addr1, tx2, rlp2);
+
+      const hashes = await storage.getTransactionHashes(addr1);
+      expect(hashes).to.have.lengthOf(2);
+      expect(hashes).to.include.members([tx1, tx2]);
+    });
+
+    it('should get all transaction hashes across addresses', async () => {
+      await storage.addToList(addr1, tx1, rlp1);
+      await storage.addToList(addr2, tx2, rlp2);
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.have.lengthOf(2);
+      expect(allHashes).to.include.members([tx1, tx2]);
+    });
+
+    after(async () => {
+      await redisClient.quit();
     });
   });
 });
