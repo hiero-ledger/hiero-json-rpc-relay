@@ -13,6 +13,9 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
   const testTxHash1 = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
   const testTxHash2 = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
   const testTxHash3 = '0x9999999999999999999999999999999999999999999999999999999999999999';
+  const testRlp1 = '0xf86c018502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
+  const testRlp2 = '0xf86c028502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
+  const testRlp3 = '0xf86c038502540be400825208947742d35cc6629c0532c262d2d73f4c8e1a1b7b7b780801ca0';
 
   beforeEach(() => {
     storage = new LocalPendingTransactionStorage();
@@ -335,6 +338,116 @@ describe('LocalPendingTransactionStorage Test Suite', function () {
 
       const count = await storage.getList(testAddress1);
       expect(count).to.equal(largeCount);
+    });
+  });
+
+  describe('Payload handling (new functionality)', () => {
+    it('should save payload and index when RLP provided', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+
+      const count = await storage.getList(testAddress1);
+      expect(count).to.equal(1);
+
+      const payload = await storage.getTransactionPayload(testTxHash1);
+      expect(payload).to.equal(testRlp1);
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.include(testTxHash1);
+    });
+
+    it('should save address index without payload when RLP not provided', async () => {
+      await storage.addToList(testAddress1, testTxHash1);
+
+      const count = await storage.getList(testAddress1);
+      expect(count).to.equal(1);
+
+      const payload = await storage.getTransactionPayload(testTxHash1);
+      expect(payload).to.be.null;
+    });
+
+    it('should remove payload and indexes together', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+
+      await storage.removeFromList(testAddress1, testTxHash1);
+
+      const count = await storage.getList(testAddress1);
+      expect(count).to.equal(0);
+
+      const payload = await storage.getTransactionPayload(testTxHash1);
+      expect(payload).to.be.null;
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.not.include(testTxHash1);
+    });
+
+    it('should handle multiple transactions with payloads', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress1, testTxHash2, testRlp2);
+      await storage.addToList(testAddress2, testTxHash3, testRlp3);
+
+      const count1 = await storage.getList(testAddress1);
+      const count2 = await storage.getList(testAddress2);
+      expect(count1).to.equal(2);
+      expect(count2).to.equal(1);
+
+      const payload1 = await storage.getTransactionPayload(testTxHash1);
+      const payload2 = await storage.getTransactionPayload(testTxHash2);
+      const payload3 = await storage.getTransactionPayload(testTxHash3);
+      expect(payload1).to.equal(testRlp1);
+      expect(payload2).to.equal(testRlp2);
+      expect(payload3).to.equal(testRlp3);
+    });
+
+    it('should handle batch payload retrieval', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress1, testTxHash2, testRlp2);
+      await storage.addToList(testAddress2, testTxHash3, testRlp3);
+
+      const payloads = await storage.getTransactionPayloads([testTxHash1, testTxHash2, testTxHash3]);
+      expect(payloads).to.deep.equal([testRlp1, testRlp2, testRlp3]);
+    });
+
+    it('should handle batch retrieval with missing payloads', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress1, testTxHash3, testRlp3);
+
+      const payloads = await storage.getTransactionPayloads([testTxHash1, testTxHash2, testTxHash3]);
+      expect(payloads[0]).to.equal(testRlp1);
+      expect(payloads[1]).to.be.null;
+      expect(payloads[2]).to.equal(testRlp3);
+    });
+
+    it('should get transaction hashes for address', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress1, testTxHash2, testRlp2);
+
+      const hashes = await storage.getTransactionHashes(testAddress1);
+      expect(hashes).to.have.lengthOf(2);
+      expect(hashes).to.include.members([testTxHash1, testTxHash2]);
+    });
+
+    it('should get all transaction hashes across addresses', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress2, testTxHash2, testRlp2);
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.have.lengthOf(2);
+      expect(allHashes).to.include.members([testTxHash1, testTxHash2]);
+    });
+
+    it('should clear payloads when removeAll is called', async () => {
+      await storage.addToList(testAddress1, testTxHash1, testRlp1);
+      await storage.addToList(testAddress2, testTxHash2, testRlp2);
+
+      await storage.removeAll();
+
+      const payload1 = await storage.getTransactionPayload(testTxHash1);
+      const payload2 = await storage.getTransactionPayload(testTxHash2);
+      expect(payload1).to.be.null;
+      expect(payload2).to.be.null;
+
+      const allHashes = await storage.getAllTransactionHashes();
+      expect(allHashes).to.be.empty;
     });
   });
 });
