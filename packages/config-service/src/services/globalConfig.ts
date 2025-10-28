@@ -455,7 +455,7 @@ const _CONFIG = {
   MIRROR_NODE_TIMEOUT: {
     type: 'number',
     required: false,
-    defaultValue: 10000,
+    defaultValue: 60000,
   },
   MIRROR_NODE_URL: {
     type: 'string',
