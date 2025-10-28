@@ -6,7 +6,7 @@ import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 
-import { Admin, Eth, Net, Web3 } from '../index';
+import { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
@@ -27,6 +27,7 @@ import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
 import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
+import { TxPoolImpl } from './txpool';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
@@ -77,6 +78,13 @@ export class Relay {
    * @property {Eth} ethImpl - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    */
   private ethImpl!: Eth;
+
+  /**
+   * @private
+   * @readonly
+   * @property {TxPool} txpoolImpl - The TxPool implementation used for handling Ethereum-specific JSON-RPC requests.
+   */
+  private txpoolImpl!: TxPool;
 
   /**
    * @private
@@ -240,6 +248,10 @@ export class Relay {
     return this.ethImpl;
   }
 
+  txpool(): TxPool {
+    return this.txpoolImpl;
+  }
+
   mirrorClient(): MirrorNodeClient {
     return this.mirrorNodeClient;
   }
@@ -354,6 +366,8 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
+    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }));
+
     // Create Debug and Admin implementations
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService);
     this.adminImpl = new AdminImpl(this.cacheService);
@@ -373,7 +387,7 @@ export class Relay {
     this.populatePreconfiguredSpendingPlans().then();
 
     // Create RPC method registry
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug'].map((namespace) => ({
+    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
       namespace,
       serviceImpl: this[namespace](),
     }));
