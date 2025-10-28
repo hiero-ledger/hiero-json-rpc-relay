@@ -733,7 +733,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
-      it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function() {
+      it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function () {
         const tokenId = await servicesNode.createToken(1000);
         await accounts[2].client.associateToken(tokenId);
         const transaction = new TransferTransaction()
@@ -754,7 +754,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const receipts = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [formattedBlockNumber]);
         expect(receipts).to.not.be.empty;
-        expect(receipts.filter(receipt => receipt.transactionHash === transactionHash)).to.not.be.empty;
+        expect(receipts.filter((receipt) => receipt.transactionHash === transactionHash)).to.not.be.empty;
       });
     });
 
@@ -2018,6 +2018,27 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           Address.NON_EXISTING_TX_HASH,
         ]);
         expect(res).to.be.null;
+      });
+
+      it('@release getTransactionByHash should return null for to for reverted contract creation', async function () {
+        // the data below is actually disassembled opcodes
+        // containing revert as well
+        const dataToRevert = '0x600160015560006000fd';
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          ...defaultLondonTransactionData,
+          to: null,
+          data: dataToRevert,
+          nonce: await relay.getAccountNonce(accounts[2].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+        };
+        const signedTx = await accounts[2].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+
+        expect(res.to).to.be.null;
       });
     });
   });
