@@ -5,6 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 // Other imports
 import { formatTransactionId, numberTo0x, prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
 import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
@@ -137,6 +138,130 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       mirrorContractDetails.from = accounts[0].address;
       account2Address = accounts[2].address;
+    });
+
+    describe('txpool_* methods', async () => {
+      beforeEach(async () => {
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
+      const defaultGasLimit = numberTo0x(3_000_000);
+
+      const sendTransactions = async (signer = accounts[1], count: number = 2) => {
+        const transactionMap = new Map<string, string>();
+        for (let i = 0; i < count; i++) {
+          const tx = {
+            value: ONE_TINYBAR,
+            chainId: Number(CHAIN_ID),
+            maxPriorityFeePerGas: defaultGasPrice,
+            maxFeePerGas: defaultGasPrice,
+            gasLimit: defaultGasLimit,
+            type: 2,
+            to: accounts[2].address,
+            nonce: await relay.getAccountNonce(signer.address, 'pending'),
+          };
+          const signedTx = await signer.wallet.signTransaction(tx);
+          const txHash = await relay.sendRawTransaction(signedTx);
+
+          transactionMap.set(txHash, signedTx);
+        }
+
+        return transactionMap;
+      };
+
+      describe('TXPOOL_API_ENABLED = true', async () => {
+        overrideEnvsInMochaDescribe({
+          TXPOOL_API_ENABLED: true,
+        });
+
+        it('should be able to execute txpool_content without parameter and get all transactions in the transaction pool', async () => {
+          const txs = await sendTransactions();
+          const res = await relay.call('txpool_content', []);
+
+          expect(res.pending).to.not.be.empty;
+          expect(txs).to.not.be.empty;
+
+          txs.forEach((rlpTx) => {
+            const parsedTx = ethers.Transaction.from(rlpTx);
+            expect(res.pending[parsedTx.from]).to.not.be.empty;
+
+            const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash == parsedTx.hash);
+            expect(txPoolTx).to.not.be.null;
+
+            expect(txPoolTx.blockHash).to.equal(constants.ZERO_HEX_32_BYTE);
+            expect(txPoolTx.blockNumber).to.be.null;
+            expect(txPoolTx.transactionIndex).to.be.null;
+            expect(txPoolTx.from).to.equal(parsedTx.from);
+            expect(txPoolTx.gas).to.equal(numberTo0x(parsedTx.gasLimit));
+            expect(txPoolTx.input).to.equal(parsedTx.data);
+            expect(txPoolTx.nonce).to.equal(numberTo0x(parsedTx.nonce));
+            expect(txPoolTx.to).to.equal(parsedTx.to);
+            expect(txPoolTx.value).to.equal(numberTo0x(parsedTx.value));
+          });
+        });
+
+        it('should throw an INVALID_PARAMETER error if a parameter is being passed to txpool_content', async () => {
+          expect(relay.call('txpool_content', ['0x9303'])).to.eventually.be.rejected.and.satisfy(
+            (err: any) => err.response.status === 400,
+          );
+        });
+
+        it('should be able to execute txpool_contentFrom for a valid address and get all transactions for that signer', async () => {
+          await sendTransactions(accounts[1]);
+          const res = await relay.call('txpool_contentFrom', [accounts[1].address]);
+
+          expect(res.pending).to.not.be.empty;
+          Object.values(res.pending).forEach((tx) => {
+            expect(tx.from).to.equal(accounts[1].address);
+          });
+        });
+
+        it('should be able to execute txpool_contentFrom for a valid address and get an empty object if there are no transactions for that signer', async () => {
+          await new Promise((r) => setTimeout(r, 2000)); // wait for at least one block if there are any pending transactions in the pool
+          const res = await relay.call('txpool_contentFrom', [accounts[1].address]);
+
+          expect(res.pending).to.be.empty;
+        });
+
+        it('should throw an INVALID_PARAMETER error if a parameter is not being passed to txpool_contentFrom', async () => {
+          expect(relay.call('txpool_contentFrom', [])).to.eventually.be.rejected.and.satisfy(
+            (err: any) => err.response.status === 400,
+          );
+        });
+
+        it('should be able to execute txpool_status and get the current transactions count in the transaction pool', async () => {
+          const count = 1;
+          await sendTransactions(accounts[1], count);
+          const res = await relay.call('txpool_status', []);
+          expect(Number(res.pending)).to.be.greaterThanOrEqual(count);
+          expect(res.queued).to.equal('0x0');
+        });
+
+        it('should throw an INVALID_PARAMETER error if a parameter is being passed to txpool_status', async () => {
+          expect(relay.call('txpool_status', ['0x9303'])).to.eventually.be.rejected.and.satisfy(
+            (err: any) => err.response.status === 400,
+          );
+        });
+      });
+
+      describe('TXPOOL_API_ENABLED = false', async () => {
+        overrideEnvsInMochaDescribe({
+          TXPOOL_API_ENABLED: false,
+        });
+
+        it('should throw UNSUPPORTED_METHOD for txpool_content if TXPOOL_API_ENABLED is set to false', async () => {
+          await relay.callUnsupported('txpool_content', []);
+        });
+
+        it('should throw UNSUPPORTED_METHOD for txpool_contentFrom if TXPOOL_API_ENABLED is set to false', async () => {
+          await relay.callUnsupported('txpool_contentFrom', [accounts[1].address]);
+        });
+
+        it('should throw UNSUPPORTED_METHOD for txpool_status if TXPOOL_API_ENABLED is set to false', async () => {
+          await relay.callUnsupported('txpool_status', []);
+        });
+      });
     });
 
     describe('eth_getLogs', () => {
