@@ -23,14 +23,14 @@ type ExtractTypeStringFromKey<K extends string> = K extends keyof typeof _CONFIG
 type StringTypeToActualType<Tstr extends string> = Tstr extends 'string'
   ? string
   : Tstr extends 'boolean'
-  ? boolean
-  : Tstr extends 'number'
-  ? number
-  : Tstr extends 'strArray'
-  ? string[]
-  : Tstr extends 'numArray'
-  ? number[]
-  : never;
+    ? boolean
+    : Tstr extends 'number'
+      ? number
+      : Tstr extends 'strArray'
+        ? string[]
+        : Tstr extends 'numArray'
+          ? number[]
+          : never;
 
 /**
  * Determines if a configuration value can be `undefined` based on two conditions:
@@ -46,8 +46,8 @@ type CanBeUndefined<K extends string> = K extends keyof typeof _CONFIG
   ? (typeof _CONFIG)[K]['required'] extends true
     ? false
     : (typeof _CONFIG)[K]['defaultValue'] extends null
-    ? true
-    : false
+      ? true
+      : false
   : never;
 
 /**
@@ -59,9 +59,10 @@ type CanBeUndefined<K extends string> = K extends keyof typeof _CONFIG
  * - `'WEB_SOCKET_PORT'` (`type: 'number'`, `required: false`, `defaultValue: 8546`) → `number`
  * - `'GITHUB_PR_NUMBER'` (`type: 'string'`, `required: false`, `defaultValue: null`) → `string | undefined`
  */
-export type GetTypeOfConfigKey<K extends string> = CanBeUndefined<K> extends true
-  ? StringTypeToActualType<ExtractTypeStringFromKey<K>> | undefined
-  : StringTypeToActualType<ExtractTypeStringFromKey<K>>;
+export type GetTypeOfConfigKey<K extends string> =
+  CanBeUndefined<K> extends true
+    ? StringTypeToActualType<ExtractTypeStringFromKey<K>> | undefined
+    : StringTypeToActualType<ExtractTypeStringFromKey<K>>;
 
 /**
  * Interface defining the structure of a configuration property.
@@ -166,6 +167,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 7546,
+  },
+  ENABLE_TX_POOL: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
   },
   ESTIMATE_GAS_THROWS: {
     type: 'boolean',
@@ -512,6 +518,11 @@ const _CONFIG = {
     type: 'strArray',
     required: false,
     defaultValue: [],
+  },
+  PENDING_TRANSACTION_STORAGE_TTL: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
   },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',

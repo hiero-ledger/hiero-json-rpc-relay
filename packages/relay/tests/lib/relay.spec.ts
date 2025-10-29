@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import fs from 'fs';
@@ -9,6 +8,7 @@ import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { Relay } from '../../src';
+import { MirrorNodeClient } from '../../src/lib/clients/mirrorNodeClient';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
@@ -19,8 +19,9 @@ describe('Relay', () => {
   const register = new Registry();
   let relay: Relay;
 
-  beforeEach(() => {
-    relay = new Relay(logger, register);
+  beforeEach(async () => {
+    sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    relay = await Relay.init(logger, register);
   });
 
   afterEach(() => {
@@ -65,7 +66,7 @@ describe('Relay', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: 'spendingPlansConfig.example.json' });
 
       it('should populate preconfigured spending plans successfully', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -78,7 +79,7 @@ describe('Relay', () => {
       overrideEnvsInMochaDescribe({ HBAR_SPENDING_PLANS_CONFIG: nonExistingFile });
 
       it('should not throw an error', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
@@ -94,7 +95,7 @@ describe('Relay', () => {
       });
 
       it('should log a warning', async () => {
-        expect((relay = new Relay(logger, register))).to.not.throw;
+        await expect(Relay.init(logger, register)).to.not.be.rejected;
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).not.to.be.rejected;
@@ -106,57 +107,57 @@ describe('Relay', () => {
   });
 
   describe('ensureOperatorHasBalance', function () {
+    beforeEach(() => {
+      sinon.restore();
+    });
+
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
       it('should never throw', async function () {
-        await expect(relay.ensureOperatorHasBalance()).to.not.be.rejectedWith();
+        await expect(relay.initializeRelay()).to.not.be.rejectedWith();
       });
     });
 
     withOverriddenEnvsInMochaTest({ READ_ONLY: false }, () => {
-      let restMock: MockAdapter;
       let operatorId: string;
+      let getAccountPageLimitStub: sinon.SinonStub;
 
       beforeEach(() => {
-        const mirrorNodeInstance = relay.mirrorClient().getMirrorNodeRestInstance();
-        restMock = new MockAdapter(mirrorNodeInstance, { onNoMatch: 'throwException' });
-
         // @ts-expect-error: Property 'operatorAccountId' is private and only accessible within class 'Relay'.
         operatorId = relay.operatorAccountId!.toString();
+        getAccountPageLimitStub = sinon.stub(MirrorNodeClient.prototype, 'getAccountPageLimit');
       });
 
       afterEach(() => {
-        restMock.restore();
+        getAccountPageLimitStub.restore();
       });
 
       it('should not throw when operator has balance', async function () {
-        const balance = {
+        getAccountPageLimitStub.resolves({
           account: operatorId,
-          balance: {
-            balance: 99960581137,
-          },
-        };
-        restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
-        await expect(relay.ensureOperatorHasBalance()).to.not.be.rejectedWith();
+          balance: { balance: 99960581137 },
+          transactions: [],
+          links: {},
+        });
+        await expect(relay.initializeRelay()).to.not.be.rejectedWith();
       });
 
       it('should throw when operator has no balance', async function () {
-        const balance = {
+        getAccountPageLimitStub.resolves({
           account: operatorId,
-          balance: {
-            balance: 0,
-          },
-        };
-        restMock.onGet(`accounts/${operatorId}?limit=100`).reply(200, JSON.stringify(balance));
+          balance: { balance: 0 },
+          transactions: [],
+          links: {},
+        });
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.ensureOperatorHasBalance()).to.be.rejectedWith(message);
+        await expect(relay.initializeRelay()).to.be.rejectedWith(message);
       });
 
       it('should throw when operator has not been found', async function () {
-        restMock.onGet(`accounts/${operatorId}?limit=100`).reply(404, JSON.stringify({}));
+        getAccountPageLimitStub.resolves(null);
 
         const message = `Operator account '${operatorId}' has no balance`;
-        await expect(relay.ensureOperatorHasBalance()).to.be.rejectedWith(message);
+        await expect(relay.initializeRelay()).to.be.rejectedWith(message);
       });
     });
   });

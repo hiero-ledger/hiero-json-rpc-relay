@@ -4,11 +4,13 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 
 import { Admin, Eth, Net, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
+import { RedisClientManager } from './clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
 import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -23,6 +25,8 @@ import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
+import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
+import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
@@ -37,68 +41,68 @@ export class Relay {
   /**
    * The primary Hedera client used for interacting with the Hedera network.
    */
-  private readonly operatorAccountId: AccountId | null;
+  private operatorAccountId!: AccountId | null;
 
   /**
    * @private
    * @readonly
    * @property {MirrorNodeClient} mirrorNodeClient - The client used to interact with the Hedera Mirror Node for retrieving historical data.
    */
-  private readonly mirrorNodeClient: MirrorNodeClient;
+  private mirrorNodeClient!: MirrorNodeClient;
 
   /**
    * @private
    * @readonly
    * @property {Web3} web3Impl - The Web3 implementation used for Ethereum-compatible interactions.
    */
-  private readonly web3Impl: Web3;
+  private web3Impl!: Web3;
 
   /**
    * @private
    * @readonly
    * @property {Net} netImpl - The Net implementation used for handling network-related Ethereum JSON-RPC requests.
    */
-  private readonly netImpl: Net;
+  private netImpl!: Net;
 
   /**
    * @private
    * @readonly
    * @property {Admin} adminImpl - The Hedera implementation used for handling network-related Ethereum JSON-RPC requests.
    */
-  private readonly adminImpl: Admin;
+  private adminImpl!: Admin;
 
   /**
    * @private
    * @readonly
    * @property {Eth} ethImpl - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    */
-  private readonly ethImpl: Eth;
+  private ethImpl!: Eth;
 
   /**
    * @private
    * @readonly
    * @property {CacheService} cacheService - The service responsible for caching data to improve performance.
    */
-  private readonly cacheService: CacheService;
+  private cacheService!: CacheService;
 
   /**
    * @private
    * @readonly
    * @property {HbarSpendingPlanConfigService} hbarSpendingPlanConfigService - The service responsible for managing HBAR spending plans.
    */
-  private readonly hbarSpendingPlanConfigService: HbarSpendingPlanConfigService;
+  private hbarSpendingPlanConfigService!: HbarSpendingPlanConfigService;
 
   /**
    * @private
    * @readonly
    * @property {MetricService} metricService - The service responsible for capturing and reporting metrics.
    */
-  private readonly metricService: MetricService;
+  private metricService!: MetricService;
 
   /**
    * The Debug Service implementation that takes care of all filter API operations.
    */
-  private readonly debugImpl: DebugImpl;
+  private debugImpl!: DebugImpl;
 
   /**
    * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
@@ -108,12 +112,17 @@ export class Relay {
    * @public
    * @type {Map<string, Function>} - The registry containing all available RPC methods.
    */
-  public readonly rpcMethodRegistry: RpcMethodRegistry;
+  public rpcMethodRegistry!: RpcMethodRegistry;
 
   /**
    * The RPC method dispatcher that takes care of executing the correct method based on the request.
    */
-  private readonly rpcMethodDispatcher: RpcMethodDispatcher;
+  private rpcMethodDispatcher!: RpcMethodDispatcher;
+
+  /**
+   * The Redis client we use for connecting to Redis
+   */
+  private redisClient: RedisClientType | undefined;
 
   /**
    * Private constructor to prevent direct instantiation.
@@ -124,104 +133,9 @@ export class Relay {
    */
   private constructor(
     private readonly logger: Logger,
-    register: Registry,
+    private readonly register: Registry,
   ) {
     logger.info('Configurations successfully loaded');
-
-    const chainId = ConfigService.get('CHAIN_ID');
-    const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-    this.cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys);
-
-    const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
-      this.cacheService,
-      logger.child({ name: 'hbar-spending-plan-repository' }),
-    );
-    const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
-      this.cacheService,
-      logger.child({ name: 'evm-address-spending-plan-repository' }),
-    );
-    const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
-      this.cacheService,
-      logger.child({ name: 'ip-address-spending-plan-repository' }),
-    );
-    const hbarLimitService = new HbarLimitService(
-      hbarSpendingPlanRepository,
-      evmAddressHbarSpendingPlanRepository,
-      ipAddressHbarSpendingPlanRepository,
-      logger.child({ name: 'hbar-rate-limit' }),
-      register,
-      duration,
-    );
-
-    const hapiService = new HAPIService(logger, register, hbarLimitService);
-
-    this.operatorAccountId = hapiService.getOperatorAccountId();
-
-    this.web3Impl = new Web3Impl();
-    this.netImpl = new NetImpl();
-
-    this.mirrorNodeClient = new MirrorNodeClient(
-      ConfigService.get('MIRROR_NODE_URL'),
-      logger.child({ name: `mirror-node` }),
-      register,
-      this.cacheService,
-      undefined,
-      ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
-    );
-
-    const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE')
-      ? hapiService
-      : this.mirrorNodeClient;
-    this.metricService = new MetricService(logger, metricsCollector, register, hbarLimitService);
-
-    this.ethImpl = new EthImpl(
-      hapiService,
-      this.mirrorNodeClient,
-      logger.child({ name: 'relay-eth' }),
-      chainId,
-      this.cacheService,
-    );
-
-    (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
-      this.metricService.ethExecutionsCounter.labels(args.method).inc();
-    });
-
-    hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      this.metricService.captureTransactionMetrics(args).then();
-    });
-
-    hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      this.metricService.addExpenseAndCaptureMetrics(args);
-    });
-
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, logger, this.cacheService);
-    this.adminImpl = new AdminImpl(this.cacheService);
-
-    this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
-      logger.child({ name: 'hbar-spending-plan-config-service' }),
-      hbarSpendingPlanRepository,
-      evmAddressHbarSpendingPlanRepository,
-      ipAddressHbarSpendingPlanRepository,
-    );
-
-    this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, logger, register);
-
-    this.populatePreconfiguredSpendingPlans().then();
-
-    // Create a registry of all service implementations
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug'].map((namespace) => ({
-      namespace,
-      serviceImpl: this[namespace](),
-    }));
-
-    // Registering RPC methods from the provided service implementations
-    this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
-
-    // Initialize the RPC method dispatcher
-    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
-
-    logger.info('Relay running with chainId=%s', chainId);
   }
 
   /**
@@ -330,9 +244,162 @@ export class Relay {
     return this.mirrorNodeClient;
   }
 
-  async ensureOperatorHasBalance() {
-    if (ConfigService.get('READ_ONLY')) return;
+  /**
+   * Initializes required clients and services
+   */
+  async initializeRelay() {
+    // 1. Connect to Redis first
+    await this.connectRedisClient();
 
+    // 2. Initialize all services with the connected Redis client
+    this.initializeServices();
+
+    // 3. Validate operator balance (requires ethImpl to be initialized)
+    if (!ConfigService.get('READ_ONLY')) {
+      await this.ensureOperatorHasBalance();
+    }
+  }
+
+  /**
+   * Initializes all services after infrastructure (Redis) is ready.
+   * This method is called from initializeRelay() after Redis connection is established.
+   *
+   * @private
+   */
+  private initializeServices(): void {
+    const chainId = ConfigService.get('CHAIN_ID');
+    const duration = constants.HBAR_RATE_LIMIT_DURATION;
+    const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);
+
+    // Create CacheService with the connected Redis client (or undefined for LRU-only)
+    this.cacheService = new CacheService(
+      this.logger.child({ name: 'cache-service' }),
+      this.register,
+      reservedKeys,
+      this.redisClient,
+    );
+
+    // Create spending plan repositories
+    const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
+      this.cacheService,
+      this.logger.child({ name: 'hbar-spending-plan-repository' }),
+    );
+    const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(
+      this.cacheService,
+      this.logger.child({ name: 'evm-address-spending-plan-repository' }),
+    );
+    const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(
+      this.cacheService,
+      this.logger.child({ name: 'ip-address-spending-plan-repository' }),
+    );
+
+    // Create HBAR limit service
+    const hbarLimitService = new HbarLimitService(
+      hbarSpendingPlanRepository,
+      evmAddressHbarSpendingPlanRepository,
+      ipAddressHbarSpendingPlanRepository,
+      this.logger.child({ name: 'hbar-rate-limit' }),
+      this.register,
+      duration,
+    );
+
+    // Create HAPI service
+    const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
+    this.operatorAccountId = hapiService.getOperatorAccountId();
+
+    // Create simple service implementations
+    this.web3Impl = new Web3Impl();
+    this.netImpl = new NetImpl();
+
+    // Create Mirror Node client
+    this.mirrorNodeClient = new MirrorNodeClient(
+      ConfigService.get('MIRROR_NODE_URL'),
+      this.logger.child({ name: `mirror-node` }),
+      this.register,
+      this.cacheService,
+      undefined,
+      ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
+    );
+
+    // Create Metric service
+    const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE')
+      ? hapiService
+      : this.mirrorNodeClient;
+    this.metricService = new MetricService(this.logger, metricsCollector, this.register, hbarLimitService);
+
+    const storage = this.redisClient
+      ? new RedisPendingTransactionStorage(this.redisClient)
+      : new LocalPendingTransactionStorage();
+
+    // Create Eth implementation with connected Redis client
+    this.ethImpl = new EthImpl(
+      hapiService,
+      this.mirrorNodeClient,
+      this.logger.child({ name: 'relay-eth' }),
+      chainId,
+      this.cacheService,
+      storage,
+    );
+
+    // Set up event listeners
+    (this.ethImpl as EthImpl).eventEmitter.on('eth_execution', (args: IEthExecutionEventPayload) => {
+      this.metricService.ethExecutionsCounter.labels(args.method).inc();
+    });
+
+    hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
+      this.metricService.captureTransactionMetrics(args).then();
+    });
+
+    hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
+      this.metricService.addExpenseAndCaptureMetrics(args);
+    });
+
+    // Create Debug and Admin implementations
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService);
+    this.adminImpl = new AdminImpl(this.cacheService);
+
+    // Create HBAR spending plan config service
+    this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
+      this.logger.child({ name: 'hbar-spending-plan-config-service' }),
+      hbarSpendingPlanRepository,
+      evmAddressHbarSpendingPlanRepository,
+      ipAddressHbarSpendingPlanRepository,
+    );
+
+    // Initialize operator metric
+    this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
+
+    // Populate pre-configured spending plans asynchronously
+    this.populatePreconfiguredSpendingPlans().then();
+
+    // Create RPC method registry
+    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug'].map((namespace) => ({
+      namespace,
+      serviceImpl: this[namespace](),
+    }));
+
+    this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
+
+    // Initialize RPC method dispatcher
+    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
+
+    this.logger.info('Relay running with chainId=%s', chainId);
+  }
+
+  private async connectRedisClient() {
+    const redisUrl = ConfigService.get('REDIS_URL')!;
+    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
+    if (ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL')) {
+      const redisManager = new RedisClientManager(this.logger, redisUrl, reconnectDelay);
+
+      await redisManager.connect();
+      this.redisClient = redisManager.getClient();
+    } else {
+      this.redisClient = undefined;
+    }
+  }
+
+  private async ensureOperatorHasBalance() {
     const operator = this.operatorAccountId!.toString();
     const balance = BigInt(await this.ethImpl.getBalance(operator, 'latest', {} as RequestDetails));
     if (balance === BigInt(0)) {
@@ -345,7 +412,7 @@ export class Relay {
   /**
    * Static factory method to create and initialize a Relay instance.
    * This is the recommended way to create a Relay instance as it ensures
-   * all async initialization (operator balance check) is complete.
+   * all async initialization (Redis connection, services, operator balance check) is complete.
    *
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {Registry} register - Registry instance for registering metrics.
@@ -357,11 +424,9 @@ export class Relay {
    * ```
    */
   static async init(logger: Logger, register: Registry): Promise<Relay> {
-    // Create Relay instance
     const relay = new Relay(logger, register);
 
-    // Check operator balance if not in read-only mode
-    await relay.ensureOperatorHasBalance();
+    await relay.initializeRelay();
 
     return relay;
   }

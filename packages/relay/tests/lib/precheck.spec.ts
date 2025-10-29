@@ -26,6 +26,9 @@ import {
 import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 
 const registry = new Registry();
+import sinon from 'sinon';
+
+import { TransactionPoolService } from '../../src/lib/services/transactionPoolService/transactionPoolService';
 import { RequestDetails } from '../../src/lib/types';
 
 const logger = pino({ level: 'silent' });
@@ -94,12 +97,14 @@ describe('Precheck', async function () {
       new CacheService(logger, registry),
       instance,
     );
-    precheck = new Precheck(mirrorNodeInstance, logger, '0x12a');
+    const transactionPoolService = sinon.createStubInstance(TransactionPoolService);
+    precheck = new Precheck(mirrorNodeInstance, '0x12a', transactionPoolService);
   });
 
   this.beforeEach(() => {
     // reset mock
     mock.reset();
+    sinon.restore();
   });
 
   describe('value', async function () {
