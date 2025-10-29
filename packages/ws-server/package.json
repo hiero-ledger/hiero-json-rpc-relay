@@ -16,7 +16,7 @@
     "koa-websocket": "^7.0.0",
     "lru-cache": "^11.1.0",
     "pino": "^10.1.0",
-    "pino-pretty": "^7.6.1"
+    "pino-pretty": "^13.1.2"
   },
   "devDependencies": {
     "@hashgraph/sdk": "^2.63.0",
