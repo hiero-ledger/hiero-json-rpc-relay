@@ -1,10 +1,10 @@
-# Default values for json-rpc-relay in CI. Configured to testnet
+# Default values for json-rpc-relay in CI. Configured to previewnet
 config:
   CHAIN_ID: '0x128'
-  HEDERA_NETWORK: 'testnet'
-  MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com'
-  OPERATOR_ID_MAIN: ""
-  OPERATOR_KEY_MAIN: ""
+  HEDERA_NETWORK: 'previewnet'
+  MIRROR_NODE_URL: 'https://previewnet.mirrornode.hedera.com'
+  OPERATOR_ID_MAIN: ''
+  OPERATOR_KEY_MAIN: ''
   READ_ONLY: true
 
 image:
