@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-name: 'ZXC: JSON-RPC Relay Regression'
+name: "ZXC: JSON-RPC Relay Regression"
 on:
   push:
     branches:
@@ -17,16 +17,16 @@ permissions:
   id-token: write
 
 env:
-  SOLO_CLUSTER_NAME: 'solo-rpc-relay-e2e'
-  SOLO_NAMESPACE: 'solo-rpc-relay-e2e'
-  SOLO_DEPLOYMENT: 'solo-rpc-relay-deployment'
-  SOLO_CLUSTER_SETUP_NAMESPACE: 'solo-setup'
+  SOLO_CLUSTER_NAME: "solo-rpc-relay-e2e"
+  SOLO_NAMESPACE: "solo-rpc-relay-e2e"
+  SOLO_DEPLOYMENT: "solo-rpc-relay-deployment"
+  SOLO_CLUSTER_SETUP_NAMESPACE: "solo-setup"
   GRADLE_EXEC: ionice -c 2 -n 2 nice -n 19 ./gradlew
 
 jobs:
   # Execute JSON-RPC Relay Regression Tests using specified version of hiero-consensus-node
   json-rpc-relay-regression:
-    name: 'Standard'
+    name: "Standard"
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: hiero-ledger/hiero-consensus-node
-          ref: ''
+          ref: ""
           fetch-depth: 0
 
       #  Checkout the json-rpc-relay repository
@@ -48,7 +48,7 @@ jobs:
         with:
           path: regression-tests/json-rpc-relay
           repository: hiero-ledger/hiero-json-rpc-relay
-          ref: '4332-add-hedera-specific-negative-tests-for-eth_sendrawtransaction'
+          ref: "xts-replica"
           fetch-depth: 0
           fetch-tags: true
 
@@ -114,8 +114,8 @@ jobs:
       # Perform JSON-RPC Relay regression tests
       - name: Start json-rpc-relay-test-client
         env:
-          CHAIN_ID: '0x12a'
-          MIRROR_NODE_URL: 'http://127.0.0.1:8081'
+          CHAIN_ID: "0x12a"
+          MIRROR_NODE_URL: "http://127.0.0.1:8081"
           HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
           OPERATOR_ID_MAIN: 0.0.2
           OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
@@ -129,7 +129,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: JSON-RPC Relay Regression Test Report
-          path: '**/regression-tests/platform-sdk/regression/mochawesome-report/mochawesome.*'
+          path: "**/regression-tests/platform-sdk/regression/mochawesome-report/mochawesome.*"
           retention-days: 7
 
       # Stop the solo nodes
