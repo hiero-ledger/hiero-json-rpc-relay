@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { Relay } from '@hashgraph/json-rpc-relay';
 import { expect } from 'chai';
 import http from 'http';
+import { AddressInfo } from 'net';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 
@@ -14,8 +15,13 @@ import * as webSocketServer from '../../dist/webSocketServer';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
+    const addr = server.address();
+    if (!isAddressInfo(addr)) {
+      reject(new Error('Invalid server address'));
+      return;
+    }
     http
-      .get(`http://127.0.0.1:${server.address()?.port}${path}`, (res) => {
+      .get(`http://127.0.0.1:${addr.port}${path}`, (res) => {
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
@@ -25,9 +31,13 @@ async function httpGet(server: http.Server, path: string): Promise<{ status: num
   });
 }
 
+const isAddressInfo = (addr: string | AddressInfo | null): addr is AddressInfo => {
+  return !!addr && typeof addr !== 'string';
+};
+
 function wsUrl(server: http.Server): string {
   const address = server.address();
-  if (!address || typeof address === 'string') {
+  if (!isAddressInfo(address)) {
     throw new Error('Invalid server address');
   }
   return `ws://127.0.0.1:${address.port}`;
@@ -138,7 +148,7 @@ describe('webSocketServer websocket handling', () => {
     for (const s of sockets) {
       try {
         s.terminate();
-      } catch (e) {
+      } catch {
         // handle error
       }
     }
@@ -227,6 +237,11 @@ describe('webSocketServer websocket handling', () => {
     grrStub.onCall(0).resolves({ id: 1, jsonrpc: '2.0', result: 'a' });
     grrStub.onCall(1).resolves({ id: 2, jsonrpc: '2.0', result: 'b' });
     const sendToClientStub = sinon.stub(utils, 'sendToClient');
+    const sendToClientCalled = new Promise<void>((resolve) => {
+      sendToClientStub.callsFake(() => {
+        resolve();
+      });
+    });
     ws.send(
       JSON.stringify([
         { id: 1, jsonrpc: '2.0', method: 'web3_clientVersion', params: [] },
@@ -234,7 +249,7 @@ describe('webSocketServer websocket handling', () => {
       ]),
     );
 
-    await new Promise((r) => setTimeout(r, 50));
+    await sendToClientCalled;
     await ws.close();
 
     expect(grrStub.callCount).to.equal(2);

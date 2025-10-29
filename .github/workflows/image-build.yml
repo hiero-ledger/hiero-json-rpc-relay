@@ -51,6 +51,7 @@ jobs:
             -e OPERATOR_ID_MAIN='0.0.1002' \
             -e OPERATOR_KEY_MAIN='302e020100300506032b65700422042077d69b53642d0000000000000000000000000000000000000000000000000000' \
             -e READ_ONLY='true' \
+            -e REDIS_ENABLED='false' \
             -d -p 7546:7546 --name relay relay:latest
 
       - name: Test server

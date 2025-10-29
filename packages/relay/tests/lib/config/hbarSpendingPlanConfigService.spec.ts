@@ -7,8 +7,10 @@ import findConfig from 'find-config';
 import fs from 'fs';
 import pino, { Logger } from 'pino';
 import { Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import { RedisClientManager } from '../../../src/lib/clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from '../../../src/lib/config/hbarSpendingPlanConfigService';
 import { HbarSpendingPlan } from '../../../src/lib/db/entities/hbarLimiter/hbarSpendingPlan';
 import { HbarSpendingRecord } from '../../../src/lib/db/entities/hbarLimiter/hbarSpendingRecord';
@@ -149,6 +151,8 @@ describe('HbarSpendingPlanConfigService', function () {
     let hbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<HbarSpendingPlanRepository>;
     let evmAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<EvmAddressHbarSpendingPlanRepository>;
     let ipAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<IPAddressHbarSpendingPlanRepository>;
+    let redisClientManager: RedisClientManager;
+    let redisClient: RedisClientType | undefined;
 
     overrideEnvsInMochaDescribe({
       HBAR_SPENDING_PLANS_CONFIG: hbarSpendingPlansConfigEnv,
@@ -158,7 +162,19 @@ describe('HbarSpendingPlanConfigService', function () {
 
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-      cacheService = new CacheService(logger.child({ name: 'cache-service' }), registry, reservedKeys);
+      if (ConfigService.get('REDIS_ENABLED')) {
+        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6384', 1000);
+        await redisClientManager.connect();
+        redisClient = redisClientManager.getClient();
+      } else {
+        redisClient = undefined;
+      }
+      cacheService = new CacheService(
+        logger.child({ name: 'cache-service' }),
+        registry,
+        reservedKeys,
+        redisClient as any,
+      );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
         logger.child({ name: 'hbar-spending-plan-repository' }),
@@ -181,7 +197,7 @@ describe('HbarSpendingPlanConfigService', function () {
 
     after(async function () {
       if (ConfigService.get('REDIS_ENABLED')) {
-        await cacheService.disconnectRedisClient();
+        await redisClientManager.disconnect();
       }
     });
 
