@@ -61,16 +61,14 @@ export interface PendingTransactionStorage {
   getList(addr: string): Promise<number>;
 
   /**
-   * Attempts to add a pending transaction entry for the given address.
+   * Adds a pending transaction for the given address.
+   * Implementations must atomically index the transaction (per-address + global) and persist its payload.
    *
    * @param addr - The account address.
    * @param txHash - The transaction hash to add to the pending list.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
-  /**
-   * Adds a pending transaction for the given address. If rlpHex is provided,
-   * storage must atomically index the transaction and persist its payload.
-   */
-  addToList(addr: string, txHash: string, rlpHex?: string): Promise<void>;
+  addToList(addr: string, txHash: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.

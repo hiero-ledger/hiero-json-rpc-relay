@@ -519,11 +519,6 @@ const _CONFIG = {
     required: false,
     defaultValue: [],
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
-    type: 'number',
-    required: false,
-    defaultValue: 30,
-  },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,

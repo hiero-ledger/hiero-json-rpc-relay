@@ -38,11 +38,13 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
   /**
    * Adds a pending transaction entry for the given address.
+   * Atomically indexes the transaction (per-address + global) and persists its payload.
    *
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
+   * @param rlpHex - The RLP-encoded transaction as a hex string
    */
-  async addToList(addr: string, txHash: string, rlpHex?: string): Promise<void> {
+  async addToList(addr: string, txHash: string, rlpHex: string): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -51,10 +53,9 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(txHash);
 
-    if (rlpHex !== undefined) {
-      this.transactionPayloads.set(txHash, rlpHex);
-      this.globalTransactionIndex.add(txHash);
-    }
+    // Persist payload and add to global index
+    this.transactionPayloads.set(txHash, rlpHex);
+    this.globalTransactionIndex.add(txHash);
   }
 
   /**
