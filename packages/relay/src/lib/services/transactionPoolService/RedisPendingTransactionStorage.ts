@@ -9,9 +9,11 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Prefix used to namespace all keys managed by this storage.
    *
    * @remarks
-   * Using a prefix allows efficient scanning and cleanup of related keys
+   * Using a prefix allows efficient scanning and cleanup of related keys.
+   * Uses 'txpool:pending:' to distinguish from other transaction pool states
+   * (e.g., future 'txpool:queue:').
    */
-  private readonly keyPrefix = 'pending:';
+  private readonly keyPrefix = 'txpool:pending:';
 
   /**
    * The time-to-live (TTL) for the pending transaction storage in seconds.
@@ -29,7 +31,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Resolves the Redis key for a given address.
    *
    * @param addr - Account address whose pending list key should be derived.
-   * @returns The Redis key (e.g., `pending:<address>`).
+   * @returns The Redis key (e.g., `txpool:pending:<address>`).
    */
   private keyFor(address: string): string {
     return `${this.keyPrefix}${address}`;
@@ -67,7 +69,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
-   * Removes all keys managed by this storage (all `pending:*`).
+   * Removes all keys managed by this storage (all `txpool:pending:*`).
    */
   async removeAll(): Promise<void> {
     const keys = await this.redisClient.keys(`${this.keyPrefix}*`);

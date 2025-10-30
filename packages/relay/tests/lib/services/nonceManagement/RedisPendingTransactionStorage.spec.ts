@@ -90,11 +90,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   });
 
   describe('removeAll', () => {
-    after(async () => {
-      await redisClient.quit();
-    });
-
-    it('deletes all pending:* keys', async () => {
+    it('deletes all txpool:pending:* keys', async () => {
       await storage.addToList(addr1, tx1);
       await storage.addToList(addr1, tx2);
       await storage.addToList(addr2, tx3);
@@ -105,6 +101,42 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       const c2 = await storage.getList(addr2);
       expect(c1).to.equal(0);
       expect(c2).to.equal(0);
+    });
+
+    it('should not delete keys from other namespaces (cache:, txpool:queue:)', async () => {
+      // Add some txpool:pending keys
+      await storage.addToList(addr1, tx1);
+      await storage.addToList(addr2, tx2);
+
+      // Add keys from other namespaces to simulate other services
+      await redisClient.set('cache:eth_blockNumber', '123');
+      await redisClient.set('cache:eth_gasPrice', '456');
+      await redisClient.set('txpool:queue:someaddress', 'queuedtx');
+      await redisClient.set('other:namespace:key', 'value');
+
+      // Remove all txpool:pending keys
+      await storage.removeAll();
+
+      // Verify txpool:pending keys are gone
+      const c1 = await storage.getList(addr1);
+      const c2 = await storage.getList(addr2);
+      expect(c1).to.equal(0);
+      expect(c2).to.equal(0);
+
+      // Verify other namespace keys are still present
+      const cacheKey1 = await redisClient.get('cache:eth_blockNumber');
+      const cacheKey2 = await redisClient.get('cache:eth_gasPrice');
+      const queueKey = await redisClient.get('txpool:queue:someaddress');
+      const otherKey = await redisClient.get('other:namespace:key');
+
+      expect(cacheKey1).to.equal('123');
+      expect(cacheKey2).to.equal('456');
+      expect(queueKey).to.equal('queuedtx');
+      expect(otherKey).to.equal('value');
+    });
+
+    after(async () => {
+      await redisClient.quit();
     });
   });
 });
