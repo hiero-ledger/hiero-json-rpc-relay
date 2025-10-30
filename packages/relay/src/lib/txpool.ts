@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
@@ -28,8 +29,8 @@ export interface TxPoolTransaction {
   s: string | null;
   chainId?: string; // handle optional chain id for EIP-155
   gasPrice?: string; // handle optional gas price for legacy transactions
-  maxFeePerGas?: string; // handle optional field for EIP-1559 tx
-  maxPriorityFeePerGas?: string; // handle optional field for EIP-1559 tx
+  maxFeePerGas?: string; // handle optional field for EIP-1559
+  maxPriorityFeePerGas?: string; // handle optional field for EIP-1559
 }
 
 export interface TxPoolTransactionsByNonce {

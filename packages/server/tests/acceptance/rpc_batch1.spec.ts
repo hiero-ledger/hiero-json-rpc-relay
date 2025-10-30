@@ -5,7 +5,6 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 // Other imports
 import { formatTransactionId, numberTo0x, prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
 import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
@@ -189,7 +188,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const txPoolTx = Object.values(res.pending[parsedTx.from]).find((tx) => tx.hash == parsedTx.hash);
             expect(txPoolTx).to.not.be.null;
 
-            expect(txPoolTx.blockHash).to.equal(constants.ZERO_HEX_32_BYTE);
+            expect(txPoolTx.blockHash).to.equal(Constants.ZERO_HEX_32_BYTE);
             expect(txPoolTx.blockNumber).to.be.null;
             expect(txPoolTx.transactionIndex).to.be.null;
             expect(txPoolTx.from).to.equal(parsedTx.from);
