@@ -146,25 +146,24 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
-   * Appends a transaction hash to the pending list for the provided address.
+   * Adds a pending transaction for the given address.
+   * Atomically indexes the transaction (per-address + global) and persists its payload using MULTI/EXEC.
    *
-   * @remarks
-   * This uses Redis `SADD`, which is atomic. The integer result from Redis is
-   * the new length of the list after the append.
-   *
-   * @param addr - Account address whose pending list will be appended to.
+   * @param address - Account address whose pending list will be appended to.
    * @param txHash - Transaction hash to append.
-   * @returns The new pending transaction count after the addition.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
-  async addToList(address: string, txHash: string, rlpHex?: string): Promise<void> {
-    const key = this.keyFor(address);
-    const multi = this.redisClient.multi();
-    multi.sAdd(key, txHash).expire(key, this.storageTtl);
-    if (rlpHex !== undefined) {
-      const txKey = this.txKeyFor(txHash);
-      multi.sAdd(this.globalIndexKey, txHash).set(txKey, rlpHex, { EX: this.storageTtl });
-    }
-    await multi.execAsPipeline();
+  async addToList(address: string, txHash: string, rlpHex: string): Promise<void> {
+    const addressKey = this.keyFor(address);
+    const txKey = this.txKeyFor(txHash);
+
+    await this.redisClient
+      .multi()
+      .sAdd(addressKey, txHash)
+      .expire(addressKey, this.storageTtl)
+      .sAdd(this.globalIndexKey, txHash)
+      .set(txKey, rlpHex, { EX: this.storageTtl })
+      .exec();
   }
 
   /**
