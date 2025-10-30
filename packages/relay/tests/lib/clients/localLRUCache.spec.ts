@@ -179,7 +179,7 @@ describe('LocalLRUCache Test Suite', async function () {
         const ttl = -1;
 
         await customLocalLRUCache.set(key, value, callingMethod, ttl);
-        sinon.assert.calledOnceWithExactly(lruCacheSpy.set, key, value, { ttl: 0 });
+        sinon.assert.calledOnceWithExactly(lruCacheSpy.set, `cache:${key}`, value, { ttl: 0 });
 
         const cachedValue = await customLocalLRUCache.get(key, callingMethod);
         expect(cachedValue).equal(value);

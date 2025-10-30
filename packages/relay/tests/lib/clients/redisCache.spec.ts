@@ -103,7 +103,9 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, `cache:${key}`, JSON.stringify(value), {
+        PX: ttl,
+      });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -120,7 +122,9 @@ describe('RedisCache Test Suite', async function () {
       const ttl = 1100;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value), { PX: ttl });
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, `cache:${key}`, JSON.stringify(value), {
+        PX: ttl,
+      });
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -137,7 +141,7 @@ describe('RedisCache Test Suite', async function () {
       const ttl = -1;
 
       await redisCache.set(key, value, callingMethod, ttl);
-      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, key, JSON.stringify(value));
+      sinon.assert.calledOnceWithExactly(redisClient.set as sinon.SinonSpy, `cache:${key}`, JSON.stringify(value));
 
       const cachedValue = await redisCache.get(key, callingMethod);
       expect(cachedValue).equal(value);
@@ -443,6 +447,40 @@ describe('RedisCache Test Suite', async function () {
     it('should throw an error when the client is closed', async () => {
       await redisClientManager.disconnect();
       await expect(redisClientManager.getNumberOfConnections()).to.eventually.be.rejectedWith('The client is closed');
+    });
+  });
+
+  describe('Clear Test Suite', () => {
+    it('should only clear cache:* keys and not other namespaces', async () => {
+      // Add some cache keys
+      await redisCache.set('eth_blockNumber', '123', callingMethod);
+      await redisCache.set('eth_gasPrice', '456', callingMethod);
+
+      // Add keys from other namespaces to simulate other services
+      await redisClient.set('txpool:pending:0x123', 'pendingtx');
+      await redisClient.set('txpool:queue:0x456', 'queuedtx');
+      await redisClient.set('hbar-limit:0x789', 'limitdata');
+      await redisClient.set('other:namespace:key', 'value');
+
+      // Clear the cache
+      await redisCache.clear();
+
+      // Verify cache keys are gone
+      const cacheValue1 = await redisCache.get('eth_blockNumber', callingMethod);
+      const cacheValue2 = await redisCache.get('eth_gasPrice', callingMethod);
+      expect(cacheValue1).to.be.null;
+      expect(cacheValue2).to.be.null;
+
+      // Verify other namespace keys are still present
+      const pendingTx = await redisClient.get('txpool:pending:0x123');
+      const queueTx = await redisClient.get('txpool:queue:0x456');
+      const limitData = await redisClient.get('hbar-limit:0x789');
+      const otherKey = await redisClient.get('other:namespace:key');
+
+      expect(pendingTx).to.equal('pendingtx');
+      expect(queueTx).to.equal('queuedtx');
+      expect(limitData).to.equal('limitdata');
+      expect(otherKey).to.equal('value');
     });
   });
 

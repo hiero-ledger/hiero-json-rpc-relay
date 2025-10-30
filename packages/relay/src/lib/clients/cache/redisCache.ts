@@ -13,6 +13,15 @@ import { IRedisCacheClient } from './IRedisCacheClient';
  */
 export class RedisCache implements IRedisCacheClient {
   /**
+   * Prefix used to namespace all keys managed by this cache.
+   *
+   * @remarks
+   * Using a prefix allows efficient scanning and cleanup of related keys
+   * without interfering with keys from other services (e.g., pending:, hbar-limit:).
+   */
+  private static readonly CACHE_KEY_PREFIX = 'cache:';
+
+  /**
    * Configurable options used when initializing the cache.
    *
    * @private
@@ -53,6 +62,17 @@ export class RedisCache implements IRedisCacheClient {
   }
 
   /**
+   * Adds the cache prefix to a key.
+   *
+   * @param key - The key to prefix.
+   * @returns The prefixed key.
+   * @private
+   */
+  private prefixKey(key: string): string {
+    return `${RedisCache.CACHE_KEY_PREFIX}${key}`;
+  }
+
+  /**
    * Retrieves a value from the cache.
    *
    * @param key - The cache key.
@@ -60,7 +80,8 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The cached value or null if not found.
    */
   async get(key: string, callingMethod: string): Promise<any> {
-    const result = await this.client.get(key);
+    const prefixedKey = this.prefixKey(key);
+    const result = await this.client.get(prefixedKey);
     if (result) {
       if (this.logger.isLevelEnabled('trace')) {
         const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -83,12 +104,13 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the value is cached.
    */
   async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+    const prefixedKey = this.prefixKey(key);
     const serializedValue = JSON.stringify(value);
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
     if (resolvedTtl > 0) {
-      await this.client.set(key, serializedValue, { PX: resolvedTtl });
+      await this.client.set(prefixedKey, serializedValue, { PX: resolvedTtl });
     } else {
-      await this.client.set(key, serializedValue);
+      await this.client.set(prefixedKey, serializedValue);
     }
 
     const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -110,10 +132,11 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the values are cached.
    */
   async multiSet(keyValuePairs: Record<string, any>, callingMethod: string): Promise<void> {
-    // Serialize values
+    // Serialize values and add prefix
     const serializedKeyValuePairs: Record<string, string> = {};
     for (const [key, value] of Object.entries(keyValuePairs)) {
-      serializedKeyValuePairs[key] = JSON.stringify(value);
+      const prefixedKey = this.prefixKey(key);
+      serializedKeyValuePairs[prefixedKey] = JSON.stringify(value);
     }
 
     // Perform mSet operation
@@ -140,8 +163,9 @@ export class RedisCache implements IRedisCacheClient {
     const pipeline = this.client.multi();
 
     for (const [key, value] of Object.entries(keyValuePairs)) {
+      const prefixedKey = this.prefixKey(key);
       const serializedValue = JSON.stringify(value);
-      pipeline.set(key, serializedValue, { PX: resolvedTtl });
+      pipeline.set(prefixedKey, serializedValue, { PX: resolvedTtl });
     }
 
     // Execute pipeline operation
@@ -162,7 +186,8 @@ export class RedisCache implements IRedisCacheClient {
    * @returns A Promise that resolves when the value is deleted from the cache.
    */
   async delete(key: string, callingMethod: string): Promise<void> {
-    await this.client.del(key);
+    const prefixedKey = this.prefixKey(key);
+    await this.client.del(prefixedKey);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
     }
@@ -178,7 +203,8 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The value of the key after incrementing
    */
   async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    const result = await this.client.incrBy(key, amount);
+    const prefixedKey = this.prefixKey(key);
+    const result = await this.client.incrBy(prefixedKey, amount);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`incrementing ${key} by ${amount} on ${callingMethod} call`);
     }
@@ -195,7 +221,8 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The list of elements in the range
    */
   async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
-    const result = await this.client.lRange(key, start, end);
+    const prefixedKey = this.prefixKey(key);
+    const result = await this.client.lRange(prefixedKey, start, end);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`retrieving range [${start}:${end}] from ${key} on ${callingMethod} call`);
     }
@@ -211,8 +238,9 @@ export class RedisCache implements IRedisCacheClient {
    * @returns The length of the list after pushing
    */
   async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+    const prefixedKey = this.prefixKey(key);
     const serializedValue = JSON.stringify(value);
-    const result = await this.client.rPush(key, serializedValue);
+    const result = await this.client.rPush(prefixedKey, serializedValue);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`pushing ${serializedValue} to ${key} on ${callingMethod} call`);
     }
@@ -223,27 +251,26 @@ export class RedisCache implements IRedisCacheClient {
    * Retrieves all keys matching a pattern.
    * @param pattern The pattern to match
    * @param callingMethod The name of the calling method
-   * @returns The list of keys matching the pattern
+   * @returns The list of keys matching the pattern (without the cache prefix)
    */
   async keys(pattern: string, callingMethod: string): Promise<string[]> {
-    const result = await this.client.keys(pattern);
+    const prefixedPattern = this.prefixKey(pattern);
+    const result = await this.client.keys(prefixedPattern);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
     }
-    return result;
+    // Remove the prefix from the returned keys
+    return result.map((key) => key.substring(RedisCache.CACHE_KEY_PREFIX.length));
   }
 
   /**
-   * Clears the entire cache leaving out the transaction pool.
+   * Clears only the cache keys (those with cache: prefix).
    * Uses pipelining for efficient bulk deletion with UNLINK (non-blocking).
    *
    * @returns {Promise<void>} A Promise that resolves when the cache is cleared.
    */
   async clear(): Promise<void> {
-    const allKeys = await this.client.keys('*');
-
-    // Filter out keys that start with "pending:"
-    const keysToDelete = allKeys.filter((key) => !key.startsWith('pending:'));
+    const keysToDelete = await this.client.keys(`${RedisCache.CACHE_KEY_PREFIX}*`);
 
     if (keysToDelete.length > 0) {
       // Use pipeline for efficient bulk deletion
@@ -256,7 +283,7 @@ export class RedisCache implements IRedisCacheClient {
       await pipeline.exec();
 
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace('Cleared cache');
+        this.logger.trace(`Cleared ${keysToDelete.length} cache keys`);
       }
     }
   }
