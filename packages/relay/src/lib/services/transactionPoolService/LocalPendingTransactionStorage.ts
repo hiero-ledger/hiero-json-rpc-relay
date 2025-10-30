@@ -13,8 +13,16 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   // Maps address to a Set of transaction hashes for that address
   private readonly pendingTransactions: Map<string, Set<string>>;
 
+  // Global set of all pending transaction hashes
+  private readonly globalTransactionIndex: Set<string>;
+
+  // Maps transaction hash to RLP hex payload
+  private readonly transactionPayloads: Map<string, string>;
+
   constructor() {
     this.pendingTransactions = new Map();
+    this.globalTransactionIndex = new Set();
+    this.transactionPayloads = new Map();
   }
 
   /**
@@ -30,11 +38,13 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
   /**
    * Adds a pending transaction entry for the given address.
+   * Atomically indexes the transaction (per-address + global) and persists its payload.
    *
    * @param addr - The account address
    * @param txHash - The transaction hash to add to the pending list
+   * @param rlpHex - The RLP-encoded transaction as a hex string
    */
-  async addToList(addr: string, txHash: string): Promise<void> {
+  async addToList(addr: string, txHash: string, rlpHex: string): Promise<void> {
     // Initialize the set if it doesn't exist
     if (!this.pendingTransactions.has(addr)) {
       this.pendingTransactions.set(addr, new Set());
@@ -42,6 +52,10 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
 
     const addressTransactions = this.pendingTransactions.get(addr)!;
     addressTransactions.add(txHash);
+
+    // Persist payload and add to global index
+    this.transactionPayloads.set(txHash, rlpHex);
+    this.globalTransactionIndex.add(txHash);
   }
 
   /**
@@ -61,6 +75,10 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
         this.pendingTransactions.delete(address);
       }
     }
+
+    // Remove payload and global index entry
+    this.transactionPayloads.delete(txHash);
+    this.globalTransactionIndex.delete(txHash);
   }
 
   /**
@@ -70,5 +88,47 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeAll(): Promise<void> {
     this.pendingTransactions.clear();
+    this.globalTransactionIndex.clear();
+    this.transactionPayloads.clear();
+  }
+
+  /**
+   * Retrieves the full transaction payload (RLP hex) from storage.
+   *
+   * @param txHash - The transaction hash to retrieve
+   * @returns The RLP hex string, or null if not found
+   */
+  async getTransactionPayload(txHash: string): Promise<string | null> {
+    return this.transactionPayloads.get(txHash) ?? null;
+  }
+
+  /**
+   * Retrieves multiple transaction payloads (RLP hex) from storage.
+   *
+   * @param txHashes - Array of transaction hashes to retrieve
+   * @returns Array of RLP hex strings (null for missing transactions)
+   */
+  async getTransactionPayloads(txHashes: string[]): Promise<(string | null)[]> {
+    return txHashes.map((hash) => this.transactionPayloads.get(hash) ?? null);
+  }
+
+  /**
+   * Retrieves all pending transaction hashes across all addresses.
+   *
+   * @returns Array of all pending transaction hashes
+   */
+  async getAllTransactionHashes(): Promise<string[]> {
+    return Array.from(this.globalTransactionIndex);
+  }
+
+  /**
+   * Retrieves pending transaction hashes for a specific address.
+   *
+   * @param address - The account address to query
+   * @returns Array of transaction hashes for the address
+   */
+  async getTransactionHashes(address: string): Promise<string[]> {
+    const addressTransactions = this.pendingTransactions.get(address);
+    return addressTransactions ? Array.from(addressTransactions) : [];
   }
 }

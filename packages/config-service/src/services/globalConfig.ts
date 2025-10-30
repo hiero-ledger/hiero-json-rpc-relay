@@ -519,11 +519,6 @@ const _CONFIG = {
     required: false,
     defaultValue: [],
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
-    type: 'number',
-    required: false,
-    defaultValue: 30,
-  },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,
@@ -613,6 +608,16 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
+  },
+  TRANSACTION_POOL_MGET_BATCH_SIZE: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
+  },
+  TRANSACTION_POOL_STORAGE_TTL_SECONDS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',
