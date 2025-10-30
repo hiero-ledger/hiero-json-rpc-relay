@@ -2428,6 +2428,27 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         expect(res).to.be.null;
       });
+
+      it('@release getTransactionByHash should return null for to for reverted contract creation', async function () {
+        // the data below is actually disassembled opcodes
+        // containing revert as well
+        const dataToRevert = '0x600160015560006000fd';
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          ...defaultLondonTransactionData,
+          to: null,
+          data: dataToRevert,
+          nonce: await relay.getAccountNonce(accounts[2].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+        };
+        const signedTx = await accounts[2].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
+
+        expect(res.to).to.be.null;
+      });
     });
   });
 });

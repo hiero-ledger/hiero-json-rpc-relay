@@ -459,7 +459,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
-  ): Promise<CallTracerResult | null> {
+  ): Promise<CallTracerResult> {
     try {
       const [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
@@ -472,9 +472,6 @@ export class DebugImpl implements Debug {
       if (!actionsResponse || !transactionsResponse) {
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
-
-      // return empty array if no actions
-      if (actionsResponse.length === 0) return null;
 
       const { call_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
@@ -510,7 +507,7 @@ export class DebugImpl implements Debug {
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
-        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? undefined : formattedActions.slice(1),
+        calls: tracerConfig?.onlyTopCall || actionsResponse.length === 1 ? [] : formattedActions.slice(1),
       };
     } catch (e) {
       throw this.common.genericErrorHandler(e);

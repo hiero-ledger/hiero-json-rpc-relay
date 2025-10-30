@@ -2,6 +2,8 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
+import { HbarSpendingPlanConfigService } from '@hashgraph/json-rpc-relay/dist/lib/config/hbarSpendingPlanConfigService';
 import { EvmAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
@@ -19,6 +21,8 @@ import findConfig from 'find-config';
 import fs from 'fs';
 import { resolve } from 'path';
 import { Logger } from 'pino';
+import { Registry } from 'prom-client';
+import { RedisClientType } from 'redis';
 
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
@@ -64,17 +68,49 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   const mockTTL = ConfigService.get('HBAR_RATE_LIMIT_DURATION');
   const operatorAccount = ConfigService.get('OPERATOR_ID_MAIN');
   const fileAppendChunkSize = Number(ConfigService.get('FILE_APPEND_CHUNK_SIZE'));
-  const cacheService = new CacheService(logger.child({ name: 'cache-service' }));
   const maxBasicSpendingLimit = HbarLimitService.TIER_LIMITS.BASIC.toTinybars().toNumber();
   const maxExtendedSpendingLimit = HbarLimitService.TIER_LIMITS.EXTENDED.toTinybars().toNumber();
   const maxPrivilegedSpendingLimit = HbarLimitService.TIER_LIMITS.PRIVILEGED.toTinybars().toNumber();
 
-  const evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
-  const ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
-  const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
-    cacheService,
-    logger.child({ name: 'hbar-spending-plan-repository' }),
-  );
+  let redisClient: RedisClientType | undefined;
+  let cacheService: CacheService;
+  let evmAddressSpendingPlanRepository: EvmAddressHbarSpendingPlanRepository;
+  let ipSpendingPlanRepository: IPAddressHbarSpendingPlanRepository;
+  let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
+
+  before(async function () {
+    const redisUrl = ConfigService.get('REDIS_URL')!;
+    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
+
+    if (ConfigService.get('REDIS_ENABLED') && !!redisUrl) {
+      const redisManager = new RedisClientManager(
+        logger.child({ name: 'test-redis-manager' }),
+        redisUrl,
+        reconnectDelay,
+      );
+      await redisManager.connect();
+      redisClient = redisManager.getClient();
+    }
+
+    const register = new Registry();
+    const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
+
+    cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient);
+
+    evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
+    ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
+    hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
+      cacheService,
+      logger.child({ name: 'hbar-spending-plan-repository' }),
+    );
+  });
+
+  after(async function () {
+    // Disconnect Redis when tests are done
+    if (redisClient) {
+      await redisClient.quit();
+    }
+  });
 
   const pollForProperAmountSpent = async (
     hbarSpendingPlan: IDetailedHbarSpendingPlan,
