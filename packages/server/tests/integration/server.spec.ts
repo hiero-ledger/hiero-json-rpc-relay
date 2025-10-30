@@ -15,11 +15,14 @@ import serverTestConstants from '../helpers/constants';
 const { ERROR_CODE } = serverTestConstants;
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import Axios, { AxiosInstance } from 'axios';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { Server } from 'http';
 import Koa from 'koa';
 import sinon from 'sinon';
 import { GCProfiler } from 'v8';
+
+chai.use(chaiAsPromised);
 
 import {
   contractAddress1,

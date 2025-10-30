@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisClientType } from 'redis';
 
 import constants from '../../constants';

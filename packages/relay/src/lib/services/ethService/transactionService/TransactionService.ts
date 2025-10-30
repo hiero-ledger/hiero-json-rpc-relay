@@ -199,7 +199,9 @@ export class TransactionService implements ITransactionService {
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
       constants.TYPE_ACCOUNT,
     ]);
-    const toAddress = await this.common.resolveEvmAddress(contractResult.to, requestDetails);
+    const toAddress = contractResult.created_contract_ids.includes(contractResult.contract_id)
+      ? null
+      : await this.common.resolveEvmAddress(contractResult.to, requestDetails);
     contractResult.chain_id = contractResult.chain_id || this.chain;
 
     return createTransactionFromContractResult({

@@ -446,7 +446,8 @@ describe('@debug API Acceptance Tests', function () {
           accounts[0].address,
           parentContractAddress,
         );
-        expect(result).to.not.have.property('calls');
+        expect(result).to.have.property('calls');
+        expect(result.calls).to.be.an('array').that.is.empty;
       });
     });
 
