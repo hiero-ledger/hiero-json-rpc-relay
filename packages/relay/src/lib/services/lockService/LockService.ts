@@ -77,14 +77,30 @@ export class LockService {
     // Retrieve all pending items for this lockId from TxPool pending storage
     const pendingItems = await this.transactionPoolService.getPendingTransactions(lockId);
 
-    // Parse and order pending items by priority to establish proper queue sequence
-    const parsedItems = Array.from(pendingItems).map((itemData) => ethers.Transaction.from(itemData));
-    const orderedSessionKeys = parsedItems
-      .sort((a, b) => a.nonce - b.nonce)
-      .map((item) => ethers.keccak256(item.serialized));
+    if (pendingItems.size > 0) {
+      // Parse and order pending items by priority to establish proper queue sequence
+      const parsedItems = Array.from(pendingItems).map((itemData) => ethers.Transaction.from(itemData));
+      const orderedSessionKeys = parsedItems
+        .sort((a, b) => a.nonce - b.nonce)
+        .map((item) => ethers.keccak256(item.serialized));
 
-    // Store the ordered queue for this lock to coordinate access across sessions
-    this.sessionQueues.set(lockKey, orderedSessionKeys);
+      // Store the ordered queue for this lock to coordinate access across sessions
+      this.sessionQueues.set(lockKey, orderedSessionKeys);
+      this.logger.debug(
+        `Lock queue established from pending items: lockId=${lockId}, queueLength=${orderedSessionKeys.length}`,
+      );
+    } else {
+      // Get or create session queue for this lock
+      let sessionQueue = this.sessionQueues.get(lockKey);
+      if (!sessionQueue) {
+        sessionQueue = [];
+        this.sessionQueues.set(lockKey, sessionQueue);
+      }
+
+      // Enqueue the session key
+      sessionQueue.push(computedSessionKey);
+      this.logger.debug(`New item joined lock queue: lockId=${lockId}, session=${computedSessionKey}`);
+    }
 
     try {
       // Poll until first in queue to acquire the lock, or until timeout is reached

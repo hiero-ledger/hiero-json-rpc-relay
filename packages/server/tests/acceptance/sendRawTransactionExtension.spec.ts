@@ -461,6 +461,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
 
     it('@release should enforce correct nonce execution order even when transactions are submitted out of order', async function () {
+      // note: nonce re-ordering is only supported when TX Pool is enabled
+      ConfigServiceTestHelper.dynamicOverride('ENABLE_TX_POOL', true);
+
       const senderAccount = accounts[3];
       const recipientAddress = accounts[0].address;
       const transactionCount = 7;
