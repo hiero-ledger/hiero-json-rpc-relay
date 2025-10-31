@@ -73,9 +73,10 @@ export class Precheck {
     this.value(parsedTx);
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-    const signerNonce =
-      mirrorAccountInfo.ethereum_nonce +
-      (ConfigService.get('ENABLE_TX_POOL') ? await this.transactionPoolService.getPendingCount(parsedTx.from!) : 0);
+    // const signerNonce =
+    //   mirrorAccountInfo.ethereum_nonce +
+    //   (ConfigService.get('ENABLE_TX_POOL') ? await this.transactionPoolService.getPendingCount(parsedTx.from!) : 0);
+    const signerNonce = mirrorAccountInfo.ethereum_nonce;
     this.nonce(parsedTx, signerNonce);
     this.balance(parsedTx, mirrorAccountInfo.balance);
     await this.receiverAccount(parsedTx, requestDetails);
