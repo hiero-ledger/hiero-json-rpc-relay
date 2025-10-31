@@ -139,7 +139,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       account2Address = accounts[2].address;
     });
 
-    describe('txpool_* methods', async () => {
+    describe('txpool_* RPC methods', async () => {
       beforeEach(async () => {
         await new Promise((r) => setTimeout(r, 100));
       });
@@ -167,6 +167,22 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         }
 
         return transactionMap;
+      };
+
+      const sendContractDeploymentTransaction = async (signer = accounts[1]) => {
+        const signedTx = await signer.wallet.signTransaction({
+          chainId: Number(CHAIN_ID),
+          maxPriorityFeePerGas: defaultGasPrice,
+          maxFeePerGas: defaultGasPrice,
+          gasLimit: defaultGasLimit,
+          type: 2,
+          value: 0,
+          data: basicContract.bytecode,
+          nonce: await relay.getAccountNonce(signer.address, 'pending'),
+        });
+        await relay.sendRawTransaction(signedTx);
+
+        return ethers.Transaction.from(signedTx);
       };
 
       describe('TXPOOL_API_ENABLED = true', async () => {
@@ -241,6 +257,34 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           expect(relay.call('txpool_status', ['0x9303'])).to.eventually.be.rejected.and.satisfy(
             (err: any) => err.response.status === 400,
           );
+        });
+
+        it('should be able to execute txpool_content when there is a contract deployment tx', async () => {
+          const expectedTx = await sendContractDeploymentTransaction(accounts[2]);
+          const res = await relay.call('txpool_content', []);
+          expect(res.pending).to.not.be.empty;
+
+          const tx = res.pending[expectedTx.from][Number(expectedTx.nonce)];
+          expect(tx).to.not.be.null;
+          expect(tx.hash).to.equal(expectedTx.hash);
+          expect(tx.to).to.equal(expectedTx.to);
+        });
+
+        it('should be able to execute txpool_contentFrom when there is a contract deployment tx', async () => {
+          const expectedTx = await sendContractDeploymentTransaction(accounts[2]);
+          const res = await relay.call('txpool_contentFrom', [accounts[2].address]);
+          expect(res.pending).to.not.be.empty;
+
+          const tx = res.pending[Number(expectedTx.nonce)];
+          expect(tx).to.not.be.null;
+          expect(tx.hash).to.equal(expectedTx.hash);
+          expect(tx.to).to.equal(expectedTx.to);
+        });
+
+        it('should be able to execute txpool_status when there is a contract deployment tx', async () => {
+          await sendContractDeploymentTransaction(accounts[2]);
+          const res = await relay.call('txpool_status', []);
+          expect(Number(res.pending)).to.be.greaterThanOrEqual(1);
         });
       });
 
