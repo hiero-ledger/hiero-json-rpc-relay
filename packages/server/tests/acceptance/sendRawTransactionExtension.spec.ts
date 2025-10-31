@@ -41,7 +41,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   this.beforeAll(async () => {
     const initialAccount: AliasAccount = global.accounts[0];
-    const neededAccounts: number = 3;
+    const neededAccounts: number = 4;
     accounts.push(
       ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
@@ -295,6 +295,213 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const info = await mirrorNode.get(`/contracts/results/${txHash}`);
       expect(info).to.exist;
       expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
+    });
+  });
+
+  describe('Per-Account Transaction Locking', function () {
+    const TRANSACTION_COUNT = 10;
+
+    const createSequentialTransactions = async (
+      senderAccount: AliasAccount,
+      startNonce: number,
+      transactionCount: number,
+      recipientAddress: string,
+    ): Promise<string[]> => {
+      const gasPrice = await relay.gasPrice();
+      const signedTransactions: string[] = [];
+
+      for (let i = 0; i < transactionCount; i++) {
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: startNonce + i,
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          to: recipientAddress,
+        };
+
+        const signedTx = await senderAccount.wallet.signTransaction(transaction);
+        signedTransactions.push(signedTx);
+      }
+
+      return signedTransactions;
+    };
+
+    const submitTransactions = async (signedTransactions: string[]): Promise<string[]> => {
+      const transactionPromises: Promise<string>[] = [];
+
+      // Submit all transactions simultaneously to test account lock serialization
+      for (const signedTx of signedTransactions) {
+        const txPromise = relay.sendRawTransaction(signedTx);
+        transactionPromises.push(txPromise);
+      }
+
+      // Wait for all transaction hashes to be returned
+      return Promise.all(transactionPromises);
+    };
+
+    const validateSequentialNonceOrdering = async (
+      transactionHashes: string[],
+      expectedStartNonce: number,
+    ): Promise<void> => {
+      // Poll for all transaction receipts
+      await Promise.all(transactionHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
+
+      // Validate each transaction result and nonce ordering
+      const infos = await Promise.all(
+        transactionHashes.map((txHash) => mirrorNode.get(`/contracts/results/${txHash}`)),
+      );
+      infos.forEach((info, index) => {
+        expect(info).to.exist;
+        expect(info.result).to.equal('SUCCESS');
+        expect(info.nonce).to.equal(expectedStartNonce + index);
+      });
+    };
+
+    const validateFinalNonce = async (senderAccount: AliasAccount, expectedNonce: number): Promise<void> => {
+      const finalNonce = await relay.getAccountNonce(senderAccount.address);
+      expect(finalNonce).to.equal(expectedNonce);
+    };
+
+    it('@release should process a number of sequential transactions concurrently to the Relay without failing', async function () {
+      const senderAccount = accounts[3];
+      const recipientAddress = accounts[0].address;
+
+      // Get current nonce as starting point
+      const currentNonce = await relay.getAccountNonce(senderAccount.address);
+
+      // Create sequential transactions with incremental nonces
+      const signedTransactions = await createSequentialTransactions(
+        senderAccount,
+        currentNonce,
+        TRANSACTION_COUNT,
+        recipientAddress,
+      );
+
+      // Submit all transactions concurrently to test account lock service enforces serialization
+      const transactionHashes = await submitTransactions(signedTransactions);
+
+      // Validate all transactions were processed successfully with correct nonce ordering
+      await validateSequentialNonceOrdering(transactionHashes, currentNonce);
+
+      // Validate final nonce count matches expected value
+      await validateFinalNonce(senderAccount, currentNonce + TRANSACTION_COUNT);
+    });
+
+    it('@release should process transactions from multiple different senders concurrently without blocking each other', async function () {
+      // Use accounts[0], accounts[1], accounts[2] as different senders (Sender A, B, C)
+      const senders = [accounts[0], accounts[1], accounts[2]];
+      const recipientAddress = accounts[3].address;
+
+      // Get current nonces for all senders
+      const currentNonces = await Promise.all(senders.map((sender) => relay.getAccountNonce(sender.address)));
+
+      // Create sequential transactions for each sender
+      const signedTransactionsBySender = await Promise.all(
+        senders.map((sender, index) =>
+          createSequentialTransactions(sender, currentNonces[index], TRANSACTION_COUNT, recipientAddress),
+        ),
+      );
+
+      // Submit all transactions from all senders simultaneously to test concurrent processing
+      const transactionHashesBySender = await Promise.all(
+        signedTransactionsBySender.map((transactions) => submitTransactions(transactions)),
+      );
+
+      // Validate that each sender's transactions maintain proper nonce ordering
+      await Promise.all(
+        transactionHashesBySender.map((hashes, index) => validateSequentialNonceOrdering(hashes, currentNonces[index])),
+      );
+
+      // Validate final nonce counts for all senders
+      await Promise.all(
+        senders.map((sender, index) => validateFinalNonce(sender, currentNonces[index] + TRANSACTION_COUNT)),
+      );
+    });
+
+    it('@release should not block non-transactional RPC calls while account locks are held', async function () {
+      const testAccount = accounts[3];
+      const senderAccount = accounts[0]; // Different account for sendRawTransaction activity
+      const recipientAddress = accounts[1].address;
+      const rpcOperationsCount = 10;
+
+      const currentNonce = await relay.getAccountNonce(senderAccount.address);
+      const signedTransactions = await createSequentialTransactions(
+        senderAccount,
+        currentNonce,
+        TRANSACTION_COUNT,
+        recipientAddress,
+      );
+
+      // Execute RPC calls concurrently with sendRawTransaction to verify account locks don't block other operations
+      const [transactionHashes, rpcResults] = await Promise.all([
+        submitTransactions(signedTransactions),
+        Promise.all([
+          ...Array.from({ length: rpcOperationsCount }, () => relay.getBalance(testAccount.address, 'latest')),
+          ...Array.from({ length: rpcOperationsCount }, () => relay.getAccountNonce(testAccount.address)),
+          ...Array.from({ length: rpcOperationsCount }, () => relay.gasPrice()),
+          ...Array.from({ length: rpcOperationsCount }, () => relay.call('eth_blockNumber', [])),
+        ]),
+      ]);
+
+      // Wait for all sendRawTransaction calls to complete
+      await Promise.all(transactionHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
+
+      // Validate that all RPC calls return expected results and no null or undefined values
+      expect(rpcResults).to.have.lengthOf(rpcOperationsCount * 4);
+      rpcResults.forEach((result) => {
+        expect(result).to.not.be.null;
+        expect(result).to.not.be.undefined;
+      });
+
+      // Validate that sendRawTransaction calls completed successfully (lock worked)
+      expect(transactionHashes).to.have.lengthOf(TRANSACTION_COUNT);
+      await validateFinalNonce(senderAccount, currentNonce + TRANSACTION_COUNT);
+    });
+
+    it('@release should enforce correct nonce execution order even when transactions are submitted out of order', async function () {
+      const senderAccount = accounts[3];
+      const recipientAddress = accounts[0].address;
+      const transactionCount = 7;
+
+      // Get current nonce as starting point
+      const currentNonce = await relay.getAccountNonce(senderAccount.address);
+
+      // Create 7 sequential transactions with correct incremental nonces
+      const signedTransactions = await createSequentialTransactions(
+        senderAccount,
+        currentNonce,
+        transactionCount,
+        recipientAddress,
+      );
+
+      // Submit transactions in specific out-of-order pattern: [0, 2, 3, 1, 4, 5, 6]
+      // This means we submit nonces in order: 1st, 3rd, 4th, 2nd, 5th, 6th, 7th
+      // The lock service must enforce correct nonce execution order (1, 2, 3, 4, 5, 6, 7)
+      const outOfOrderPattern = [0, 2, 3, 1, 4, 5, 6];
+      const reorderedTransactions = outOfOrderPattern.map((index) => signedTransactions[index]);
+
+      // Verify that reordered transactions are indeed in different order
+      expect(reorderedTransactions).to.not.deep.equal(signedTransactions);
+
+      // Submit all transactions in the specified out-of-order pattern
+      const transactionHashes = await submitTransactions(reorderedTransactions);
+
+      // Poll for all transaction receipts
+      await Promise.all(transactionHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
+
+      // Verify all transactions succeeded despite out-of-order submission
+      const infos = await Promise.all(
+        transactionHashes.map((txHash) => mirrorNode.get(`/contracts/results/${txHash}`)),
+      );
+      infos.forEach((info) => {
+        expect(info).to.exist;
+        expect(info.result).to.equal('SUCCESS');
+      });
+
+      // Validate final nonce count matches expected value
+      await validateFinalNonce(senderAccount, currentNonce + transactionCount);
     });
   });
 });
