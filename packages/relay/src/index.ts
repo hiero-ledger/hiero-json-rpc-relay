@@ -3,6 +3,7 @@ import { JsonRpcError, predefined } from './lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from './lib/errors/MirrorNodeClientError';
 import WebSocketError from './lib/errors/WebSocketError';
 import { Block, Log, Receipt, Transaction } from './lib/model';
+import { TxPoolContent, TxPoolContentFrom, TxPoolStatus } from './lib/txpool';
 import {
   BlockTracerConfig,
   IContractCallRequest,
@@ -47,6 +48,14 @@ export interface Net {
 
 export interface Admin {
   config(): any;
+}
+
+export interface TxPool {
+  content(): Promise<TxPoolContent | JsonRpcError>;
+
+  contentFrom(address: string): Promise<TxPoolContentFrom | JsonRpcError>;
+
+  status(): Promise<TxPoolStatus | JsonRpcError>;
 }
 
 export interface Eth {

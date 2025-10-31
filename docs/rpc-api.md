@@ -140,6 +140,9 @@ These methods are extensions provided by various Ethereum clients but are not pa
 | [trace_block](https://openethereum.github.io/JSONRPC-trace-module#trace_block)                                        | **Not Implemented**                                                              | N/A          |                                                        |
 | [trace_blockByNumber](https://openethereum.github.io/JSONRPC-trace-module#trace_blockbynumber)                        | **Not Implemented**                                                              | N/A          |                                                        |
 | [trace_transaction](https://openethereum.github.io/JSONRPC-trace-module#trace_transaction)                            | **Not Implemented**                                                              | N/A          |                                                        |
+| [txpool_content](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-content)                   | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
+| [txpool_contentFrom](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-contentfrom)           | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
+| [txpool_status](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-status)                     | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
 
 ### Live events API
 
