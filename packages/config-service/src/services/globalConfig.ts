@@ -368,6 +368,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 'trace',
   },
+  PRETTY_LOGS_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
