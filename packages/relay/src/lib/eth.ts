@@ -27,6 +27,7 @@ import { FeeService } from './services/ethService/feeService/FeeService';
 import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
 import HAPIService from './services/hapiService/hapiService';
+import { LockService } from './services/lockService/LockService';
 import {
   IContractCallRequest,
   IFeeHistory,
@@ -125,7 +126,8 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: CacheService,
-    storage: PendingTransactionStorage,
+    transactionPoolService: TransactionPoolService,
+    private readonly lockService: LockService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -136,7 +138,6 @@ export class EthImpl implements Eth {
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    const transactionPoolService = new TransactionPoolService(storage, logger);
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -146,6 +147,7 @@ export class EthImpl implements Eth {
       logger,
       mirrorNodeClient,
       transactionPoolService,
+      this.lockService,
     );
     this.accountService = new AccountService(
       cacheService,

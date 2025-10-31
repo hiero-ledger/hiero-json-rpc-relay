@@ -20,9 +20,11 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
+import { TransactionPoolService } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
+import { LockService } from './services/lockService/LockService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
@@ -303,6 +305,13 @@ export class Relay {
       duration,
     );
 
+    const storage = this.redisClient
+      ? new RedisPendingTransactionStorage(this.redisClient)
+      : new LocalPendingTransactionStorage();
+
+    const transactionPoolService = new TransactionPoolService(storage, this.logger);
+    const lockService = new LockService(this.logger, transactionPoolService);
+
     // Create HAPI service
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
@@ -327,10 +336,6 @@ export class Relay {
       : this.mirrorNodeClient;
     this.metricService = new MetricService(this.logger, metricsCollector, this.register, hbarLimitService);
 
-    const storage = this.redisClient
-      ? new RedisPendingTransactionStorage(this.redisClient)
-      : new LocalPendingTransactionStorage();
-
     // Create Eth implementation with connected Redis client
     this.ethImpl = new EthImpl(
       hapiService,
@@ -338,7 +343,8 @@ export class Relay {
       this.logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
-      storage,
+      transactionPoolService,
+      lockService,
     );
 
     // Set up event listeners

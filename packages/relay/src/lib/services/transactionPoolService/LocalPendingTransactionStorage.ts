@@ -28,6 +28,11 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     return addressTransactions ? addressTransactions.size : 0;
   }
 
+  async getPendingTransactions(addr: string): Promise<Set<string>> {
+    const pendingTransactions = this.pendingTransactions.get(addr);
+    return pendingTransactions ? new Set(pendingTransactions) : new Set();
+  }
+
   /**
    * Adds a pending transaction entry for the given address.
    *

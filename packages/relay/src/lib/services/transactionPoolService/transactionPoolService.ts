@@ -53,7 +53,8 @@ export class TransactionPoolService implements ITransactionPoolService {
       throw new Error('Transaction hash is required for storage');
     }
 
-    await this.storage.addToList(addressLowerCased, txHash);
+    // POC: Store the serialized transaction instead of txHash
+    await this.storage.addToList(addressLowerCased, tx.serialized);
 
     this.logger.debug({ address, txHash }, 'Transaction saved to pool');
   }
@@ -82,5 +83,10 @@ export class TransactionPoolService implements ITransactionPoolService {
   async getPendingCount(address: string): Promise<number> {
     const addressLowerCased = address.toLowerCase();
     return await this.storage.getList(addressLowerCased);
+  }
+
+  async getPendingTransactions(address: string): Promise<Set<string>> {
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.getPendingTransactions(addressLowerCased);
   }
 }

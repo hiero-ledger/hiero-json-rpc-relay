@@ -22,6 +22,7 @@ import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { ICommonService, TransactionPoolService } from '../../index';
+import { LockService } from '../../lockService/LockService';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -86,6 +87,7 @@ export class TransactionService implements ITransactionService {
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
     transactionPoolService: TransactionPoolService,
+    private readonly lockService: LockService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -253,38 +255,66 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getGasPriceInWeibars(requestDetails),
-    );
 
-    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    // let lockSessionKey: string | null = null;
 
     // Save the transaction to the transaction pool before submitting it to the network
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    // if (ConfigService.get('ENABLE_TX_POOL')) {
+    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    // }
+
+    // Acquire a lock for the sender before any side effects or asynchronous calls to ensure proper nonce ordering
+    if (parsedTx.from) {
+      // lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
+      await this.lockService.acquireLock(parsedTx.from, parsedTx.serialized);
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
+    try {
+      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+        await this.common.getGasPriceInWeibars(requestDetails),
+      );
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      requestDetails,
-    );
+      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
+       * the transaction hash is calculated and returned immediately after passing all prechecks.
+       * All transaction processing logic is then handled asynchronously in the background.
+       */
+      const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+      if (useAsyncTxProcessing) {
+        this.sendRawTransactionProcessor(
+          transactionBuffer,
+          parsedTx,
+          networkGasPriceInWeiBars,
+          // lockSessionKey,
+          requestDetails,
+        );
+        return Utils.computeTransactionHash(transactionBuffer);
+      }
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
+       * wait for all transaction processing logic to complete before returning the transaction hash.
+       */
+      return await this.sendRawTransactionProcessor(
+        transactionBuffer,
+        parsedTx,
+        networkGasPriceInWeiBars,
+        // lockSessionKey,
+        requestDetails,
+      );
+    } catch (error) {
+      // TODO: remove pending transaction if fail prechecks
+
+      // Release the lock on any error to prevent lock starvation
+      // if (lockSessionKey && parsedTx.from) {
+      if (parsedTx.from) {
+        await this.lockService.releaseLock(parsedTx.from, parsedTx.serialized);
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -480,6 +510,7 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
+    // lockSessionKey: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
@@ -498,8 +529,14 @@ export class TransactionService implements ITransactionService {
     );
 
     // Remove the transaction from the transaction pool after submission
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
+    // if (ConfigService.get('ENABLE_TX_POOL')) {
+    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
+    // }
+
+    // Release the lock after submitting the transaction
+    // if (lockSessionKey && parsedTx.from) {
+    if (parsedTx.from) {
+      await this.lockService.releaseLock(parsedTx.from, parsedTx.serialized);
     }
 
     sendRawTransactionError = error;
