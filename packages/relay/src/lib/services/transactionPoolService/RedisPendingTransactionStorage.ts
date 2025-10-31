@@ -66,6 +66,12 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
     await this.redisClient.sRem(key, txHash);
   }
 
+  async getPendingTransactions(address: string): Promise<Set<string>> {
+    const key = this.keyFor(address);
+    const members = await this.redisClient.sMembers(key);
+    return new Set(members);
+  }
+
   /**
    * Removes all keys managed by this storage (all `pending:*`).
    */

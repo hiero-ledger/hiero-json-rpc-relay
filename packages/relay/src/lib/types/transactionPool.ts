@@ -31,6 +31,8 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   getPendingCount(address: string): Promise<number>;
+
+  getPendingTransactions(address: string): Promise<Set<string>>;
 }
 
 /**
@@ -67,4 +69,6 @@ export interface PendingTransactionStorage {
    * @returns A promise that resolves once all entries have been cleared.
    */
   removeAll(): Promise<void>;
+
+  getPendingTransactions(address: string): Promise<Set<string>>;
 }
