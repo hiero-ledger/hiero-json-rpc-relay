@@ -272,7 +272,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getBalance\",\n    \"params\": [\"0x0000000000000000000000000000000000000062\", \"latest\"]\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getBalance\",\n    \"params\": [\"0x0000000000000000000000000000000000000002\", \"latest\"]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1033,7 +1033,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getTransactionCount\",\n    \"params\": [\n        \"0x0000000000000000000000000000000000000062\", \"latest\"\n    ]\n}",
+          "raw": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"eth_getTransactionCount\",\n    \"params\": [\n        \"0x0000000000000000000000000000000000000002\", \"latest\"\n    ]\n}",
           "options": {
             "raw": {
               "language": "json"
