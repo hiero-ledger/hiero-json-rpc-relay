@@ -742,6 +742,112 @@
       }
     },
     {
+      "name": "txpool_content",
+      "summary": "Returns all pending and queued transactions.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool content",
+        "schema": {
+          "type": "object",
+          "required": [
+            "pending",
+            "queued"
+          ],
+          "properties": {
+            "pending": {
+              "type": "object",
+              "patternProperties": {
+                "^0x[a-fA-F0-9]{40}$": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[0-9]+$": {
+                      "$ref": "#/components/schemas/TxPoolTransaction"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "queued": {
+              "type": "object",
+              "patternProperties": {
+                "^0x[a-fA-F0-9]{40}$": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[0-9]+$": {
+                      "$ref": "#/components/schemas/TxPoolTransaction"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "txpool_contentFrom",
+      "summary": "Returns pending and queued transactions of this address, grouped by nonce.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool contentFrom",
+        "schema": {
+          "type": "object",
+          "required": [
+            "pending",
+            "queued"
+          ],
+          "properties": {
+            "pending": {
+              "type": "object",
+              "patternProperties": {
+                "^[0-9]+$": {
+                  "$ref": "#/components/schemas/TxPoolTransaction"
+                }
+              },
+              "additionalProperties": false
+            },
+            "queued": {
+              "type": "object",
+              "patternProperties": {
+                "^[0-9]+$": {
+                  "$ref": "#/components/schemas/TxPoolTransaction"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "txpool_status",
+      "summary": "Returns the number of transactions in pending and queued states.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool status",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pending": {
+              "$ref": "#/components/schemas/uint"
+            },
+            "queued": {
+              "$ref": "#/components/schemas/uint"
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "eth_maxPriorityFeePerGas",
       "summary": "Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or 'tip', to get a transaction included in the current block.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
@@ -1627,6 +1733,140 @@
           }
         ]
       },
+      "TxPoolTransaction": {
+        "type": "object",
+        "description": "A transaction currently in the pool.",
+        "required": [
+          "blockHash",
+          "blockNumber",
+          "transactionIndex",
+          "from",
+          "gas",
+          "hash",
+          "input",
+          "nonce",
+          "to",
+          "value",
+          "type",
+          "v",
+          "r",
+          "s"
+        ],
+        "properties": {
+          "blockHash": {
+            "type": [
+              "string"
+            ],
+            "pattern": "^0x([A-Fa-f0-9]{64})$",
+            "description": "Zero hex 32 bytes."
+          },
+          "blockNumber": {
+            "type": [
+              "null"
+            ],
+            "description": "Null."
+          },
+          "transactionIndex": {
+            "type": [
+              "null"
+            ],
+            "description": "Null."
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "description": "Address of the sender."
+          },
+          "gas": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Gas provided by the sender."
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{64}$",
+            "description": "Transaction hash."
+          },
+          "input": {
+            "type": "string",
+            "pattern": "^0x([A-Fa-f0-9]*)$",
+            "description": "Input data."
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Nonce of the transaction."
+          },
+          "to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "description": "Recipient address (null for contract creation)."
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Value transferred."
+          },
+          "type": {
+            "type": [
+              "string"
+            ],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Transaction type (EIP-2718 typed transactions)."
+          },
+          "v": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature v component."
+          },
+          "r": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature r component."
+          },
+          "s": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature s component."
+          },
+          "chainId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Chain ID for EIP-155 transactions."
+          },
+          "gasPrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Gas price."
+          },
+          "maxFeePerGas": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "For EIP-1559 transactions: maximum fee per gas."
+          },
+          "maxPriorityFeePerGas": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "For EIP-1559 transactions: max priority fee per gas."
+          }
+        },
+        "additionalProperties": false
+      },
       "BlockNumberOrTagOrHash": {
         "title": "Block number, tag, or block hash",
         "oneOf": [
@@ -1720,14 +1960,19 @@
       "BlockTracerType": {
         "title": "Block tracer type",
         "type": "string",
-        "enum": ["callTracer", "prestateTracer"]
+        "enum": [
+          "callTracer",
+          "prestateTracer"
+        ]
       },
       "TransactionWithSender": {
         "title": "Transaction object with sender",
         "type": "object",
         "allOf": [
           {
-            "required": ["from"],
+            "required": [
+              "from"
+            ],
             "properties": {
               "from": {
                 "title": "from",
@@ -1812,7 +2057,14 @@
       "TransactionLegacyUnsigned": {
         "type": "object",
         "title": "Legacy transaction.",
-        "required": ["type", "nonce", "gas", "value", "input", "gasPrice"],
+        "required": [
+          "type",
+          "nonce",
+          "gas",
+          "value",
+          "input",
+          "gasPrice"
+        ],
         "properties": {
           "type": {
             "title": "type",
@@ -1868,7 +2120,12 @@
           },
           {
             "title": "EIP-1559 transaction signature properties.",
-            "required": ["yParity", "r", "s", "v"],
+            "required": [
+              "yParity",
+              "r",
+              "s",
+              "v"
+            ],
             "properties": {
               "yParity": {
                 "title": "yParity",
@@ -1925,7 +2182,11 @@
           },
           {
             "title": "Legacy transaction signature properties.",
-            "required": ["v", "r", "s"],
+            "required": [
+              "v",
+              "r",
+              "s"
+            ],
             "properties": {
               "v": {
                 "title": "v",
@@ -1966,7 +2227,13 @@
         "allOf": [
           {
             "title": "Contextual information",
-            "required": ["blockHash", "blockNumber", "from", "hash", "transactionIndex"],
+            "required": [
+              "blockHash",
+              "blockNumber",
+              "from",
+              "hash",
+              "transactionIndex"
+            ],
             "properties": {
               "blockHash": {
                 "title": "block hash",
@@ -1998,7 +2265,9 @@
       "Log": {
         "title": "log",
         "type": "object",
-        "required": ["transactionHash"],
+        "required": [
+          "transactionHash"
+        ],
         "properties": {
           "removed": {
             "title": "removed",
@@ -2262,7 +2531,10 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["CALL", "CREATE"],
+            "enum": [
+              "CALL",
+              "CREATE"
+            ],
             "description": "The type of action (CALL for function calls or CREATE for contract creation)."
           },
           "from": {
@@ -2309,7 +2581,11 @@
             "description": "Sub-calls made during this call frame."
           }
         },
-        "required": ["from", "gas", "input"]
+        "required": [
+          "from",
+          "gas",
+          "input"
+        ]
       }
     }
   }
