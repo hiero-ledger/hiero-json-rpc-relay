@@ -19,7 +19,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   /**
    * Key for the global pending transactions index.
    */
-  private readonly globalIndexKey = 'pending:txns';
+  private readonly globalIndexKey = 'txpool:pending:txns';
 
   /**
    * The time-to-live (TTL) for the pending transaction storage in seconds.

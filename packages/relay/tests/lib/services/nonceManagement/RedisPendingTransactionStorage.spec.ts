@@ -23,6 +23,16 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
   before(async () => {
     redisClient = createClient({ url: 'redis://127.0.0.1:6390' });
     await redisClient.connect();
+    // Ignore benign shutdown noise when the in-memory Redis server closes
+    // its socket during global teardown. We still surface any other errors.
+    redisClient.on('error', (err: any) => {
+      const message: string = err?.message ?? '';
+      if (message.includes('Socket closed') || message.includes('The client is closed')) {
+        return;
+      }
+      // Surface unexpected errors
+      throw err;
+    });
     storage = new RedisPendingTransactionStorage(redisClient);
   });
 
@@ -137,10 +147,6 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       expect(queueKey).to.equal('queuedtx');
       expect(otherKey).to.equal('value');
     });
-
-    after(async () => {
-      await redisClient.quit();
-    });
   });
 
   describe('Payload retrieval', () => {
@@ -216,9 +222,16 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       expect(allPayloads).to.have.lengthOf(2);
       expect(allPayloads).to.include.members([rlp1, rlp2]);
     });
+  });
 
-    after(async () => {
-      await redisClient.quit();
-    });
+  // Note: use disconnect() (no QUIT round-trip) to avoid hanging or
+  // "Socket closed unexpectedly" when the in-memory Redis server is
+  // shutting down in its own after-hook. This after() is declared after
+  // useInMemoryRedisServer(...), so Mocha runs it first, ensuring the
+  // client disconnects before the server stops.
+  after(async () => {
+    if (redisClient?.isOpen) {
+      await redisClient.disconnect();
+    }
   });
 });
