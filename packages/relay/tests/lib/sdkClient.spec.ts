@@ -5,6 +5,7 @@ import assert from 'node:assert';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import {
   AccountId,
+  Client,
   EthereumTransaction,
   ExchangeRate,
   FileAppendTransaction,
@@ -13,6 +14,8 @@ import {
   FileId,
   FileInfoQuery,
   Hbar,
+  Logger as HederaLogger,
+  LogLevel,
   Query,
   Status,
   TransactionId,
@@ -192,6 +195,132 @@ describe('SdkClient', async function () {
           expect.fail(`Expected an error but nothing was thrown`);
         } catch (e: any) {
           expect(e.message).to.eq('Invalid OPERATOR_KEY_FORMAT provided: BAD_FORMAT');
+        }
+      });
+    });
+  });
+
+  describe('SDK Logger Configuration', () => {
+    // Simple helper to create standard mock logger
+    const createMockLogger = (additionalProps = {}) => ({
+      child: sinon.stub().returns({ name: 'sdk-client' }),
+      info: sinon.stub(),
+      ...additionalProps,
+    });
+
+    // Simple helper to create Client stub
+    const createClientStub = () =>
+      sinon.stub(Client, 'forName').returns({
+        setOperator: sinon.stub().returnsThis(),
+        setTransportSecurity: sinon.stub().returnsThis(),
+        setRequestTimeout: sinon.stub().returnsThis(),
+        setLogger: sinon.stub().returnsThis(),
+        setMaxExecutionTime: sinon.stub().returnsThis(),
+        operatorAccountId: null,
+        operatorPublicKey: null,
+      } as any);
+
+    // Simple helper to restore stubs
+    const cleanupStubs = (...stubs: sinon.SinonStub[]) => {
+      stubs.forEach((stub) => stub.restore());
+    };
+
+    it('should create child logger with "sdk-client" name using SDK_LOG_LEVEL', () => {
+      const mockLogger = createMockLogger();
+
+      const configStub = sinon.stub(ConfigService, 'get');
+      configStub.withArgs('SDK_LOG_LEVEL').returns('debug');
+      configStub.callThrough();
+
+      const clientStub = createClientStub();
+
+      try {
+        const eventEmitter = new EventEmitter<TypedEvents>();
+        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+
+        expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'debug' })).to.be.true;
+      } finally {
+        cleanupStubs(configStub, clientStub);
+      }
+    });
+
+    it('should use SDK_LOG_LEVEL independently from global LOG_LEVEL', () => {
+      const mockLogger = createMockLogger({ level: 'error' });
+
+      const configStub = sinon.stub(ConfigService, 'get');
+      configStub.withArgs('SDK_LOG_LEVEL').returns('info');
+      configStub.withArgs('LOG_LEVEL').returns('error');
+      configStub.callThrough();
+
+      const clientStub = createClientStub();
+
+      try {
+        const eventEmitter = new EventEmitter<TypedEvents>();
+        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+
+        // Verify SDK logger uses SDK_LOG_LEVEL ('info'), not global LOG_LEVEL ('error')
+        expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'info' })).to.be.true;
+      } finally {
+        cleanupStubs(configStub, clientStub);
+      }
+    });
+
+    it('should create child logger that inherits from global logger with SDK log level override', () => {
+      const mockGlobalLogger = createMockLogger({
+        level: 'trace',
+        service: 'hedera-relay', // Global logger has this binding
+      });
+
+      // Mock child() to simulate pino inheritance behavior
+      mockGlobalLogger.child.callsFake((newBindings, options) => ({
+        service: 'hedera-relay', // Inherited from parent
+        name: newBindings.name, // Added by child
+        level: options.level, // Overridden by child options
+      }));
+
+      const configStub = sinon.stub(ConfigService, 'get');
+      configStub.withArgs('SDK_LOG_LEVEL').returns('warn');
+      configStub.callThrough();
+
+      const clientStub = createClientStub();
+
+      try {
+        const eventEmitter = new EventEmitter<TypedEvents>();
+        new SDKClient('testnet', mockGlobalLogger as any, eventEmitter, hbarLimitService);
+
+        // Verify child() was called correctly
+        expect(mockGlobalLogger.child.calledWith({ name: 'sdk-client' }, { level: 'warn' })).to.be.true;
+
+        // Verify the child logger has the right properties
+        const childLogger = mockGlobalLogger.child.returnValues[0];
+        expect(childLogger.service).to.equal('hedera-relay'); // Inherited
+        expect(childLogger.name).to.equal('sdk-client'); // Added by child
+        expect(childLogger.level).to.equal('warn'); // Overridden level
+      } finally {
+        cleanupStubs(configStub, clientStub);
+      }
+    });
+
+    it('should work across different log levels', () => {
+      const testLevels = ['trace', 'debug', 'info', 'warn', 'error'];
+
+      testLevels.forEach((level) => {
+        const mockLogger = createMockLogger();
+
+        const configStub = sinon.stub(ConfigService, 'get');
+        configStub.withArgs('SDK_LOG_LEVEL').returns(level);
+        configStub.callThrough();
+
+        const clientStub = createClientStub();
+
+        try {
+          const eventEmitter = new EventEmitter<TypedEvents>();
+          new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
+
+          // Verify child logger is always created with 'sdk-client' name
+          expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level })).to.be.true;
+        } finally {
+          cleanupStubs(configStub, clientStub);
         }
       });
     });

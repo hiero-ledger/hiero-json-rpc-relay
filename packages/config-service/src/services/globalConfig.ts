@@ -373,6 +373,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  SDK_LOG_LEVEL: {
+    type: 'string',
+    required: false,
+    defaultValue: 'trace',
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
