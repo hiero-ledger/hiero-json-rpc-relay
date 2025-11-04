@@ -39,10 +39,8 @@ describe('TransactionPoolService Test Suite', function () {
       addToList: sinon.stub(),
       removeFromList: sinon.stub(),
       removeAll: sinon.stub(),
-      getTransactionPayload: sinon.stub(),
       getTransactionPayloads: sinon.stub(),
-      getAllTransactionHashes: sinon.stub(),
-      getTransactionHashes: sinon.stub(),
+      getAllTransactionPayloads: sinon.stub(),
     };
 
     transactionPoolService = new TransactionPoolService(mockStorage, logger);
@@ -67,21 +65,7 @@ describe('TransactionPoolService Test Suite', function () {
       await transactionPoolService.saveTransaction(testAddress, testTransaction);
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
-      expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testTxHash, testRlpHex)).to.be.true;
-    });
-
-    it('should throw error when transaction has no hash', async () => {
-      const txWithoutHash = { ...testTransaction, hash: null } as Transaction;
-
-      try {
-        await transactionPoolService.saveTransaction(testAddress, txWithoutHash);
-        expect.fail('Expected error to be thrown');
-      } catch (error) {
-        expect(error).to.be.instanceOf(Error);
-        expect((error as Error).message).to.equal('Transaction hash is required for storage');
-      }
-
-      expect(mockStorage.addToList.called).to.be.false;
+      expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
 
     it('should propagate storage errors', async () => {
@@ -96,7 +80,7 @@ describe('TransactionPoolService Test Suite', function () {
       }
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
-      expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testTxHash, testRlpHex)).to.be.true;
+      expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
   });
 
@@ -104,9 +88,9 @@ describe('TransactionPoolService Test Suite', function () {
     it('should successfully remove transaction from pool', async () => {
       mockStorage.removeFromList.resolves();
 
-      await transactionPoolService.removeTransaction(testAddress, testTxHash);
+      await transactionPoolService.removeTransaction(testAddress, testRlpHex);
 
-      expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testTxHash)).to.be.true;
+      expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
 
     it('should propagate storage errors', async () => {
@@ -114,13 +98,13 @@ describe('TransactionPoolService Test Suite', function () {
       mockStorage.removeFromList.rejects(storageError);
 
       try {
-        await transactionPoolService.removeTransaction(testAddress, testTxHash);
+        await transactionPoolService.removeTransaction(testAddress, testRlpHex);
         expect.fail('Expected error to be thrown');
       } catch (error) {
         expect(error).to.equal(storageError);
       }
 
-      expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testTxHash)).to.be.true;
+      expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
   });
 
@@ -175,7 +159,7 @@ describe('TransactionPoolService Test Suite', function () {
       expect(pendingCount).to.equal(1);
 
       // Remove transaction (simulating consensus result)
-      await transactionPoolService.removeTransaction(testAddress, testTxHash);
+      await transactionPoolService.removeTransaction(testAddress, testRlpHex);
 
       // Verify all storage methods were called correctly
       expect(mockStorage.getList.called).to.be.true;
@@ -203,13 +187,12 @@ describe('TransactionPoolService Test Suite', function () {
       await transactionPoolService.saveTransaction(testAddress, secondTx);
 
       expect(mockStorage.addToList.calledTwice).to.be.true;
-      expect(mockStorage.addToList.firstCall.calledWith(testAddress.toLowerCase(), testTxHash, testRlpHex)).to.be.true;
-      expect(mockStorage.addToList.secondCall.calledWith(testAddress.toLowerCase(), secondTxHash, secondRlpHex)).to.be
-        .true;
+      expect(mockStorage.addToList.firstCall.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
+      expect(mockStorage.addToList.secondCall.calledWith(testAddress.toLowerCase(), secondRlpHex)).to.be.true;
     });
   });
 
-  describe('Payload handling (new functionality)', () => {
+  describe('Payload handling', () => {
     it('should pass RLP payload to addToList when saving transaction', async () => {
       mockStorage.addToList.resolves();
 
@@ -218,8 +201,7 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.addToList.calledOnce).to.be.true;
       const callArgs = mockStorage.addToList.firstCall.args;
       expect(callArgs[0]).to.equal(testAddress.toLowerCase());
-      expect(callArgs[1]).to.equal(testTxHash);
-      expect(callArgs[2]).to.equal(testRlpHex);
+      expect(callArgs[1]).to.equal(testRlpHex);
     });
 
     it('should atomically save address index and payload in single storage call', async () => {
@@ -234,7 +216,7 @@ describe('TransactionPoolService Test Suite', function () {
     it('should atomically remove address index and payload in single storage call', async () => {
       mockStorage.removeFromList.resolves();
 
-      await transactionPoolService.removeTransaction(testAddress, testTxHash);
+      await transactionPoolService.removeTransaction(testAddress, testRlpHex);
 
       // Verify only one storage call was made
       expect(mockStorage.removeFromList.callCount).to.equal(1);

@@ -46,18 +46,12 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
-    const txHash = tx.hash;
     const addressLowerCased = address.toLowerCase();
 
-    if (!txHash) {
-      throw new Error('Transaction hash is required for storage');
-    }
-
     const rlpHex = tx.serialized;
-    await this.storage.addToList(addressLowerCased, txHash, rlpHex);
+    await this.storage.addToList(addressLowerCased, rlpHex);
 
-    const rlpBytes = (rlpHex.startsWith('0x') ? rlpHex.length - 2 : rlpHex.length) / 2;
-    this.logger.debug({ address, txHash, rlpBytes }, 'Transaction saved to pool');
+    this.logger.debug({ address, rlpHex }, 'Transaction saved to pool');
   }
 
   /**
@@ -65,15 +59,15 @@ export class TransactionPoolService implements ITransactionPoolService {
    * This is typically called when a transaction is confirmed or fails on the consensus layer.
    *
    * @param address - The account address of the transaction sender.
-   * @param txHash - The hash of the transaction to remove.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  async removeTransaction(address: string, txHash: string): Promise<void> {
+  async removeTransaction(address: string, rlpHex: string): Promise<void> {
     const addressLowerCased = address.toLowerCase();
 
-    await this.storage.removeFromList(addressLowerCased, txHash);
+    await this.storage.removeFromList(addressLowerCased, rlpHex);
 
-    this.logger.debug({ address, txHash }, 'Transaction removed from pool');
+    this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
   }
 
   /**
@@ -88,93 +82,28 @@ export class TransactionPoolService implements ITransactionPoolService {
   }
 
   /**
-   * Retrieves all pending transaction hashes and their RLP payloads for a given address.
+   * Retrieves all pending transaction RLP payloads for a given address.
    *
    * @param address - The account address to query.
-   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   * @returns A promise that resolves to an array of RLP hex strings.
    */
-  async getTransactions(address: string): Promise<Map<string, string>> {
+  async getTransactions(address: string): Promise<string[]> {
     const addressLowerCased = address.toLowerCase();
-    const transactionMap = new Map<string, string>();
+    const payloads = await this.storage.getTransactionPayloads(addressLowerCased);
 
-    const hashes = await this.storage.getTransactionHashes(addressLowerCased);
+    this.logger.debug({ address, totalPayloads: payloads.length }, 'Retrieved transactions for address');
 
-    if (hashes.length === 0) {
-      return transactionMap;
-    }
-
-    const payloads = await this.storage.getTransactionPayloads(hashes);
-
-    let validCount = 0;
-    let nullCount = 0;
-
-    for (let i = 0; i < hashes.length; i++) {
-      const payload = payloads[i];
-      if (payload !== null) {
-        transactionMap.set(hashes[i], payload);
-        validCount++;
-      } else {
-        nullCount++;
-      }
-    }
-
-    this.logger.debug(
-      { address, totalHashes: hashes.length, validPayloads: validCount, nullPayloads: nullCount },
-      'Retrieved transactions for address',
-    );
-
-    return transactionMap;
+    return payloads;
   }
 
   /**
-   * Retrieves all pending transactions across all addresses.
-   * Returns a map of transaction hash to RLP hex.
+   * Retrieves all pending transaction RLP payloads across all addresses.
    *
-   * @returns A promise that resolves to a map of transaction hash to RLP hex.
+   * @returns A promise that resolves to an array of RLP hex strings.
    */
-  async getAllTransactions(): Promise<Map<string, string>> {
-    const transactionMap = new Map<string, string>();
+  async getAllTransactions(): Promise<string[]> {
+    const payloads = await this.storage.getAllTransactionPayloads();
 
-    if (!this.storage.getAllTransactionHashes || !this.storage.getTransactionPayloads) {
-      this.logger.debug('Storage does not support global transaction retrieval');
-      return transactionMap;
-    }
-
-    const startTime = Date.now();
-
-    const hashes = await this.storage.getAllTransactionHashes();
-
-    if (hashes.length === 0) {
-      return transactionMap;
-    }
-
-    const payloads = await this.storage.getTransactionPayloads(hashes);
-
-    let validCount = 0;
-    let nullCount = 0;
-
-    for (let i = 0; i < hashes.length; i++) {
-      const payload = payloads[i];
-      if (payload !== null) {
-        transactionMap.set(hashes[i], payload);
-        validCount++;
-      } else {
-        nullCount++;
-      }
-    }
-
-    const duration = Date.now() - startTime;
-
-    this.logger.debug(
-      {
-        totalHashes: hashes.length,
-        validPayloads: validCount,
-        nullPayloads: nullCount,
-        durationMs: duration,
-      },
-      'Retrieved all transactions from pool',
-    );
-
-    return transactionMap;
+    return payloads;
   }
 }
