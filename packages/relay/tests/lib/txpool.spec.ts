@@ -19,10 +19,9 @@ describe('Txpool', async function () {
   let txPoolServiceMock: sinon.SinonStubbedInstance<TransactionPoolService>;
   let txPool: TxPoolImpl;
 
-  const txHash = '0x888eab490f1ea6ef5c4d9e1f47a04291538fac9b7b05f4610ffa6a211610b522';
   const rlpTx =
     '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
-  const rlxTxsMap = new Map<string, string>([[txHash, rlpTx]]);
+  const rlpTxs: string[] = [rlpTx];
   const parsedTx = ethers.Transaction.from(rlpTx);
 
   before(() => {
@@ -48,7 +47,7 @@ describe('Txpool', async function () {
 
   describe('private methods', async () => {
     it('convertRlpEncodedTxToTransactionPoolTx', async () => {
-      const result = (txPool as any).convertRlpEncodedTxToTransactionPoolTx(rlxTxsMap);
+      const result = (txPool as any).convertRlpEncodedTxToTransactionPoolTx(rlpTxs);
       expect(result).to.have.lengthOf(1);
 
       const tx = result[0];
@@ -183,7 +182,7 @@ describe('Txpool', async function () {
 
   describe('content', async () => {
     it('should return grouped pending transactions', async () => {
-      txPoolServiceMock.getAllTransactions.resolves(rlxTxsMap);
+      txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
 
       const res = await txPool.content();
       expect(res).to.have.keys(['pending', 'queued']);
@@ -194,7 +193,7 @@ describe('Txpool', async function () {
 
   describe('contentFrom', async () => {
     it('should return grouped transactions by nonce for a specific address', async () => {
-      txPoolServiceMock.getTransactions.resolves(rlxTxsMap);
+      txPoolServiceMock.getTransactions.resolves(rlpTxs);
 
       const res = await txPool.contentFrom(parsedTx.from);
       expect(res).to.have.keys(['pending', 'queued']);
@@ -204,11 +203,11 @@ describe('Txpool', async function () {
 
   describe('status', async () => {
     it('should return correct pending count and zero queued', async () => {
-      txPoolServiceMock.getAllTransactions.resolves(rlxTxsMap);
+      txPoolServiceMock.getAllTransactions.resolves(rlpTxs);
 
       const res = await txPool.status();
       expect(res).to.deep.equal({
-        pending: numberTo0x(rlxTxsMap.size),
+        pending: numberTo0x(rlpTxs.length),
         queued: constants.ZERO_HEX,
       });
     });

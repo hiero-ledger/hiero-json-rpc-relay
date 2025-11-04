@@ -92,7 +92,7 @@ export class TxPoolImpl implements TxPool {
    * @param rlpTxs - Map of transaction hash - RLP-encoded transaction string.
    * @returns Array of decoded and formatted transactions.
    */
-  private convertRlpEncodedTxToTransactionPoolTx(rlpTxs: Map<string, string>): TxPoolTransaction[] {
+  private convertRlpEncodedTxToTransactionPoolTx(rlpTxs: string[]): TxPoolTransaction[] {
     const txs: TxPoolTransaction[] = [];
 
     rlpTxs.forEach((rlpTx: string) => {
@@ -195,7 +195,7 @@ export class TxPoolImpl implements TxPool {
 
     const txs = await this.txPoolService.getAllTransactions();
     return {
-      pending: numberTo0x(txs.size),
+      pending: numberTo0x(txs.length),
       queued: constants.ZERO_HEX,
     };
   }
