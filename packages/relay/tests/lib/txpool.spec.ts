@@ -24,6 +24,97 @@ describe('Txpool', async function () {
   const rlpTxs: string[] = [rlpTx];
   const parsedTx = ethers.Transaction.from(rlpTx);
 
+  const groupByAddressAndNonceTxs: TxPoolTransaction[] = [
+    {
+      blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      blockNumber: null,
+      transactionIndex: null,
+      from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
+      gas: '0x186a0',
+      hash: '0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f',
+      input: '0x',
+      nonce: '0x1',
+      to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
+      value: '0xde0b6b3a7640000',
+      type: '0x1',
+      v: '0x1b',
+      r: '0xffe76e17da28e22e1cc16a1321bc32f7c5c6f952f56cbc3b6a1fdd5469670ce4',
+      s: '0x7ebe17ef06b8c8b49f5ec0416696f142ac9af2bee5ba66d9f4faddaa9a997f7b',
+      gasPrice: '0xa54f4c3c00',
+    },
+    {
+      blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      blockNumber: null,
+      transactionIndex: null,
+      from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
+      gas: '0x186a0',
+      hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
+      input: '0x',
+      nonce: '0x2',
+      to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
+      value: '0xde0b6b3a7640000',
+      type: '0x1',
+      v: '0x1b',
+      r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
+      s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
+      gasPrice: '0xa54f4c3c00',
+    },
+    {
+      blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      blockNumber: null,
+      transactionIndex: null,
+      from: '0xf1dc6c33b1d6720Cd24eCb296F4D96150Eb170dc',
+      gas: '0x186a0',
+      hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
+      input: '0x',
+      nonce: '0x1',
+      to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
+      value: '0xde0b6b3a7640000',
+      type: '0x1',
+      v: '0x1b',
+      r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
+      s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
+      gasPrice: '0xa54f4c3c00',
+    },
+  ];
+
+  const groupByNonceTxs: TxPoolTransaction[] = [
+    {
+      blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      blockNumber: null,
+      transactionIndex: null,
+      from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
+      gas: '0x186a0',
+      hash: '0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f',
+      input: '0x',
+      nonce: '0x1',
+      to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
+      value: '0xde0b6b3a7640000',
+      type: '0x1',
+      v: '0x1b',
+      r: '0xffe76e17da28e22e1cc16a1321bc32f7c5c6f952f56cbc3b6a1fdd5469670ce4',
+      s: '0x7ebe17ef06b8c8b49f5ec0416696f142ac9af2bee5ba66d9f4faddaa9a997f7b',
+      gasPrice: '0xa54f4c3c00',
+    },
+    {
+      blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      blockNumber: null,
+      transactionIndex: null,
+      from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
+      gas: '0x186a0',
+      hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
+      input: '0x',
+      nonce: '0x2',
+      to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
+      value: '0xde0b6b3a7640000',
+      type: '0x1',
+      v: '0x1b',
+      r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
+      s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
+      gasPrice: '0xa54f4c3c00',
+    },
+  ];
+
   before(() => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
   });
@@ -69,61 +160,7 @@ describe('Txpool', async function () {
     });
 
     it('groupByAddressAndNonce', async () => {
-      const txs: TxPoolTransaction[] = [
-        {
-          blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          blockNumber: null,
-          transactionIndex: null,
-          from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
-          gas: '0x186a0',
-          hash: '0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f',
-          input: '0x',
-          nonce: '0x1',
-          to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
-          value: '0xde0b6b3a7640000',
-          type: '0x1',
-          v: '0x1b',
-          r: '0xffe76e17da28e22e1cc16a1321bc32f7c5c6f952f56cbc3b6a1fdd5469670ce4',
-          s: '0x7ebe17ef06b8c8b49f5ec0416696f142ac9af2bee5ba66d9f4faddaa9a997f7b',
-          gasPrice: '0xa54f4c3c00',
-        },
-        {
-          blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          blockNumber: null,
-          transactionIndex: null,
-          from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
-          gas: '0x186a0',
-          hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
-          input: '0x',
-          nonce: '0x2',
-          to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
-          value: '0xde0b6b3a7640000',
-          type: '0x1',
-          v: '0x1b',
-          r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
-          s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
-          gasPrice: '0xa54f4c3c00',
-        },
-        {
-          blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          blockNumber: null,
-          transactionIndex: null,
-          from: '0xf1dc6c33b1d6720Cd24eCb296F4D96150Eb170dc',
-          gas: '0x186a0',
-          hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
-          input: '0x',
-          nonce: '0x1',
-          to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
-          value: '0xde0b6b3a7640000',
-          type: '0x1',
-          v: '0x1b',
-          r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
-          s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
-          gasPrice: '0xa54f4c3c00',
-        },
-      ];
-
-      const grouped = (txPool as any).groupByAddressAndNonce(txs);
+      const grouped = (txPool as any).groupByAddressAndNonce(groupByAddressAndNonceTxs);
       expect(grouped).to.have.keys([
         '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
         '0xf1dc6c33b1d6720Cd24eCb296F4D96150Eb170dc',
@@ -136,44 +173,7 @@ describe('Txpool', async function () {
     });
 
     it('groupByNonce', async () => {
-      const txs: TxPoolTransaction[] = [
-        {
-          blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          blockNumber: null,
-          transactionIndex: null,
-          from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
-          gas: '0x186a0',
-          hash: '0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f',
-          input: '0x',
-          nonce: '0x1',
-          to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
-          value: '0xde0b6b3a7640000',
-          type: '0x1',
-          v: '0x1b',
-          r: '0xffe76e17da28e22e1cc16a1321bc32f7c5c6f952f56cbc3b6a1fdd5469670ce4',
-          s: '0x7ebe17ef06b8c8b49f5ec0416696f142ac9af2bee5ba66d9f4faddaa9a997f7b',
-          gasPrice: '0xa54f4c3c00',
-        },
-        {
-          blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          blockNumber: null,
-          transactionIndex: null,
-          from: '0x2eD4dF6Ec66f55a5765DeF0A24BFA3bAC29e795e',
-          gas: '0x186a0',
-          hash: '0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18',
-          input: '0x',
-          nonce: '0x2',
-          to: '0x9b6FEaeA745fE564158DA9A5313eb4dd4Dc3A940',
-          value: '0xde0b6b3a7640000',
-          type: '0x1',
-          v: '0x1b',
-          r: '0x7c18462b45a419337ff6bccf8beb7f75c9e6bdf5306c92289f55f8162673044e',
-          s: '0x682380bcf81f37c39f22a5ff44bc6098014259350d107c8da3a115764742590d',
-          gasPrice: '0xa54f4c3c00',
-        },
-      ];
-
-      const grouped = (txPool as any).groupByNonce(txs);
+      const grouped = (txPool as any).groupByNonce(groupByNonceTxs);
       expect(grouped).to.have.keys(['1', '2']);
       expect(grouped[1].hash).to.equal('0x2209a2b1b8e7258a4195411e1c8665683b6fc4c7ac1b11a62a8f331b8e68973f');
       expect(grouped[2].hash).to.equal('0x6bb033c0cd822f66502a5e4a78e6eb46fd54105a92e02347cbc60036d075ec18');
