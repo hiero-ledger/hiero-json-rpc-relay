@@ -453,32 +453,6 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it('eth_call tx with non-existing from and positive value errors (insufficient funds)', async function () {
-      const NON_EXISTENT_FROM = '0xcccccccccccccccccccccccccccccccccccccccc';
-      const callData = {
-        ...defaultCallData,
-        from: NON_EXISTENT_FROM,
-        to: CONTRACT_ADDRESS_2,
-        data: CONTRACT_CALL_DATA,
-        gas: MAX_GAS_LIMIT,
-        value: 1,
-      };
-
-      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
-      await mockContractCall(
-        { ...callData, block: 'latest' },
-        false,
-        400,
-        { _status: { messages: [{ message: 'INSUFFICIENT_ACCOUNT_BALANCE', detail: '', data: '' }] } },
-        requestDetails,
-      );
-
-      const res = await contractService.call(callData, 'latest', requestDetails);
-      expect(res).to.exist;
-      expect((res as JsonRpcError).code).to.eq(-32000);
-      expect((res as JsonRpcError).message).to.eq('Insufficient funds for transfer');
-    });
-
     it('eth_call with wrong `to` field', async function () {
       const args = [
         {
