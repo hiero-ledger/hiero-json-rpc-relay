@@ -537,11 +537,6 @@ export class ContractService implements IContractService {
       if (e.message && nonExistenceMessages.has(e.message)) {
         return constants.EMPTY_HEX;
       }
-
-      // Positive value with non-existing/insufficient-balance sender should error as insufficient funds
-      if (e.message === 'INSUFFICIENT_ACCOUNT_BALANCE') {
-        return predefined.INSUFFICIENT_ACCOUNT_BALANCE;
-      }
     }
 
     if (e.isContractReverted()) {
