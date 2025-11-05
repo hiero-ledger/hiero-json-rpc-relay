@@ -473,7 +473,10 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
 
-      await expect(contractService.call(callData, 'latest', requestDetails)).to.be.rejectedWith(MirrorNodeClientError);
+      const res = await contractService.call(callData, 'latest', requestDetails);
+      expect(res).to.exist;
+      expect((res as JsonRpcError).code).to.eq(-32000);
+      expect((res as JsonRpcError).message).to.eq('Insufficient funds for transfer');
     });
 
     it('eth_call with wrong `to` field', async function () {
