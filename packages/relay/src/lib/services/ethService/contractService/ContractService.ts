@@ -523,6 +523,22 @@ export class ContractService implements IContractService {
       return constants.EMPTY_HEX;
     }
 
+    // Map additional Mirror Node 400 precheck failures during eth_call to a non-error empty result
+    // Only for entity-nonexistence style messages; do not swallow genuine EVM reverts
+    if (e.statusCode === 400) {
+      const nonExistenceMessages = new Set<string>([
+        'INVALID_ACCOUNT_ID',
+        'ACCOUNT_ID_DOES_NOT_EXIST',
+        'PAYER_ACCOUNT_NOT_FOUND',
+        'INVALID_PAYER_ACCOUNT_ID',
+        'INVALID_CONTRACT_ID',
+        'CONTRACT_ID_DOES_NOT_EXIST',
+      ]);
+      if (e.message && nonExistenceMessages.has(e.message)) {
+        return constants.EMPTY_HEX;
+      }
+    }
+
     if (e.isContractReverted()) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(

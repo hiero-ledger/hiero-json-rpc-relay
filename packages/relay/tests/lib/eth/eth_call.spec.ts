@@ -420,6 +420,62 @@ describe('@ethCall Eth Call spec', async function () {
       expect((result as JsonRpcError).data).to.equal(defaultErrorMessageHex);
     });
 
+    it('eth_call view with non-existing from succeeds', async function () {
+      const NON_EXISTENT_FROM = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      const callData = {
+        ...defaultCallData,
+        from: NON_EXISTENT_FROM,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+      const result = await contractService.call(callData, 'latest', requestDetails);
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call tx with non-existing from and value=0 succeeds', async function () {
+      const NON_EXISTENT_FROM = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      const callData = {
+        ...defaultCallData,
+        from: NON_EXISTENT_FROM,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        value: null,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+      const result = await contractService.call(callData, 'latest', requestDetails);
+      expect(result).to.equal('0x00');
+    });
+
+    it('eth_call tx with non-existing from and positive value errors (insufficient funds)', async function () {
+      const NON_EXISTENT_FROM = '0xcccccccccccccccccccccccccccccccccccccccc';
+      const callData = {
+        ...defaultCallData,
+        from: NON_EXISTENT_FROM,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        value: 1,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall(
+        { ...callData, block: 'latest' },
+        false,
+        400,
+        { _status: { messages: [{ message: 'INSUFFICIENT_ACCOUNT_BALANCE', detail: '', data: '' }] } },
+        requestDetails,
+      );
+
+      await expect(contractService.call(callData, 'latest', requestDetails)).to.be.rejectedWith(MirrorNodeClientError);
+    });
+
     it('eth_call with wrong `to` field', async function () {
       const args = [
         {
