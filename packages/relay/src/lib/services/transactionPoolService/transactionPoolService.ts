@@ -85,13 +85,13 @@ export class TransactionPoolService implements ITransactionPoolService {
    * Retrieves all pending transaction RLP payloads for a given address.
    *
    * @param address - The account address to query.
-   * @returns A promise that resolves to an array of RLP hex strings.
+   * @returns A promise that resolves to a Set of RLP hex strings.
    */
-  async getTransactions(address: string): Promise<string[]> {
+  async getTransactions(address: string): Promise<Set<string>> {
     const addressLowerCased = address.toLowerCase();
     const payloads = await this.storage.getTransactionPayloads(addressLowerCased);
 
-    this.logger.debug({ address, totalPayloads: payloads.length }, 'Retrieved transactions for address');
+    this.logger.debug({ address, totalPayloads: payloads.size }, 'Retrieved transactions for address');
 
     return payloads;
   }
@@ -99,9 +99,9 @@ export class TransactionPoolService implements ITransactionPoolService {
   /**
    * Retrieves all pending transaction RLP payloads across all addresses.
    *
-   * @returns A promise that resolves to an array of RLP hex strings.
+   * @returns A promise that resolves to a Set of RLP hex strings.
    */
-  async getAllTransactions(): Promise<string[]> {
+  async getAllTransactions(): Promise<Set<string>> {
     const payloads = await this.storage.getAllTransactionPayloads();
 
     return payloads;

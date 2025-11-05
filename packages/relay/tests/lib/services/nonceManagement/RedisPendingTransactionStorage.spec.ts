@@ -157,8 +157,8 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       expect(count).to.equal(1);
 
       const payloads = await storage.getTransactionPayloads(addr1);
-      expect(payloads).to.have.lengthOf(1);
-      expect(payloads).to.include(rlp1);
+      expect(payloads.size).to.equal(1);
+      expect(payloads.has(rlp1)).to.be.true;
 
       const allPayloads = await storage.getAllTransactionPayloads();
       expect(allPayloads).to.include(rlp1);
@@ -173,7 +173,7 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       expect(count).to.equal(0);
 
       const payloads = await storage.getTransactionPayloads(addr1);
-      expect(payloads).to.be.empty;
+      expect(payloads.size).to.equal(0);
 
       const allPayloads = await storage.getAllTransactionPayloads();
       expect(allPayloads).to.not.include(rlp1);
@@ -191,10 +191,11 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
 
       const payloads1 = await storage.getTransactionPayloads(addr1);
       const payloads2 = await storage.getTransactionPayloads(addr2);
-      expect(payloads1).to.have.lengthOf(2);
-      expect(payloads1).to.include.members([rlp1, rlp2]);
-      expect(payloads2).to.have.lengthOf(1);
-      expect(payloads2[0]).to.equal(rlp3);
+      expect(payloads1.size).to.equal(2);
+      expect(payloads1.has(rlp1)).to.be.true;
+      expect(payloads1.has(rlp2)).to.be.true;
+      expect(payloads2.size).to.equal(1);
+      expect(payloads2.has(rlp3)).to.be.true;
     });
 
     it('should retrieve payloads for specific address only', async () => {
@@ -203,15 +204,16 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       await storage.addToList(addr2, rlp3);
 
       const payloads = await storage.getTransactionPayloads(addr1);
-      expect(payloads).to.have.lengthOf(2);
-      expect(payloads).to.include.members([rlp1, rlp2]);
-      expect(payloads).to.not.include(rlp3);
+      expect(payloads.size).to.equal(2);
+      expect(payloads.has(rlp1)).to.be.true;
+      expect(payloads.has(rlp2)).to.be.true;
+      expect(payloads.has(rlp3)).to.be.false;
     });
 
     it('should return empty array for address with no transactions', async () => {
       const payloads = await storage.getTransactionPayloads(addr1);
-      expect(payloads).to.be.an('array');
-      expect(payloads).to.be.empty;
+      expect(payloads).to.be.instanceOf(Set);
+      expect(payloads.size).to.equal(0);
     });
 
     it('should get all transaction payloads across addresses', async () => {
@@ -219,8 +221,9 @@ describe('RedisPendingTransactionStorage Test Suite', function () {
       await storage.addToList(addr2, rlp2);
 
       const allPayloads = await storage.getAllTransactionPayloads();
-      expect(allPayloads).to.have.lengthOf(2);
-      expect(allPayloads).to.include.members([rlp1, rlp2]);
+      expect(allPayloads.size).to.equal(2);
+      expect(allPayloads.has(rlp1)).to.be.true;
+      expect(allPayloads.has(rlp2)).to.be.true;
     });
   });
 
