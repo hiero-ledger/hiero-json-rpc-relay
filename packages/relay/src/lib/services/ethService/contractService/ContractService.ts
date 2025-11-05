@@ -529,8 +529,6 @@ export class ContractService implements IContractService {
       const nonExistenceMessages = new Set<string>([
         'INVALID_ACCOUNT_ID',
         'ACCOUNT_ID_DOES_NOT_EXIST',
-        'PAYER_ACCOUNT_NOT_FOUND',
-        'INVALID_PAYER_ACCOUNT_ID',
         'INVALID_CONTRACT_ID',
         'CONTRACT_ID_DOES_NOT_EXIST',
       ]);
