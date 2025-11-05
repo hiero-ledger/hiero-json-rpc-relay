@@ -89,7 +89,7 @@ export class TxPoolImpl implements TxPool {
   /**
    * Converts a set of RLP-encoded transactions into structured TxPoolTransaction objects.
    *
-   * @param rlpTxs - Map of transaction hash - RLP-encoded transaction string.
+   * @param rlpTxs - Array of RLP-encoded transactions.
    * @returns Array of decoded and formatted transactions.
    */
   private convertRlpEncodedTxToTransactionPoolTx(rlpTxs: string[]): TxPoolTransaction[] {
@@ -110,9 +110,9 @@ export class TxPoolImpl implements TxPool {
         to: tx.to,
         value: numberTo0x(tx.value),
         type: numberTo0x(tx.type ?? 0),
-        v: tx?.signature?.v ? numberTo0x(tx?.signature?.v) : null,
-        r: tx?.signature?.r?.toString(),
-        s: tx?.signature?.s?.toString(),
+        v: tx.signature?.v ? numberTo0x(tx.signature?.v) : null,
+        r: tx.signature?.r,
+        s: tx.signature?.s,
       } as TxPoolTransaction;
 
       // include optional EIP-155 and EIP-1559 fields if present

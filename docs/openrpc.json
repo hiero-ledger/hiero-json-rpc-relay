@@ -743,7 +743,7 @@
     },
     {
       "name": "txpool_content",
-      "summary": "Returns all pending and queued transactions.",
+      "summary": "Returns all pending and queued transactions (queued are always an empty object {} due to Hedera specifics).",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
@@ -792,7 +792,7 @@
     },
     {
       "name": "txpool_contentFrom",
-      "summary": "Returns pending and queued transactions of this address, grouped by nonce.",
+      "summary": "Returns pending and queued transactions (queued are always an empty object {} due to Hedera specifics) of this address, grouped by nonce.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
@@ -829,7 +829,7 @@
     },
     {
       "name": "txpool_status",
-      "summary": "Returns the number of transactions in pending and queued states.",
+      "summary": "Returns the number of transactions in pending and queued states (queued are always 0x0 due to Hedera specifics).",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
