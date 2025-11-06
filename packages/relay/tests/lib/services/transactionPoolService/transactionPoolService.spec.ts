@@ -7,9 +7,13 @@ import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
 import { PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
-import { withOverriddenEnvsInMochaTest } from '../../../helpers';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('TransactionPoolService Test Suite', function () {
+  overrideEnvsInMochaDescribe({
+    ENABLE_TX_POOL: true,
+  });
+
   this.timeout(10000);
 
   let logger: Logger;

@@ -78,7 +78,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
-   * @returns A promise that resolves to the number of pending transactions.
+   * @returns A promise that resolves to the number of pending transactions or to 0 if ENABLE_TX_POOL is set to false
    */
   async getPendingCount(address: string): Promise<number> {
     if (ConfigService.get('ENABLE_TX_POOL')) {
