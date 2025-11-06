@@ -51,7 +51,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     const rlpHex = tx.serialized;
     await this.storage.addToList(addressLowerCased, rlpHex);
 
-    this.logger.debug({ address, rlpHex }, 'Transaction saved to pool');
+    this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
   }
 
   /**

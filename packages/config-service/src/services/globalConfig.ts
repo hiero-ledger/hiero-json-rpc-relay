@@ -609,7 +609,7 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  TRANSACTION_POOL_STORAGE_TTL_SECONDS: {
+  PENDING_TRANSACTION_STORAGE_TTL: {
     type: 'number',
     required: false,
     defaultValue: 30,
