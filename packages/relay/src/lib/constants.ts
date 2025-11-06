@@ -112,7 +112,6 @@ export default {
   ETH_GAS_FEE_TTL: `${CACHE_TTL.HALF_HOUR}`,
   ETH_FEE_HISTORY_TTL: `${CACHE_TTL.HALF_HOUR}`,
   TRANSACTION_ID_REGEX: /\d{1}\.\d{1}\.\d{1,10}\@\d{1,10}\.\d{1,9}/,
-  TRANSACTION_POOL_STORAGE_TTL_SECONDS: Number(ConfigService.get('TRANSACTION_POOL_STORAGE_TTL_SECONDS')) || 30,
 
   CHAIN_IDS: {
     mainnet: 0x127,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisClientType } from 'redis';
 
-import constants from '../../constants';
 import { PendingTransactionStorage } from '../../types/transactionPool';
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {
@@ -36,7 +36,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * @param redisClient - A connected {@link RedisClientType} instance.
    */
   constructor(private readonly redisClient: RedisClientType) {
-    this.storageTtl = constants.TRANSACTION_POOL_STORAGE_TTL_SECONDS;
+    this.storageTtl = ConfigService.get('TRANSACTION_POOL_STORAGE_TTL_SECONDS');
   }
 
   /**
