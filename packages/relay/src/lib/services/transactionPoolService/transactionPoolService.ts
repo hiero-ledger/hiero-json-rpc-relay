@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -80,7 +81,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   async getPendingCount(address: string): Promise<number> {
-    const addressLowerCased = address.toLowerCase();
-    return await this.storage.getList(addressLowerCased);
+    if (ConfigService.get('ENABLE_TX_POOL')) {
+      return await this.storage.getList(address.toLowerCase());
+    }
+
+    return 0;
   }
 }
