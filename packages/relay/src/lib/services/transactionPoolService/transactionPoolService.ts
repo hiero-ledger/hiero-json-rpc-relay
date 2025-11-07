@@ -47,11 +47,18 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
     const addressLowerCased = address.toLowerCase();
-
     const rlpHex = tx.serialized;
-    await this.storage.addToList(addressLowerCased, rlpHex);
 
-    this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
+    try {
+      await this.storage.addToList(addressLowerCased, rlpHex);
+      this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
+    } catch (error) {
+      this.logger.error(
+        { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
+        'Failed to save transaction to pool',
+      );
+      throw error;
+    }
   }
 
   /**
@@ -65,9 +72,16 @@ export class TransactionPoolService implements ITransactionPoolService {
   async removeTransaction(address: string, rlpHex: string): Promise<void> {
     const addressLowerCased = address.toLowerCase();
 
-    await this.storage.removeFromList(addressLowerCased, rlpHex);
-
-    this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
+    try {
+      await this.storage.removeFromList(addressLowerCased, rlpHex);
+      this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
+    } catch (error) {
+      this.logger.error(
+        { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
+        'Failed to remove transaction from pool',
+      );
+      throw error;
+    }
   }
 
   /**
