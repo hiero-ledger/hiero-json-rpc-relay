@@ -113,9 +113,7 @@ describe('TransactionPoolService Test Suite', function () {
     withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
       it(`should not execute .removeFromList if ENABLE_TX_POOL is set to false`, async function () {
         mockStorage.removeFromList.resolves();
-
         await transactionPoolService.removeTransaction(testAddress, testTxHash);
-
         expect(mockStorage.removeFromList.notCalled).to.be.true;
       });
     });
