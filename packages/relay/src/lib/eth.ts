@@ -290,9 +290,6 @@ export class EthImpl implements Eth {
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  @cache({
-    ttl: constants.CACHE_TTL.FIFTEEN_MINUTES,
-  })
   async gasPrice(requestDetails: RequestDetails): Promise<string> {
     return this.common.gasPrice(requestDetails);
   }
