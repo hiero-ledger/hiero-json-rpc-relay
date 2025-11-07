@@ -15,6 +15,13 @@ import {
  */
 export class TransactionPoolService implements ITransactionPoolService {
   /**
+   * Return if the transaction pool is enabled based on ENABLE_TX_POOL env
+   */
+  public static isEnabled(): boolean {
+    return ConfigService.get('ENABLE_TX_POOL');
+  }
+
+  /**
    * The logger used for logging transaction pool operations.
    *
    * @private
@@ -47,6 +54,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
+    if (!TransactionPoolService.isEnabled()) {
+      return;
+    }
+
     const txHash = tx.hash;
     const addressLowerCased = address.toLowerCase();
 
@@ -68,6 +79,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
   async removeTransaction(address: string, txHash: string): Promise<void> {
+    if (!TransactionPoolService.isEnabled()) {
+      return;
+    }
+
     const addressLowerCased = address.toLowerCase();
     await this.storage.removeFromList(addressLowerCased, txHash);
 
@@ -81,10 +96,6 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions or to 0 if ENABLE_TX_POOL is set to false
    */
   async getPendingCount(address: string): Promise<number> {
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      return await this.storage.getList(address.toLowerCase());
-    }
-
-    return 0;
+    return TransactionPoolService.isEnabled() ? await this.storage.getList(address.toLowerCase()) : 0;
   }
 }

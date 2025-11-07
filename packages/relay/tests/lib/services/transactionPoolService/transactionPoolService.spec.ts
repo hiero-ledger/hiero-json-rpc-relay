@@ -60,6 +60,14 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('saveTransaction', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it(`should not execute .addToList if ENABLE_TX_POOL is set to false`, async function () {
+        mockStorage.addToList.resolves();
+        await transactionPoolService.saveTransaction(testAddress, testTransaction);
+        expect(mockStorage.addToList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully save transaction to pool', async () => {
       const newPending = 3;
 
@@ -102,6 +110,16 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('removeTransaction', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it(`should not execute .removeFromList if ENABLE_TX_POOL is set to false`, async function () {
+        mockStorage.removeFromList.resolves();
+
+        await transactionPoolService.removeTransaction(testAddress, testTxHash);
+
+        expect(mockStorage.removeFromList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully remove transaction from pool', async () => {
       mockStorage.removeFromList.resolves();
 
