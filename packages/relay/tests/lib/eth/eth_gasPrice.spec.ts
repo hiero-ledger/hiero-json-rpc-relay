@@ -39,7 +39,9 @@ describe('@ethGasPrice Gas Price spec', async function () {
       expect(weiBars).to.equal(numberTo0x(expectedWeiBars));
     });
 
-    it('eth_gasPrice with cached value', async function () {
+    // note: hot fix for removing cache decorator from eth_gasPrice method
+    // todo: rewrotk cache logic for eth_gasPrice method and re-add this test
+    xit('eth_gasPrice with cached value', async function () {
       const firstGasResult = await ethImpl.gasPrice(requestDetails);
 
       const modifiedNetworkFees = { ...DEFAULT_NETWORK_FEES };
@@ -50,6 +52,29 @@ describe('@ethGasPrice Gas Price spec', async function () {
       const secondGasResult = await ethImpl.gasPrice(requestDetails);
 
       expect(firstGasResult).to.equal(secondGasResult);
+    });
+
+    // note: hot fix for removing cache decorator from eth_gasPrice method
+    // todo: rewrotk cache logic for eth_gasPrice method and reremove this test
+    it('eth_gasPrice does not use cache and returns updated values', async function () {
+      // First call to get initial gas price
+      const firstGasResult = await ethImpl.gasPrice(requestDetails);
+      const expectedFirstWeiBars = DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+      expect(firstGasResult).to.equal(numberTo0x(expectedFirstWeiBars));
+
+      // Modify network fees to return a different gas price
+      const modifiedNetworkFees = { ...DEFAULT_NETWORK_FEES };
+      modifiedNetworkFees.fees[2].gas = DEFAULT_NETWORK_FEES.fees[2].gas * 100;
+
+      restMock.onGet(`network/fees`).reply(200, JSON.stringify(modifiedNetworkFees));
+
+      // Second call should return the updated gas price (not cached)
+      const secondGasResult = await ethImpl.gasPrice(requestDetails);
+      const expectedSecondWeiBars = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+
+      // Verify the results are different, proving cache is not used
+      expect(secondGasResult).to.not.equal(firstGasResult);
+      expect(secondGasResult).to.equal(numberTo0x(expectedSecondWeiBars));
     });
 
     it('eth_gasPrice with no EthereumTransaction gas returned', async function () {
