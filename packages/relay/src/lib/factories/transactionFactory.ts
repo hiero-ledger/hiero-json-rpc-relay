@@ -17,7 +17,7 @@ import { Log, Transaction, Transaction1559, Transaction2930 } from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: 2, fields: any): Transaction1559;
+  public static createTransactionByType(type: number, fields: any): Transaction1559;
 
   public static createTransactionByType(type: number, fields: any): Transaction | null {
     switch (type) {
