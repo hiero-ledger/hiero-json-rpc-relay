@@ -496,7 +496,7 @@ export class TransactionService implements ITransactionService {
     );
 
     // Remove the transaction from the transaction pool after submission
-    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
+    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
     sendRawTransactionError = error;
 

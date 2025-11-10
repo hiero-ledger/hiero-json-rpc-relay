@@ -338,15 +338,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
           sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, ethereumHash);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
 
           saveStub.restore();
           removeStub.restore();
         });
 
-        it('should save and remove transaction (fallback path uses parsedTx.hash)', async function () {
+        it('should save and remove transaction (fallback path uses parsedTx.serialized)', async function () {
           const signed = await signTransaction(transaction);
-          const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
           const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
@@ -368,7 +367,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
           sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, expectedTxHash);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
 
           saveStub.restore();
           removeStub.restore();
