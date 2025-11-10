@@ -563,6 +563,14 @@ export class MirrorNodeClient {
     );
   }
 
+  public async getAccountWithoutTransactions(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails) {
+    return this.get(
+      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}?transactions=false`,
+      MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
+      requestDetails,
+    );
+  }
+
   /**
    * To be used to make paginated calls for the account information when the
    * transaction count exceeds the constant `MIRROR_NODE_QUERY_LIMIT`.

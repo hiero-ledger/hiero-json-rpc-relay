@@ -151,7 +151,7 @@ export class AccountService implements IAccountService {
 
       if (!balanceFound && !mirrorAccount) {
         // If no balance and no account, then we need to make a request to the mirror node for the account.
-        mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
+        mirrorAccount = await this.mirrorNodeClient.getAccountWithoutTransactions(account, requestDetails);
         // Test if exists here
         if (mirrorAccount !== null && mirrorAccount !== undefined) {
           balanceFound = true;

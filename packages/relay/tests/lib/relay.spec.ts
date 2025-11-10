@@ -124,7 +124,7 @@ describe('Relay', () => {
       beforeEach(() => {
         // @ts-expect-error: Property 'operatorAccountId' is private and only accessible within class 'Relay'.
         operatorId = relay.operatorAccountId!.toString();
-        getAccountPageLimitStub = sinon.stub(MirrorNodeClient.prototype, 'getAccountPageLimit');
+        getAccountPageLimitStub = sinon.stub(MirrorNodeClient.prototype, 'getAccountWithoutTransactions');
       });
 
       afterEach(() => {
