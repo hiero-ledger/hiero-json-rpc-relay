@@ -142,16 +142,6 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getPendingCount', () => {
-    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
-      it(`should return 0 if ENABLE_TX_POOL is set to false`, async function () {
-        mockStorage.getList.resolves(9303);
-
-        const result = await transactionPoolService.getPendingCount(testAddress);
-        expect(result).to.equal(0);
-        expect(mockStorage.getList.notCalled).to.be.true;
-      });
-    });
-
     it('should successfully retrieve pending transaction count', async () => {
       const pendingCount = 5;
       mockStorage.getList.resolves(pendingCount);

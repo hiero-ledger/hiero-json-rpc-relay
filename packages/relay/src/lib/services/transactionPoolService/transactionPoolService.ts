@@ -93,9 +93,10 @@ export class TransactionPoolService implements ITransactionPoolService {
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
-   * @returns A promise that resolves to the number of pending transactions or to 0 if ENABLE_TX_POOL is set to false
+   * @returns A promise that resolves to the number of pending transactions.
    */
   async getPendingCount(address: string): Promise<number> {
-    return TransactionPoolService.isEnabled() ? await this.storage.getList(address.toLowerCase()) : 0;
+    const addressLowerCased = address.toLowerCase();
+    return await this.storage.getList(addressLowerCased);
   }
 }
