@@ -24,6 +24,7 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
 import { NetImpl } from '../../src/lib/net';
+import { TransactionPoolService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -129,6 +130,15 @@ describe('Open RPC Specification', function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
+      {
+        getList: sinon.stub(),
+        addToList: sinon.stub(),
+        removeFromList: sinon.stub(),
+        removeAll: sinon.stub(),
+      },
+      pino({ level: 'silent' }),
+    );
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
 
     // mocked data
