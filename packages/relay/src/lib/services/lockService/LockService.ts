@@ -63,31 +63,15 @@ export class LockService implements ILockService {
   }
 
   /**
-   * Determines which lock strategy type to use based on configuration.
-   * Requires explicit LOCK_STRATEGY configuration.
+   * Determines which lock strategy type to use based on REDIS_ENABLED configuration.
    *
    * @private
    * @returns Strategy type identifier.
-   * @throws Error if LOCK_STRATEGY is not configured or has an invalid value.
    */
   private determineStrategyType(): LockStrategyType {
-    const configuredStrategyType = ConfigService.get('LOCK_STRATEGY');
-    const supportedValues = Object.values(LockStrategyType).join(', ');
-
-    if (configuredStrategyType === null) {
-      throw new Error(`LOCK_STRATEGY must be configured. Supported values are: ${supportedValues}`);
-    }
-
-    const normalizedType = String(configuredStrategyType).trim().toUpperCase() as LockStrategyType;
-
-    if (!Object.values(LockStrategyType).includes(normalizedType)) {
-      throw new Error(
-        `Unsupported LOCK_STRATEGY value: "${configuredStrategyType}". Supported values are: ${supportedValues}`,
-      );
-    }
-
-    this.logger.info(`Using configured lock strategy: ${normalizedType}`);
-    return normalizedType;
+    const strategyType = ConfigService.get('REDIS_ENABLED') ? LockStrategyType.REDIS : LockStrategyType.LOCAL;
+    this.logger.info(`Using lock strategy based on REDIS_ENABLED: ${strategyType}`);
+    return strategyType;
   }
 
   /**
