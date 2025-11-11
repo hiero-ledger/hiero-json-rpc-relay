@@ -567,7 +567,7 @@ const _CONFIG = {
   SDK_LOG_LEVEL: {
     type: 'string',
     required: false,
-    defaultValue: 'trace',
+    defaultValue: 'silent',
   },
   SDK_REQUEST_TIMEOUT: {
     type: 'number',
