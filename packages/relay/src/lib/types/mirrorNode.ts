@@ -27,6 +27,11 @@ export interface ILimitOrderParams {
   order?: string;
 }
 
+export interface IAccountRequestParams {
+  timestamp?: string;
+  transactions?: boolean;
+}
+
 export interface IContractResultsParams {
   blockHash?: string;
   blockNumber?: number;

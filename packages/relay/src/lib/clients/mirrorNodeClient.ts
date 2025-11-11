@@ -17,6 +17,7 @@ import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
 import { CacheService } from '../services/cacheService/cacheService';
 import {
+  IAccountRequestParams,
   IContractCallRequest,
   IContractCallResponse,
   IContractLogsResultsParams,
@@ -514,13 +515,13 @@ export class MirrorNodeClient {
   public async getAccount(
     idOrAliasOrEvmAddress: string,
     requestDetails: RequestDetails,
+    queryParamObject: IAccountRequestParams & ILimitOrderParams = { transactions: false },
     retries?: number,
-    timestamp?: string,
   ) {
-    const queryParamObject = {};
-    this.setQueryParam(queryParamObject, 'timestamp', timestamp);
-    this.setQueryParam(queryParamObject, 'transactions', 'false');
-    const queryParams = this.getQueryParams(queryParamObject);
+    const queryParamsFiltered = Object.fromEntries(
+      Object.entries(queryParamObject).filter(([_, value]) => value !== undefined && value !== ''),
+    );
+    const queryParams = this.getQueryParams(queryParamsFiltered);
     return this.get(
       `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}${queryParams}`,
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
@@ -555,20 +556,11 @@ export class MirrorNodeClient {
     );
   }
 
-  public async getAccountPageLimit(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails) {
-    return this.get(
-      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}?limit=${constants.MIRROR_NODE_QUERY_LIMIT}`,
-      MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
-      requestDetails,
-    );
-  }
-
-  public async getAccountWithoutTransactions(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails) {
-    return this.get(
-      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}?transactions=false`,
-      MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
-      requestDetails,
-    );
+  public async getAccountWithTransactions(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails) {
+    return this.getAccount(idOrAliasOrEvmAddress, requestDetails, {
+      limit: constants.MIRROR_NODE_QUERY_LIMIT,
+      transactions: true,
+    });
   }
 
   /**
@@ -1420,7 +1412,7 @@ export class MirrorNodeClient {
       const promises = [
         searchableTypes.includes(constants.TYPE_ACCOUNT)
           ? buildPromise(
-              this.getAccount(entityIdentifier, requestDetails, retries, timestamp).catch(() => {
+              this.getAccount(entityIdentifier, requestDetails, { timestamp }, retries).catch(() => {
                 return null;
               }),
             )
