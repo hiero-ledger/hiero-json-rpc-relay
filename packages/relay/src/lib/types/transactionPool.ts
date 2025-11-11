@@ -36,16 +36,16 @@ export interface TransactionPoolService {
    * Retrieves all pending transaction RLP payloads for a given address.
    *
    * @param address - The account address to query.
-   * @returns A promise that resolves to an array of RLP hex strings.
+   * @returns A promise that resolves to a Set of RLP hex strings.
    */
-  getTransactions(address: string): Promise<string[]>;
+  getTransactions(address: string): Promise<Set<string>>;
 
   /**
    * Retrieves all pending transaction RLP payloads across all addresses.
    *
-   * @returns A promise that resolves to an array of RLP hex strings.
+   * @returns A promise that resolves to a Set of RLP hex strings.
    */
-  getAllTransactions(): Promise<string[]>;
+  getAllTransactions(): Promise<Set<string>>;
 }
 
 /**

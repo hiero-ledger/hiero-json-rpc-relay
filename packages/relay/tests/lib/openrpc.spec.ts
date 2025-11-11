@@ -133,23 +133,12 @@ describe('Open RPC Specification', function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
     ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
-    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
-      {
-        getList: sinon.stub(),
-        addToList: sinon.stub(),
-        removeFromList: sinon.stub(),
-        removeAll: sinon.stub(),
-      },
-      pino({ level: 'silent' }),
-    );
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
     const storageStub = sinon.createStubInstance(LocalPendingTransactionStorage);
-    const txHash = '0x888eab490f1ea6ef5c4d9e1f47a04291538fac9b7b05f4610ffa6a211610b522';
     const rlpTx =
       '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
-    storageStub.getAllTransactionHashes.resolves([txHash]);
-    storageStub.getTransactionHashes.resolves([txHash]);
-    storageStub.getTransactionPayloads.resolves([rlpTx]);
+    storageStub.getTransactionPayloads.resolves(new Set([rlpTx]));
+    storageStub.getAllTransactionPayloads.resolves(new Set([rlpTx]));
     ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, storageStub);
     txpoolImpl = new TxPoolImpl(storageStub, logger);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl(), txpool: txpoolImpl };

@@ -64,7 +64,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
-    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
+    const txPoolServiceWithMockedStorage = new TransactionPoolService(
       {
         getList: sinon.stub(),
         addToList: sinon.stub(),
@@ -73,6 +73,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       },
       pino({ level: 'silent' }),
     );
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = txPoolServiceWithMockedStorage;
+    ethImpl['transactionService']['transactionPoolService'] = txPoolServiceWithMockedStorage;
   });
 
   this.afterEach(() => {
