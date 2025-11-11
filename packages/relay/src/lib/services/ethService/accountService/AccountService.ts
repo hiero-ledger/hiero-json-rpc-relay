@@ -265,7 +265,10 @@ export class AccountService implements IAccountService {
     else {
       let currentBalance = 0;
       let balanceFromTxs = 0;
-      mirrorAccount = await this.mirrorNodeClient.getAccountWithTransactions(account, requestDetails);
+      mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
+        limit: constants.MIRROR_NODE_QUERY_LIMIT,
+        transactions: true,
+      });
       if (mirrorAccount) {
         if (mirrorAccount.balance) {
           currentBalance = mirrorAccount.balance.balance;

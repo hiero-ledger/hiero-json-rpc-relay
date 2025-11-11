@@ -44,7 +44,7 @@ export class MirrorNodeClient {
   private static readonly GET_CONTRACT_ENDPOINT = 'contracts/';
   private static readonly CONTRACT_RESULT_LOGS_PROPERTY = 'logs';
   private static readonly CONTRACT_ID_PLACEHOLDER = '{contractId}';
-  private static readonly ACCOUNT_TIMESTAMP_PROPERTY = 'timestamp';
+  private static readonly ACCOUNT_TRANSACTIONS_PROPERTY = 'transactions';
   private static readonly CONTRACT_CALL_ENDPOINT = 'contracts/call';
   private static readonly GET_ACCOUNTS_BY_ID_ENDPOINT = 'accounts/';
   private static readonly GET_NETWORK_FEES_ENDPOINT = 'network/fees';
@@ -52,7 +52,6 @@ export class MirrorNodeClient {
   private static readonly TRANSACTION_ID_PLACEHOLDER = '{transactionId}';
   private static readonly GET_CONTRACT_RESULT_ENDPOINT = 'contracts/results/';
   private static readonly GET_CONTRACT_RESULTS_ENDPOINT = 'contracts/results';
-  private static readonly ACCOUNT_TRANSACTION_TYPE_PROPERTY = 'transactiontype';
   private static readonly GET_NETWORK_EXCHANGERATE_ENDPOINT = 'network/exchangerate';
   private static readonly GET_CONTRACT_RESULT_LOGS_ENDPOINT = 'contracts/results/logs';
   private static readonly CONTRACT_ADDRESS_STATE_ENDPOINT = `contracts/${MirrorNodeClient.ADDRESS_PLACEHOLDER}/state`;
@@ -520,7 +519,7 @@ export class MirrorNodeClient {
   ) {
     const queryParamsFiltered = Object.fromEntries(
       Object.entries(queryParamObject).filter(([key, value]) => {
-        if (key === 'transactions' && value) return false;
+        if (key === MirrorNodeClient.ACCOUNT_TRANSACTIONS_PROPERTY && value) return false;
         return value !== undefined && value !== '';
       }),
     );
@@ -539,30 +538,11 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     numberOfTransactions: number = 1,
   ) {
-    const queryParamObject = {};
-    this.setQueryParam(
-      queryParamObject,
-      MirrorNodeClient.ACCOUNT_TRANSACTION_TYPE_PROPERTY,
-      MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE,
-    );
-    this.setQueryParam(queryParamObject, MirrorNodeClient.ACCOUNT_TIMESTAMP_PROPERTY, `lte:${timestampTo}`);
-    this.setLimitOrderParams(
-      queryParamObject,
-      this.getLimitOrderQueryParam(numberOfTransactions, constants.ORDER.DESC),
-    ); // get latest 2 transactions to infer for single case
-    const queryParams = this.getQueryParams(queryParamObject);
-
-    return this.get(
-      `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${idOrAliasOrEvmAddress}${queryParams}`,
-      MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
-      requestDetails,
-    );
-  }
-
-  public async getAccountWithTransactions(idOrAliasOrEvmAddress: string, requestDetails: RequestDetails) {
     return this.getAccount(idOrAliasOrEvmAddress, requestDetails, {
-      limit: constants.MIRROR_NODE_QUERY_LIMIT,
+      transactiontype: MirrorNodeClient.ETHEREUM_TRANSACTION_TYPE,
+      timestamp: `lte:${timestampTo}`,
       transactions: true,
+      ...this.getLimitOrderQueryParam(numberOfTransactions, constants.ORDER.DESC),
     });
   }
 
@@ -1412,10 +1392,11 @@ export class MirrorNodeClient {
 
     let data;
     try {
+      const params = { timestamp, transactions: false };
       const promises = [
         searchableTypes.includes(constants.TYPE_ACCOUNT)
           ? buildPromise(
-              this.getAccount(entityIdentifier, requestDetails, { timestamp }, retries).catch(() => {
+              this.getAccount(entityIdentifier, requestDetails, params, retries).catch(() => {
                 return null;
               }),
             )
