@@ -71,6 +71,7 @@ export class LockService implements ILockService {
     const useRedis = ConfigService.get('REDIS_ENABLED');
     this.logger.info(`Using ${useRedis ? 'Redis' : 'Local'} lock strategy based on REDIS_ENABLED`);
 
+    // TODO: Remove placeholder errors once strategies are implemented
     if (useRedis) {
       throw new Error('Redis lock strategy not yet implemented');
     }
