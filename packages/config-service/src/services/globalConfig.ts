@@ -363,6 +363,11 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  LOCK_STRATEGY: {
+    type: 'string',
+    required: false,
+    defaultValue: null,
+  },
   LOG_LEVEL: {
     type: 'string',
     required: false,
