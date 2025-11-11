@@ -140,6 +140,12 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     });
 
     describe('txpool_* RPC methods', async () => {
+      before(async () => {
+        await new Promise((r) => setTimeout(r, 2000));
+      });
+      after(async () => {
+        await new Promise((r) => setTimeout(r, 2000));
+      });
       overrideEnvsInMochaDescribe({
         ENABLE_TX_POOL: true,
         USE_ASYNC_TX_PROCESSING: true,
