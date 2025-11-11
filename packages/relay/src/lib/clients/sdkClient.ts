@@ -92,7 +92,7 @@ export class SDKClient {
     const SDK_REQUEST_TIMEOUT = ConfigService.get('SDK_REQUEST_TIMEOUT');
     client.setRequestTimeout(SDK_REQUEST_TIMEOUT);
 
-    // Set up SDK logger with child configuration - direct and straightforward
+    // Set up SDK logger with child configuration inheriting from the main logger
     const sdkLogger = new HederaLogger(LogLevel._fromString(ConfigService.get('SDK_LOG_LEVEL')));
     sdkLogger.setLogger(logger.child({ name: 'sdk-client' }, { level: ConfigService.get('SDK_LOG_LEVEL') }));
     client.setLogger(sdkLogger);
