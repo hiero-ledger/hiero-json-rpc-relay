@@ -3,14 +3,6 @@
 import { Mutex } from 'async-mutex';
 
 /**
- * Supported lock strategy types.
- */
-export enum LockStrategyType {
-  REDIS = 'REDIS',
-  LOCAL = 'LOCAL',
-}
-
-/**
  * Represents the state of a lock for a specific address.
  * Contains mutex, ownership information, and timing metadata.
  */

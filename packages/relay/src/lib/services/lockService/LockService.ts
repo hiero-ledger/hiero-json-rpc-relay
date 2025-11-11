@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
-import { LockService as ILockService, LockStrategy, LockStrategyType } from '../../types/lockService';
+import { LockService as ILockService, LockStrategy } from '../../types/lockService';
 
 /**
  * Service that manages transaction ordering through distributed locking.
@@ -28,9 +28,7 @@ export class LockService implements ILockService {
    */
   constructor(logger: Logger) {
     this.logger = logger.child({ name: 'lock-service' });
-
-    const strategyType = this.determineStrategyType();
-    this.strategy = this.createStrategy(strategyType);
+    this.strategy = this.createStrategy();
   }
 
   /**
@@ -63,34 +61,20 @@ export class LockService implements ILockService {
   }
 
   /**
-   * Determines which lock strategy type to use based on REDIS_ENABLED configuration.
+   * Creates the appropriate lock strategy instance based on REDIS_ENABLED configuration.
    *
    * @private
-   * @returns Strategy type identifier.
+   * @returns An instance of the appropriate lock strategy.
+   * @throws Error if the strategy is not yet implemented.
    */
-  private determineStrategyType(): LockStrategyType {
-    const strategyType = ConfigService.get('REDIS_ENABLED') ? LockStrategyType.REDIS : LockStrategyType.LOCAL;
-    this.logger.info(`Using lock strategy based on REDIS_ENABLED: ${strategyType}`);
-    return strategyType;
-  }
+  private createStrategy(): LockStrategy {
+    const useRedis = ConfigService.get('REDIS_ENABLED');
+    this.logger.info(`Using ${useRedis ? 'Redis' : 'Local'} lock strategy based on REDIS_ENABLED`);
 
-  /**
-   * Creates an appropriate lock strategy instance based on the specified type.
-   *
-   * @private
-   * @param strategyType - The type of strategy to create.
-   * @returns An instance of the specified strategy.
-   * @throws Error if the strategy type is not supported.
-   */
-  private createStrategy(strategyType: LockStrategyType): LockStrategy {
-    switch (strategyType) {
-      case LockStrategyType.REDIS:
-        throw new Error('Redis lock strategy not yet implemented');
-      case LockStrategyType.LOCAL:
-        throw new Error('Local lock strategy not yet implemented');
-      default:
-        // This should never happen due to enum typing, but including for completeness
-        throw new Error(`Unsupported strategy type: ${strategyType}`);
+    if (useRedis) {
+      throw new Error('Redis lock strategy not yet implemented');
     }
+
+    throw new Error('Local lock strategy not yet implemented');
   }
 }
