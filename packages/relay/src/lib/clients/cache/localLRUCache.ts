@@ -16,6 +16,8 @@ type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache
  * @implements {ICacheClient}
  */
 export class LocalLRUCache implements ICacheClient {
+  private static readonly CACHE_KEY_PREFIX = 'cache:';
+
   /**
    * Configurable options used when initializing the cache.
    *
@@ -97,6 +99,17 @@ export class LocalLRUCache implements ICacheClient {
   }
 
   /**
+   * Adds the cache prefix to a key.
+   *
+   * @param key - The key to prefix.
+   * @returns The prefixed key.
+   * @private
+   */
+  private prefixKey(key: string): string {
+    return `${LocalLRUCache.CACHE_KEY_PREFIX}${key}`;
+  }
+
+  /**
    * Retrieves a cached value associated with the given key.
    * If the value exists in the cache, updates metrics and logs the retrieval.
    * @param key - The key associated with the cached value.
@@ -104,8 +117,9 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The cached value if found, otherwise null.
    */
   public async get(key: string, callingMethod: string): Promise<any> {
+    const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
-    const value = cache.get(key);
+    const value = cache.get(prefixedKey);
     if (value !== undefined) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
       const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
@@ -125,8 +139,9 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The remaining TTL in milliseconds.
    */
   public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
+    const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
-    const remainingTtl = cache.getRemainingTTL(key); // in milliseconds
+    const remainingTtl = cache.getRemainingTTL(prefixedKey); // in milliseconds
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`);
     }
@@ -142,12 +157,13 @@ export class LocalLRUCache implements ICacheClient {
    * @param ttl - Time to live for the cached value in milliseconds (optional).
    */
   public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
+    const prefixedKey = this.prefixKey(key);
     const resolvedTtl = ttl ?? this.options.ttl;
     const cache = this.getCacheInstance(key);
     if (resolvedTtl > 0) {
-      cache.set(key, value, { ttl: resolvedTtl });
+      cache.set(prefixedKey, value, { ttl: resolvedTtl });
     } else {
-      cache.set(key, value, { ttl: 0 }); // 0 means indefinite time
+      cache.set(prefixedKey, value, { ttl: 0 }); // 0 means indefinite time
     }
     if (this.logger.isLevelEnabled('trace')) {
       const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
@@ -195,11 +211,12 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
+    const prefixedKey = this.prefixKey(key);
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
     }
     const cache = this.getCacheInstance(key);
-    cache.delete(key);
+    cache.delete(prefixedKey);
   }
 
   /**
@@ -223,13 +240,15 @@ export class LocalLRUCache implements ICacheClient {
    * Retrieves all keys in the cache that match the given pattern.
    * @param pattern - The pattern to match keys against.
    * @param callingMethod - The name of the method calling the cache.
-   * @returns An array of keys that match the pattern.
+   * @returns An array of keys that match the pattern (without the cache prefix).
    */
   public async keys(pattern: string, callingMethod: string): Promise<string[]> {
     const keys = [...this.cache.rkeys(), ...(this.reservedCache?.rkeys() ?? [])];
 
+    const prefixedPattern = this.prefixKey(pattern);
+
     // Replace escaped special characters with placeholders
-    let regexPattern = pattern
+    let regexPattern = prefixedPattern
       .replace(/\\\*/g, '__ESCAPED_STAR__')
       .replace(/\\\?/g, '__ESCAPED_QUESTION__')
       .replace(/\\\[/g, '__ESCAPED_OPEN_BRACKET__')
@@ -257,7 +276,8 @@ export class LocalLRUCache implements ICacheClient {
     if (this.logger.isLevelEnabled('trace')) {
       this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
     }
-    return matchingKeys;
+    // Remove the prefix from the returned keys
+    return matchingKeys.map((key) => key.substring(LocalLRUCache.CACHE_KEY_PREFIX.length));
   }
 
   private getCacheInstance(key: string): LRUCache<string, any> {

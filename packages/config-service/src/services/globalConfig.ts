@@ -524,11 +524,6 @@ const _CONFIG = {
     required: false,
     defaultValue: [],
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
-    type: 'number',
-    required: false,
-    defaultValue: 30,
-  },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,
@@ -618,6 +613,11 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
+  },
+  PENDING_TRANSACTION_STORAGE_TTL: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
   },
   TIER_1_RATE_LIMIT: {
     type: 'number',

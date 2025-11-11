@@ -19,10 +19,10 @@ export interface TransactionPoolService {
    * Removes a transaction from the transaction pool for the given address.
    *
    * @param address - The account address that submitted the transaction.
-   * @param txHash - The hash of the transaction to remove.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  removeTransaction(address: string, txHash: string): Promise<void>;
+  removeTransaction(address: string, rlpHex: string): Promise<void>;
 
   /**
    * Retrieves the number of pending transactions for a given address.
@@ -31,6 +31,21 @@ export interface TransactionPoolService {
    * @returns A promise that resolves to the number of pending transactions.
    */
   getPendingCount(address: string): Promise<number>;
+
+  /**
+   * Retrieves all pending transaction RLP payloads for a given address.
+   *
+   * @param address - The account address to query.
+   * @returns A promise that resolves to a Set of RLP hex strings.
+   */
+  getTransactions(address: string): Promise<Set<string>>;
+
+  /**
+   * Retrieves all pending transaction RLP payloads across all addresses.
+   *
+   * @returns A promise that resolves to a Set of RLP hex strings.
+   */
+  getAllTransactions(): Promise<Set<string>>;
 }
 
 /**
@@ -46,20 +61,21 @@ export interface PendingTransactionStorage {
   getList(addr: string): Promise<number>;
 
   /**
-   * Attempts to add a pending transaction entry for the given address.
+   * Adds a pending transaction for the given address.
+   * Implementations must atomically index the transaction (per-address + global) and persist its payload.
    *
    * @param addr - The account address.
-   * @param txHash - The transaction hash to add to the pending list.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
-  addToList(addr: string, txHash: string): Promise<void>;
+  addToList(addr: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes a transaction from the pending list of the given address.
    *
    * @param address - The account address whose transaction should be removed.
-   * @param txHash - The transaction hash to remove.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    */
-  removeFromList(address: string, txHash: string): Promise<void>;
+  removeFromList(address: string, rlpHex: string): Promise<void>;
 
   /**
    * Removes all pending transactions across all addresses.
@@ -67,4 +83,19 @@ export interface PendingTransactionStorage {
    * @returns A promise that resolves once all entries have been cleared.
    */
   removeAll(): Promise<void>;
+
+  /**
+   * Retrieves all pending transaction payloads (RLP hex) across all addresses.
+   *
+   * @returns Set of all pending transaction RLP hex strings.
+   */
+  getAllTransactionPayloads(): Promise<Set<string>>;
+
+  /**
+   * Retrieves pending transaction payloads (RLP hex) for a specific address.
+   *
+   * @param address - The account address to query.
+   * @returns Set of transaction RLP hex strings for the address.
+   */
+  getTransactionPayloads(address: string): Promise<Set<string>>;
 }

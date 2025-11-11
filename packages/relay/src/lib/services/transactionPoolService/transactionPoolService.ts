@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Transaction } from 'ethers';
 import { Logger } from 'pino';
 
@@ -13,6 +14,13 @@ import {
  * Acts as a facade for the underlying storage layer and coordinates transaction lifecycle.
  */
 export class TransactionPoolService implements ITransactionPoolService {
+  /**
+   * Return if the transaction pool is enabled based on ENABLE_TX_POOL env
+   */
+  public static isEnabled(): boolean {
+    return ConfigService.get('ENABLE_TX_POOL');
+  }
+
   /**
    * The logger used for logging transaction pool operations.
    *
@@ -46,16 +54,23 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves once the transaction is stored.
    */
   async saveTransaction(address: string, tx: Transaction): Promise<void> {
-    const txHash = tx.hash;
-    const addressLowerCased = address.toLowerCase();
-
-    if (!txHash) {
-      throw new Error('Transaction hash is required for storage');
+    if (!TransactionPoolService.isEnabled()) {
+      return;
     }
 
-    await this.storage.addToList(addressLowerCased, txHash);
+    const addressLowerCased = address.toLowerCase();
+    const rlpHex = tx.serialized;
 
-    this.logger.debug({ address, txHash }, 'Transaction saved to pool');
+    try {
+      await this.storage.addToList(addressLowerCased, rlpHex);
+      this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
+    } catch (error) {
+      this.logger.error(
+        { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
+        'Failed to save transaction to pool',
+      );
+      throw error;
+    }
   }
 
   /**
@@ -63,14 +78,26 @@ export class TransactionPoolService implements ITransactionPoolService {
    * This is typically called when a transaction is confirmed or fails on the consensus layer.
    *
    * @param address - The account address of the transaction sender.
-   * @param txHash - The hash of the transaction to remove.
+   * @param rlpHex - The RLP-encoded transaction as a hex string.
    * @returns A promise that resolves to the new pending transaction count for the address.
    */
-  async removeTransaction(address: string, txHash: string): Promise<void> {
-    const addressLowerCased = address.toLowerCase();
-    await this.storage.removeFromList(addressLowerCased, txHash);
+  async removeTransaction(address: string, rlpHex: string): Promise<void> {
+    if (!TransactionPoolService.isEnabled()) {
+      return;
+    }
 
-    this.logger.debug({ address, txHash }, 'Transaction removed from pool');
+    const addressLowerCased = address.toLowerCase();
+
+    try {
+      await this.storage.removeFromList(addressLowerCased, rlpHex);
+      this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
+    } catch (error) {
+      this.logger.error(
+        { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
+        'Failed to remove transaction from pool',
+      );
+      throw error;
+    }
   }
 
   /**
@@ -82,5 +109,31 @@ export class TransactionPoolService implements ITransactionPoolService {
   async getPendingCount(address: string): Promise<number> {
     const addressLowerCased = address.toLowerCase();
     return await this.storage.getList(addressLowerCased);
+  }
+
+  /**
+   * Retrieves all pending transaction RLP payloads for a given address.
+   *
+   * @param address - The account address to query.
+   * @returns A promise that resolves to a Set of RLP hex strings.
+   */
+  async getTransactions(address: string): Promise<Set<string>> {
+    const addressLowerCased = address.toLowerCase();
+    const payloads = await this.storage.getTransactionPayloads(addressLowerCased);
+
+    this.logger.debug({ address, totalPayloads: payloads.size }, 'Retrieved transactions for address');
+
+    return payloads;
+  }
+
+  /**
+   * Retrieves all pending transaction RLP payloads across all addresses.
+   *
+   * @returns A promise that resolves to a Set of RLP hex strings.
+   */
+  async getAllTransactions(): Promise<Set<string>> {
+    const payloads = await this.storage.getAllTransactionPayloads();
+
+    return payloads;
   }
 }

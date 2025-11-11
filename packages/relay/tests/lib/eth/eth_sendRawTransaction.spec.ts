@@ -14,15 +14,16 @@ import {
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
 import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
-import { EventEmitter } from 'events';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
 import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
+import { TransactionPoolService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
@@ -63,6 +64,15 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
+      {
+        getList: sinon.stub(),
+        addToList: sinon.stub(),
+        removeFromList: sinon.stub(),
+        removeAll: sinon.stub(),
+      },
+      pino({ level: 'silent' }),
+    );
   });
 
   this.afterEach(() => {
@@ -328,15 +338,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
           sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, ethereumHash);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
 
           saveStub.restore();
           removeStub.restore();
         });
 
-        it('should save and remove transaction (fallback path uses parsedTx.hash)', async function () {
+        it('should save and remove transaction (fallback path uses parsedTx.serialized)', async function () {
           const signed = await signTransaction(transaction);
-          const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
           const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
 
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
@@ -358,7 +367,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
           sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, expectedTxHash);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
 
           saveStub.restore();
           removeStub.restore();
