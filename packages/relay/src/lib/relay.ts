@@ -26,8 +26,6 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
-import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
-import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
 import { TxPoolImpl } from './txpool';
 import {
   IEthExecutionEventPayload,

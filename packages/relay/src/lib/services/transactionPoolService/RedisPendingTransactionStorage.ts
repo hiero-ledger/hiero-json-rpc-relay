@@ -2,7 +2,6 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisClientType } from 'redis';
 
-import constants from '../../constants';
 import { PendingTransactionStorage } from '../../types/transactionPool';
 
 export class RedisPendingTransactionStorage implements PendingTransactionStorage {

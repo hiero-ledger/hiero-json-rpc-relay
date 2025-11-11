@@ -25,7 +25,6 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
 import { NetImpl } from '../../src/lib/net';
-import { TransactionPoolService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
