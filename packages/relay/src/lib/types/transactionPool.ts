@@ -87,15 +87,15 @@ export interface PendingTransactionStorage {
   /**
    * Retrieves all pending transaction payloads (RLP hex) across all addresses.
    *
-   * @returns Array of all pending transaction RLP hex strings.
+   * @returns Set of all pending transaction RLP hex strings.
    */
-  getAllTransactionPayloads(): Promise<string[]>;
+  getAllTransactionPayloads(): Promise<Set<string>>;
 
   /**
    * Retrieves pending transaction payloads (RLP hex) for a specific address.
    *
    * @param address - The account address to query.
-   * @returns Array of transaction RLP hex strings for the address.
+   * @returns Set of transaction RLP hex strings for the address.
    */
-  getTransactionPayloads(address: string): Promise<string[]>;
+  getTransactionPayloads(address: string): Promise<Set<string>>;
 }

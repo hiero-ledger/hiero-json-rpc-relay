@@ -25,6 +25,7 @@ import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
+import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
 import { LocalPendingTransactionStorage } from './services/transactionPoolService/LocalPendingTransactionStorage';
 import { RedisPendingTransactionStorage } from './services/transactionPoolService/RedisPendingTransactionStorage';
 import { TxPoolImpl } from './txpool';
@@ -339,9 +340,7 @@ export class Relay {
       : this.mirrorNodeClient;
     this.metricService = new MetricService(this.logger, metricsCollector, this.register, hbarLimitService);
 
-    const storage = this.redisClient
-      ? new RedisPendingTransactionStorage(this.redisClient)
-      : new LocalPendingTransactionStorage();
+    const storage = PendingTransactionStorageFactory.create(this.redisClient);
 
     // Create Eth implementation with connected Redis client
     this.ethImpl = new EthImpl(

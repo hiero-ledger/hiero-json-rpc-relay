@@ -7,8 +7,13 @@ import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
 import { PendingTransactionStorage } from '../../../../src/lib/types/transactionPool';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('TransactionPoolService Test Suite', function () {
+  overrideEnvsInMochaDescribe({
+    ENABLE_TX_POOL: true,
+  });
+
   this.timeout(10000);
 
   let logger: Logger;
@@ -59,6 +64,14 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('saveTransaction', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it(`should not execute .addToList if ENABLE_TX_POOL is set to false`, async function () {
+        mockStorage.addToList.resolves();
+        await transactionPoolService.saveTransaction(testAddress, testTransaction);
+        expect(mockStorage.addToList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully save transaction to pool', async () => {
       mockStorage.addToList.resolves();
 
@@ -68,9 +81,11 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
 
-    it('should propagate storage errors', async () => {
+    it('should log error and rethrow when storage fails', async () => {
       const storageError = new Error('Storage connection failed');
       mockStorage.addToList.rejects(storageError);
+
+      const loggerSpy = sinon.spy(transactionPoolService['logger'], 'error');
 
       try {
         await transactionPoolService.saveTransaction(testAddress, testTransaction);
@@ -81,10 +96,20 @@ describe('TransactionPoolService Test Suite', function () {
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
       expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
+      expect(loggerSpy.calledOnce).to.be.true;
+      expect(loggerSpy.firstCall.args[0]).to.have.property('error', 'Storage connection failed');
     });
   });
 
   describe('removeTransaction', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it(`should not execute .removeFromList if ENABLE_TX_POOL is set to false`, async function () {
+        mockStorage.removeFromList.resolves();
+        await transactionPoolService.removeTransaction(testAddress, testTxHash);
+        expect(mockStorage.removeFromList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully remove transaction from pool', async () => {
       mockStorage.removeFromList.resolves();
 
@@ -93,9 +118,11 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
     });
 
-    it('should propagate storage errors', async () => {
+    it('should log error and rethrow when storage fails', async () => {
       const storageError = new Error('Storage removal failed');
       mockStorage.removeFromList.rejects(storageError);
+
+      const loggerSpy = sinon.spy(transactionPoolService['logger'], 'error');
 
       try {
         await transactionPoolService.removeTransaction(testAddress, testRlpHex);
@@ -105,6 +132,8 @@ describe('TransactionPoolService Test Suite', function () {
       }
 
       expect(mockStorage.removeFromList.calledOnceWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
+      expect(loggerSpy.calledOnce).to.be.true;
+      expect(loggerSpy.firstCall.args[0]).to.have.property('error', 'Storage removal failed');
     });
   });
 
@@ -128,7 +157,7 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
     });
 
-    it('should propagate storage errors', async () => {
+    it('should rethrow storage errors', async () => {
       const storageError = new Error('Storage lookup failed');
       mockStorage.getList.rejects(storageError);
 
@@ -189,6 +218,58 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.addToList.calledTwice).to.be.true;
       expect(mockStorage.addToList.firstCall.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
       expect(mockStorage.addToList.secondCall.calledWith(testAddress.toLowerCase(), secondRlpHex)).to.be.true;
+    });
+  });
+
+  describe('getTransactions', () => {
+    it('should successfully retrieve transactions for address', async () => {
+      const payloads = new Set([testRlpHex, '0xabcd']);
+      mockStorage.getTransactionPayloads.resolves(payloads);
+
+      const result = await transactionPoolService.getTransactions(testAddress);
+
+      expect(result).to.deep.equal(payloads);
+      expect(mockStorage.getTransactionPayloads.calledOnceWith(testAddress.toLowerCase())).to.be.true;
+    });
+
+    it('should rethrow storage errors', async () => {
+      const storageError = new Error('Storage retrieval failed');
+      mockStorage.getTransactionPayloads.rejects(storageError);
+
+      try {
+        await transactionPoolService.getTransactions(testAddress);
+        expect.fail('Expected error to be thrown');
+      } catch (error) {
+        expect(error).to.equal(storageError);
+      }
+
+      expect(mockStorage.getTransactionPayloads.calledOnceWith(testAddress.toLowerCase())).to.be.true;
+    });
+  });
+
+  describe('getAllTransactions', () => {
+    it('should successfully retrieve all transactions', async () => {
+      const payloads = new Set([testRlpHex, '0xabcd', '0x1234']);
+      mockStorage.getAllTransactionPayloads.resolves(payloads);
+
+      const result = await transactionPoolService.getAllTransactions();
+
+      expect(result).to.deep.equal(payloads);
+      expect(mockStorage.getAllTransactionPayloads.calledOnce).to.be.true;
+    });
+
+    it('should rethrow storage errors', async () => {
+      const storageError = new Error('Storage retrieval failed');
+      mockStorage.getAllTransactionPayloads.rejects(storageError);
+
+      try {
+        await transactionPoolService.getAllTransactions();
+        expect.fail('Expected error to be thrown');
+      } catch (error) {
+        expect(error).to.equal(storageError);
+      }
+
+      expect(mockStorage.getAllTransactionPayloads.calledOnce).to.be.true;
     });
   });
 

@@ -17,9 +17,14 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   private readonly keyPrefix = 'txpool:pending:';
 
   /**
-   * Key for the global pending transactions index.
+   * Key for storing all pending transactions across all addresses.
+   *
+   * @remarks
+   * This global set contains all pending transaction RLPs from all addresses,
+   * allowing efficient retrieval of the entire pending pool without scanning
+   * individual address keys.
    */
-  private readonly globalIndexKey = 'txpool:pending:txns';
+  private readonly globalPendingTxsKey = `${this.keyPrefix}global`;
 
   /**
    * The time-to-live (TTL) for the pending transaction storage in seconds.
@@ -30,13 +35,9 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    * Creates a new Redis-backed pending transaction storage.
    *
    * @param redisClient - A connected {@link RedisClientType} instance.
-   * @param storageTtl - Optional TTL in seconds for transaction payloads (defaults to constant).
    */
-  constructor(
-    private readonly redisClient: RedisClientType,
-    storageTtl?: number,
-  ) {
-    this.storageTtl = storageTtl ?? constants.TRANSACTION_POOL_STORAGE_TTL_SECONDS;
+  constructor(private readonly redisClient: RedisClientType) {
+    this.storageTtl = ConfigService.get('PENDING_TRANSACTION_STORAGE_TTL');
   }
 
   /**
@@ -63,8 +64,8 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
       .multi()
       .sAdd(addressKey, rlpHex)
       .expire(addressKey, this.storageTtl)
-      .sAdd(this.globalIndexKey, rlpHex)
-      .expire(this.globalIndexKey, this.storageTtl)
+      .sAdd(this.globalPendingTxsKey, rlpHex)
+      .expire(this.globalPendingTxsKey, this.storageTtl)
       .exec();
   }
 
@@ -76,7 +77,7 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
    */
   async removeFromList(address: string, rlpHex: string): Promise<void> {
     const key = this.keyFor(address);
-    await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalIndexKey, rlpHex).execAsPipeline();
+    await this.redisClient.multi().sRem(key, rlpHex).sRem(this.globalPendingTxsKey, rlpHex).exec();
   }
 
   /**
@@ -105,20 +106,22 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   /**
    * Retrieves all pending transaction payloads (RLP hex) across all addresses.
    *
-   * @returns Array of all pending transaction RLP hex strings
+   * @returns Set of all pending transaction RLP hex strings
    */
-  async getAllTransactionPayloads(): Promise<string[]> {
-    return await this.redisClient.sMembers(this.globalIndexKey);
+  async getAllTransactionPayloads(): Promise<Set<string>> {
+    const members = await this.redisClient.sMembers(this.globalPendingTxsKey);
+    return new Set(members);
   }
 
   /**
    * Retrieves pending transaction payloads (RLP hex) for a specific address.
    *
    * @param address - The account address to query
-   * @returns Array of transaction RLP hex strings for the address
+   * @returns Set of transaction RLP hex strings for the address
    */
-  async getTransactionPayloads(address: string): Promise<string[]> {
+  async getTransactionPayloads(address: string): Promise<Set<string>> {
     const addressKey = this.keyFor(address);
-    return await this.redisClient.sMembers(addressKey);
+    const members = await this.redisClient.sMembers(addressKey);
+    return new Set(members);
   }
 }

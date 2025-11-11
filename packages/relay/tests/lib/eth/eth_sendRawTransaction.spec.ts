@@ -23,6 +23,7 @@ import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
+import { TransactionPoolService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
@@ -63,6 +64,15 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
+      {
+        getList: sinon.stub(),
+        addToList: sinon.stub(),
+        removeFromList: sinon.stub(),
+        removeAll: sinon.stub(),
+      },
+      pino({ level: 'silent' }),
+    );
   });
 
   this.afterEach(() => {

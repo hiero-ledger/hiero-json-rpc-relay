@@ -25,6 +25,7 @@ import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLi
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
 import { NetImpl } from '../../src/lib/net';
+import { TransactionPoolService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -131,6 +132,17 @@ describe('Open RPC Specification', function () {
     clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = new TransactionPoolService(
+      {
+        getList: sinon.stub(),
+        addToList: sinon.stub(),
+        removeFromList: sinon.stub(),
+        removeAll: sinon.stub(),
+      },
+      pino({ level: 'silent' }),
+    );
+    ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
     const storageStub = sinon.createStubInstance(LocalPendingTransactionStorage);
     const txHash = '0x888eab490f1ea6ef5c4d9e1f47a04291538fac9b7b05f4610ffa6a211610b522';
     const rlpTx =
