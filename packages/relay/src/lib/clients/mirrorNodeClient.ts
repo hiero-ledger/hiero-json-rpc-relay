@@ -519,7 +519,10 @@ export class MirrorNodeClient {
     retries?: number,
   ) {
     const queryParamsFiltered = Object.fromEntries(
-      Object.entries(queryParamObject).filter(([_, value]) => value !== undefined && value !== ''),
+      Object.entries(queryParamObject).filter(([key, value]) => {
+        if (key === 'transactions' && value) return false;
+        return value !== undefined && value !== '';
+      }),
     );
     const queryParams = this.getQueryParams(queryParamsFiltered);
     return this.get(
