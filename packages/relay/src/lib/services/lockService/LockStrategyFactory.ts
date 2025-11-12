@@ -1,27 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
+import { RedisClientType } from 'redis';
 
 import { LockStrategy } from '../../types/lock';
 
 /**
- * Factory for creating lock strategy instances based on configuration.
+ * Factory for creating LockStrategy instances.
+ *
+ * Encapsulates the logic for selecting the appropriate lock strategy implementation
+ * based on available infrastructure (Redis vs in-memory).
  */
 export class LockStrategyFactory {
   /**
-   * Creates the appropriate lock strategy instance based on REDIS_ENABLED configuration.
+   * Creates a LockStrategy instance.
    *
+   * @param redisClient - Optional Redis client. If provided, creates Redis-backed lock strategy;
+   *                      otherwise creates local in-memory lock strategy.
    * @param logger - Logger instance for the lock strategy.
-   * @returns An instance of the appropriate lock strategy.
-   * @throws Error if the strategy is not yet implemented.
+   * @returns A LockStrategy implementation.
    */
-  static create(logger: Logger): LockStrategy {
-    const useRedis = ConfigService.get('REDIS_ENABLED');
-    logger.info(`Creating ${useRedis ? 'Redis' : 'Local'} lock strategy based on REDIS_ENABLED`);
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static create(redisClient: RedisClientType | undefined, logger: Logger): LockStrategy {
     // TODO: Remove placeholder errors once strategies are implemented
-    if (useRedis) {
+    if (redisClient) {
       throw new Error('Redis lock strategy not yet implemented');
     }
 

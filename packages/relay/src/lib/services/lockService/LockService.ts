@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
-
 import { LockStrategy } from '../../types/lock';
 
 /**
@@ -15,19 +13,12 @@ export class LockService {
   private readonly strategy: LockStrategy;
 
   /**
-   * Logger instance for lock service operations.
-   */
-  private readonly logger: Logger;
-
-  /**
    * Creates a new LockService instance.
    *
    * @param strategy - The lock strategy implementation to use.
-   * @param logger - Logger instance for tracking lock operations.
    */
-  constructor(strategy: LockStrategy, logger: Logger) {
+  constructor(strategy: LockStrategy) {
     this.strategy = strategy;
-    this.logger = logger.child({ name: 'lock-service' });
   }
 
   /**
@@ -38,9 +29,7 @@ export class LockService {
    * @returns A promise that resolves to a unique session key.
    */
   async acquireLock(address: string): Promise<string> {
-    const sessionKey = await this.strategy.acquireLock(address);
-    this.logger.debug({ address, sessionKey }, 'Lock acquired');
-    return sessionKey;
+    return await this.strategy.acquireLock(address);
   }
 
   /**
@@ -52,6 +41,5 @@ export class LockService {
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
     await this.strategy.releaseLock(address, sessionKey);
-    this.logger.debug({ address, sessionKey }, 'Lock released');
   }
 }
