@@ -639,6 +639,11 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  TXPOOL_API_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
     required: false,
