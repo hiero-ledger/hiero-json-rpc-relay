@@ -368,6 +368,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 'trace',
   },
+  PRETTY_LOGS_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   MAX_BLOCK_RANGE: {
     type: 'number',
     required: false,
@@ -519,11 +524,6 @@ const _CONFIG = {
     required: false,
     defaultValue: [],
   },
-  PENDING_TRANSACTION_STORAGE_TTL: {
-    type: 'number',
-    required: false,
-    defaultValue: 30,
-  },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,
@@ -558,6 +558,11 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: false,
+  },
+  SDK_LOG_LEVEL: {
+    type: 'string',
+    required: false,
+    defaultValue: 'silent',
   },
   SDK_REQUEST_TIMEOUT: {
     type: 'number',
@@ -614,6 +619,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  PENDING_TRANSACTION_STORAGE_TTL: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
+  },
   TIER_1_RATE_LIMIT: {
     type: 'number',
     required: false,
@@ -633,6 +643,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: null,
+  },
+  TXPOOL_API_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
   },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',

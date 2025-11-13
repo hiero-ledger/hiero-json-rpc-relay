@@ -322,7 +322,7 @@ export class AccountService implements IAccountService {
       return constants.ZERO_HEX;
     } else if (this.common.blockTagIsLatestOrPending(blockNumOrTag)) {
       const mnNonce = await this.getAccountLatestEthereumNonce(address, requestDetails);
-      if (ConfigService.get('ENABLE_TX_POOL') && blockNumOrTag == constants.BLOCK_PENDING) {
+      if (blockNumOrTag == constants.BLOCK_PENDING) {
         return numberTo0x(Number(mnNonce) + (await this.transactionPoolService.getPendingCount(address)));
       }
       return mnNonce;

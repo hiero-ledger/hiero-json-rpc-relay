@@ -260,9 +260,7 @@ export class TransactionService implements ITransactionService {
     await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
 
     // Save the transaction to the transaction pool before submitting it to the network
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
-    }
+    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -498,9 +496,7 @@ export class TransactionService implements ITransactionService {
     );
 
     // Remove the transaction from the transaction pool after submission
-    if (ConfigService.get('ENABLE_TX_POOL')) {
-      await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.hash!);
-    }
+    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
     sendRawTransactionError = error;
 

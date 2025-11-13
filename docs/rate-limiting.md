@@ -119,3 +119,6 @@ The following table highlights each relay endpoint and the TIER associated with 
 | `net_peerCount`                           | TIER_3_RATE_LIMIT |
 | `web3_clientVersion`                      | TIER_3_RATE_LIMIT |
 | `web3_sha3`                               | TIER_3_RATE_LIMIT |
+| `txpool_content`                          | TIER_2_RATE_LIMIT |
+| `txpool_contentFrom`                      | TIER_2_RATE_LIMIT |
+| `txpool_status`                           | TIER_2_RATE_LIMIT |
