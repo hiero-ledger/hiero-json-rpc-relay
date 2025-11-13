@@ -36,7 +36,7 @@ export class LocalLockStrategy {
   /**
    * Seconds for auto-release if lock not manually released
    */
-  public static LOCAL_LOCK_MAX_LOCK_TIME: number = 30_000; // 60 secs
+  public static LOCAL_LOCK_MAX_LOCK_TIME: number = 30_000; // 30 secs
 
   /**
    * LRU cache of lock states, keyed by address.
