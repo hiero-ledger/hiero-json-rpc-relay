@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
+import { pino } from 'pino';
 import sinon from 'sinon';
 
 import { LocalLockStrategy } from '../../../../src/lib/services/lockService/LocalLockStrategy';
@@ -11,7 +12,7 @@ describe('LocalLockStrategy', function () {
   let lockStrategy: LocalLockStrategy;
 
   beforeEach(() => {
-    lockStrategy = new LocalLockStrategy();
+    lockStrategy = new LocalLockStrategy(pino({ level: 'silent' }));
   });
 
   afterEach(() => {
