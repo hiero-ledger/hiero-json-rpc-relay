@@ -88,7 +88,7 @@ describe('LocalLockStrategy', function () {
     (LocalLockStrategy as any).LOCAL_LOCK_MAX_LOCK_TIME = 200; // 200ms
 
     const releaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
-    const sessionKey = await lockStrategy.acquireLock(address);
+    await lockStrategy.acquireLock(address);
 
     // Wait beyond auto-release timeout
     await new Promise((res) => setTimeout(res, 300));
