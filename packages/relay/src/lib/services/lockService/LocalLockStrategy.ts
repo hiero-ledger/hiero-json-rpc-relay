@@ -5,8 +5,6 @@ import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
-import { LockStrategy } from '../../types';
-
 /**
  * Represents the internal state for a lock associated with a given address.
  */
