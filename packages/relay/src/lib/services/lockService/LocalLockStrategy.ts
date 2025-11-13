@@ -49,7 +49,7 @@ export class LocalLockStrategy {
   });
 
   /**
-   * Logger
+   * Logger.
    *
    * @private
    */
