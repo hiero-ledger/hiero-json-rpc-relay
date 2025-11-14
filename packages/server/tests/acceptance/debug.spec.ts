@@ -417,7 +417,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('Call Tracer', () => {
-      it('should trace a transaction using CallTracer with onlyTopCall=false', async function () {
+      it('@release should trace a transaction using CallTracer with onlyTopCall=false', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
@@ -433,7 +433,7 @@ describe('@debug API Acceptance Tests', function () {
         expect(result).to.have.property('calls');
       });
 
-      it('should trace a transaction using CallTracer with onlyTopCall=true', async function () {
+      it('@release should trace a transaction using CallTracer with onlyTopCall=true', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
@@ -452,7 +452,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('PrestateTracer', () => {
-      it('should trace a transaction using PrestateTracer', async function () {
+      it('@release should trace a transaction using PrestateTracer', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER]);
 
         expect(result).to.be.an('object');
@@ -469,7 +469,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
+      it('@release should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
@@ -489,7 +489,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
+      it('@release should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE,
