@@ -277,7 +277,7 @@ export async function initializeServer() {
     }
   });
 
-  app.use((ctx, next) => {
+  app.use(async (ctx, next) => {
     const options = {
       expose: ctx.get('Request-Id'),
       header: ctx.get('Request-Id'),
