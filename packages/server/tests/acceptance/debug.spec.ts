@@ -417,7 +417,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('Call Tracer', () => {
-      it('should trace a transaction using CallTracer with onlyTopCall=false', async function () {
+      it('@release should trace a transaction using CallTracer with onlyTopCall=false', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
@@ -433,7 +433,7 @@ describe('@debug API Acceptance Tests', function () {
         expect(result).to.have.property('calls');
       });
 
-      it('should trace a transaction using CallTracer with onlyTopCall=true', async function () {
+      it('@release should trace a transaction using CallTracer with onlyTopCall=true', async function () {
         // Call debug_traceTransaction with CallTracer (default config)
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
@@ -452,7 +452,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('PrestateTracer', () => {
-      it('should trace a transaction using PrestateTracer', async function () {
+      it('@release should trace a transaction using PrestateTracer', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, TRACER_CONFIGS.PRESTATE_TRACER]);
 
         expect(result).to.be.an('object');
@@ -469,7 +469,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
+      it('@release should trace a transaction using PrestateTracer with onlyTopCall=true', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY,
@@ -489,7 +489,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
+      it('@release should trace a transaction using PrestateTracer with onlyTopCall=false', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.PRESTATE_TRACER_TOP_ONLY_FALSE,
@@ -511,7 +511,7 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('OpcodeLogger', () => {
-      it('@release should trace a successful transaction using OpcodeLogger (default when no tracer specified)', async function () {
+      it('should trace a successful transaction using OpcodeLogger (default when no tracer specified)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash]);
 
         // Validate response structure for OpcodeLogger
@@ -528,13 +528,13 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('@release should trace a successful transaction using OpcodeLogger explicitly', async function () {
+      it('should trace a successful transaction using OpcodeLogger explicitly', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [createChildTx.hash, TRACER_CONFIGS.OPCODE_LOGGER]);
 
         Assertions.validateOpcodeLoggerResult(result);
       });
 
-      it('@release should trace using OpcodeLogger with custom config (enableMemory=true)', async function () {
+      it('should trace using OpcodeLogger with custom config (enableMemory=true)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.OPCODE_WITH_MEMORY,
@@ -550,7 +550,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('@release should trace using OpcodeLogger with custom config (disableStack=true)', async function () {
+      it('should trace using OpcodeLogger with custom config (disableStack=true)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.OPCODE_WITH_STACK,
@@ -566,7 +566,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('@release should trace using OpcodeLogger with custom config (disableStorage=true)', async function () {
+      it('should trace using OpcodeLogger with custom config (disableStorage=true)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.OPCODE_WITH_STORAGE,
@@ -582,7 +582,7 @@ describe('@debug API Acceptance Tests', function () {
         }
       });
 
-      it('@release should trace using OpcodeLogger with custom config (enableMemory=true, disableStorage=true)', async function () {
+      it('should trace using OpcodeLogger with custom config (enableMemory=true, disableStorage=true)', async function () {
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           createChildTx.hash,
           TRACER_CONFIGS.OPCODE_WITH_MEMORY_AND_STORAGE,

@@ -2499,6 +2499,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const signedTx = await accounts[2].wallet.signTransaction(transaction);
         const transactionHash = await relay.sendRawTransaction(signedTx);
 
+        // wait for tx receipt
+        await relay.pollForValidTransactionReceipt(transactionHash);
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_HASH, [transactionHash]);
 
         expect(res.to).to.be.null;
