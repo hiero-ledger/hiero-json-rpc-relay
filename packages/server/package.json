@@ -10,7 +10,7 @@
     "@hashgraph/json-rpc-relay": "file:../relay",
     "co-body": "6.2.0",
     "dotenv": "^17.2.1",
-    "koa": "^2.13.4",
+    "koa": "^3.0.1",
     "koa-cors": "^0.0.16",
     "pino": "^9.7.0",
     "pino-pretty": "^7.6.1",
