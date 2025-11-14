@@ -49,7 +49,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
 
   it('should return balance from mirror node', async () => {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
+    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?transactions=false`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
@@ -58,7 +58,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
   it('should return balance from mirror node with block number passed as param the same as latest', async () => {
     const blockNumber = '0x2710';
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
+    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?transactions=false`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, blockNumber, requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
@@ -73,7 +73,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         number: 10000,
       }),
     );
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
+    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?transactions=false`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, blockHash, requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
@@ -82,7 +82,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
   it('should return balance from mirror node with block number passed as param, one behind latest', async () => {
     const blockNumber = '0x270F';
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCKS_FOR_BALANCE_RES));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
+    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?transactions=false`).reply(200, JSON.stringify(MOCK_BALANCE_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, blockNumber, requestDetails);
     expect(resBalance).to.equal(DEF_HEX_BALANCE);
@@ -120,7 +120,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
   it('should return balance from consensus node', async () => {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOCK_BLOCK_NUMBER_1000_RES));
     restMock.onGet(`contracts/${CONTRACT_ADDRESS_1}`).reply(200, JSON.stringify(null));
-    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
+    restMock.onGet(`accounts/${CONTRACT_ADDRESS_1}?transactions=false`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
     const resBalance = await ethImpl.getBalance(CONTRACT_ADDRESS_1, 'latest', requestDetails);
     expect(resBalance).to.equal(constants.ZERO_HEX);
@@ -218,7 +218,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
       restMock.onGet(`blocks/2`).reply(200, JSON.stringify(recentBlock));
       restMock.onGet(`blocks/1`).reply(200, JSON.stringify(earlierBlock));
 
-      restMock.onGet(`accounts/${CONTRACT_ID_1}?limit=100`).reply(
+      restMock.onGet(`accounts/${CONTRACT_ID_1}?transactions=false`).reply(
         200,
         JSON.stringify({
           account: CONTRACT_ID_1,
@@ -698,6 +698,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
         },
       };
       restMock.onGet(`blocks/2`).reply(200, JSON.stringify(recentBlockWithinLastfifteen));
+      restMock.onGet(`accounts/${notFoundEvmAddress}?transactions=false`).reply(404, JSON.stringify(NOT_FOUND_RES));
       restMock.onGet(`accounts/${notFoundEvmAddress}?limit=100`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
       const resBalance = await ethImpl.getBalance(notFoundEvmAddress, '2', requestDetails);

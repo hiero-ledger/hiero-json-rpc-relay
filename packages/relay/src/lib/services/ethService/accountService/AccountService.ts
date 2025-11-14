@@ -151,7 +151,7 @@ export class AccountService implements IAccountService {
 
       if (!balanceFound && !mirrorAccount) {
         // If no balance and no account, then we need to make a request to the mirror node for the account.
-        mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
+        mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails);
         // Test if exists here
         if (mirrorAccount !== null && mirrorAccount !== undefined) {
           balanceFound = true;
@@ -265,7 +265,10 @@ export class AccountService implements IAccountService {
     else {
       let currentBalance = 0;
       let balanceFromTxs = 0;
-      mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestDetails);
+      mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
+        limit: constants.MIRROR_NODE_QUERY_LIMIT,
+        transactions: true,
+      });
       if (mirrorAccount) {
         if (mirrorAccount.balance) {
           currentBalance = mirrorAccount.balance.balance;
