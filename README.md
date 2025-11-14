@@ -304,6 +304,80 @@ Expected response:
     ]
 }
 ```
+---
+
+## Paymaster (Gasless Transactions)
+
+Starting in v0.71, the relay supports a Paymaster-style mode that allows operators to sponsor gas fees for selected users or contracts — enabling gasless transactions and simpler onboarding.
+
+### Overview (Paymaster)
+
+In traditional Web3 environments, every transaction must include a gas payment from the user’s account.  
+Hedera’s Paymaster-style model allows a relay or operator to safely and predictably cover gas fees for users.
+
+#### Why It Matters
+
+- Better UX — users can act without holding HBAR.  
+- Flexible monetization — sponsorship via credits or fiat.  
+- Enterprise and consumer use cases — onboarding, delegated submissions, sponsored dApps.  
+- Seamless integration — no changes to `msg.sender`.
+
+### Configuration Overview
+
+| Parameter | Description | Type | Default |
+| ---------- | ------------ | ---- | -------- |
+| PAYMASTER_ENABLED | Enables Paymaster functionality. | Boolean | false |
+| PAYMASTER_WHITELIST | Whitelisted addresses eligible for sponsorship. Use `*` for all. | String | "" |
+| MAX_GAS_ALLOWANCE_HBAR | Max HBAR subsidy per transaction. | Decimal | 0 |
+
+**Note:** `MAX_GAS_ALLOWANCE_HBAR` applies only if Paymaster is enabled and sender is whitelisted.  
+Senders must set `gasPrice=0` to trigger sponsorship.
+
+### Behavior Summary
+
+1. Enable Paymaster mode (`PAYMASTER_ENABLED=true`).  
+2. Define eligible addresses (`PAYMASTER_WHITELIST`).  
+3. Relay attaches a gas allowance up to `MAX_GAS_ALLOWANCE_HBAR`.  
+4. Payer covers cost; otherwise transaction proceeds normally.
+
+### Example Configurations
+
+```bash
+# Demo / testnet
+PAYMASTER_ENABLED=true
+PAYMASTER_WHITELIST=*
+MAX_GAS_ALLOWANCE_HBAR=0.15
+```
+
+```bash
+# Production
+PAYMASTER_ENABLED=true
+PAYMASTER_WHITELIST=0xabc123...,0xdef456...
+MAX_GAS_ALLOWANCE_HBAR=0.10
+```
+
+### Example Use Cases
+
+| Scenario | Description | Typical Settings |
+| -------- | ------------ | ---------------- |
+| App onboarding | Cover first user actions | PAYMASTER_ENABLED=true, PAYMASTER_WHITELIST=*, MAX_GAS_ALLOWANCE_HBAR=0.2 |
+| Enterprise backend | Relay sponsors contract writes | PAYMASTER_ENABLED=true, PAYMASTER_WHITELIST=<contracts>, MAX_GAS_ALLOWANCE_HBAR=0.5 |
+| Community relay | Sponsored dApp usage | PAYMASTER_ENABLED=true, PAYMASTER_WHITELIST=*, MAX_GAS_ALLOWANCE_HBAR=0.1 |
+
+### Best Practices
+
+- Always explicitly enable Paymaster.  
+- Use whitelisting for control.  
+- Start small (≤0.1 HBAR).  
+- Track and log sponsorship spend.  
+- Avoid `PAYMASTER_WHITELIST=*` in production.
+
+### References
+
+- PR #3941 — [Detailed Paymaster discussion](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/3941)  
+- [Relay Configuration Docs](https://github.com/hiero-ledger/hiero-json-rpc-relay)
+
+---
 
 ## Support
 
