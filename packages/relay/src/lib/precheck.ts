@@ -104,9 +104,9 @@ export class Precheck {
       throw predefined.RESOURCE_NOT_FOUND(`Account nonce unavailable for address: ${tx.from}.`);
     }
 
-    if (accountNonce > tx.nonce) {
-      throw predefined.NONCE_TOO_LOW(tx.nonce, accountNonce);
-    }
+    // if (accountNonce > tx.nonce) {
+    //   throw predefined.NONCE_TOO_LOW(tx.nonce, accountNonce);
+    // }
   }
 
   /**

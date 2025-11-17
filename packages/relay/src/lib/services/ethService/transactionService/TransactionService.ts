@@ -271,7 +271,10 @@ export class TransactionService implements ITransactionService {
     await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
 
     // Save the transaction to the transaction pool before submitting it to the network
-    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+    const isUpdated = await this.transactionPoolService.saveOrUpdate(parsedTx.from!, parsedTx);
+    if (isUpdated) {
+      return Utils.computeTransactionHash(transactionBuffer);
+    }
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -498,6 +501,10 @@ export class TransactionService implements ITransactionService {
 
     const sessionKey = await this.lockService.acquireLock(parsedTx.from!);
 
+    const foundTx = await this.transactionPoolService.getBySenderAndNonce(parsedTx.from!.toLowerCase(), parsedTx.nonce);
+
+    transactionBuffer = Buffer.from(this.prune0x(foundTx!), 'hex');
+
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
@@ -510,7 +517,7 @@ export class TransactionService implements ITransactionService {
     );
 
     // Remove the transaction from the transaction pool after submission
-    await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
+    await this.transactionPoolService.removeTransaction(originalCallerAddress, foundTx!);
     await this.lockService.releaseLock(parsedTx.from!, sessionKey);
 
     sendRawTransactionError = error;

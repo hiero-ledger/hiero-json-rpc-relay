@@ -73,6 +73,52 @@ export class TransactionPoolService implements ITransactionPoolService {
     }
   }
 
+  async saveOrUpdate(address: string, tx: Transaction): Promise<boolean> {
+    const addr = address.toLowerCase();
+    const nonce = tx.nonce;
+
+    // @ts-ignore
+    const pending = this.storage.pendingTransactions.get(addr) ?? new Set<string>();
+
+    let existingTx: string | null = null;
+    const updatedPending = new Set<string>();
+
+    // Replace or keep list entries
+    for (const item of pending) {
+      const parsed = Transaction.from(item);
+      if (parsed.nonce === nonce) {
+        existingTx = item;
+        updatedPending.add(tx.serialized);
+      } else {
+        updatedPending.add(item);
+      }
+    }
+
+    // If no existing tx with same nonce → just save new
+    if (!existingTx) {
+      await this.saveTransaction(addr, tx);
+      return false;
+    }
+
+    // Update pending set
+    // @ts-ignore
+    this.storage.pendingTransactions.set(addr, updatedPending);
+
+    // Update global index
+    // @ts-ignore
+    const globalIndex = this.storage.globalTransactionIndex;
+    const updatedGlobal = new Set<string>();
+
+    for (const item of globalIndex) {
+      updatedGlobal.add(item === existingTx ? tx.serialized : item);
+    }
+
+    // @ts-ignore
+    this.storage.globalTransactionIndex = updatedGlobal;
+
+    return true;
+  }
+
   /**
    * Removes a specific transaction from the pending pool.
    * This is typically called when a transaction is confirmed or fails on the consensus layer.
@@ -135,5 +181,20 @@ export class TransactionPoolService implements ITransactionPoolService {
     const payloads = await this.storage.getAllTransactionPayloads();
 
     return payloads;
+  }
+
+  async getBySenderAndNonce(sender: string, nonce: number): Promise<string> {
+    // TODO: create a method in the storage layers
+    // @ts-ignore
+    const txs = this.storage.pendingTransactions.get(sender.toLowerCase());
+
+    let foundTx = '';
+    txs?.forEach((txIt) => {
+      if (Transaction.from(txIt).nonce == nonce) {
+        foundTx = txIt;
+      }
+    });
+
+    return foundTx;
   }
 }

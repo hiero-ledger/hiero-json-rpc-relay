@@ -143,6 +143,66 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     }
   });
 
+  describe('Replace TX pool transaction', function () {
+    it('should replace a transaction with the same nonce', async function () {
+      const gasPrice = await relay.gasPrice();
+      const nonce = await relay.getAccountNonce(accounts[0].address);
+
+      const txHashes = [];
+      let txForOverrideHash;
+      let txForOverrideNonce;
+      for (let i = 0; i < 6; i++) {
+        const itNonce = nonce + i;
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: itNonce,
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: 1_000_000,
+          to: accounts[1].address,
+          value: Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10))),
+        };
+
+        const signedTx = await accounts[0].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+
+        if (i == 4) {
+          txForOverrideHash = transactionHash;
+          txForOverrideNonce = itNonce;
+        } else {
+          txHashes.push(transactionHash);
+        }
+      }
+
+      const signedTx = await accounts[0].wallet.signTransaction({
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: txForOverrideNonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: 1_000_000,
+        to: accounts[1].address,
+        value: Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('2', 10))),
+      });
+      const transactionHash = await relay.sendRawTransaction(signedTx);
+
+      expect(txHashes).to.have.length(5);
+      for (const txHash of txHashes) {
+        const receipt = await relay.pollForValidTransactionReceipt(txHash);
+        expect(receipt.status).to.equal('0x1');
+      }
+
+      const txForOverrideReceipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+        txForOverrideHash,
+      ]);
+      expect(txForOverrideReceipt).to.be.null;
+
+      const receipt = await relay.pollForValidTransactionReceipt(transactionHash);
+      expect(receipt.status).to.equal('0x1');
+    });
+  });
+
   describe('eth_estimateGas', async function () {
     let basicContract: ethers.Contract;
     let basicContractAddress: string;
