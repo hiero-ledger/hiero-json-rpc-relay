@@ -5,6 +5,7 @@ import { RedisClientType } from 'redis';
 
 import { LockStrategy } from '../../types';
 import { LocalLockStrategy } from './LocalLockStrategy';
+import { RedisLockStrategy } from './RedisLockStrategy';
 
 /**
  * Factory for creating LockStrategy instances.
@@ -23,9 +24,8 @@ export class LockStrategyFactory {
    */
 
   static create(redisClient: RedisClientType | undefined, logger: Logger): LockStrategy {
-    // TODO: Remove placeholder errors once strategies are implemented
     if (redisClient) {
-      // throw new Error('Redis lock strategy not yet implemented');
+      return new RedisLockStrategy(redisClient, logger.child({ name: 'redis-lock-strategy' }));
     }
 
     return new LocalLockStrategy(logger);

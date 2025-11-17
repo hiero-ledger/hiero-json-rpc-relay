@@ -659,6 +659,21 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  LOCK_MAX_HOLD_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
+  },
+  LOCK_QUEUE_POLL_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
+  },
+  LOCK_REDIS_PREFIX: {
+    type: 'string',
+    required: false,
+    defaultValue: 'lock',
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,
