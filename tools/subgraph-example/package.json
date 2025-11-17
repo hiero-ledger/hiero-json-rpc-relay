@@ -14,7 +14,7 @@
     "@typescript-eslint/eslint-plugin": "^4.33.0",
     "@typescript-eslint/parser": "^4.33.0",
     "chai": "^4.3.7",
-    "dotenv": "^17.2.1",
+    "dotenv": "^17.2.3",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-standard": "^16.0.3",
