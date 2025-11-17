@@ -264,17 +264,6 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getGasPriceInWeibars(requestDetails),
-    );
-
-    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-    // Save the transaction to the transaction pool before submitting it to the network
-    const isUpdated = await this.transactionPoolService.saveOrUpdate(parsedTx.from!, parsedTx);
-    if (isUpdated) {
-      return Utils.computeTransactionHash(transactionBuffer);
-    }
 
     /**
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -283,7 +272,7 @@ export class TransactionService implements ITransactionService {
      */
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
+      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, requestDetails);
       return Utils.computeTransactionHash(transactionBuffer);
     }
 
@@ -291,12 +280,7 @@ export class TransactionService implements ITransactionService {
      * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
      * wait for all transaction processing logic to complete before returning the transaction hash.
      */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      requestDetails,
-    );
+    return await this.sendRawTransactionProcessor(transactionBuffer, parsedTx, requestDetails);
   }
 
   /**
@@ -492,14 +476,25 @@ export class TransactionService implements ITransactionService {
   async sendRawTransactionProcessor(
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
-    networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
+    // Save the transaction to the transaction pool before submitting it to the network
+    const isUpdated = await this.transactionPoolService.saveOrUpdate(parsedTx.from!, parsedTx);
+    if (isUpdated) {
+      return Utils.computeTransactionHash(transactionBuffer);
+    }
+
+    const sessionKey = await this.lockService.acquireLock(parsedTx.from!);
+
+    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+      await this.common.getGasPriceInWeibars(requestDetails),
+    );
+
+    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
     let sendRawTransactionError: any;
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
-
-    const sessionKey = await this.lockService.acquireLock(parsedTx.from!);
 
     const foundTx = await this.transactionPoolService.getBySenderAndNonce(parsedTx.from!.toLowerCase(), parsedTx.nonce);
 
