@@ -29,11 +29,6 @@ export class LocalLockStrategy {
   public static LOCAL_LOCK_MAX_ENTRIES: number = 1_000; // Max 1000 addresses
 
   /**
-   * Time-to-live for each lock entry in the cache (in milliseconds).
-   */
-  public static LOCAL_LOCK_TTL: number = 300_000; // 5 minutes
-
-  /**
    * Seconds for auto-release if lock not manually released
    */
   public static LOCAL_LOCK_MAX_LOCK_TIME: number = 30_000; // 30 secs
@@ -43,7 +38,6 @@ export class LocalLockStrategy {
    */
   private localLockStates = new LRUCache<string, LockState>({
     max: LocalLockStrategy.LOCAL_LOCK_MAX_ENTRIES,
-    ttl: LocalLockStrategy.LOCAL_LOCK_TTL,
   });
 
   /**
