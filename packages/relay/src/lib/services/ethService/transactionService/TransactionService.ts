@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService, LockService, LockStrategyFactory, TransactionPoolService } from '../../index';
+import { ICommonService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -66,17 +66,7 @@ export class TransactionService implements ITransactionService {
    */
   private readonly precheck: Precheck;
 
-  /**
-   * Service responsible for managing pending transactions.
-   */
   private readonly transactionPoolService: TransactionPoolService;
-
-  /**
-   * Service that provides mechanisms for acquiring and releasing locks
-   * to ensure thread-safe and concurrent operation handling across
-   * asynchronous processes.
-   */
-  private readonly lockService: LockService;
 
   /**
    * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
@@ -106,7 +96,6 @@ export class TransactionService implements ITransactionService {
     this.mirrorNodeClient = mirrorNodeClient;
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
-    this.lockService = new LockService(LockStrategyFactory.create(undefined, logger), logger);
   }
 
   /**
@@ -483,7 +472,6 @@ export class TransactionService implements ITransactionService {
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
-   * @param {string} sessionKey - The key that is used as identifier in the lock service
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
   async sendRawTransactionProcessor(
@@ -495,8 +483,6 @@ export class TransactionService implements ITransactionService {
     let sendRawTransactionError: any;
 
     const originalCallerAddress = parsedTx.from?.toString() || '';
-
-    const sessionKey = await this.lockService.acquireLock(parsedTx.from!);
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_SEND_RAW_TRANSACTION,
@@ -511,7 +497,6 @@ export class TransactionService implements ITransactionService {
 
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
-    await this.lockService.releaseLock(parsedTx.from!, sessionKey);
 
     sendRawTransactionError = error;
 
