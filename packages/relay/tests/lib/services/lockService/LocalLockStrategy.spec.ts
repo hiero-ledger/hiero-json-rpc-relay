@@ -5,6 +5,7 @@ import { pino } from 'pino';
 import sinon from 'sinon';
 
 import { LocalLockStrategy } from '../../../../src/lib/services/lockService/LocalLockStrategy';
+import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('LocalLockStrategy', function () {
   this.timeout(10000);
@@ -81,21 +82,23 @@ describe('LocalLockStrategy', function () {
     expect(secondAcquired).to.be.true;
   });
 
-  it('should auto-release after max lock time', async () => {
-    const address = 'test-auto-release';
+  withOverriddenEnvsInMochaTest({ LOCAL_LOCK_MAX_LOCK_TIME: 200 }, () => {
+    it('should auto-release after max lock time', async () => {
+      const address = 'test-auto-release';
 
-    // Shorten auto-release time for test
-    (LocalLockStrategy as any).LOCAL_LOCK_MAX_LOCK_TIME = 200; // 200ms
+      // Shorten auto-release time for test
+      // (LocalLockStrategy as any).LOCAL_LOCK_MAX_LOCK_TIME = 200; // 200ms
 
-    const releaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
-    await lockStrategy.acquireLock(address);
+      const releaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
+      await lockStrategy.acquireLock(address);
 
-    // Wait beyond auto-release timeout
-    await new Promise((res) => setTimeout(res, 300));
+      // Wait beyond auto-release timeout
+      await new Promise((res) => setTimeout(res, 300));
 
-    expect(releaseSpy.called).to.be.true;
-    const args = releaseSpy.getCall(0).args[0];
-    expect(args.sessionKey).to.be.null;
+      expect(releaseSpy.called).to.be.true;
+      const args = releaseSpy.getCall(0).args[0];
+      expect(args.sessionKey).to.be.null;
+    });
   });
 
   it('should reuse existing lock state for same address', async () => {
@@ -120,12 +123,12 @@ describe('LocalLockStrategy', function () {
     const state = (lockStrategy as any).localLockStates.get(address);
 
     expect(state.sessionKey).to.equal(sessionKey);
-    expect(state.maxLockTime).to.not.be.null;
+    expect(state.lockTimeoutId).to.not.be.null;
 
     await lockStrategy.releaseLock(address, sessionKey);
 
     expect(state.sessionKey).to.be.null;
-    expect(state.maxLockTime).to.be.null;
+    expect(state.lockTimeoutId).to.be.null;
     expect(state.acquiredAt).to.be.null;
   });
 

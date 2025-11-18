@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Mutex } from 'async-mutex';
 import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
@@ -12,7 +13,7 @@ interface LockState {
   mutex: Mutex;
   sessionKey: string | null;
   acquiredAt: number | null;
-  maxLockTime: NodeJS.Timeout | null;
+  lockTimeoutId: NodeJS.Timeout | null;
 }
 
 /**
@@ -23,21 +24,10 @@ interface LockState {
  */
 export class LocalLockStrategy {
   /**
-   * Maximum number of lock entries stored in memory.
-   * Prevents unbounded memory growth.
-   */
-  public static LOCAL_LOCK_MAX_ENTRIES: number = 1_000; // Max 1000 addresses
-
-  /**
-   * Seconds for auto-release if lock not manually released
-   */
-  public static LOCAL_LOCK_MAX_LOCK_TIME: number = 30_000; // 30 secs
-
-  /**
    * LRU cache of lock states, keyed by address.
    */
   private localLockStates = new LRUCache<string, LockState>({
-    max: LocalLockStrategy.LOCAL_LOCK_MAX_ENTRIES,
+    max: ConfigService.get('LOCAL_LOCK_MAX_ENTRIES'),
   });
 
   /**
@@ -64,6 +54,10 @@ export class LocalLockStrategy {
    * @returns A session key identifying the current lock owner
    */
   async acquireLock(address: string): Promise<string> {
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`Acquiring lock for address ${address}.`);
+    }
+
     const sessionKey = randomUUID();
     const state = this.getOrCreateState(address);
 
@@ -75,9 +69,9 @@ export class LocalLockStrategy {
     state.acquiredAt = Date.now();
 
     // Start a 30-second timer to auto-release if lock not manually released
-    state.maxLockTime = setTimeout(() => {
+    state.lockTimeoutId = setTimeout(() => {
       this.forceReleaseExpiredLock(address, sessionKey);
-    }, LocalLockStrategy.LOCAL_LOCK_MAX_LOCK_TIME);
+    }, ConfigService.get('LOCAL_LOCK_MAX_LOCK_TIME'));
 
     return sessionKey;
   }
@@ -89,15 +83,16 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`Releasing lock for address ${address} and session key ${sessionKey}.`);
+    }
+
     const state = this.localLockStates.get(address);
 
     // Ensure only the lock owner can release
-    if (state?.sessionKey !== sessionKey) {
-      return; // Not the owner — safely ignore
+    if (state?.sessionKey === sessionKey) {
+      await this.doRelease(state);
     }
-
-    // Perform cleanup and release
-    await this.doRelease(state);
   }
 
   /**
@@ -107,12 +102,13 @@ export class LocalLockStrategy {
    * @returns The LockState object associated with the address
    */
   private getOrCreateState(address: string): LockState {
+    address = address.toLowerCase();
     if (!this.localLockStates.has(address)) {
       this.localLockStates.set(address, {
         mutex: new Mutex(),
         sessionKey: null,
         acquiredAt: null,
-        maxLockTime: null,
+        lockTimeoutId: null,
       });
     }
 
@@ -126,11 +122,11 @@ export class LocalLockStrategy {
    */
   private async doRelease(state: LockState): Promise<void> {
     // Clear timeout first
-    clearTimeout(state.maxLockTime!);
+    clearTimeout(state.lockTimeoutId!);
 
     // Reset state
     state.sessionKey = null;
-    state.maxLockTime = null;
+    state.lockTimeoutId = null;
     state.acquiredAt = null;
 
     // Release the mutex lock
@@ -147,16 +143,13 @@ export class LocalLockStrategy {
   private async forceReleaseExpiredLock(address: string, sessionKey: string): Promise<void> {
     const state = this.localLockStates.get(address);
 
-    // Ensure the session still owns the lock before force-releasing
-    if (!state || state.sessionKey !== sessionKey) {
-      return; // Already released or lock reassigned
-    }
+    if (state?.sessionKey === sessionKey) {
+      await this.doRelease(state);
 
-    if (this.logger.isLevelEnabled('debug')) {
-      const holdTime = Date.now() - state.acquiredAt!;
-      this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTime}ms.`);
+      if (this.logger.isLevelEnabled('debug')) {
+        const holdTime = Date.now() - state.acquiredAt!;
+        this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTime}ms.`);
+      }
     }
-
-    await this.doRelease(state);
   }
 }
