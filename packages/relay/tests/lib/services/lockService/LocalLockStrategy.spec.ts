@@ -21,8 +21,7 @@ describe('LocalLockStrategy', function () {
   });
 
   function getStateEntry(address) {
-    // @ts-ignore
-    return lockStrategy.localLockStates.get(address);
+    return lockStrategy['localLockStates'].get(address);
   }
 
   it('should acquire and release a lock successfully', async () => {
@@ -44,13 +43,15 @@ describe('LocalLockStrategy', function () {
     const sessionKey = await lockStrategy.acquireLock(address);
 
     const lockEntryAfterAcquisition = getStateEntry(address);
-    expect(lockEntryAfterAcquisition.sessionKey).to.not.be.null;
+    expect(lockEntryAfterAcquisition.sessionKey).to.equal(sessionKey);
 
     const wrongKey = 'fake-session';
+    const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
     await lockStrategy.releaseLock(address, wrongKey);
 
     const lockEntryAfterFakeRelease = getStateEntry(address);
-    expect(lockEntryAfterFakeRelease.sessionKey).to.not.be.null;
+    expect(lockEntryAfterFakeRelease.sessionKey).to.equal(sessionKey);
+    expect(doReleaseSpy.called).to.be.false;
 
     await lockStrategy.releaseLock(address, sessionKey);
 
@@ -86,9 +87,6 @@ describe('LocalLockStrategy', function () {
     it('should auto-release after max lock time', async () => {
       const address = 'test-auto-release';
 
-      // Shorten auto-release time for test
-      // (LocalLockStrategy as any).LOCAL_LOCK_MAX_LOCK_TIME = 200; // 200ms
-
       const releaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
       await lockStrategy.acquireLock(address);
 
@@ -104,15 +102,15 @@ describe('LocalLockStrategy', function () {
   it('should reuse existing lock state for same address', async () => {
     const address = 'test-reuse';
 
-    const state1 = (lockStrategy as any).getOrCreateState(address);
-    const state2 = (lockStrategy as any).getOrCreateState(address);
+    const state1 = lockStrategy['getOrCreateState'](address);
+    const state2 = lockStrategy['getOrCreateState'](address);
 
     expect(state1).to.equal(state2);
   });
 
   it('should create a new lock state for new addresses', async () => {
-    const stateA = (lockStrategy as any).getOrCreateState('a');
-    const stateB = (lockStrategy as any).getOrCreateState('b');
+    const stateA = lockStrategy['getOrCreateState']('a');
+    const stateB = lockStrategy['getOrCreateState']('b');
 
     expect(stateA).to.not.equal(stateB);
   });
@@ -120,7 +118,7 @@ describe('LocalLockStrategy', function () {
   it('should clear timeout and reset state on release', async () => {
     const address = 'test-reset';
     const sessionKey = await lockStrategy.acquireLock(address);
-    const state = (lockStrategy as any).localLockStates.get(address);
+    const state = lockStrategy['localLockStates'].get(address);
 
     expect(state.sessionKey).to.equal(sessionKey);
     expect(state.lockTimeoutId).to.not.be.null;
@@ -136,16 +134,16 @@ describe('LocalLockStrategy', function () {
     const address = 'test-force-mismatch';
     const sessionKey = await lockStrategy.acquireLock(address);
 
-    const state = (lockStrategy as any).localLockStates.get(address);
+    const state = lockStrategy['localLockStates'].get(address);
     expect(state.sessionKey).to.equal(sessionKey);
 
     // Modify session key to simulate ownership change
     state.sessionKey = 'different-key';
 
-    const spy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
-    await (lockStrategy as any).forceReleaseExpiredLock(address, sessionKey);
+    const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
+    await lockStrategy['forceReleaseExpiredLock'](address, sessionKey);
 
-    expect(spy.called).to.be.false;
+    expect(doReleaseSpy.called).to.be.false;
 
     await lockStrategy.releaseLock(address, 'different-key');
   });
