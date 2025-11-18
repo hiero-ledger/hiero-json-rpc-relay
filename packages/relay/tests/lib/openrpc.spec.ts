@@ -24,6 +24,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../src/lib/eth';
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { NetImpl } from '../../src/lib/net';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
@@ -106,7 +107,7 @@ describe('Open RPC Specification', function () {
     });
 
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(logger, registry);
+    const cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),

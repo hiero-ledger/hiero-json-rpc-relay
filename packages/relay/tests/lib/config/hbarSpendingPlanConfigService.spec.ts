@@ -23,6 +23,7 @@ import {
   IPAddressHbarSpendingPlanNotFoundError,
 } from '../../../src/lib/db/types/hbarLimiter/errors';
 import { SubscriptionTier } from '../../../src/lib/db/types/hbarLimiter/subscriptionTier';
+import { CacheClientFactory } from '../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { SpendingPlanConfig } from '../../../src/lib/types/spendingPlanConfig';
 import {
@@ -169,7 +170,7 @@ describe('HbarSpendingPlanConfigService', function () {
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(
+      cacheService = CacheClientFactory.create(
         logger.child({ name: 'cache-service' }),
         registry,
         reservedKeys,

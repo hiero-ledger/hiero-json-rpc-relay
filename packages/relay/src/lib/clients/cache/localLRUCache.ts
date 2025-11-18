@@ -72,6 +72,7 @@ export class LocalLRUCache implements ICacheClient {
    * @constructor
    * @param {Logger} logger - The logger instance to be used for logging.
    * @param {Registry} register - The registry instance used for metrics tracking.
+   * @param {Set<string>} reservedKeys - These are the cache keys delegated to the reserved cache.
    */
   public constructor(logger: Logger, register: Registry, reservedKeys: Set<string> = new Set()) {
     this.cache = new LRUCache(this.options);
@@ -116,7 +117,11 @@ export class LocalLRUCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async get(key: string, callingMethod: string): Promise<any> {
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.get(key, callingMethod);
+  }
+
+  private async get(key: string, callingMethod: string): Promise<any> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
@@ -186,21 +191,6 @@ export class LocalLRUCache implements ICacheClient {
     // Iterate over each entry in the keyValuePairs object
     for (const [key, value] of Object.entries(keyValuePairs)) {
       await this.set(key, value, callingMethod);
-    }
-  }
-
-  /**
-   * Stores multiple key-value pairs in the cache.
-   *
-   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
-   * @param callingMethod - The name of the calling method.
-   * @param ttl - Time to live on the set values
-   * @returns A Promise that resolves when the values are cached.
-   */
-  public async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    // Iterate over each entry in the keyValuePairs object
-    for (const [key, value] of Object.entries(keyValuePairs)) {
-      await this.set(key, value, callingMethod, ttl);
     }
   }
 
@@ -278,6 +268,62 @@ export class LocalLRUCache implements ICacheClient {
     }
     // Remove the prefix from the returned keys
     return matchingKeys.map((key) => key.substring(LocalLRUCache.CACHE_KEY_PREFIX.length));
+  }
+
+  /**
+   * Increments a value in the cache.
+   *
+   * @param key The key to increment
+   * @param amount The amount to increment by
+   * @param callingMethod The name of the calling method
+   * @returns The value of the key after incrementing
+   */
+  public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
+    const value = await this.get(key, callingMethod);
+    const newValue = value + amount;
+    const remainingTtl = await this.getRemainingTtl(key, callingMethod);
+    await this.set(key, newValue, callingMethod, remainingTtl);
+    return newValue;
+  }
+
+  /**
+   * Retrieves a range of elements from a list in the cache.
+   *
+   * @param key The key of the list
+   * @param start The start index
+   * @param end The end index
+   * @param callingMethod The name of the calling method
+   * @returns The list of elements in the range
+   */
+  public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
+    const values = (await this.get(key, callingMethod)) ?? [];
+    if (!Array.isArray(values)) {
+      throw new Error(`Value at key ${key} is not an array`);
+    }
+    if (end < 0) {
+      end = values.length + end;
+    }
+    return values.slice(start, end + 1);
+  }
+
+  /**
+   * Pushes a value to the end of a list in the cache.
+   *
+   * @param key The key of the list
+   * @param value The value to push
+   * @param callingMethod The name of the calling method
+   * @returns The length of the list after pushing
+   */
+  public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+    // Fallback to internal cache
+    const values = (await this.get(key, callingMethod)) ?? [];
+    if (!Array.isArray(values)) {
+      throw new Error(`Value at key ${key} is not an array`);
+    }
+    values.push(value);
+    const remainingTtl = await this.getRemainingTtl(key, callingMethod);
+    await this.set(key, values, callingMethod, remainingTtl);
+    return values.length;
   }
 
   private getCacheInstance(key: string): LRUCache<string, any> {

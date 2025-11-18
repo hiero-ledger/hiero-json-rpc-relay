@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import { LocalLRUCache } from '../../../../src/lib/clients/cache/localLRUCache';
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -28,7 +29,7 @@ describe('CacheService Test Suite', async function () {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;
       before(async () => {
-        internalCacheSpy = sinon.spy(cacheService['internalCache']);
+        internalCacheSpy = sinon.spy(cacheService);
       });
 
       it('should retrieve all keys', async function () {
@@ -135,7 +136,7 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
 
     this.beforeAll(() => {
-      cacheService = new CacheService(logger, registry);
+      cacheService = CacheClientFactory.create(logger, registry);
     });
 
     this.afterEach(async () => {
@@ -237,7 +238,7 @@ describe('CacheService Test Suite', async function () {
 
     describe('should not initialize redis cache if shared cache is not enabled', async function () {
       it('should not initialize redis cache if shared cache is not enabled', async function () {
-        expect(cacheService['sharedCache']).to.be.an.instanceOf(LocalLRUCache);
+        expect(cacheService).to.be.an.instanceOf(LocalLRUCache);
       });
     });
   });
@@ -254,7 +255,7 @@ describe('CacheService Test Suite', async function () {
 
     before(async () => {
       redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6381', 1000);
-      cacheService = new CacheService(logger, registry, new Set(), redisManager.getClient());
+      cacheService = CacheClientFactory.create(logger, registry, new Set(), redisManager.getClient());
     });
 
     this.beforeEach(async () => {

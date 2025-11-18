@@ -9,6 +9,7 @@ import pino, { type Logger } from 'pino';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import { CacheClientFactory } from '../../../relay/src/lib/factories/cacheClientFactory';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
 
 const DATA_LABEL_PREFIX = 'acceptance-test-';
@@ -28,7 +29,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6379', 1000);
     await redisManager.connect();
     redisClient = redisManager.getClient();
-    cacheService = new CacheService(logger, undefined, undefined, redisClient);
+    cacheService = CacheClientFactory.create(logger, undefined, undefined, redisClient);
     await new Promise((r) => setTimeout(r, 1000));
   });
 
@@ -86,7 +87,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     it('Falls back to local cache for REDIS_ENABLED !== true', async () => {
       const dataLabel = `${DATA_LABEL_PREFIX}3`;
 
-      const serviceWithDisabledRedis = new CacheService(logger);
+      const serviceWithDisabledRedis = CacheClientFactory.create(logger);
       const isRedisEnabled = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
       await new Promise((r) => setTimeout(r, 1000));
       expect(isRedisEnabled).to.eq(false);
@@ -100,7 +101,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
   it('Cache set by one instance can be accessed by another', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}4`;
-    const otherServiceInstance = new CacheService(logger, undefined, undefined, redisClient);
+    const otherServiceInstance = CacheClientFactory.create(logger, undefined, undefined, redisClient);
     await cacheService.set(dataLabel, DATA, CALLING_METHOD);
     await new Promise((r) => setTimeout(r, 200));
 

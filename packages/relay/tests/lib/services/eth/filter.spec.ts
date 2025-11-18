@@ -10,6 +10,7 @@ import { v4 as uuid } from 'uuid';
 import { predefined } from '../../../../src';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CommonService, FilterService } from '../../../../src/lib/services';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
@@ -52,7 +53,7 @@ describe('Filter API Test Suite', async function () {
 
   const validateFilterCache = async (filterId: string, expectedFilterType: string, expectedParams = {}) => {
     const cacheKey = `${constants.CACHE_KEY.FILTERID}_${filterId}`;
-    const cachedFilter = await cacheService.getAsync(cacheKey, 'validateFilterCache', requestDetails);
+    const cachedFilter = await cacheService.getAsync(cacheKey, 'validateFilterCache');
     expect(cachedFilter).to.exist;
     expect(cachedFilter.type).to.exist;
     expect(cachedFilter.type).to.eq(expectedFilterType);
@@ -62,7 +63,7 @@ describe('Filter API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    cacheService = new CacheService(logger, registry);
+    cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
@@ -83,7 +84,7 @@ describe('Filter API Test Suite', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
   });
 
@@ -334,17 +335,11 @@ describe('Filter API Test Suite', async function () {
   describe('eth_uninstallFilter', async function () {
     it('should return true if filter is deleted', async function () {
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
-      await cacheService.set(
-        cacheKey,
-        filterObject,
-        filterService.ethUninstallFilter,
-        requestDetails,
-        constants.FILTER.TTL,
-      );
+      await cacheService.set(cacheKey, filterObject, filterService.ethUninstallFilter, constants.FILTER.TTL);
 
       const result = await filterService.uninstallFilter(existingFilterId, requestDetails);
 
-      const isDeleted = !(await cacheService.getAsync(cacheKey, filterService.ethUninstallFilter, requestDetails));
+      const isDeleted = !(await cacheService.getAsync(cacheKey, filterService.ethUninstallFilter));
       expect(result).to.eq(true);
       expect(isDeleted).to.eq(true);
     });
@@ -564,13 +559,7 @@ describe('Filter API Test Suite', async function () {
         .reply(200, JSON.stringify({ blocks: [] }));
 
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
-      await cacheService.set(
-        cacheKey,
-        blockFilterObject,
-        filterService.ethGetFilterChanges,
-        requestDetails,
-        constants.FILTER.TTL,
-      );
+      await cacheService.set(cacheKey, blockFilterObject, filterService.ethGetFilterChanges, constants.FILTER.TTL);
 
       const result = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(result).to.exist;
@@ -603,13 +592,7 @@ describe('Filter API Test Suite', async function () {
         .reply(200, JSON.stringify({ blocks: [] }));
 
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
-      await cacheService.set(
-        cacheKey,
-        blockFilterObject,
-        filterService.ethGetFilterChanges,
-        requestDetails,
-        constants.FILTER.TTL,
-      );
+      await cacheService.set(cacheKey, blockFilterObject, filterService.ethGetFilterChanges, constants.FILTER.TTL);
 
       const resultCurrentBlock = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(resultCurrentBlock).to.not.be.empty;
@@ -673,13 +656,7 @@ describe('Filter API Test Suite', async function () {
       );
 
       const cacheKey = `${constants.CACHE_KEY.FILTERID}_${existingFilterId}`;
-      await cacheService.set(
-        cacheKey,
-        blockFilterObject,
-        filterService.ethGetFilterChanges,
-        requestDetails,
-        constants.FILTER.TTL,
-      );
+      await cacheService.set(cacheKey, blockFilterObject, filterService.ethGetFilterChanges, constants.FILTER.TTL);
 
       const blocks = await filterService.getFilterChanges(existingFilterId, requestDetails);
       expect(blocks).to.be.empty;
@@ -697,7 +674,6 @@ describe('Filter API Test Suite', async function () {
           lastQueried: null,
         },
         filterService.ethGetFilterChanges,
-        requestDetails,
         constants.FILTER.TTL,
       );
 
