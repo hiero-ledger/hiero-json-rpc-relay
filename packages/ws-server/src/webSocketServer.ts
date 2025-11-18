@@ -91,7 +91,7 @@ export async function initializeWsServer() {
         await redisManager.getClient().ping();
       }
       redisHealthStatus = true;
-    } catch (e) {
+    } catch {
       redisHealthStatus = false;
     }
   }, 30_000); // Run every 30 seconds
