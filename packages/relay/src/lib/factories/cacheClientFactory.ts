@@ -50,13 +50,12 @@ export class CacheClientFactory {
     redisClient?: RedisClientType,
   ): ICacheClient {
     const local = new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys);
-    const localMeasurable = measurable(local, register, 'lru');
-    if (ConfigService.get('TEST') || redisClient === undefined) return local;
+    if (ConfigService.get('TEST') || redisClient === undefined) return measurable(local, register, 'lru');
 
     const redis = new RedisCache(logger.child({ name: 'redisCache' }), redisClient!);
     return new FallbackCache(
       measurable(redis, register, 'redis'),
-      localMeasurable,
+      measurable(local, register, 'lru'),
       (message: string, previous: Error | unknown) =>
         logger.error(
           new RedisCacheError(previous),
