@@ -12,7 +12,8 @@ const { options, run } = new TestScenarioBuilder()
   .request((testParameters) => {
     // Use existing transaction hash from test parameters
     const transactionHash = testParameters.DEFAULT_TRANSACTION_HASH;
-    return http.post(testParameters.RELAY_BASE_URL, getPayLoad(methodName, [transactionHash]), httpParams);
+    const tracerConfig = {"tracer": "callTracer"};
+    return http.post(testParameters.RELAY_BASE_URL, getPayLoad(methodName, [transactionHash, tracerConfig]), httpParams);
   })
   .check(methodName, (r) => isNonErrorResponse(r))
   .maxDuration(5000) // Extended timeout for potentially slow debug responses
