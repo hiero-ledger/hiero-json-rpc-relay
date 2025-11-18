@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import fs from 'fs';
 import cors from 'koa-cors';
 import path from 'path';
@@ -198,20 +199,67 @@ export async function initializeServer() {
     }
   });
 
-  // Prometheus metrics exposure
+  const isRedisEnabled: boolean = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
+  let redisHealthStatus: boolean = false;
+  setInterval(async () => {
+    try {
+      if (isRedisEnabled) {
+        const redisManager = new RedisClientManager(
+          logger,
+          ConfigService.get('REDIS_URL'),
+          ConfigService.get('REDIS_RECONNECT_DELAY_MS'),
+        );
+        await redisManager.connect();
+        await redisManager.getClient().ping();
+      }
+      redisHealthStatus = true;
+    } catch (e) {
+      redisHealthStatus = false;
+    }
+  }, 30_000); // Run every 30 seconds
+
+  // Liveness endpoint
   app.use(async (ctx, next) => {
-    if (ctx.url === '/metrics') {
-      ctx.status = 200;
-      ctx.body = await register.metrics();
+    if (ctx.url === '/health/liveness') {
+      if (isRedisEnabled) {
+        ctx.status = redisHealthStatus ? 200 : 503;
+        ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
+      } else {
+        ctx.status = 200;
+        ctx.body = 'OK';
+      }
     } else {
       return next();
     }
   });
 
-  // Liveness endpoint
+  // Readiness endpoint
   app.use(async (ctx, next) => {
-    if (ctx.url === '/health/liveness') {
+    if (ctx.url === '/health/readiness') {
+      try {
+        const chainId = relay.eth().chainId();
+        const isChainHealthy = chainId !== '0x';
+
+        // redis disabled - only chain health matters
+        // redis enabled  - both redis and chain must be healthy
+        const healthy = isRedisEnabled ? redisHealthStatus && isChainHealthy : isChainHealthy;
+
+        ctx.status = healthy ? 200 : 503;
+        ctx.body = healthy ? 'OK' : 'DOWN';
+      } catch (e) {
+        logger.error(e);
+        throw e;
+      }
+    } else {
+      return next();
+    }
+  });
+
+  // Prometheus metrics exposure
+  app.use(async (ctx, next) => {
+    if (ctx.url === '/metrics') {
       ctx.status = 200;
+      ctx.body = await register.metrics();
     } else {
       return next();
     }
@@ -225,27 +273,6 @@ export async function initializeServer() {
       }
       ctx.status = 200;
       ctx.body = JSON.stringify(await relay.admin().config());
-    } else {
-      return next();
-    }
-  });
-
-  // Readiness endpoint
-  app.use(async (ctx, next) => {
-    if (ctx.url === '/health/readiness') {
-      try {
-        const result = relay.eth().chainId();
-        if (result.indexOf('0x12') >= 0) {
-          ctx.status = 200;
-          ctx.body = 'OK';
-        } else {
-          ctx.body = 'DOWN';
-          ctx.status = 503; // UNAVAILABLE
-        }
-      } catch (e) {
-        logger.error(e);
-        throw e;
-      }
     } else {
       return next();
     }

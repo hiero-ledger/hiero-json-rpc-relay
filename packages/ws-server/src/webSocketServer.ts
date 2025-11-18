@@ -5,6 +5,7 @@ import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
@@ -75,6 +76,25 @@ export async function initializeWsServer() {
     ctx.websocket.id = connectionId;
     next();
   });
+
+  const isRedisEnabled: boolean = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
+  let redisHealthStatus: boolean = false;
+  setInterval(async () => {
+    try {
+      if (isRedisEnabled) {
+        const redisManager = new RedisClientManager(
+          logger,
+          ConfigService.get('REDIS_URL'),
+          ConfigService.get('REDIS_RECONNECT_DELAY_MS'),
+        );
+        await redisManager.connect();
+        await redisManager.getClient().ping();
+      }
+      redisHealthStatus = true;
+    } catch (e) {
+      redisHealthStatus = false;
+    }
+  }, 30_000); // Run every 30 seconds
 
   app.ws.use(async (ctx: Koa.Context) => {
     // Increment the total opened connections
@@ -250,19 +270,24 @@ export async function initializeWsServer() {
       ctx.status = 200;
       ctx.body = await register.metrics();
     } else if (ctx.url === '/health/liveness') {
-      //liveness endpoint
-      ctx.status = 200;
+      if (isRedisEnabled) {
+        ctx.status = redisHealthStatus ? 200 : 503;
+        ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
+      } else {
+        ctx.status = 200;
+        ctx.body = 'OK';
+      }
     } else if (ctx.url === '/health/readiness') {
-      // readiness endpoint
       try {
-        const result = relay.eth().chainId();
-        if (result.includes('0x12')) {
-          ctx.status = 200;
-          ctx.body = 'OK';
-        } else {
-          ctx.body = 'DOWN';
-          ctx.status = 503; // UNAVAILABLE
-        }
+        const chainId = relay.eth().chainId();
+        const isChainHealthy = chainId !== '0x';
+
+        // redis disabled - only chain health matters
+        // redis enabled  - both redis and chain must be healthy
+        const healthy = isRedisEnabled ? redisHealthStatus && isChainHealthy : isChainHealthy;
+
+        ctx.status = healthy ? 200 : 503;
+        ctx.body = healthy ? 'OK' : 'DOWN';
       } catch (e) {
         logger.error(e);
         throw e;
