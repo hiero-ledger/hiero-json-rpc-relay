@@ -9,6 +9,7 @@ import { Counter, Registry } from 'prom-client';
 import { SDKClient } from '../../clients';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
+import { LockService } from '../lockService/LockService';
 
 export default class HAPIService {
   /**
@@ -68,6 +69,11 @@ export default class HAPIService {
   private client: SDKClient;
 
   /**
+   * An instance of the LockService that manages transaction ordering through distributed locking.
+   */
+  private readonly lockService: LockService;
+
+  /**
    * The logger used for logging all output from this class.
    */
   private readonly logger: Logger;
@@ -94,7 +100,7 @@ export default class HAPIService {
    * @param register - The registry instance for metrics and other services.
    * @param hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
+  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService, lockService: LockService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();
@@ -127,6 +133,7 @@ export default class HAPIService {
       registers: [register],
       labelNames: ['transactions', 'errors'],
     });
+    this.lockService = lockService;
   }
 
   /**
@@ -190,6 +197,7 @@ export default class HAPIService {
       this.logger.child({ name: `consensus-node` }),
       this.eventEmitter,
       this.hbarLimitService,
+      this.lockService,
     );
   }
 
