@@ -659,7 +659,7 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
-  USE_LOCK_SERVICE: {
+  ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,
     defaultValue: false,
