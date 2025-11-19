@@ -659,6 +659,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  USE_LOCK_SERVICE: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,
