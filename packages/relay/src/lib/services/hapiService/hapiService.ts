@@ -242,6 +242,7 @@ export default class HAPIService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    lockSessionKey?: string,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     return this.getSDKClient().submitEthereumTransaction(
       transactionBuffer,
@@ -250,6 +251,7 @@ export default class HAPIService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       currentNetworkExchangeRateInCents,
+      lockSessionKey,
     );
   }
 
