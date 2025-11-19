@@ -19,6 +19,7 @@ import {
   IBlockService,
   ICommonService,
   IContractService,
+  LockService,
   TransactionPoolService,
   TransactionService,
 } from './services';
@@ -126,6 +127,7 @@ export class EthImpl implements Eth {
     chain: string,
     public readonly cacheService: CacheService,
     storage: PendingTransactionStorage,
+    lockService: LockService,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -146,6 +148,7 @@ export class EthImpl implements Eth {
       logger,
       mirrorNodeClient,
       transactionPoolService,
+      lockService,
     );
     this.accountService = new AccountService(
       cacheService,
