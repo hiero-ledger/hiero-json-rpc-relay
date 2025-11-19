@@ -9,7 +9,7 @@ import { Logger } from 'pino';
 /**
  * Represents the internal state for a lock associated with a given address.
  */
-interface LockState {
+export interface LockState {
   mutex: Mutex;
   sessionKey: string | null;
   acquiredAt: number | null;

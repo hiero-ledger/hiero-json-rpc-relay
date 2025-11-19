@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { pino } from 'pino';
 import sinon from 'sinon';
 
-import { LocalLockStrategy } from '../../../../src/lib/services/lockService/LocalLockStrategy';
+import { LocalLockStrategy, LockState } from '../../../../src/lib/services/lockService/LocalLockStrategy';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('LocalLockStrategy', function () {
@@ -20,7 +20,7 @@ describe('LocalLockStrategy', function () {
     sinon.restore();
   });
 
-  function getStateEntry(address) {
+  function getStateEntry(address: string): LockState | null {
     return lockStrategy['localLockStates'].get(address);
   }
 
