@@ -514,6 +514,7 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     lockSessionKey: string | undefined,
     requestDetails: RequestDetails,
+    lockSessionKey?: string,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
 
@@ -528,6 +529,7 @@ export class TransactionService implements ITransactionService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       requestDetails,
+      lockSessionKey,
     );
 
     if (lockSessionKey) {
@@ -687,6 +689,7 @@ export class TransactionService implements ITransactionService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
+    lockSessionKey?: string,
   ): Promise<{
     txSubmitted: boolean;
     submittedTransactionId: string;
@@ -705,6 +708,7 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+        lockSessionKey,
       );
 
       txSubmitted = true;

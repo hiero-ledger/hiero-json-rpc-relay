@@ -27,7 +27,7 @@ import { Logger } from 'pino';
 
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService } from '../services';
+import { CommonService, LockService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
@@ -74,6 +74,7 @@ export class SDKClient {
     logger: Logger,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
+    private readonly lockService: LockService,
   ) {
     const client =
       hederaNetwork in constants.CHAIN_IDS
@@ -135,6 +136,7 @@ export class SDKClient {
    * @param {string} originalCallerAddress - The address of the original caller making the request.
    * @param {number} networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
    * @param {number} currentNetworkExchangeRateInCents - The exchange rate in cents of the current network.
+   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<{ txResponse: TransactionResponse; fileId: FileId | null }>}
    * @throws {SDKClientError} Throws an error if no file ID is created or if the preemptive fee check fails.
    */
@@ -145,6 +147,7 @@ export class SDKClient {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
+    lockSessionKey?: string,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -190,6 +193,8 @@ export class SDKClient {
         requestDetails,
         true,
         originalCallerAddress,
+        undefined,
+        lockSessionKey,
       ),
     };
   }
@@ -277,6 +282,7 @@ export class SDKClient {
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
     estimatedTxFee?: number,
+    lockSessionKey?: string,
   ): Promise<TransactionResponse> {
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
@@ -333,6 +339,23 @@ export class SDKClient {
       }
       return transactionResponse;
     } finally {
+      // Eventually release the transaction lock if it was acquired by the sender using lockSessionKey
+      if (lockSessionKey) {
+        //try/catch essential for not masking errors
+        try {
+          await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
+        } catch (releaseError) {
+          this.logger.error(
+            {
+              address: originalCallerAddress,
+              lockSessionKey,
+              error: releaseError,
+            },
+            'Failed to release lock',
+          );
+        }
+      }
+
       if (transactionId?.length) {
         const transactionHash = transactionResponse?.transactionHash
           ? prepend0x(Buffer.from(transactionResponse.transactionHash).toString('hex'))
