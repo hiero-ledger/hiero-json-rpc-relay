@@ -27,7 +27,6 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: EvmAddressHbarSpendingPlanRepository;
-    let redisManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
@@ -38,9 +37,7 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
 
     before(async () => {
       if (isSharedCacheEnabled) {
-        redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6382', 1000);
-        await redisManager.connect();
-        redisClient = redisManager.getClient();
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }

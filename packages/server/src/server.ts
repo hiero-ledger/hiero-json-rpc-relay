@@ -199,18 +199,12 @@ export async function initializeServer() {
     }
   });
 
-  const isRedisEnabled: boolean = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
   let redisHealthStatus: boolean = false;
   setInterval(async () => {
     try {
-      if (isRedisEnabled) {
-        const redisManager = new RedisClientManager(
-          logger,
-          ConfigService.get('REDIS_URL'),
-          ConfigService.get('REDIS_RECONNECT_DELAY_MS'),
-        );
-        await redisManager.connect();
-        await redisManager.getClient().ping();
+      if (RedisClientManager.isRedisEnabled()) {
+        const client = await RedisClientManager.getClient(logger);
+        await client.ping();
       }
       redisHealthStatus = true;
     } catch {
@@ -221,7 +215,7 @@ export async function initializeServer() {
   // Liveness endpoint
   app.use(async (ctx, next) => {
     if (ctx.url === '/health/liveness') {
-      if (isRedisEnabled) {
+      if (RedisClientManager.isRedisEnabled()) {
         ctx.status = redisHealthStatus ? 200 : 503;
         ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
       } else {
@@ -242,7 +236,7 @@ export async function initializeServer() {
 
         // redis disabled - only chain health matters
         // redis enabled  - both redis and chain must be healthy
-        const healthy = isRedisEnabled ? redisHealthStatus && isChainHealthy : isChainHealthy;
+        const healthy = RedisClientManager.isRedisEnabled() ? redisHealthStatus && isChainHealthy : isChainHealthy;
 
         ctx.status = healthy ? 200 : 503;
         ctx.body = healthy ? 'OK' : 'DOWN';
