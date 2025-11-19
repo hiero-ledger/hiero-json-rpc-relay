@@ -576,7 +576,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 =======
       let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
       let loggerErrorStub: sinon.SinonStub;
-      overrideEnvsInMochaDescribe({ USE_LOCK_SERVICE: true });
+      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
       beforeEach(() => {
         lockServiceStub = sinon.createStubInstance(LockService);
         loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
