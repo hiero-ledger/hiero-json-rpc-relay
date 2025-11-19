@@ -94,6 +94,7 @@ export class SDKClient {
 
     // Set up SDK logger with child configuration inheriting from the main logger
     const sdkLogger = new HederaLogger(LogLevel._fromString(ConfigService.get('SDK_LOG_LEVEL')));
+    // @ts-ignore
     sdkLogger.setLogger(logger.child({ name: 'sdk-client' }, { level: ConfigService.get('SDK_LOG_LEVEL') }));
     client.setLogger(sdkLogger);
 
