@@ -163,9 +163,8 @@ export class RedisCache implements ICacheClient {
    * @param callingMethod - The name of the calling method.
    * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds.
    * @returns A Promise that resolves when the values are cached.
-   * @private
    */
-  private async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
+  async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
     const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
 
     const pipeline = this.client.multi();

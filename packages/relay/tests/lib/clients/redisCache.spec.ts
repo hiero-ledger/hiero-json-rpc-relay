@@ -177,7 +177,7 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
-      await redisCache.multiSet(keyValuePairs, callingMethod);
+      await redisCache.pipelineSet(keyValuePairs, callingMethod);
 
       for (const key in keyValuePairs) {
         const cachedValue = await redisCache.get(key, callingMethod);
@@ -194,7 +194,7 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
-      await redisCache.multiSet(keyValuePairs, callingMethod, 500);
+      await redisCache.pipelineSet(keyValuePairs, callingMethod, 500);
 
       for (const key in keyValuePairs) {
         const cachedValue = await redisCache.get(key, callingMethod);

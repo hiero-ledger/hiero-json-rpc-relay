@@ -100,6 +100,27 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
+   * Calls the pipelineSet method that stores multiple key–value pairs in the cache
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
+   *
+   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @returns A Promise that resolves when the values are cached.
+   */
+  public async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string): Promise<void> {
+    try {
+      await this.decorated.pipelineSet(keyValuePairs, callingMethod);
+    } catch (error) {
+      this.handleError(
+        'Error occurred while setting the cache to {{DECORATED}}. Fallback to {{FALLBACK}} cache.',
+        error,
+      );
+      await this.fallback.pipelineSet(keyValuePairs, callingMethod);
+    }
+  }
+
+  /**
    * Calls the method that deletes the cached value associated with the given key
    * and if the primary caching mechanism fails,
    * it attempts to perform the same operation using the fallback caching mechanism.

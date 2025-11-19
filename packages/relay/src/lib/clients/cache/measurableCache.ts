@@ -95,6 +95,20 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
+   * Calls the pipelineSet method that stores multiple key–value pairs in the cache
+   * and tracks how many times this event occurs.
+   *
+   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
+   * @param callingMethod - The name of the calling method.
+   * @param ttl - Time to live on the set values
+   * @returns A Promise that resolves when the values are cached.
+   */
+  public async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
+    await this.decorated.pipelineSet(keyValuePairs, callingMethod, ttl);
+    this.count(callingMethod, MeasurableCache.methods.PIPELINE);
+  }
+
+  /**
    * Calls the method that deletes the cached value associated with the given key
    * and tracks how many times this event occurs.
    *
