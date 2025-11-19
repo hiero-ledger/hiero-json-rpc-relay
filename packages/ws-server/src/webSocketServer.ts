@@ -77,19 +77,6 @@ export async function initializeWsServer() {
     next();
   });
 
-  let redisHealthStatus: boolean = false;
-  setInterval(async () => {
-    try {
-      if (RedisClientManager.isRedisEnabled()) {
-        const client = await RedisClientManager.getClient(logger);
-        await client.ping();
-      }
-      redisHealthStatus = true;
-    } catch {
-      redisHealthStatus = false;
-    }
-  }, 30_000); // Run every 30 seconds
-
   app.ws.use(async (ctx: Koa.Context) => {
     // Increment the total opened connections
     wsMetricRegistry.getCounter('totalOpenedConnections').inc();
@@ -265,6 +252,7 @@ export async function initializeWsServer() {
       ctx.body = await register.metrics();
     } else if (ctx.url === '/health/liveness') {
       if (RedisClientManager.isRedisEnabled()) {
+        const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
         ctx.status = redisHealthStatus ? 200 : 503;
         ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
       } else {
@@ -278,7 +266,9 @@ export async function initializeWsServer() {
 
         // redis disabled - only chain health matters
         // redis enabled  - both redis and chain must be healthy
-        const healthy = RedisClientManager.isRedisEnabled() ? redisHealthStatus && isChainHealthy : isChainHealthy;
+        const healthy = RedisClientManager.isRedisEnabled()
+          ? (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy
+          : isChainHealthy;
 
         ctx.status = healthy ? 200 : 503;
         ctx.body = healthy ? 'OK' : 'DOWN';

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 import { createClient, RedisClientType } from 'redis';
@@ -65,5 +66,17 @@ export class RedisClientManager {
     }
 
     return this.client;
+  }
+
+  public static async isClientHealthy(logger: Logger): Promise<boolean> {
+    try {
+      if (RedisClientManager.isRedisEnabled()) {
+        const client = await RedisClientManager.getClient(logger);
+        await client.ping();
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
