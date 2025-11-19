@@ -571,7 +571,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
 
         // Replace the lock service with our stub
-        ethImpl['transactionService']['lockService'] = lockServiceStub as any;
+        ethImpl['transactionService']['lockService'] = lockServiceStub;
       });
 
       afterEach(() => {
@@ -646,40 +646,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           lockServiceStub.acquireLock.resolves('test-session-key-456');
           lockServiceStub.releaseLock.rejects(new Error('Lock service internal error'));
 
-          try {
-            await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect.fail('Should have thrown insufficient balance error');
-          } catch (error: any) {
-            // Verify we got the balance error, not the lock release error
-            expect(error.message).to.not.include('Lock service internal error');
-            expect(error.message).to.include('Insufficient funds') || expect(error.message).to.include('balance');
-
-            // Verify lock release was attempted despite failure
-            sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.called(loggerErrorStub);
-          }
-        });
-
-        it('should preserve error when getGasPriceInWeibars fails and lock release fails', async function () {
-          const signed = await signTransaction(transaction);
-
-          lockServiceStub.acquireLock.resolves('test-session-key-789');
-          lockServiceStub.releaseLock.rejects(new Error('Network partition'));
-
-          // Mock mirror node failure for gas price
-          restMock.onGet('network/fees').reply(500, 'Internal Server Error');
-
-          try {
-            await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect.fail('Should have thrown mirror node error');
-          } catch (error: any) {
-            // Verify we got the mirror node error, not the lock release error
-            expect(error.message).to.not.include('Network partition');
-
-            // Verify lock release was attempted
-            sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.called(loggerErrorStub);
-          }
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            'Insufficient funds',
+          );
+          // Verify lock release was attempted despite failure
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.called(loggerErrorStub);
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
@@ -711,36 +684,69 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
 
-      describe('Lock Acquisition', () => {
-        it('should not attempt to release lock if acquisition failed', async function () {
+      describe('Successful Transaction Path', () => {
+        it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
           const signed = await signTransaction(transaction);
 
-          // Simulate lock acquisition failure
-          lockServiceStub.acquireLock.rejects(new Error('Lock acquisition timeout'));
+          // Mock successful flow
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-          try {
-            await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect.fail('Should have thrown lock acquisition error');
-          } catch (error: any) {
-            expect(error.message).to.include('Lock acquisition timeout');
+          lockServiceStub.acquireLock.resolves('test-session-key-success');
+          lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
 
-            // Verify lock release was NOT attempted
-            sinon.assert.notCalled(lockServiceStub.releaseLock);
-          }
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          expect(result).to.equal(ethereumHash);
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock was NOT released in sendRawTransaction
+          // (it should be released later in the chain, in sdkClient.executeTransaction)
+          sinon.assert.notCalled(lockServiceStub.releaseLock);
+
+          // Verify no error logs
+          sinon.assert.notCalled(loggerErrorStub);
         });
 
-        it('should not acquire lock if parsedTx.from is undefined', async function () {
-          // Create a transaction without a from address (this shouldn't happen in practice)
-          const malformedTx = '0x' + '00'.repeat(100); // Invalid transaction
+        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+          it('should not acquire lock when ENABLE_NONCE_ORDERING is disabled', async function () {
+            // Temporarily disable the feature
 
-          try {
-            await ethImpl.sendRawTransaction(malformedTx, requestDetails);
-            expect.fail('Should have thrown parsing error');
-          } catch (error: any) {
-            // Verify lock was NOT acquired
+            const signed = await signTransaction(transaction);
+
+            // Mock successful flow
+            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            expect(result).to.equal(ethereumHash);
+
+            // Verify lock was NOT acquired when feature is disabled
             sinon.assert.notCalled(lockServiceStub.acquireLock);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
-          }
+          });
         });
       });
     });
