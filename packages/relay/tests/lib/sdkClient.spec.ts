@@ -1265,7 +1265,7 @@ describe('SdkClient', async function () {
     });
   });
 
-  describe.only('executeTransaction Lock Release Error Handling', () => {
+  describe('executeTransaction Lock Release Error Handling', () => {
     const mockedCallerName = 'test_caller';
     const randomAccountAddress = random20BytesAddress();
     const accountId = AccountId.fromString('0.0.1234');
