@@ -23,27 +23,44 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Retrieves a cached value associated with the given key.
-   * If the value exists in the cache, updates metrics and logs the retrieval.
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.decorated.get(key, callingMethod);
+  }
+
+  /**
+   * Calls the method that retrieves a cached value associated with the given key
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
+   *
    * @param key - The key associated with the cached value.
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async getAsync(key: string, callingMethod: string): Promise<any> {
+  public async get(key: string, callingMethod: string): Promise<any> {
     try {
-      return await this.decorated.getAsync(key, callingMethod);
+      return await this.decorated.get(key, callingMethod);
     } catch (error) {
       this.handleError(
         'Error occurred while getting the cache from {{DECORATED}}. Fallback to {{FALLBACK}} cache.',
         error,
       );
-      return await this.fallback.getAsync(key, callingMethod);
+      return await this.fallback.get(key, callingMethod);
     }
   }
 
   /**
-   * Sets a value in the cache associated with the given key.
-   * Updates metrics, logs the caching, and associates a TTL if provided.
+   * Calls the method that sets a value in the cache for the given key
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
+   *
    * @param key - The key to associate with the value.
    * @param value - The value to cache.
    * @param callingMethod - The name of the method calling the cache.
@@ -62,7 +79,9 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Stores multiple key-value pairs in the cache.
+   * Calls the method that stores multiple key–value pairs in the cache
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
    *
    * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
    * @param callingMethod - The name of the calling method.
@@ -81,8 +100,10 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Deletes a cached value associated with the given key.
-   * Logs the deletion of the cache entry.
+   * Calls the method that deletes the cached value associated with the given key
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
+   *
    * @param key - The key associated with the cached value to delete.
    * @param callingMethod - The name of the method calling the cache.
    */
@@ -96,8 +117,9 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Clears the entire cache, removing all entries.
-   * Use this method with caution, as it wipes all cached data.
+   * Calls the method that clears the entire cache, removing all entries
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
    */
   public async clear(): Promise<void> {
     try {
@@ -109,7 +131,10 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Retrieves all keys in the cache that match the given pattern.
+   * Call the method that retrieves all keys in the cache that match the given pattern
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
+   *
    * @param pattern - The pattern to match keys against.
    * @param callingMethod - The name of the method calling the cache.
    * @returns An array of keys that match the pattern (without the cache prefix).
@@ -124,7 +149,9 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Increments a value in the cache.
+   * Call the method that retrieves all keys in the cache that match the given pattern
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
    *
    * @param key The key to increment
    * @param amount The amount to increment by
@@ -141,7 +168,9 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Retrieves a range of elements from a list in the cache.
+   * Calls the method that retrieves a range of elements from a list in the cache
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
    *
    * @param key The key of the list
    * @param start The start index
@@ -159,7 +188,9 @@ export class FallbackCache implements ICacheClient {
   }
 
   /**
-   * Pushes a value to the end of a list in the cache.
+   * Calls the method that pushes a value to the end of a list in the cache
+   * and if the primary caching mechanism fails,
+   * it attempts to perform the same operation using the fallback caching mechanism.
    *
    * @param key The key of the list
    * @param value The value to push

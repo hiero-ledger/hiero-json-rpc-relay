@@ -111,17 +111,26 @@ export class LocalLRUCache implements ICacheClient {
   }
 
   /**
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.get(key, callingMethod);
+  }
+
+  /**
    * Retrieves a cached value associated with the given key.
    * If the value exists in the cache, updates metrics and logs the retrieval.
    * @param key - The key associated with the cached value.
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.get(key, callingMethod);
-  }
-
-  private async get(key: string, callingMethod: string): Promise<any> {
+  public async get(key: string, callingMethod: string): Promise<any> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
@@ -142,8 +151,9 @@ export class LocalLRUCache implements ICacheClient {
    * @param key - The key to check the remaining TTL for.
    * @param callingMethod - The name of the method calling the cache.
    * @returns The remaining TTL in milliseconds.
+   * @private
    */
-  public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
+  private async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(prefixedKey); // in milliseconds
@@ -315,7 +325,6 @@ export class LocalLRUCache implements ICacheClient {
    * @returns The length of the list after pushing
    */
   public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
-    // Fallback to internal cache
     const values = (await this.get(key, callingMethod)) ?? [];
     if (!Array.isArray(values)) {
       throw new Error(`Value at key ${key} is not an array`);
@@ -326,6 +335,15 @@ export class LocalLRUCache implements ICacheClient {
     return values.length;
   }
 
+  /**
+   * Returns the appropriate cache instance for the given key.
+   * If a reserved cache exists and the key is marked as reserved,
+   * the reserved cache is returned; otherwise the default cache is used.
+   *
+   * @param key -  The cache key being accessed.
+   * @returns The selected cache instance
+   * @private
+   */
   private getCacheInstance(key: string): LRUCache<string, any> {
     return this.reservedCache && this.reservedKeys.has(key) ? this.reservedCache : this.cache;
   }

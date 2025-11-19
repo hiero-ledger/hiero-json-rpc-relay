@@ -5,8 +5,8 @@ import { Counter } from 'prom-client';
 import { ICacheClient } from './ICacheClient';
 
 /**
- * Represents a LocalLRUCache instance that uses an LRU (Least Recently Used) caching strategy
- * for caching items internally from requests.
+ * Represents a cache client that performs the caching operations and tracks and counts all processed events.
+ *
  * @implements {ICacheClient}
  */
 export class MeasurableCache implements ICacheClient {
@@ -41,20 +41,35 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Retrieves a cached value associated with the given key.
-   * If the value exists in the cache, updates metrics and logs the retrieval.
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.decorated.get(key, callingMethod);
+  }
+
+  /**
+   * Calls the method that retrieves a cached value associated with the given key
+   * and tracks how many times this event occurs.
+   *
    * @param key - The key associated with the cached value.
    * @param callingMethod - The name of the method calling the cache.
    * @returns The cached value if found, otherwise null.
    */
-  public async getAsync(key: string, callingMethod: string): Promise<any> {
+  public async get(key: string, callingMethod: string): Promise<any> {
     this.count(callingMethod, MeasurableCache.methods.GET_ASYNC);
-    return await this.decorated.getAsync(key, callingMethod);
+    return await this.decorated.get(key, callingMethod);
   }
 
   /**
-   * Sets a value in the cache associated with the given key.
-   * Updates metrics, logs the caching, and associates a TTL if provided.
+   * Calls the method that sets a value in the cache for the given key
+   * and tracks how many times this event occurs.
+   *
    * @param key - The key to associate with the value.
    * @param value - The value to cache.
    * @param callingMethod - The name of the method calling the cache.
@@ -66,7 +81,8 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Stores multiple key-value pairs in the cache.
+   * Calls the method that stores multiple key–value pairs in the cache
+   * and tracks how many times this event occurs.
    *
    * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
    * @param callingMethod - The name of the calling method.
@@ -75,12 +91,13 @@ export class MeasurableCache implements ICacheClient {
    */
   public async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
     await this.decorated.multiSet(keyValuePairs, callingMethod, ttl);
-    this.count(callingMethod, MeasurableCache.methods.MSET); // FIXME  SET in lru and MULTISET/PIPELINESET in redis
+    this.count(callingMethod, MeasurableCache.methods.MSET);
   }
 
   /**
-   * Deletes a cached value associated with the given key.
-   * Logs the deletion of the cache entry.
+   * Calls the method that deletes the cached value associated with the given key
+   * and tracks how many times this event occurs.
+   *
    * @param key - The key associated with the cached value to delete.
    * @param callingMethod - The name of the method calling the cache.
    */
@@ -90,15 +107,15 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Clears the entire cache, removing all entries.
-   * Use this method with caution, as it wipes all cached data.
+   * Calls the method that clears the entire cache, removing all entries.
    */
   public async clear(): Promise<void> {
     await this.decorated.clear();
   }
 
   /**
-   * Retrieves all keys in the cache that match the given pattern.
+   * Call the method that retrieves all keys in the cache that match the given pattern.
+   *
    * @param pattern - The pattern to match keys against.
    * @param callingMethod - The name of the method calling the cache.
    * @returns An array of keys that match the pattern (without the cache prefix).
@@ -108,7 +125,7 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Increments a value in the cache.
+   * Calls the method that increments a cached value and tracks how many times this event occurs.
    *
    * @param key The key to increment
    * @param amount The amount to increment by
@@ -121,7 +138,8 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Retrieves a range of elements from a list in the cache.
+   * Calls the method that retrieves a range of elements from a list in the cache
+   * and tracks how many times this event occurs.
    *
    * @param key The key of the list
    * @param start The start index
@@ -135,7 +153,8 @@ export class MeasurableCache implements ICacheClient {
   }
 
   /**
-   * Pushes a value to the end of a list in the cache.
+   * Calls the method that pushes a value to the end of a list in the cache
+   * and tracks how many times this event occurs.
    *
    * @param key The key of the list
    * @param value The value to push
@@ -147,6 +166,19 @@ export class MeasurableCache implements ICacheClient {
     return await this.decorated.rPush(key, value, callingMethod);
   }
 
+  /**
+   * Counts the number of occurrences of the given caching related operation.
+   * Depending on the underlying client implementation, the actual caching behavior may vary.
+   * The `callMap` allows us to account for these differences when counting occurrences.
+   *
+   * For example, if the underlying cache mechanism (such as LRU) does not provide an lRange method,
+   * we can implement it ourselves by using get and set instead. We want to count each lRange call
+   * as corresponding get and set calls then.
+   *
+   * @param caller The name of the calling method
+   * @param callee Actual caching operation
+   * @private
+   */
   private count(caller: string, callee: string): void {
     (this.callMap.get(callee) || [callee]).forEach((value: string) =>
       this.cacheMethodsCounter.labels(caller, this.cacheType, value).inc(1),
