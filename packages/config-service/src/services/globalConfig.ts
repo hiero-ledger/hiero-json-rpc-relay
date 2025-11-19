@@ -363,6 +363,16 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  LOCAL_LOCK_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
+  },
+  LOCAL_LOCK_MAX_LOCK_TIME: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
+  },
   LOG_LEVEL: {
     type: 'string',
     required: false,

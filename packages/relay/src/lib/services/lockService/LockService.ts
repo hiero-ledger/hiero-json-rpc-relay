@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { LockStrategy } from '../../types/lock';
+import { LockStrategy } from '../../types';
 
 /**
  * Service that manages transaction ordering through distributed locking.
