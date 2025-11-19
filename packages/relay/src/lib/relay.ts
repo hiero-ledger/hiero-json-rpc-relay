@@ -20,6 +20,7 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { NetImpl } from './net';
+import { LockService, LockStrategyFactory } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
@@ -315,7 +316,8 @@ export class Relay {
     );
 
     // Create HAPI service
-    const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
+    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger));
+    const hapiService = new HAPIService(this.logger, this.register, hbarLimitService, lockService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
     // Create simple service implementations
@@ -348,6 +350,7 @@ export class Relay {
       chainId,
       this.cacheService,
       storage,
+      lockService,
     );
 
     // Set up event listeners

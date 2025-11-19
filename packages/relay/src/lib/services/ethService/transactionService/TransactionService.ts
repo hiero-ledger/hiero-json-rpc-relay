@@ -325,6 +325,7 @@ export class TransactionService implements ITransactionService {
           );
         }
       }
+      throw error;
     }
   }
 
