@@ -148,7 +148,7 @@ describe('Metric Service', function () {
 
     eventEmitter = new EventEmitter<TypedEvents>();
 
-    const cacheService = new CacheService(logger, registry, CacheClientFactory.create(logger, registry));
+    const cacheService = new CacheService(logger, CacheClientFactory.create(logger, registry), registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
