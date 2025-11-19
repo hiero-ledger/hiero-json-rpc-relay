@@ -79,17 +79,8 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
 
   before(async function () {
-    const redisUrl = ConfigService.get('REDIS_URL')!;
-    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-
-    if (ConfigService.get('REDIS_ENABLED') && !!redisUrl) {
-      const redisManager = new RedisClientManager(
-        logger.child({ name: 'test-redis-manager' }),
-        redisUrl,
-        reconnectDelay,
-      );
-      await redisManager.connect();
-      redisClient = redisManager.getClient();
+    if (RedisClientManager.isRedisEnabled()) {
+      redisClient = await RedisClientManager.getClient(logger);
     }
 
     const register = new Registry();
