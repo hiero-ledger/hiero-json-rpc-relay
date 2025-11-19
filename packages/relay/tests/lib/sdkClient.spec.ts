@@ -36,6 +36,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
+import { LockService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -1261,6 +1262,205 @@ describe('SdkClient', async function () {
           expect(err.message).to.eq(error.message);
         }
       });
+    });
+  });
+
+  describe.only('executeTransaction Lock Release Error Handling', () => {
+    const mockedCallerName = 'test_caller';
+    const randomAccountAddress = random20BytesAddress();
+    const accountId = AccountId.fromString('0.0.1234');
+    const transactionId = TransactionId.generate(accountId);
+    const fileId = FileId.fromString('0.0.1234');
+
+    let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
+    let loggerErrorStub: sinon.SinonStub;
+    let executeStub: sinon.SinonStub;
+    let getReceiptStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      lockServiceStub = sinon.createStubInstance(LockService);
+      // Inject mocked lock service
+      (sdkClient as any).lockService = lockServiceStub;
+
+      loggerErrorStub = sinon.stub(logger, 'error');
+      executeStub = sinon.stub(EthereumTransaction.prototype, 'execute');
+      getReceiptStub = sinon.stub();
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    describe('Transaction Execution Failure with Lock Release Failure', () => {
+      it('should preserve original transaction error when lock release fails', async function () {
+        const originalError = new Error('INSUFFICIENT_TX_FEE');
+        const lockReleaseError = new Error('Redis connection failed');
+        const lockSessionKey = 'session-key-123';
+
+        // Simulate transaction execution failure
+        executeStub.rejects(originalError);
+
+        // Simulate lock release failure
+        lockServiceStub.releaseLock.rejects(lockReleaseError);
+        await expect(
+          (sdkClient as any).executeTransaction(
+            new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+            mockedCallerName,
+            requestDetails,
+            true,
+            randomAccountAddress,
+            undefined,
+            lockSessionKey,
+          ),
+        ).to.be.rejectedWith('INSUFFICIENT_TX_FEE');
+
+        // Verify lock release was attempted
+        sinon.assert.calledOnce(lockServiceStub.releaseLock);
+        sinon.assert.calledWith(lockServiceStub.releaseLock, randomAccountAddress, lockSessionKey);
+
+        // Verify lock release failure was logged
+        sinon.assert.called(loggerErrorStub);
+        const logCall = loggerErrorStub.getCalls().find((call) => call.args[1] === 'Failed to release lock');
+        expect(logCall?.args[0]).to.have.property('address', randomAccountAddress);
+        expect(logCall?.args[0]).to.have.property('lockSessionKey', lockSessionKey);
+        expect(logCall?.args[0].error.message).to.equal('Redis connection failed');
+      });
+
+      it('should preserve WRONG_NONCE error when lock release fails', async function () {
+        const wrongNonceError = { status: Status.WrongNonce, message: 'Transaction nonce is invalid' };
+        const lockReleaseError = new Error('Lock service timeout');
+        const lockSessionKey = 'session-key-wrong-nonce';
+
+        executeStub.rejects(wrongNonceError);
+        lockServiceStub.releaseLock.rejects(lockReleaseError);
+
+        try {
+          await (sdkClient as any).executeTransaction(
+            new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+            mockedCallerName,
+            requestDetails,
+            true,
+            randomAccountAddress,
+            undefined,
+            lockSessionKey,
+          );
+          expect.fail('Should have thrown WRONG_NONCE error');
+        } catch (error: any) {
+          // Verify we got the WRONG_NONCE error wrapped in SDKClientError
+          expect(error).to.be.instanceOf(SDKClientError);
+          expect(error.status).to.equal(Status.WrongNonce);
+          expect(error.message).to.not.include('Lock service timeout');
+
+          // Verify lock was released and failure logged
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.called(loggerErrorStub);
+        }
+      });
+    });
+
+    describe('Transaction Success with Lock Release', () => {
+      it('should return successful transaction response even when lock release fails', async function () {
+        const lockSessionKey = 'session-key-success';
+        const mockTransactionResponse = {
+          nodeId: accountId,
+          transactionHash: Uint8Array.from([1, 2, 3, 4]),
+          transactionId,
+        } as unknown as TransactionResponse;
+
+        // Simulate successful transaction
+        executeStub.resolves(mockTransactionResponse);
+        getReceiptStub.resolves({ status: Status.Success });
+        mockTransactionResponse.getReceipt = getReceiptStub;
+
+        // Simulate lock release failure
+        lockServiceStub.releaseLock.rejects(new Error('Cannot connect to lock service'));
+
+        const result = await (sdkClient as any).executeTransaction(
+          new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+          mockedCallerName,
+          requestDetails,
+          true,
+          randomAccountAddress,
+          undefined,
+          lockSessionKey,
+        );
+
+        // Verify transaction succeeded
+        expect(result).to.equal(mockTransactionResponse);
+
+        // Verify lock release was attempted
+        sinon.assert.calledOnce(lockServiceStub.releaseLock);
+
+        // Verify lock release failure was logged but didn't affect transaction result
+        sinon.assert.called(loggerErrorStub);
+        const logCall = loggerErrorStub.getCalls().find((call) => call.args[1] === 'Failed to release lock');
+        expect(logCall).to.exist;
+      });
+
+      it('should successfully release lock on successful transaction', async function () {
+        const lockSessionKey = 'session-key-clean-success';
+        const mockTransactionResponse = {
+          nodeId: accountId,
+          transactionHash: Uint8Array.from([1, 2, 3, 4]),
+          transactionId,
+        } as unknown as TransactionResponse;
+
+        executeStub.resolves(mockTransactionResponse);
+        getReceiptStub.resolves({ status: Status.Success });
+        mockTransactionResponse.getReceipt = getReceiptStub;
+
+        // Simulate successful lock release
+        lockServiceStub.releaseLock.resolves();
+
+        const result = await (sdkClient as any).executeTransaction(
+          new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+          mockedCallerName,
+          requestDetails,
+          true,
+          randomAccountAddress,
+          undefined,
+          lockSessionKey,
+        );
+
+        // Verify transaction succeeded
+        expect(result).to.equal(mockTransactionResponse);
+
+        // Verify lock was properly released
+        sinon.assert.calledOnce(lockServiceStub.releaseLock);
+        sinon.assert.calledWith(lockServiceStub.releaseLock, randomAccountAddress, lockSessionKey);
+
+        // Verify NO error was logged (because release succeeded)
+        const lockErrorLogs = loggerErrorStub.getCalls().filter((call) => call.args[1] === 'Failed to release lock');
+        expect(lockErrorLogs).to.have.length(0);
+      });
+    });
+
+    it('should not attempt lock release when lockSessionKey is undefined', async function () {
+      const mockTransactionResponse = {
+        nodeId: accountId,
+        transactionHash: Uint8Array.from([1, 2, 3, 4]),
+        transactionId,
+      } as unknown as TransactionResponse;
+
+      executeStub.resolves(mockTransactionResponse);
+      getReceiptStub.resolves({ status: Status.Success });
+      mockTransactionResponse.getReceipt = getReceiptStub;
+
+      const result = await (sdkClient as any).executeTransaction(
+        new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
+        mockedCallerName,
+        requestDetails,
+        true,
+        randomAccountAddress,
+        undefined,
+        undefined, // No lock session key
+      );
+
+      // Verify transaction succeeded
+      expect(result).to.equal(mockTransactionResponse);
+
+      // Verify lock release was NOT attempted
+      sinon.assert.notCalled(lockServiceStub.releaseLock);
     });
   });
 });
