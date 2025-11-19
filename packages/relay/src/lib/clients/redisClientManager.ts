@@ -58,10 +58,10 @@ export class RedisClientManager {
           logger.error(`Error occurred with Redis Connection: ${redisError.fullError}`);
         }
       });
-    }
 
-    if (doConnect) {
-      await this.connect();
+      if (doConnect) {
+        await this.connect();
+      }
     }
 
     return this.client;
