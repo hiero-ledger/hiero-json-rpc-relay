@@ -19,6 +19,7 @@ import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimit
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
+import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
@@ -282,12 +283,13 @@ export class Relay {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);
 
+    const cacheLogger = this.logger.child({ name: 'cache-service' });
+
     // Create CacheService with the connected Redis client (or undefined for LRU-only)
     this.cacheService = new CacheService(
-      this.logger.child({ name: 'cache-service' }),
+      cacheLogger,
+      CacheClientFactory.create(cacheLogger, this.register, reservedKeys, this.redisClient),
       this.register,
-      reservedKeys,
-      this.redisClient,
     );
 
     // Create spending plan repositories

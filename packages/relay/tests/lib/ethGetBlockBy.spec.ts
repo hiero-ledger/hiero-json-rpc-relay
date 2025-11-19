@@ -12,6 +12,7 @@ import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../..
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { EthImpl } from '../../src/lib/eth';
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../src/lib/model';
 import { BlockService, CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
@@ -108,7 +109,12 @@ describe('eth_getBlockBy', async function () {
       eval: sinon.stub(),
       quit: sinon.stub().resolves(true),
     } as any;
-    cacheService = new CacheService(logger, registry, new Set(), redisClientMock as any);
+
+    cacheService = new CacheService(
+      logger,
+      CacheClientFactory.create(logger, registry, new Set(), redisClientMock as any),
+      registry,
+    );
 
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(

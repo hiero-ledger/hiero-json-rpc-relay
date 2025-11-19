@@ -6,6 +6,7 @@ import { AccountId, Hbar } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { randomBytes, uuidV4 } from 'ethers';
+import Long from 'long';
 import pino, { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -23,6 +24,7 @@ import {
 } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/lib/types';
@@ -57,7 +59,7 @@ describe('HBAR Rate Limit Service', function () {
   let loggerSpy: sinon.SinonSpiedInstance<Logger>;
 
   beforeEach(async function () {
-    cacheService = new CacheService(logger, register);
+    cacheService = new CacheService(logger, CacheClientFactory.create(logger, register), register);
     loggerSpy = sinon.spy(logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,

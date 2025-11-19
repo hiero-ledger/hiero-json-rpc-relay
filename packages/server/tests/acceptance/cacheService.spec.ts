@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/redisCache';
+import { CacheClientFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/cacheClientFactory';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/src/lib/clients/redisClientManager';
 import { expect } from 'chai';
@@ -28,7 +29,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6379', 1000);
     await redisManager.connect();
     redisClient = redisManager.getClient();
-    cacheService = new CacheService(logger, undefined, undefined, redisClient);
+    cacheService = new CacheService(logger, CacheClientFactory.create(logger, undefined, undefined, redisClient));
     await new Promise((r) => setTimeout(r, 1000));
   });
 
@@ -86,7 +87,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     it('Falls back to local cache for REDIS_ENABLED !== true', async () => {
       const dataLabel = `${DATA_LABEL_PREFIX}3`;
 
-      const serviceWithDisabledRedis = new CacheService(logger);
+      const serviceWithDisabledRedis = new CacheService(logger, CacheClientFactory.create(logger));
       const isRedisEnabled = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
       await new Promise((r) => setTimeout(r, 1000));
       expect(isRedisEnabled).to.eq(false);
@@ -100,7 +101,10 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
   it('Cache set by one instance can be accessed by another', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}4`;
-    const otherServiceInstance = new CacheService(logger, undefined, undefined, redisClient);
+    const otherServiceInstance = new CacheService(
+      logger,
+      CacheClientFactory.create(logger, undefined, undefined, redisClient),
+    );
     await cacheService.set(dataLabel, DATA, CALLING_METHOD);
     await new Promise((r) => setTimeout(r, 200));
 

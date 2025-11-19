@@ -14,6 +14,7 @@ import { MirrorNodeClientError, predefined } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
@@ -39,7 +40,7 @@ describe('MirrorNodeClient', async function () {
       },
       timeout: 20 * 1000,
     });
-    cacheService = new CacheService(logger, registry);
+    cacheService = new CacheService(logger, CacheClientFactory.create(logger, registry), registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),

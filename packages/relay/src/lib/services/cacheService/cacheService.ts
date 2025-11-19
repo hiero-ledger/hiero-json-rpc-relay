@@ -3,11 +3,11 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
 
 import { LocalLRUCache, RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { RedisCacheError } from '../../errors/RedisCacheError';
+import { ICacheClients } from '../../factories/cacheClientFactory';
 
 export enum CACHE_LEVEL {
   L1 = 'L1_CACHE',
@@ -79,23 +79,14 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(
-    logger: Logger,
-    register: Registry = new Registry(),
-    reservedKeys: Set<string> = new Set(),
-    redisClient?: RedisClientType,
-  ) {
+  public constructor(logger: Logger, clients: ICacheClients, register: Registry = new Registry()) {
     this.logger = logger;
     this.register = register;
 
-    this.internalCache = new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys);
-    this.sharedCache = this.internalCache;
-    this.isSharedCacheEnabled = !ConfigService.get('TEST') && redisClient !== undefined;
+    this.internalCache = clients.internal;
+    this.sharedCache = clients.shared;
+    this.isSharedCacheEnabled = clients.isSharedCacheEnabled;
     this.shouldMultiSet = ConfigService.get('MULTI_SET');
-
-    if (this.isSharedCacheEnabled) {
-      this.sharedCache = new RedisCache(logger.child({ name: 'redisCache' }), register, redisClient!);
-    }
 
     /**
      * Labels:

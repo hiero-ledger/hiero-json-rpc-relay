@@ -39,6 +39,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -86,7 +87,7 @@ describe('SdkClient', async function () {
     const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    cacheService = new CacheService(logger, registry);
+    cacheService = new CacheService(logger, CacheClientFactory.create(logger, registry), registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);

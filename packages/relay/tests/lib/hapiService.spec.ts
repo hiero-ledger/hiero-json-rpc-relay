@@ -10,6 +10,7 @@ import constants from '../../src/lib/constants';
 import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -38,7 +39,8 @@ describe('HAPI Service', async function () {
 
   this.beforeAll(() => {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    cacheService = new CacheService(logger, registry);
+
+    cacheService = new CacheService(logger, CacheClientFactory.create(logger, registry), registry);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

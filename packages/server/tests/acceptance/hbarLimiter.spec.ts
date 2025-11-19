@@ -9,6 +9,7 @@ import { HbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/d
 import { IPAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/subscriptionTier';
+import { CacheClientFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/cacheClientFactory';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '@hashgraph/json-rpc-relay/dist/lib/services/hbarLimitService';
 import { ITransfer } from '@hashgraph/json-rpc-relay/dist/lib/types';
@@ -95,7 +96,12 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const register = new Registry();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
 
-    cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient);
+    const cacheLogger = logger.child({ name: 'cache-service' });
+    cacheService = new CacheService(
+      cacheLogger,
+      CacheClientFactory.create(cacheLogger, register, reservedKeys, redisClient),
+      register,
+    );
 
     evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
