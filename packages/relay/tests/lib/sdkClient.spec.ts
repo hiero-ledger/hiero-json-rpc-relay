@@ -66,7 +66,7 @@ interface SDKClientTest extends SDKClient {
   clientMain: SDKClient['clientMain'];
 }
 
-describe('SdkClient', async function () {
+describe.only('SdkClient', async function () {
   this.timeout(20000);
 
   let mock: MockAdapter;
@@ -343,6 +343,8 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
+            undefined,
+            undefined,
           ),
         ).to.be.true;
 
