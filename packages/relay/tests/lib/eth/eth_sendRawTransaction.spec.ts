@@ -568,10 +568,22 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     describe('Lock Release Error Handling', () => {
+<<<<<<< HEAD
       let loggerErrorStub: sinon.SinonStub;
       overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
       beforeEach(() => {
         loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
+=======
+      let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
+      let loggerErrorStub: sinon.SinonStub;
+      overrideEnvsInMochaDescribe({ USE_LOCK_SERVICE: true });
+      beforeEach(() => {
+        lockServiceStub = sinon.createStubInstance(LockService);
+        loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
+
+        // Replace the lock service with our stub
+        ethImpl['transactionService']['lockService'] = lockServiceStub as any;
+>>>>>>> da7731977 (creates unit tests for send raw transaction)
       });
 
       afterEach(() => {
@@ -600,11 +612,18 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           lockServiceStub.acquireLock.resolves('test-session-key-123');
 
           // Simulate lock release failure
+<<<<<<< HEAD
           lockServiceStub.releaseLock.rejects(new Error('Redis connection timeout'));
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
             "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
           );
+=======
+          const lockReleaseError = new Error('Redis connection timeout');
+          lockServiceStub.releaseLock.rejects(lockReleaseError);
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejected;
+>>>>>>> da7731977 (creates unit tests for send raw transaction)
 
           // Verify lock was acquired
           sinon.assert.calledOnce(lockServiceStub.acquireLock);
@@ -617,8 +636,15 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           // Verify lock release failure was logged
           sinon.assert.called(loggerErrorStub);
           const loggedError = loggerErrorStub.thirdCall.args[0];
+<<<<<<< HEAD
 
           expect(loggedError).to.contain('Redis connection timeout');
+=======
+          expect(loggedError).to.have.property('address', accountAddress);
+          expect(loggedError).to.have.property('lockSessionKey', 'test-session-key-123');
+          expect(loggedError).to.have.property('error');
+          expect(loggedError.error.message).to.equal('Redis connection timeout');
+>>>>>>> da7731977 (creates unit tests for send raw transaction)
         });
 
         it('should preserve original precheck error when lock release fails', async function () {
@@ -643,6 +669,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
           lockServiceStub.acquireLock.resolves('test-session-key-456');
+<<<<<<< HEAD
           lockServiceStub.releaseLock.rejects(new Error('Redis connection timeout'));
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
@@ -662,6 +689,44 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const loggedError = loggerErrorStub.thirdCall.args[0];
 
           expect(loggedError).to.contain('Redis connection timeout');
+=======
+          lockServiceStub.releaseLock.rejects(new Error('Lock service internal error'));
+
+          try {
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect.fail('Should have thrown insufficient balance error');
+          } catch (error: any) {
+            // Verify we got the balance error, not the lock release error
+            expect(error.message).to.not.include('Lock service internal error');
+            expect(error.message).to.include('Insufficient funds') || expect(error.message).to.include('balance');
+
+            // Verify lock release was attempted despite failure
+            sinon.assert.calledOnce(lockServiceStub.releaseLock);
+            sinon.assert.called(loggerErrorStub);
+          }
+        });
+
+        it('should preserve error when getGasPriceInWeibars fails and lock release fails', async function () {
+          const signed = await signTransaction(transaction);
+
+          lockServiceStub.acquireLock.resolves('test-session-key-789');
+          lockServiceStub.releaseLock.rejects(new Error('Network partition'));
+
+          // Mock mirror node failure for gas price
+          restMock.onGet('network/fees').reply(500, 'Internal Server Error');
+
+          try {
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect.fail('Should have thrown mirror node error');
+          } catch (error: any) {
+            // Verify we got the mirror node error, not the lock release error
+            expect(error.message).to.not.include('Network partition');
+
+            // Verify lock release was attempted
+            sinon.assert.calledOnce(lockServiceStub.releaseLock);
+            sinon.assert.called(loggerErrorStub);
+          }
+>>>>>>> da7731977 (creates unit tests for send raw transaction)
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
@@ -693,6 +758,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
 
+<<<<<<< HEAD
       describe('Successful Transaction Path', () => {
         it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
           const signed = await signTransaction(transaction);
@@ -914,6 +980,37 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           } finally {
             computeHashSpy.restore();
+=======
+      describe('Lock Acquisition', () => {
+        it('should not attempt to release lock if acquisition failed', async function () {
+          const signed = await signTransaction(transaction);
+
+          // Simulate lock acquisition failure
+          lockServiceStub.acquireLock.rejects(new Error('Lock acquisition timeout'));
+
+          try {
+            await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect.fail('Should have thrown lock acquisition error');
+          } catch (error: any) {
+            expect(error.message).to.include('Lock acquisition timeout');
+
+            // Verify lock release was NOT attempted
+            sinon.assert.notCalled(lockServiceStub.releaseLock);
+          }
+        });
+
+        it('should not acquire lock if parsedTx.from is undefined', async function () {
+          // Create a transaction without a from address (this shouldn't happen in practice)
+          const malformedTx = '0x' + '00'.repeat(100); // Invalid transaction
+
+          try {
+            await ethImpl.sendRawTransaction(malformedTx, requestDetails);
+            expect.fail('Should have thrown parsing error');
+          } catch (error: any) {
+            // Verify lock was NOT acquired
+            sinon.assert.notCalled(lockServiceStub.acquireLock);
+            sinon.assert.notCalled(lockServiceStub.releaseLock);
+>>>>>>> da7731977 (creates unit tests for send raw transaction)
           }
         });
       });
