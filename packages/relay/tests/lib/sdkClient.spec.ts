@@ -1341,9 +1341,8 @@ describe('SdkClient', async function () {
 
         executeStub.rejects(wrongNonceError);
         lockServiceStub.releaseLock.rejects(lockReleaseError);
-
-        try {
-          await (sdkClient as any).executeTransaction(
+        await expect(
+          (sdkClient as any).executeTransaction(
             new EthereumTransaction().setCallDataFileId(fileId).setEthereumData(transactionBuffer),
             mockedCallerName,
             requestDetails,
@@ -1351,18 +1350,12 @@ describe('SdkClient', async function () {
             randomAccountAddress,
             undefined,
             lockSessionKey,
-          );
-          expect.fail('Should have thrown WRONG_NONCE error');
-        } catch (error: any) {
-          // Verify we got the WRONG_NONCE error wrapped in SDKClientError
-          expect(error).to.be.instanceOf(SDKClientError);
-          expect(error.status).to.equal(Status.WrongNonce);
-          expect(error.message).to.not.include('Lock service timeout');
+          ),
+        ).to.be.rejectedWith(SDKClientError, 'Transaction nonce is invalid');
 
-          // Verify lock was released and failure logged
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.called(loggerErrorStub);
-        }
+        // Verify lock was released and failure logged
+        sinon.assert.calledOnce(lockServiceStub.releaseLock);
+        sinon.assert.called(loggerErrorStub);
       });
     });
 
