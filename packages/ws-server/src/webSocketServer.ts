@@ -251,14 +251,9 @@ export async function initializeWsServer() {
       ctx.status = 200;
       ctx.body = await register.metrics();
     } else if (ctx.url === '/health/liveness') {
-      if (RedisClientManager.isRedisEnabled()) {
-        const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
-        ctx.status = redisHealthStatus ? 200 : 503;
-        ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
-      } else {
-        ctx.status = 200;
-        ctx.body = 'OK';
-      }
+      const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
+      ctx.status = redisHealthStatus ? 200 : 503;
+      ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
     } else if (ctx.url === '/health/readiness') {
       try {
         const chainId = relay.eth().chainId();
@@ -266,12 +261,10 @@ export async function initializeWsServer() {
 
         // redis disabled - only chain health matters
         // redis enabled  - both redis and chain must be healthy
-        const healthy = RedisClientManager.isRedisEnabled()
-          ? (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy
-          : isChainHealthy;
+        const isHealthy: boolean = (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy;
 
-        ctx.status = healthy ? 200 : 503;
-        ctx.body = healthy ? 'OK' : 'DOWN';
+        ctx.status = isHealthy ? 200 : 503;
+        ctx.body = isHealthy ? 'OK' : 'DOWN';
       } catch (e) {
         logger.error(e);
         throw e;
