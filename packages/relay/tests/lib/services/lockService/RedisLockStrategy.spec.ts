@@ -28,7 +28,6 @@ describe('RedisLockStrategy Test Suite', function () {
       lPush: sinon.stub(),
       lIndex: sinon.stub(),
       set: sinon.stub(),
-      rPop: sinon.stub(),
       lRem: sinon.stub(),
       lLen: sinon.stub(),
       eval: sinon.stub(),
@@ -49,7 +48,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lPush.resolves(1);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
-      mockRedisClient.rPop.resolves(sessionKey);
+      mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
       // Stub generateSessionKey to return predictable value
@@ -61,7 +60,8 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(mockRedisClient.lPush.calledOnce).to.be.true;
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, sessionKey)).to.be.true;
       expect(mockRedisClient.set.calledOnce).to.be.true;
-      expect(mockRedisClient.rPop.calledOnce).to.be.true;
+      expect(mockRedisClient.lRem.calledOnce).to.be.true;
+      expect(mockRedisClient.lRem.calledWith(`lock:queue:${normalizedAddress}`, 1, sessionKey)).to.be.true;
     });
 
     it('should wait in queue until first position', async () => {
@@ -72,7 +72,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lPush.resolves(2);
       mockRedisClient.lIndex.onFirstCall().resolves(otherSessionKey).onSecondCall().resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
-      mockRedisClient.rPop.resolves(sessionKey);
+      mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(1);
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
@@ -81,6 +81,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       expect(result).to.equal(sessionKey);
       expect(mockRedisClient.lIndex.callCount).to.equal(2);
+      expect(mockRedisClient.lRem.calledOnce).to.be.true;
     });
 
     it('should normalize address to lowercase', async () => {
@@ -90,7 +91,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lPush.resolves(1);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
-      mockRedisClient.rPop.resolves(sessionKey);
+      mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
@@ -98,6 +99,7 @@ describe('RedisLockStrategy Test Suite', function () {
       await redisLockStrategy.acquireLock(upperCaseAddress);
 
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${upperCaseAddress.toLowerCase()}`, sessionKey)).to.be.true;
+      expect(mockRedisClient.lRem.calledWith(`lock:queue:${upperCaseAddress.toLowerCase()}`, 1, sessionKey)).to.be.true;
     });
 
     it('should handle Redis errors during acquisition and cleanup queue (fail open)', async () => {
@@ -206,7 +208,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // First session acquires immediately
       mockRedisClient.lIndex.onCall(0).resolves(session1);
       mockRedisClient.set.onCall(0).resolves('OK');
-      mockRedisClient.rPop.onCall(0).resolves(session1);
+      mockRedisClient.lRem.onCall(0).resolves(1);
       mockRedisClient.lLen.resolves(2);
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(session1);
@@ -216,6 +218,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       // Verify LPUSH was called (adding to queue)
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, session1)).to.be.true;
+      // Verify LREM was called (removing from queue)
+      expect(mockRedisClient.lRem.calledWith(`lock:queue:${normalizedAddress}`, 1, session1)).to.be.true;
     });
   });
 
@@ -226,7 +230,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lPush.resolves(1);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
-      mockRedisClient.rPop.resolves(sessionKey);
+      mockRedisClient.lRem.resolves(1);
       mockRedisClient.lLen.resolves(0);
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);

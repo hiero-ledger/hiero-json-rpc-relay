@@ -67,9 +67,6 @@ export class RedisLockStrategy implements LockStrategy {
           });
 
           if (acquired) {
-            // Successfully acquired - remove from queue
-            await this.redisClient.rPop(queueKey);
-
             const acquisitionDuration = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 
@@ -85,13 +82,13 @@ export class RedisLockStrategy implements LockStrategy {
         await this.sleep(this.pollIntervalMs);
       }
     } catch (error) {
-      // Best-effort cleanup: remove from queue if we joined it
-      if (joinedQueue) {
-        await this.cleanupFromQueue(queueKey, sessionKey, address);
-      }
-
       this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
       return null;
+    } finally {
+      // Always remove from queue if we joined it (whether success or failure)
+      if (joinedQueue) {
+        await this.removeFromQueue(queueKey, sessionKey, address);
+      }
     }
   }
 
@@ -163,18 +160,19 @@ export class RedisLockStrategy implements LockStrategy {
   }
 
   /**
-   * Removes a session key from the queue (cleanup on error).
+   * Removes a session key from the queue.
+   * Used for cleanup after successful acquisition or on error.
    *
    * @param queueKey - The queue key.
    * @param sessionKey - The session key to remove.
    * @param address - The address (for logging).
    */
-  private async cleanupFromQueue(queueKey: string, sessionKey: string, address: string): Promise<void> {
+  private async removeFromQueue(queueKey: string, sessionKey: string, address: string): Promise<void> {
     try {
       await this.redisClient.lRem(queueKey, 1, sessionKey);
-      this.logger.warn(`Removed from queue due to error: address=${address}, sessionKey=${sessionKey}`);
+      this.logger.trace(`Removed from queue: address=${address}, sessionKey=${sessionKey}`);
     } catch (error) {
-      this.logger.error(error, `Failed to cleanup from queue: address=${address}, sessionKey=${sessionKey}`);
+      this.logger.error(error, `Failed to remove from queue: address=${address}, sessionKey=${sessionKey}`);
     }
   }
 
