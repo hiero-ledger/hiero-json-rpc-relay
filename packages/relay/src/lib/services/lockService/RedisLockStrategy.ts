@@ -5,8 +5,8 @@ import { randomUUID } from 'crypto';
 import { Logger } from 'pino';
 import { RedisClientType } from 'redis';
 
-import { RedisCacheError } from '../../errors/RedisCacheError';
 import { LockStrategy } from '../../types/lock';
+import { LockService } from './LockService';
 
 /**
  * Redis-based distributed lock strategy implementing FIFO queue semantics.
@@ -23,41 +23,25 @@ export class RedisLockStrategy implements LockStrategy {
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
   private readonly maxLockHoldMs: number;
-  private readonly pollIntervalMs: number;
-  private readonly keyPrefix: string;
-
-  /**
-   * Lua script for atomic lock release with ownership check.
-   * Only deletes the lock if the session key matches.
-   */
-  private static readonly RELEASE_LOCK_SCRIPT = `
-    if redis.call("get", KEYS[1]) == ARGV[1] then
-      return redis.call("del", KEYS[1])
-    else
-      return 0
-    end
-  `;
+  private readonly pollIntervalMs = 50;
+  private readonly keyPrefix = 'lock';
 
   constructor(redisClient: RedisClientType, logger: Logger) {
     this.redisClient = redisClient;
     this.logger = logger;
-    this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS' as any) as number;
-    this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS' as any) as number;
-    this.keyPrefix = ConfigService.get('LOCK_REDIS_PREFIX' as any) as string;
+    this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
   }
 
   /**
    * Acquires a lock for the specified address using FIFO queue semantics.
    *
    * @param address - The sender address to acquire the lock for (will be normalized).
-   * @returns A promise that resolves to a unique session key upon successful acquisition.
-   * @throws Error if acquisition times out or Redis connection fails.
+   * @returns A promise that resolves to a unique session key upon successful acquisition, or null if acquisition fails (fail open).
    */
-  async acquireLock(address: string): Promise<string> {
-    const normalizedAddress = this.normalizeAddress(address);
-    const sessionKey = randomUUID();
-    const lockKey = this.getLockKey(normalizedAddress);
-    const queueKey = this.getQueueKey(normalizedAddress);
+  async acquireLock(address: string): Promise<string | null> {
+    const sessionKey = this.generateSessionKey();
+    const lockKey = this.getLockKey(address);
+    const queueKey = this.getQueueKey(address);
     const startTime = Date.now();
     let joinedQueue = false;
 
@@ -67,7 +51,7 @@ export class RedisLockStrategy implements LockStrategy {
       joinedQueue = true;
 
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Lock acquisition started: address=${normalizedAddress}, sessionKey=${sessionKey}`);
+        this.logger.trace(`Lock acquisition started: address=${address}, sessionKey=${sessionKey}`);
       }
 
       // Poll until first in queue and can acquire lock
@@ -89,8 +73,8 @@ export class RedisLockStrategy implements LockStrategy {
             const acquisitionDuration = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 
-            this.logger.info(
-              `Lock acquired: address=${normalizedAddress}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
+            this.logger.debug(
+              `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
             );
 
             return sessionKey;
@@ -103,12 +87,11 @@ export class RedisLockStrategy implements LockStrategy {
     } catch (error) {
       // Best-effort cleanup: remove from queue if we joined it
       if (joinedQueue) {
-        await this.cleanupFromQueue(queueKey, sessionKey, normalizedAddress);
+        await this.cleanupFromQueue(queueKey, sessionKey, address);
       }
 
-      const redisError = new RedisCacheError(error);
-      this.logger.error(redisError, `Failed to acquire lock: address=${normalizedAddress}, sessionKey=${sessionKey}`);
-      throw redisError;
+      this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
+      return null;
     }
   }
 
@@ -120,61 +103,63 @@ export class RedisLockStrategy implements LockStrategy {
    * @param sessionKey - The session key proving ownership of the lock.
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    const normalizedAddress = this.normalizeAddress(address);
-    const lockKey = this.getLockKey(normalizedAddress);
+    const lockKey = this.getLockKey(address);
 
     try {
       // Atomic check-and-delete using Lua script
-      const result = await this.redisClient.eval(RedisLockStrategy.RELEASE_LOCK_SCRIPT, {
-        keys: [lockKey],
-        arguments: [sessionKey],
-      });
+      // Only deletes the lock if the session key matches (ownership check)
+      const result = await this.redisClient.eval(
+        `
+          if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+          else
+            return 0
+          end
+        `,
+        {
+          keys: [lockKey],
+          arguments: [sessionKey],
+        },
+      );
 
       if (result === 1) {
-        this.logger.info(`Lock released: address=${normalizedAddress}, sessionKey=${sessionKey}`);
+        this.logger.debug(`Lock released: address=${address}, sessionKey=${sessionKey}`);
       } else {
         // Lock was already released or owned by someone else - ignore
         if (this.logger.isLevelEnabled('trace')) {
           this.logger.trace(
-            `Lock release ignored (not owner or already released): address=${normalizedAddress}, sessionKey=${sessionKey}`,
+            `Lock release ignored (not owner or already released): address=${address}, sessionKey=${sessionKey}`,
           );
         }
       }
     } catch (error) {
-      const redisError = new RedisCacheError(error);
-      this.logger.error(redisError, `Failed to release lock: address=${normalizedAddress}, sessionKey=${sessionKey}`);
+      this.logger.error(error, `Failed to release lock: address=${address}, sessionKey=${sessionKey}`);
       // Don't throw - release failures should not block the caller
     }
   }
 
   /**
-   * Normalizes an address to lowercase for consistent key generation.
-   *
-   * @param address - The address to normalize.
-   * @returns The normalized address.
-   */
-  private normalizeAddress(address: string): string {
-    return address.toLowerCase();
-  }
-
-  /**
    * Generates the Redis key for a lock.
+   * Automatically normalizes the address to ensure consistency.
    *
-   * @param address - The normalized address.
+   * @param address - The sender address (will be normalized to lowercase).
    * @returns The Redis lock key.
    */
   private getLockKey(address: string): string {
-    return `${this.keyPrefix}:${address}`;
+    const normalizedAddress = LockService.normalizeAddress(address);
+    return `${this.keyPrefix}:${normalizedAddress}`;
   }
 
   /**
    * Generates the Redis key for a lock queue.
+   * Automatically normalizes the address to ensure consistency.
    *
-   * @param address - The normalized address.
+   * @param address - The sender address (will be normalized to lowercase).
    * @returns The Redis queue key.
    */
   private getQueueKey(address: string): string {
-    return `${this.keyPrefix}:queue:${address}`;
+    const normalizedAddress = LockService.normalizeAddress(address);
+    return `${this.keyPrefix}:queue:${normalizedAddress}`;
   }
 
   /**
@@ -189,9 +174,18 @@ export class RedisLockStrategy implements LockStrategy {
       await this.redisClient.lRem(queueKey, 1, sessionKey);
       this.logger.warn(`Removed from queue due to error: address=${address}, sessionKey=${sessionKey}`);
     } catch (error) {
-      const redisError = new RedisCacheError(error);
-      this.logger.error(redisError, `Failed to cleanup from queue: address=${address}, sessionKey=${sessionKey}`);
+      this.logger.error(error, `Failed to cleanup from queue: address=${address}, sessionKey=${sessionKey}`);
     }
+  }
+
+  /**
+   * Generates a unique session key for lock acquisition.
+   * Protected to allow test mocking.
+   *
+   * @returns A unique session key.
+   */
+  protected generateSessionKey(): string {
+    return randomUUID();
   }
 
   /**

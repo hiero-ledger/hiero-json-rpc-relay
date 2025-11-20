@@ -13,9 +13,9 @@ export interface LockStrategy {
    * Blocks until the lock is available or timeout is reached.
    *
    * @param address - The address to acquire the lock for (will be normalized by implementation).
-   * @returns A promise that resolves to a unique session key upon successful acquisition.
+   * @returns A promise that resolves to a unique session key upon successful acquisition, or null if acquisition fails (fail open).
    */
-  acquireLock(address: string): Promise<string>;
+  acquireLock(address: string): Promise<string | null>;
 
   /**
    * Releases a lock for the specified address.

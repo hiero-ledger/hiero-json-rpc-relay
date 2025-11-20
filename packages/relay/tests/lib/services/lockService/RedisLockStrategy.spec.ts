@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect } from 'chai';
-import * as crypto from 'crypto';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { Logger, pino } from 'pino';
 import { RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
 import { RedisLockStrategy } from '../../../../src/lib/services/lockService/RedisLockStrategy';
+
+use(chaiAsPromised);
 
 describe('RedisLockStrategy Test Suite', function () {
   this.timeout(10000);
@@ -50,8 +52,8 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.rPop.resolves(sessionKey);
       mockRedisClient.lLen.resolves(0);
 
-      // Stub randomUUID to return predictable value
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      // Stub generateSessionKey to return predictable value
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
@@ -60,8 +62,6 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, sessionKey)).to.be.true;
       expect(mockRedisClient.set.calledOnce).to.be.true;
       expect(mockRedisClient.rPop.calledOnce).to.be.true;
-
-      cryptoStub.restore();
     });
 
     it('should wait in queue until first position', async () => {
@@ -75,14 +75,12 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.rPop.resolves(sessionKey);
       mockRedisClient.lLen.resolves(1);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
       expect(result).to.equal(sessionKey);
       expect(mockRedisClient.lIndex.callCount).to.equal(2);
-
-      cryptoStub.restore();
     });
 
     it('should normalize address to lowercase', async () => {
@@ -95,16 +93,14 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.rPop.resolves(sessionKey);
       mockRedisClient.lLen.resolves(0);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(upperCaseAddress);
 
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${upperCaseAddress.toLowerCase()}`, sessionKey)).to.be.true;
-
-      cryptoStub.restore();
     });
 
-    it('should handle Redis errors during acquisition and cleanup queue', async () => {
+    it('should handle Redis errors during acquisition and cleanup queue (fail open)', async () => {
       const sessionKey = 'test-session-key';
       const redisError = new Error('Redis connection failed');
 
@@ -113,42 +109,34 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lIndex.rejects(redisError);
       mockRedisClient.lRem.resolves(1);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
-      try {
-        await redisLockStrategy.acquireLock(testAddress);
-        expect.fail('Should have thrown error');
-      } catch (error: any) {
-        // Should throw RedisCacheError
-        expect(error.name).to.equal('RedisCacheError');
-        // Should have attempted cleanup
-        expect(mockRedisClient.lRem.calledOnce).to.be.true;
-        expect(mockRedisClient.lRem.calledWith(`lock:queue:${normalizedAddress}`, 1, sessionKey)).to.be.true;
-      }
+      const result = await redisLockStrategy.acquireLock(testAddress);
 
-      cryptoStub.restore();
+      // Should return null (fail open) instead of throwing
+      expect(result).to.be.null;
+
+      // Should have attempted cleanup
+      expect(mockRedisClient.lRem.calledOnce).to.be.true;
+      expect(mockRedisClient.lRem.calledWith(`lock:queue:${normalizedAddress}`, 1, sessionKey)).to.be.true;
     });
 
-    it('should handle Redis errors before joining queue without cleanup', async () => {
+    it('should handle Redis errors before joining queue without cleanup (fail open)', async () => {
       const sessionKey = 'test-session-key';
       const redisError = new Error('Redis connection failed');
 
       // lPush fails immediately
       mockRedisClient.lPush.rejects(redisError);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
-      try {
-        await redisLockStrategy.acquireLock(testAddress);
-        expect.fail('Should have thrown error');
-      } catch (error: any) {
-        // Should throw RedisCacheError
-        expect(error.name).to.equal('RedisCacheError');
-        // Should NOT have attempted cleanup (never joined queue)
-        expect(mockRedisClient.lRem.called).to.be.false;
-      }
+      const result = await redisLockStrategy.acquireLock(testAddress);
 
-      cryptoStub.restore();
+      // Should return null (fail open) instead of throwing
+      expect(result).to.be.null;
+
+      // Should NOT have attempted cleanup (never joined queue)
+      expect(mockRedisClient.lRem.called).to.be.false;
     });
   });
 
@@ -221,16 +209,13 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.rPop.onCall(0).resolves(session1);
       mockRedisClient.lLen.resolves(2);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID');
-      cryptoStub.onCall(0).returns(session1 as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(session1);
 
       const result1 = await redisLockStrategy.acquireLock(testAddress);
       expect(result1).to.equal(session1);
 
       // Verify LPUSH was called (adding to queue)
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, session1)).to.be.true;
-
-      cryptoStub.restore();
     });
   });
 
@@ -244,7 +229,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.rPop.resolves(sessionKey);
       mockRedisClient.lLen.resolves(0);
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
       await redisLockStrategy.acquireLock(testAddress);
 
@@ -254,8 +239,6 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(setCall.args[1]).to.equal(sessionKey);
       expect(setCall.args[2]).to.deep.include({ NX: true });
       expect(setCall.args[2]).to.have.property('PX');
-
-      cryptoStub.restore();
     });
   });
 
@@ -269,19 +252,15 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.lIndex.rejects(redisError);
       mockRedisClient.lRem.rejects(new Error('Cleanup failed'));
 
-      const cryptoStub = sinon.stub(crypto, 'randomUUID').returns(sessionKey as any);
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
-      try {
-        await redisLockStrategy.acquireLock(testAddress);
-        expect.fail('Should have thrown error');
-      } catch (error: any) {
-        // Should still throw the original RedisCacheError even if cleanup fails
-        expect(error.name).to.equal('RedisCacheError');
-        // Cleanup was attempted
-        expect(mockRedisClient.lRem.calledOnce).to.be.true;
-      }
+      const result = await redisLockStrategy.acquireLock(testAddress);
 
-      cryptoStub.restore();
+      // Should return null (fail open) instead of throwing
+      expect(result).to.be.null;
+
+      // Cleanup was attempted
+      expect(mockRedisClient.lRem.calledOnce).to.be.true;
     });
   });
 });
