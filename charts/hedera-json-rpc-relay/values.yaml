@@ -125,8 +125,7 @@ config:
 
   # ========== LOCK SERVICE CONFIGURATION ==========
   # LOCK_MAX_HOLD_MS:
-  # LOCK_QUEUE_POLL_INTERVAL_MS:
-  # LOCK_REDIS_PREFIX:
+  # LOCAL_LOCK_MAX_ENTRIES
 
   # ========== DEVELOPMENT & TESTING ==========
   # LOG_LEVEL: 'trace'
