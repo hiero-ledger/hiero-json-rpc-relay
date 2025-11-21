@@ -399,11 +399,11 @@ describe('CacheService Test Suite', async function () {
         expect(newValue).to.equal(15);
       });
 
-      it('should fail to increment value in case of Redis error', async function () {
+      it('should be able to ignore increment failure in case of Redis error', async function () {
         const key = 'counter';
         await cacheService.set(key, 10, callingMethod);
         await redisManager.disconnect();
-        expect(cacheService.incrBy(key, 5, callingMethod)).to.eventually.be.rejected;
+        await expect(cacheService.incrBy(key, 5, callingMethod)).to.eventually.not.be.rejected;
       });
     });
 
