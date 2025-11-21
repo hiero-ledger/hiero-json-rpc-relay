@@ -533,7 +533,11 @@ export class TransactionService implements ITransactionService {
     );
 
     if (lockSessionKey) {
+<<<<<<< HEAD
       await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
+=======
+      await this.lockService.releaseLock(originalCallerAddress.toLowerCase(), lockSessionKey);
+>>>>>>> 340b7ae71 (moves execute transaction to transactionService)
     }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
@@ -708,7 +712,6 @@ export class TransactionService implements ITransactionService {
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        lockSessionKey,
       );
 
       txSubmitted = true;
