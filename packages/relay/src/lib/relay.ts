@@ -398,13 +398,8 @@ export class Relay {
   }
 
   private async connectRedisClient() {
-    const redisUrl = ConfigService.get('REDIS_URL')!;
-    const reconnectDelay = ConfigService.get('REDIS_RECONNECT_DELAY_MS');
-    if (ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL')) {
-      const redisManager = new RedisClientManager(this.logger, redisUrl, reconnectDelay);
-
-      await redisManager.connect();
-      this.redisClient = redisManager.getClient();
+    if (RedisClientManager.isRedisEnabled()) {
+      this.redisClient = await RedisClientManager.getClient(this.logger);
     } else {
       this.redisClient = undefined;
     }

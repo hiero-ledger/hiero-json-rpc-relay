@@ -93,7 +93,7 @@ describe('webSocketServer http endpoints', () => {
   });
 
   it('should return 503 and DOWN for /health/readiness when chainId is not valid', async () => {
-    mockRelay.eth.returns({ chainId: () => '0xabc' });
+    mockRelay.eth.returns({ chainId: () => '0x' });
     const res = await httpGet(server, '/health/readiness');
 
     expect(mockRelay.eth.called).to.be.true;

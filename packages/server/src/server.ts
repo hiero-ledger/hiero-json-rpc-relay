@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import fs from 'fs';
 import cors from 'koa-cors';
 import path from 'path';
@@ -198,20 +199,44 @@ export async function initializeServer() {
     }
   });
 
-  // Prometheus metrics exposure
+  // Liveness endpoint
   app.use(async (ctx, next) => {
-    if (ctx.url === '/metrics') {
-      ctx.status = 200;
-      ctx.body = await register.metrics();
+    if (ctx.url === '/health/liveness') {
+      const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
+      ctx.status = redisHealthStatus ? 200 : 503;
+      ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
     } else {
       return next();
     }
   });
 
-  // Liveness endpoint
+  // Readiness endpoint
   app.use(async (ctx, next) => {
-    if (ctx.url === '/health/liveness') {
+    if (ctx.url === '/health/readiness') {
+      try {
+        const chainId = relay.eth().chainId();
+        const isChainHealthy = chainId !== '0x';
+
+        // redis disabled - only chain health matters
+        // redis enabled  - both redis and chain must be healthy
+        const isHealthy: boolean = (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy;
+
+        ctx.status = isHealthy ? 200 : 503;
+        ctx.body = isHealthy ? 'OK' : 'DOWN';
+      } catch (e) {
+        logger.error(e);
+        throw e;
+      }
+    } else {
+      return next();
+    }
+  });
+
+  // Prometheus metrics exposure
+  app.use(async (ctx, next) => {
+    if (ctx.url === '/metrics') {
       ctx.status = 200;
+      ctx.body = await register.metrics();
     } else {
       return next();
     }
@@ -225,27 +250,6 @@ export async function initializeServer() {
       }
       ctx.status = 200;
       ctx.body = JSON.stringify(await relay.admin().config());
-    } else {
-      return next();
-    }
-  });
-
-  // Readiness endpoint
-  app.use(async (ctx, next) => {
-    if (ctx.url === '/health/readiness') {
-      try {
-        const result = relay.eth().chainId();
-        if (result.indexOf('0x12') >= 0) {
-          ctx.status = 200;
-          ctx.body = 'OK';
-        } else {
-          ctx.body = 'DOWN';
-          ctx.status = 503; // UNAVAILABLE
-        }
-      } catch (e) {
-        logger.error(e);
-        throw e;
-      }
     } else {
       return next();
     }

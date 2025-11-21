@@ -28,7 +28,6 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: IPAddressHbarSpendingPlanRepository;
-    let redisClientManager: RedisClientManager;
 
     if (isSharedCacheEnabled) {
       useInMemoryRedisServer(logger, 6383);
@@ -37,8 +36,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
     }
     before(async () => {
       if (isSharedCacheEnabled) {
-        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6383', 1000);
-        await redisClientManager.connect();
+        await RedisClientManager.getClient(logger);
       }
       cacheService = new CacheService(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);
