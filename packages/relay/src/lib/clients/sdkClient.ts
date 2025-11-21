@@ -74,7 +74,6 @@ export class SDKClient {
     logger: Logger,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
-    private readonly lockService: LockService,
   ) {
     const client =
       hederaNetwork in constants.CHAIN_IDS
@@ -147,7 +146,6 @@ export class SDKClient {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
-    lockSessionKey?: string,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
     const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
@@ -193,8 +191,6 @@ export class SDKClient {
         requestDetails,
         true,
         originalCallerAddress,
-        undefined,
-        lockSessionKey,
       ),
     };
   }
@@ -339,23 +335,6 @@ export class SDKClient {
       }
       return transactionResponse;
     } finally {
-      // Eventually release the transaction lock if it was acquired by the sender using lockSessionKey
-      if (lockSessionKey) {
-        //try/catch essential for not masking errors
-        try {
-          await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
-        } catch (releaseError) {
-          this.logger.error(
-            {
-              address: originalCallerAddress,
-              lockSessionKey,
-              error: releaseError,
-            },
-            'Failed to release lock',
-          );
-        }
-      }
-
       if (transactionId?.length) {
         const transactionHash = transactionResponse?.transactionHash
           ? prepend0x(Buffer.from(transactionResponse.transactionHash).toString('hex'))

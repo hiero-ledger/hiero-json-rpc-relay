@@ -54,11 +54,10 @@ export class LocalLockStrategy {
    * @returns A session key identifying the current lock owner
    */
   async acquireLock(address: string): Promise<string> {
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Acquiring lock for address ${address}.`);
-    }
-
     const sessionKey = randomUUID();
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
+    }
     const state = this.getOrCreateState(address);
 
     // Acquire the mutex (this will block until available)
@@ -83,7 +82,9 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    const state = this.localLockStates.get(address);
+    this.logger.info(`LocalLockStates ${this.localLockStates}`);
+    this.logger.info(`The address to release ${address}`);
+    const state = this.localLockStates.get(address.toLowerCase());
     if (state) {
       if (this.logger.isLevelEnabled('debug')) {
         const holdTime = Date.now() - state.acquiredAt!;
@@ -106,6 +107,7 @@ export class LocalLockStrategy {
    */
   private getOrCreateState(address: string): LockState {
     address = address.toLowerCase();
+    this.logger.info(`The address to save ${address}`);
     if (!this.localLockStates.has(address)) {
       this.localLockStates.set(address, {
         mutex: new Mutex(),

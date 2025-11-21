@@ -69,11 +69,6 @@ export default class HAPIService {
   private client: SDKClient;
 
   /**
-   * An instance of the LockService that manages transaction ordering through distributed locking.
-   */
-  private readonly lockService: LockService;
-
-  /**
    * The logger used for logging all output from this class.
    */
   private readonly logger: Logger;
@@ -133,7 +128,6 @@ export default class HAPIService {
       registers: [register],
       labelNames: ['transactions', 'errors'],
     });
-    this.lockService = lockService;
   }
 
   /**
@@ -197,7 +191,6 @@ export default class HAPIService {
       this.logger.child({ name: `consensus-node` }),
       this.eventEmitter,
       this.hbarLimitService,
-      this.lockService,
     );
   }
 
@@ -250,7 +243,6 @@ export default class HAPIService {
     originalCallerAddress: string,
     networkGasPriceInWeiBars: number,
     currentNetworkExchangeRateInCents: number,
-    lockSessionKey?: string,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     return this.getSDKClient().submitEthereumTransaction(
       transactionBuffer,
@@ -259,7 +251,6 @@ export default class HAPIService {
       originalCallerAddress,
       networkGasPriceInWeiBars,
       currentNetworkExchangeRateInCents,
-      lockSessionKey,
     );
   }
 

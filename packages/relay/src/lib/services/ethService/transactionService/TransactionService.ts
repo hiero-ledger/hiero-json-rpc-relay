@@ -312,7 +312,8 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
-await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+      }
       throw error;
     }
   }
@@ -530,6 +531,9 @@ await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
       lockSessionKey,
     );
 
+    if (lockSessionKey) {
+      await this.lockService.releaseLock(originalCallerAddress.toLowerCase(), lockSessionKey);
+    }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
@@ -703,7 +707,6 @@ await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
         originalCallerAddress,
         networkGasPriceInWeiBars,
         await this.getCurrentNetworkExchangeRateInCents(requestDetails),
-        lockSessionKey,
       );
 
       txSubmitted = true;
