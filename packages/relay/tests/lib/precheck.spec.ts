@@ -28,6 +28,7 @@ import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 const registry = new Registry();
 import sinon from 'sinon';
 
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { TransactionPoolService } from '../../src/lib/services/transactionPoolService/transactionPoolService';
 import { RequestDetails } from '../../src/lib/types';
 
@@ -94,7 +95,7 @@ describe('Precheck', async function () {
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger, registry),
+      new CacheService(CacheClientFactory.create(logger, registry), registry),
       instance,
     );
     const transactionPoolService = sinon.createStubInstance(TransactionPoolService);
