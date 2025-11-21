@@ -2,16 +2,15 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
-import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 
-import { Utils } from '../../../utils';
-import { IRedisCacheClient } from './IRedisCacheClient';
+import { Utils } from '../../../../utils';
+import { ICacheClient } from '../ICacheClient';
 
 /**
  * A class that provides caching functionality using Redis.
  */
-export class RedisCache implements IRedisCacheClient {
+export class RedisCache implements ICacheClient {
   /**
    * Prefix used to namespace all keys managed by this cache.
    *
@@ -29,19 +28,14 @@ export class RedisCache implements IRedisCacheClient {
   private readonly options = {
     // Max time to live in ms, for items before they are considered stale.
     ttl: ConfigService.get('CACHE_TTL'),
+    multiSetEnabled: ConfigService.get('MULTI_SET'),
   };
 
   /**
    * The logger used for logging all output from this class.
    * @private
    */
-  private readonly logger: Logger;
-
-  /**
-   * The metrics register used for metrics tracking.
-   * @private
-   */
-  private readonly register: Registry;
+  protected readonly logger: Logger;
 
   /**
    * The Redis client.
@@ -53,11 +47,10 @@ export class RedisCache implements IRedisCacheClient {
    * Creates an instance of `RedisCache`.
    *
    * @param {Logger} logger - The logger instance.
-   * @param {Registry} register - The metrics registry.
+   * @param {RedisClientType} client
    */
-  public constructor(logger: Logger, register: Registry, client: RedisClientType) {
+  public constructor(logger: Logger, client: RedisClientType) {
     this.logger = logger;
-    this.register = register;
     this.client = client;
   }
 
@@ -129,9 +122,11 @@ export class RedisCache implements IRedisCacheClient {
    *
    * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
    * @param callingMethod - The name of the calling method.
+   * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds. Used in fallback to pipelineSet.
    * @returns A Promise that resolves when the values are cached.
    */
-  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string): Promise<void> {
+  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
+    if (!this.options.multiSetEnabled) return this.pipelineSet(keyValuePairs, callingMethod, ttl);
     // Serialize values and add prefix
     const serializedKeyValuePairs: Record<string, string> = {};
     for (const [key, value] of Object.entries(keyValuePairs)) {

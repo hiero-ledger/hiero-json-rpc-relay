@@ -3,7 +3,6 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
-import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
@@ -17,7 +16,6 @@ describe('RedisCache Test Suite', async function () {
   this.timeout(10000);
 
   const logger = pino({ level: 'silent' });
-  const registry = new Registry();
   const callingMethod = 'RedisCacheTest';
 
   let redisCache: RedisCache;
@@ -31,7 +29,7 @@ describe('RedisCache Test Suite', async function () {
 
     await redisClientManager.connect();
     redisClient = redisClientManager.getClient();
-    redisCache = new RedisCache(logger.child({ name: `cache` }), registry, redisClient);
+    redisCache = new RedisCache(logger.child({ name: `cache` }), redisClient);
     redisCache['options'].ttl = 100;
     sinon.spy(redisClient, 'set');
   });
