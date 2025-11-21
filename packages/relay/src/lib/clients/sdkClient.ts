@@ -27,7 +27,7 @@ import { Logger } from 'pino';
 
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService } from '../services';
+import { CommonService, LockService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
@@ -135,6 +135,7 @@ export class SDKClient {
    * @param {string} originalCallerAddress - The address of the original caller making the request.
    * @param {number} networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
    * @param {number} currentNetworkExchangeRateInCents - The exchange rate in cents of the current network.
+   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<{ txResponse: TransactionResponse; fileId: FileId | null }>}
    * @throws {SDKClientError} Throws an error if no file ID is created or if the preemptive fee check fails.
    */
@@ -277,6 +278,7 @@ export class SDKClient {
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
     estimatedTxFee?: number,
+    lockSessionKey?: string,
   ): Promise<TransactionResponse> {
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
