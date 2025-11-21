@@ -28,6 +28,6 @@ export class LockStrategyFactory {
       return new RedisLockStrategy(redisClient, logger.child({ name: 'redis-lock-strategy' }));
     }
 
-    return new LocalLockStrategy(logger);
+    return new LocalLockStrategy(logger.child({ name: 'local-lock-strategy' }));
   }
 }

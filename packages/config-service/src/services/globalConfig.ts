@@ -659,6 +659,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 30000,
   },
+  LOCK_QUEUE_POLL_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,

@@ -23,13 +23,14 @@ export class RedisLockStrategy implements LockStrategy {
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
   private readonly maxLockHoldMs: number;
-  private readonly pollIntervalMs = 50;
+  private readonly pollIntervalMs: number;
   private readonly keyPrefix = 'lock';
 
   constructor(redisClient: RedisClientType, logger: Logger) {
     this.redisClient = redisClient;
     this.logger = logger;
     this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
+    this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS');
   }
 
   /**
@@ -70,9 +71,11 @@ export class RedisLockStrategy implements LockStrategy {
             const acquisitionDuration = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 
-            this.logger.debug(
-              `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
-            );
+            if (this.logger.isLevelEnabled('debug')) {
+              this.logger.debug(
+                `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
+              );
+            }
 
             return sessionKey;
           }
@@ -120,7 +123,9 @@ export class RedisLockStrategy implements LockStrategy {
       );
 
       if (result === 1) {
-        this.logger.debug(`Lock released: address=${address}, sessionKey=${sessionKey}`);
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(`Lock released: address=${address}, sessionKey=${sessionKey}`);
+        }
       } else {
         // Lock was already released or owned by someone else - ignore
         if (this.logger.isLevelEnabled('trace')) {
@@ -170,9 +175,11 @@ export class RedisLockStrategy implements LockStrategy {
   private async removeFromQueue(queueKey: string, sessionKey: string, address: string): Promise<void> {
     try {
       await this.redisClient.lRem(queueKey, 1, sessionKey);
-      this.logger.trace(`Removed from queue: address=${address}, sessionKey=${sessionKey}`);
+      if (this.logger.isLevelEnabled('trace')) {
+        this.logger.trace(`Removed from queue: address=${address}, sessionKey=${sessionKey}`);
+      }
     } catch (error) {
-      this.logger.error(error, `Failed to remove from queue: address=${address}, sessionKey=${sessionKey}`);
+      this.logger.warn(error, `Failed to remove from queue: address=${address}, sessionKey=${sessionKey}`);
     }
   }
 
