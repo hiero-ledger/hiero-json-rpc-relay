@@ -336,14 +336,14 @@ export class ContractService implements IContractService {
   ): Promise<string | JsonRpcError> {
     try {
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
-          call.to,
+        this.logger.debug({
+          msg: `Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
+          to: call.to,
           gas,
-          call.data,
-          call.from,
+          data: call.data,
+          from: call.from,
           block,
-        );
+        });
       }
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);

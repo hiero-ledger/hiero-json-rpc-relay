@@ -129,10 +129,10 @@ export class RedisRateLimitStore implements RateLimitStore {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
+      this.logger.error({
+        msg: `Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
         error,
-      );
+      });
 
       // Fail open: allow the request to proceed if rate limiting fails
       return false;

@@ -167,7 +167,7 @@ export class TransactionService implements ITransactionService {
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByHash(hash=${hash})`, hash);
+      this.logger.trace({ msg: `getTransactionByHash(hash=${hash})`, hash });
     }
 
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
