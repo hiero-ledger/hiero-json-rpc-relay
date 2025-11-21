@@ -312,19 +312,7 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
-        try {
-          await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
-        } catch (releaseError) {
-          this.logger.error(
-            {
-              address: parsedTx.from!,
-              lockSessionKey,
-              error: releaseError,
-            },
-            'Failed to release lock',
-          );
-        }
-      }
+await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
       throw error;
     }
   }
