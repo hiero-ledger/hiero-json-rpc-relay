@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
+import { LockService } from './LockService';
+
 /**
  * Represents the internal state for a lock associated with a given address.
  */
@@ -71,7 +73,7 @@ export class LocalLockStrategy {
     // Start a 30-second timer to auto-release if lock not manually released
     state.lockTimeoutId = setTimeout(() => {
       this.forceReleaseExpiredLock(address, sessionKey);
-    }, ConfigService.get('LOCAL_LOCK_MAX_LOCK_TIME'));
+    }, ConfigService.get('LOCK_MAX_HOLD_MS'));
 
     return sessionKey;
   }
@@ -83,12 +85,12 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    if (this.logger.isLevelEnabled('debug')) {
-      const holdTime = Date.now() - state.acquiredAt!;
+    const state = this.localLockStates.get(address);
+
+    if (this.logger.isLevelEnabled('debug') && state?.acquiredAt) {
+      const holdTime = Date.now() - state.acquiredAt;
       this.logger.debug(`Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`);
     }
-
-    const state = this.localLockStates.get(address);
 
     // Ensure only the lock owner can release
     if (state?.sessionKey === sessionKey) {
@@ -103,9 +105,9 @@ export class LocalLockStrategy {
    * @returns The LockState object associated with the address
    */
   private getOrCreateState(address: string): LockState {
-    address = address.toLowerCase();
-    if (!this.localLockStates.has(address)) {
-      this.localLockStates.set(address, {
+    const normalizedAddress = LockService.normalizeAddress(address);
+    if (!this.localLockStates.has(normalizedAddress)) {
+      this.localLockStates.set(normalizedAddress, {
         mutex: new Mutex(),
         sessionKey: null,
         acquiredAt: null,
@@ -113,7 +115,7 @@ export class LocalLockStrategy {
       });
     }
 
-    return this.localLockStates.get(address)!;
+    return this.localLockStates.get(normalizedAddress)!;
   }
 
   /**

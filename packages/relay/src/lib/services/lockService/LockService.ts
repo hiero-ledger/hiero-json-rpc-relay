@@ -26,9 +26,9 @@ export class LockService {
    * Blocks until the lock is available (no timeout on waiting).
    *
    * @param address - The sender address to acquire the lock for.
-   * @returns A promise that resolves to a unique session key.
+   * @returns A promise that resolves to a unique session key, or null if acquisition fails (fail open).
    */
-  async acquireLock(address: string): Promise<string> {
+  async acquireLock(address: string): Promise<string | null> {
     return await this.strategy.acquireLock(address);
   }
 
@@ -41,5 +41,15 @@ export class LockService {
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
     await this.strategy.releaseLock(address, sessionKey);
+  }
+
+  /**
+   * Normalizes an address to lowercase for consistent key generation across lock strategies.
+   *
+   * @param address - The address to normalize.
+   * @returns The normalized address.
+   */
+  static normalizeAddress(address: string): string {
+    return address.toLowerCase();
   }
 }
