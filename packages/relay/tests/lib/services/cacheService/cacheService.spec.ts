@@ -330,7 +330,7 @@ describe('CacheService Test Suite', async function () {
       await expect(cacheService.getAsync(key, callingMethod)).to.eventually.not.be.rejected;
     });
 
-    it('should fail to set in case of Redis error', async function () {
+    it('should be able to ignore set failure in case of Redis error', async function () {
       const key = 'string';
       const value = 'value';
 
