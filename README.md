@@ -46,9 +46,11 @@ Configure required environment variables
 
 ```bash
 cp .env.http.example .env
+```
 
-# Open .env in your code editor and populate these vars
+Open .env in your code editor and populate these vars
 
+```
 # ========== REQUIRED CONFIGURATION ==========
 # Network Configuration
 CHAIN_ID=                                     # The network chain id. Local/previewnet = 0x12a (298), Previewnet = 0x129 (297), Testnet = 0x128 (296), Mainnet = 0x127 (295)
