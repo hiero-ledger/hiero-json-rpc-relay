@@ -267,7 +267,7 @@ export class TransactionService implements ITransactionService {
     // Acquire lock FIRST - before any side effects or async operations
     // This ensures proper nonce ordering for transactions from the same sender
     if (parsedTx.from && ConfigService.get('ENABLE_NONCE_ORDERING')) {
-      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
+      lockSessionKey = (await this.lockService.acquireLock(parsedTx.from)) ?? undefined;
     }
 
     try {
@@ -312,7 +312,11 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
-        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+        try {
+          await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+        } catch (error) {
+          this.logger.error(`Lock release failed with ${error}`);
+        }
       }
       throw error;
     }
@@ -514,7 +518,7 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     lockSessionKey: string | undefined,
     requestDetails: RequestDetails,
-    lockSessionKey?: string,
+    lockSessionKey?: string | undefined,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
 

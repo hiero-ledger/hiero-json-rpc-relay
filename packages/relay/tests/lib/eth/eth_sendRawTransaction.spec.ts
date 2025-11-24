@@ -568,26 +568,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     describe('Lock Release Error Handling', () => {
-<<<<<<< HEAD
       let loggerErrorStub: sinon.SinonStub;
       overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
       beforeEach(() => {
         loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
-=======
-      let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
-      let loggerErrorStub: sinon.SinonStub;
-      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
-      beforeEach(() => {
-        lockServiceStub = sinon.createStubInstance(LockService);
-        loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
-
-        // Replace the lock service with our stub
-<<<<<<< HEAD
-        ethImpl['transactionService']['lockService'] = lockServiceStub as any;
->>>>>>> da7731977 (creates unit tests for send raw transaction)
-=======
-        ethImpl['transactionService']['lockService'] = lockServiceStub;
->>>>>>> ba70de438 (improves sendRawTransaction unit tests)
       });
 
       afterEach(() => {
@@ -633,15 +617,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           // Verify lock release failure was logged
           sinon.assert.called(loggerErrorStub);
           const loggedError = loggerErrorStub.thirdCall.args[0];
-<<<<<<< HEAD
 
           expect(loggedError).to.contain('Redis connection timeout');
-=======
-          expect(loggedError).to.have.property('address', accountAddress);
-          expect(loggedError).to.have.property('lockSessionKey', 'test-session-key-123');
-          expect(loggedError).to.have.property('error');
-          expect(loggedError.error.message).to.equal('Redis connection timeout');
->>>>>>> da7731977 (creates unit tests for send raw transaction)
         });
 
         it('should preserve original precheck error when lock release fails', async function () {
@@ -666,7 +643,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
           lockServiceStub.acquireLock.resolves('test-session-key-456');
-<<<<<<< HEAD
           lockServiceStub.releaseLock.rejects(new Error('Redis connection timeout'));
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
@@ -686,54 +662,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const loggedError = loggerErrorStub.thirdCall.args[0];
 
           expect(loggedError).to.contain('Redis connection timeout');
-=======
-          lockServiceStub.releaseLock.rejects(new Error('Lock service internal error'));
-
-<<<<<<< HEAD
-          try {
-            await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect.fail('Should have thrown insufficient balance error');
-          } catch (error: any) {
-            // Verify we got the balance error, not the lock release error
-            expect(error.message).to.not.include('Lock service internal error');
-            expect(error.message).to.include('Insufficient funds') || expect(error.message).to.include('balance');
-
-            // Verify lock release was attempted despite failure
-            sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.called(loggerErrorStub);
-          }
-        });
-
-        it('should preserve error when getGasPriceInWeibars fails and lock release fails', async function () {
-          const signed = await signTransaction(transaction);
-
-          lockServiceStub.acquireLock.resolves('test-session-key-789');
-          lockServiceStub.releaseLock.rejects(new Error('Network partition'));
-
-          // Mock mirror node failure for gas price
-          restMock.onGet('network/fees').reply(500, 'Internal Server Error');
-
-          try {
-            await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect.fail('Should have thrown mirror node error');
-          } catch (error: any) {
-            // Verify we got the mirror node error, not the lock release error
-            expect(error.message).to.not.include('Network partition');
-
-            // Verify lock release was attempted
-            sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.called(loggerErrorStub);
-          }
->>>>>>> da7731977 (creates unit tests for send raw transaction)
-=======
-          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
-            JsonRpcError,
-            'Insufficient funds',
-          );
-          // Verify lock release was attempted despite failure
-          sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.called(loggerErrorStub);
->>>>>>> ba70de438 (improves sendRawTransaction unit tests)
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
@@ -765,8 +693,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
       describe('Successful Transaction Path', () => {
         it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
           const signed = await signTransaction(transaction);
@@ -988,79 +914,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           } finally {
             computeHashSpy.restore();
-=======
-      describe('Lock Acquisition', () => {
-        it('should not attempt to release lock if acquisition failed', async function () {
-=======
-      describe('Successful Transaction Path', () => {
-        it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
->>>>>>> ba70de438 (improves sendRawTransaction unit tests)
-          const signed = await signTransaction(transaction);
-
-          // Mock successful flow
-          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
-          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
-          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-          lockServiceStub.acquireLock.resolves('test-session-key-success');
-          lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
-
-          sdkClientStub.submitEthereumTransaction.resolves({
-            txResponse: {
-              transactionId: TransactionId.fromString(transactionIdServicesFormat),
-            } as unknown as TransactionResponse,
-            fileId: null,
-          });
-
-          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-
-          expect(result).to.equal(ethereumHash);
-
-          // Verify lock was acquired
-          sinon.assert.calledOnce(lockServiceStub.acquireLock);
-          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
-
-          // Verify lock was NOT released in sendRawTransaction
-          // (it should be released later in the chain, in sdkClient.executeTransaction)
-          sinon.assert.notCalled(lockServiceStub.releaseLock);
-
-          // Verify no error logs
-          sinon.assert.notCalled(loggerErrorStub);
-        });
-
-        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
-          it('should not acquire lock when ENABLE_NONCE_ORDERING is disabled', async function () {
-            // Temporarily disable the feature
-
-            const signed = await signTransaction(transaction);
-
-            // Mock successful flow
-            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
-            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
-            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-            sdkClientStub.submitEthereumTransaction.resolves({
-              txResponse: {
-                transactionId: TransactionId.fromString(transactionIdServicesFormat),
-              } as unknown as TransactionResponse,
-              fileId: null,
-            });
-
-            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-
-            expect(result).to.equal(ethereumHash);
-
-            // Verify lock was NOT acquired when feature is disabled
-            sinon.assert.notCalled(lockServiceStub.acquireLock);
-            sinon.assert.notCalled(lockServiceStub.releaseLock);
-<<<<<<< HEAD
->>>>>>> da7731977 (creates unit tests for send raw transaction)
           }
-=======
-          });
->>>>>>> ba70de438 (improves sendRawTransaction unit tests)
         });
       });
     });
