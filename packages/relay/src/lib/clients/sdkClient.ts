@@ -27,7 +27,7 @@ import { Logger } from 'pino';
 
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService, LockService } from '../services';
+import { CommonService } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
