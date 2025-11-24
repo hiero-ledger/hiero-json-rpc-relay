@@ -292,8 +292,8 @@ export class TransactionService implements ITransactionService {
           transactionBuffer,
           parsedTx,
           networkGasPriceInWeiBars,
-          requestDetails,
           lockSessionKey,
+          requestDetails,
         );
         return Utils.computeTransactionHash(transactionBuffer);
       }
@@ -306,8 +306,8 @@ export class TransactionService implements ITransactionService {
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        requestDetails,
         lockSessionKey,
+        requestDetails,
       );
     } catch (error) {
       // Release lock on any error during validation or prechecks
@@ -516,8 +516,8 @@ export class TransactionService implements ITransactionService {
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
+    lockSessionKey: string | undefined,
     requestDetails: RequestDetails,
-    lockSessionKey?: string | undefined,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
 
@@ -535,7 +535,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (lockSessionKey) {
-      await this.lockService.releaseLock(originalCallerAddress.toLowerCase(), lockSessionKey);
+      await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
     }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);

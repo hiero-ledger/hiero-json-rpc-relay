@@ -45,7 +45,9 @@ export class LockService {
    * @param sessionKey - The session key obtained during lock acquisition.
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    await this.strategy.releaseLock(address, sessionKey);
+    if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
+      await this.strategy.releaseLock(address, sessionKey);
+    }
   }
 
   /**

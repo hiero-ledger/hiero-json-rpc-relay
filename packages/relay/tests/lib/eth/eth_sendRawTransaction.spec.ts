@@ -808,11 +808,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           // Verify lock was released after submitEthereumTransaction
           sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(
-            lockServiceStub.releaseLock,
-            accountAddress.toLowerCase(),
-            'session-after-consensus-1',
-          );
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-after-consensus-1');
 
           expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
 
@@ -853,7 +849,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         // Verify lock was released despite MN polling failure
         sinon.assert.calledOnce(lockServiceStub.releaseLock);
-        sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress.toLowerCase(), 'session-mn-fail');
+        sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-mn-fail');
       });
 
       it('should not release lock when lockSessionKey is undefined', async function () {
@@ -913,7 +909,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             sinon.assert.notCalled(computeHashSpy);
             // Verify lock was released during synchronous execution (no need to tick clock)
             sinon.assert.calledOnce(lockServiceStub.releaseLock);
-            sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress.toLowerCase(), 'session-sync');
+            sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-sync');
 
             expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           } finally {
