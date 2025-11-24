@@ -316,7 +316,7 @@ export class Relay {
     );
 
     const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger));
-    const hapiService = new HAPIService(this.logger, this.register, hbarLimitService, lockService);
+    const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
     // Create simple service implementations
