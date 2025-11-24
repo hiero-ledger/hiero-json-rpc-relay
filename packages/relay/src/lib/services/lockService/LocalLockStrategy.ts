@@ -108,16 +108,9 @@ export class LocalLockStrategy {
    * @returns The LockState object associated with the address
    */
   private getOrCreateState(address: string): LockState {
-<<<<<<< HEAD
     const normalizedAddress = LockService.normalizeAddress(address);
     if (!this.localLockStates.has(normalizedAddress)) {
       this.localLockStates.set(normalizedAddress, {
-=======
-    address = address.toLowerCase();
-    this.logger.info(`The address to save ${address}`);
-    if (!this.localLockStates.has(address)) {
-      this.localLockStates.set(address, {
->>>>>>> f39ecd99 (moves execute transaction to transactionService)
         mutex: new Mutex(),
         sessionKey: null,
         acquiredAt: null,
