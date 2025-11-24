@@ -84,8 +84,6 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    this.logger.info(`LocalLockStates ${this.localLockStates}`);
-    this.logger.info(`The address to release ${address}`);
     const state = this.localLockStates.get(address.toLowerCase());
     if (state) {
       if (this.logger.isLevelEnabled('debug')) {
