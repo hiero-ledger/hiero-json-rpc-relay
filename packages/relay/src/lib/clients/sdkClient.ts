@@ -278,7 +278,6 @@ export class SDKClient {
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
     estimatedTxFee?: number,
-    lockSessionKey?: string,
   ): Promise<TransactionResponse> {
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
