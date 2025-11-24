@@ -9,7 +9,6 @@ import { Counter, Registry } from 'prom-client';
 import { SDKClient } from '../../clients';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
-import { LockService } from '../lockService/LockService';
 
 export default class HAPIService {
   /**
@@ -95,7 +94,7 @@ export default class HAPIService {
    * @param register - The registry instance for metrics and other services.
    * @param hbarLimitService - An HBAR Rate Limit service that tracks hbar expenses and limits.
    */
-  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService, lockService: LockService) {
+  constructor(logger: Logger, register: Registry, hbarLimitService: HbarLimitService) {
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();

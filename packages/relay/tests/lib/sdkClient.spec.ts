@@ -36,7 +36,6 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
-import { LockService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -75,7 +74,6 @@ describe('SdkClient', async function () {
   let cacheService: CacheService;
   let mirrorNodeClient: MirrorNodeClient;
   let hbarLimitService: HbarLimitService;
-  let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
 
   const requestDetails = new RequestDetails({ requestId: 'sdkClientTest', ipAddress: '0.0.0.0' });
 
@@ -98,16 +96,8 @@ describe('SdkClient', async function () {
       duration,
     );
 
-    lockServiceStub = sinon.createStubInstance(LockService);
-
     const eventEmitter = new EventEmitter<TypedEvents>();
-    sdkClient = new SDKClient(
-      hederaNetwork,
-      logger,
-      eventEmitter,
-      hbarLimitService,
-      lockServiceStub,
-    ) as unknown as SDKClientTest;
+    sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -343,8 +333,6 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
-            undefined,
-            undefined,
           ),
         ).to.be.true;
 
