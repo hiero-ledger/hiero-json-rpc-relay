@@ -29,7 +29,6 @@ import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { LockService } from '../../src/lib/services/lockService/LockService';
-import { PendingTransactionStorageFactory } from '../../src/lib/services/transactionPoolService/PendingTransactionStorageFactory';
 import { TxPoolImpl } from '../../src/lib/txpool';
 import { RequestDetails } from '../../src/lib/types';
 import { Web3Impl } from '../../src/lib/web3';
