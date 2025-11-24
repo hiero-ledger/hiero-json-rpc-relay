@@ -10,8 +10,7 @@
     "@hashgraph/json-rpc-relay": "file:../relay",
     "co-body": "6.2.0",
     "dotenv": "^17.2.1",
-    "koa": "^2.13.4",
-    "koa-cors": "^0.0.16",
+    "koa": "^3.0.1",
     "pino": "^10.1.0",
     "pino-pretty": "^7.6.1",
     "uuid": "^13.0.0"
@@ -21,6 +20,7 @@
     "@koa/cors": "^5.0.0",
     "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.12",
+    "@types/koa__cors": "^5.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.9.1",
     "@types/uuid": "^10.0.0",
