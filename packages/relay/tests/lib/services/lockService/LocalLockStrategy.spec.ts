@@ -83,7 +83,7 @@ describe('LocalLockStrategy', function () {
     expect(secondAcquired).to.be.true;
   });
 
-  withOverriddenEnvsInMochaTest({ LOCAL_LOCK_MAX_LOCK_TIME: 200 }, () => {
+  withOverriddenEnvsInMochaTest({ LOCK_MAX_HOLD_MS: 200 }, () => {
     it('should auto-release after max lock time', async () => {
       const address = 'test-auto-release';
 
