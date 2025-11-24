@@ -56,11 +56,7 @@ export class LocalLockStrategy implements LockStrategy {
    * @param address - The key representing the resource to lock
    * @returns A session key identifying the current lock owner
    */
-<<<<<<< HEAD
   async acquireLock(address: string): Promise<string | undefined> {
-=======
-  async acquireLock(address: string): Promise<string> {
->>>>>>> 340b7ae71 (moves execute transaction to transactionService)
     const sessionKey = randomUUID();
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
@@ -89,17 +85,8 @@ export class LocalLockStrategy implements LockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-<<<<<<< HEAD
-<<<<<<< HEAD
     const normalizedAddress = LockService.normalizeAddress(address);
     const state = this.localLockStates.get(normalizedAddress);
-=======
-    this.logger.info(`LocalLockStates ${this.localLockStates}`);
-    this.logger.info(`The address to release ${address}`);
-=======
->>>>>>> 1eb69d052 (remove unused logs)
-    const state = this.localLockStates.get(address.toLowerCase());
->>>>>>> 340b7ae71 (moves execute transaction to transactionService)
     if (state) {
       // Ensure only the lock owner can release
       if (state.sessionKey === sessionKey) {
