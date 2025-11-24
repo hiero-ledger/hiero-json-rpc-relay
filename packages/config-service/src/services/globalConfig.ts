@@ -368,11 +368,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 1000,
   },
-  LOCAL_LOCK_MAX_LOCK_TIME: {
-    type: 'number',
-    required: false,
-    defaultValue: 30000,
-  },
   LOG_LEVEL: {
     type: 'string',
     required: false,
@@ -658,6 +653,16 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  LOCK_MAX_HOLD_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
+  },
+  LOCK_QUEUE_POLL_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
   },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',

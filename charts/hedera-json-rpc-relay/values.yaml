@@ -123,6 +123,11 @@ config:
   # REDIS_RECONNECT_DELAY_MS:
   # MULTI_SET:
 
+  # ========== LOCK SERVICE CONFIGURATION ==========
+  # LOCK_MAX_HOLD_MS:
+  # LOCAL_LOCK_MAX_ENTRIES:
+  # LOCK_QUEUE_POLL_INTERVAL_MS:
+
   # ========== DEVELOPMENT & TESTING ==========
   # LOG_LEVEL: 'trace'
 
