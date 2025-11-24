@@ -88,15 +88,15 @@ export class LocalLockStrategy implements LockStrategy {
     const normalizedAddress = LockService.normalizeAddress(address);
     const state = this.localLockStates.get(normalizedAddress);
     if (state) {
-      if (this.logger.isLevelEnabled('debug')) {
-        const holdTime = Date.now() - state.acquiredAt!;
-        this.logger.debug(
-          `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`,
-        );
-      }
       // Ensure only the lock owner can release
       if (state.sessionKey === sessionKey) {
         await this.doRelease(state);
+        if (this.logger.isLevelEnabled('debug')) {
+          const holdTime = Date.now() - state.acquiredAt!;
+          this.logger.debug(
+            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`,
+          );
+        }
       }
     }
   }
