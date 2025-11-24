@@ -266,8 +266,8 @@ export class TransactionService implements ITransactionService {
 
     // Acquire lock FIRST - before any side effects or async operations
     // This ensures proper nonce ordering for transactions from the same sender
-    if (parsedTx.from && ConfigService.get('ENABLE_NONCE_ORDERING')) {
-      lockSessionKey = (await this.lockService.acquireLock(parsedTx.from)) ?? undefined;
+    if (parsedTx.from) {
+      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
     }
 
     try {

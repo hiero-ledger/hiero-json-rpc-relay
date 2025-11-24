@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
 import { LockStrategy } from '../../types';
 
 /**
@@ -28,7 +30,10 @@ export class LockService {
    * @param address - The sender address to acquire the lock for.
    * @returns A promise that resolves to a unique session key, or null if acquisition fails (fail open).
    */
-  async acquireLock(address: string): Promise<string | null> {
+  async acquireLock(address: string): Promise<string | undefined> {
+    if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
+      return;
+    }
     return await this.strategy.acquireLock(address);
   }
 

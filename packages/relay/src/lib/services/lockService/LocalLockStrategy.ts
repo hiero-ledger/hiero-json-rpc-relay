@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
+import { LockStrategy } from '../../types/lock';
 import { LockService } from './LockService';
 
 /**
@@ -24,7 +25,7 @@ export interface LockState {
  * Each unique "address" gets its own mutex to ensure only one session can hold
  * the lock at a time. Locks are auto-expiring and stored in an LRU cache.
  */
-export class LocalLockStrategy {
+export class LocalLockStrategy implements LockStrategy {
   /**
    * LRU cache of lock states, keyed by address.
    */
@@ -55,7 +56,7 @@ export class LocalLockStrategy {
    * @param address - The key representing the resource to lock
    * @returns A session key identifying the current lock owner
    */
-  async acquireLock(address: string): Promise<string> {
+  async acquireLock(address: string): Promise<string | undefined> {
     const sessionKey = randomUUID();
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
