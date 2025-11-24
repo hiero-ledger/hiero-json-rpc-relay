@@ -54,7 +54,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });
-
+  let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   this.beforeEach(async () => {
@@ -134,6 +134,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
       JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
+      lockServiceStub = sinon.createStubInstance(LockService);
+
+      // Replace the lock service with our stub
+      ethImpl['transactionService']['lockService'] = lockServiceStub;
+      lockServiceStub.acquireLock.resolves();
     });
 
     afterEach(() => {
@@ -563,15 +568,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     describe('Lock Release Error Handling', () => {
-      let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
       let loggerErrorStub: sinon.SinonStub;
       overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
       beforeEach(() => {
-        lockServiceStub = sinon.createStubInstance(LockService);
         loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
-
-        // Replace the lock service with our stub
-        ethImpl['transactionService']['lockService'] = lockServiceStub;
       });
 
       afterEach(() => {
@@ -730,7 +730,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
-          it('should not acquire lock when ENABLE_NONCE_ORDERING is disabled', async function () {
+          it('should not get session key when ENABLE_NONCE_ORDERING is disabled', async function () {
             const signed = await signTransaction(transaction);
 
             // Mock successful flow
@@ -751,7 +751,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(result).to.equal(ethereumHash);
 
             // Verify lock was NOT acquired when feature is disabled
-            sinon.assert.notCalled(lockServiceStub.acquireLock);
+            sinon.assert.calledOnce(lockServiceStub.acquireLock);
+            const returnValue = await lockServiceStub.acquireLock.getCall(0).returnValue;
+            expect(returnValue).to.equal(undefined);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
           });
         });

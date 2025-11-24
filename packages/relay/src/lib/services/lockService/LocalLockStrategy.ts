@@ -85,7 +85,8 @@ export class LocalLockStrategy implements LockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    const state = this.localLockStates.get(address.toLowerCase());
+    const normalizedAddress = LockService.normalizeAddress(address);
+    const state = this.localLockStates.get(normalizedAddress);
     if (state) {
       if (this.logger.isLevelEnabled('debug')) {
         const holdTime = Date.now() - state.acquiredAt!;
@@ -146,7 +147,8 @@ export class LocalLockStrategy implements LockStrategy {
    * @param sessionKey - The session key to verify ownership before releasing
    */
   private async forceReleaseExpiredLock(address: string, sessionKey: string): Promise<void> {
-    const state = this.localLockStates.get(address);
+    const normalizedAddress = LockService.normalizeAddress(address);
+    const state = this.localLockStates.get(normalizedAddress);
 
     if (state?.sessionKey === sessionKey) {
       await this.doRelease(state);
