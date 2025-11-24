@@ -132,7 +132,7 @@ lock:queue:{address} → FIFO queue of waiters (LIST)
 3. **Lock held**
    - Set ownership metadata (session key, acquisition time).
    - Start automatic force-release timer (default: 30 seconds).
-   - Process transaction (validate, submit to consensus, poll mirror node).
+   - Process transaction while holding the lock (validate, update transaction pool, submit to consensus).
 
 4. **Lock release**
    - On successful submission or error, release lock.
@@ -163,10 +163,10 @@ lock:queue:{address} → FIFO queue of waiters (LIST)
 3. **Transaction processing** (protected by lock)
    - Submit transaction to consensus node.
    - Lock is released immediately after submission completes.
-   - Remove transaction from pending pool.
 
 4. **Post-submission** (lock already released)
-   - Poll Mirror Node for confirmation and retrieve transaction hash.
+   - Remove transaction from pending pool (if `ENABLE_TX_POOL` is enabled).
+   - Poll Mirror Node for confirmation and retrieve transaction hash (depending on `USE_ASYNC_TX_PROCESSING`).
 
 5. **Error handling**
    - If an error occurs during prechecks or validation, release lock before throwing error.
@@ -180,7 +180,7 @@ These rules ensure transactions from the same sender are processed in order whil
 
 When the Redis locking strategy encounters an error (e.g., network failure, connection timeout), it **fails open**:
 
-- `acquireLock()` returns `null` instead of a session key.
+- `acquireLock()` returns no session key instead of a session key.
 - The transaction proceeds without locking.
 - An error is logged for monitoring and debugging.
 
