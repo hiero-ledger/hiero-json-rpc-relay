@@ -1,4 +1,7 @@
-{{- if .Values.test.enabled -}}
+# CRITICAL SECURITY: Newman test pod disabled due to supply chain attack
+# DO NOT re-enable until Newman is replaced with a secure alternative
+# See issue: CRITICAL: Disable Newman CI workflows due to supply chain attack
+{{- if false }} # Force disabled - was: .Values.test.enabled
 apiVersion: v1
 kind: Pod
 metadata:
