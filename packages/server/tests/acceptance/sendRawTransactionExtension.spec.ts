@@ -318,6 +318,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         to: accounts[2].address,
         value: ONE_TINYBAR,
         nonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
       };
       const signedTx = await signer.wallet.signTransaction(tx);
       return relay.sendRawTransaction(signedTx);
@@ -333,8 +335,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       for (let i = 0; i < 3; i++) {
         // Intentionally don't await the sendTransactionWithoutWaiting call; just queue the promise
         txPromises.push(sendTransactionWithoutWaiting(sender, startNonce + i, gasPrice));
-        // Small delay to ensure arrival order but within 100ms total
-        await new Promise((resolve) => setTimeout(resolve, 30));
       }
 
       // Wait for all transactions to be submitted
@@ -418,7 +418,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       // Each sender sends 5 transactions
       const allTxPromises = senders.flatMap((sender, senderIdx) =>
-        Array.from({ length: 3 }, (_, i) =>
+        Array.from({ length: 5 }, (_, i) =>
           sendTransactionWithoutWaiting(sender, startNonces[senderIdx] + i, gasPrice),
         ),
       );
@@ -432,7 +432,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const finalNonces = await Promise.all(senders.map((sender) => relay.getAccountNonce(sender.address)));
 
       finalNonces.forEach((nonce, i) => {
-        expect(nonce).to.equal(startNonces[i] + 3);
+        expect(nonce).to.equal(startNonces[i] + 5);
       });
     });
 
