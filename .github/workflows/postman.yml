@@ -1,11 +1,14 @@
 name: Postman Endpoint Tests
 
+# Disabled newman temporarily
 on:
-  pull_request:
-    branches: [ main, release/** ]
-  push:
-    branches: [ main, release/** ]
-    tags: [ v* ]
+  workflow_dispatch: # Manual trigger only
+# Disabled triggers:
+#  pull_request:
+#    branches: [ main, release/** ]
+#  push:
+#    branches: [ main, release/** ]
+#    tags: [ v* ]
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -59,8 +62,14 @@ jobs:
       - name: Start the local relay
         run: npm run start &
 
-      - name: Install newman
-        run: npm install -g newman
+      # - name: Install newman
+      #   run: npm install -g newman
 
-      - name: Run the newman script
-        run: newman run packages/server/tests/postman.json
+      # - name: Run the newman script
+      #   run: newman run packages/server/tests/postman.json
+
+      - name: Security Warning
+        run: |
+          echo "CRITICAL: This workflow is disabled due to Newman security compromise"
+          echo "DO NOT re-enable until Newman is replaced with a secure alternative"
+          exit 1

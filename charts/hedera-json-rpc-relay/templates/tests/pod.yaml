@@ -1,4 +1,5 @@
-{{- if .Values.test.enabled -}}
+# Disabled newman temporarily
+{{- if false }} # Force disabled - was: .Values.test.enabled
 apiVersion: v1
 kind: Pod
 metadata:
