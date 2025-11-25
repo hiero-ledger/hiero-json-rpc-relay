@@ -20,7 +20,7 @@ import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
-describe.only('@sendRawTransactionExtension Acceptance Tests', function () {
+describe('@sendRawTransactionExtension Acceptance Tests', function () {
   this.timeout(240 * 1000); // 240 seconds
 
   const accounts: AliasAccount[] = [];
@@ -436,7 +436,7 @@ describe.only('@sendRawTransactionExtension Acceptance Tests', function () {
       });
     });
 
-    it.only('should release lock and allow next transaction after gas price validation error', async function () {
+    it('should release lock and allow next transaction after gas price validation error', async function () {
       const sender = accounts[0];
       const startNonce = await relay.getAccountNonce(sender.address);
       const tooLowGasPrice = '0x1'; // Intentionally too low
