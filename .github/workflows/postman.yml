@@ -1,11 +1,8 @@
-# CRITICAL SECURITY: Newman package compromised - workflow disabled
-# DO NOT re-enable until Newman is replaced with a secure alternative
-# See issue: CRITICAL: Disable Newman CI workflows due to supply chain attack
 name: Postman Endpoint Tests
 
-# Disabled due to Newman security compromise
+# Disabled newman temporarily
 on:
-  workflow_dispatch: # Manual trigger only, DO NOT USE
+  workflow_dispatch: # Manual trigger only
 # Disabled triggers:
 #  pull_request:
 #    branches: [ main, release/** ]
@@ -65,14 +62,12 @@ jobs:
       - name: Start the local relay
         run: npm run start &
 
-      # CRITICAL SECURITY: Newman steps disabled due to supply chain attack
-      # DO NOT re-enable - replace with secure alternative
       # - name: Install newman
       #   run: npm install -g newman
 
       # - name: Run the newman script
       #   run: newman run packages/server/tests/postman.json
-      
+
       - name: Security Warning
         run: |
           echo "CRITICAL: This workflow is disabled due to Newman security compromise"

@@ -27,9 +27,7 @@ spec:
 {{- end }}
 
 ---
-# CRITICAL SECURITY: Newman CronJob disabled due to supply chain attack
-# DO NOT re-enable until Newman is replaced with a secure alternative
-# See issue: CRITICAL: Disable Newman CI workflows due to supply chain attack
+# Disabled newman temporarily
 {{- if false }} # Force disabled - was: .Values.cronjob.enabled
 apiVersion: batch/v1
 kind: CronJob

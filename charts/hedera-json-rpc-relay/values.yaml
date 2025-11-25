@@ -138,14 +138,13 @@ redis:
   # REDIS_URL=redis://<release-name>-redis-master:6379
   autoconfig: true
 
-# CRITICAL SECURITY: Newman disabled due to supply chain attack
-# DO NOT update newman or re-enable until replaced with secure alternative
+# Disabled newman temporarily
 cronjob:
-  enabled: false # DO NOT ENABLE - Newman compromised
+  enabled: false
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman # COMPROMISED - DO NOT USE
-    tag: 5.3.1-alpine # DO NOT UPDATE
+    repository: postman/newman
+    tag: 5.3.1-alpine
   # Custom postman.json in base64 encoding
   postman: ''
   schedule: '@daily'
@@ -247,14 +246,13 @@ readinessProbe:
   initialDelaySeconds: 20
   timeoutSeconds: 5
 
-# CRITICAL SECURITY: Newman disabled due to supply chain attack
-# DO NOT update newman or re-enable until replaced with secure alternative
+# Disabled newman temporarily
 test:
-  enabled: false # DISABLED - Newman compromised, was: true
+  enabled: false
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman # COMPROMISED - DO NOT USE
-    tag: 5.3.1-alpine # DO NOT UPDATE
+    repository: postman/newman
+    tag: 5.3.1-alpine
   # Custom postman.json in base64 encoding
   postman: ''
 
