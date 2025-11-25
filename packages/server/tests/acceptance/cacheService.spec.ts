@@ -22,14 +22,13 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
   let cacheService: CacheService;
   let logger: Logger;
   let redisClient: RedisClientType;
-  let redisManager: RedisClientManager;
 
   before(async () => {
     logger = pino({ level: 'silent' });
-    redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6379', 1000);
-    await redisManager.connect();
-    redisClient = redisManager.getClient();
+
+    redisClient = await RedisClientManager.getClient(logger);
     cacheService = new CacheService(CacheClientFactory.create(logger, undefined, undefined, redisClient));
+
     await new Promise((r) => setTimeout(r, 1000));
   });
 
@@ -116,7 +115,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
     before(async () => {
       // disconnect redis client to simulate Redis error
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
       await new Promise((r) => setTimeout(r, 1000));
     });
 

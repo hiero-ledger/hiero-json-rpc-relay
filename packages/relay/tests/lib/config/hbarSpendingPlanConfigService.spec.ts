@@ -152,7 +152,6 @@ describe('HbarSpendingPlanConfigService', function () {
     let hbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<HbarSpendingPlanRepository>;
     let evmAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<EvmAddressHbarSpendingPlanRepository>;
     let ipAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<IPAddressHbarSpendingPlanRepository>;
-    let redisClientManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     overrideEnvsInMochaDescribe({
@@ -163,10 +162,9 @@ describe('HbarSpendingPlanConfigService', function () {
 
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-      if (ConfigService.get('REDIS_ENABLED')) {
-        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6384', 1000);
-        await redisClientManager.connect();
-        redisClient = redisClientManager.getClient();
+      if (RedisClientManager.isRedisEnabled()) {
+        RedisClientManager['client'] = null;
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }
@@ -195,8 +193,8 @@ describe('HbarSpendingPlanConfigService', function () {
     });
 
     after(async function () {
-      if (ConfigService.get('REDIS_ENABLED')) {
-        await redisClientManager.disconnect();
+      if (RedisClientManager.isRedisEnabled()) {
+        await RedisClientManager.disconnect();
       }
     });
 

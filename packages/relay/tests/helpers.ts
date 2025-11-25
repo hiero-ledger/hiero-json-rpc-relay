@@ -11,6 +11,7 @@ import * as sinon from 'sinon';
 
 import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
 import { numberTo0x, toHash32 } from '../src/formatters';
+import { RedisClientManager } from '../src/lib/clients/redisClientManager';
 import constants from '../src/lib/constants';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
@@ -925,6 +926,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
 
   before(async () => {
     redisInMemoryServer = await startRedisInMemoryServer(logger, port);
+    RedisClientManager['client'] = null;
   });
 
   after(async () => {
@@ -1055,6 +1057,7 @@ export const verifyResult = async <T>(
   func: () => Promise<T>,
   expected: Partial<T> | null,
   errorMessage?: string,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   errorType?: Function | Error,
 ): Promise<void> => {
   if (expected) {

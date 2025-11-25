@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
@@ -24,7 +23,6 @@ describe('CacheService Test Suite', async function () {
   const callingMethod = 'CacheServiceTest';
 
   let cacheService: CacheService;
-  let redisManager: RedisClientManager;
   const describeKeysTestSuite = () => {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;
@@ -115,14 +113,14 @@ describe('CacheService Test Suite', async function () {
         expect(keys).to.have.members([key]);
       });
 
-      if (ConfigService.get('REDIS_ENABLED')) {
+      if (RedisClientManager.isRedisEnabled()) {
         it('should retrieve keys from internal cache in case of Redis error', async function () {
           const entries: Record<string, any> = {};
           entries['key1'] = 'value1';
           entries['key2'] = 'value2';
           entries['key3'] = 'value3';
 
-          await redisManager.disconnect();
+          await RedisClientManager.disconnect();
           await cacheService.multiSet(entries, callingMethod);
           const keys = await cacheService.keys('*', callingMethod);
           expect(keys).to.have.members(Object.keys(entries));
@@ -254,16 +252,15 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     before(async () => {
-      redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6381', 1000);
       cacheService = new CacheService(
-        CacheClientFactory.create(logger, registry, new Set(), redisManager.getClient()),
+        CacheClientFactory.create(logger, registry, new Set(), await RedisClientManager.getClient(logger)),
         registry,
       );
     });
 
     this.beforeEach(async () => {
-      if (!(await redisManager.isConnected())) {
-        await redisManager.connect();
+      if (!(await RedisClientManager.isConnected())) {
+        await RedisClientManager.connect();
       }
     });
 
@@ -326,21 +323,23 @@ describe('CacheService Test Suite', async function () {
 
     it('should be able to ignore getAsync failure in case of Redis error', async function () {
       const key = 'string';
-      await redisManager.disconnect();
-      await expect(cacheService.getAsync(key, callingMethod)).to.eventually.not.be.rejected;
+      await RedisClientManager.disconnect();
+
+      const cachedValue = await cacheService.getAsync(key, callingMethod);
+      expect(cachedValue).eq(null);
     });
 
     it('should be able to ignore set failure in case of Redis error', async function () {
       const key = 'string';
       const value = 'value';
 
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
 
       await expect(cacheService.set(key, value, callingMethod)).to.eventually.not.be.rejected;
     });
 
     it('should be able to ignore multiSet failure in case of Redis error', async function () {
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
 
       await expect(cacheService.multiSet(multiSetEntries, callingMethod)).to.eventually.not.be.rejected;
     });
@@ -349,20 +348,21 @@ describe('CacheService Test Suite', async function () {
       // @ts-ignore
       cacheService['shouldMultiSet'] = false;
 
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
 
       await expect(cacheService.multiSet(multiSetEntries, callingMethod)).to.eventually.not.be.rejected;
     });
 
     it('should be able to ignore clear failure in case of Redis error', async function () {
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
+
 
       await expect(cacheService.clear()).to.eventually.not.be.rejected;
     });
 
     it('should be able to ignore delete failure in case of Redis error', async function () {
       const key = 'string';
-      await redisManager.disconnect();
+      await RedisClientManager.disconnect();
 
       await expect(cacheService.delete(key, callingMethod)).to.eventually.not.be.rejected;
     });
@@ -401,8 +401,9 @@ describe('CacheService Test Suite', async function () {
 
       it('should be able to ignore increment failure in case of Redis error', async function () {
         const key = 'counter';
+        const amount = 5;
         await cacheService.set(key, 10, callingMethod);
-        await redisManager.disconnect();
+        await RedisClientManager.disconnect();
         await expect(cacheService.incrBy(key, 5, callingMethod)).to.eventually.not.be.rejected;
       });
     });
@@ -422,7 +423,7 @@ describe('CacheService Test Suite', async function () {
         const key = 'list';
         const value = 'item';
 
-        await redisManager.disconnect();
+        await RedisClientManager.disconnect();
 
         await cacheService.rPush(key, value, callingMethod);
         const cachedValue = await cacheService.lRange(key, 0, -1, callingMethod);
@@ -457,7 +458,7 @@ describe('CacheService Test Suite', async function () {
       });
 
       it('should not retrieve range in case of Redis error', async function () {
-        await redisManager.disconnect();
+        await RedisClientManager.disconnect();
 
         const key = 'list';
         const values = ['item1', 'item2', 'item3'];

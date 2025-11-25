@@ -5,6 +5,7 @@ import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
@@ -250,19 +251,20 @@ export async function initializeWsServer() {
       ctx.status = 200;
       ctx.body = await register.metrics();
     } else if (ctx.url === '/health/liveness') {
-      //liveness endpoint
-      ctx.status = 200;
+      const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
+      ctx.status = redisHealthStatus ? 200 : 503;
+      ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
     } else if (ctx.url === '/health/readiness') {
-      // readiness endpoint
       try {
-        const result = relay.eth().chainId();
-        if (result.includes('0x12')) {
-          ctx.status = 200;
-          ctx.body = 'OK';
-        } else {
-          ctx.body = 'DOWN';
-          ctx.status = 503; // UNAVAILABLE
-        }
+        const chainId = relay.eth().chainId();
+        const isChainHealthy = chainId !== '0x';
+
+        // redis disabled - only chain health matters
+        // redis enabled  - both redis and chain must be healthy
+        const isHealthy: boolean = (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy;
+
+        ctx.status = isHealthy ? 200 : 503;
+        ctx.body = isHealthy ? 'OK' : 'DOWN';
       } catch (e) {
         logger.error(e);
         throw e;

@@ -31,7 +31,6 @@ describe('HbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: HbarSpendingPlanRepository;
-    let redisClientManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
@@ -42,9 +41,7 @@ describe('HbarSpendingPlanRepository', function () {
 
     before(async () => {
       if (isSharedCacheEnabled) {
-        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6380', 1000);
-        await redisClientManager.connect();
-        redisClient = redisClientManager.getClient();
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }

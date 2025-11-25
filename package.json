@@ -94,7 +94,7 @@
     "koa-cors": "^0.0.16",
     "koa-websocket": "^7.0.0",
     "lerna": "^9.0.0",
-    "pino": "^9.7.0",
+    "pino": "^10.1.0",
     "pino-pretty": "^7.6.1",
     "pnpm": "^10.0.0",
     "prom-client": "^15.1.3",
