@@ -138,6 +138,7 @@ redis:
   # REDIS_URL=redis://<release-name>-redis-master:6379
   autoconfig: true
 
+# Disabled newman temporarily
 cronjob:
   enabled: false
   image:
@@ -245,8 +246,9 @@ readinessProbe:
   initialDelaySeconds: 20
   timeoutSeconds: 5
 
+# Disabled newman temporarily
 test:
-  enabled: true
+  enabled: false
   image:
     pullPolicy: IfNotPresent
     repository: postman/newman

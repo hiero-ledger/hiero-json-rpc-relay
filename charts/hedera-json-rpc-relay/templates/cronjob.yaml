@@ -27,7 +27,8 @@ spec:
 {{- end }}
 
 ---
-{{- if .Values.cronjob.enabled }}
+# Disabled newman temporarily
+{{- if false }} # Force disabled - was: .Values.cronjob.enabled
 apiVersion: batch/v1
 kind: CronJob
 metadata:
