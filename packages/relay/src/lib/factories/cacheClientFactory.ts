@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { LocalLRUCache, RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import type { Logger } from 'pino';
 import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 
-import type { ICacheClient } from '../clients/cache/ICacheClient';
+import { LocalLRUCache, RedisCache } from '../clients';
+import { ICacheClient } from '../clients/cache/ICacheClient';
 
 export class CacheClientFactory {
   static create(

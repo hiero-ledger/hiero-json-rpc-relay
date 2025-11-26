@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/redisCache';
+import { CacheClientFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/cacheClientFactory';
 import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/src/lib/clients/redisClientManager';
 import { expect } from 'chai';
@@ -9,7 +10,6 @@ import pino, { type Logger } from 'pino';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
-import { CacheClientFactory } from '../../../relay/src/lib/factories/cacheClientFactory';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
 
 const DATA_LABEL_PREFIX = 'acceptance-test-';
