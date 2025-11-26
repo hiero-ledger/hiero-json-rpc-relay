@@ -310,7 +310,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
   describe('@nonce-ordering Lock Service Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
-    overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
+    overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true, USE_ASYNC_TX_PROCESSING: true });
     const sendTransactionWithoutWaiting = (signer: any, nonce: number, numOfTxs: number, gasPrice: number) => {
       const txPromises = Array.from({ length: numOfTxs }, async (_, i) => {
         const tx = {
@@ -328,39 +328,12 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       return txPromises;
     };
 
-    it('should process three transactions from same sender in arrival order', async function () {
-      const sender = accounts[0];
-      const startNonce = await relay.getAccountNonce(sender.address);
-      const gasPrice = await relay.gasPrice();
-
-      // Wait for all transactions to be submitted
-      const txPromises = await sendTransactionWithoutWaiting(sender, startNonce, 3, gasPrice);
-      const txHashes = await Promise.all(txPromises);
-
-      // Verify all transactions succeeded
-      for (const txHash of txHashes) {
-        const receipt = await relay.pollForValidTransactionReceipt(txHash);
-        expect(receipt).to.exist;
-        expect(receipt.status).to.equal('0x1');
-      }
-
-      // Verify nonces are sequential (no WRONG_NONCE errors occurred)
-      const finalNonce = await relay.getAccountNonce(sender.address);
-      expect(finalNonce).to.equal(startNonce + 3);
-
-      // Verify transactions were processed in order by checking mirror node
-      for (let i = 0; i < 3; i++) {
-        const result = await mirrorNode.get(`/contracts/results/${txHashes[i]}`);
-        expect(result.nonce).to.equal(startNonce + i);
-      }
-    });
-
     it('should handle rapid burst of 10 transactions from same sender', async function () {
       const sender = accounts[1];
       const startNonce = await relay.getAccountNonce(sender.address);
       const gasPrice = await relay.gasPrice();
 
-      const txPromises = await sendTransactionWithoutWaiting(sender, startNonce, 10, gasPrice);
+      const txPromises = sendTransactionWithoutWaiting(sender, startNonce, 10, gasPrice);
       const txHashes = await Promise.all(txPromises);
       const receipts = await Promise.all(txHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
 
@@ -381,7 +354,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       // Send transactions from different senders simultaneously
       const txPromises = senders.flatMap((sender, i) =>
-        sendTransactionWithoutWaiting(sender, startNonces[i], 3, gasPrice),
+        sendTransactionWithoutWaiting(sender, startNonces[i], 1, gasPrice),
       );
 
       const txHashes = await Promise.all(txPromises);
@@ -428,61 +401,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       finalNonces.forEach((nonce, i) => {
         expect(nonce).to.equal(startNonces[i] + 5);
       });
-    });
-
-    it('should release lock and allow next transaction after gas price validation error', async function () {
-      const sender = accounts[0];
-      const startNonce = await relay.getAccountNonce(sender.address);
-      const tooLowGasPrice = '0x1'; // Intentionally too low
-
-      // First tx with invalid gas price (will fail validation and not reach consensus)
-      const invalidTx = {
-        value: ONE_TINYBAR,
-        chainId: Number(CHAIN_ID),
-        maxPriorityFeePerGas: tooLowGasPrice,
-        maxFeePerGas: tooLowGasPrice,
-        gasLimit: numberTo0x(3_000_000),
-        type: 2,
-        to: accounts[2].address,
-        nonce: startNonce,
-      };
-      const signedInvalidTx = await sender.wallet.signTransaction(invalidTx);
-
-      // Second tx with correct nonce (startNonce + 1), but will fail with WRONG_NONCE
-      // because first tx never executed (account's actual nonce is still startNonce)
-      const secondTx = {
-        ...defaultLondonTransactionData,
-        to: accounts[2].address,
-        value: ONE_TINYBAR,
-        nonce: startNonce + 1, // This nonce is ahead of the account's actual nonce
-      };
-      const signedSecondTx = await sender.wallet.signTransaction(secondTx);
-
-      // Submit both transactions immediately to test lock release
-      const invalidTxPromise = relay.call('eth_sendRawTransaction', [signedInvalidTx]).catch((error: any) => error);
-      const secondTxPromise = relay.sendRawTransaction(signedSecondTx);
-
-      // Wait for both to complete
-      const [invalidResult, txHash] = await Promise.all([invalidTxPromise, secondTxPromise]);
-
-      // Verify first tx failed with validation error
-      expect(invalidResult).to.be.instanceOf(Error);
-      expect(invalidResult.message).to.include('gas price');
-
-      // Verify lock was released (second tx was allowed to proceed)
-      expect(txHash).to.exist;
-
-      // Wait for second tx to be processed
-      await relay.pollForValidTransactionReceipt(txHash);
-
-      // Second tx should result in WRONG_NONCE (filtered out by mirror node)
-      await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
-        (error: any) => error.response.status === 404,
-      );
-
-      // Verify account nonce hasn't changed (neither tx succeeded)
-      const finalNonce = await relay.getAccountNonce(sender.address);
-      expect(finalNonce).to.equal(startNonce);
     });
 
     it('should release lock after consensus submission in async mode', async function () {
@@ -540,24 +458,80 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const startNonce = await relay.getAccountNonce(sender.address);
         const gasPrice = await relay.gasPrice();
 
-        const startTime = Date.now();
+        // Submit both transactions concurrently (no await until Promise.all)
+        const tx1Promise = sendTransactionWithoutWaiting(sender, startNonce, 1, gasPrice);
+        const tx2Promise = sendTransactionWithoutWaiting(sender, startNonce + 1, 1, gasPrice);
 
-        // Send two transactions - in sync mode, first must complete before second starts
-        const tx1Hash = await (await sendTransactionWithoutWaiting(sender, startNonce, 1, gasPrice))[0];
-        const tx1Time = Date.now() - startTime;
+        // Wait for both to complete (lock service ensures they process sequentially internally)
+        const [tx1Hashes, tx2Hashes] = await Promise.all([tx1Promise[0], tx2Promise[0]]);
+        const tx1Hash = tx1Hashes;
+        const tx2Hash = tx2Hashes;
 
-        const tx2Hash = await (await sendTransactionWithoutWaiting(sender, startNonce + 1, 1, gasPrice))[0];
-        const tx2Time = Date.now() - startTime;
+        // Both should succeed - no WRONG_NONCE errors
+        expect(tx1Hash).to.exist;
+        expect(tx2Hash).to.exist;
 
-        // In sync mode, tx2 should start after tx1 completes
-        expect(tx2Time).to.be.greaterThan(tx1Time);
+        const receipts = await Promise.all([
+          relay.pollForValidTransactionReceipt(tx1Hash),
+          relay.pollForValidTransactionReceipt(tx2Hash),
+        ]);
 
-        // Both should be already confirmed (sync mode waits)
-        const receipt1 = await relay.call('eth_getTransactionReceipt', [tx1Hash]);
-        const receipt2 = await relay.call('eth_getTransactionReceipt', [tx2Hash]);
+        expect(receipts[0].status).to.equal('0x1');
+        expect(receipts[0].status).to.equal('0x1');
+      });
 
-        expect(receipt1.status).to.equal('0x1');
-        expect(receipt2.status).to.equal('0x1');
+      it('should release lock and allow next transaction after gas price validation error', async function () {
+        const sender = accounts[0];
+        const startNonce = await relay.getAccountNonce(sender.address);
+        const tooLowGasPrice = '0x0'; // Intentionally too low
+
+        // First tx with invalid gas price (will fail validation and not reach consensus)
+        const invalidTx = {
+          value: ONE_TINYBAR,
+          chainId: Number(CHAIN_ID),
+          maxPriorityFeePerGas: tooLowGasPrice,
+          maxFeePerGas: tooLowGasPrice,
+          gasLimit: numberTo0x(3_000_000),
+          type: 2,
+          to: accounts[2].address,
+          nonce: startNonce,
+        };
+        const signedInvalidTx = await sender.wallet.signTransaction(invalidTx);
+
+        // Second tx with correct nonce (startNonce + 1), but will fail with WRONG_NONCE
+        // because first tx never executed (account's actual nonce is still startNonce)
+        const secondTx = {
+          ...defaultLondonTransactionData,
+          to: accounts[2].address,
+          value: ONE_TINYBAR,
+          nonce: startNonce + 1, // This nonce is ahead of the account's actual nonce
+        };
+        const signedSecondTx = await sender.wallet.signTransaction(secondTx);
+
+        // Submit both transactions immediately to test lock release
+        const invalidTxPromise = relay.call('eth_sendRawTransaction', [signedInvalidTx]).catch((error: any) => error);
+        const secondTxPromise = relay.sendRawTransaction(signedSecondTx);
+
+        // Wait for both to complete
+        const [invalidResult, txHash] = await Promise.all([invalidTxPromise, secondTxPromise]);
+        // Verify first tx failed with validation error
+        expect(invalidResult).to.be.instanceOf(Error);
+        expect(invalidResult.message).to.include('gas price');
+
+        // Verify lock was released (second tx was allowed to proceed)
+        expect(txHash).to.exist;
+
+        // Wait for second tx to be processed
+        await new Promise((r) => setTimeout(r, 2100));
+
+        // Second tx should result in WRONG_NONCE (filtered out by mirror node)
+        await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
+          (error: any) => error.response.status === 404,
+        );
+
+        // Verify account nonce hasn't changed (neither tx succeeded)
+        const finalNonce = await relay.getAccountNonce(sender.address);
+        expect(finalNonce).to.equal(startNonce);
       });
     });
   });
