@@ -5,7 +5,9 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import fs from 'fs';
+import { ParameterizedContext } from 'koa';
 import cors from 'koa-cors';
+import { Context } from 'mocha';
 import path from 'path';
 import pino from 'pino';
 import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
@@ -265,16 +267,13 @@ export async function initializeServer() {
     }
   });
 
-  // Middleware to end for non POST requests asides health, metrics and openrpc
   app.use(async (ctx, next) => {
-    if (ctx.method === 'POST') {
+    if (ctx.method === 'OPTIONS' || (ctx.method === 'POST' && ctx.headers['content-type'] === 'application/json')) {
       await next();
-    } else if (ctx.method === 'OPTIONS') {
-      // support CORS preflight
-      ctx.status = 200;
-    } else {
-      logger.warn(`skipping HTTP method: [${ctx.method}], url: ${ctx.url}, status: ${ctx.status}`);
+      return;
     }
+    ctx.status = 400;
+    enforceCorrectFormatResponse(ctx);
   });
 
   app.use((ctx, next) => {
@@ -305,6 +304,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
+    enforceCorrectFormatResponse(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {
@@ -317,3 +317,35 @@ export async function initializeServer() {
 
   return { app };
 }
+
+const returnOkByDefault = ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE');
+const enforceCorrectFormatResponse = (ctx: ParameterizedContext) => {
+  const isCorrectResponse = (respone: any) => {
+    return ctx.status === 200 ? isCorrectSuccessResponse(respone) : isCorrectErrorResponse(respone);
+  };
+  const isCorrectSuccessResponse = (response: any) => response.result && response.jsonrpc === '2.0' && response.id;
+  const isCorrectErrorResponse = (response: any) =>
+    response.error && response.error.message && response.jsonrpc === '2.0' && response.id;
+  const fixResponse = (response: any) => {
+    if (!response.id) response.id = 1;
+    if (!response.result && ctx.status === 200) response.result = '0x';
+    if (!response.error && ctx.status !== 200) response.error = { message: 'FIXME will it ever happen???' };
+    response.jsonrpc = '2.0';
+
+    return response;
+  };
+  const isCorrect = Array.isArray(ctx.body)
+    ? ctx.body.filter((single) => !isCorrectResponse(single)).length === 0
+    : isCorrectResponse(ctx.body);
+
+  if (isCorrect) return;
+
+  if (!returnOkByDefault) ctx.status = 400;
+  logger.warn('Expected correct response from the correct response.');
+  if (!Array.isArray(ctx.body)) {
+    ctx.body = fixResponse(ctx.body || {});
+    return;
+  }
+
+  ctx.body = ctx.body.map(fixResponse);
+};

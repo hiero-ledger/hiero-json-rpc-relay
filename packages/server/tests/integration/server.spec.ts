@@ -310,7 +310,7 @@ describe('RPC Server', function () {
         params: ['0x4a563af33c4871b51a8b108aa2fe1dd5280a30dfb7237170ae5e5e7957eb6392'],
       });
     } catch (error: any) {
-      expect(error.message).to.equal('Request failed with status code 500');
+      expect(error.message).to.equal('Request failed with status code 400');
     }
   });
 
