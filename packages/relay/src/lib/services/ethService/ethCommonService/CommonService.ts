@@ -2,7 +2,9 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import * as _ from 'lodash';
+import { resolve } from 'path';
 import { Logger } from 'pino';
+import Piscina from 'piscina';
 
 import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
@@ -45,6 +47,12 @@ export class CommonService implements ICommonService {
   private readonly logger: Logger;
 
   /**
+   * Worker pool for offloading CPU-intensive operations.
+   * @private
+   */
+  private readonly workerPool: Piscina;
+
+  /**
    * public constants
    */
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
@@ -63,6 +71,12 @@ export class CommonService implements ICommonService {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
+
+    this.workerPool = new Piscina({
+      filename: resolve(__dirname, 'commonWorker.js'),
+      minThreads: 2,
+      maxThreads: 4,
+    });
   }
 
   public static blockTagIsLatestOrPendingStrict(tag: string | null): boolean {
@@ -389,22 +403,15 @@ export class CommonService implements ICommonService {
     topics: any[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
-    const EMPTY_RESPONSE = [];
-    const params: any = {};
-
-    if (blockHash) {
-      if (!(await this.validateBlockHashAndAddTimestampToParams(params, blockHash, requestDetails))) {
-        return EMPTY_RESPONSE;
-      }
-    } else if (
-      !(await this.validateBlockRangeAndAddTimestampToParams(params, fromBlock, toBlock, requestDetails, address))
-    ) {
-      return EMPTY_RESPONSE;
-    }
-
-    this.addTopicsToParams(params, topics);
-
-    return this.getLogsWithParams(address, params, requestDetails);
+    return this.workerPool.run({
+      type: 'getLogs',
+      blockHash,
+      fromBlock,
+      toBlock,
+      address,
+      topics,
+      requestDetails,
+    });
   }
 
   public async resolveEvmAddress(
