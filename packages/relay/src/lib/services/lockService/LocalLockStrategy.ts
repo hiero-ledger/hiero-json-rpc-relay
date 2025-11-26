@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
+import { LockStrategy } from '../../types/lock';
 import { LockService } from './LockService';
 
 /**
@@ -24,7 +25,7 @@ export interface LockState {
  * Each unique "address" gets its own mutex to ensure only one session can hold
  * the lock at a time. Locks are auto-expiring and stored in an LRU cache.
  */
-export class LocalLockStrategy {
+export class LocalLockStrategy implements LockStrategy {
   /**
    * LRU cache of lock states, keyed by address.
    */
@@ -55,12 +56,11 @@ export class LocalLockStrategy {
    * @param address - The key representing the resource to lock
    * @returns A session key identifying the current lock owner
    */
-  async acquireLock(address: string): Promise<string> {
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Acquiring lock for address ${address}.`);
-    }
-
+  async acquireLock(address: string): Promise<string | undefined> {
     const sessionKey = randomUUID();
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
+    }
     const state = this.getOrCreateState(address);
 
     // Acquire the mutex (this will block until available)
@@ -85,16 +85,19 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key of the lock holder
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
-    const state = this.localLockStates.get(address);
-
-    if (this.logger.isLevelEnabled('debug') && state?.acquiredAt) {
-      const holdTime = Date.now() - state.acquiredAt;
-      this.logger.debug(`Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`);
-    }
-
-    // Ensure only the lock owner can release
-    if (state?.sessionKey === sessionKey) {
-      await this.doRelease(state);
+    const normalizedAddress = LockService.normalizeAddress(address);
+    const state = this.localLockStates.get(normalizedAddress);
+    if (state) {
+      // Ensure only the lock owner can release
+      if (state.sessionKey === sessionKey) {
+        await this.doRelease(state);
+        if (this.logger.isLevelEnabled('debug')) {
+          const holdTime = Date.now() - state.acquiredAt!;
+          this.logger.debug(
+            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`,
+          );
+        }
+      }
     }
   }
 
@@ -144,7 +147,8 @@ export class LocalLockStrategy {
    * @param sessionKey - The session key to verify ownership before releasing
    */
   private async forceReleaseExpiredLock(address: string, sessionKey: string): Promise<void> {
-    const state = this.localLockStates.get(address);
+    const normalizedAddress = LockService.normalizeAddress(address);
+    const state = this.localLockStates.get(normalizedAddress);
 
     if (state?.sessionKey === sessionKey) {
       await this.doRelease(state);

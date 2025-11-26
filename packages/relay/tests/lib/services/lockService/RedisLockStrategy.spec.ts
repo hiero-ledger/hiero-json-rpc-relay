@@ -116,7 +116,7 @@ describe('RedisLockStrategy Test Suite', function () {
       const result = await redisLockStrategy.acquireLock(testAddress);
 
       // Should return null (fail open) instead of throwing
-      expect(result).to.be.null;
+      expect(result).to.be.undefined;
 
       // Should have attempted cleanup
       expect(mockRedisClient.lRem.calledOnce).to.be.true;
@@ -135,7 +135,7 @@ describe('RedisLockStrategy Test Suite', function () {
       const result = await redisLockStrategy.acquireLock(testAddress);
 
       // Should return null (fail open) instead of throwing
-      expect(result).to.be.null;
+      expect(result).to.be.undefined;
 
       // Should NOT have attempted cleanup (never joined queue)
       expect(mockRedisClient.lRem.called).to.be.false;
@@ -261,7 +261,7 @@ describe('RedisLockStrategy Test Suite', function () {
       const result = await redisLockStrategy.acquireLock(testAddress);
 
       // Should return null (fail open) instead of throwing
-      expect(result).to.be.null;
+      expect(result).to.be.undefined;
 
       // Cleanup was attempted
       expect(mockRedisClient.lRem.calledOnce).to.be.true;
