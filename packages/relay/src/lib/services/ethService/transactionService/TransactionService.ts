@@ -312,11 +312,7 @@ export class TransactionService implements ITransactionService {
     } catch (error) {
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
-        try {
-          await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
-        } catch (error) {
-          this.logger.error(`Lock release failed with ${error}`);
-        }
+        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
       }
       throw error;
     }
@@ -518,7 +514,6 @@ export class TransactionService implements ITransactionService {
     networkGasPriceInWeiBars: number,
     lockSessionKey: string | undefined,
     requestDetails: RequestDetails,
-    lockSessionKey?: string | undefined,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
 
@@ -536,11 +531,7 @@ export class TransactionService implements ITransactionService {
     );
 
     if (lockSessionKey) {
-<<<<<<< HEAD
       await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
-=======
-      await this.lockService.releaseLock(originalCallerAddress.toLowerCase(), lockSessionKey);
->>>>>>> 340b7ae71 (moves execute transaction to transactionService)
     }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
