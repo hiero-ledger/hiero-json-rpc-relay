@@ -17,8 +17,8 @@ console.error = (message?: any, ...optionalParams: any[]) => {
 };
 
 const RELAY_ENDPOINT = process.env.RELAY_ENDPOINT || 'http://localhost:7546';
-const HEALTH_CHECK_INTERVAL = 5000; // 5 seconds
-const HEALTH_CHECK_TIMEOUT = 100; // 100 ms
+const HEALTH_CHECK_INTERVAL = 10000; // 10 seconds
+const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
 
 const requests = [
   { method: 'eth_getBlockByNumber', params: ["0x392ef1b", true], txCount: 11399 },
