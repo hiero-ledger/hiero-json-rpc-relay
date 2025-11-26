@@ -47,7 +47,7 @@ function isServerRunning(port: number): Promise<boolean> {
 }
 
 async function killServer() {
-  console.error('Health check timed out! Killing server on port 7546...');
+  console.error(`Health check timed out after ${HEALTH_CHECK_TIMEOUT}ms! Killing server on port 7546...`);
   return new Promise<void>((resolve, reject) => {
     exec('lsof -t -i:7546', (error, stdout, stderr) => {
       if (error) {
