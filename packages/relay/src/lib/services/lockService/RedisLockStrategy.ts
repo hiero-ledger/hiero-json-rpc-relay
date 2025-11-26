@@ -39,7 +39,7 @@ export class RedisLockStrategy implements LockStrategy {
    * @param address - The sender address to acquire the lock for (will be normalized).
    * @returns A promise that resolves to a unique session key upon successful acquisition, or null if acquisition fails (fail open).
    */
-  async acquireLock(address: string): Promise<string | null> {
+  async acquireLock(address: string): Promise<string | undefined> {
     const sessionKey = this.generateSessionKey();
     const lockKey = this.getLockKey(address);
     const queueKey = this.getQueueKey(address);
@@ -86,7 +86,7 @@ export class RedisLockStrategy implements LockStrategy {
       }
     } catch (error) {
       this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
-      return null;
+      return;
     } finally {
       // Always remove from queue if we joined it (whether success or failure)
       if (joinedQueue) {

@@ -664,6 +664,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 50,
   },
+  ENABLE_NONCE_ORDERING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,

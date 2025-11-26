@@ -23,7 +23,7 @@ import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
-import { TransactionPoolService } from '../../../src/lib/services';
+import { LockService, TransactionPoolService } from '../../../src/lib/services';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
@@ -54,7 +54,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });
-
+  let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   this.beforeEach(async () => {
@@ -134,6 +134,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
       JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
       JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
+      lockServiceStub = sinon.createStubInstance(LockService);
+
+      // Replace the lock service with our stub
+      ethImpl['transactionService']['lockService'] = lockServiceStub;
+      lockServiceStub.acquireLock.resolves();
     });
 
     afterEach(() => {
@@ -558,6 +563,358 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
               );
             });
           });
+        });
+      });
+    });
+
+    describe('Lock Release Error Handling', () => {
+      let loggerErrorStub: sinon.SinonStub;
+      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
+      beforeEach(() => {
+        loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
+      });
+
+      afterEach(() => {
+        loggerErrorStub.restore();
+      });
+
+      describe('Validation Error Path', () => {
+        it('should preserve original validation error when lock release fails', async function () {
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x1',
+            gasPrice: '0x1', // Too low - will fail validation
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          // Mock account data
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          // Simulate successful lock acquisition
+          lockServiceStub.acquireLock.resolves('test-session-key-123');
+
+          // Simulate lock release failure
+          lockServiceStub.releaseLock.rejects(new Error('Redis connection timeout'));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+          );
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock release was attempted
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-123');
+
+          // Verify lock release failure was logged
+          sinon.assert.called(loggerErrorStub);
+          const loggedError = loggerErrorStub.thirdCall.args[0];
+
+          expect(loggedError).to.contain('Redis connection timeout');
+        });
+
+        it('should preserve original precheck error when lock release fails', async function () {
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x2386f26fc10000', // Large value
+            gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          // Mock insufficient balance
+          const poorAccount = {
+            ...ACCOUNT_RES,
+            balance: { balance: 1000 }, // Very low balance
+          };
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          lockServiceStub.acquireLock.resolves('test-session-key-456');
+          lockServiceStub.releaseLock.rejects(new Error('Redis connection timeout'));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            'Insufficient funds',
+          );
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock release was attempted despite failure
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+
+          // Verify lock release failure was logged
+          sinon.assert.called(loggerErrorStub);
+          const loggedError = loggerErrorStub.thirdCall.args[0];
+
+          expect(loggedError).to.contain('Redis connection timeout');
+        });
+
+        it('should successfully release lock when validation fails and lock service works', async function () {
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x1',
+            gasPrice: '0x1', // Too low
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          lockServiceStub.acquireLock.resolves('test-session-key-success');
+          lockServiceStub.releaseLock.resolves(); // Successful release
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+          );
+          // Verify lock was properly released
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success');
+        });
+      });
+
+      describe('Successful Transaction Path', () => {
+        it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
+          const signed = await signTransaction(transaction);
+
+          // Mock successful flow
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+          lockServiceStub.acquireLock.resolves('test-session-key-success');
+          lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          expect(result).to.equal(ethereumHash);
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock was NOT released in sendRawTransaction
+          // (it should be released later in the chain, in sdkClient.executeTransaction)
+          sinon.assert.notCalled(lockServiceStub.releaseLock);
+
+          // Verify no error logs
+          sinon.assert.notCalled(loggerErrorStub);
+        });
+
+        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+          it('should not get session key when ENABLE_NONCE_ORDERING is disabled', async function () {
+            const signed = await signTransaction(transaction);
+
+            // Mock successful flow
+            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            expect(result).to.equal(ethereumHash);
+
+            // Verify lock was NOT acquired when feature is disabled
+            sinon.assert.calledOnce(lockServiceStub.acquireLock);
+            const returnValue = await lockServiceStub.acquireLock.getCall(0).returnValue;
+            expect(returnValue).to.equal(undefined);
+            sinon.assert.notCalled(lockServiceStub.releaseLock);
+          });
+        });
+      });
+    });
+
+    describe('Consensus Submission Lock Release', () => {
+      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
+
+      let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
+      let sendRawTransactionProcessorSpy: sinon.SinonSpy;
+
+      beforeEach(() => {
+        lockServiceStub = sinon.createStubInstance(LockService);
+        ethImpl['transactionService']['lockService'] = lockServiceStub;
+        sendRawTransactionProcessorSpy = sinon.spy(ethImpl['transactionService'], 'sendRawTransactionProcessor');
+      });
+
+      afterEach(() => {
+        sendRawTransactionProcessorSpy.restore();
+      });
+
+      it('should release lock immediately after consensus submission succeeds', async function () {
+        const signed = await signTransaction(transaction);
+        const computeHashSpy = sinon.spy(Utils, 'computeTransactionHash');
+
+        try {
+          // Mock successful flow
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+          lockServiceStub.acquireLock.resolves('session-after-consensus-1');
+          lockServiceStub.releaseLock.resolves();
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          // In async mode, wait for background processing to complete
+          if (useAsyncTxProcessing) {
+            await clock.tickAsync(1);
+          }
+
+          expect(result).to.equal(ethereumHash);
+
+          // Verify lock was released after submitEthereumTransaction
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-after-consensus-1');
+
+          expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+
+          // In async mode, verify computeHash was called before lock release
+          if (useAsyncTxProcessing) {
+            sinon.assert.calledOnce(computeHashSpy);
+            expect(sendRawTransactionProcessorSpy.calledBefore(computeHashSpy)).to.be.true;
+            expect(computeHashSpy.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+          }
+        } finally {
+          computeHashSpy.restore();
+        }
+      });
+
+      it('should release lock even when mirror node polling fails after consensus', async function () {
+        const signed = await signTransaction(transaction);
+
+        // Mock successful consensus but failed mirror node polling
+        restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+        restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+        restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+        restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
+
+        lockServiceStub.acquireLock.resolves('session-mn-fail');
+        lockServiceStub.releaseLock.resolves();
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: TransactionId.fromString(transactionIdServicesFormat),
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+        if (useAsyncTxProcessing) await clock.tickAsync(1);
+        // Should return txHash because of async processing
+        expect(result).to.equal(ethereumHash);
+
+        // Verify lock was released despite MN polling failure
+        sinon.assert.calledOnce(lockServiceStub.releaseLock);
+        sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-mn-fail');
+      });
+
+      it('should not release lock when lockSessionKey is undefined', async function () {
+        const signed = await signTransaction(transaction);
+
+        // Mock successful flow
+        restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+        restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+        restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+        // Lock acquisition returns undefined (lock not acquired)
+        lockServiceStub.acquireLock.resolves(undefined as any);
+        lockServiceStub.releaseLock.resolves();
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: TransactionId.fromString(transactionIdServicesFormat),
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+        expect(result).to.equal(ethereumHash);
+
+        // Verify lock release was NOT attempted
+        sinon.assert.notCalled(lockServiceStub.releaseLock);
+      });
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        it('should release lock during synchronous processing when async mode is disabled', async function () {
+          const signed = await signTransaction(transaction);
+          const computeHashSpy = sinon.spy(Utils, 'computeTransactionHash');
+
+          try {
+            // Mock successful flow
+            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            lockServiceStub.acquireLock.resolves('session-sync');
+            lockServiceStub.releaseLock.resolves();
+
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // Should return hash from mirror node (not computed)
+            expect(result).to.equal(ethereumHash);
+            sinon.assert.notCalled(computeHashSpy);
+            // Verify lock was released during synchronous execution (no need to tick clock)
+            sinon.assert.calledOnce(lockServiceStub.releaseLock);
+            sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-sync');
+
+            expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+          } finally {
+            computeHashSpy.restore();
+          }
         });
       });
     });
