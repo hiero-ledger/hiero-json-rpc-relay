@@ -55,7 +55,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     accounts.push(
       ...(await Utils.createMultipleAliasAccounts(mirrorNode, initialAccount, neededAccounts, initialBalance)),
     );
-    console.log('accounts', accounts);
     global.accounts.push(...accounts);
   });
 
@@ -312,17 +311,21 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('@nonce-ordering Lock Service Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
     overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
-    const sendTransactionWithoutWaiting = async (signer: any, nonce: number, gasPrice: number) => {
-      const tx = {
-        ...defaultLondonTransactionData,
-        to: accounts[2].address,
-        value: ONE_TINYBAR,
-        nonce,
-        maxPriorityFeePerGas: gasPrice,
-        maxFeePerGas: gasPrice,
-      };
-      const signedTx = await signer.wallet.signTransaction(tx);
-      return relay.sendRawTransaction(signedTx);
+    const sendTransactionWithoutWaiting = (signer: any, nonce: number, numOfTxs: number, gasPrice: number) => {
+      const txPromises = Array.from({ length: numOfTxs }, async (_, i) => {
+        const tx = {
+          ...defaultLondonTransactionData,
+          to: accounts[2].address,
+          value: ONE_TINYBAR,
+          nonce: nonce + i,
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+        };
+        const signedTx = await signer.wallet.signTransaction(tx);
+        return relay.sendRawTransaction(signedTx);
+      });
+
+      return txPromises;
     };
 
     it('should process three transactions from same sender in arrival order', async function () {
@@ -330,14 +333,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const startNonce = await relay.getAccountNonce(sender.address);
       const gasPrice = await relay.gasPrice();
 
-      // Send 3 transactions within 100ms window
-      const txPromises: Promise<string>[] = [];
-      for (let i = 0; i < 3; i++) {
-        // Intentionally don't await the sendTransactionWithoutWaiting call; just queue the promise
-        txPromises.push(sendTransactionWithoutWaiting(sender, startNonce + i, gasPrice));
-      }
-
       // Wait for all transactions to be submitted
+      const txPromises = await sendTransactionWithoutWaiting(sender, startNonce, 3, gasPrice);
       const txHashes = await Promise.all(txPromises);
 
       // Verify all transactions succeeded
@@ -363,11 +360,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const startNonce = await relay.getAccountNonce(sender.address);
       const gasPrice = await relay.gasPrice();
 
-      // Send 10 transactions rapidly
-      const txPromises = Array.from({ length: 10 }, (_, i) =>
-        sendTransactionWithoutWaiting(sender, startNonce + i, gasPrice),
-      );
-
+      const txPromises = await sendTransactionWithoutWaiting(sender, startNonce, 10, gasPrice);
       const txHashes = await Promise.all(txPromises);
       const receipts = await Promise.all(txHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
 
@@ -387,7 +380,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const startTime = Date.now();
 
       // Send transactions from different senders simultaneously
-      const txPromises = senders.map((sender, i) => sendTransactionWithoutWaiting(sender, startNonces[i], gasPrice));
+      const txPromises = senders.flatMap((sender, i) =>
+        sendTransactionWithoutWaiting(sender, startNonces[i], 3, gasPrice),
+      );
 
       const txHashes = await Promise.all(txPromises);
       const submitTime = Date.now() - startTime;
@@ -418,16 +413,15 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       // Each sender sends 5 transactions
       const allTxPromises = senders.flatMap((sender, senderIdx) =>
-        Array.from({ length: 5 }, (_, i) =>
-          sendTransactionWithoutWaiting(sender, startNonces[senderIdx] + i, gasPrice),
-        ),
+        sendTransactionWithoutWaiting(sender, startNonces[senderIdx], 5, gasPrice),
       );
+
       const txHashes = await Promise.all(allTxPromises);
 
-      for (const txHash of txHashes) {
-        const receipt = await relay.pollForValidTransactionReceipt(txHash);
-        expect(receipt.status).to.equal('0x1');
-      }
+      const receipts = await Promise.all(txHashes.map((txHash) => relay.pollForValidTransactionReceipt(txHash)));
+      receipts.forEach((receipt, i) => {
+        expect(receipt.status).to.equal('0x1', `Transaction ${i} failed`);
+      });
 
       const finalNonces = await Promise.all(senders.map((sender) => relay.getAccountNonce(sender.address)));
 
@@ -466,10 +460,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
       // Submit both transactions immediately to test lock release
       const invalidTxPromise = relay.call('eth_sendRawTransaction', [signedInvalidTx]).catch((error: any) => error);
-
-      // Small delay to ensure first tx acquires lock first
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       const secondTxPromise = relay.sendRawTransaction(signedSecondTx);
 
       // Wait for both to complete
@@ -483,16 +473,12 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(txHash).to.exist;
 
       // Wait for second tx to be processed
-      await new Promise((r) => setTimeout(r, 2100));
+      await relay.pollForValidTransactionReceipt(txHash);
 
       // Second tx should result in WRONG_NONCE (filtered out by mirror node)
-      // Similar to rpc_batch1.spec.ts pattern - check for 404
-      try {
-        await mirrorNode.get(`/contracts/results/${txHash}`);
-        expect.fail('Expected transaction to not be found (WRONG_NONCE)');
-      } catch (error: any) {
-        expect(error.response.status).to.equal(404);
-      }
+      await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
+        (error: any) => error.response.status === 404,
+      );
 
       // Verify account nonce hasn't changed (neither tx succeeded)
       const finalNonce = await relay.getAccountNonce(sender.address);
@@ -505,10 +491,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const gasPrice = await relay.gasPrice();
 
       // Send first transaction
-      const tx1Hash = await sendTransactionWithoutWaiting(sender, startNonce, gasPrice);
+      const tx1Hash = await (await sendTransactionWithoutWaiting(sender, startNonce, 1, gasPrice))[0];
 
       // Immediately send second transaction (should queue behind first)
-      const tx2Hash = await sendTransactionWithoutWaiting(sender, startNonce + 1, gasPrice);
+      const tx2Hash = await (await sendTransactionWithoutWaiting(sender, startNonce + 1, 1, gasPrice))[0];
 
       // In async mode, both should return immediately with tx hashes
       expect(tx1Hash).to.exist;
@@ -535,9 +521,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const gasPrice = await relay.gasPrice();
 
       // Send 5 transactions in rapid succession
-      const txHashes = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => sendTransactionWithoutWaiting(sender, startNonce + i, gasPrice)),
-      );
+      const txHashes = await Promise.all(sendTransactionWithoutWaiting(sender, startNonce, 5, gasPrice));
 
       // All should return tx hashes immediately
       expect(txHashes).to.have.length(5);
@@ -559,10 +543,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const startTime = Date.now();
 
         // Send two transactions - in sync mode, first must complete before second starts
-        const tx1Hash = await sendTransactionWithoutWaiting(sender, startNonce, gasPrice);
+        const tx1Hash = await (await sendTransactionWithoutWaiting(sender, startNonce, 1, gasPrice))[0];
         const tx1Time = Date.now() - startTime;
 
-        const tx2Hash = await sendTransactionWithoutWaiting(sender, startNonce + 1, gasPrice);
+        const tx2Hash = await (await sendTransactionWithoutWaiting(sender, startNonce + 1, 1, gasPrice))[0];
         const tx2Time = Date.now() - startTime;
 
         // In sync mode, tx2 should start after tx1 completes
