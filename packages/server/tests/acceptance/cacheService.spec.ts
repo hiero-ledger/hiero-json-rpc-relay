@@ -34,9 +34,9 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
   it('Correctly performs set, get and delete operations', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}1`;
-    const setSharedCacheSpy = sinon.spy(cacheService['sharedCache'], 'set');
-    const getSharedCacheSpy = sinon.spy(cacheService['sharedCache'], 'get');
-    const deleteSharedCacheSpy = sinon.spy(cacheService['sharedCache'], 'delete');
+    const setSharedCacheSpy = sinon.spy(cacheService['client'], 'set');
+    const getSharedCacheSpy = sinon.spy(cacheService['client'], 'get');
+    const deleteSharedCacheSpy = sinon.spy(cacheService['client'], 'delete');
     await cacheService.set(dataLabel, DATA, CALLING_METHOD);
     await new Promise((r) => setTimeout(r, 200));
 
@@ -44,7 +44,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     expect(cache).to.deep.eq(DATA, 'set method saves to shared cache');
     expect(cacheService['isSharedCacheEnabled']).to.be.true;
 
-    expect(cacheService['sharedCache']).to.be.instanceOf(RedisCache);
+    expect(cacheService['client']).to.be.instanceOf(RedisCache);
 
     const cacheFromService = await cacheService.getAsync(dataLabel, CALLING_METHOD);
     expect(cacheFromService).to.deep.eq(DATA, 'getAsync method reads correctly from shared cache');
@@ -119,12 +119,12 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
       await new Promise((r) => setTimeout(r, 1000));
     });
 
-    it('tests fallback of getAsync operation', async () => {
+    it('tests missing fallback of getAsync operation', async () => {
       await cacheService.set(dataLabel, DATA, CALLING_METHOD);
       await new Promise((r) => setTimeout(r, 200));
 
       const dataInLRU = await cacheService.getAsync(dataLabel, CALLING_METHOD);
-      expect(dataInLRU).to.deep.eq(DATA, 'data is stored in local cache');
+      expect(dataInLRU).to.be.null;
     });
 
     it('test multiSet operation', async () => {
@@ -139,7 +139,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
       for (const key in pairs) {
         const cachedValue = await cacheService.getAsync(key, CALLING_METHOD);
-        expect(cachedValue).deep.equal(pairs[key]);
+        expect(cachedValue).to.be.null;
       }
     });
 
