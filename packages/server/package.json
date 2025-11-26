@@ -8,6 +8,7 @@
   "dependencies": {
     "@hashgraph/json-rpc-config-service": "file:../config-service",
     "@hashgraph/json-rpc-relay": "file:../relay",
+    "@koa/cors": "^5.0.0",
     "co-body": "6.2.0",
     "dotenv": "^17.2.1",
     "koa": "^3.0.1",
@@ -17,7 +18,6 @@
   },
   "devDependencies": {
     "@hashgraph/sdk": "^2.63.0",
-    "@koa/cors": "^5.0.0",
     "@types/chai": "^4.3.0",
     "@types/cors": "^2.8.12",
     "@types/koa__cors": "^5.0.1",

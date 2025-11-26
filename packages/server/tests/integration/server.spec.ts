@@ -102,8 +102,8 @@ describe('RPC Server', function () {
       ).to.have.property('access-control-allow-methods');
       expect(
         response.headers['access-control-allow-methods'],
-        "Preflight response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE'",
-      ).to.be.equal('GET,HEAD,PUT,POST,DELETE');
+        "Preflight response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE,PATCH'",
+      ).to.be.equal('GET,HEAD,PUT,POST,DELETE,PATCH');
 
       BaseTest.validCorsCheck(response);
     });
