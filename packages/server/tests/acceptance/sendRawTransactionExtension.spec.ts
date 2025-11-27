@@ -212,6 +212,19 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     const GAS_PRICE_REF = '0x123456';
     const MAX_ALLOWANCE = 100;
 
+    let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+    before(() => {
+      paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
+      paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
+      maxGasAllowanceHbarBefore = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
+    });
+
+    after(() => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', paymasterEnabledBefore);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', paymasterWhitelistBefore);
+      ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', maxGasAllowanceHbarBefore);
+    });
+
     const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
