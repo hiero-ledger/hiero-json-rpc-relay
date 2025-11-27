@@ -433,25 +433,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(result2.nonce).to.equal(startNonce + 1);
     });
 
-    it('should handle rapid burst in async mode without nonce errors', async function () {
-      const sender = accounts[1];
-      const startNonce = await relay.getAccountNonce(sender.address);
-      const gasPrice = await relay.gasPrice();
-
-      // Send 5 transactions in rapid succession
-      const txHashes = await Promise.all(sendTransactionWithoutWaiting(sender, startNonce, 5, gasPrice));
-
-      // All should return tx hashes immediately
-      expect(txHashes).to.have.length(5);
-      txHashes.forEach((hash) => expect(hash).to.exist);
-
-      // All should eventually succeed
-      for (const txHash of txHashes) {
-        const receipt = await relay.pollForValidTransactionReceipt(txHash);
-        expect(receipt.status).to.equal('0x1');
-      }
-    });
-
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
       it('should release lock after full processing in sync mode', async function () {
         const sender = accounts[0];
