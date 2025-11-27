@@ -6,7 +6,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hashgraph/sdk": "^2.75.0",
-    "@mui/material": "^7.3.4",
+    "@mui/material": "^7.3.5",
     "ethers": "^6.15.0",
     "react": "^19.1.1",
     "react-dom": "^19.2.0",
@@ -27,9 +27,9 @@
     "mocha": "10.8.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.3",
-    "@babel/preset-env": "^7.28.3",
-    "@cypress/webpack-batteries-included-preprocessor": "^4.0.2",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@cypress/webpack-batteries-included-preprocessor": "^4.0.4",
     "@cypress/webpack-preprocessor": "^6.0.4",
     "@synthetixio/synpress": "^3.7.3",
     "babel-loader": "^10.0.0",
