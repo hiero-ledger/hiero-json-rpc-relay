@@ -6,12 +6,14 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import fs from 'fs';
+import { ParameterizedContext } from 'koa';
 import cors from 'koa-cors';
 import path from 'path';
 import pino from 'pino';
 import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
+import { jsonRpcComplianceLayer } from './compliance';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
@@ -269,16 +271,13 @@ export async function initializeServer() {
     }
   });
 
-  // Middleware to end for non POST requests asides health, metrics and openrpc
   app.use(async (ctx, next) => {
-    if (ctx.method === 'POST') {
+    if (ctx.method === 'OPTIONS' || ctx.method === 'POST') {
       await next();
-    } else if (ctx.method === 'OPTIONS') {
-      // support CORS preflight
-      ctx.status = 200;
-    } else {
-      logger.warn(`skipping HTTP method: [${ctx.method}], url: ${ctx.url}, status: ${ctx.status}`);
+      return;
     }
+    ctx.status = 400;
+    jsonRpcComplianceLayer(ctx);
   });
 
   app.use((ctx, next) => {
@@ -309,6 +308,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
+    jsonRpcComplianceLayer(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {
