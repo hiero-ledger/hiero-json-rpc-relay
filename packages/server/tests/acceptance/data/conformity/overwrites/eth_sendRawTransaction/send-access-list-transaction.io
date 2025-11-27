@@ -37,4 +37,4 @@
 // https://github.com/ethereum/execution-apis/blob/main/tests/eth_sendRawTransaction/send-access-list-transaction.io
 
 >> {"jsonrpc":"2.0","id":1,"method":"eth_sendRawTransaction","params":["0x01f88783aa36a7808504a817c8008261a89467d8d32e9bf1a9968a5ff53b87d777aa8ebbee69872386f26fc1000080d7d69467d8d32e9bf1a9968a5ff53b87d777aa8ebbee69c001a033f979b49e404e079e6efdcd24f461f776dbffa64cbe46a30241fe378da6c68da02423fbd1c1e50eeae47e50918b4821ad20ff9f370d9984439c039f1610c2664d"]}
-<< {"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"[Request ID: 2e110bdd-1f64-474c-92f0-638782a523d0] Unsupported JSON-RPC method"}}
+<< {"jsonrpc":"2.0","id":1,"result":"0x26cc539c6475a58ae7bee59e17b2e0e6ae65d89a70e2976e8243272012dca988"}
