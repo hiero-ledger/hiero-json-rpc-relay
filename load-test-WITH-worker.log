@@ -1,0 +1,35 @@
+[2025-11-26 06:18:44] Starting load test against http://localhost:7546
+[2025-11-26 06:18:44] Sending request 1: eth_getBlockByNumber with params ["0x392ef1b",true] (Expected Tx Count: 11399)
+[2025-11-26 06:18:44] Sending request 2: eth_getBlockByNumber with params ["0x392ef1c",true] (Expected Tx Count: 6019)
+[2025-11-26 06:18:44] Sending request 3: eth_getBlockByNumber with params ["0x392ef1d",true] (Expected Tx Count: 3933)
+[2025-11-26 06:18:44] Sending request 4: eth_getBlockByHash with params ["0xec6c5c228d72222b28d6b5f93e0d78ee10560b7e2a126a693ed28f735d64c4c5",true] (Expected Tx Count: 11399)
+[2025-11-26 06:18:44] Sending request 5: eth_getBlockByHash with params ["0x096fab12b07b1dfddeb4adde2033d2af69aaada7964cfb85ed8d49576be467dc",true] (Expected Tx Count: 6019)
+[2025-11-26 06:18:44] Sending request 6: eth_getBlockByHash with params ["0x5d997123d3b7b094ebba1dbb1928c5f0efa8813cd42d0049c2b5a94de6d42974",true] (Expected Tx Count: 3933)
+[2025-11-26 06:18:44] Sending request 7: eth_getBlockReceipts with params ["0x392ef1b"] (Expected Tx Count: 11399)
+[2025-11-26 06:18:44] Sending request 8: eth_getBlockReceipts with params ["0x392ef1c"] (Expected Tx Count: 6019)
+[2025-11-26 06:18:44] Sending request 9: eth_getBlockReceipts with params ["0x392ef1d"] (Expected Tx Count: 3933)
+[2025-11-26 06:18:44] Sending request 10: eth_getLogs with params [{"blockHash":"0xec6c5c228d72222b28d6b5f93e0d78ee10560b7e2a126a693ed28f735d64c4c5"}] (Expected Tx Count: 11399)
+[2025-11-26 06:18:44] Sending request 11: eth_getLogs with params [{"fromBlock":"0x392ef1b","toBlock":"0x392ef1d"}] (Expected Tx Count: 21351)
+[2025-11-26 06:18:44] Health check /health/liveness passed in 30ms.
+[2025-11-26 06:18:44] Health check /health/readiness passed in 17ms.
+[2025-11-26 06:18:47] Request 6 (eth_getBlockByHash) completed in 3084ms
+[2025-11-26 06:18:52] Request 10 (eth_getLogs) completed in 7643ms
+[2025-11-26 06:18:52] Request 7 (eth_getBlockReceipts) completed in 8055ms
+[2025-11-26 06:18:53] Request 2 (eth_getBlockByNumber) completed in 8915ms
+[2025-11-26 06:18:53] Request 3 (eth_getBlockByNumber) completed in 9208ms
+[2025-11-26 06:18:54] Health check /health/liveness passed in 3ms.
+[2025-11-26 06:18:54] Health check /health/readiness passed in 2ms.
+[2025-11-26 06:18:54] Request 8 (eth_getBlockReceipts) completed in 10143ms
+[2025-11-26 06:18:55] Request 9 (eth_getBlockReceipts) completed in 10715ms
+[2025-11-26 06:18:56] Request 11 (eth_getLogs) completed in 12209ms
+[2025-11-26 06:18:59] Request 5 (eth_getBlockByHash) completed in 15269ms
+[2025-11-26 06:19:04] Health check /health/liveness passed in 4ms.
+[2025-11-26 06:19:04] Health check /health/readiness passed in 3ms.
+[2025-11-26 06:19:14] Health check /health/liveness passed in 2ms.
+[2025-11-26 06:19:14] Health check /health/readiness passed in 2ms.
+[2025-11-26 06:19:24] Health check /health/liveness passed in 4ms.
+[2025-11-26 06:19:24] Health check /health/readiness passed in 4ms.
+[2025-11-26 06:19:28] Request 4 (eth_getBlockByHash) completed in 44412ms
+[2025-11-26 06:19:28] Request 1 (eth_getBlockByNumber) completed in 44428ms
+[2025-11-26 06:19:28] All requests completed in 44429ms.
+[2025-11-26 06:19:29] Verified: Server at port 7546 is still running.
