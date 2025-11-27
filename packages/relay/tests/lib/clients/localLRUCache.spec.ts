@@ -2,7 +2,6 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
@@ -13,8 +12,11 @@ chai.use(chaiAsPromised);
 
 describe('LocalLRUCache Test Suite', async function () {
   this.timeout(10000);
-
-  const logger = pino({ level: 'silent' });
+  const logger = {
+    child: sinon.stub().returnsThis(),
+    trace: sinon.stub(),
+    isLevelEnabled: sinon.stub().returns(true),
+  };
   const registry = new Registry();
   const callingMethod = 'localLRUCacheTest';
 
@@ -282,6 +284,100 @@ describe('LocalLRUCache Test Suite', async function () {
 
       expect(await localLRUCache.get('boolean', callingMethod)).to.be.false;
       expect(await localLRUCache.get('number', callingMethod)).to.equal(5644);
+    });
+  });
+
+  describe('incrBy', function () {
+    it('increments an existing integer value', async function () {
+      const key = 'counter';
+      await localLRUCache.set(key, 5, callingMethod);
+      const newValue = await localLRUCache.incrBy(key, 3, callingMethod);
+      expect(newValue).to.equal(8);
+
+      const stored = await localLRUCache.get(key, callingMethod);
+      expect(stored).to.equal(8);
+    });
+
+    it('increments when value is zero', async function () {
+      const key = 'counter';
+      await localLRUCache.set(key, 0, callingMethod);
+      const newValue = await localLRUCache.incrBy(key, 10, callingMethod);
+      expect(newValue).to.equal(10);
+    });
+
+    it('increments when key does not exist', async function () {
+      await localLRUCache.clear();
+      const key = 'missing';
+      const newValue = await localLRUCache.incrBy(key, 5, callingMethod);
+      expect(newValue).to.equal(5);
+    });
+  });
+
+  describe('lRange', function () {
+    it('returns the correct range for a valid array', async function () {
+      const key = 'list';
+      const value = [10, 20, 30, 40];
+      await localLRUCache.set(key, value, callingMethod);
+
+      const result = await localLRUCache.lRange(key, 1, 2, callingMethod);
+      expect(result).to.deep.equal([20, 30]);
+    });
+
+    it('supports negative end index', async function () {
+      const key = 'list';
+      const value = [10, 20, 30, 40];
+      await localLRUCache.set(key, value, callingMethod);
+
+      const result = await localLRUCache.lRange(key, 1, -1, callingMethod);
+      expect(result).to.deep.equal([20, 30, 40]);
+    });
+
+    it('returns empty array when key does not exist', async function () {
+      const key = 'missing';
+      const result = await localLRUCache.lRange(key, 0, 10, callingMethod);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('throws when the value is not an array', async function () {
+      const key = 'notList';
+      await localLRUCache.set(key, 123, callingMethod);
+
+      await expect(localLRUCache.lRange(key, 0, 1, callingMethod)).to.be.rejectedWith(
+        `Value at key ${key} is not an array`,
+      );
+    });
+  });
+
+  describe('rPush', function () {
+    it('pushes value to end of an existing list', async function () {
+      const key = 'list';
+      const initial = [1, 2];
+      await localLRUCache.set(key, initial, callingMethod);
+
+      const length = await localLRUCache.rPush(key, 3, callingMethod);
+      expect(length).to.equal(3);
+
+      const stored = await localLRUCache.get(key, callingMethod);
+      expect(stored).to.deep.equal([1, 2, 3]);
+    });
+
+    it('initializes a new list when key does not exist', async function () {
+      const key = 'missing';
+
+      const length = await localLRUCache.rPush(key, 'a', callingMethod);
+      expect(length).to.equal(1);
+
+      const stored = await localLRUCache.get(key, callingMethod);
+      expect(stored).to.deep.equal(['a']);
+    });
+
+    it('throws when existing value is not an array', async function () {
+      const key = 'wrongType';
+      await localLRUCache.set(key, 999, callingMethod);
+
+      await expect(localLRUCache.rPush(key, 'x', callingMethod)).to.be.rejectedWith(
+        `Value at key ${key} is not an array`,
+      );
     });
   });
 });

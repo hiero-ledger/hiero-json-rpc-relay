@@ -15,11 +15,18 @@ chai.use(chaiAsPromised);
 describe('RedisCache Test Suite', async function () {
   this.timeout(10000);
 
-  const logger = pino({ level: 'silent' });
+  const mockLogger = {
+    child: sinon.stub().returnsThis(),
+    trace: sinon.stub(),
+    info: sinon.stub(),
+    isLevelEnabled: sinon.stub().returns(true),
+  };
   const callingMethod = 'RedisCacheTest';
 
   let redisCache: RedisCache;
   let redisClient: RedisClientType;
+
+  const logger = mockLogger.child({ name: 'mock' });
 
   useInMemoryRedisServer(logger, 6379);
 
@@ -154,6 +161,23 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
+      await redisCache.multiSet(keyValuePairs, callingMethod);
+
+      for (const key in keyValuePairs) {
+        const cachedValue = await redisCache.get(key, callingMethod);
+        expect(cachedValue).deep.equal(keyValuePairs[key]);
+      }
+    });
+
+    it('should fallback to pipeline set when multiset disabled', async function () {
+      const keyValuePairs = {
+        int: 1,
+        string: 'test',
+        boolean: false,
+        array: ['false'],
+        object: { result: true },
+      };
+      redisCache['options'].multiSetEnabled = false;
       await redisCache.multiSet(keyValuePairs, callingMethod);
 
       for (const key in keyValuePairs) {

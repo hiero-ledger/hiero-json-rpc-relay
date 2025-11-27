@@ -151,5 +151,14 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
       const dataInLRU = await cacheService.getAsync(dataLabel, CALLING_METHOD);
       expect(dataInLRU).to.be.null;
     });
+
+    it('test clear operation', async () => {
+      await cacheService.set(dataLabel, DATA, CALLING_METHOD);
+      await new Promise((r) => setTimeout(r, 200));
+
+      await cacheService.clear();
+      const dataInLRU = await cacheService.getAsync(dataLabel, CALLING_METHOD);
+      expect(dataInLRU).to.be.null;
+    });
   });
 });
