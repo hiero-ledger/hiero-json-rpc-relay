@@ -40,10 +40,10 @@ const isCorrectError = (res: JsonRpcResponse, httpStatus: unknown) =>
   Object.prototype.hasOwnProperty.call(res, 'error') &&
   typeof (res as JsonRpcError).error?.message === 'string';
 
-const isCorrectResponse = (res: JsonRpcResponse, httpStatus: unknown) =>
+const hasCorrectResponseBody = (res: JsonRpcResponse, httpStatus: unknown) =>
   isCorrectSuccess(res, httpStatus) || isCorrectError(res, httpStatus);
 
-const fixResponse = (res: Partial<JsonRpcResponse> | undefined, httpStatus: unknown) => {
+const fixResponseBody = (res: Partial<JsonRpcResponse> | undefined, httpStatus: unknown) => {
   const id = hasValidId(res?.id) ? (res!.id as string | number) : null;
   if (httpStatus === 200) {
     return {
@@ -83,21 +83,15 @@ const fixResponse = (res: Partial<JsonRpcResponse> | undefined, httpStatus: unkn
 export const jsonRpcComplianceLayer = (ctx: ParameterizedContext) => {
   const body = ctx.body as JsonRpcBody | undefined;
   if (!body) {
-    ctx.body = fixResponse(undefined, ctx.status);
-    if (!VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 400;
+    ctx.body = fixResponseBody(undefined, ctx.status);
+    ctx.status = VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE ? 200 : 400;
     return;
   }
   if (Array.isArray(body)) {
+    // Regardless of the mode the batch requests will always return 200;
+    ctx.status = 200;
     return;
-    /** DECIDE HOW TO HANDLE BATCH!
-    const allCorrect = body.every(item => isCorrectResponse(item, ctx.status));
-    if (allCorrect) return;
-    if (!VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 400; To be decided - does it apply for batch methods??
-    ctx.body = body.map((item) => fixResponse(item, ctx.status));
-    return;
-     */
   }
-  if (isCorrectResponse(body, ctx.status)) return;
-  if (!VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 400;
-  ctx.body = fixResponse(body, ctx.status);
+  if (!hasCorrectResponseBody(body, ctx.status)) ctx.body = fixResponseBody(body, ctx.status);
+  if (ctx.status === 400 && VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 200;
 };
