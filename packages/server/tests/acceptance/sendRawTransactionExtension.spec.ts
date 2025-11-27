@@ -491,24 +491,17 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
         // Submit both transactions immediately to test lock release
         const invalidTxPromise = relay.call('eth_sendRawTransaction', [signedInvalidTx]).catch((error: any) => error);
-        const secondTxPromise = relay.sendRawTransaction(signedSecondTx);
+        const secondTxPromise = relay.sendRawTransaction(signedSecondTx).catch((error: any) => error);
 
         // Wait for both to complete
-        const [invalidResult, txHash] = await Promise.all([invalidTxPromise, secondTxPromise]);
+        const [invalidResult, wrongNonceError] = await Promise.all([invalidTxPromise, secondTxPromise]);
         // Verify first tx failed with validation error
         expect(invalidResult).to.be.instanceOf(Error);
         expect(invalidResult.message).to.include('gas price');
-
         // Verify lock was released (second tx was allowed to proceed)
-        expect(txHash).to.exist;
-
+        expect(wrongNonceError.message).to.include('WRONG_NONCE');
         // Wait for second tx to be processed
         await new Promise((r) => setTimeout(r, 2100));
-
-        // Second tx should result in WRONG_NONCE (filtered out by mirror node)
-        await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
-          (error: any) => error.response.status === 404,
-        );
 
         // Verify account nonce hasn't changed (neither tx succeeded)
         const finalNonce = await relay.getAccountNonce(sender.address);
