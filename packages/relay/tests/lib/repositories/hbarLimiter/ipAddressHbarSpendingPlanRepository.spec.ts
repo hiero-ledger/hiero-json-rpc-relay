@@ -12,6 +12,7 @@ import { IPAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarL
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IIPAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -38,7 +39,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       if (isSharedCacheEnabled) {
         await RedisClientManager.getClient(logger);
       }
-      cacheService = new CacheService(logger, registry);
+      cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
         cacheService,
