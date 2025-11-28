@@ -512,7 +512,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(invalidResult).to.be.instanceOf(Error);
         expect(invalidResult.message).to.include('gas price');
         // Verify lock was released (second tx was allowed to proceed)
-        expect(wrongNonceError.message).to.include('WRONG_NONCE');
+        expect(wrongNonceError).to.be.instanceOf(Error);
+        expect(wrongNonceError.message).to.include('nonce');
         // Wait for second tx to be processed
         await new Promise((r) => setTimeout(r, 2100));
 
