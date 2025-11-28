@@ -11,6 +11,7 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { Log } from './model';
 import { CommonService } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
 import {
@@ -211,13 +212,18 @@ export class DebugImpl implements Debug {
 
       const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
 
-      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRangeParams }, undefined],
-      );
+      // Fetch both contract results AND logs (like eth_getBlockByNumber does)
+      const [contractResults, logs]: [MirrorNodeContractResult[], Log[]] = await Promise.all([
+        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+          requestDetails,
+          { timestamp: timestampRangeParams },
+          undefined,
+        ]),
+        this.common.getLogsWithParams(null, { timestamp: timestampRangeParams }, requestDetails),
+      ]);
 
-      if (contractResults == null || contractResults.length === 0) {
-        // return empty array if no EthereumTransaction typed transactions found in the block
+      // If no contract results AND no logs, return empty
+      if ((contractResults == null || contractResults.length === 0) && logs.length === 0) {
         return [];
       }
 
@@ -229,46 +235,109 @@ export class DebugImpl implements Debug {
         onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
       }
 
-      if (tracer === TracerType.CallTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.callTracer(
-                  contractResult.hash,
-                  { onlyTopCall } as ICallTracerConfig,
-                  requestDetails,
-                ),
-              };
-            }),
-        );
+      let result: TraceBlockByNumberTxResult[] = [];
 
-        return result;
+      // Trace real EVM transactions
+      if (contractResults && contractResults.length > 0) {
+        if (tracer === TracerType.CallTracer) {
+          result = await Promise.all(
+            contractResults
+              // filter out transactions with wrong nonce since they do not reach consensus
+              .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+              .map(async (contractResult) => {
+                return {
+                  txHash: contractResult.hash,
+                  result: await this.callTracer(
+                    contractResult.hash,
+                    { onlyTopCall } as ICallTracerConfig,
+                    requestDetails,
+                  ),
+                };
+              }),
+          );
+        } else if (tracer === TracerType.PrestateTracer) {
+          result = await Promise.all(
+            contractResults
+              // filter out transactions with wrong nonce since they do not reach consensus
+              .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
+              .map(async (contractResult) => {
+                return {
+                  txHash: contractResult.hash,
+                  result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
+                };
+              }),
+          );
+        }
       }
 
-      if (tracer === TracerType.PrestateTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
-              };
-            }),
-        );
+      // Populate synthetic traces (mirrors populateSyntheticTransactions pattern)
+      result = this.populateSyntheticTraces(logs, result, tracer);
 
-        return result;
-      }
-
-      return [];
+      return result;
     } catch (error) {
       throw this.common.genericErrorHandler(error);
     }
+  }
+
+  /**
+   * Populates synthetic traces for HTS token transfers that don't have contract results.
+   * Mirrors the pattern used in BlockService.populateSyntheticTransactions.
+   *
+   * @param logs The logs from the block
+   * @param tracesArray The array of trace results to populate
+   * @param tracer The tracer type being used
+   * @returns The populated traces array
+   */
+  private populateSyntheticTraces(
+    logs: Log[],
+    tracesArray: TraceBlockByNumberTxResult[],
+    tracer: TracerType,
+  ): TraceBlockByNumberTxResult[] {
+    // Get hashes of transactions that already have traces
+    const existingTxHashes = new Set(tracesArray.map((trace) => trace.txHash));
+
+    // Filter logs to find synthetic transactions (logs without contract results)
+    const syntheticLogs = logs.filter((log) => !existingTxHashes.has(log.transactionHash));
+
+    // Deduplicate by transaction hash (multiple logs can share same tx hash)
+    const uniqueSyntheticTxHashes = new Map<string, Log>();
+    for (const log of syntheticLogs) {
+      if (!uniqueSyntheticTxHashes.has(log.transactionHash)) {
+        uniqueSyntheticTxHashes.set(log.transactionHash, log);
+      }
+    }
+
+    // Create minimal trace for each synthetic transaction
+    for (const [txHash, log] of uniqueSyntheticTxHashes) {
+      if (tracer === TracerType.CallTracer) {
+        tracesArray.push({
+          txHash,
+          result: {
+            type: 'CALL',
+            from: log.address,
+            to: log.address,
+            value: constants.ZERO_HEX,
+            gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+            gasUsed: constants.ZERO_HEX,
+            input: constants.EMPTY_HEX,
+            output: constants.EMPTY_HEX,
+            calls: [],
+          },
+        });
+      } else if (tracer === TracerType.PrestateTracer) {
+        // For prestate tracer, return empty state map for synthetic txs
+        tracesArray.push({
+          txHash,
+          result: {},
+        });
+      }
+    }
+
+    if (this.logger.isLevelEnabled('trace')) {
+      this.logger.trace(`Populated ${uniqueSyntheticTxHashes.size} synthetic traces for block`);
+    }
+
+    return tracesArray;
   }
 
   /**
@@ -469,7 +538,33 @@ export class DebugImpl implements Debug {
         ]),
       ]);
 
+      // If no contract result, check if it's a synthetic transaction (HTS transfer)
       if (!actionsResponse || !transactionsResponse) {
+        // Try to find logs for this transaction (synthetic HTS transfer)
+        const syntheticLogs = await this.common.getLogsWithParams(
+          null,
+          { 'transaction.hash': transactionHash },
+          requestDetails,
+        );
+
+        if (syntheticLogs && syntheticLogs.length > 0) {
+          if (this.logger.isLevelEnabled('trace')) {
+            this.logger.trace(`Returning synthetic trace for transaction ${transactionHash}`);
+          }
+          // Return minimal trace for synthetic transaction
+          return {
+            type: 'CALL',
+            from: syntheticLogs[0].address,
+            to: syntheticLogs[0].address,
+            value: constants.ZERO_HEX,
+            gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+            gasUsed: constants.ZERO_HEX,
+            input: constants.EMPTY_HEX,
+            output: constants.EMPTY_HEX,
+            calls: [],
+          };
+        }
+
         throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
       }
 
