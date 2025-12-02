@@ -73,7 +73,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      const result = await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      const result = await store.incrementAndCheck(testKey, testLimit);
 
       expect(result).to.be.false;
       expect(mockRedisClient.eval.calledOnce).to.be.true;
@@ -94,7 +94,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      const result = await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      const result = await store.incrementAndCheck(testKey, testLimit);
 
       expect(result).to.be.true;
     });
@@ -110,7 +110,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      const result = await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      const result = await store.incrementAndCheck(testKey, testLimit);
 
       expect(result).to.be.false; // Fail open
     });
@@ -128,7 +128,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       const counterSpy = sinon.spy(rateLimitStoreFailureCounter, 'inc');
 
-      await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      await store.incrementAndCheck(testKey, testLimit);
 
       expect(counterSpy.calledOnce).to.be.true;
     });
@@ -139,7 +139,7 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       const store = new RedisRateLimitStore(mockRedisClient as unknown as RedisClientType, logger, testDuration); // No failure counter
 
-      const result = await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      const result = await store.incrementAndCheck(testKey, testLimit);
 
       expect(result).to.be.false; // Should still fail open
     });
@@ -155,7 +155,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      const result = await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      const result = await store.incrementAndCheck(testKey, testLimit);
 
       expect(result).to.be.false; // Should still fail open
     });
@@ -174,7 +174,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      await store.incrementAndCheck(testKey, testLimit);
 
       expect(loggerSpy.calledOnce).to.be.true;
     });
@@ -190,7 +190,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      await store.incrementAndCheck(testKey, testLimit);
 
       const evalCall = mockRedisClient.eval.getCall(0);
       const evalOptions = evalCall.args[1] as { keys: string[]; arguments: string[] };
@@ -208,7 +208,7 @@ describe('RedisRateLimitStore Test Suite', function () {
         rateLimitStoreFailureCounter,
       );
 
-      await store.incrementAndCheck(testKey, testLimit, requestDetails);
+      await store.incrementAndCheck(testKey, testLimit);
 
       const evalCall = mockRedisClient.eval.getCall(0);
       const evalOptions = evalCall.args[1] as { keys: string[]; arguments: string[] };
