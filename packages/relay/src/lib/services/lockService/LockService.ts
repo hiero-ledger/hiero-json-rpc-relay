@@ -31,10 +31,9 @@ export class LockService {
    * @returns A promise that resolves to a unique session key, or null if acquisition fails (fail open).
    */
   async acquireLock(address: string): Promise<string | undefined> {
-    if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
-      return;
+    if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
+      return await this.strategy.acquireLock(address);
     }
-    return await this.strategy.acquireLock(address);
   }
 
   /**
