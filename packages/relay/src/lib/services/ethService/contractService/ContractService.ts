@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Transaction } from 'ethers';
 import { Logger } from 'pino';
 
 import {
