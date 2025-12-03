@@ -402,7 +402,7 @@ describe('@ethCall Eth Call spec', async function () {
           _status: {
             messages: [
               {
-                message: '',
+                message: 'CONTRACT_REVERT_EXECUTED',
                 detail: defaultErrorMessageText,
                 data: defaultErrorMessageHex,
               },

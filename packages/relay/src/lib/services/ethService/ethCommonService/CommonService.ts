@@ -458,7 +458,7 @@ export class CommonService implements ICommonService {
       }
     }
 
-    throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE;
+    throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE('Failed to retrieve gas price from network fees');
   }
 
   /**
