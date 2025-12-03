@@ -167,24 +167,20 @@ export class ContractService implements IContractService {
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
-      if (response?.result) {
-        this.logger.info(`Returning gas: ${response.result}`);
-        return prepend0x(trimPrecedingZeros(response.result));
-      } else {
-        this.logger.error(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
-        return this.predefinedGasForTransaction(transaction, requestDetails);
+      if (!response?.result) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
+        }
+        return predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
+
+      return prepend0x(trimPrecedingZeros(response.result));
     } catch (e: any) {
-      this.logger.error(`Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`);
-      // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
-      if (
-        ConfigService.get('ESTIMATE_GAS_THROWS') &&
-        e instanceof MirrorNodeClientError &&
-        e.isContractRevertOpcodeExecuted()
-      ) {
-        return predefined.CONTRACT_REVERT(e.detail ?? e.message, e.data);
+      if (e instanceof MirrorNodeClientError && e.isContractRevert()) {
+        throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+      } else {
+        throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE(e.detail || e.message);
       }
-      return this.predefinedGasForTransaction(transaction, requestDetails, e);
     }
   }
 
@@ -523,7 +519,7 @@ export class ContractService implements IContractService {
       return constants.EMPTY_HEX;
     }
 
-    if (e.isContractReverted()) {
+    if (e.isContractRevert()) {
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(
           `mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
@@ -553,68 +549,6 @@ export class ContractService implements IContractService {
 
     this.logger.error(e, 'Failed to successfully submit eth_call');
     return predefined.INTERNAL_ERROR(e.message.toString());
-  }
-
-  /**
-   * Fallback calculations for the amount of gas to be used for a transaction.
-   * This method is used when the mirror node fails to return a gas estimate.
-   *
-   * @param {IContractCallRequest} transaction The transaction data for the contract call.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking.
-   * @param error (Optional) received error from the mirror-node contract call request.
-   * @returns {Promise<string | JsonRpcError>} the calculated gas cost for the transaction
-   */
-  private async predefinedGasForTransaction(
-    transaction: IContractCallRequest,
-    requestDetails: RequestDetails,
-    error?: any,
-  ): Promise<string | JsonRpcError> {
-    const isSimpleTransfer = !!transaction?.to && (!transaction.data || transaction.data === '0x');
-    const isContractCall =
-      !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
-    const isContractCreate = !transaction?.to && transaction?.data && transaction.data !== '0x';
-    const contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-    const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
-
-    if (isSimpleTransfer) {
-      // Handle Simple Transaction and Hollow Account creation
-      const isZeroOrHigher = Number(transaction.value) >= 0;
-      if (!isZeroOrHigher) {
-        return predefined.INVALID_PARAMETER(
-          0,
-          `Invalid 'value' field in transaction param. Value must be greater than or equal to 0`,
-        );
-      }
-      // when account exists return default base gas
-      if (await this.common.getAccount(transaction.to!, requestDetails)) {
-        this.logger.warn(`Returning predefined gas for simple transfer: ${gasTxBaseCost}`);
-        return gasTxBaseCost;
-      }
-      const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
-      // otherwise, return the minimum amount of gas for hollow account creation
-      this.logger.warn(`Returning predefined gas for hollow account creation: ${minGasTxHollowAccountCreation}`);
-      return minGasTxHollowAccountCreation;
-    } else if (isContractCreate) {
-      // The size limit of the encoded contract posted to the mirror node can
-      // cause contract deployment transactions to fail with a 400 response code.
-      // The contract is actually deployed on the consensus node, so the contract will work.
-      // In these cases, we don't want to return a CONTRACT_REVERT error.
-      if (
-        ConfigService.get('ESTIMATE_GAS_THROWS') &&
-        error?.isContractReverted() &&
-        error?.message !== MirrorNodeClientError.messages.INVALID_HEX
-      ) {
-        return predefined.CONTRACT_REVERT(error.detail, error.data);
-      }
-      this.logger.warn(`Returning predefined gas for contract creation: ${gasTxBaseCost}`);
-      return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
-    } else if (isContractCall) {
-      this.logger.warn(`Returning predefined gas for contract call: ${contractCallAverageGas}`);
-      return contractCallAverageGas;
-    } else {
-      this.logger.warn(`Returning predefined gas for unknown transaction: ${this.defaultGas}`);
-      return this.defaultGas;
-    }
   }
 
   /**

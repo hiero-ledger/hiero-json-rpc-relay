@@ -396,21 +396,6 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(estimatedGas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!)));
   });
 
-  withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
-    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
-      const originalEstimateGas = contractService.estimateGas;
-      contractService.estimateGas = async () => {
-        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
-      };
-
-      const result = await ethImpl.estimateGas(transaction, id, requestDetails);
-
-      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!)));
-
-      contractService.estimateGas = originalEstimateGas;
-    });
-  });
-
   it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async function () {
     await mockContractCall(
       transaction,
