@@ -63,6 +63,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   const ONE_WEIBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 18)));
 
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
+  const NON_EXISTENT_ACCOUNT = '0x114f60009ee6b84861c0cdae8829751e517bc4d7';
   const PING_CALL_ESTIMATED_GAS = '0x6122';
   const EXCHANGE_RATE_FILE_ID = '0.0.112';
   const EXCHANGE_RATE_FILE_CONTENT_DEFAULT = '0a1008b0ea0110f9bb1b1a0608f0cccf9306121008b0ea0110e9c81a1a060880e9cf9306';
@@ -286,7 +287,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45',
             value: '0xa688906bd8b00000',
             gas: '0xd97010',
@@ -305,7 +306,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
             value: '123',
             gas: '0xd97010',
@@ -324,7 +325,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
             value: '0xa688906bd8b00000',
             gas: '123',
@@ -458,6 +459,59 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
           ],
           predefined.CONTRACT_REVERT(),
         );
+      });
+    });
+
+    describe('Gas estimation errors (non-contract revert)', async function () {
+      it('should throw COULD_NOT_ESTIMATE_GAS_PRICE error when sender account does not exist', async function () {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: NON_EXISTENT_ACCOUNT,
+            to: basicContractAddress,
+            data: BASIC_CONTRACT_PING_CALL_DATA,
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy((error: any) => {
+          const errorBody = error?.response?.bodyJson?.error;
+          return (
+            errorBody &&
+            errorBody.code === -32000 &&
+            errorBody.message.includes('Error occurred during gas price estimation') &&
+            errorBody.message.includes('Sender account not found')
+          );
+        });
+      });
+
+      it('should throw COULD_NOT_ESTIMATE_GAS_PRICE error when "to" field is empty for contract call', async function () {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            data: BASIC_CONTRACT_PING_CALL_DATA,
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy((error: any) => {
+          const errorBody = error?.response?.bodyJson?.error;
+          return (
+            errorBody &&
+            errorBody.code === -32000 &&
+            errorBody.message.includes('Error occurred during gas price estimation')
+          );
+        });
+      });
+
+      it('should throw error when gas estimation fails with invalid transaction value', async function () {
+        // Using a string that can't be converted to a valid hex value
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            to: accounts[1].address,
+            value: 'invalid_value',
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected;
       });
     });
   });
