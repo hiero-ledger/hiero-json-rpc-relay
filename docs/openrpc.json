@@ -2265,8 +2265,7 @@
           "logsBloom",
           "transactionHash",
           "transactionIndex",
-          "effectiveGasPrice",
-          "type"
+          "effectiveGasPrice"
         ],
         "additionalProperties": false,
         "properties": {
