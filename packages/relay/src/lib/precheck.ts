@@ -2,7 +2,6 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers, Transaction } from 'ethers';
-import { Logger } from 'pino';
 
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
