@@ -126,10 +126,19 @@ describe('@api-conformity', async function () {
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
       const tokenId = await servicesNode.createToken(1000);
-      await global.accounts[0].client.associateToken(tokenId);
+      // Use accounts[2] to avoid conflicts with other test setup (following rpc_batch1.spec.ts pattern)
+      const hapiTestAccount = global.accounts[2] || global.accounts[0];
+      try {
+        await hapiTestAccount.client.associateToken(tokenId);
+      } catch (e: any) {
+        // Ignore if already associated
+        if (!e.message?.includes('TOKEN_ALREADY_ASSOCIATED_TO_ACCOUNT')) {
+          throw e;
+        }
+      }
       const hapiTransaction = new TransferTransaction()
         .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
-        .addTokenTransfer(tokenId, global.accounts[0].accountId, 10)
+        .addTokenTransfer(tokenId, hapiTestAccount.accountId, 10)
         .setTransactionMemo('Conformity test HAPI token transfer');
       const hapiResp = await hapiTransaction.execute(servicesNode.client);
       await hapiResp.getRecord(servicesNode.client);
