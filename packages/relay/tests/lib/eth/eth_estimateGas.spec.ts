@@ -11,6 +11,7 @@ import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
+import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
@@ -29,6 +30,7 @@ let sdkClientStub: SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: SinonStub<[], SDKClient>;
 let ethImplOverridden: Eth;
 const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
+
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
   const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } =
@@ -92,14 +94,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   describe('eth_estimateGas with contract call', async function () {});
 
-  it('should eth_estimateGas with transaction.data null throws COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
+  it('should eth_estimateGas with transaction.data null throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
       from: '0x05fba803be258049a27b820088bab1cad2058871',
       value: '0x0',
       gasPrice: '0x0',
       data: null,
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
     await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
@@ -107,13 +109,13 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     );
   });
 
-  it('should eth_estimateGas to mirror node for contract call returns 501 throws COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
+  it('should eth_estimateGas to mirror node for contract call returns 400 throws COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
     const callData: IContractCallRequest = {
       data: '0x608060405234801561001057600080fd5b506040516107893803806107898339818101604052810190610032919061015a565b806000908051906020019061004892919061004f565b50506102f6565b82805461005b90610224565b90600052602060002090601f01602090048101928261007d57600085556100c4565b82601f1061009657805160ff19168380011785556100c4565b828001600101855582156100c4579182015b828111156100c35782518255916020019190600101906100a8565b5b5090506100d191906100d5565b5090565b5b808211156100ee5760008160009055506001016100d6565b5090565b6000610105610100846101c0565b61019b565b90508281526020810184848401111561011d57600080fd5b6101288482856101f1565b509392505050565b600082601f83011261014157600080fd5b81516101518482602086016100f2565b91505092915050565b60006020828403121561016c57600080fd5b600082015167ffffffffffffffff81111561018657600080fd5b61019284828501610130565b91505092915050565b60006101a56101b6565b90506101b18282610256565b919050565b6000604051905090565b600067ffffffffffffffff8211156101db576101da6102b6565b5b6101e4826102e5565b9050602081019050919050565b60005b8381101561020f5780820151818401526020810190506101f4565b8381111561021e576000848401525b50505050565b6000600282049050600182168061023c57607f821691505b602082108114156102505761024f610287565b5b50919050565b61025f826102e5565b810181811067ffffffffffffffff8211171561027e5761027d6102b6565b5b80604052505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000601f19601f8301169050919050565b610484806103056000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c8063a41368621461003b578063cfae321714610057575b600080fd5b6100556004803603810190610050919061022c565b610075565b005b61005f61008f565b60405161006c91906102a6565b60405180910390f35b806000908051906020019061008b929190610121565b5050565b60606000805461009e9061037c565b80601f01602080910402602001604051908101604052809291908181526020018280546100ca9061037c565b80156101175780601f106100ec57610100808354040283529160200191610117565b820191906000526020600020905b8154815290600101906020018083116100fa57829003601f168201915b5050505050905090565b82805461012d9061037c565b90600052602060002090601f01602090048101928261014f5760008555610196565b82601f1061016857805160ff1916838001178555610196565b82800160010185558215610196579182015b8281111561019557825182559160200191906001019061017a565b5b5090506101a391906101a7565b5090565b5b808211156101c05760008160009055506001016101a8565b5090565b60006101d76101d2846102ed565b6102c8565b9050828152602081018484840111156101ef57600080fd5b6101fa84828561033a565b509392505050565b600082601f83011261021357600080fd5b81356102238482602086016101c4565b91505092915050565b60006020828403121561023e57600080fd5b600082013567ffffffffffffffff81111561025857600080fd5b61026484828501610202565b91505092915050565b60006102788261031e565b6102828185610329565b9350610292818560208601610349565b61029b8161043d565b840191505092915050565b600060208201905081810360008301526102c0818461026d565b905092915050565b60006102d26102e3565b90506102de82826103ae565b919050565b6000604051905090565b600067ffffffffffffffff8211156103085761030761040e565b5b6103118261043d565b9050602081019050919050565b600081519050919050565b600082825260208201905092915050565b82818337600083830152505050565b60005b8381101561036757808201518184015260208101905061034c565b83811115610376576000848401525b50505050565b6000600282049050600182168061039457607f821691505b602082108114156103a8576103a76103df565b5b50919050565b6103b78261043d565b810181811067ffffffffffffffff821117156103d6576103d561040e565b5b80604052505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000601f19601f830116905091905056fea264697066735822122070d157c4efbb3fba4a1bde43cbba5b92b69f2fc455a650c0dfb61e9ed3d4bd6364736f6c634300080400330000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b696e697469616c5f6d7367000000000000000000000000000000000000000000',
       from: '0x81cb089c285e5ee3a7353704fb114955037443af',
       to: RECEIVER_ADDRESS,
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
     await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
@@ -144,11 +146,11 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT).toLowerCase());
   });
 
-  it('should eth_estimateGas for contract deploy throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501', async function () {
+  it('should eth_estimateGas for contract deploy throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
       data: '0x01',
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
     await expect(ethImpl.estimateGas({ data: '0x01' }, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
@@ -156,14 +158,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     );
   });
 
-  it('should eth_estimateGas to mirror node for transfer throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501', async function () {
+  it('should eth_estimateGas to mirror node for transfer throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
-      data: '0x',
       from: '0x81cb089c285e5ee3a7353704fb114955037443af',
       to: RECEIVER_ADDRESS,
       value: '0x2540BE400',
+      // data: '0x',
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
     restMock
       .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
       .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
@@ -174,13 +176,13 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     );
   });
 
-  it('should eth_estimateGas to mirror node for transfer without value throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501', async function () {
+  it('should eth_estimateGas to mirror node for transfer without value throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
-      data: '0x',
       from: '0x81cb089c285e5ee3a7353704fb114955037443af',
       to: RECEIVER_ADDRESS,
+      // data: '0x',
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
     restMock.onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`).reply(200, { address: RECEIVER_ADDRESS });
 
     await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
@@ -304,12 +306,12 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(gasEstimation).toLowerCase());
   });
 
-  it('should eth_estimateGas transfer with invalid value throws COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
+  it('should eth_estimateGas transfer with invalid value throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
       to: RECEIVER_ADDRESS,
       value: -100_000_000_000, //in tinybars
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
     restMock
       .onGet(`accounts/${RECEIVER_ADDRESS}${NO_TRANSACTIONS}`)
       .reply(200, JSON.stringify({ address: RECEIVER_ADDRESS }));
@@ -326,9 +328,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     ).to.be.rejectedWith(JsonRpcError, gasPriceErrorMessage);
   });
 
-  it('should eth_estimateGas empty call throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501', async function () {
+  it('should eth_estimateGas empty call throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {};
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
     await expect(ethImpl.estimateGas({}, null, requestDetails)).to.be.rejectedWith(JsonRpcError, gasPriceErrorMessage);
   });
@@ -341,14 +343,14 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(gas).to.equal(numberTo0x(defaultGasOverride));
   });
 
-  it('should eth_estimateGas empty input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501', async function () {
+  it('should eth_estimateGas empty input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400', async function () {
     const callData: IContractCallRequest = {
       data: '',
       estimate: true,
     };
-    const contractsCallResponse: IContractCallResponse = { errorMessage: '', statusCode: 501 };
+    const contractsCallResponse: IContractCallResponse = { errorMessage: '', statusCode: 400 };
 
-    await mockContractCall(callData, true, 501, contractsCallResponse, requestDetails);
+    await mockContractCall(callData, true, 400, contractsCallResponse, requestDetails);
 
     await expect(ethImpl.estimateGas({ data: '' }, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
@@ -356,11 +358,11 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     );
   });
 
-  it('should eth_estimateGas empty input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501 with overridden default gas', async function () {
+  it('should eth_estimateGas empty input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400 with overridden default gas', async function () {
     const callData: IContractCallRequest = {
       data: '',
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
     await expect(ethImplOverridden.estimateGas({ data: '' }, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
@@ -389,13 +391,13 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(gas).to.equal(gasTxBaseCost);
   });
 
-  it('should eth_estimateGas zero input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 501 with overridden default gas', async function () {
+  it('should eth_estimateGas zero input throws COULD_NOT_ESTIMATE_GAS_PRICE error on 400 with overridden default gas', async function () {
     const callData: IContractCallRequest = {
-      data: '0x',
+      gas: '0x0',
     };
-    await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
+    await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    await expect(ethImplOverridden.estimateGas({ data: '0x' }, null, requestDetails)).to.be.rejectedWith(
+    await expect(ethImplOverridden.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
       JsonRpcError,
       gasPriceErrorMessage,
     );
@@ -517,11 +519,16 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       });
   });
 
-  it('should eth_estimateGas handles a 501 unimplemented response from the mirror node correctly by throwing COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
+  it('should eth_estimateGas handles a 400 response from the mirror node correctly by throwing COULD_NOT_ESTIMATE_GAS_PRICE error', async function () {
+    const callData: IContractCallRequest = {
+      from: '0x05fba803be258049a27b820088bab1cad2058871',
+      value: '0x1',
+      gasPrice: '0x0',
+    };
     await mockContractCall(
-      transaction,
+      callData,
       true,
-      501,
+      400,
       {
         _status: {
           messages: [
@@ -536,9 +543,10 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       requestDetails,
     );
 
-    await expect(
-      ethImpl.estimateGas({ ...transaction, data: '0x', value: '0x1' }, id, requestDetails),
-    ).to.be.rejectedWith(JsonRpcError, gasPriceErrorMessage);
+    await expect(ethImpl.estimateGas(callData, null, requestDetails)).to.be.rejectedWith(
+      JsonRpcError,
+      gasPriceErrorMessage,
+    );
   });
 
   it('should should perform estimateGas precheck', async function () {
@@ -605,5 +613,33 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(transaction.value).to.eq(1110);
     expect(transaction.gasPrice).to.eq(1000000);
     expect(transaction.gas).to.eq(14250000);
+  });
+
+  describe('eth_estimateGas with mirror node 5xx server errors', function () {
+    const serverErrorStatusCodes = [500, 501, 502, 503, 504];
+
+    serverErrorStatusCodes.forEach((statusCode) => {
+      it(`should throw MirrorNodeClientError when mirror node returns ${statusCode} status code`, async function () {
+        const callData: IContractCallRequest = {
+          from: '0x05fba803be258049a27b820088bab1cad2058871',
+          to: RECEIVER_ADDRESS,
+        };
+
+        await mockContractCall(
+          callData,
+          true,
+          statusCode,
+          { errorMessage: `Server error ${statusCode}`, statusCode },
+          requestDetails,
+        );
+
+        await expect(ethImpl.estimateGas(callData, null, requestDetails))
+          .to.be.rejectedWith(MirrorNodeClientError)
+          .and.eventually.satisfy((error: MirrorNodeClientError) => {
+            expect(error.statusCode).to.equal(statusCode);
+            return true;
+          });
+      });
+    });
   });
 });

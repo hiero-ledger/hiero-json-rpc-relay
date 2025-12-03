@@ -176,11 +176,16 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result));
     } catch (e: any) {
-      if (e instanceof MirrorNodeClientError && e.isContractRevert()) {
-        throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
-      } else {
-        throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE(e.detail || e.message);
+      if (e instanceof MirrorNodeClientError) {
+        if (e.isContractRevert()) {
+          throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+        } else if (e.statusCode === 400) {
+          throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE(e.detail || e.message);
+        }
       }
+
+      // for any other errors, preserve and re-throw to the upper layer as more mapping logic may be applied there
+      throw e;
     }
   }
 
