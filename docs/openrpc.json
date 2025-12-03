@@ -750,10 +750,7 @@
         "name": "Txpool content",
         "schema": {
           "type": "object",
-          "required": [
-            "pending",
-            "queued"
-          ],
+          "required": ["pending", "queued"],
           "properties": {
             "pending": {
               "type": "object",
@@ -799,10 +796,7 @@
         "name": "Txpool contentFrom",
         "schema": {
           "type": "object",
-          "required": [
-            "pending",
-            "queued"
-          ],
+          "required": ["pending", "queued"],
           "properties": {
             "pending": {
               "type": "object",
@@ -1754,22 +1748,16 @@
         ],
         "properties": {
           "blockHash": {
-            "type": [
-              "string"
-            ],
+            "type": ["string"],
             "pattern": "^0x([A-Fa-f0-9]{64})$",
             "description": "Zero hex 32 bytes."
           },
           "blockNumber": {
-            "type": [
-              "null"
-            ],
+            "type": ["null"],
             "description": "Null."
           },
           "transactionIndex": {
-            "type": [
-              "null"
-            ],
+            "type": ["null"],
             "description": "Null."
           },
           "from": {
@@ -1798,10 +1786,7 @@
             "description": "Nonce of the transaction."
           },
           "to": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "pattern": "^0x[a-fA-F0-9]{40}$",
             "description": "Recipient address (null for contract creation)."
           },
@@ -1811,9 +1796,7 @@
             "description": "Value transferred."
           },
           "type": {
-            "type": [
-              "string"
-            ],
+            "type": ["string"],
             "pattern": "^0x[0-9a-fA-F]+$",
             "description": "Transaction type (EIP-2718 typed transactions)."
           },
@@ -1833,34 +1816,22 @@
             "description": "Signature s component."
           },
           "chainId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "pattern": "^0x[0-9a-fA-F]+$",
             "description": "Chain ID for EIP-155 transactions."
           },
           "gasPrice": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "pattern": "^0x[0-9a-fA-F]+$",
             "description": "Gas price."
           },
           "maxFeePerGas": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "pattern": "^0x[0-9a-fA-F]+$",
             "description": "For EIP-1559 transactions: maximum fee per gas."
           },
           "maxPriorityFeePerGas": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "pattern": "^0x[0-9a-fA-F]+$",
             "description": "For EIP-1559 transactions: max priority fee per gas."
           }
@@ -1960,19 +1931,14 @@
       "BlockTracerType": {
         "title": "Block tracer type",
         "type": "string",
-        "enum": [
-          "callTracer",
-          "prestateTracer"
-        ]
+        "enum": ["callTracer", "prestateTracer"]
       },
       "TransactionWithSender": {
         "title": "Transaction object with sender",
         "type": "object",
         "allOf": [
           {
-            "required": [
-              "from"
-            ],
+            "required": ["from"],
             "properties": {
               "from": {
                 "title": "from",
@@ -2057,14 +2023,7 @@
       "TransactionLegacyUnsigned": {
         "type": "object",
         "title": "Legacy transaction.",
-        "required": [
-          "type",
-          "nonce",
-          "gas",
-          "value",
-          "input",
-          "gasPrice"
-        ],
+        "required": ["type", "nonce", "gas", "value", "input", "gasPrice"],
         "properties": {
           "type": {
             "title": "type",
@@ -2120,12 +2079,7 @@
           },
           {
             "title": "EIP-1559 transaction signature properties.",
-            "required": [
-              "yParity",
-              "r",
-              "s",
-              "v"
-            ],
+            "required": ["yParity", "r", "s", "v"],
             "properties": {
               "yParity": {
                 "title": "yParity",
@@ -2182,11 +2136,7 @@
           },
           {
             "title": "Legacy transaction signature properties.",
-            "required": [
-              "v",
-              "r",
-              "s"
-            ],
+            "required": ["v", "r", "s"],
             "properties": {
               "v": {
                 "title": "v",
@@ -2227,13 +2177,7 @@
         "allOf": [
           {
             "title": "Contextual information",
-            "required": [
-              "blockHash",
-              "blockNumber",
-              "from",
-              "hash",
-              "transactionIndex"
-            ],
+            "required": ["blockHash", "blockNumber", "from", "hash", "transactionIndex"],
             "properties": {
               "blockHash": {
                 "title": "block hash",
@@ -2265,9 +2209,7 @@
       "Log": {
         "title": "log",
         "type": "object",
-        "required": [
-          "transactionHash"
-        ],
+        "required": ["transactionHash"],
         "properties": {
           "removed": {
             "title": "removed",
@@ -2323,13 +2265,24 @@
           "logsBloom",
           "transactionHash",
           "transactionIndex",
-          "effectiveGasPrice"
+          "effectiveGasPrice",
+          "type"
         ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "title": "type",
-            "$ref": "#/components/schemas/byte"
+            "description": "Transaction type. Null for HAPI transactions.",
+            "oneOf": [
+              {
+                "title": "Transaction Type",
+                "$ref": "#/components/schemas/byte"
+              },
+              {
+                "title": "Null (HAPI transaction)",
+                "type": "null"
+              }
+            ]
           },
           "transactionHash": {
             "title": "transaction hash",
@@ -2531,10 +2484,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "CALL",
-              "CREATE"
-            ],
+            "enum": ["CALL", "CREATE"],
             "description": "The type of action (CALL for function calls or CREATE for contract creation)."
           },
           "from": {
@@ -2581,11 +2531,7 @@
             "description": "Sub-calls made during this call frame."
           }
         },
-        "required": [
-          "from",
-          "gas",
-          "input"
-        ]
+        "required": ["from", "gas", "input"]
       }
     }
   }
