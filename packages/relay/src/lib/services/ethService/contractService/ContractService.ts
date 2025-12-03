@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Transaction } from 'ethers';
 import { Logger } from 'pino';
 
 import {
@@ -607,7 +608,9 @@ export class ContractService implements IContractService {
         return predefined.CONTRACT_REVERT(error.detail, error.data);
       }
       this.logger.warn(`Returning predefined gas for contract creation: ${gasTxBaseCost}`);
-      return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
+      // Create a minimal transaction-like object for intrinsic gas calculation
+      const txForGasCalc = { data: transaction.data!, to: transaction.to ?? null } as Transaction;
+      return numberTo0x(Precheck.transactionIntrinsicGasCost(txForGasCalc));
     } else if (isContractCall) {
       this.logger.warn(`Returning predefined gas for contract call: ${contractCallAverageGas}`);
       return contractCallAverageGas;

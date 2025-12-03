@@ -96,6 +96,15 @@ export default {
   TX_DEFAULT_GAS_DEFAULT: 400_000,
   TX_CREATE_EXTRA: 32_000,
   TX_DATA_ZERO_COST: 4,
+
+  // EIP-7623: Calldata floor pricing constants
+  TOTAL_COST_FLOOR_PER_TOKEN: 10,
+
+  // EIP-3860: Initcode cost for contract creation
+  INITCODE_WORD_COST: 2,
+
+  // EIP-7702: Authorization list cost for type 4 transactions
+  PER_EMPTY_ACCOUNT_COST: 25_000,
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
   MAX_MIRROR_NODE_PAGINATION: 20,
   MIRROR_NODE_QUERY_LIMIT: 100,
