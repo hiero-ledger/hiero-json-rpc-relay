@@ -51,21 +51,21 @@ describe('IPRateLimiterService Test Suite', function () {
   describe('Constructor Tests', () => {
     it('should accept a store and initialize correctly', () => {
       const lruStore = new LruRateLimitStore(duration);
-      rateLimiterService = new IPRateLimiterService(lruStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(lruStore, registry);
 
       expect(rateLimiterService.rateLimitStore).to.equal(lruStore);
     });
 
     it('should work with LRU store', () => {
       const lruStore = new LruRateLimitStore(duration);
-      rateLimiterService = new IPRateLimiterService(lruStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(lruStore, registry);
 
       expect(rateLimiterService.rateLimitStore).to.be.instanceof(LruRateLimitStore);
     });
 
     it('should work with Redis store', () => {
       const redisStore = new RedisRateLimitStore(mockRedisClient as unknown as RedisClientType, logger, duration);
-      rateLimiterService = new IPRateLimiterService(redisStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(redisStore, registry);
 
       expect(rateLimiterService.rateLimitStore).to.be.instanceof(RedisRateLimitStore);
     });
@@ -74,7 +74,7 @@ describe('IPRateLimiterService Test Suite', function () {
   describe('shouldRateLimit Method Tests', () => {
     withOverriddenEnvsInMochaTest({ RATE_LIMIT_DISABLED: true }, () => {
       it('should return false when RATE_LIMIT_DISABLED is true', async () => {
-        rateLimiterService = new IPRateLimiterService(mockStore, logger, registry);
+        rateLimiterService = new IPRateLimiterService(mockStore, registry);
 
         const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
         expect(result).to.be.false;
@@ -87,7 +87,7 @@ describe('IPRateLimiterService Test Suite', function () {
       });
 
       beforeEach(() => {
-        rateLimiterService = new IPRateLimiterService(mockStore, logger, registry);
+        rateLimiterService = new IPRateLimiterService(mockStore, registry);
       });
 
       it('should return false when within rate limits', async () => {
@@ -150,7 +150,7 @@ describe('IPRateLimiterService Test Suite', function () {
 
     beforeEach(() => {
       lruStore = new LruRateLimitStore(duration);
-      rateLimiterService = new IPRateLimiterService(lruStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(lruStore, registry);
     });
 
     it('should not rate limit when within limits using LRU store', async () => {
@@ -197,7 +197,7 @@ describe('IPRateLimiterService Test Suite', function () {
   describe('Redis Store Integration Tests', () => {
     it('should work with Redis store', () => {
       const redisStore = new RedisRateLimitStore(mockRedisClient as unknown as RedisClientType, logger, duration);
-      rateLimiterService = new IPRateLimiterService(redisStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(redisStore, registry);
 
       expect(rateLimiterService.rateLimitStore).to.be.instanceof(RedisRateLimitStore);
     });
@@ -209,7 +209,7 @@ describe('IPRateLimiterService Test Suite', function () {
       } as unknown as RedisClientType;
 
       const redisStore = new RedisRateLimitStore(failingMockClient, logger, duration);
-      rateLimiterService = new IPRateLimiterService(redisStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(redisStore, registry);
 
       // Should not rate limit when Redis operations fail (fail-open behavior)
       const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
@@ -220,7 +220,7 @@ describe('IPRateLimiterService Test Suite', function () {
   // Ensure store.incrementAndCheck is not called when rate limiting is disabled
   withOverriddenEnvsInMochaTest({ RATE_LIMIT_DISABLED: true }, () => {
     it('should not call store.incrementAndCheck when rate limit is disabled', async () => {
-      rateLimiterService = new IPRateLimiterService(mockStore, logger, registry);
+      rateLimiterService = new IPRateLimiterService(mockStore, registry);
       const result = await rateLimiterService.shouldRateLimit(testIp, testMethod, testLimit, requestDetails);
       expect(result).to.be.false;
       expect(mockStore.incrementAndCheck.notCalled).to.be.true;

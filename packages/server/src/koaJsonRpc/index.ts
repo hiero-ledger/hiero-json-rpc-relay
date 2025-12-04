@@ -19,7 +19,6 @@ import {
   getBatchRequestsEnabled,
   getBatchRequestsMaxSize,
   getDefaultRateLimit,
-  getLimitDuration,
   getRequestIdIsOptional,
 } from './lib/utils';
 
@@ -31,7 +30,6 @@ const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
-  private readonly duration: number = getLimitDuration();
   private readonly defaultRateLimit: number = getDefaultRateLimit();
   private readonly limit: string;
   private readonly rateLimiter: IPRateLimiterService;
@@ -46,13 +44,13 @@ export default class KoaJsonRpc {
     logger: Logger,
     register: Registry,
     relay: Relay,
+    rateLimitStore: RateLimitStore,
     opts?: { limit: string | null },
-    rateLimitStore?: RateLimitStore,
   ) {
     this.koaApp = new Koa();
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
-    this.rateLimiter = new IPRateLimiterService(rateLimitStore!, logger.child({ name: 'ip-rate-limit' }), register);
+    this.rateLimiter = new IPRateLimiterService(rateLimitStore, register);
     this.metricsRegistry = register;
     this.relay = relay;
 

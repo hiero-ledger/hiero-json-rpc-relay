@@ -47,8 +47,8 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     const storeB = new RedisRateLimitStore(redisClient, logger.child({ service: 'WS-B' }), DURATION);
 
     // Create two IPRateLimiterService instances for WebSocket servers pointing to the same Redis
-    wsServiceA = new IPRateLimiterService(storeA, logger.child({ service: 'WS-A' }), registryA);
-    wsServiceB = new IPRateLimiterService(storeB, logger.child({ service: 'WS-B' }), registryB);
+    wsServiceA = new IPRateLimiterService(storeA, registryA);
+    wsServiceB = new IPRateLimiterService(storeB, registryB);
   });
 
   after(async function () {

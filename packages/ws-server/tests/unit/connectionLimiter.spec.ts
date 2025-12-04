@@ -70,7 +70,7 @@ describe('Connection Limiter', function () {
     const mockStore = {
       incrementAndCheck: sinon.stub().resolves(false),
     };
-    const rateLimiter = new IPRateLimiterService(mockStore as any, mockLogger, mockRegistry);
+    const rateLimiter = new IPRateLimiterService(mockStore as any, mockRegistry);
 
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
     connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);

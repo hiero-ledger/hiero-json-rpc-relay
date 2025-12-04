@@ -86,7 +86,7 @@ export async function initializeWsServer() {
 
   const mirrorNodeClient = relay.mirrorClient();
 
-  const rateLimiter = new IPRateLimiterService(rateLimitStore, logger.child({ name: 'ip-rate-limit' }), register);
+  const rateLimiter = new IPRateLimiterService(rateLimitStore, register);
   const limiter = new ConnectionLimiter(logger, register, rateLimiter);
   const wsMetricRegistry = new WsMetricRegistry(register);
 
@@ -264,7 +264,7 @@ export async function initializeWsServer() {
     }
   });
 
-  const koaJsonRpc = new KoaJsonRpc(logger, register, relay, undefined, rateLimitStore);
+  const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
   collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 

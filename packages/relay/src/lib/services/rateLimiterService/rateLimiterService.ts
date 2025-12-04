@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { RateLimitKey, RateLimitStore } from '../../types';
@@ -12,7 +11,6 @@ import { RequestDetails } from '../../types/RequestDetails';
  */
 export class IPRateLimiterService {
   private store: RateLimitStore;
-  private logger: Logger;
   private ipRateLimitCounter: Counter;
 
   /**
@@ -22,9 +20,8 @@ export class IPRateLimiterService {
    * @param logger - Logger instance for logging.
    * @param register - Prometheus registry for metrics.
    */
-  constructor(store: RateLimitStore, logger: Logger, register: Registry) {
+  constructor(store: RateLimitStore, register: Registry) {
     this.store = store;
-    this.logger = logger;
 
     // Initialize IP rate limit counter
     const ipRateLimitMetricName = 'rpc_relay_ip_rate_limit';

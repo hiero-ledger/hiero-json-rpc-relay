@@ -160,15 +160,9 @@ export async function initializeServer() {
     redisClient,
   );
 
-  const koaJsonRpc = new KoaJsonRpc(
-    logger.child({ name: 'koa-rpc' }),
-    register,
-    relay,
-    {
-      limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
-    },
-    rateLimitStore,
-  );
+  const koaJsonRpc = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, rateLimitStore, {
+    limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
+  });
 
   const app = koaJsonRpc.getKoaApp();
 

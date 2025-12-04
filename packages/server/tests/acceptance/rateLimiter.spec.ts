@@ -46,8 +46,8 @@ describe('@ratelimiter Shared Rate Limiting Acceptance Tests', function () {
     const storeB = new RedisRateLimitStore(redisClient, logger.child({ service: 'B' }), DURATION);
 
     // Create two IPRateLimiterService instances pointing to the same Redis
-    serviceA = new IPRateLimiterService(storeA, logger.child({ service: 'A' }), registryA);
-    serviceB = new IPRateLimiterService(storeB, logger.child({ service: 'B' }), registryB);
+    serviceA = new IPRateLimiterService(storeA, registryA);
+    serviceB = new IPRateLimiterService(storeB, registryB);
   });
 
   after(async function () {
