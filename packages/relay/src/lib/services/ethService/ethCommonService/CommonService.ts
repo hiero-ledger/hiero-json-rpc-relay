@@ -458,7 +458,7 @@ export class CommonService implements ICommonService {
       }
     }
 
-    throw predefined.COULD_NOT_SIMULATE_TRANSACTION('Failed to retrieve gas price from network fees');
+    throw predefined.INTERNAL_ERROR('Failed to retrieve gas price from network fees');
   }
 
   /**
