@@ -925,4 +925,22 @@ describe('Precheck', async function () {
       );
     });
   });
+
+  describe('accessList', async function () {
+    it('should successfully parse a valid transaction string with empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [];
+      precheck.accessList(parsedTxWithMatchingChainId);
+      expect(parsedTxWithMatchingChainId.accessList).to.be.empty;
+    });
+
+    it('should throw NOT_YET_IMPLEMENTED for non-empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [
+        {
+          address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+          storageKeys: [],
+        },
+      ];
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('Not yet implemented');
+    });
+  });
 });

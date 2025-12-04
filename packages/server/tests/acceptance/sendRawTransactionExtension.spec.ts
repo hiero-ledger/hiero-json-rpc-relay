@@ -119,6 +119,26 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
         await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
       });
+
+      it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [],
+          to: accounts[0].address,
+        };
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+      });
     });
 
     describe('callDataSize', function () {
