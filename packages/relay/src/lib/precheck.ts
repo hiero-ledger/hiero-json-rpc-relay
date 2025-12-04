@@ -220,7 +220,7 @@ export class Precheck {
    * @param tx - The transaction.
    */
   accessList(tx: Transaction): void {
-    if (tx.accessList && tx.accessList.length > 0) throw predefined.NOT_YET_IMPLEMENTED;
+    if (tx.accessList?.length) throw predefined.NOT_YET_IMPLEMENTED;
   }
 
   /**
