@@ -526,14 +526,13 @@ export class ContractService implements IContractService {
     }
 
     if (e.isContractRevert()) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
-        );
-      }
       return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+    } else if (e.statusCode === 400) {
+      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
     }
-    // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
+
+    // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
+    // preserve the original error and re-throw to the upper layer for further handling logic
     throw e;
   }
 

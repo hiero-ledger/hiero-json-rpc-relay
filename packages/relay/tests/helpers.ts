@@ -351,6 +351,58 @@ const mockData = {
       ],
     },
   },
+
+  genericBadRequest: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad request',
+          detail: 'Invalid request parameters',
+          data: '',
+        },
+      ],
+    },
+  },
+
+  internalServerError: {
+    _status: {
+      messages: [
+        {
+          message: 'Internal Server Error',
+        },
+      ],
+    },
+  },
+
+  badGateway: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad Gateway',
+        },
+      ],
+    },
+  },
+
+  serviceUnavailable: {
+    _status: {
+      messages: [
+        {
+          message: 'Service Unavailable',
+        },
+      ],
+    },
+  },
+
+  gatewayTimeout: {
+    _status: {
+      messages: [
+        {
+          message: 'Gateway Timeout',
+        },
+      ],
+    },
+  },
 };
 
 export { expectUnsupportedMethod, expectedError, signTransaction, mockData, random20BytesAddress, getQueryParams };
