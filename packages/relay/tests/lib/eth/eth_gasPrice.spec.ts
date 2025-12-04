@@ -84,7 +84,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
 
       restMock.onGet(`network/fees`).reply(200, JSON.stringify(partialNetworkFees));
       await RelayAssertions.assertRejection(
-        predefined.COULD_NOT_ESTIMATE_GAS_PRICE('Failed to retrieve gas price from network fees'),
+        predefined.COULD_NOT_SIMULATE_TRANSACTION('Failed to retrieve gas price from network fees'),
         ethImpl.gasPrice,
         true,
         ethImpl,
@@ -140,7 +140,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
 
       it('eth_gasPrice with no network fees records found', async function () {
         await RelayAssertions.assertRejection(
-          predefined.COULD_NOT_ESTIMATE_GAS_PRICE('Failed to retrieve gas price from network fees'),
+          predefined.COULD_NOT_SIMULATE_TRANSACTION('Failed to retrieve gas price from network fees'),
           ethImpl.gasPrice,
           true,
           ethImpl,

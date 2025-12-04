@@ -162,7 +162,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         return (
           errorBody &&
           errorBody.code === -32000 &&
-          errorBody.message.includes('Error occurred during gas price estimation')
+          errorBody.message.includes('Error occurred during transaction simulation')
         );
       });
     });
@@ -463,7 +463,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     });
 
     describe('Gas estimation errors (non-contract revert)', async function () {
-      it('should throw COULD_NOT_ESTIMATE_GAS_PRICE error when sender account does not exist', async function () {
+      it('should throw COULD_NOT_SIMULATE_TRANSACTION error when sender account does not exist', async function () {
         const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
           {
             from: NON_EXISTENT_ACCOUNT,
@@ -477,13 +477,13 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
           return (
             errorBody &&
             errorBody.code === -32000 &&
-            errorBody.message.includes('Error occurred during gas price estimation') &&
+            errorBody.message.includes('Error occurred during transaction simulation') &&
             errorBody.message.includes('Sender account not found')
           );
         });
       });
 
-      it('should throw COULD_NOT_ESTIMATE_GAS_PRICE error when "to" field is empty for contract call', async function () {
+      it('should throw COULD_NOT_SIMULATE_TRANSACTION error when "to" field is empty for contract call', async function () {
         const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
           {
             from: accounts[0].address,
@@ -496,7 +496,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
           return (
             errorBody &&
             errorBody.code === -32000 &&
-            errorBody.message.includes('Error occurred during gas price estimation')
+            errorBody.message.includes('Error occurred during transaction simulation')
           );
         });
       });

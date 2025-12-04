@@ -180,11 +180,12 @@ export class ContractService implements IContractService {
         if (e.isContractRevert()) {
           throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
         } else if (e.statusCode === 400) {
-          throw predefined.COULD_NOT_ESTIMATE_GAS_PRICE(e.detail || e.message);
+          throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
         }
       }
 
-      // for any other errors, preserve and re-throw to the upper layer as more mapping logic may be applied there
+      // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
+      // preserve the original error and re-throw to the upper layer for further handling logic
       throw e;
     }
   }
