@@ -13,6 +13,7 @@ import path from 'path';
 
 // import WebSocket from 'ws';
 import openRpcData from '../../../../docs/openrpc.json';
+import { Utils } from '../helpers/utils';
 import genesisData from './data/conformity/genesis.json';
 // import CallerContract from '../contracts/Caller.json';
 // import LogsContract from '../contracts/Logs.json';
@@ -125,9 +126,12 @@ describe('@api-conformity', async function () {
 
       // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
       const servicesNode = global.servicesNode;
+      const hapiTestAccount = await Utils.createAliasAccount(
+        global.mirrorNode,
+        global.accounts[0],
+        '1000000000', // 10 HBAR
+      );
       const tokenId = await servicesNode.createToken(1000);
-      // Use accounts[2] to avoid conflicts with other test setup (following rpc_batch1.spec.ts pattern)
-      const hapiTestAccount = global.accounts[2] || global.accounts[0];
       try {
         await hapiTestAccount.client.associateToken(tokenId);
       } catch (e: any) {
