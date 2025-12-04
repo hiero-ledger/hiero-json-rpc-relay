@@ -71,6 +71,7 @@ export class SubscriptionService {
     return generateRandomHex();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   public subscribe(connection, event: string, filters?: {}) {
     let tag: any = { event };
     if (filters && Object.keys(filters).length) {
@@ -87,16 +88,14 @@ export class SubscriptionService {
       // Check if the connection is already subscribed to this event
       const existingSub = this.subscriptions[tag].find((sub) => sub.connection.id === connection.id);
       if (existingSub) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Connection ${connection.id}: Attempting to subscribe to ${tag}; already subscribed`);
-        }
+        this.logger.debug(`Connection %s: Attempting to subscribe to %s; already subscribed`, connection.id, tag);
         return existingSub.subscriptionId;
       }
     }
 
     const subId = this.generateId();
 
-    this.logger.info(`Connection ${connection.id}: created subscription ${subId}, listening for ${tag}`);
+    this.logger.info(`Connection %s: created subscription %s, listening for %s`, connection.id, subId, tag);
 
     this.subscriptions[tag].push({
       subscriptionId: subId,
@@ -113,9 +112,9 @@ export class SubscriptionService {
     const { id } = connection;
 
     if (subId) {
-      this.logger.info(`Connection ${id}: Unsubscribing from ${subId}`);
+      this.logger.info(`Connection %s: Unsubscribing from %s`, id, subId);
     } else {
-      this.logger.info(`Connection ${id}: Unsubscribing from all subscriptions`);
+      this.logger.info(`Connection %s: Unsubscribing from all subscriptions`, id);
     }
 
     let subCount = 0;
@@ -123,11 +122,12 @@ export class SubscriptionService {
       this.subscriptions[tag] = subs.filter((sub) => {
         const match = sub.connection.id === id && (!subId || subId === sub.subscriptionId);
         if (match) {
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `Connection ${sub.connection.id}. Unsubscribing subId: ${sub.subscriptionId}; tag: ${tag}`,
-            );
-          }
+          this.logger.debug(
+            `Connection %s. Unsubscribing subId: %s; tag: %s`,
+            sub.connection.id,
+            sub.subscriptionId,
+            tag,
+          );
           sub.endTimer();
           subCount++;
         }
@@ -136,9 +136,7 @@ export class SubscriptionService {
       });
 
       if (!this.subscriptions[tag].length) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`No subscribers for ${tag}. Removing from list.`);
-        }
+        this.logger.debug(`No subscribers for %s. Removing from list.`, tag);
         delete this.subscriptions[tag];
         this.pollerService.remove(tag);
       }
@@ -159,11 +157,13 @@ export class SubscriptionService {
         // If the hash exists in the cache then the data has recently been sent to the subscriber
         if (!this.cache.get(hash)) {
           this.cache.set(hash, true);
-          if (this.logger.isLevelEnabled('debug')) {
-            this.logger.debug(
-              `Sending data from tag: ${tag} to subscriptionId: ${sub.subscriptionId}, connectionId: ${sub.connection.id}, data: ${subscriptionData}`,
-            );
-          }
+          this.logger.debug(
+            `Sending data from tag: %s to subscriptionId: %s, connectionId: %s, data: %s`,
+            tag,
+            sub.subscriptionId,
+            sub.connection.id,
+            subscriptionData,
+          );
           this.resultsSentToSubscribersCounter.labels('sub.subscriptionId', tag).inc();
           sub.connection.send(
             JSON.stringify({

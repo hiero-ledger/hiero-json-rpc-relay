@@ -59,7 +59,7 @@ export class RedisRateLimitStore implements RateLimitStore {
       socket: {
         reconnectStrategy: (retries: number) => {
           const delay = retries * reconnectDelay;
-          this.logger.warn(`Rate limiter Redis reconnection attempt #${retries}. Delay: ${delay}ms`);
+          this.logger.warn(`Rate limiter Redis reconnection attempt #%s. Delay: %sms`, retries, delay);
           return delay;
         },
       },
@@ -87,9 +87,9 @@ export class RedisRateLimitStore implements RateLimitStore {
       this.connected = Promise.resolve(false);
       const redisError = new RedisCacheError(error);
       if (redisError.isSocketClosed()) {
-        this.logger.error(`Rate limiter Redis error when closing socket: ${redisError.message}`);
+        this.logger.error(`Rate limiter Redis error when closing socket: %s`, redisError.message);
       } else {
-        this.logger.error(`Rate limiter Redis error: ${redisError.fullError}`);
+        this.logger.error(`Rate limiter Redis error: %s`, redisError.fullError);
       }
     });
   }
@@ -129,10 +129,13 @@ export class RedisRateLimitStore implements RateLimitStore {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({
-        msg: `Rate limit store operation failed for IP address method for method ${key.method}. Error: ${errorMessage}. Allowing request to proceed (fail-open behavior).`,
+
+      this.logger.error(
         error,
-      });
+        `Rate limit store operation failed for IP address method for method %s. Error: %s. Allowing request to proceed (fail-open behavior).`,
+        key.method,
+        errorMessage,
+      );
 
       // Fail open: allow the request to proceed if rate limiting fails
       return false;
