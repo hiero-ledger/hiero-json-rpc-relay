@@ -121,10 +121,10 @@ export class LocalLRUCache implements ICacheClient {
     const cache = this.getCacheInstance(key);
     const value = cache.get(prefixedKey);
     if (value !== undefined) {
-      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-      const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`);
+        const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+        const censoredValue = JSON.stringify(value).replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+        this.logger.trace('Returning cached value %s:%s on %s call', censoredKey, censoredValue, callingMethod);
       }
       return value;
     }
@@ -142,9 +142,8 @@ export class LocalLRUCache implements ICacheClient {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(prefixedKey); // in milliseconds
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`returning remaining TTL ${key}:${remainingTtl} on ${callingMethod} call`);
-    }
+    this.logger.trace(`returning remaining TTL %s:%s on %s call`, key, remainingTtl, callingMethod);
+
     return remainingTtl;
   }
 
@@ -171,7 +170,7 @@ export class LocalLRUCache implements ICacheClient {
       const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
         resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
       }`;
-      this.logger.trace(`${message} (cache size: ${this.cache.size}, max: ${this.options.max})`);
+      this.logger.trace(`%s (cache size: %s, max: %s)`, message, this.cache.size, this.options.max);
     }
   }
 
@@ -212,9 +211,9 @@ export class LocalLRUCache implements ICacheClient {
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
     const prefixedKey = this.prefixKey(key);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
-    }
+
+    this.logger.trace(`delete cache for %s on %s call`, key, callingMethod);
+
     const cache = this.getCacheInstance(key);
     cache.delete(prefixedKey);
   }
@@ -273,9 +272,8 @@ export class LocalLRUCache implements ICacheClient {
 
     const matchingKeys = keys.filter((key) => regex.test(key));
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
-    }
+    this.logger.trace(`retrieving keys matching %s on %s call`, pattern, callingMethod);
+
     // Remove the prefix from the returned keys
     return matchingKeys.map((key) => key.substring(LocalLRUCache.CACHE_KEY_PREFIX.length));
   }

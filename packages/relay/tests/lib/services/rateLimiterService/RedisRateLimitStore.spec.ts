@@ -119,7 +119,7 @@ describe('RedisRateLimitStore Test Suite', function () {
       const reconnectDelay = config.socket.reconnectStrategy(3);
       expect(reconnectDelay).to.equal(3000); // 3 retries * 1000ms delay
       expect(loggerWarnSpy.calledOnce).to.be.true;
-      expect(loggerWarnSpy.calledWith('Rate limiter Redis reconnection attempt #3. Delay: 3000ms')).to.be.true;
+      expect(loggerWarnSpy.calledWith('Rate limiter Redis reconnection attempt #%s. Delay: %sms')).to.be.true;
     });
 
     it('should handle Redis ready event', async () => {
@@ -179,7 +179,8 @@ describe('RedisRateLimitStore Test Suite', function () {
       expect(await store.isConnected()).to.be.false;
       expect(loggerErrorSpy.calledOnce).to.be.true;
       const logCall = loggerErrorSpy.getCall(0);
-      expect(logCall.args[0]).to.equal('Rate limiter Redis error: RedisCacheError: Socket closed');
+      expect(logCall.args[0]).to.equal('Rate limiter Redis error: %s');
+      expect(logCall.args[1]).to.equal(redisCacheError);
     });
 
     it('should handle Redis error event with non-socket error', async () => {
@@ -204,7 +205,8 @@ describe('RedisRateLimitStore Test Suite', function () {
 
       expect(await store.isConnected()).to.be.false;
       expect(loggerErrorSpy.calledOnce).to.be.true;
-      expect(loggerErrorSpy.getCall(0).args[0]).to.equal('Rate limiter Redis error: Full Redis error message');
+      expect(loggerErrorSpy.getCall(0).args[0]).to.equal('Rate limiter Redis error: %s');
+      expect(loggerErrorSpy.getCall(0).args[1]).to.equal(mockRedisCacheError.fullError);
 
       redisCacheErrorStub.restore();
     });

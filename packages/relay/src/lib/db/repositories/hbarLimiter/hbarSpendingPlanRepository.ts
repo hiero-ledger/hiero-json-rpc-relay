@@ -42,9 +42,7 @@ export class HbarSpendingPlanRepository {
     if (!plan) {
       throw new HbarSpendingPlanNotFoundError(id);
     }
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Retrieved subscription with ID ${id}`);
-    }
+    this.logger.debug(`Retrieved subscription with ID %s`, id);
     return {
       ...plan,
       createdAt: new Date(plan.createdAt),
@@ -81,18 +79,14 @@ export class HbarSpendingPlanRepository {
       spendingHistory: [],
       amountSpent: 0,
     };
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Creating HbarSpendingPlan with ID ${plan.id}...`);
-    }
+    this.logger.debug(`Creating HbarSpendingPlan with ID %s...`, plan.id);
     const key = this.getKey(plan.id);
     await this.cache.set(key, plan, 'create', ttl);
     return new HbarSpendingPlan(plan);
   }
 
   async delete(id: string): Promise<void> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Deleting HbarSpendingPlan with ID ${id}...`);
-    }
+    this.logger.trace(`Deleting HbarSpendingPlan with ID %s...`, id);
     const key = this.getKey(id);
     await this.cache.delete(key, 'delete');
   }
@@ -117,9 +111,7 @@ export class HbarSpendingPlanRepository {
   async getSpendingHistory(id: string): Promise<IHbarSpendingRecord[]> {
     await this.checkExistsAndActive(id);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Retrieving spending history for HbarSpendingPlan with ID ${id}...`);
-    }
+    this.logger.trace(`Retrieving spending history for HbarSpendingPlan with ID %s...`, id);
     const key = this.getSpendingHistoryKey(id);
     const spendingHistory = await this.cache.lRange<IHbarSpendingRecord>(key, 0, -1, 'getSpendingHistory');
     return spendingHistory.map((entry) => new HbarSpendingRecord(entry));
@@ -134,9 +126,7 @@ export class HbarSpendingPlanRepository {
   async addAmountToSpendingHistory(id: string, amount: number): Promise<number> {
     await this.checkExistsAndActive(id);
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Adding ${amount} to spending history for HbarSpendingPlan with ID ${id}...`);
-    }
+    this.logger.trace(`Adding %s to spending history for HbarSpendingPlan with ID %s...`, amount, id);
     const key = this.getSpendingHistoryKey(id);
     const entry: IHbarSpendingRecord = { amount, timestamp: new Date() };
     return this.cache.rPush(key, entry, 'addAmountToSpendingHistory');
@@ -150,9 +140,7 @@ export class HbarSpendingPlanRepository {
   async getAmountSpent(id: string): Promise<number> {
     await this.checkExistsAndActive(id);
 
-    if (this.logger.isLevelEnabled('debug')) {
-      this.logger.debug(`Retrieving amountSpent for HbarSpendingPlan with ID ${id}...`);
-    }
+    this.logger.debug(`Retrieving amountSpent for HbarSpendingPlan with ID %s...`, id);
     const key = this.getAmountSpentKey(id);
     return this.cache.getAsync(key, 'getAmountSpent').then((amountSpent) => parseInt(amountSpent ?? '0'));
   }
@@ -169,7 +157,7 @@ export class HbarSpendingPlanRepository {
     const keys = await this.cache.keys(this.getAmountSpentKey('*'), callerMethod);
     await Promise.all(keys.map((key) => this.cache.delete(key, callerMethod)));
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Successfully reset ${keys.length} "amountSpent" entries for HbarSpendingPlans.`);
+      this.logger.trace(`Successfully reset %s "amountSpent" entries for HbarSpendingPlans.`, keys.length);
     }
   }
 
@@ -185,14 +173,10 @@ export class HbarSpendingPlanRepository {
 
     const key = this.getAmountSpentKey(id);
     if (!(await this.cache.getAsync(key, 'addToAmountSpent'))) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`No spending yet for HbarSpendingPlan with ID ${id}, setting amountSpent to ${amount}...`);
-      }
+      this.logger.trace(`No spending yet for HbarSpendingPlan with ID %s, setting amountSpent to %s...`, id, amount);
       await this.cache.set(key, amount, 'addToAmountSpent', ttl);
     } else {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Adding ${amount} to amountSpent for HbarSpendingPlan with ID ${id}...`);
-      }
+      this.logger.debug(`Adding %s to amountSpent for HbarSpendingPlan with ID %s...`, amount, id);
       await this.cache.incrBy(key, amount, 'addToAmountSpent');
     }
   }

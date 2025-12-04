@@ -86,7 +86,7 @@ export class RedisCache implements IRedisCacheClient {
       if (this.logger.isLevelEnabled('trace')) {
         const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
         const censoredValue = result.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-        this.logger.trace(`Returning cached value ${censoredKey}:${censoredValue} on ${callingMethod} call`);
+        this.logger.trace(`Returning cached value %s:%s on %s call`, censoredKey, censoredValue, callingMethod);
       }
       // TODO: add metrics
       return JSON.parse(result);
@@ -113,13 +113,13 @@ export class RedisCache implements IRedisCacheClient {
       await this.client.set(prefixedKey, serializedValue);
     }
 
-    const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
-    const censoredValue = serializedValue.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
-    const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
-      resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
-    }`;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`${message}`);
+      const censoredKey = key.replace(Utils.IP_ADDRESS_REGEX, '<REDACTED>');
+      const censoredValue = serializedValue.replace(/"ipAddress":"[^"]+"/, '"ipAddress":"<REDACTED>"');
+      const message = `Caching ${censoredKey}:${censoredValue} on ${callingMethod} for ${
+        resolvedTtl > 0 ? `${resolvedTtl} ms` : 'indefinite time'
+      }`;
+      this.logger.trace(`%s`, message);
     }
     // TODO: add metrics
   }
@@ -143,9 +143,12 @@ export class RedisCache implements IRedisCacheClient {
     await this.client.mSet(serializedKeyValuePairs);
 
     // Log the operation
-    const entriesLength = Object.keys(keyValuePairs).length;
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`caching multiple keys via ${callingMethod}, total keys: ${entriesLength}`);
+      this.logger.trace(
+        `caching multiple keys via %s, total keys: %s`,
+        callingMethod,
+        Object.keys(keyValuePairs).length,
+      );
     }
   }
 
@@ -171,10 +174,13 @@ export class RedisCache implements IRedisCacheClient {
     // Execute pipeline operation
     await pipeline.execAsPipeline();
 
+    // Log the operation
     if (this.logger.isLevelEnabled('trace')) {
-      // Log the operation
-      const entriesLength = Object.keys(keyValuePairs).length;
-      this.logger.trace(`caching multiple keys via ${callingMethod}, total keys: ${entriesLength}`);
+      this.logger.trace(
+        `caching multiple keys via %s, total keys: %s`,
+        callingMethod,
+        Object.keys(keyValuePairs).length,
+      );
     }
   }
 
@@ -188,9 +194,7 @@ export class RedisCache implements IRedisCacheClient {
   async delete(key: string, callingMethod: string): Promise<void> {
     const prefixedKey = this.prefixKey(key);
     await this.client.del(prefixedKey);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`delete cache for ${key} on ${callingMethod} call`);
-    }
+    this.logger.trace(`delete cache for %s on %s call`, key, callingMethod);
     // TODO: add metrics
   }
 
@@ -205,9 +209,7 @@ export class RedisCache implements IRedisCacheClient {
   async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.incrBy(prefixedKey, amount);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`incrementing ${key} by ${amount} on ${callingMethod} call`);
-    }
+    this.logger.trace(`incrementing %s by %s on %s call`, key, amount, callingMethod);
     return result;
   }
 
@@ -223,9 +225,7 @@ export class RedisCache implements IRedisCacheClient {
   async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
     const prefixedKey = this.prefixKey(key);
     const result = await this.client.lRange(prefixedKey, start, end);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`retrieving range [${start}:${end}] from ${key} on ${callingMethod} call`);
-    }
+    this.logger.trace(`retrieving range [%s:%s] from %s on %s call`, start, end, key, callingMethod);
     return result.map((item) => JSON.parse(item));
   }
 
@@ -242,7 +242,7 @@ export class RedisCache implements IRedisCacheClient {
     const serializedValue = JSON.stringify(value);
     const result = await this.client.rPush(prefixedKey, serializedValue);
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`pushing ${serializedValue} to ${key} on ${callingMethod} call`);
+      this.logger.trace(`pushing %s to %s on %s call`, serializedValue, key, callingMethod);
     }
     return result;
   }
@@ -256,9 +256,7 @@ export class RedisCache implements IRedisCacheClient {
   async keys(pattern: string, callingMethod: string): Promise<string[]> {
     const prefixedPattern = this.prefixKey(pattern);
     const result = await this.client.keys(prefixedPattern);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`retrieving keys matching ${pattern} on ${callingMethod} call`);
-    }
+    this.logger.trace(`retrieving keys matching %s on %s call`, pattern, callingMethod);
     // Remove the prefix from the returned keys
     return result.map((key) => key.substring(RedisCache.CACHE_KEY_PREFIX.length));
   }
@@ -283,7 +281,7 @@ export class RedisCache implements IRedisCacheClient {
       await pipeline.exec();
 
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Cleared ${keysToDelete.length} cache keys`);
+        this.logger.trace(`Cleared %s cache keys`, keysToDelete.length);
       }
     }
   }

@@ -216,9 +216,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async blockNumber(requestDetails: RequestDetails): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`blockNumber()`);
-    }
+    this.logger.trace(`blockNumber()`);
     return await this.common.getLatestBlockNumber(requestDetails);
   }
 
@@ -235,9 +233,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   chainId(): string {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`chainId()`);
-    }
+    this.logger.trace(`chainId()`);
     return this.chain;
   }
 
@@ -305,9 +301,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async mining(): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('mining()');
-    }
+    this.logger.trace('mining()');
     return false;
   }
 
@@ -328,7 +322,7 @@ export class EthImpl implements Eth {
   })
   async newFilter(params: INewFilterParams, requestDetails: RequestDetails): Promise<string> {
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`newFilter(params=${JSON.stringify(params)})`);
+      this.logger.trace(`newFilter(params=%s)`, JSON.stringify(params));
     }
     return this.filterService.newFilter(params, requestDetails);
   }
@@ -348,9 +342,7 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async getFilterLogs(filterId: string, requestDetails: RequestDetails): Promise<Log[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getFilterLogs(${filterId})`);
-    }
+    this.logger.trace(`getFilterLogs(%s)`, filterId);
     return this.filterService.getFilterLogs(filterId, requestDetails);
   }
 
@@ -369,9 +361,7 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async getFilterChanges(filterId: string, requestDetails: RequestDetails): Promise<string[] | Log[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getFilterChanges(${filterId})`);
-    }
+    this.logger.trace(`getFilterChanges(%s)`, filterId);
     return this.filterService.getFilterChanges(filterId, requestDetails);
   }
 
@@ -387,9 +377,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async newBlockFilter(requestDetails: RequestDetails): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('newBlockFilter()');
-    }
+    this.logger.trace('newBlockFilter()');
     return this.filterService.newBlockFilter(requestDetails);
   }
 
@@ -407,9 +395,7 @@ export class EthImpl implements Eth {
     0: { type: 'hex', required: true },
   })
   async uninstallFilter(filterId: string): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`uninstallFilter(${filterId})`);
-    }
+    this.logger.trace(`uninstallFilter(%s)`, filterId);
     return this.filterService.uninstallFilter(filterId);
   }
 
@@ -425,9 +411,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   newPendingTransactionFilter(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('newPendingTransactionFilter()');
-    }
+    this.logger.trace('newPendingTransactionFilter()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -437,9 +421,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async submitWork(): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('submitWork()');
-    }
+    this.logger.trace('submitWork()');
     return false;
   }
 
@@ -449,9 +431,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async syncing(): Promise<boolean> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('syncing()');
-    }
+    this.logger.trace('syncing()');
     return false;
   }
 
@@ -533,9 +513,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async hashrate(): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('hashrate()');
-    }
+    this.logger.trace('hashrate()');
     return constants.ZERO_HEX;
   }
 
@@ -550,9 +528,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   getWork(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getWork()');
-    }
+    this.logger.trace('getWork()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -567,9 +543,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   submitHashrate(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('submitHashrate()');
-    }
+    this.logger.trace('submitHashrate()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -626,9 +600,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   protocolVersion(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('protocolVersion()');
-    }
+    this.logger.trace('protocolVersion()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -643,9 +615,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   coinbase(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('coinbase()');
-    }
+    this.logger.trace('coinbase()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -660,9 +630,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   simulateV1(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('simulateV1()');
-    }
+    this.logger.trace('simulateV1()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -677,9 +645,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   blobBaseFee(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('blobBaseFee()');
-    }
+    this.logger.trace('blobBaseFee()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -993,9 +959,7 @@ export class EthImpl implements Eth {
     );
     // log request info and increment metrics counter
     const callDataSize = callData ? callData.length : 0;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`call data size: ${callDataSize}`);
-    }
+    this.logger.trace(`call data size: %s`, callDataSize);
 
     this.eventEmitter.emit('eth_execution', {
       method: constants.ETH_CALL,
@@ -1102,9 +1066,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   async maxPriorityFeePerGas(): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('maxPriorityFeePerGas()');
-    }
+    this.logger.trace('maxPriorityFeePerGas()');
     return constants.ZERO_HEX;
   }
 
@@ -1143,9 +1105,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   getProof(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('getProof()');
-    }
+    this.logger.trace('getProof()');
     return predefined.UNSUPPORTED_METHOD;
   }
 
@@ -1161,9 +1121,7 @@ export class EthImpl implements Eth {
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
   createAccessList(): JsonRpcError {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace('createAccessList()');
-    }
+    this.logger.trace('createAccessList()');
     return predefined.UNSUPPORTED_METHOD;
   }
 }
