@@ -265,11 +265,8 @@ export class Precheck {
     // EIP-7623: tokens_in_calldata = zero_bytes + non_zero_bytes * 4
     const tokensInCalldata = zeroBytes + nonZeroBytes * 4;
 
-    // Standard intrinsic gas cost (calldata pricing: 4 gas per zero byte, 16 gas per non-zero byte)
-    let standardIntrinsicGas =
-      constants.TX_BASE_COST +
-      constants.TX_DATA_ZERO_COST * zeroBytes +
-      constants.ISTANBUL_TX_DATA_NON_ZERO_COST * nonZeroBytes;
+    // Standard intrinsic gas cost (EIP-7623: STANDARD_TOKEN_COST * tokens)
+    let standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokensInCalldata;
 
     // EIP-3860: Add contract creation cost if tx.to is null (contract deployment)
     const isContractCreation = tx.to === null || tx.to === undefined;
