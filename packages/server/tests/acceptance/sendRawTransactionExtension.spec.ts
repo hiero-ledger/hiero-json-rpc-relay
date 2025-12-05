@@ -97,6 +97,50 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       });
     });
 
+    describe('accessList', function () {
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [],
+            },
+          ],
+          to: accounts[0].address,
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
+      });
+
+      it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [],
+          to: accounts[0].address,
+        };
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+      });
+    });
+
     describe('callDataSize', function () {
       it('@release should execute "eth_sendRawTransaction" with regular transaction size within the CALL_DATA_SIZE_LIMIT - 128kb limit', async function () {
         const gasPrice = await relay.gasPrice();
