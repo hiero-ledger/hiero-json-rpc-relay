@@ -885,14 +885,8 @@ describe('RPC Server', function () {
       for (let i = 0; i < 101; i++) {
         requests.push(getEthChainIdRequest(i + 1));
       }
-
-      // execute batch request
-      try {
-        await testClient.post('/', requests);
-        Assertions.expectedError();
-      } catch (error: any) {
-        BaseTest.batchRequestLimitError(error.response, requests.length, 100);
-      }
+      const response = await testClient.post('/', requests);
+      BaseTest.batchRequestLimitError(response, requests.length, 100);
     });
 
     withOverriddenEnvsInMochaTest({ BATCH_REQUESTS_ENABLED: false }, async function () {
@@ -3410,10 +3404,12 @@ class BaseTest {
   }
 
   static batchRequestLimitError(response: any, amount: number, max: number) {
-    expect(response.status).to.eq(400);
-    expect(response.statusText).to.be.equal('Bad Request');
-    expect(response.data.error.message).to.match(requestIdRegex(`Batch request amount ${amount} exceeds max ${max}`));
-    expect(response.data.error.code).to.eq(-32203);
+    expect(response.status).to.eq(200);
+    expect(response.statusText).to.be.equal('OK');
+    expect(response.data[0].error.message).to.match(
+      requestIdRegex(`Batch request amount ${amount} exceeds max ${max}`),
+    );
+    expect(response.data[0].error.code).to.eq(-32203);
   }
 
   static invalidParamError(response: any, code: number, message: string) {

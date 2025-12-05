@@ -38,6 +38,10 @@ jobs:
           - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
           - { name: 'Cache Service', testfilter: 'cache-service' }
           - { name: 'Server Config', testfilter: 'serverconfig' }
+          - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
+          - name: "Semantics and default OK response status"
+            testfilter: "json_rpc_compliance"
+            valid_json_rpc_http_requests_status_code: true
     uses: ./.github/workflows/acceptance-workflow.yml
     with:
       testfilter: ${{ matrix.test.testfilter }}
