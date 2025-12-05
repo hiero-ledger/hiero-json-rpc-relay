@@ -1,0 +1,43 @@
+[2025-11-26 06:28:10] Starting load test against http://localhost:7546
+[2025-11-26 06:28:10] Sending request 1: eth_getBlockByNumber with params ["0x392ef1b",true] (Expected Tx Count: 11399)
+[2025-11-26 06:28:10] Sending request 2: eth_getBlockByNumber with params ["0x392ef1c",true] (Expected Tx Count: 6019)
+[2025-11-26 06:28:10] Sending request 3: eth_getBlockByNumber with params ["0x392ef1d",true] (Expected Tx Count: 3933)
+[2025-11-26 06:28:10] Sending request 4: eth_getBlockByHash with params ["0xec6c5c228d72222b28d6b5f93e0d78ee10560b7e2a126a693ed28f735d64c4c5",true] (Expected Tx Count: 11399)
+[2025-11-26 06:28:10] Sending request 5: eth_getBlockByHash with params ["0x096fab12b07b1dfddeb4adde2033d2af69aaada7964cfb85ed8d49576be467dc",true] (Expected Tx Count: 6019)
+[2025-11-26 06:28:10] Sending request 6: eth_getBlockByHash with params ["0x5d997123d3b7b094ebba1dbb1928c5f0efa8813cd42d0049c2b5a94de6d42974",true] (Expected Tx Count: 3933)
+[2025-11-26 06:28:10] Sending request 7: eth_getBlockReceipts with params ["0x392ef1b"] (Expected Tx Count: 11399)
+[2025-11-26 06:28:10] Sending request 8: eth_getBlockReceipts with params ["0x392ef1c"] (Expected Tx Count: 6019)
+[2025-11-26 06:28:10] Sending request 9: eth_getBlockReceipts with params ["0x392ef1d"] (Expected Tx Count: 3933)
+[2025-11-26 06:28:10] Sending request 10: eth_getLogs with params [{"blockHash":"0xec6c5c228d72222b28d6b5f93e0d78ee10560b7e2a126a693ed28f735d64c4c5"}] (Expected Tx Count: 11399)
+[2025-11-26 06:28:10] Sending request 11: eth_getLogs with params [{"fromBlock":"0x392ef1b","toBlock":"0x392ef1d"}] (Expected Tx Count: 21351)
+[2025-11-26 06:28:10] Health check /health/readiness passed in 14ms.
+[2025-11-26 06:28:10] Health check /health/liveness passed in 29ms.
+[2025-11-26 06:28:13] Request 3 (eth_getBlockByNumber) completed in 2783ms
+[2025-11-26 06:28:13] Request 6 (eth_getBlockByHash) completed in 2789ms
+[2025-11-26 06:28:13] Request 9 (eth_getBlockReceipts) completed in 2794ms
+[2025-11-26 06:28:25] Health check /health/liveness passed in 4467ms.
+[2025-11-26 06:28:25] Request 5 (eth_getBlockByHash) completed in 14490ms
+[2025-11-26 06:28:25] Health check /health/readiness passed in 4476ms.
+[2025-11-26 06:28:25] Request 2 (eth_getBlockByNumber) completed in 14496ms
+[2025-11-26 06:28:25] Request 8 (eth_getBlockReceipts) completed in 14657ms
+[2025-11-26 06:28:40] Health check /health/liveness timed out after 5006ms.
+[2025-11-26 06:28:40] Health check timed out after 5000ms! Killing server on port 7546...
+[2025-11-26 06:28:40] Health check /health/readiness timed out after 5007ms.
+[2025-11-26 06:28:40] Health check timed out after 5000ms! Killing server on port 7546...
+[2025-11-26 06:28:40] Error killing process 81238
+82222: Command failed: kill -9 81238
+82222
+/bin/sh: line 1: 82222: command not found
+
+[2025-11-26 06:28:40] Error killing process 81238
+82222: Command failed: kill -9 81238
+82222
+/bin/sh: line 1: 82222: command not found
+
+[2025-11-26 06:28:40] Request 10 (eth_getLogs) failed: fetch failed
+[2025-11-26 06:28:40] Request 1 (eth_getBlockByNumber) failed: fetch failed
+[2025-11-26 06:28:40] Request 4 (eth_getBlockByHash) failed: fetch failed
+[2025-11-26 06:28:40] Request 7 (eth_getBlockReceipts) failed: fetch failed
+[2025-11-26 06:28:40] Request 11 (eth_getLogs) failed: fetch failed
+[2025-11-26 06:28:40] All requests completed in 29711ms.
+[2025-11-26 06:28:40] Verified: Server at port 7546 is no longer running.
