@@ -661,7 +661,7 @@ describe('Precheck', async function () {
     const contractCall = '0xcfae3217';
     const transfer = '0x';
     const invalidTx = '0x60806040523480156200001157600080fd5b';
-    it.only('should be able to calculate small contract create', function () {
+    it('should be able to calculate small contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
       const mirrorNodeEstimation = 499055;
