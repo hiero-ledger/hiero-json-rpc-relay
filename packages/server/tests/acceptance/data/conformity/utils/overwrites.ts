@@ -6,6 +6,7 @@ import {
   currentBlockHash,
   EMPTY_TX_HASH,
   ETHEREUM_NETWORK_ACCOUNT_HASH,
+  hapiTransactionHash,
   legacyTransactionAndBlockHash,
   localNodeAccountPrivateKey,
   NONEXISTENT_TX_HASH,
@@ -116,6 +117,9 @@ function buildTransactionOverrides() {
     },
     ['overwrites/eth_getTransactionReceipt/get-legacy-input.io']: {
       '0': createContractLegacyTransactionAndBlockHash.transactionHash,
+    },
+    ['overwrites/eth_getTransactionReceipt/get-hapi-receipt.io']: {
+      '0': hapiTransactionHash,
     },
     ['overwrites/eth_getBalance/get-balance.io']: {
       '0': ETHEREUM_NETWORK_ACCOUNT_HASH,
