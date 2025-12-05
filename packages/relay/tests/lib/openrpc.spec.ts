@@ -29,6 +29,7 @@ import { NetImpl } from '../../src/lib/net';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
+import { LockService } from '../../src/lib/services/lockService/LockService';
 import { TxPoolImpl } from '../../src/lib/txpool';
 import { RequestDetails } from '../../src/lib/types';
 import { Web3Impl } from '../../src/lib/web3';
@@ -132,14 +133,23 @@ describe('Open RPC Specification', function () {
     clientServiceInstance = new ClientService(logger, registry, hbarLimitService);
     sdkClientStub = sinon.createStubInstance(SDKClient);
     sinon.stub(clientServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    const lockServiceStub = sinon.createStubInstance(LockService);
+    lockServiceStub.acquireLock.resolves(undefined);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl() };
     const storageStub = sinon.createStubInstance(LocalPendingTransactionStorage);
     const rlpTx =
       '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
     storageStub.getTransactionPayloads.resolves(new Set([rlpTx]));
     storageStub.getAllTransactionPayloads.resolves(new Set([rlpTx]));
-    ethImpl = new EthImpl(clientServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService, storageStub);
+    ethImpl = new EthImpl(
+      clientServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      storageStub,
+      lockServiceStub,
+    );
     txpoolImpl = new TxPoolImpl(storageStub, logger);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl(), txpool: txpoolImpl };
 
