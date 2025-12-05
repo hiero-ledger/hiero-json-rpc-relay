@@ -142,15 +142,14 @@ redis:
   # REDIS_URL=redis://<release-name>-redis-master:6379
   autoconfig: true
 
-# Disabled newman temporarily
 cronjob:
   enabled: false
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: hoppscotch/hopp-cli
+    tag: latest
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -250,15 +249,14 @@ readinessProbe:
   initialDelaySeconds: 20
   timeoutSeconds: 5
 
-# Disabled newman temporarily
 test:
   enabled: false
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: hoppscotch/hopp-cli
+    tag: latest
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
 
 terminationGracePeriodSeconds: 60
 

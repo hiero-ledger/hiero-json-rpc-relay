@@ -27,8 +27,7 @@ spec:
 {{- end }}
 
 ---
-# Disabled newman temporarily
-{{- if false }} # Force disabled - was: .Values.cronjob.enabled
+{{- if .Values.cronjob.enabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -45,12 +44,12 @@ spec:
           serviceAccountName: {{ include "json-rpc-relay.serviceAccountName" . }}-test
           restartPolicy: Never
           containers:
-            - name: newman
+            - name: hoppscotch
               image: "{{ .Values.cronjob.image.repository }}:{{ .Values.cronjob.image.tag }}"
               imagePullPolicy: {{ .Values.cronjob.image.pullPolicy }}
               command: 
                 - /bin/sh
                 - -c
-                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/postman.json ; newman run postman.json --env-var baseUrl=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}                     
+                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json ; BASE_URL=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }} hopp test hoppscotch.json                     
 {{- end }}
             
