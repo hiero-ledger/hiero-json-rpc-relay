@@ -108,7 +108,7 @@ jobs:
           GITHUB_PR_NUMBER: ${{ github.event.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           OPERATOR_KEY: ${{ secrets.operator_key }}
-          VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE: ${{ inputs.valid_json_rpc_http_requests_status_code }}
+          VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE: "${{ inputs.valid_json_rpc_http_requests_status_code }}"
 
       - name: Upload Heap Snapshots
         if: ${{ !cancelled() }}
@@ -122,7 +122,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: Test Results (${{ inputs.testfilter }})
+          name: Test Results (${{ inputs.testfilter }})${{ inputs.valid_json_rpc_http_requests_status_code && ' 200' || '' }}
           path: test-*.xml
 
       - name: Upload coverage report
