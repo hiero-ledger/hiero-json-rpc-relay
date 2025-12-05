@@ -46,6 +46,7 @@ jobs:
     with:
       testfilter: ${{ matrix.test.testfilter }}
       test_ws_server: ${{ matrix.test.test_ws_server || false }}
+      valid_json_rpc_http_requests_status_code: ${{ matrix.test.valid_json_rpc_http_requests_status_code || false }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
