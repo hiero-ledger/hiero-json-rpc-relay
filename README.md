@@ -50,6 +50,24 @@ run configuration. You should be able to just run that configuration, and it sho
 
 - It is highly recommended to read the [Testing Guide](docs/testing-guide.md) for detailed testing strategies and best practices.
 
+### Hoppscotch
+
+First ensure `@hoppscotch/cli` is installed locally using `npm`, then execute `hopp`.
+
+```shell
+npm install -g @hoppscotch/cli
+BASE_URL=http://localhost:7546 hopp test packages/server/tests/hoppscotch.json
+```
+
+To enable Hoppscotch test to run via helm deployment add
+
+```
+test:
+  enabled: true
+  schedule: '@daily' #How often to run the Hoppscotch test
+  baseUrl: "http://127.0.0.1:7546" # Relay URL to run the test against
+```
+
 ### Acceptance Tests
 
 The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.
