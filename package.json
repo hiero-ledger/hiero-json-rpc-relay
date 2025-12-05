@@ -66,6 +66,7 @@
     "acceptancetest:rpc_api_schema_conformity": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@api-conformity' --exit",
     "acceptancetest:serverconfig": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
     "acceptancetest:send_raw_transaction_extension": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
+    "acceptancetest:json_rpc_compliance": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@json-rpc-compliance' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
     "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
     "build": "npx lerna run build",

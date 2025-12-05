@@ -12,6 +12,7 @@ import pino from 'pino';
 import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
+import { INVALID_METHOD_RESPONSE_BODY, jsonRpcComplianceLayer } from './compliance';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
@@ -277,7 +278,8 @@ export async function initializeServer() {
       // support CORS preflight
       ctx.status = 200;
     } else {
-      logger.warn(`skipping HTTP method: [${ctx.method}], url: ${ctx.url}, status: ${ctx.status}`);
+      ctx.status = ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE') ? 200 : 400;
+      ctx.body = structuredClone(INVALID_METHOD_RESPONSE_BODY);
     }
   });
 
@@ -309,6 +311,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
+    jsonRpcComplianceLayer(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {

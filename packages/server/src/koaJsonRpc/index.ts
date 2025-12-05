@@ -124,11 +124,13 @@ export default class KoaJsonRpc {
 
     // verify max batch size
     if (body.length > this.batchRequestsMaxSize) {
-      ctx.body = jsonRespError(
-        null,
-        predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
-        requestId,
-      );
+      ctx.body = [
+        jsonRespError(
+          null,
+          predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
+          requestId,
+        ),
+      ];
       ctx.status = 400;
       ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
       return;
