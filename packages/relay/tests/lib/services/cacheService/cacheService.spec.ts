@@ -27,7 +27,7 @@ describe('CacheService Test Suite', async function () {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;
       before(async () => {
-        internalCacheSpy = sinon.spy(cacheService['client']);
+        internalCacheSpy = sinon.spy(cacheService);
       });
 
       it('should retrieve all keys', async function () {
@@ -134,7 +134,7 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ REDIS_ENABLED: false });
 
     this.beforeAll(() => {
-      cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+      cacheService = CacheClientFactory.create(logger, registry);
     });
 
     this.afterEach(async () => {
@@ -236,7 +236,7 @@ describe('CacheService Test Suite', async function () {
 
     describe('should not initialize redis cache if shared cache is not enabled', async function () {
       it('should not initialize redis cache if shared cache is not enabled', async function () {
-        expect(cacheService['client']).to.be.an.instanceOf(LocalLRUCache);
+        expect(cacheService['decorated']).to.be.an.instanceOf(LocalLRUCache);
       });
     });
   });
@@ -252,10 +252,7 @@ describe('CacheService Test Suite', async function () {
     overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     before(async () => {
-      cacheService = new CacheService(
-        CacheClientFactory.create(logger, registry, new Set(), await RedisClientManager.getClient(logger)),
-        registry,
-      );
+      cacheService = CacheClientFactory.create(logger, registry, new Set(), await RedisClientManager.getClient(logger));
     });
 
     this.beforeEach(async () => {
@@ -356,7 +353,6 @@ describe('CacheService Test Suite', async function () {
     it('should be able to ignore clear failure in case of Redis error', async function () {
       await RedisClientManager.disconnect();
 
-
       await expect(cacheService.clear()).to.eventually.not.be.rejected;
     });
 
@@ -401,7 +397,6 @@ describe('CacheService Test Suite', async function () {
 
       it('should be able to ignore increment failure in case of Redis error', async function () {
         const key = 'counter';
-        const amount = 5;
         await cacheService.set(key, 10, callingMethod);
         await RedisClientManager.disconnect();
         await expect(cacheService.incrBy(key, 5, callingMethod)).to.eventually.not.be.rejected;
