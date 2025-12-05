@@ -66,6 +66,19 @@ export class RedisCache implements ICacheClient {
   }
 
   /**
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.get(key, callingMethod);
+  }
+
+  /**
    * Retrieves a value from the cache.
    *
    * @param key - The cache key.
