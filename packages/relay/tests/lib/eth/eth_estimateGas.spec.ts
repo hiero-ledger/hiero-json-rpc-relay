@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256 } from 'ethers';
+import { AbiCoder, keccak256, Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -145,7 +145,8 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     await mockContractCall(callData, true, 501, { errorMessage: '', statusCode: 501 }, requestDetails);
 
     const gas = await ethImpl.estimateGas({ data: '0x01' }, null, requestDetails);
-    expect(gas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(callData.data!)));
+    const tx = { data: callData.data! } as Transaction;
+    expect(gas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(tx)));
   });
 
   it('should eth_estimateGas to mirror node for transfer returns 501', async function () {
@@ -390,22 +391,22 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       },
     };
     await mockContractCall(transaction, true, 400, contractCallResult, requestDetails);
-
+    const tx = { data: transaction.data! } as Transaction;
     const estimatedGas = await ethImpl.estimateGas(transaction, id, requestDetails);
 
-    expect(estimatedGas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!)));
+    expect(estimatedGas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(tx)));
   });
 
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
     it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
       const originalEstimateGas = contractService.estimateGas;
       contractService.estimateGas = async () => {
-        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
+        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
       };
 
       const result = await ethImpl.estimateGas(transaction, id, requestDetails);
 
-      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!)));
+      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction)));
 
       contractService.estimateGas = originalEstimateGas;
     });
