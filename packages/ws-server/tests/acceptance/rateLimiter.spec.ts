@@ -42,56 +42,16 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
     registryA = new Registry();
     registryB = new Registry();
 
+    // Create Redis stores
+    const storeA = new RedisRateLimitStore(redisClient, logger.child({ service: 'WS-A' }), DURATION);
+    const storeB = new RedisRateLimitStore(redisClient, logger.child({ service: 'WS-B' }), DURATION);
+
     // Create two IPRateLimiterService instances for WebSocket servers pointing to the same Redis
-    wsServiceA = new IPRateLimiterService(logger.child({ service: 'WS-A' }), registryA, DURATION);
-    wsServiceB = new IPRateLimiterService(logger.child({ service: 'WS-B' }), registryB, DURATION);
-
-    // Wait for Redis connections to establish and verify they're connected
-    let retries = 10;
-    while (retries > 0) {
-      const storeA = wsServiceA.rateLimitStore;
-      const storeB = wsServiceB.rateLimitStore;
-
-      // Check if stores are Redis stores before accessing Redis methods
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const connectedA = await storeA.isConnected();
-        const connectedB = await storeB.isConnected();
-        if (connectedA && connectedB) {
-          break;
-        }
-      } else {
-        // If not Redis stores, just break - LRU stores don't need connection setup
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      retries--;
-    }
-
-    // Verify both WebSocket services are connected to Redis (only if using Redis stores)
-    const storeA = wsServiceA.rateLimitStore;
-    const storeB = wsServiceB.rateLimitStore;
-    if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-      const finalConnectedA = await storeA.isConnected();
-      const finalConnectedB = await storeB.isConnected();
-      if (!finalConnectedA || !finalConnectedB) {
-        throw new Error(`Redis connection failed: wsServiceA=${finalConnectedA}, wsServiceB=${finalConnectedB}`);
-      }
-    }
+    wsServiceA = new IPRateLimiterService(storeA, registryA);
+    wsServiceB = new IPRateLimiterService(storeB, registryB);
   });
 
   after(async function () {
-    // Clean up WebSocket services and Redis connections
-    const storeA = wsServiceA.rateLimitStore;
-    const storeB = wsServiceB.rateLimitStore;
-
-    // Only disconnect if stores are Redis stores
-    if (storeA instanceof RedisRateLimitStore) {
-      await storeA.disconnect();
-    }
-    if (storeB instanceof RedisRateLimitStore) {
-      await storeB.disconnect();
-    }
-
     await redisClient.quit();
 
     // Clean up environment variables
@@ -108,16 +68,6 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
 
   describe('Shared WebSocket Rate Limiting Between Services', function () {
     it('should share rate limit counters between two WebSocket service instances', async function () {
-      // Verify both WebSocket services are using Redis
-      const storeA = wsServiceA.rateLimitStore;
-      const storeB = wsServiceB.rateLimitStore;
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const redisA = await storeA.isConnected();
-        const redisB = await storeB.isConnected();
-        expect(redisA).to.be.true;
-        expect(redisB).to.be.true;
-      }
-
       let rateLimited = false;
 
       // Make exactly LIMIT requests through wsServiceA to hit the limit
@@ -280,18 +230,6 @@ describe('@web-socket-ratelimiter Shared Rate Limiting Acceptance Tests', functi
   });
 
   describe('WebSocket Service Independence and Failover', function () {
-    it('should maintain independent Redis connections for WebSocket services', async function () {
-      // Both WebSocket services should report connected to Redis
-      const storeA = wsServiceA.rateLimitStore;
-      const storeB = wsServiceB.rateLimitStore;
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const connectedA = await storeA.isConnected();
-        const connectedB = await storeB.isConnected();
-        expect(connectedA).to.be.true;
-        expect(connectedB).to.be.true;
-      }
-    });
-
     it('should handle concurrent WebSocket requests from both services', async function () {
       // Send concurrent requests from both WebSocket services
       const promises: Promise<boolean>[] = [];

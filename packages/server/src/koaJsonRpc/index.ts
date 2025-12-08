@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { JsonRpcError, predefined, Relay } from '@hashgraph/json-rpc-relay/dist';
 import { methodConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/config/methodConfiguration';
 import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
-import { MethodRateLimitConfiguration } from '@hashgraph/json-rpc-relay/dist/lib/types';
+import { MethodRateLimitConfiguration, RateLimitStore } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import parse from 'co-body';
 import Koa from 'koa';
@@ -19,7 +19,6 @@ import {
   getBatchRequestsEnabled,
   getBatchRequestsMaxSize,
   getDefaultRateLimit,
-  getLimitDuration,
   getRequestIdIsOptional,
 } from './lib/utils';
 
@@ -31,24 +30,27 @@ const BATCH_REQUEST_METHOD_NAME = 'batch_request';
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
-  private readonly duration: number = getLimitDuration();
   private readonly defaultRateLimit: number = getDefaultRateLimit();
   private readonly limit: string;
   private readonly rateLimiter: IPRateLimiterService;
   private readonly metricsRegistry: Registry;
   private readonly koaApp: Koa<Koa.DefaultState, Koa.DefaultContext>;
-  private readonly logger: Logger;
   private readonly requestIdIsOptional: boolean = getRequestIdIsOptional(); // default to false
   private readonly batchRequestsMaxSize: number = getBatchRequestsMaxSize(); // default to 100
   private readonly methodResponseHistogram: Histogram;
   private readonly relay: Relay;
 
-  constructor(logger: Logger, register: Registry, relay: Relay, opts?: { limit: string | null }) {
+  constructor(
+    logger: Logger,
+    register: Registry,
+    relay: Relay,
+    rateLimitStore: RateLimitStore,
+    opts?: { limit: string | null },
+  ) {
     this.koaApp = new Koa();
     this.methodConfig = methodConfiguration;
     this.limit = opts?.limit ?? '1mb';
-    this.logger = logger;
-    this.rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, this.duration);
+    this.rateLimiter = new IPRateLimiterService(rateLimitStore, register);
     this.metricsRegistry = register;
     this.relay = relay;
 
