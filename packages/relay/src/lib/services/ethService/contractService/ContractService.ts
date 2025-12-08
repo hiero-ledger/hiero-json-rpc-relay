@@ -526,7 +526,7 @@ export class ContractService implements IContractService {
     }
 
     if (e.isContractRevert()) {
-      return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+      throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
     } else if (e.statusCode === 400) {
       throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
     }

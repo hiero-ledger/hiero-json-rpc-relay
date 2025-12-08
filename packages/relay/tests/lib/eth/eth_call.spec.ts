@@ -338,10 +338,14 @@ describe('@ethCall Eth Call spec', async function () {
       };
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.be.not.null;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
+      const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
     });
 
     it('eth_call with all fields, but mirror node throws NOT_SUPPORTED', async function () {
@@ -377,10 +381,14 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.not.be.null;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
+      const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
     });
 
     it('eth_call with 400 error that is not CONTRACT_REVERT but throws COULD_NOT_SIMULATE_TRANSACTION', async function () {
@@ -523,12 +531,14 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
 
-      const result = await contractService.call(callData, 'latest', requestDetails);
-
-      expect(result).to.exist;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.equal(`execution reverted: ${defaultErrorMessageText}`);
-      expect((result as JsonRpcError).data).to.equal(defaultErrorMessageHex);
+      const expectedError = predefined.CONTRACT_REVERT(defaultErrorMessageText);
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
     });
 
     it('eth_call with wrong `to` field', async function () {
