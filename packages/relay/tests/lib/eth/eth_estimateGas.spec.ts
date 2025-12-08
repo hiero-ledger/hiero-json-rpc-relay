@@ -619,7 +619,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   describe('eth_estimateGas with mirror node 5xx server errors', function () {
-    const serverErrorStatusCodes = [500, 501, 502, 503, 504];
+    const serverErrorStatusCodes = [429, 500, 501, 502, 503, 504];
 
     serverErrorStatusCodes.forEach((statusCode) => {
       it(`should throw MirrorNodeClientError when mirror node returns ${statusCode} status code`, async function () {
