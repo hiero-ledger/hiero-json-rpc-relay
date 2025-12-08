@@ -72,6 +72,7 @@ export class LocalLRUCache implements ICacheClient {
    * @constructor
    * @param {Logger} logger - The logger instance to be used for logging.
    * @param {Registry} register - The registry instance used for metrics tracking.
+   * @param {Set<string>} reservedKeys - These are the cache keys delegated to the reserved cache.
    */
   public constructor(logger: Logger, register: Registry, reservedKeys: Set<string> = new Set()) {
     this.cache = new LRUCache(this.options);
@@ -137,8 +138,9 @@ export class LocalLRUCache implements ICacheClient {
    * @param key - The key to check the remaining TTL for.
    * @param callingMethod - The name of the method calling the cache.
    * @returns The remaining TTL in milliseconds.
+   * @private
    */
-  public async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
+  private async getRemainingTtl(key: string, callingMethod: string): Promise<number> {
     const prefixedKey = this.prefixKey(key);
     const cache = this.getCacheInstance(key);
     const remainingTtl = cache.getRemainingTTL(prefixedKey); // in milliseconds
@@ -278,6 +280,70 @@ export class LocalLRUCache implements ICacheClient {
     return matchingKeys.map((key) => key.substring(LocalLRUCache.CACHE_KEY_PREFIX.length));
   }
 
+  /**
+   * Increments a value in the cache.
+   *
+   * @param key The key to increment
+   * @param amount The amount to increment by
+   * @param callingMethod The name of the calling method
+   * @returns The value of the key after incrementing
+   */
+  public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
+    const value = await this.get(key, callingMethod);
+    const newValue = value + amount;
+    const remainingTtl = await this.getRemainingTtl(key, callingMethod);
+    await this.set(key, newValue, callingMethod, remainingTtl);
+    return newValue;
+  }
+
+  /**
+   * Retrieves a range of elements from a list in the cache.
+   *
+   * @param key The key of the list
+   * @param start The start index
+   * @param end The end index
+   * @param callingMethod The name of the calling method
+   * @returns The list of elements in the range
+   */
+  public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
+    const values = (await this.get(key, callingMethod)) ?? [];
+    if (!Array.isArray(values)) {
+      throw new Error(`Value at key ${key} is not an array`);
+    }
+    if (end < 0) {
+      end = values.length + end;
+    }
+    return values.slice(start, end + 1);
+  }
+
+  /**
+   * Pushes a value to the end of a list in the cache.
+   *
+   * @param key The key of the list
+   * @param value The value to push
+   * @param callingMethod The name of the calling method
+   * @returns The length of the list after pushing
+   */
+  public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
+    const values = (await this.get(key, callingMethod)) ?? [];
+    if (!Array.isArray(values)) {
+      throw new Error(`Value at key ${key} is not an array`);
+    }
+    values.push(value);
+    const remainingTtl = await this.getRemainingTtl(key, callingMethod);
+    await this.set(key, values, callingMethod, remainingTtl);
+    return values.length;
+  }
+
+  /**
+   * Returns the appropriate cache instance for the given key.
+   * If a reserved cache exists and the key is marked as reserved,
+   * the reserved cache is returned; otherwise the default cache is used.
+   *
+   * @param key -  The cache key being accessed.
+   * @returns The selected cache instance
+   * @private
+   */
   private getCacheInstance(key: string): LRUCache<string, any> {
     return this.reservedCache && this.reservedKeys.has(key) ? this.reservedCache : this.cache;
   }

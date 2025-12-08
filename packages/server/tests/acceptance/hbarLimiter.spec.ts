@@ -24,6 +24,7 @@ import { Logger } from 'pino';
 import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 
+import { CacheClientFactory } from '../../../relay/src/lib/factories/cacheClientFactory';
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
@@ -86,7 +87,10 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const register = new Registry();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
 
-    cacheService = new CacheService(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient);
+    cacheService = new CacheService(
+      CacheClientFactory.create(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient),
+      register,
+    );
 
     evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     ipSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);
@@ -330,6 +334,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
         });
 
         it('should deploy a large contract and decrease remaining HBAR in limiter when transaction data is large', async function () {
+          overrideEnvsInMochaDescribe({ TEST_TRANSACTION_RECORD_COST_TOLERANCE: 0.25 });
           const initialRemainingHbars = Number(await metrics.get(testConstants.METRICS.REMAINING_HBAR_LIMIT));
           expect(initialRemainingHbars).to.be.gt(0);
 

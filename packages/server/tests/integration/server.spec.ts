@@ -91,9 +91,20 @@ describe('RPC Server', function () {
 
   describe('HTTP Endpoints', function () {
     it('should execute HTTP OPTIONS cors preflight check', async function () {
-      const response = await testClient.options('/');
+      const config = { headers: { 'Access-Control-Request-Method': 'POST' } };
+      const response = await testClient.options('/', config);
 
       BaseTest.validResponseCheck(response, { status: 204, statusText: 'No Content' });
+
+      expect(
+        response.headers,
+        "Preflight response: headers should have 'access-control-allow-methods' property",
+      ).to.have.property('access-control-allow-methods');
+      expect(
+        response.headers['access-control-allow-methods'],
+        "Preflight response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE,PATCH'",
+      ).to.be.equal('GET,HEAD,PUT,POST,DELETE,PATCH');
+
       BaseTest.validCorsCheck(response);
     });
 
@@ -3339,14 +3350,6 @@ class BaseTest {
       response.headers['access-control-allow-origin'],
       "Default response: 'headers[access-control-allow-origin]' should equal '*'",
     ).to.be.equal('*');
-    expect(
-      response.headers,
-      "Default response: headers should have 'access-control-allow-methods' property",
-    ).to.have.property('access-control-allow-methods');
-    expect(
-      response.headers['access-control-allow-methods'],
-      "Default response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE'",
-    ).to.be.equal('GET,HEAD,PUT,POST,DELETE');
   }
 
   static defaultResponseChecks(response) {

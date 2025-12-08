@@ -28,6 +28,7 @@ import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 const registry = new Registry();
 import sinon from 'sinon';
 
+import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { TransactionPoolService } from '../../src/lib/services/transactionPoolService/transactionPoolService';
 import { RequestDetails } from '../../src/lib/types';
 
@@ -94,7 +95,7 @@ describe('Precheck', async function () {
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(logger, registry),
+      new CacheService(CacheClientFactory.create(logger, registry), registry),
       instance,
     );
     const transactionPoolService = sinon.createStubInstance(TransactionPoolService);
@@ -923,6 +924,24 @@ describe('Precheck', async function () {
       expect(() => Precheck.parseRawTransaction(constants.INVALID_TRANSACTION)).to.throw(
         'Invalid arguments: unexpected junk after rlp payload',
       );
+    });
+  });
+
+  describe('accessList', async function () {
+    it('should successfully parse a valid transaction string with empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [];
+      precheck.accessList(parsedTxWithMatchingChainId);
+      expect(parsedTxWithMatchingChainId.accessList).to.be.empty;
+    });
+
+    it('should throw NOT_YET_IMPLEMENTED for non-empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [
+        {
+          address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+          storageKeys: [],
+        },
+      ];
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('Not yet implemented');
     });
   });
 });
