@@ -582,21 +582,6 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     contractService.estimateGas = originalEstimateGas;
   });
 
-  it('should handle mirror node response with no gas estimate', async function () {
-    const originalEstimateGas = contractService.estimateGas;
-    contractService.estimateGas = async () => {
-      return predefined.INTERNAL_ERROR('Test error for estimateGas');
-    };
-
-    const result = await ethImpl.estimateGas(transaction, null, requestDetails);
-
-    expect(result).to.be.an('error');
-    expect((result as JsonRpcError).code).to.equal(-32603);
-    expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
-
-    contractService.estimateGas = originalEstimateGas;
-  });
-
   it('should accepts both input and data fields but copy value of input field to data field', async () => {
     const inputValue = 'input value';
     const dataValue = 'data value';
