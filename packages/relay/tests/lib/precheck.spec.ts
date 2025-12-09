@@ -710,6 +710,29 @@ describe('Precheck', async function () {
       const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: invalidTx } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
+
+    it('should apply floor price for simple contract call (EIP-7623)', function () {
+      // Use realistic calldata: a function selector (4 non-zero bytes)
+      // For simple calls (with 'to' address), floor price is always >= standard gas when there's calldata
+      // because TOTAL_COST_FLOOR_PER_TOKEN (10) > STANDARD_TOKEN_COST (4)
+      const data = contractCall; // '0xcfae3217' - 4 non-zero bytes
+
+      const zeroBytes = 0;
+      const nonZeroBytes = 4;
+
+      const tokens = zeroBytes + nonZeroBytes * 4;
+      const standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokens;
+      const expectedFloorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokens;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: data,
+        to: contractAddress1, // not a contract creation
+      } as Transaction);
+
+      expect(expectedFloorPrice).to.be.greaterThan(standardIntrinsicGas);
+      expect(intrinsicGasCost).to.equal(expectedFloorPrice);
+      expect(intrinsicGasCost).to.be.greaterThan(standardIntrinsicGas);
+    });
   });
 
   describe('transactionSize', async function () {
