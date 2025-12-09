@@ -67,7 +67,10 @@ describe('Connection Limiter', function () {
     configServiceStub.withArgs('TIER_2_RATE_LIMIT').returns(800);
     configServiceStub.withArgs('TIER_3_RATE_LIMIT').returns(1600);
 
-    const rateLimiter = new IPRateLimiterService(mockLogger, mockRegistry, 9000);
+    const mockStore = {
+      incrementAndCheck: sinon.stub().resolves(false),
+    };
+    const rateLimiter = new IPRateLimiterService(mockStore as any, mockRegistry);
 
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
     connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);
