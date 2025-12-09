@@ -196,10 +196,12 @@ export const predefined = {
       message: message,
     });
   },
-  COULD_NOT_ESTIMATE_GAS_PRICE: new JsonRpcError({
-    code: -32604,
-    message: 'Error encountered estimating the gas price',
-  }),
+  COULD_NOT_SIMULATE_TRANSACTION: (errMessage: string) => {
+    return new JsonRpcError({
+      code: -32000,
+      message: `Error occurred during transaction simulation: ${errMessage}`,
+    });
+  },
   COULD_NOT_RETRIEVE_LATEST_BLOCK: new JsonRpcError({
     code: -32607,
     message: 'Error encountered retrieving latest block',

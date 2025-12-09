@@ -173,11 +173,6 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  ESTIMATE_GAS_THROWS: {
-    type: 'boolean',
-    required: false,
-    defaultValue: true,
-  },
   ETH_BLOCK_NUMBER_CACHE_TTL_MS: {
     type: 'number',
     required: false,
