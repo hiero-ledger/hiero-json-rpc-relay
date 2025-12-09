@@ -61,6 +61,32 @@ describe('Debug API Test Suite', async function () {
   const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
 
+  // Synthetic transaction test data
+  const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+  const CONTRACT_RESULTS_LOGS_SYNTHETIC = `contracts/results/logs?transaction.hash=${syntheticTxHash}&limit=100&order=asc`;
+  const CONTRACTS_RESULTS_ACTIONS_SYNTHETIC = `contracts/results/${syntheticTxHash}/actions`;
+  const CONTRACTS_RESULTS_SYNTHETIC = `contracts/results/${syntheticTxHash}`;
+  const CONTRACTS_RESULTS_OPCODES_SYNTHETIC = `contracts/results/${syntheticTxHash}/opcodes`;
+
+  // Standard ERC-20/HTS Transfer event signature: keccak256("Transfer(address,address,uint256)")
+  const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+  const syntheticLog = {
+    address: contractAddress,
+    block_hash: '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
+    block_number: 668,
+    data: '0x0000000000000000000000000000000000000000000000000000000000000064',
+    index: 0,
+    timestamp: '1696438011.462526383',
+    topics: [
+      TRANSFER_EVENT_SIGNATURE,
+      `0x000000000000000000000000${senderAddress.slice(2)}`,
+      `0x000000000000000000000000${accountAddress.slice(2)}`,
+    ],
+    transaction_hash: syntheticTxHash,
+    transaction_index: 1,
+  };
+
   // Helper to reduce repetition when creating CREATE actions for tests
   const makeCreateAction = (overrides: Partial<any> = {}) => ({
     call_depth: 0,
@@ -444,6 +470,69 @@ describe('Debug API Test Suite', async function () {
 
           expect(result).to.deep.equal(expectedResult);
         });
+
+        describe('synthetic transaction handling', async function () {
+          it('should return minimal trace for synthetic transaction with Transfer event topics', async function () {
+            restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+
+            const result = await debugService.traceTransaction(
+              syntheticTxHash,
+              tracerObjectCallTracerFalse,
+              requestDetails,
+            );
+
+            const expectedResult = {
+              type: 'CALL',
+              from: senderAddress,
+              to: accountAddress,
+              gas: '0x61a80',
+              gasUsed: '0x0',
+              value: '0x0',
+              input: '0x',
+              output: '0x',
+              calls: [],
+            };
+
+            expect(result).to.deep.equal(expectedResult);
+          });
+
+          it('should use log address as from/to when topics are insufficient', async function () {
+            const logWithoutTopics = {
+              ...syntheticLog,
+              topics: [TRANSFER_EVENT_SIGNATURE], // Only event signature
+            };
+
+            restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [logWithoutTopics] }));
+
+            const result = await debugService.traceTransaction(
+              syntheticTxHash,
+              tracerObjectCallTracerFalse,
+              requestDetails,
+            );
+
+            expect(result.from).to.equal(logWithoutTopics.address);
+            expect(result.to).to.equal(logWithoutTopics.address);
+            expect(result.type).to.equal('CALL');
+          });
+
+          it('should throw RESOURCE_NOT_FOUND when no contract results and no logs exist', async function () {
+            restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
+
+            await RelayAssertions.assertRejection(
+              predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${syntheticTxHash}`),
+              debugService.traceTransaction,
+              true,
+              debugService,
+              [syntheticTxHash, tracerObjectCallTracerFalse, requestDetails],
+            );
+          });
+        });
       });
 
       describe('opcodeLogger', async function () {
@@ -497,6 +586,41 @@ describe('Debug API Test Suite', async function () {
             });
           });
         }
+
+        describe('synthetic transaction handling', async function () {
+          it('should return minimal opcode result for synthetic transaction', async function () {
+            const defaultOpcodeParams = getQueryParams({ memory: false, stack: true, storage: true });
+            web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES_SYNTHETIC}${defaultOpcodeParams}`).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+
+            const tracerObject = { tracer: opcodeLogger, tracerConfig: {} };
+            const result = await debugService.traceTransaction(syntheticTxHash, tracerObject, requestDetails);
+
+            const expectedResult = {
+              gas: 0,
+              failed: false,
+              returnValue: '',
+              structLogs: [],
+            };
+
+            expect(result).to.deep.equal(expectedResult);
+          });
+
+          it('should throw RESOURCE_NOT_FOUND when no opcodes and no logs exist', async function () {
+            const defaultOpcodeParams = getQueryParams({ memory: false, stack: true, storage: true });
+            web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES_SYNTHETIC}${defaultOpcodeParams}`).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
+
+            const tracerObject = { tracer: opcodeLogger, tracerConfig: {} };
+            await RelayAssertions.assertRejection(
+              predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${syntheticTxHash}`),
+              debugService.traceTransaction,
+              true,
+              debugService,
+              [syntheticTxHash, tracerObject, requestDetails],
+            );
+          });
+        });
       });
 
       describe('prestateTracer', async function () {
@@ -591,6 +715,31 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           ]);
         });
+
+        describe('synthetic transaction handling', async function () {
+          beforeEach(() => {
+            sinon.restore();
+          });
+
+          it('should return empty prestate for synthetic transaction', async function () {
+            restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+
+            const result = await debugService.prestateTracer(syntheticTxHash, false, requestDetails);
+
+            expect(result).to.deep.equal({});
+            expect(result).to.be.an('object');
+          });
+
+          it('should throw RESOURCE_NOT_FOUND when no actions and no logs exist', async function () {
+            restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
+
+            await expect(debugService.prestateTracer(syntheticTxHash, false, requestDetails)).to.be.rejectedWith(
+              'Failed to retrieve transaction information',
+            );
+          });
+        });
       });
 
       describe('Invalid scenarios', async function () {
@@ -608,6 +757,9 @@ describe('Debug API Test Suite', async function () {
           };
           restMock.onGet(CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH).reply(404, JSON.stringify(notFound));
           restMock.onGet(CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH).reply(404, JSON.stringify(notFound));
+          restMock
+            .onGet(`contracts/results/logs?transaction.hash=${nonExistentTransactionHash}&limit=100&order=asc`)
+            .reply(200, JSON.stringify({ logs: [] }));
         });
 
         afterEach(() => {
@@ -616,7 +768,7 @@ describe('Debug API Test Suite', async function () {
 
         it('test case for non-existing transaction hash', async function () {
           const expectedError = predefined.RESOURCE_NOT_FOUND(
-            `Failed to retrieve contract results for transaction ${nonExistentTransactionHash}`,
+            `Failed to retrieve transaction information for ${nonExistentTransactionHash}`,
           );
 
           await RelayAssertions.assertRejection(expectedError, debugService.traceTransaction, true, debugService, [
@@ -1165,8 +1317,14 @@ describe('Debug API Test Suite', async function () {
           .withArgs(transactionHash, sinon.match.any)
           .resolves([]);
 
-        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
-        expect(result).to.deep.equal({});
+        // Mock logs call to return empty array (no synthetic transaction)
+        restMock
+          .onGet(`contracts/results/logs?transaction.hash=${transactionHash}&limit=100&order=asc`)
+          .reply(200, JSON.stringify({ logs: [] }));
+
+        await expect(debugService.prestateTracer(transactionHash, false, requestDetails)).to.be.rejectedWith(
+          'Failed to retrieve transaction information',
+        );
       });
 
       it('should return empty array when the transaction hash is not found', async function () {
@@ -1183,13 +1341,19 @@ describe('Debug API Test Suite', async function () {
           }),
         );
 
+        // Mock logs call to return empty array (no synthetic transaction)
+        restMock
+          .onGet(`contracts/results/logs?transaction.hash=${nonExistentTransactionHash}&limit=100&order=asc`)
+          .reply(200, JSON.stringify({ logs: [] }));
+
         // Make sure no sinon stubs interfere
         const getContractsResultsActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
         getContractsResultsActionsStub.callThrough(); // Let it use the original method which will hit the mock
 
         // The test should now properly throw the expected error
-        const result = await isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails);
-        expect(result).to.deep.equal({});
+        await expect(
+          isolatedDebugService.prestateTracer(nonExistentTransactionHash, false, requestDetails),
+        ).to.be.rejectedWith('Failed to retrieve transaction information');
       });
 
       it('should handle entity resolution errors', async function () {

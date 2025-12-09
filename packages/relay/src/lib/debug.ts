@@ -11,6 +11,7 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { Log } from './model';
 import { CommonService } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
 import {
@@ -427,9 +428,11 @@ export class DebugImpl implements Debug {
       );
 
       if (!response) {
-        throw predefined.RESOURCE_NOT_FOUND(
-          `Failed to retrieve contract results for transaction ${transactionIdOrHash}`,
-        );
+        return (await this.handleSyntheticTransaction(
+          transactionIdOrHash,
+          TracerType.OpcodeLogger,
+          requestDetails,
+        )) as object;
       }
 
       return await this.formatOpcodesResult(response, options);
@@ -461,8 +464,12 @@ export class DebugImpl implements Debug {
         ]),
       ]);
 
-      if (!actionsResponse || !transactionsResponse) {
-        throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+      if (!actionsResponse || actionsResponse.length === 0 || !transactionsResponse) {
+        return (await this.handleSyntheticTransaction(
+          transactionHash,
+          TracerType.CallTracer,
+          requestDetails,
+        )) as CallTracerResult;
       }
 
       const { call_type: type } = actionsResponse[0];
@@ -534,8 +541,12 @@ export class DebugImpl implements Debug {
 
     // Get transaction actions
     const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
-    if (!actionsResponse) {
-      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+    if (!actionsResponse || actionsResponse.length === 0) {
+      return (await this.handleSyntheticTransaction(
+        transactionHash,
+        TracerType.PrestateTracer,
+        requestDetails,
+      )) as EntityTraceStateMap;
     }
 
     // Filter by call_depth if onlyTopCall is true
@@ -629,5 +640,67 @@ export class DebugImpl implements Debug {
     // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
+  }
+
+  /**
+   * Handles synthetic HTS transactions by fetching logs and building
+   * a minimal synthetic trace object for the appropriate trace.
+   *
+   * @private
+   * @param transactionIdOrHash - The ID or hash of the transaction.
+   * @param tracer - The tracer type to use for building the synthetic trace.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns The synthetic trace result.
+   * @throws Throws RESOURCE_NOT_FOUND if no logs are found.
+   */
+  private async handleSyntheticTransaction(
+    transactionIdOrHash: string,
+    tracer: TracerType,
+    requestDetails: RequestDetails,
+  ): Promise<any> {
+    const logs = await this.common.getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails);
+
+    if (logs.length === 0) {
+      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${transactionIdOrHash}`);
+    }
+
+    const log = logs[0];
+    switch (tracer) {
+      case TracerType.PrestateTracer:
+        // Return empty prestate tracer result for synthetic transactions (no EVM execution)
+        return {};
+      case TracerType.OpcodeLogger:
+        // Return minimal opcode tracer result for synthetic transactions (no EVM execution)
+        return {
+          gas: 0,
+          failed: false,
+          returnValue: '',
+          structLogs: [],
+        };
+      case TracerType.CallTracer: {
+        let from = log.address;
+        let to = log.address;
+
+        // For HTS token transfer logs, the 'from' and 'to' addresses are typically in topics[1] and topics[2]
+        if (log.topics && log.topics.length >= 3) {
+          // Extract addresses from topics - topics are 32-byte hex strings, addresses are last 20 bytes
+          from = '0x' + log.topics[1].slice(-40);
+          to = '0x' + log.topics[2].slice(-40);
+        }
+
+        // Return minimal call tracer result for synthetic transactions (no EVM execution)
+        return {
+          type: CallType.CALL,
+          from,
+          to,
+          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+          gasUsed: constants.ZERO_HEX,
+          value: constants.ZERO_HEX,
+          input: constants.EMPTY_HEX,
+          output: constants.EMPTY_HEX,
+          calls: [],
+        };
+      }
+    }
   }
 }
