@@ -53,6 +53,11 @@ spec:
               command: 
                 - /bin/sh
                 - -c
-                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && hopp test -e hopp-env.json hoppscotch.json                     
+                - |
+                  # Install Hoppscotch CLI from npm (not pre-installed in the image)
+                  npm install -g @hoppscotch/cli && \
+                  wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && \
+                  wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && \
+                  hopp test -e hopp-env.json hoppscotch.json                     
 {{- end }}
             

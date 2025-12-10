@@ -144,10 +144,14 @@ redis:
 
 cronjob:
   enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official hoppscotch/hoppscotch AIO image which includes Node.js,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: hoppscotch/hopp-cli
-    tag: latest
+    repository: hoppscotch/hoppscotch
+    tag: 2025.11.1
   # Custom hoppscotch.json in base64 encoding
   hoppscotch: ''
   # Custom hopp-env.json in base64 encoding
@@ -253,10 +257,14 @@ readinessProbe:
 
 test:
   enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official hoppscotch/hoppscotch AIO image which includes Node.js,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: hoppscotch/hopp-cli
-    tag: latest
+    repository: hoppscotch/hoppscotch
+    tag: 2025.11.1
   # Custom hoppscotch.json in base64 encoding
   hoppscotch: ''
   # Custom hopp-env.json in base64 encoding
