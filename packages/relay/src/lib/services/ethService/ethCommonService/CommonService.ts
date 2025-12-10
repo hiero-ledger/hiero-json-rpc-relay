@@ -226,17 +226,18 @@ export class CommonService implements ICommonService {
   ): Promise<any> {
     if (!returnLatest && this.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
       this.logger.debug(
-        `Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=${returnLatest}, blockNumberOrTagOrHash=${blockNumberOrTagOrHash}`,
+        `Detected a contradiction between blockNumberOrTagOrHash and returnLatest. The request does not target the latest block, yet blockNumberOrTagOrHash representing latest or pending: returnLatest=%s, blockNumberOrTagOrHash=%s`,
+        returnLatest,
+        blockNumberOrTagOrHash,
       );
       return null;
     }
 
     if (blockNumberOrTagOrHash === constants.EMPTY_HEX) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=${blockNumberOrTagOrHash}.`,
-        );
-      }
+      this.logger.debug(
+        `Invalid input detected in getHistoricalBlockResponse(): blockNumberOrTagOrHash=%s.`,
+        blockNumberOrTagOrHash,
+      );
       return null;
     }
 
