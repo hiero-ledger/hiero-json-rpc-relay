@@ -16,7 +16,6 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { Log } from '../../../model';
-import { Precheck } from '../../../precheck';
 import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';

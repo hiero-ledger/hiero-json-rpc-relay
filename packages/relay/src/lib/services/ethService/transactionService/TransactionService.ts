@@ -185,9 +185,7 @@ export class TransactionService implements ITransactionService {
 
       // no tx found
       if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`no tx for ${hash}`);
-        }
+        this.logger.trace(`no tx for ${hash}`);
         return null;
       }
 
@@ -226,9 +224,7 @@ export class TransactionService implements ITransactionService {
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
+      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
 
       return receipt;
     }
@@ -425,9 +421,7 @@ export class TransactionService implements ITransactionService {
 
     // no tx found
     if (!syntheticLogs.length) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`no receipt for ${hash}`);
-      }
+      this.logger.trace(`no receipt for ${hash}`);
       return null;
     }
 
