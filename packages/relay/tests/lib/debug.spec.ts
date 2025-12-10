@@ -17,6 +17,7 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositor
 import { HbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from '../../src/lib/debug';
+import { Log } from '../../src/lib/model';
 import { CommonService } from '../../src/lib/services';
 import HAPIService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
@@ -867,6 +868,51 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.be.an('array').with.lengthOf(2);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
           expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+        });
+
+        it('should trace block with CallTracer and logs HTS token transfer', async function () {
+          const log = {
+            address: '0x0000000000000000000000000000000000000408',
+            bloom: '0x00',
+            contract_id: '0.0.1032',
+            data: '0x000000000000000000000000000000000000000000000000000000000000000a',
+            index: 8,
+            topics: [
+              '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+              '0x00000000000000000000000067d8d32e9bf1a9968a5ff53b87d777aa8ebbee69',
+              '0x000000000000000000000000927e41ff8307835a1c081e0d7fd250625f2d4d0e',
+            ],
+            block_hash:
+              '0x8fd0d97be44902d5843054a5f8f6733a756a383fb47e6544256ede059c91080cdebd4134a31b9f19adbbc2b6a97a8f98',
+            block_number: 68,
+            root_contract_id: '0.0.1032',
+            timestamp: '1765366485.209008511',
+            transactionHash: '0xe16b804b492fdec35e9192b3f0b25ae3750afa21c505e0ba53ffde9c4c63e6d2',
+            transaction_index: 10,
+          };
+          const callTracerLogResult = {
+            type: 'CALL',
+            from: '0x00000000000000000000000067d8d32e9bf1a9968a5ff53b87d777aa8ebbee69',
+            to: '0x000000000000000000000000927e41ff8307835a1c081e0d7fd250625f2d4d0e',
+            value: '0x0',
+            gas: '0x61a80',
+            gasUsed: '0x0',
+            input: '0x',
+            output: '0x',
+            calls: [],
+          };
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(CommonService.prototype, 'getLogsWithParams').resolves([new Log(log)]);
+          sinon.stub(debugService, 'callTracer').resolves(callTracerResult1);
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+          console.log(result);
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: log.transactionHash, result: callTracerLogResult });
         });
 
         it('should use default CallTracer when no tracer is specified', async function () {
