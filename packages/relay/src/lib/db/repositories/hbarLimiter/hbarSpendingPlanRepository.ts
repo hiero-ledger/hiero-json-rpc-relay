@@ -156,9 +156,7 @@ export class HbarSpendingPlanRepository {
     const callerMethod = this.resetAmountSpentOfAllPlans.name;
     const keys = await this.cache.keys(this.getAmountSpentKey('*'), callerMethod);
     await Promise.all(keys.map((key) => this.cache.delete(key, callerMethod)));
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Successfully reset %s "amountSpent" entries for HbarSpendingPlans.`, keys.length);
-    }
+    this.logger.trace(`Successfully reset %s "amountSpent" entries for HbarSpendingPlans.`, keys.length);
   }
 
   /**

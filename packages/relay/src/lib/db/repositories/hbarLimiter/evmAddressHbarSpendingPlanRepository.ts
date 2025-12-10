@@ -126,9 +126,7 @@ export class EvmAddressHbarSpendingPlanRepository {
     const errorMessage = evmAddressPlan
       ? `Removed EVM address ${evmAddress} from HbarSpendingPlan with ID ${evmAddressPlan.planId}`
       : `Trying to remove EVM address ${evmAddress}, which is not linked to a spending plan`;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`%s`, errorMessage);
-    }
+    this.logger.trace(`%s`, errorMessage);
   }
 
   /**

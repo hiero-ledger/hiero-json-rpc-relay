@@ -112,8 +112,6 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    this.logger.trace(`getBalance(account=%s, blockNumberOrTag=%s)`, account, blockNumberOrTagOrHash);
-
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
     // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
@@ -311,8 +309,6 @@ export class AccountService implements IAccountService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    this.logger.trace(`getTransactionCount(address=%s, blockNumOrTag=%s)`, address, blockNumOrTag);
-
     const blockNum = Number(blockNumOrTag);
     if (blockNum === 0 || blockNum === 1) {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
@@ -342,8 +338,6 @@ export class AccountService implements IAccountService {
     caller: string,
     requestDetails: RequestDetails,
   ): Promise<LatestBlockNumberTimestamp> {
-    this.logger.trace(`blockNumber()`);
-
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
 
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);

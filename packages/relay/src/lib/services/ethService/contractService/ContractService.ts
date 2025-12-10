@@ -158,10 +158,6 @@ export class ContractService implements IContractService {
     blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`estimateGas(transaction=%s, blockParam=%s)`, JSON.stringify(transaction), blockParam);
-    }
-
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
@@ -200,7 +196,6 @@ export class ContractService implements IContractService {
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
     }
-    this.logger.trace(`getCode(address=%s, blockNumber=%s)`, address, blockNumber);
 
     // check for static precompile cases first before consulting nodes
     // this also account for environments where system entities were not yet exposed to the mirror node
@@ -276,13 +271,6 @@ export class ContractService implements IContractService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    this.logger.trace(
-      `getStorageAt(address=%s, slot=%s, blockNumberOrOrHashTag=%s)`,
-      address,
-      slot,
-      blockNumberOrTagOrHash,
-    );
-
     let result = constants.ZERO_HEX_32_BYTE; // if contract or slot not found then return 32 byte 0
 
     const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
@@ -329,16 +317,14 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
-          call.to,
-          gas,
-          call.data,
-          call.from,
-          block,
-        );
-      }
+      this.logger.debug(
+        `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
+        call.to,
+        gas,
+        call.data,
+        call.from,
+        block,
+      );
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);
     } catch (e: any) {

@@ -119,10 +119,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
-    }
-
     try {
       return await this.getTransactionByBlockHashOrBlockNumAndIndex(
         { title: 'blockHash', value: blockHash },
@@ -149,9 +145,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`);
-    }
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
 
     try {
@@ -175,10 +168,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace({ msg: `getTransactionByHash(hash=${hash})`, hash });
-    }
-
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -227,10 +216,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionReceipt(${hash})`);
-    }
-
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],

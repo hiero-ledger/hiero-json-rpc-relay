@@ -444,7 +444,7 @@ describe('HbarSpendingPlanConfigService', function () {
             sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.create, subscriptionTier, neverExpireTtl, id);
             sinon.assert.calledWith(
               loggerSpy.info,
-              `Created HBAR spending plan "%s" with ID "%s" and subscriptionTier "%s"`,
+              `Created HBAR spending plan %s with ID %s and subscriptionTier %s`,
               name,
               id,
               subscriptionTier,
@@ -536,7 +536,7 @@ describe('HbarSpendingPlanConfigService', function () {
             sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.delete, id);
             sinon.assert.calledWith(
               loggerSpy.info,
-              `Deleting HBAR spending plan with ID "%s", as it is no longer in the spending plan configuration...`,
+              `Deleting HBAR spending plan with ID %s, as it is no longer in the spending plan configuration...`,
               id,
             );
             sinon.assert.calledWithMatch(evmAddressHbarSpendingPlanRepositorySpy.deleteAllByPlanId, id);

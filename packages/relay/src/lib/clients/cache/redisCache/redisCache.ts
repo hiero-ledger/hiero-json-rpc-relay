@@ -236,9 +236,8 @@ export class RedisCache implements ICacheClient {
     const prefixedKey = this.prefixKey(key);
     const serializedValue = JSON.stringify(value);
     const result = await this.client.rPush(prefixedKey, serializedValue);
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`pushing %s to %s on %s call`, serializedValue, key, callingMethod);
-    }
+    this.logger.trace(`pushing %s to %s on %s call`, serializedValue, key, callingMethod);
+
     return result;
   }
 
@@ -275,9 +274,7 @@ export class RedisCache implements ICacheClient {
 
       await pipeline.exec();
 
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Cleared %s cache keys`, keysToDelete.length);
-      }
+      this.logger.trace(`Cleared %s cache keys`, keysToDelete.length);
     }
   }
 }

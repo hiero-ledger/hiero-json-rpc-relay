@@ -117,9 +117,7 @@ export class IPAddressHbarSpendingPlanRepository {
     const errorMessage = ipAddressSpendingPlan
       ? `Removed IP address from HbarSpendingPlan with ID ${ipAddressSpendingPlan.planId}`
       : `Trying to remove an IP address, which is not linked to a spending plan`;
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`%s`, errorMessage);
-    }
+    this.logger.trace(`%s`, errorMessage);
   }
 
   /**

@@ -224,9 +224,7 @@ export class MirrorNodeClient {
       retries: mirrorNodeRetries,
       retryDelay: (retryCount, error) => {
         const delay = mirrorNodeRetryDelay * retryCount;
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`Retry delay %s ms on '%s'`, delay, error?.request?.path);
-        }
+        this.logger.trace(`Retry delay %s ms on '%s'`, delay, error?.request?.path);
         return delay;
       },
       retryCondition: (error) => {
@@ -509,9 +507,7 @@ export class MirrorNodeClient {
 
     if (page === pageMax) {
       // max page reached
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
-      }
+      this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
       throw predefined.PAGINATION_MAX(pageMax);
     }
 
