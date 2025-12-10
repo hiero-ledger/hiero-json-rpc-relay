@@ -652,30 +652,19 @@ export class DebugImpl implements Debug {
    */
   private createSyntheticCallTrace(logs: Log[]): CallTracerResult {
     const primaryLog = logs[0];
+    const from = primaryLog.topics[0] === constants.ERC20_TRANSFER_TOPIC ? primaryLog.topics[1] : primaryLog.topics[1];
+    const to = primaryLog.topics[0] === constants.ERC20_TRANSFER_TOPIC ? primaryLog.topics[2] : primaryLog.address;
 
-    // Create nested calls for additional logs (if any)
-    const nestedCalls: CallTracerResult[] = logs.slice(1).map((log) => ({
+    return {
       type: CallType.CALL,
-      from: log.address,
-      to: log.address,
+      from,
+      to,
       gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
       gasUsed: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
       input: constants.EMPTY_HEX,
       output: constants.EMPTY_HEX,
       calls: [],
-    }));
-
-    return {
-      type: CallType.CALL,
-      from: primaryLog.address,
-      to: primaryLog.address,
-      gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
-      gasUsed: constants.ZERO_HEX,
-      value: constants.ZERO_HEX,
-      input: constants.EMPTY_HEX,
-      output: constants.EMPTY_HEX,
-      calls: nestedCalls,
     };
   }
 

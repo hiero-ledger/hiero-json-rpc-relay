@@ -266,4 +266,5 @@ export default {
   ETH_GET_TRANSACTION_RECEIPT: 'eth_GetTransactionReceipt',
   ETH_SEND_RAW_TRANSACTION: 'eth_sendRawTransaction',
   NON_CACHABLE_BLOCK_PARAMS: 'latest|pending|finalized|safe',
+  ERC20_TRANSFER_TOPIC: '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
 };
