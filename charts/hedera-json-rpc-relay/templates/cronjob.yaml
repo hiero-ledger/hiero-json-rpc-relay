@@ -47,9 +47,12 @@ spec:
             - name: hoppscotch
               image: "{{ .Values.cronjob.image.repository }}:{{ .Values.cronjob.image.tag }}"
               imagePullPolicy: {{ .Values.cronjob.image.pullPolicy }}
+              env:
+                - name: BASE_URL
+                  value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
               command: 
                 - /bin/sh
                 - -c
-                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json ; BASE_URL=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }} hopp test hoppscotch.json                     
+                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && hopp test -e hopp-env.json hoppscotch.json                     
 {{- end }}
             

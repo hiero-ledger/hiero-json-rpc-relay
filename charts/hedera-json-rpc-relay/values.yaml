@@ -150,6 +150,8 @@ cronjob:
     tag: latest
   # Custom hoppscotch.json in base64 encoding
   hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -257,6 +259,8 @@ test:
     tag: latest
   # Custom hoppscotch.json in base64 encoding
   hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
 
 terminationGracePeriodSeconds: 60
 

@@ -709,14 +709,7 @@
       "authActive": true
     },
     "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
-    "variables": [
-      {
-        "key": "BASE_URL",
-        "initialValue": "http://127.0.0.1:7546",
-        "currentValue": "http://127.0.0.1:7546",
-        "secret": false
-      }
-    ],
+    "variables": [],
     "description": null
   }
 ]

@@ -18,6 +18,8 @@ spec:
           value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
       args:
         - test
+        - -e
+        - /test/hopp-env.json
         - /test/hoppscotch.json
       securityContext:
         allowPrivilegeEscalation: false

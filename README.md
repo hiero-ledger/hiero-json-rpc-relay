@@ -52,20 +52,34 @@ run configuration. You should be able to just run that configuration, and it sho
 
 ### Hoppscotch
 
-First ensure `@hoppscotch/cli` is installed locally using `npm`, then execute `hopp`.
+Hoppscotch CLI is used for running API tests against the relay. Environment variables are configured in `packages/server/tests/hopp-env.json`.
+
+#### Running Tests
 
 ```shell
-npm install -g @hoppscotch/cli
-BASE_URL=http://localhost:7546 hopp test packages/server/tests/hoppscotch.json
+# Default (localhost:7546)
+npm run hopp
+
+# Override BASE_URL (macOS/Linux)
+BASE_URL=https://mainnet.hashio.io npm run hopp
+
+# Override BASE_URL (Windows PowerShell)
+$env:BASE_URL="https://mainnet.hashio.io"; npm run hopp
+
+# Override BASE_URL (Windows CMD)
+set BASE_URL=https://mainnet.hashio.io && npm run hopp
 ```
+
+> **Note:** Environment variable override requires modifying the npm script to support dynamic injection. Alternatively, edit `packages/server/tests/hopp-env.json` directly to change the `BASE_URL` value.
+
+#### Helm Deployment
 
 To enable Hoppscotch test to run via helm deployment add
 
-```
+```yaml
 test:
   enabled: true
   schedule: '@daily' #How often to run the Hoppscotch test
-  baseUrl: "http://127.0.0.1:7546" # Relay URL to run the test against
 ```
 
 ### Acceptance Tests

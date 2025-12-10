@@ -11,4 +11,6 @@ metadata:
 data:
   hoppscotch.json: |-
     {{- .Values.test.hoppscotch | b64dec | default (.Files.Get "hoppscotch.json") | nindent 4 }}
+  hopp-env.json: |-
+    {{- .Values.test.hoppEnv | b64dec | default (.Files.Get "hopp-env.json") | nindent 4 }}
 {{- end -}}
