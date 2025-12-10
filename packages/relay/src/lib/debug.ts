@@ -11,6 +11,7 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { Log } from './model';
 import { CommonService } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
 import {
@@ -210,14 +211,19 @@ export class DebugImpl implements Debug {
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
       const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+      const params = { timestamp: timestampRangeParams };
 
-      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRangeParams }, undefined],
-      );
+      const [contractResults, logs]: [MirrorNodeContractResult[], Log[]] = await Promise.all([
+        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+          requestDetails,
+          params,
+          undefined,
+        ]),
+        this.common.getLogsWithParams(null, params, requestDetails),
+      ]);
 
-      if (contractResults == null || contractResults.length === 0) {
-        // return empty array if no EthereumTransaction typed transactions found in the block
+      if ((contractResults == null || contractResults.length === 0) && logs.length === 0) {
+        // return empty array if no transactions found in the block
         return [];
       }
 
@@ -229,40 +235,40 @@ export class DebugImpl implements Debug {
         onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
       }
 
+      // Filter out transactions with wrong nonce since they do not reach consensus
+      const validContractResults = (contractResults || []).filter(
+        (contractResult) => contractResult.result !== 'WRONG_NONCE',
+      );
+
       if (tracer === TracerType.CallTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.callTracer(
-                  contractResult.hash,
-                  { onlyTopCall } as ICallTracerConfig,
-                  requestDetails,
-                ),
-              };
-            }),
+        const regularTraces = await Promise.all(
+          validContractResults.map(async (contractResult) => {
+            return {
+              txHash: contractResult.hash,
+              result: await this.callTracer(contractResult.hash, { onlyTopCall } as ICallTracerConfig, requestDetails),
+            };
+          }),
         );
 
-        return result;
+        // Add synthetic traces for logs without corresponding contract results
+        const syntheticTraces = this.populateSyntheticTraces(logs, validContractResults, TracerType.CallTracer);
+
+        return [...regularTraces, ...syntheticTraces];
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
-              };
-            }),
+        const regularTraces = await Promise.all(
+          validContractResults.map(async (contractResult) => {
+            return {
+              txHash: contractResult.hash,
+              result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
+            };
+          }),
         );
 
-        return result;
+        const syntheticTraces = this.populateSyntheticTraces(logs, validContractResults, TracerType.PrestateTracer);
+
+        return [...regularTraces, ...syntheticTraces];
       }
 
       return [];
@@ -634,5 +640,98 @@ export class DebugImpl implements Debug {
     // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
+  }
+
+  /**
+   * Creates a synthetic call trace for log entries.
+   * Used for HTS token transfers that don't have corresponding contract results.
+   * Multiple logs for the same transaction are merged into nested calls.
+   *
+   * @param {Log[]} logs - The log entries for a single transaction.
+   * @returns {CallTracerResult} A minimal call trace structure with nested calls for multiple logs.
+   */
+  private createSyntheticCallTrace(logs: Log[]): CallTracerResult {
+    const primaryLog = logs[0];
+
+    // Create nested calls for additional logs (if any)
+    const nestedCalls: CallTracerResult[] = logs.slice(1).map((log) => ({
+      type: CallType.CALL,
+      from: log.address,
+      to: log.address,
+      gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+      gasUsed: constants.ZERO_HEX,
+      value: constants.ZERO_HEX,
+      input: constants.EMPTY_HEX,
+      output: constants.EMPTY_HEX,
+      calls: [],
+    }));
+
+    return {
+      type: CallType.CALL,
+      from: primaryLog.address,
+      to: primaryLog.address,
+      gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+      gasUsed: constants.ZERO_HEX,
+      value: constants.ZERO_HEX,
+      input: constants.EMPTY_HEX,
+      output: constants.EMPTY_HEX,
+      calls: nestedCalls,
+    };
+  }
+
+  /**
+   * Creates a synthetic prestate trace for a log entry.
+   * Used for HTS token transfers that don't have corresponding contract results.
+   *
+   * @returns {EntityTraceStateMap} An empty state map.
+   */
+  private createSyntheticPrestateTrace(): EntityTraceStateMap {
+    return {};
+  }
+
+  /**
+   * Populates synthetic traces for logs that don't have corresponding contract results.
+   * This mirrors the pattern of BlockService.populateSyntheticTransactions.
+   * Multiple logs for the same transaction are merged into one trace entry.
+   *
+   * @param {Log[]} logs - The logs to check for synthetic traces.
+   * @param {MirrorNodeContractResult[]} contractResults - The contract results to compare against.
+   * @param {TracerType} tracer - The type of tracer being used.
+   * @returns {TraceBlockByNumberTxResult[]} Array of synthetic trace results.
+   */
+  private populateSyntheticTraces(
+    logs: Log[],
+    contractResults: MirrorNodeContractResult[],
+    tracer: TracerType,
+  ): TraceBlockByNumberTxResult[] {
+    const syntheticTraces: TraceBlockByNumberTxResult[] = [];
+    const contractResultHashes = new Set(contractResults.map((cr) => cr.hash));
+
+    // Group all logs by transaction hash, filtering out logs that have corresponding contract results
+    const syntheticLogsByTxHash = new Map<string, Log[]>();
+    for (const log of logs) {
+      if (!contractResultHashes.has(log.transactionHash)) {
+        const existingLogs = syntheticLogsByTxHash.get(log.transactionHash) || [];
+        existingLogs.push(log);
+        syntheticLogsByTxHash.set(log.transactionHash, existingLogs);
+      }
+    }
+
+    // Create synthetic traces for each unique transaction hash
+    for (const [txHash, txLogs] of syntheticLogsByTxHash) {
+      if (tracer === TracerType.CallTracer) {
+        syntheticTraces.push({
+          txHash,
+          result: this.createSyntheticCallTrace(txLogs),
+        });
+      } else if (tracer === TracerType.PrestateTracer) {
+        syntheticTraces.push({
+          txHash,
+          result: this.createSyntheticPrestateTrace(),
+        });
+      }
+    }
+
+    return syntheticTraces;
   }
 }
