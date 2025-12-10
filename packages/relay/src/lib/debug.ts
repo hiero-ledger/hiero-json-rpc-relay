@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 
-import { decodeErrorMessage, mapKeysAndValues, numberTo0x, strip0x } from '../formatters';
+import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x } from '../formatters';
 import { type Debug } from '../index';
 import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
@@ -11,7 +11,6 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
-import { Log } from './model';
 import { CommonService } from './services';
 import type { CacheService } from './services/cacheService/cacheService';
 import {
@@ -684,8 +683,8 @@ export class DebugImpl implements Debug {
         // For HTS token transfer logs, the 'from' and 'to' addresses are typically in topics[1] and topics[2]
         if (log.topics && log.topics.length >= 3) {
           // Extract addresses from topics - topics are 32-byte hex strings, addresses are last 20 bytes
-          from = '0x' + log.topics[1].slice(-40);
-          to = '0x' + log.topics[2].slice(-40);
+          from = prepend0x(log.topics[1].slice(-40));
+          to = prepend0x(log.topics[2].slice(-40));
         }
 
         // Return minimal call tracer result for synthetic transactions (no EVM execution)
