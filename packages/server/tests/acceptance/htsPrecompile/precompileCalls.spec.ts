@@ -741,7 +741,11 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
         data: CALLDATA_BALANCE_OF + NON_EXISTING_ACCOUNT.padStart(64, '0'),
       };
 
-      await relay.callFailing(Constants.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], predefined.CONTRACT_REVERT());
+      await relay.callFailing(
+        Constants.ETH_ENDPOINTS.ETH_CALL,
+        [callData, 'latest'],
+        predefined.COULD_NOT_SIMULATE_TRANSACTION('Sender account not found.'),
+      );
     });
 
     it('Call to allowance method of an HTS token with non-existing owner account in call data returns error', async () => {

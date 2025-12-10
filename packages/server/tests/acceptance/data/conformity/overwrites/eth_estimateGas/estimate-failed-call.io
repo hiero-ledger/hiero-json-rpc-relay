@@ -22,4 +22,4 @@
 // If so, it might be better to fix the underlying issue instead of adapting the test.
 
 >> {"jsonrpc":"2.0","id":1,"method":"eth_estimateGas","params":[{"from":"0x0102030000000000000000000000000000000000","input":"0xff030405","to":"0x17e7eedce4ac02ef114a7ed9fe6e2f33feba1667"}]}
-<< {"result":"0x596c","jsonrpc":"2.0","id":1}
+<< {"error": {"code": -32000, "message": "[Request ID: 1dc99c0a-9918-441d-a4bd-1a2e4f9c325c] Error occurred during transaction simulation: Sender account not found."}, "jsonrpc": "2.0", "id": "test_id"}

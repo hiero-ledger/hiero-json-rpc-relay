@@ -23,6 +23,7 @@ import basicContractJson from '../contracts/Basic.json';
 import ERC20MockJson from '../contracts/ERC20Mock.json';
 // Contracts from local resources
 import parentContractJson from '../contracts/Parent.json';
+import reverterContractJson from '../contracts/Reverter.json';
 import storageContractJson from '../contracts/Storage.json';
 import TokenCreateJson from '../contracts/TokenCreateContract.json';
 // Assertions from local resources
@@ -62,6 +63,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
   const ONE_WEIBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 18)));
 
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
+  const NON_EXISTENT_ACCOUNT = '0x114f60009ee6b84861c0cdae8829751e517bc4d7';
   const PING_CALL_ESTIMATED_GAS = '0x6122';
   const EXCHANGE_RATE_FILE_ID = '0.0.112';
   const EXCHANGE_RATE_FILE_CONTENT_DEFAULT = '0a1008b0ea0110f9bb1b1a0608f0cccf9306121008b0ea0110e9c81a1a060880e9cf9306';
@@ -152,11 +154,17 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       basicContractAddress = basicContract.target as string;
     });
 
-    it('@release-light, @release should execute "eth_estimateGas"', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [{}]);
-      expect(res).to.contain('0x');
-      expect(res).to.not.be.equal('0x');
-      expect(res).to.not.be.equal('0x0');
+    it('@release-light, @release should execute "eth_estimateGas" with empty object and throw error', async function () {
+      // With the removal of fallback gas, empty transaction object should throw error
+      const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [{}]);
+      await expect(promise).to.eventually.be.rejected.and.satisfy((error: any) => {
+        const errorBody = error?.response?.bodyJson?.error;
+        return (
+          errorBody &&
+          errorBody.code === -32000 &&
+          errorBody.message.includes('Error occurred during transaction simulation')
+        );
+      });
     });
 
     it('@release should execute "eth_estimateGas" for contract call', async function () {
@@ -181,6 +189,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('@release should execute "eth_estimateGas" for existing account', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
+          from: accounts[0].address,
           to: accounts[1].address,
           value: '0x1',
         },
@@ -198,6 +207,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
+          from: accounts[0].address,
           to: hollowAccount.address,
           value: '0x1',
         },
@@ -206,12 +216,12 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(Number(res)).to.be.greaterThanOrEqual(Number(minGasTxHollowAccountCreation));
     });
 
-    it('should execute "eth_estimateGas" with to, from, value and gas filed', async function () {
+    it('should execute "eth_estimateGas" with to, from, value and gas field', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
-          to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
-          value: '0xa688906bd8b00000',
+          from: accounts[0].address,
+          to: accounts[1].address,
+          value: '0x1',
           gas: '0xd97010',
         },
       ]);
@@ -220,12 +230,12 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.not.be.equal('0x0');
     });
 
-    it('should execute "eth_estimateGas" with to, from, value,accessList gas filed', async function () {
+    it('should execute "eth_estimateGas" with to, from, value, accessList and gas field', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
-          to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
-          value: '0xa688906bd8b00000',
+          from: accounts[0].address,
+          to: accounts[1].address,
+          value: '0x1',
           gas: '0xd97010',
           accessList: [],
         },
@@ -235,12 +245,13 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.not.be.equal('0x0');
     });
 
-    it('should execute "eth_estimateGas" with `to` filed set to null (deployment transaction)', async function () {
+    it('should execute "eth_estimateGas" with `to` field set to null (deployment transaction)', async function () {
+      // Use the Basic contract bytecode for a valid deployment transaction
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+          from: accounts[0].address,
           to: null,
-          value: `0x${'00'.repeat(5121)}`,
+          data: basicContractJson.bytecode,
         },
       ]);
       expect(res).to.contain('0x');
@@ -276,7 +287,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45',
             value: '0xa688906bd8b00000',
             gas: '0xd97010',
@@ -295,7 +306,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
             value: '123',
             gas: '0xd97010',
@@ -314,7 +325,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
         'eth_estimateGas',
         [
           {
-            from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
+            from: NON_EXISTENT_ACCOUNT,
             to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
             value: '0xa688906bd8b00000',
             gas: '123',
@@ -331,9 +342,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('should execute "eth_estimateGas" with data as 0x instead of null', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
-          to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
-          value: '0xa688906bd8b00000',
+          from: accounts[0].address,
+          to: accounts[1].address,
+          value: '0x1',
           gas: '0xd97010',
           data: '0x',
         },
@@ -346,9 +357,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('should execute "eth_estimateGas" with input as 0x instead of data', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
-          to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
-          value: '0xa688906bd8b00000',
+          from: accounts[0].address,
+          to: accounts[1].address,
+          value: '0x1',
           gas: '0xd97010',
           input: '0x',
         },
@@ -361,9 +372,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
     it('should execute "eth_estimateGas" with both input and data fields present in the txObject', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
         {
-          from: '0x114f60009ee6b84861c0cdae8829751e517bc4d7',
-          to: '0xae410f34f7487e2cd03396499cebb09b79f45d6e',
-          value: '0xa688906bd8b00000',
+          from: accounts[0].address,
+          to: accounts[1].address,
+          value: '0x1',
           gas: '0xd97010',
           input: '0x',
           data: '0x',
@@ -372,6 +383,136 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.contain('0x');
       expect(res).to.not.be.equal('0x');
       expect(res).to.not.be.equal('0x0');
+    });
+
+    describe('Contract call reverts during gas estimation', async function () {
+      let reverterContract: ethers.Contract;
+      let reverterContractAddress: string;
+
+      // Function selectors for Reverter contract methods
+      const REVERT_WITH_STRING_CALL_DATA = '0x0323d234'; // revertWithString()
+      const REVERT_WITH_CUSTOM_ERROR_CALL_DATA = '0x46fc4bb1'; // revertWithCustomError()
+      const REVERT_WITH_PANIC_CALL_DATA = '0x33fe3fbd'; // revertWithPanic()
+      const REVERT_WITH_NOTHING_CALL_DATA = '0xfe0a3dd7'; // revertWithNothing()
+
+      before(async function () {
+        reverterContract = await Utils.deployContract(
+          reverterContractJson.abi,
+          reverterContractJson.bytecode,
+          accounts[0].wallet,
+        );
+        reverterContractAddress = reverterContract.target as string;
+      });
+
+      it('should throw error when eth_estimateGas is called with a contract that reverts with string message', async function () {
+        // With the new behavior, contract reverts should throw errors instead of returning predefined gas
+        await relay.callFailing(
+          RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS,
+          [
+            {
+              from: accounts[0].address,
+              to: reverterContractAddress,
+              data: REVERT_WITH_STRING_CALL_DATA,
+            },
+          ],
+          predefined.CONTRACT_REVERT('Some revert message'),
+        );
+      });
+
+      it('should throw error when eth_estimateGas is called with a contract that reverts with custom error', async function () {
+        await relay.callFailing(
+          RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS,
+          [
+            {
+              from: accounts[0].address,
+              to: reverterContractAddress,
+              data: REVERT_WITH_CUSTOM_ERROR_CALL_DATA,
+            },
+          ],
+          predefined.CONTRACT_REVERT(),
+        );
+      });
+
+      it('should throw error when eth_estimateGas is called with a contract that reverts with panic error', async function () {
+        await relay.callFailing(
+          RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS,
+          [
+            {
+              from: accounts[0].address,
+              to: reverterContractAddress,
+              data: REVERT_WITH_PANIC_CALL_DATA,
+            },
+          ],
+          predefined.CONTRACT_REVERT(),
+        );
+      });
+
+      it('should throw error when eth_estimateGas is called with a contract that reverts without message', async function () {
+        await relay.callFailing(
+          RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS,
+          [
+            {
+              from: accounts[0].address,
+              to: reverterContractAddress,
+              data: REVERT_WITH_NOTHING_CALL_DATA,
+            },
+          ],
+          predefined.CONTRACT_REVERT(),
+        );
+      });
+    });
+
+    describe('Gas estimation errors (non-contract revert)', async function () {
+      it('should throw COULD_NOT_SIMULATE_TRANSACTION error when sender account does not exist', async function () {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: NON_EXISTENT_ACCOUNT,
+            to: basicContractAddress,
+            data: BASIC_CONTRACT_PING_CALL_DATA,
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy((error: any) => {
+          const errorBody = error?.response?.bodyJson?.error;
+          return (
+            errorBody &&
+            errorBody.code === -32000 &&
+            errorBody.message.includes('Error occurred during transaction simulation') &&
+            errorBody.message.includes('Sender account not found')
+          );
+        });
+      });
+
+      it('should throw COULD_NOT_SIMULATE_TRANSACTION error when "to" field is empty for contract call', async function () {
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            data: BASIC_CONTRACT_PING_CALL_DATA,
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected.and.satisfy((error: any) => {
+          const errorBody = error?.response?.bodyJson?.error;
+          return (
+            errorBody &&
+            errorBody.code === -32000 &&
+            errorBody.message.includes('Error occurred during transaction simulation')
+          );
+        });
+      });
+
+      it('should throw error when gas estimation fails with invalid transaction value', async function () {
+        // Using a string that can't be converted to a valid hex value
+        const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            to: accounts[1].address,
+            value: 'invalid_value',
+          },
+        ]);
+
+        await expect(promise).to.eventually.be.rejected;
+      });
     });
   });
 
