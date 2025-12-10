@@ -20,6 +20,7 @@ import {
   ICallTracerConfig,
   IOpcodeLoggerConfig,
   MirrorNodeContractResult,
+  OpcodeLoggerResult,
   RequestDetails,
   TraceBlockByNumberTxResult,
   TransactionTracerConfig,
@@ -310,12 +311,12 @@ export class DebugImpl implements Debug {
    * @async
    * @param {IOpcodesResponse | null} result - The response from mirror node.
    * @param {object} options - The options used for the opcode tracer.
-   * @returns {Promise<object>} The formatted opcode response.
+   * @returns {Promise<OpcodeLoggerResult>} The formatted opcode response.
    */
   async formatOpcodesResult(
     result: IOpcodesResponse | null,
     options: { memory?: boolean; stack?: boolean; storage?: boolean },
-  ): Promise<object> {
+  ): Promise<OpcodeLoggerResult> {
     if (!result) {
       return {
         gas: 0,
@@ -407,13 +408,13 @@ export class DebugImpl implements Debug {
    * @param {boolean} tracerConfig.disableStack - Whether to disable stack.
    * @param {boolean} tracerConfig.disableStorage - Whether to disable storage.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<object>} The formatted response.
+   * @returns {Promise<OpcodeLoggerResult>} The formatted response.
    */
   async callOpcodeLogger(
     transactionIdOrHash: string,
     tracerConfig: IOpcodeLoggerConfig,
     requestDetails: RequestDetails,
-  ): Promise<object> {
+  ): Promise<OpcodeLoggerResult> {
     try {
       const options = {
         memory: !!tracerConfig.enableMemory,
@@ -431,7 +432,7 @@ export class DebugImpl implements Debug {
           transactionIdOrHash,
           TracerType.OpcodeLogger,
           requestDetails,
-        )) as object;
+        )) as OpcodeLoggerResult;
       }
 
       return await this.formatOpcodesResult(response, options);
@@ -656,7 +657,7 @@ export class DebugImpl implements Debug {
     transactionIdOrHash: string,
     tracer: TracerType,
     requestDetails: RequestDetails,
-  ): Promise<any> {
+  ): Promise<EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult> {
     const logs = await this.common.getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails);
 
     if (logs.length === 0) {
