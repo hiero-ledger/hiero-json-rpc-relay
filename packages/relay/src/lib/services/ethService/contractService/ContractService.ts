@@ -100,7 +100,6 @@ export class ContractService implements IContractService {
    * @returns An empty array of addresses
    */
   public accounts(): [] {
-    this.logger.trace(`accounts()`);
     return [];
   }
 
