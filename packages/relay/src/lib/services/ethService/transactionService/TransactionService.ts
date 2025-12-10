@@ -185,7 +185,7 @@ export class TransactionService implements ITransactionService {
 
       // no tx found
       if (!syntheticLogs.length) {
-        this.logger.trace(`no tx for ${hash}`);
+        this.logger.trace(`no tx for %s`, hash);
         return null;
       }
 
@@ -224,7 +224,7 @@ export class TransactionService implements ITransactionService {
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
       return receipt;
     }
@@ -421,7 +421,7 @@ export class TransactionService implements ITransactionService {
 
     // no tx found
     if (!syntheticLogs.length) {
-      this.logger.trace(`no receipt for ${hash}`);
+      this.logger.trace(`no receipt for %s`, hash);
       return null;
     }
 
