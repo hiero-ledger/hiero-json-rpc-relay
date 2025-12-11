@@ -16,7 +16,6 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { Log } from '../../../model';
-import { Precheck } from '../../../precheck';
 import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
@@ -100,9 +99,6 @@ export class ContractService implements IContractService {
    * @returns An empty array of addresses
    */
   public accounts(): [] {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`accounts()`);
-    }
     return [];
   }
 
@@ -130,7 +126,7 @@ export class ContractService implements IContractService {
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`eth_call response: ${JSON.stringify(result)}`);
+        this.logger.debug(`eth_call response: %s`, JSON.stringify(result));
       }
 
       return result;
@@ -160,10 +156,6 @@ export class ContractService implements IContractService {
     blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`estimateGas(transaction=${JSON.stringify(transaction)}, blockParam=${blockParam})`);
-    }
-
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
@@ -204,16 +196,11 @@ export class ContractService implements IContractService {
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
     }
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getCode(address=${address}, blockNumber=${blockNumber})`);
-    }
 
     // check for static precompile cases first before consulting nodes
     // this also account for environments where system entities were not yet exposed to the mirror node
     if (address === constants.HTS_ADDRESS) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`);
-      }
+      this.logger.trace(`HTS precompile case, return %s for byte code`, constants.INVALID_EVM_INSTRUCTION);
       return constants.INVALID_EVM_INSTRUCTION;
     }
 
@@ -228,9 +215,7 @@ export class ContractService implements IContractService {
           return constants.EMPTY_HEX;
         }
         if (result.type === constants.TYPE_TOKEN) {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`Token redirect case, return redirectBytecode`);
-          }
+          this.logger.trace(`Token redirect case, return redirectBytecode`);
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
@@ -239,14 +224,15 @@ export class ContractService implements IContractService {
         }
       }
 
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Address ${address} is not a contract nor an HTS token, returning empty hex`);
-      }
+      this.logger.debug(`Address %s is not a contract nor an HTS token, returning empty hex`, address);
 
       return constants.EMPTY_HEX;
     } catch (error: any) {
       this.logger.error(
-        `Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
+        `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
+        address,
+        blockNumber,
+        error.message,
       );
       throw error;
     }
@@ -285,12 +271,6 @@ export class ContractService implements IContractService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `getStorageAt(address=${address}, slot=${slot}, blockNumberOrOrHashTag=${blockNumberOrTagOrHash})`,
-      );
-    }
-
     let result = constants.ZERO_HEX_32_BYTE; // if contract or slot not found then return 32 byte 0
 
     const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
@@ -337,16 +317,14 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug({
-          msg: `Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
-          to: call.to,
-          gas,
-          data: call.data,
-          from: call.from,
-          block,
-        });
-      }
+      this.logger.debug(
+        `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
+        call.to,
+        gas,
+        call.data,
+        call.from,
+        block,
+      );
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);
     } catch (e: any) {
@@ -502,11 +480,11 @@ export class ContractService implements IContractService {
     // With values over the gas limit, the call will fail with BUSY error so we cap it at 15_000_000
     const gas = Number.parseInt(gasString);
     if (gas > constants.MAX_GAS_PER_SEC) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `eth_call gas amount (${gas}) exceeds network limit, capping gas to ${constants.MAX_GAS_PER_SEC}`,
-        );
-      }
+      this.logger.trace(
+        `eth_call gas amount (%s) exceeds network limit, capping gas to %s`,
+        gas,
+        constants.MAX_GAS_PER_SEC,
+      );
       return constants.MAX_GAS_PER_SEC;
     }
 

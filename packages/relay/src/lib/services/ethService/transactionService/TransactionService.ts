@@ -119,10 +119,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
-    }
-
     try {
       return await this.getTransactionByBlockHashOrBlockNumAndIndex(
         { title: 'blockHash', value: blockHash },
@@ -149,9 +145,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`);
-    }
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
 
     try {
@@ -175,10 +168,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace({ msg: `getTransactionByHash(hash=${hash})`, hash });
-    }
-
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -196,9 +185,7 @@ export class TransactionService implements ITransactionService {
 
       // no tx found
       if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`no tx for ${hash}`);
-        }
+        this.logger.trace(`no tx for %s`, hash);
         return null;
       }
 
@@ -227,10 +214,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionReceipt(${hash})`);
-    }
-
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -241,9 +224,7 @@ export class TransactionService implements ITransactionService {
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
       return receipt;
     }
@@ -440,9 +421,7 @@ export class TransactionService implements ITransactionService {
 
     // no tx found
     if (!syntheticLogs.length) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`no receipt for ${hash}`);
-      }
+      this.logger.trace(`no receipt for %s`, hash);
       return null;
     }
 

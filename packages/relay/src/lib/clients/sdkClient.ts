@@ -223,14 +223,17 @@ export class SDKClient {
     let queryCost: number | undefined = undefined;
     let status: string = '';
 
-    this.logger.info(`Execute ${queryConstructorName} query.`);
+    this.logger.info(`Execute %s query.`, queryConstructorName);
 
     try {
       queryResponse = await query.execute(this.clientMain);
       queryCost = query._queryPayment?.toTinybars().toNumber();
       status = Status.Success.toString();
       this.logger.info(
-        `Successfully execute ${queryConstructorName} query: callerName=${callerName}, cost=${queryCost} tinybars`,
+        `Successfully execute %s query: callerName=%s, cost=%s tinybars`,
+        queryConstructorName,
+        callerName,
+        queryCost,
       );
       return queryResponse;
     } catch (e: any) {
@@ -243,11 +246,14 @@ export class SDKClient {
         throw predefined.REQUEST_TIMEOUT;
       }
 
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Fail to execute ${queryConstructorName} callerName=${callerName}, status=${sdkClientError.status}(${sdkClientError.status._code}), cost=${queryCost} tinybars`,
-        );
-      }
+      this.logger.debug(
+        `Fail to execute %s callerName=%s, status=%s(%s), cost=%s tinybars`,
+        queryConstructorName,
+        callerName,
+        sdkClientError.status,
+        sdkClientError.status._code,
+        queryCost,
+      );
 
       throw sdkClientError;
     } finally {
@@ -306,7 +312,7 @@ export class SDKClient {
     }
 
     try {
-      this.logger.info(`Execute ${txConstructorName} transaction`);
+      this.logger.info(`Execute %s transaction`, txConstructorName);
       transactionResponse = await transaction.execute(this.clientMain);
 
       transactionId = transactionResponse.transactionId.toString();
@@ -315,13 +321,21 @@ export class SDKClient {
       const transactionReceipt = await transactionResponse.getReceipt(this.clientMain);
 
       this.logger.info(
-        `Successfully execute ${txConstructorName} transaction: transactionId=${transactionResponse.transactionId}, callerName=${callerName}, status=${transactionReceipt.status}(${transactionReceipt.status._code})`,
+        `Successfully execute %s transaction: transactionId=%s, callerName=%s, status=%s(%s)`,
+        txConstructorName,
+        transactionResponse.transactionId,
+        callerName,
+        transactionReceipt.status,
+        transactionReceipt.status._code,
       );
       return transactionResponse;
     } catch (e: any) {
       this.logger.warn(
         e,
-        `Transaction failed while executing transaction via the SDK: transactionId=${transaction.transactionId}, callerName=${callerName}, txConstructorName=${txConstructorName}`,
+        `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s`,
+        transaction.transactionId,
+        callerName,
+        txConstructorName,
       );
 
       if (e instanceof JsonRpcError) {
@@ -397,17 +411,27 @@ export class SDKClient {
     }
 
     try {
-      this.logger.info(`Execute ${txConstructorName} transaction`);
+      this.logger.info(`Execute %s transaction`, txConstructorName);
       transactionResponses = await transaction.executeAll(this.clientMain);
 
       this.logger.info(
-        `Successfully execute all ${transactionResponses.length} ${txConstructorName} transactions: callerName=${callerName}, status=${Status.Success}(${Status.Success._code})`,
+        `Successfully execute all %s %s transactions: callerName=%s, status=%s(%s)`,
+        transactionResponses.length,
+        txConstructorName,
+        callerName,
+        Status.Success,
+        Status.Success._code,
       );
     } catch (e: any) {
       const sdkClientError = new SDKClientError(e, e.message, undefined, e.nodeAccountId);
-
       this.logger.warn(
-        `Fail to executeAll for ${txConstructorName} transaction: transactionId=${transaction.transactionId}, callerName=${callerName}, transactionType=${txConstructorName}, status=${sdkClientError.status}(${sdkClientError.status._code})`,
+        `Fail to executeAll for %s transaction: transactionId=%s, callerName=%s, transactionType=%s, status=%s(%s)`,
+        txConstructorName,
+        transaction.transactionId,
+        callerName,
+        txConstructorName,
+        sdkClientError.status,
+        sdkClientError.status._code,
       );
       throw sdkClientError;
     } finally {
@@ -498,12 +522,10 @@ export class SDKClient {
       );
 
       if (fileInfo.size.isZero()) {
-        this.logger.warn(`File ${fileId} is empty.`);
+        this.logger.warn(`File %s is empty.`, fileId);
         throw new SDKClientError({}, 'Created file is empty.');
       }
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`Created file with fileId: ${fileId} and file size ${fileInfo.size}`);
-      }
+      this.logger.trace(`Created file with fileId: %s and file size %s`, fileId, fileInfo.size);
     }
 
     return fileId;
@@ -541,14 +563,12 @@ export class SDKClient {
       );
 
       if (fileInfo.isDeleted) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`Deleted file with fileId: ${fileId}`);
-        }
+        this.logger.trace(`Deleted file with fileId: %s`, fileId);
       } else {
-        this.logger.warn(`Fail to delete file with fileId: ${fileId} `);
+        this.logger.warn(`Fail to delete file with fileId: %s`, fileId);
       }
     } catch (error: any) {
-      this.logger.warn(`${error['message']} `);
+      this.logger.warn(`%s`, error['message']);
     }
   }
 
@@ -570,11 +590,11 @@ export class SDKClient {
     let transactionFee: number = 0;
     let txRecordChargeAmount: number = 0;
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(
-          `Get transaction record via consensus node: transactionId=${transactionId}, txConstructorName=${txConstructorName}`,
-        );
-      }
+      this.logger.debug(
+        `Get transaction record via consensus node: transactionId=%s, txConstructorName=%s`,
+        transactionId,
+        txConstructorName,
+      );
 
       const transactionRecord = await new TransactionRecordQuery()
         .setTransactionId(transactionId)
@@ -594,7 +614,13 @@ export class SDKClient {
       const sdkClientError = new SDKClientError(e, e.message);
       this.logger.warn(
         e,
-        `Error raised during TransactionRecordQuery: transactionId=${transactionId}, txConstructorName=${txConstructorName}, recordStatus=${sdkClientError.status} (${sdkClientError.status._code}), cost=${transactionFee}, gasUsed=${gasUsed}`,
+        `Error raised during TransactionRecordQuery: transactionId=%s, txConstructorName=%s, recordStatus=%s (%s), cost=%s, gasUsed=%s`,
+        transactionId,
+        txConstructorName,
+        sdkClientError.status,
+        sdkClientError.status._code,
+        transactionFee,
+        gasUsed,
       );
       throw sdkClientError;
     }
