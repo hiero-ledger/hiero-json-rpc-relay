@@ -688,11 +688,14 @@ export class DebugImpl implements Debug {
           to = prepend0x(log.topics[2].slice(-40));
         }
 
+        // Resolve addresses to their EVM equivalents
+        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
+
         // Return minimal call tracer result for synthetic transactions (no EVM execution)
         return {
           type: CallType.CALL,
-          from,
-          to,
+          from: resolvedFrom,
+          to: resolvedTo,
           gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
           gasUsed: constants.ZERO_HEX,
           value: constants.ZERO_HEX,

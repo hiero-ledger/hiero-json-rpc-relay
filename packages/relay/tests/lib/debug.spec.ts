@@ -476,6 +476,9 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+            // Mock address resolution for synthetic transaction addresses
+            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+            restMock.onGet(ACCOUNT_BY_ADDRESS).reply(200, JSON.stringify({ evm_address: accountAddress }));
 
             const result = await debugService.traceTransaction(
               syntheticTxHash,
@@ -485,7 +488,7 @@ describe('Debug API Test Suite', async function () {
 
             const expectedResult = {
               type: 'CALL',
-              from: senderAddress,
+              from: accountsResult.evm_address,
               to: accountAddress,
               gas: '0x61a80',
               gasUsed: '0x0',
@@ -507,6 +510,8 @@ describe('Debug API Test Suite', async function () {
             restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [logWithoutTopics] }));
+            // Mock address resolution for log.address
+            restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
 
             const result = await debugService.traceTransaction(
               syntheticTxHash,
@@ -514,8 +519,8 @@ describe('Debug API Test Suite', async function () {
               requestDetails,
             );
 
-            expect(result.from).to.equal(logWithoutTopics.address);
-            expect(result.to).to.equal(logWithoutTopics.address);
+            expect(result.from).to.equal(contractResult.evm_address);
+            expect(result.to).to.equal(contractResult.evm_address);
             expect(result.type).to.equal('CALL');
           });
 
