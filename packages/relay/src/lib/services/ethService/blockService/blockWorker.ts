@@ -215,11 +215,11 @@ async function prepareTransactionArray(
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
     if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-      if (logger.isLevelEnabled('debug')) {
-        logger.debug(
-          `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-        );
-      }
+      logger.debug(
+        `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+        contractResult.hash,
+        contractResult.result,
+      );
       continue;
     }
 
@@ -302,10 +302,6 @@ export async function getBlockReceipts(
   blockHashOrBlockNumber: string,
   requestDetails: RequestDetails,
 ): Promise<ITransactionReceipt[] | null> {
-  if (logger.isLevelEnabled('trace')) {
-    logger.trace(`getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
-  }
-
   const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
 
   if (block == null) {
@@ -337,11 +333,11 @@ export async function getBlockReceipts(
 
   const receiptPromises = contractResults.map(async (contractResult) => {
     if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-      if (logger.isLevelEnabled('debug')) {
-        logger.debug(
-          `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-        );
-      }
+      logger.debug(
+        `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+        contractResult.hash,
+        contractResult.result,
+      );
       return null;
     }
 
