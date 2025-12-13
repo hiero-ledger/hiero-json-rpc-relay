@@ -115,10 +115,6 @@ export class DebugImpl implements Debug {
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
-    }
-
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -199,10 +195,6 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`);
-    }
-
     try {
       DebugImpl.requireDebugAPIEnabled();
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
@@ -625,7 +617,10 @@ export class DebugImpl implements Debug {
           }
         } catch (error) {
           this.logger.error(
-            `Error processing entity ${accountEntity.address} for transaction ${transactionHash}: ${error}`,
+            `Error processing entity %s for transaction %s: %s`,
+            accountEntity.address,
+            transactionHash,
+            error,
           );
         }
       }),

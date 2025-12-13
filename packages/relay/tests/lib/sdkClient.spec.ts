@@ -14,8 +14,6 @@ import {
   FileId,
   FileInfoQuery,
   Hbar,
-  Logger as HederaLogger,
-  LogLevel,
   Query,
   Status,
   TransactionId,
@@ -1249,7 +1247,8 @@ describe('SdkClient', async function () {
       ).to.be.true;
 
       expect(loggerTraceStub.calledOnce).to.be.true;
-      expect(loggerTraceStub.firstCall.args[0]).to.include(`Deleted file with fileId: ${fileId}`);
+      expect(loggerTraceStub.firstCall.args[0]).to.include(`Deleted file with fileId: %s`);
+      expect(loggerTraceStub.firstCall.args[1]).to.equal(fileId);
       expect(loggerWarnStub.called).to.be.false;
     });
 
@@ -1264,7 +1263,8 @@ describe('SdkClient', async function () {
 
       // Assert - Verify warning is logged when file is not deleted
       expect(loggerWarnStub.calledOnce, 'logger.warn should be called when deletion fails').to.be.true;
-      expect(loggerWarnStub.firstCall.args[0]).to.include(`Fail to delete file with fileId: ${fileId}`);
+      expect(loggerWarnStub.firstCall.args[0]).to.include(`Fail to delete file with fileId: %s`);
+      expect(loggerWarnStub.firstCall.args[1]).to.equal(fileId);
       expect(loggerTraceStub.called, 'logger.trace should not be called on failure').to.be.false;
     });
 
@@ -1280,7 +1280,8 @@ describe('SdkClient', async function () {
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called once').to.be.true;
       expect(executeQueryStub.called, 'executeQuery should not be called when transaction fails').to.be.false;
       expect(loggerWarnStub.calledOnce, 'logger.warn should be called for error').to.be.true;
-      expect(loggerWarnStub.firstCall.args[0]).to.include(errorMessage);
+      expect(loggerWarnStub.firstCall.args[0]).to.include('%s');
+      expect(loggerWarnStub.firstCall.args[1]).to.equal(errorMessage);
     });
 
     it('should handle errors during file info query', async () => {
@@ -1296,7 +1297,8 @@ describe('SdkClient', async function () {
       expect(executeTransactionStub.calledOnce, 'executeTransaction should be called').to.be.true;
       expect(executeQueryStub.calledOnce, 'executeQuery should be called').to.be.true;
       expect(loggerWarnStub.calledOnce, 'logger.warn should be called for query error').to.be.true;
-      expect(loggerWarnStub.firstCall.args[0]).to.include('Query execution failed');
+      expect(loggerWarnStub.firstCall.args[0]).to.include('%s');
+      expect(loggerWarnStub.firstCall.args[1]).to.equal('Query execution failed');
     });
 
     it('should configure FileDeleteTransaction correctly', async () => {
