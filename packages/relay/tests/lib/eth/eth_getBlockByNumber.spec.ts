@@ -4,10 +4,10 @@ import { fail } from 'assert';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { Logger } from 'pino';
 import sinon from 'sinon';
 
-import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
+import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
+import { CommonService } from '../../../dist/lib/services';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
@@ -21,7 +21,8 @@ import {
   blockLogsBloom,
   defaultContractResults,
   defaultDetailedContractResults,
-  overrideEnvsInMochaDescribe,
+  mockWorkersPool,
+  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   BLOCK_HASH,
@@ -71,7 +72,6 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let ethImplLowTransactionCount: EthImpl;
 
 describe('@ethGetBlockByNumber using MirrorNode', async function () {
   this.timeout(10000);
@@ -80,15 +80,15 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
+    commonService,
     mirrorNodeInstance,
-    logger,
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: EthImpl;
     cacheService: CacheService;
+    commonService: CommonService;
     mirrorNodeInstance: MirrorNodeClient;
-    logger: Logger;
   } = generateEthTestEnv(true);
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
@@ -113,7 +113,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     expect(transactions[1].gas).equal(MAX_GAS_LIMIT2_HEX);
   }
 
-  overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
 
   this.beforeEach(async () => {
     // reset cache and restMock
@@ -124,7 +126,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
-    ethImplLowTransactionCount = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
@@ -163,9 +164,8 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     try {
       await ethImpl.blockNumber(requestDetails);
-    } catch (error) {
       // eslint-disable-next-line no-empty
-    }
+    } catch {}
     const blockNumber = await ethImpl.blockNumber(requestDetails);
 
     expect(blockNumber).to.be.eq(blockNumber);
@@ -505,28 +505,30 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     });
   });
 
-  it('eth_getBlockByNumber with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
-    // mirror node request mocks
-    restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
-    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
-    restMock
-      .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}`)
-      .reply(200, JSON.stringify(defaultDetailedContractResults));
-    restMock
-      .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}`)
-      .reply(200, JSON.stringify(defaultDetailedContractResults));
-    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+  withOverriddenEnvsInMochaTest({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 }, () => {
+    it('eth_getBlockByNumber with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
+      // mirror node request mocks
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
+      restMock
+        .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}`)
+        .reply(200, JSON.stringify(defaultDetailedContractResults));
+      restMock
+        .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}`)
+        .reply(200, JSON.stringify(defaultDetailedContractResults));
+      restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 
-    const args = [numberTo0x(BLOCK_NUMBER), true, requestDetails];
+      const args = [numberTo0x(BLOCK_NUMBER), true, requestDetails];
 
-    await RelayAssertions.assertRejection(
-      predefined.MAX_BLOCK_SIZE(77),
-      ethImplLowTransactionCount.getBlockByNumber,
-      true,
-      ethImplLowTransactionCount,
-      args,
-    );
+      await RelayAssertions.assertRejection(
+        predefined.MAX_BLOCK_SIZE(77),
+        ethImpl.getBlockByNumber,
+        true,
+        ethImpl,
+        args,
+      );
+    });
   });
 
   [false, true].forEach((showDetails) => {

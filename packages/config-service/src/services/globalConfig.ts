@@ -133,6 +133,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 15000,
   },
+  CONTENT_TOO_LARGE_METHODS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: ['eth_getLogs', 'eth_getFilterChanges', 'eth_getFilterLogs'],
+  },
   CONTRACT_CALL_GAS_LIMIT: {
     type: 'number',
     required: false,
@@ -387,6 +392,16 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 0,
+  },
+  MAX_LOG_RESPONSE_COUNT: {
+    type: 'number',
+    required: false,
+    defaultValue: 30_000, // total logs
+  },
+  MAX_LOG_RESPONSE_SIZE: {
+    type: 'number',
+    required: false,
+    defaultValue: 20_480, // size in KB
   },
   MEMWATCH_ENABLED: {
     type: 'boolean',
@@ -728,6 +743,16 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  WORKERS_POOL_MAX_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 4,
+  },
+  WORKERS_POOL_MIN_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 2,
   },
   WS_PING_INTERVAL: {
     type: 'number',

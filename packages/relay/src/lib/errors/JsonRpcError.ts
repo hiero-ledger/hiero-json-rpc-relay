@@ -14,6 +14,10 @@ export class JsonRpcError extends Error {
 }
 
 export const predefined = {
+  CONTENT_TOO_LARGE: new JsonRpcError({
+    code: -32000,
+    message: `The request payload exceeded the maximum size limit. Use a smaller block range.`,
+  }),
   CONTRACT_REVERT: (errorMessage?: string, data: string = '') => {
     let message: string;
     if (errorMessage?.length) {

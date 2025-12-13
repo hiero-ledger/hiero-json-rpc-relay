@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { numberTo0x, toHash32 } from '../../formatters';
-import { IReceiptRootHash, ReceiptsRootUtils } from '../../receiptsRootUtils';
 import constants from '../constants';
 import { Block } from '../model';
 import { MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;
-  receipts: IReceiptRootHash[];
   txArray: any[];
   gasPrice: string;
+  receiptsRoot: string;
 }
 
 export class BlockFactory {
   static async createBlock(params: BlockFactoryParams): Promise<Block> {
-    const { blockResponse, receipts, txArray, gasPrice } = params;
+    const { blockResponse, txArray, gasPrice, receiptsRoot } = params;
 
     const blockHash = toHash32(blockResponse.hash);
     const timestampRange = blockResponse.timestamp;
@@ -34,7 +33,7 @@ export class BlockFactory {
       nonce: constants.ZERO_HEX_8_BYTE,
       number: numberTo0x(blockResponse.number),
       parentHash: blockResponse.previous_hash.substring(0, 66),
-      receiptsRoot: await ReceiptsRootUtils.getRootHash(receipts),
+      receiptsRoot,
       timestamp: numberTo0x(Number(timestamp)),
       sha3Uncles: constants.EMPTY_ARRAY_HEX,
       size: numberTo0x(blockResponse.size | 0),

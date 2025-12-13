@@ -100,6 +100,14 @@ export const getRequestResult = async (
   // eslint-disable-next-line prefer-const
   let { method, params } = request;
 
+  // create a new request details object based on executing method in order to handle batch requests
+  const requestDetailsWithMethod: RequestDetails = new RequestDetails({
+    requestId: requestDetails.requestId,
+    ipAddress: requestDetails.ipAddress,
+    connectionId: requestDetails?.connectionId,
+    method,
+  });
+
   // support go-ethereum client by turning undefined into empty array
   if (!params) params = [];
 
@@ -109,24 +117,24 @@ export const getRequestResult = async (
 
   // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger)) {
-    return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
+    return jsonRespError(request.id || null, spec.InvalidRequest, requestDetailsWithMethod.requestId);
   }
 
   // verify supported method
   if (!verifySupportedMethod(request.method)) {
     logger.warn(`Method not supported: ${request.method}`);
-    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetails.requestId);
+    return jsonRespError(request.id || null, spec.MethodNotFound(request.method), requestDetailsWithMethod.requestId);
   }
 
   // verify rate limit for method method based on IP
-  if (await limiter.shouldRateLimitOnMethod(ctx.ip, request.method, requestDetails)) {
-    return jsonRespError(null, spec.IPRateLimitExceeded(request.method), requestDetails.requestId);
+  if (await limiter.shouldRateLimitOnMethod(ctx.ip, request.method, requestDetailsWithMethod)) {
+    return jsonRespError(null, spec.IPRateLimitExceeded(request.method), requestDetailsWithMethod.requestId);
   }
 
   // Check if the subscription limit is exceeded for ETH_SUBSCRIBE method
   let response: IJsonRpcResponse;
   if (method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE && !limiter.validateSubscriptionLimit(ctx)) {
-    return jsonRespError(request.id, predefined.MAX_SUBSCRIPTIONS, requestDetails.requestId);
+    return jsonRespError(request.id, predefined.MAX_SUBSCRIPTIONS, requestDetailsWithMethod.requestId);
   }
 
   // processing method
@@ -140,7 +148,7 @@ export const getRequestResult = async (
       method,
       limiter,
       mirrorNodeClient,
-      requestDetails,
+      requestDetails: requestDetailsWithMethod,
       subscriptionService,
     };
 
@@ -168,7 +176,7 @@ export const getRequestResult = async (
       jsonRpcError = predefined.INTERNAL_ERROR(JSON.stringify(error.message || error));
     }
 
-    response = jsonRespError(request.id, jsonRpcError, requestDetails.requestId);
+    response = jsonRespError(request.id, jsonRpcError, requestDetailsWithMethod.requestId);
   }
 
   return response;

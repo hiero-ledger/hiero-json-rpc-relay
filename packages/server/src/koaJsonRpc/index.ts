@@ -164,7 +164,7 @@ export default class KoaJsonRpc {
 
   async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
     try {
-      const requestDetails = new RequestDetails({ requestId, ipAddress });
+      const requestDetails = new RequestDetails({ requestId, ipAddress, method: request.method });
       // check rate limit for method and ip
       const methodTotalLimit = this.methodConfig[request.method]?.total ?? this.defaultRateLimit;
       if (await this.rateLimiter.shouldRateLimit(ipAddress, request.method, methodTotalLimit, requestDetails)) {

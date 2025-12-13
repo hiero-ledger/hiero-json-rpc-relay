@@ -6,8 +6,9 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import sinon from 'sinon';
 
+import { CommonService } from '../../../dist/lib/services';
 import { Eth, predefined } from '../../../src';
-import { SDKClient } from '../../../src/lib/clients';
+import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
@@ -22,6 +23,7 @@ import {
   expectLogData2,
   expectLogData3,
   expectLogData4,
+  mockWorkersPool,
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
@@ -69,8 +71,16 @@ describe('@ethGetLogs using MirrorNode', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
-  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: CacheService } =
-    generateEthTestEnv();
+    commonService,
+    mirrorNodeInstance,
+  }: {
+    restMock: MockAdapter;
+    hapiServiceInstance: HAPIService;
+    ethImpl: Eth;
+    cacheService: CacheService;
+    commonService: CommonService;
+    mirrorNodeInstance: MirrorNodeClient;
+  } = generateEthTestEnv();
   const filteredLogs = {
     logs: [DEFAULT_LOGS.logs[0], DEFAULT_LOGS.logs[1]],
   };
@@ -78,6 +88,10 @@ describe('@ethGetLogs using MirrorNode', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_getLogsTest', ipAddress: '0.0.0.0' });
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
 
   beforeEach(async () => {
     // reset cache and restMock

@@ -150,6 +150,9 @@ export class MirrorNodeClient {
 
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
 
+  private readonly contentTooLargeMethods = ConfigService.get('CONTENT_TOO_LARGE_METHODS');
+  private readonly maxLogResponseCount = ConfigService.get('MAX_LOG_RESPONSE_COUNT');
+  private readonly maxLogResponseSize = ConfigService.get('MAX_LOG_RESPONSE_SIZE');
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
@@ -491,6 +494,15 @@ export class MirrorNodeClient {
     const result = await this.get(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
+      if (this.contentTooLargeMethods.indexOf(requestDetails.method ?? '') > -1) {
+        if (
+          results.length > this.maxLogResponseCount || // logs count
+          JSON.stringify(results).length / 1024 > this.maxLogResponseSize // size in KB
+        ) {
+          throw predefined.CONTENT_TOO_LARGE;
+        }
+      }
+
       results = results.concat(result[resultProperty]);
     }
 
@@ -507,6 +519,7 @@ export class MirrorNodeClient {
       const next = result.links.next.replace(constants.NEXT_LINK_PREFIX, '');
       return this.getPaginatedResults(next, pathLabel, resultProperty, requestDetails, results, page, pageMax);
     } else {
+      // process.exit();
       return results;
     }
   }
@@ -1533,6 +1546,7 @@ export class MirrorNodeClient {
     const modifiedRequestDetails = new RequestDetails({
       requestId: requestDetails.requestId,
       ipAddress: constants.MASKED_IP_ADDRESS,
+      method: requestDetails.method,
     });
 
     const transactionRecords = await this.repeatedRequest(

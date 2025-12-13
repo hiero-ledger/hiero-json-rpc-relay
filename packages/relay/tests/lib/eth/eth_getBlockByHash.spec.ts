@@ -7,14 +7,14 @@ import sinon from 'sinon';
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { MirrorNodeClientError, predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
-import { EthImpl } from '../../../src/lib/eth';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import {
   blockLogsBloom,
   defaultContractResults,
   defaultDetailedContractResults,
-  overrideEnvsInMochaDescribe,
+  mockWorkersPool,
+  withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
   ACCOUNT_WITHOUT_TRANSACTIONS,
@@ -49,17 +49,19 @@ use(chaiAsPromised);
 
 let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
 let getSdkClientStub: sinon.SinonStub;
-let ethImplLowTransactionCount: EthImpl;
 
 describe('@ethGetBlockByHash using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } = generateEthTestEnv(true);
+  const { restMock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, commonService } =
+    generateEthTestEnv(true);
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockByHashTest', ipAddress: '0.0.0.0' });
 
-  overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
 
   this.beforeEach(async () => {
     // reset cache and restMock
@@ -75,8 +77,6 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     restMock
       .onGet(contractByEvmAddress(CONTRACT_ADDRESS_2))
       .reply(200, JSON.stringify({ ...DEFAULT_CONTRACT, evmAddress: CONTRACT_ADDRESS_2 }));
-
-    ethImplLowTransactionCount = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
   });
 
   this.afterEach(() => {
@@ -302,27 +302,23 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       });
   });
 
-  it('eth_getBlockByHash with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
-    // mirror node request mocks
-    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
-    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
-    restMock
-      .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}`)
-      .reply(200, JSON.stringify(defaultDetailedContractResults));
-    restMock
-      .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}`)
-      .reply(200, JSON.stringify(defaultDetailedContractResults));
-    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+  withOverriddenEnvsInMochaTest({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 }, () => {
+    it('eth_getBlockByHash with greater number of transactions than the ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE', async function () {
+      // mirror node request mocks
+      restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
+      restMock
+        .onGet(`contracts/${CONTRACT_ADDRESS_1}/results/${CONTRACT_TIMESTAMP_1}`)
+        .reply(200, JSON.stringify(defaultDetailedContractResults));
+      restMock
+        .onGet(`contracts/${CONTRACT_ADDRESS_2}/results/${CONTRACT_TIMESTAMP_2}`)
+        .reply(200, JSON.stringify(defaultDetailedContractResults));
+      restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
 
-    const args = [BLOCK_HASH, true, requestDetails];
+      const args = [BLOCK_HASH, true, requestDetails];
 
-    await RelayAssertions.assertRejection(
-      predefined.MAX_BLOCK_SIZE(77),
-      ethImplLowTransactionCount.getBlockByHash,
-      true,
-      ethImplLowTransactionCount,
-      args,
-    );
+      await RelayAssertions.assertRejection(predefined.MAX_BLOCK_SIZE(77), ethImpl.getBlockByHash, true, ethImpl, args);
+    });
   });
 
   [false, true].forEach((showDetails) => {
