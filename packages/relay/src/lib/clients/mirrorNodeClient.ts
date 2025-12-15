@@ -505,15 +505,6 @@ export class MirrorNodeClient {
     const result = await this.get(url, pathLabel, requestDetails);
 
     if (result && result[resultProperty]) {
-      if (this.contentTooLargeMethods.indexOf(requestDetails.method ?? '') > -1) {
-        if (
-          results.length > this.maxLogResponseCount || // logs count
-          JSON.stringify(results).length / 1024 > this.maxLogResponseSize // size in KB
-        ) {
-          throw predefined.CONTENT_TOO_LARGE;
-        }
-      }
-
       results = results.concat(result[resultProperty]);
     }
 
@@ -521,6 +512,13 @@ export class MirrorNodeClient {
       // max page reached
       this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
       throw predefined.PAGINATION_MAX(pageMax);
+    }
+
+    if (
+      this.contentTooLargeMethods.includes(requestDetails.method ?? '') &&
+      (results.length > this.maxLogResponseCount || JSON.stringify(results).length / 1024 > this.maxLogResponseSize)
+    ) {
+      throw predefined.CONTENT_TOO_LARGE;
     }
 
     if (result?.links?.next && page < pageMax) {
