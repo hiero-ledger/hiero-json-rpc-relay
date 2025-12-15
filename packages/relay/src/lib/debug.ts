@@ -19,7 +19,6 @@ import {
   EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
-  MirrorNodeContractResult,
   OpcodeLoggerResult,
   RequestDetails,
   TraceBlockByNumberTxResult,
@@ -202,60 +201,33 @@ export class DebugImpl implements Debug {
 
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
-      const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+      // Get ALL transaction hashes (EVM + synthetic)
+      const transactionHashes = await this.getAllTransactionHashesFromBlock(blockResponse, requestDetails);
 
-      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRangeParams }, undefined],
-      );
-
-      if (contractResults == null || contractResults.length === 0) {
-        // return empty array if no EthereumTransaction typed transactions found in the block
+      if (transactionHashes.length === 0) {
         return [];
       }
 
-      let tracer: TracerType = TracerType.CallTracer;
-      let onlyTopCall;
+      const tracer = tracerObject?.tracer ?? TracerType.CallTracer;
+      const onlyTopCall = tracerObject?.tracerConfig?.onlyTopCall;
 
-      if (tracerObject) {
-        tracer = tracerObject.tracer;
-        onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
-      }
-
+      // Trace all transactions using existing tracer methods
       if (tracer === TracerType.CallTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.callTracer(
-                  contractResult.hash,
-                  { onlyTopCall } as ICallTracerConfig,
-                  requestDetails,
-                ),
-              };
-            }),
+        return await Promise.all(
+          transactionHashes.map(async (txHash) => ({
+            txHash,
+            result: await this.callTracer(txHash, { onlyTopCall }, requestDetails),
+          })),
         );
-
-        return result;
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
-              };
-            }),
+        return await Promise.all(
+          transactionHashes.map(async (txHash) => ({
+            txHash,
+            result: await this.prestateTracer(txHash, onlyTopCall, requestDetails),
+          })),
         );
-
-        return result;
       }
 
       return [];
@@ -640,6 +612,46 @@ export class DebugImpl implements Debug {
     // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
+  }
+
+  /**
+   * Retrieves all transaction hashes in a block (EVM + synthetic).
+   *
+   * @private
+   * @param blockResponse - Block metadata with timestamp range
+   * @param requestDetails - Request tracking details
+   * @returns Array of unique transaction hashes in the block
+   */
+  private async getAllTransactionHashesFromBlock(
+    blockResponse: { timestamp: { from: string; to: string } },
+    requestDetails: RequestDetails,
+  ): Promise<string[]> {
+    const timestampRange = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+
+    // Fetch both contract results and all logs in the block in parallel
+    const [contractResults, allLogs] = await Promise.all([
+      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+        requestDetails,
+        { timestamp: timestampRange },
+        undefined,
+      ]),
+      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
+    ]);
+
+    // Collect all unique transaction hashes
+    const transactionHashes = new Set<string>();
+
+    // Add EVM transaction hashes (excluding WRONG_NONCE)
+    contractResults?.filter((cr) => cr.result !== 'WRONG_NONCE').forEach((cr) => transactionHashes.add(cr.hash));
+
+    // Capture synthetic HTS transaction hashes from logs
+    allLogs?.forEach((log) => {
+      if (log.transaction_hash) {
+        transactionHashes.add(log.transaction_hash);
+      }
+    });
+
+    return Array.from(transactionHashes);
   }
 
   /**
