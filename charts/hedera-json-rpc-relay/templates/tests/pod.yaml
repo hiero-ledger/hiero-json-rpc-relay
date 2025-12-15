@@ -16,11 +16,12 @@ spec:
       env:
         - name: BASE_URL
           value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
-      args:
-        - test
-        - -e
-        - /test/hopp-env.json
-        - /test/hoppscotch.json
+      command:
+        - /bin/sh
+        - -c
+        - |
+          npm install -g @hoppscotch/cli@{{ .Values.test.cliVersion }} && \
+          hopp test -e /test/hopp-env.json /test/hoppscotch.json
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
