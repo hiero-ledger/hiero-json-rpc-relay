@@ -669,7 +669,7 @@ describe('Precheck', async function () {
       const gasDifferenceFromOtherFactors = 16305;
 
       const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: smallestContractCreate } as Transaction);
-      console.log(`intrinsicGasCost: ${intrinsicGasCost}`);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
@@ -682,7 +682,7 @@ describe('Precheck', async function () {
       const gasDifferenceFromOtherFactors = 356525;
 
       const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: greeterContractCreate } as Transaction);
-      console.log(`intrinsicGasCost: ${intrinsicGasCost}`);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
