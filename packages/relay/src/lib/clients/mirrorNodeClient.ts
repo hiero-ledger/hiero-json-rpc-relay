@@ -526,7 +526,6 @@ export class MirrorNodeClient {
       const next = result.links.next.replace(constants.NEXT_LINK_PREFIX, '');
       return this.getPaginatedResults(next, pathLabel, resultProperty, requestDetails, results, page, pageMax);
     } else {
-      // process.exit();
       return results;
     }
   }
