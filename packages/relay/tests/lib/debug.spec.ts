@@ -276,7 +276,6 @@ describe('Debug API Test Suite', async function () {
   };
 
   this.beforeAll(() => {
-    // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
@@ -785,19 +784,14 @@ describe('Debug API Test Suite', async function () {
 
         it('should return empty result with invalid parameters in formatOpcodeResult', async function () {
           const opcodeResult = await debugService.formatOpcodesResult(null, {});
-          // @ts-ignore
           expect(opcodeResult.gas).to.eq(0);
-          // @ts-ignore
           expect(opcodeResult.failed).to.eq(true);
-          // @ts-ignore
           expect(opcodeResult.returnValue).to.eq('');
-          // @ts-ignore
           expect(opcodeResult.structLogs).to.be.an('array').that.is.empty;
         });
 
         describe('resolveAddress', async function () {
           it('should return null address with invalid parameters in resolveAddress', async function () {
-            // @ts-ignore
             const address = await debugService.resolveAddress(null, requestDetails);
             expect(address).to.be.null;
           });
