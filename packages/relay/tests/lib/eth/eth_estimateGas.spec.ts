@@ -13,8 +13,11 @@ import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
+import { Precheck } from '../../../src/lib/precheck';
+import { LockService } from '../../../src/lib/services/lockService/LockService';
+import { LocalPendingTransactionStorage } from '../../../src/lib/services/transactionPoolService/LocalPendingTransactionStorage';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -78,7 +81,17 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    const lockServiceStub = createStubInstance(LockService);
+    const storageStub = createStubInstance(LocalPendingTransactionStorage);
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      storageStub,
+      lockServiceStub,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getOperatorAccountId()!.toString(), 200, {
@@ -152,9 +165,10 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     };
     await mockContractCall(callData, true, 400, { errorMessage: '', statusCode: 400 }, requestDetails);
 
-    const gas = await ethImpl.estimateGas({ data: '0x01' }, null, requestDetails);
-    const tx = { data: callData.data! } as Transaction;
-    expect(gas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(tx)));
+    await expect(ethImpl.estimateGas({ data: '0x01' }, null, requestDetails)).to.be.rejectedWith(
+      JsonRpcError,
+      simulationFailErrorMessage,
+    );
   });
 
   it('should eth_estimateGas to mirror node for transfer throws COULD_NOT_SIMULATE_TRANSACTION error on 400', async function () {
@@ -426,10 +440,33 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients" throws CONTRACT_REVERT error', async function () {
-    const tx = { data: transaction.data! } as Transaction;
-    const estimatedGas = await ethImpl.estimateGas(transaction, id, requestDetails);
+    await mockContractCall(
+      transaction,
+      true,
+      400,
+      {
+        _status: {
+          messages: [
+            {
+              data: '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+              detail: 'Invalid number of recipients',
+              message: 'CONTRACT_REVERT_EXECUTED',
+            },
+          ],
+        },
+      },
+      requestDetails,
+    );
 
-    expect(estimatedGas).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(tx)));
+    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.eventually.satisfy((error: JsonRpcError) => {
+        expect(error.data).to.equal(
+          '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+        );
+        expect(error.message).to.equal('execution reverted: Invalid number of recipients');
+        return true;
+      });
   });
 
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
