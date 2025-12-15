@@ -55,7 +55,7 @@ spec:
                 - -c
                 - |
                   # Install Hoppscotch CLI from npm (not pre-installed in the image)
-                  npm install -g @hoppscotch/cli && \
+                  npm install -g @hoppscotch/cli@{{ .Values.cronjob.cliVersion }} && \
                   wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && \
                   wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && \
                   hopp test -e hopp-env.json hoppscotch.json                     

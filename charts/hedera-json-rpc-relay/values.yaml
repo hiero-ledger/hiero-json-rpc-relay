@@ -156,6 +156,8 @@ cronjob:
   hoppscotch: ''
   # Custom hopp-env.json in base64 encoding
   hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -269,6 +271,8 @@ test:
   hoppscotch: ''
   # Custom hopp-env.json in base64 encoding
   hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
 
 terminationGracePeriodSeconds: 60
 
