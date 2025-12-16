@@ -355,7 +355,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     });
   });
 
-  it('eth_getBlockByHash should throw an error if nulbale entities found in logs', async function () {
+  it('eth_getBlockByHash should throw an error if nullable entities found in logs', async function () {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
@@ -381,7 +381,9 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
         expect.fail('should have thrown an error');
       } catch (error) {
         expect(error).to.exist;
-        expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
+        const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
+        expect(error.code).to.equal(predefinedError.code);
+        expect(error.message).to.equal(predefinedError.message);
       }
     }
   });

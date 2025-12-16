@@ -8,6 +8,7 @@ import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
+import { WorkersPool } from '../../workersService/WorkersPool';
 import { CommonService } from './CommonService';
 
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
@@ -24,26 +25,30 @@ export async function getLogs(
   topics: any[] | null,
   requestDetails: RequestDetails,
 ) {
-  const EMPTY_RESPONSE = [];
-  const params: any = {};
+  try {
+    const EMPTY_RESPONSE = [];
+    const params: any = {};
 
-  if (blockHash) {
-    if (!(await commonService.validateBlockHashAndAddTimestampToParams(params, blockHash, requestDetails))) {
+    if (blockHash) {
+      if (!(await commonService.validateBlockHashAndAddTimestampToParams(params, blockHash, requestDetails))) {
+        return EMPTY_RESPONSE;
+      }
+    } else if (
+      !(await commonService.validateBlockRangeAndAddTimestampToParams(
+        params,
+        fromBlock,
+        toBlock,
+        requestDetails,
+        address,
+      ))
+    ) {
       return EMPTY_RESPONSE;
     }
-  } else if (
-    !(await commonService.validateBlockRangeAndAddTimestampToParams(
-      params,
-      fromBlock,
-      toBlock,
-      requestDetails,
-      address,
-    ))
-  ) {
-    return EMPTY_RESPONSE;
+
+    commonService.addTopicsToParams(params, topics);
+
+    return await commonService.getLogsWithParams(address, params, requestDetails);
+  } catch (e: unknown) {
+    throw WorkersPool.wrapError(e);
   }
-
-  commonService.addTopicsToParams(params, topics);
-
-  return commonService.getLogsWithParams(address, params, requestDetails);
 }

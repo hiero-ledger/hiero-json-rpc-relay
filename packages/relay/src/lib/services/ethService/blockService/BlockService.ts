@@ -100,11 +100,15 @@ export class BlockService implements IBlockService {
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt[] | null> {
-    return WorkersPool.getInstance().run({
-      type: 'getBlockReceipts',
-      blockHashOrBlockNumber,
-      requestDetails,
-    });
+    return WorkersPool.getInstance()
+      .run({
+        type: 'getBlockReceipts',
+        blockHashOrBlockNumber,
+        requestDetails,
+      })
+      .catch((error: unknown) => {
+        throw WorkersPool.unwrapError(error);
+      });
   }
 
   /**
@@ -200,13 +204,17 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return await WorkersPool.getInstance().run({
-      type: 'getBlock',
-      blockHashOrNumber,
-      showDetails,
-      requestDetails,
-      chain: this.chain,
-    });
+    return WorkersPool.getInstance()
+      .run({
+        type: 'getBlock',
+        blockHashOrNumber,
+        showDetails,
+        requestDetails,
+        chain: this.chain,
+      })
+      .catch((error: unknown) => {
+        throw WorkersPool.unwrapError(error);
+      });
   }
 
   /**

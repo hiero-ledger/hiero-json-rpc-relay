@@ -11,6 +11,15 @@ export class JsonRpcError extends Error {
     this.code = args.code;
     this.data = args.data;
   }
+
+  public toPlainJSON() {
+    return {
+      code: this.code,
+      data: this.data,
+      message: this.message,
+      name: JsonRpcError.name,
+    };
+  }
 }
 
 export const predefined = {

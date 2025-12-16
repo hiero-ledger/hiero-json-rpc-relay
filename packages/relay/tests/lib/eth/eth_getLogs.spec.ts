@@ -217,7 +217,9 @@ describe('@ethGetLogs using MirrorNode', async function () {
       expect.fail('should have thrown an error');
     } catch (error) {
       expect(error).to.exist;
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
+      const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
+      expect(error.code).to.equal(predefinedError.code);
+      expect(error.message).to.equal(predefinedError.message);
     }
   });
 
