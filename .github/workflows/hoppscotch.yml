@@ -2,11 +2,15 @@ name: Hoppscotch Endpoint Tests
 
 on:
   pull_request:
-    branches: [main, release/**]
+    branches:
+      - main
+      - release/**
   push:
-    branches: [main, release/**]
-    tags: [v*]
-  workflow_dispatch:
+    branches:
+      - main
+      - release/**
+    tags:
+      - v*
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
