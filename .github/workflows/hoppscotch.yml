@@ -11,6 +11,7 @@ on:
       - release/**
     tags:
       - v*
+  workflow_dispatch:
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
