@@ -57,7 +57,11 @@ export class WorkersPool {
    * @returns A promise resolving to the worker's result.
    */
   static run(options: unknown): Promise<any> {
-    return this.getInstance().run(options);
+    return this.getInstance()
+      .run(options)
+      .catch((error: unknown) => {
+        throw WorkersPool.unwrapError(error);
+      });
   }
 
   /**
