@@ -1556,7 +1556,6 @@ export class MirrorNodeClient {
     const modifiedRequestDetails = new RequestDetails({
       requestId: requestDetails.requestId,
       ipAddress: constants.MASKED_IP_ADDRESS,
-      method: requestDetails.method,
     });
 
     const transactionRecords = await this.repeatedRequest(

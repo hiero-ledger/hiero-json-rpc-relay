@@ -56,7 +56,7 @@ export class WorkersPool {
    * @param options - The data passed to the worker.
    * @returns A promise resolving to the worker's result.
    */
-  static run(options: unknown): Promise<any> {
+  static async run(options: unknown): Promise<any> {
     return this.getInstance()
       .run(options)
       .catch((error: unknown) => {
@@ -69,11 +69,11 @@ export class WorkersPool {
    * the error message. Intended for transporting rich error information (including custom error types) across
    * boundaries such as Piscina worker threads.
    *
-   * @param err - An error-like object that implements `toPlainJSON()`.
+   * @param err - An error-like object that implements `toJSON()`.
    * @returns A new `Error` whose `message` contains a JSON-encoded
    */
   static wrapError(err: any): Error {
-    return new Error(JSON.stringify(err.toPlainJSON()));
+    return new Error(JSON.stringify(err));
   }
 
   /**
@@ -108,7 +108,7 @@ export class WorkersPool {
       }
 
       case MirrorNodeClientError.name: {
-        return MirrorNodeClientError.fromPlainJSON(
+        return MirrorNodeClientError.fromJSON(
           parsedErr.statusCode!,
           parsedErr.message,
           parsedErr.data,

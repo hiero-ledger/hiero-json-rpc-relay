@@ -76,7 +76,7 @@ export class MirrorNodeClientError extends Error {
     return this.message === 'INVALID_TRANSACTION';
   }
 
-  public toPlainJSON() {
+  public toJSON() {
     return {
       statusCode: this.statusCode,
       data: this.data,
@@ -86,12 +86,7 @@ export class MirrorNodeClientError extends Error {
     };
   }
 
-  public static fromPlainJSON(
-    statusCode: number,
-    message: string,
-    data?: string,
-    detail?: string,
-  ): MirrorNodeClientError {
+  public static fromJSON(statusCode: number, message: string, data?: string, detail?: string): MirrorNodeClientError {
     const err: MirrorNodeClientError = new MirrorNodeClientError({}, statusCode);
     err.data = data;
     err.detail = detail;

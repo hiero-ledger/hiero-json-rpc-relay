@@ -12,7 +12,7 @@ export class JsonRpcError extends Error {
     this.data = args.data;
   }
 
-  public toPlainJSON() {
+  public toJSON() {
     return {
       code: this.code,
       data: this.data,
