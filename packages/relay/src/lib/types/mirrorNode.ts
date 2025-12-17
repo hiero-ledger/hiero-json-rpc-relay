@@ -43,7 +43,7 @@ export interface IContractResultsParams {
 }
 
 export interface IContractLogsResultsParams {
-  'transaction.hash': string;
+  'transaction.hash'?: string;
   index?: number;
   timestamp?: string | string[];
   topic0?: string | string[];
