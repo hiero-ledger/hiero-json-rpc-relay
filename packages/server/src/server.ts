@@ -5,8 +5,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
-import cors from '@koa/cors';
 import { RateLimitStoreFactory } from '@hashgraph/json-rpc-relay/dist/lib/services';
+import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
@@ -202,7 +202,7 @@ export async function initializeServer() {
   });
 
   // Set CORS
-  app.use(cors());
+  app.use(cors({ allowMethods: ['GET', 'POST'] }));
 
   // Middleware for non POST request timing
   app.use(async (ctx, next) => {
