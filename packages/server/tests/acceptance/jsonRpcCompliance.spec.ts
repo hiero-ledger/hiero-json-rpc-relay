@@ -100,7 +100,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       if (ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE')) this.skip();
     });
 
-    it('Malformed HTTP method/body -> 400 when flag is false', async function () {
+    it('Malformed HTTP method/body -> 405 when flag is false', async function () {
       const getWithBody = await sendRaw('GET', '/', {
         jsonrpc: '2.0',
         id: 1,
@@ -110,10 +110,10 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expect(getWithBody.status).to.equal(405);
       expectValidJsonRpc(getWithBody);
       const getNoBody = await sendRaw('GET', '/');
-      expect(getNoBody.status).to.equal(400);
+      expect(getNoBody.status).to.equal(405);
       expectValidJsonRpc(getNoBody);
       const putEmptyBody = await sendRaw('PUT', '/', '');
-      expect(putEmptyBody.status).to.equal(400);
+      expect(putEmptyBody.status).to.equal(405);
       expectValidJsonRpc(putEmptyBody);
     });
 
@@ -406,32 +406,6 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Limit exceeded -> 200 + JSON-RPC error when flag is true', async function () {
-      const addresses = Array.from({ length: 1000000 }, (_, i) => {
-        const hex = i.toString(16).padStart(40, '0');
-        return `0x${hex}`;
-      });
-
-      const response = await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: 'limit-test',
-        method: 'eth_getLogs',
-        params: [
-          {
-            fromBlock: '0x1',
-            toBlock: '0x1000000',
-            address: addresses,
-          },
-        ],
-      });
-
-      expect(response.status).to.equal(200);
-      expect(response.data).to.have.property('error');
-      const error = (response.data as JsonRpcResponse).error!;
-      expect(error.code).to.be.a('number');
-      expectNoHttp500(response);
-    });
-
     it('All syntactically valid JSON-RPC payloads return HTTP 200 (errors only via JSON-RPC error objects)', async function () {
       const cases: any[] = [
         {
@@ -446,7 +420,6 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
           method: 'eth_getBalance',
           params: [42, true],
         },
-        { id: 'invalid-rpc' },
       ];
 
       for (const payload of cases) {

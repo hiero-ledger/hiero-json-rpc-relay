@@ -132,7 +132,7 @@ export default class KoaJsonRpc {
         requestId,
       );
       ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!
-      ctx.status = 400;
+      ctx.status = 200;
       ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
       return;
     }
