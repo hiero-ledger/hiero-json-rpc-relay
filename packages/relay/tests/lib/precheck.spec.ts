@@ -664,11 +664,12 @@ describe('Precheck', async function () {
     it('should be able to calculate small contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 60364;
+      const mirrorNodeEstimation = 70711;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 37964;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(smallestContractCreate);
+      const gasDifferenceFromOtherFactors = 16305;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: smallestContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
@@ -676,38 +677,61 @@ describe('Precheck', async function () {
     it('should be able to calculate normal contract create', function () {
       // This number represents the estimation for mirror node web3 module
       // Can be fetched by using: curl -X POST --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"from":"0x...","data":<greeterContractCreate>},"latest"]}'
-      const mirrorNodeEstimation = 86351;
+      const mirrorNodeEstimation = 499055;
       // This number represents the difference between the actual gas returned from the mirror node and the minimal required for deployment of this contract based only on the data field.
-      const gasDifferenceFromOtherFactors = 16739;
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(greeterContractCreate);
+      const gasDifferenceFromOtherFactors = 356525;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: greeterContractCreate } as Transaction);
+
       expect(intrinsicGasCost).to.be.equal(mirrorNodeEstimation - gasDifferenceFromOtherFactors);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calculate contract call', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCall);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCall } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to calucate tx without starting 0x', function () {
       const contractCallTrimmed = contractCall.replace('0x', '');
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(contractCallTrimmed);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: contractCallTrimmed } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
     });
 
     it('should be able to able to calculate transfer', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(transfer);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: transfer,
+        to: contractAddress1,
+      } as Transaction);
       expect(intrinsicGasCost).to.be.equal(constants.TX_BASE_COST);
     });
 
     it('should be able to calculate for odd length tx', function () {
-      // @ts-ignore
-      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(invalidTx);
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({ data: invalidTx } as Transaction);
       expect(intrinsicGasCost).to.be.greaterThan(constants.TX_BASE_COST);
+    });
+
+    it('should apply floor price for simple contract call (EIP-7623)', function () {
+      // Use realistic calldata: a function selector (4 non-zero bytes)
+      // For simple calls (with 'to' address), floor price is always >= standard gas when there's calldata
+      // because TOTAL_COST_FLOOR_PER_TOKEN (10) > STANDARD_TOKEN_COST (4)
+      const data = contractCall; // '0xcfae3217' - 4 non-zero bytes
+
+      const zeroBytes = 0;
+      const nonZeroBytes = 4;
+
+      const tokens = zeroBytes + nonZeroBytes * 4;
+      const standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokens;
+      const expectedFloorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokens;
+
+      const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+        data: data,
+        to: contractAddress1, // not a contract creation
+      } as Transaction);
+
+      expect(expectedFloorPrice).to.be.greaterThan(standardIntrinsicGas);
+      expect(intrinsicGasCost).to.equal(expectedFloorPrice);
+      expect(intrinsicGasCost).to.be.greaterThan(standardIntrinsicGas);
     });
   });
 

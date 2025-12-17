@@ -150,6 +150,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
         const signed = await signTransaction({
           ...transaction,
+          gasLimit: '0x927C0',
           data: '0x' + '22'.repeat(13000),
         });
         const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));

@@ -206,7 +206,7 @@ export class Precheck {
    */
   gasLimit(tx: Transaction): void {
     const gasLimit = Number(tx.gasLimit);
-    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx.data);
+    const intrinsicGasCost = Precheck.transactionIntrinsicGasCost(tx);
 
     if (gasLimit > constants.MAX_TRANSACTION_FEE_THRESHOLD) {
       throw predefined.GAS_LIMIT_TOO_HIGH(gasLimit, constants.MAX_TRANSACTION_FEE_THRESHOLD);
@@ -227,27 +227,67 @@ export class Precheck {
    * Calculates the intrinsic gas cost based on the number of bytes in the data field.
    * Using a loop that goes through every two characters in the string it counts the zero and non-zero bytes.
    * Every two characters that are packed together and are both zero counts towards zero bytes.
+   * N.B! Access list calculation is not added, since accessLists are currently not supported
    * @param data - The data with the bytes to be calculated
    * @returns The intrinsic gas cost.
    * @private
+   * Calculates the intrinsic gas cost based on EIP-7623 floor pricing rules.
+   *
+   * The intrinsic gas is calculated as:
+   *   max(standardIntrinsicGas, floorPrice)
+   *
+   * Where:
+   *   - standardIntrinsicGas = TX_BASE_COST + calldata cost + contract creation cost + auth list cost
+   *   - floorPrice = TX_BASE_COST + TOTAL_COST_FLOOR_PER_TOKEN * tokens_in_calldata
+   *   - tokens_in_calldata = zero_bytes + non_zero_bytes * 4
+   *
+   * @see https://eips.ethereum.org/EIPS/eip-7623
+   * @see https://eips.ethereum.org/EIPS/eip-7702
+   * @see https://eips.ethereum.org/EIPS/eip-3860
+   *
+   * @param tx - The transaction object
+   * @returns The intrinsic gas cost (maximum of standard cost and floor price).
    */
-  public static transactionIntrinsicGasCost(data: string): number {
-    const trimmedData = data.replace('0x', '');
+  public static transactionIntrinsicGasCost(tx: Transaction): number {
+    const calldata = tx.data.replace('0x', '');
 
-    let zeros = 0;
-    let nonZeros = 0;
-    for (let index = 0; index < trimmedData.length; index += 2) {
-      const bytes = trimmedData[index] + trimmedData[index + 1];
-      if (bytes === '00') {
-        zeros++;
+    // Count zero and non-zero bytes in calldata
+    let zeroBytes = 0;
+    let nonZeroBytes = 0;
+    for (let index = 0; index < calldata.length; index += 2) {
+      const byte = calldata[index] + calldata[index + 1];
+      if (byte === '00') {
+        zeroBytes++;
       } else {
-        nonZeros++;
+        nonZeroBytes++;
       }
     }
 
-    return (
-      constants.TX_BASE_COST + constants.TX_DATA_ZERO_COST * zeros + constants.ISTANBUL_TX_DATA_NON_ZERO_COST * nonZeros
-    );
+    // EIP-7623: tokens_in_calldata = zero_bytes + non_zero_bytes * 4
+    const tokensInCalldata = zeroBytes + nonZeroBytes * 4;
+
+    // Standard intrinsic gas cost (EIP-7623: STANDARD_TOKEN_COST * tokens)
+    let standardIntrinsicGas = constants.TX_BASE_COST + constants.STANDARD_TOKEN_COST * tokensInCalldata;
+
+    // EIP-3860: Add contract creation cost if tx.to is null (contract deployment)
+    const isContractCreation = tx.to === null || tx.to === undefined;
+    if (isContractCreation) {
+      const calldataLengthInBytes = calldata.length / 2;
+      const words = Math.ceil(calldataLengthInBytes / 32);
+      standardIntrinsicGas += constants.TX_CREATE_EXTRA + constants.INITCODE_WORD_COST * words;
+    }
+
+    // EIP-7702: Add authorization list cost for type 4 transactions
+    const authorizationList = tx.authorizationList;
+    if (tx.type === 4 && authorizationList && Array.isArray(authorizationList)) {
+      standardIntrinsicGas += constants.PER_EMPTY_ACCOUNT_COST * authorizationList.length;
+    }
+
+    // EIP-7623: Floor price for calldata-heavy transactions
+    const floorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokensInCalldata;
+
+    // Return the maximum of standard intrinsic gas and floor price
+    return Math.max(standardIntrinsicGas, floorPrice);
   }
 
   /**
