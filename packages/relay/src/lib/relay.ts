@@ -285,14 +285,11 @@ export class Relay {
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);
 
     // Create CacheService with the connected Redis client (or undefined for LRU-only)
-    this.cacheService = new CacheService(
-      CacheClientFactory.create(
-        this.logger.child({ name: 'cache-service' }),
-        this.register,
-        reservedKeys,
-        this.redisClient,
-      ),
+    this.cacheService = CacheClientFactory.create(
+      this.logger.child({ name: 'cache-service' }),
       this.register,
+      reservedKeys,
+      this.redisClient,
     );
 
     // Create spending plan repositories

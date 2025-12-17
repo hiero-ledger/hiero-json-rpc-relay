@@ -39,7 +39,7 @@ describe('HAPI Service', async function () {
 
   this.beforeAll(() => {
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
-    cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+    cacheService = CacheClientFactory.create(logger, registry);
 
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

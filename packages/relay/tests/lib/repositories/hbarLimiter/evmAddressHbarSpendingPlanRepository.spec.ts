@@ -42,7 +42,7 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(CacheClientFactory.create(logger, registry, new Set(), redisClient), registry);
+      cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClient);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,

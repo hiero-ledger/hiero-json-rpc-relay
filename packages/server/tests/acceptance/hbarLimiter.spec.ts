@@ -87,9 +87,11 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const register = new Registry();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
 
-    cacheService = new CacheService(
-      CacheClientFactory.create(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient),
+    cacheService = CacheClientFactory.create(
+      logger.child({ name: 'cache-service' }),
       register,
+      reservedKeys,
+      redisClient,
     );
 
     evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

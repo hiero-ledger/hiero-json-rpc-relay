@@ -85,7 +85,7 @@ describe('SdkClient', async function () {
     const hederaNetwork = ConfigService.get('HEDERA_NETWORK')!;
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
 
-    cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+    cacheService = CacheClientFactory.create(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);

@@ -109,10 +109,7 @@ describe('eth_getBlockBy', async function () {
       eval: sinon.stub(),
       quit: sinon.stub().resolves(true),
     } as any;
-    cacheService = new CacheService(
-      CacheClientFactory.create(logger, registry, new Set(), redisClientMock as any),
-      registry,
-    );
+    cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClientMock as any);
 
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(

@@ -59,7 +59,7 @@ describe('HBAR Rate Limit Service', function () {
   let loggerSpy: sinon.SinonSpiedInstance<Logger>;
 
   beforeEach(async function () {
-    cacheService = new CacheService(CacheClientFactory.create(logger, register));
+    cacheService = CacheClientFactory.create(logger, register);
     loggerSpy = sinon.spy(logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,

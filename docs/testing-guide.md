@@ -156,6 +156,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import { MyClass } from './my-class';
 import { CacheService } from './cache-service';
+import { CacheClientFactory } from './cacheClientFactory';
 
 chai.use(chaiAsPromised);
 
@@ -165,7 +166,7 @@ describe('MyClass', function() {
 
   beforeEach(function() {
     // Common setup for all tests
-    cacheService = new CacheService();
+    cacheService = CacheClientFactory.create();
     myClass = new MyClass(cacheService);
   });
 
@@ -229,7 +230,7 @@ describe('MyClass', function() {
       });
     });
   });
-  
+
   describe('anotherMethod', () => {
     // Tests for anotherMethod
     // Use analogous formatting to the tests for myMethod
@@ -268,6 +269,9 @@ import sinon from 'sinon';
 import pino from 'pino';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer, withOverriddenEnvsInMochaTest } from './helpers';
 
+import { CacheService } from './cache-service';
+import { CacheClientFactory } from './cacheClientFactory';
+
 chai.use(chaiAsPromised);
 
 describe('MyClass', function() {
@@ -289,7 +293,7 @@ describe('MyClass', function() {
   beforeEach(function() {
     // Common setup for all tests
     serviceThatDependsOnEnv = new ServiceThatDependsOnEnv();
-    cacheService = new CacheService();
+    cacheService = CacheClientFactory.create();
     myClass = new MyClass(serviceThatDependsOnEnv, cacheService);
   });
 

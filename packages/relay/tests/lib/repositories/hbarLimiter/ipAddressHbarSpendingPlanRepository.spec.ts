@@ -39,7 +39,7 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
       if (isSharedCacheEnabled) {
         await RedisClientManager.getClient(logger);
       }
-      cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+      cacheService = CacheClientFactory.create(logger, registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new IPAddressHbarSpendingPlanRepository(
         cacheService,

@@ -168,9 +168,11 @@ describe('HbarSpendingPlanConfigService', function () {
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(
-        CacheClientFactory.create(logger.child({ name: 'cache-service' }), registry, reservedKeys, redisClient as any),
+      cacheService = CacheClientFactory.create(
+        logger.child({ name: 'cache-service' }),
         registry,
+        reservedKeys,
+        redisClient as any,
       );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
