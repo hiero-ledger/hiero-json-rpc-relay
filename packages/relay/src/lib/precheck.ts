@@ -278,8 +278,7 @@ export class Precheck {
     }
 
     // EIP-7702: Add authorization list cost for type 4 transactions
-    // Note: ethers.js Transaction type may not have authorizationList property yet
-    const authorizationList = (tx as any).authorizationList;
+    const authorizationList = tx.authorizationList;
     if (tx.type === 4 && authorizationList && Array.isArray(authorizationList)) {
       standardIntrinsicGas += constants.PER_EMPTY_ACCOUNT_COST * authorizationList.length;
     }
