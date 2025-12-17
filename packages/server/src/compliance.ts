@@ -62,6 +62,7 @@ export const jsonRpcComplianceLayer = (ctx: IResponseContext & ParameterizedCont
   if (!makeSureBodyExistsAndCanBeChecked(ctx)) return;
   if (ctx.status === 400) {
     if (!ctx.body.error?.code) ctx.body.error = structuredClone(FALLBACK_RESPONSE_BODY.error);
+    if ([-32600, -32700].includes(Number(ctx.body.error?.code))) return;
     if (VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 200;
   }
 };

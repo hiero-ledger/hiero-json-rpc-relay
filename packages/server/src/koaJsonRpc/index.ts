@@ -126,13 +126,12 @@ export default class KoaJsonRpc {
 
     // verify max batch size
     if (body.length > this.batchRequestsMaxSize) {
-      ctx.body = [
-        jsonRespError(
-          null,
-          predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
-          requestId,
-        ),
-      ];
+      const responseBody = jsonRespError(
+        null,
+        predefined.BATCH_REQUESTS_AMOUNT_MAX_EXCEEDED(body.length, this.batchRequestsMaxSize),
+        requestId,
+      );
+      ctx.body = Array(body.length).fill(responseBody); // The response object is intentionally shared by reference!
       ctx.status = 400;
       ctx.state.status = `${ctx.status} (${INVALID_REQUEST})`;
       return;

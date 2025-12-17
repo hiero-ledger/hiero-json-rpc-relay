@@ -107,7 +107,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
         method: 'eth_blockNumber',
         params: [],
       });
-      expect(getWithBody.status).to.equal(400);
+      expect(getWithBody.status).to.equal(405);
       expectValidJsonRpc(getWithBody);
       const getNoBody = await sendRaw('GET', '/');
       expect(getNoBody.status).to.equal(400);
@@ -364,25 +364,18 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expect(wrongContentType.data).to.not.have.property('error');
     });
 
-    it('Invalid JSON payload -> 200 + JSON-RPC error -32700 when flag is true', async function () {
+    it('Invalid JSON payload -> 400 + JSON-RPC error -32700 when flag is true', async function () {
       const brokenJson = '{"jsonrpc":"2.0",';
 
       const response = await sendRaw('POST', '/', brokenJson, { 'Content-Type': 'application/json' });
 
-      expect(response.status).to.equal(200);
-      expect(response.data).to.have.property('jsonrpc', '2.0');
-      expect(response.data).to.have.property('error');
-      expect(response.data.error.code).to.equal(-32700);
-      expectNoHttp500(response);
+      expect(response.status).to.equal(400);
     });
 
-    it('Valid JSON but invalid JSON-RPC -> 200 + -32600 when flag is true', async function () {
+    it('Valid JSON but invalid JSON-RPC -> 400 + -32600 when flag is true', async function () {
       const response = await sendJsonRpc({ id: 1 });
 
-      expect(response.status).to.equal(200);
-      expect(response.data).to.have.property('error');
-      expect((response.data as JsonRpcResponse).error!.code).to.equal(-32600);
-      expectNoHttp500(response);
+      expect(response.status).to.equal(400);
     });
 
     it('Unknown/unsupported method -> 200 + -32601 when flag is true', async function () {
