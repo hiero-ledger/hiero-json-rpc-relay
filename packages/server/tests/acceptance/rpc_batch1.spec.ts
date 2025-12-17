@@ -688,7 +688,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       it('should not cache "latest" block in "eth_getBlockByNumber" ', async function () {
         const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['latest', false]);
-        await Utils.wait(1000);
+        await Utils.wait(2000);
 
         const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['latest', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
@@ -696,7 +696,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       it('should not cache "finalized" block in "eth_getBlockByNumber" ', async function () {
         const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['finalized', false]);
-        await Utils.wait(1000);
+        await Utils.wait(2000);
 
         const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['finalized', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
@@ -704,7 +704,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       it('should not cache "safe" block in "eth_getBlockByNumber" ', async function () {
         const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['safe', false]);
-        await Utils.wait(1000);
+        await Utils.wait(2000);
 
         const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['safe', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);
@@ -712,7 +712,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       it('should not cache "pending" block in "eth_getBlockByNumber" ', async function () {
         const blockResult = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['pending', false]);
-        await Utils.wait(1000);
+        await Utils.wait(2000);
 
         const blockResult2 = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, ['pending', false]);
         expect(blockResult).to.not.deep.equal(blockResult2);

@@ -173,11 +173,6 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  ESTIMATE_GAS_THROWS: {
-    type: 'boolean',
-    required: false,
-    defaultValue: true,
-  },
   ETH_BLOCK_NUMBER_CACHE_TTL_MS: {
     type: 'number',
     required: false,
@@ -362,6 +357,11 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: null,
+  },
+  LOCAL_LOCK_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
   },
   LOG_LEVEL: {
     type: 'string',
@@ -653,6 +653,21 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  LOCK_MAX_HOLD_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
+  },
+  LOCK_QUEUE_POLL_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
+  },
+  ENABLE_NONCE_ORDERING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
   },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',

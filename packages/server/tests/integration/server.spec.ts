@@ -91,9 +91,20 @@ describe('RPC Server', function () {
 
   describe('HTTP Endpoints', function () {
     it('should execute HTTP OPTIONS cors preflight check', async function () {
-      const response = await testClient.options('/');
+      const config = { headers: { 'Access-Control-Request-Method': 'POST' } };
+      const response = await testClient.options('/', config);
 
       BaseTest.validResponseCheck(response, { status: 204, statusText: 'No Content' });
+
+      expect(
+        response.headers,
+        "Preflight response: headers should have 'access-control-allow-methods' property",
+      ).to.have.property('access-control-allow-methods');
+      expect(
+        response.headers['access-control-allow-methods'],
+        "Preflight response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE,PATCH'",
+      ).to.be.equal('GET,HEAD,PUT,POST,DELETE,PATCH');
+
       BaseTest.validCorsCheck(response);
     });
 
@@ -2888,6 +2899,53 @@ describe('RPC Server', function () {
         }
       });
 
+      it('should execute with synthetic transaction', async () => {
+        const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+        const syntheticLog = {
+          address: contractAddress1,
+          block_hash:
+            '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
+          block_number: 668,
+          data: '0x0000000000000000000000000000000000000000000000000000000000000064',
+          index: 0,
+          timestamp: '1696438011.462526383',
+          topics: [
+            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+            `0x000000000000000000000000${contractAddress2.slice(2)}`,
+            `0x000000000000000000000000${contractAddress1.slice(2)}`,
+          ],
+          transaction_hash: syntheticTxHash,
+          transaction_index: 1,
+        };
+
+        // Mock getContractResultWithRetry to return null (no EVM transaction)
+        getContractResults.withArgs(sinon.match.any, [syntheticTxHash, sinon.match.any]).resolves(null);
+        getContractActions.withArgs(syntheticTxHash, sinon.match.any).resolves([]);
+        getContractOpcodes.withArgs(syntheticTxHash, sinon.match.any, sinon.match.any).resolves(null);
+
+        // Mock getContractResultsLogsWithRetry to return synthetic log
+        const getLogsStub = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractResultsLogsWithRetry')
+          .resolves([syntheticLog]);
+
+        try {
+          const response = await testClient.post('/', {
+            jsonrpc: '2.0',
+            method: 'debug_traceTransaction',
+            params: [syntheticTxHash, { tracer: TracerType.CallTracer }],
+            id: 1,
+          });
+
+          expect(response.status).to.equal(200);
+          expect(response.data.result).to.exist;
+          expect(response.data.result.type).to.equal('CALL');
+          expect(response.data.result.from).to.equal(contractAddress2);
+          expect(response.data.result.to).to.equal(contractAddress1);
+        } finally {
+          getLogsStub.restore();
+        }
+      });
+
       it('should fail with invalid JSON-RPC version', async () => {
         try {
           await testClient.post('/', {
@@ -2980,6 +3038,7 @@ describe('RPC Server', function () {
 
       let getHistoricalBlockResponse: sinon.SinonStub;
       let getContractResultWithRetry: sinon.SinonStub;
+      let getContractResultsLogsWithRetry: sinon.SinonStub;
       let getBlocks: sinon.SinonStub;
       let getBlock: sinon.SinonStub;
       let callTracer: sinon.SinonStub;
@@ -2995,6 +3054,9 @@ describe('RPC Server', function () {
         getContractResultWithRetry = sinon
           .stub(MirrorNodeClient.prototype, 'getContractResultWithRetry')
           .resolves(contractResults);
+        getContractResultsLogsWithRetry = sinon
+          .stub(MirrorNodeClient.prototype, 'getContractResultsLogsWithRetry')
+          .resolves([]);
         getBlocks = sinon.stub(MirrorNodeClient.prototype, 'getBlocks').resolves({
           blocks: [
             {
@@ -3037,6 +3099,7 @@ describe('RPC Server', function () {
       });
 
       afterEach(() => {
+        getContractResultsLogsWithRetry.restore();
         getHistoricalBlockResponse.restore();
         getContractResultWithRetry.restore();
         getBlocks.restore();
@@ -3209,6 +3272,61 @@ describe('RPC Server', function () {
         expect(response.data.result).to.be.empty;
       });
 
+      it('should execute with synthetic transactions in block', async () => {
+        const syntheticTxHash = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+        const syntheticLog = {
+          address: contractAddress1,
+          block_hash:
+            '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb062807df5c9c0fa9a373b4d9726707f8b5',
+          block_number: 1,
+          data: '0x0000000000000000000000000000000000000000000000000000000000000064',
+          index: 0,
+          timestamp: '1696438011.462526383',
+          topics: [
+            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+            `0x000000000000000000000000${contractAddress2.slice(2)}`,
+            `0x000000000000000000000000${contractAddress1.slice(2)}`,
+          ],
+          transaction_hash: syntheticTxHash,
+          transaction_index: 1,
+        };
+
+        const syntheticCallTracerResult = {
+          type: 'CALL',
+          from: contractAddress2,
+          to: contractAddress1,
+          value: '0x0',
+          gas: '0x0',
+          gasUsed: '0x0',
+          input: '0x',
+          output: '0x',
+        };
+
+        // Mock getContractResultWithRetry to return empty (no EVM transactions)
+        getContractResultWithRetry.resolves([]);
+
+        // Mock getContractResultsLogsWithRetry to return synthetic log
+        getContractResultsLogsWithRetry.resolves([syntheticLog]);
+
+        // Mock callTracer to return result for synthetic hash
+        callTracer.withArgs(syntheticTxHash, sinon.match.any, sinon.match.any).resolves(syntheticCallTracerResult);
+
+        const response = await testClient.post('/', {
+          jsonrpc: '2.0',
+          method: 'debug_traceBlockByNumber',
+          params: [blockNumberHex, { tracer: TracerType.CallTracer }],
+          id: '2',
+        });
+
+        BaseTest.defaultResponseChecks(response);
+        expect(response.data.result).to.be.an('array');
+        expect(response.data.result).to.have.lengthOf(1);
+        expect(response.data.result[0]).to.deep.equal({
+          txHash: syntheticTxHash,
+          result: syntheticCallTracerResult,
+        });
+      });
+
       it('should fail when block not found', async () => {
         getHistoricalBlockResponse.resolves(null);
         await sharedFailureChecks(
@@ -3333,14 +3451,6 @@ class BaseTest {
       response.headers['access-control-allow-origin'],
       "Default response: 'headers[access-control-allow-origin]' should equal '*'",
     ).to.be.equal('*');
-    expect(
-      response.headers,
-      "Default response: headers should have 'access-control-allow-methods' property",
-    ).to.have.property('access-control-allow-methods');
-    expect(
-      response.headers['access-control-allow-methods'],
-      "Default response: 'headers[access-control-allow-methods]' should equal 'GET,HEAD,PUT,POST,DELETE'",
-    ).to.be.equal('GET,HEAD,PUT,POST,DELETE');
   }
 
   static defaultResponseChecks(response) {

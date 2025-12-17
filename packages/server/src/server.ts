@@ -5,17 +5,19 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
+import cors from '@koa/cors';
+import { RateLimitStoreFactory } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import fs from 'fs';
-import cors from 'koa-cors';
 import path from 'path';
 import pino from 'pino';
-import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
 import { INVALID_METHOD_RESPONSE_BODY, jsonRpcComplianceLayer } from './compliance';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
+import { getLimitDuration } from './koaJsonRpc/lib/utils';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
@@ -136,7 +138,30 @@ function parseForwardedHeader(forwardedHeader: string): string | null {
 export async function initializeServer() {
   const relay = await Relay.init(logger.child({ name: 'relay' }), register);
 
-  const koaJsonRpc = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, {
+  // Get Redis client if Redis is enabled
+  const redisClient = RedisClientManager.isRedisEnabled() ? await RedisClientManager.getClient(logger) : undefined;
+
+  // Initialize rate limit store failure counter
+  const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';
+  if (register.getSingleMetric(storeFailureMetricName)) {
+    register.removeSingleMetric(storeFailureMetricName);
+  }
+  const rateLimitStoreFailureCounter = new Counter({
+    name: storeFailureMetricName,
+    help: 'Rate limit store failure counter',
+    labelNames: ['storeType', 'operation'],
+    registers: [register],
+  });
+
+  // Create rate limit store using factory pattern
+  const rateLimitStore = RateLimitStoreFactory.create(
+    logger.child({ name: 'rate-limit-store' }),
+    getLimitDuration(),
+    rateLimitStoreFailureCounter,
+    redisClient,
+  );
+
+  const koaJsonRpc = new KoaJsonRpc(logger.child({ name: 'koa-rpc' }), register, relay, rateLimitStore, {
     limit: ConfigService.get('INPUT_SIZE_LIMIT') + 'mb',
   });
 

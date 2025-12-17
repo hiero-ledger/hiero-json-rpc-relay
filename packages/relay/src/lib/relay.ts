@@ -19,7 +19,9 @@ import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimit
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
+import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
+import { LockService, LockStrategyFactory } from './services';
 import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
@@ -173,10 +175,10 @@ export class Relay {
       .populatePreconfiguredSpendingPlans()
       .then((plansUpdated) => {
         if (plansUpdated > 0) {
-          this.logger.info('Pre-configured spending plans populated successfully');
+          this.logger.info(`Pre-configured spending plans populated successfully`);
         }
       })
-      .catch((e) => this.logger.warn(`Failed to load pre-configured spending plans: ${e.message}`));
+      .catch((e) => this.logger.warn(`Failed to load pre-configured spending plans: %s`, e.message));
   }
 
   /**
@@ -284,10 +286,13 @@ export class Relay {
 
     // Create CacheService with the connected Redis client (or undefined for LRU-only)
     this.cacheService = new CacheService(
-      this.logger.child({ name: 'cache-service' }),
+      CacheClientFactory.create(
+        this.logger.child({ name: 'cache-service' }),
+        this.register,
+        reservedKeys,
+        this.redisClient,
+      ),
       this.register,
-      reservedKeys,
-      this.redisClient,
     );
 
     // Create spending plan repositories
@@ -314,7 +319,7 @@ export class Relay {
       duration,
     );
 
-    // Create HAPI service
+    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger));
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
@@ -348,6 +353,7 @@ export class Relay {
       chainId,
       this.cacheService,
       storage,
+      lockService,
     );
 
     // Set up event listeners
@@ -411,7 +417,7 @@ export class Relay {
     if (balance === BigInt(0)) {
       throw new Error(`Operator account '${operator}' has no balance`);
     } else {
-      this.logger.info(`Operator account '${operator}' has balance: ${balance}`);
+      this.logger.info(`Operator account '%s' has balance: %s`, operator, balance);
     }
   }
 

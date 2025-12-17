@@ -41,56 +41,16 @@ describe('@ratelimiter Shared Rate Limiting Acceptance Tests', function () {
     registryA = new Registry();
     registryB = new Registry();
 
+    // Create Redis stores
+    const storeA = new RedisRateLimitStore(redisClient, logger.child({ service: 'A' }), DURATION);
+    const storeB = new RedisRateLimitStore(redisClient, logger.child({ service: 'B' }), DURATION);
+
     // Create two IPRateLimiterService instances pointing to the same Redis
-    serviceA = new IPRateLimiterService(logger.child({ service: 'A' }), registryA, DURATION);
-    serviceB = new IPRateLimiterService(logger.child({ service: 'B' }), registryB, DURATION);
-
-    // Wait for Redis connections to establish and verify they're connected
-    let retries = 10;
-    while (retries > 0) {
-      const storeA = serviceA.rateLimitStore;
-      const storeB = serviceB.rateLimitStore;
-
-      // Check if stores are Redis stores before accessing Redis methods
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const connectedA = await storeA.isConnected();
-        const connectedB = await storeB.isConnected();
-        if (connectedA && connectedB) {
-          break;
-        }
-      } else {
-        // If not Redis stores, just break - LRU stores don't need connection setup
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      retries--;
-    }
-
-    // Verify both services are connected to Redis (only if using Redis stores)
-    const storeA = serviceA.rateLimitStore;
-    const storeB = serviceB.rateLimitStore;
-    if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-      const finalConnectedA = await storeA.isConnected();
-      const finalConnectedB = await storeB.isConnected();
-      if (!finalConnectedA || !finalConnectedB) {
-        throw new Error(`Redis connection failed: serviceA=${finalConnectedA}, serviceB=${finalConnectedB}`);
-      }
-    }
+    serviceA = new IPRateLimiterService(storeA, registryA);
+    serviceB = new IPRateLimiterService(storeB, registryB);
   });
 
   after(async function () {
-    // Clean up services and Redis connections
-    const storeA = serviceA.rateLimitStore;
-    const storeB = serviceB.rateLimitStore;
-
-    // Only disconnect if stores are Redis stores
-    if (storeA instanceof RedisRateLimitStore) {
-      await storeA.disconnect();
-    }
-    if (storeB instanceof RedisRateLimitStore) {
-      await storeB.disconnect();
-    }
-
     await redisClient.quit();
 
     // Clean up environment variables
@@ -107,16 +67,6 @@ describe('@ratelimiter Shared Rate Limiting Acceptance Tests', function () {
 
   describe('Shared Rate Limiting Between Services', function () {
     it('should share rate limit counters between two service instances', async function () {
-      // Verify both services are using Redis
-      const storeA = serviceA.rateLimitStore;
-      const storeB = serviceB.rateLimitStore;
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const redisA = await storeA.isConnected();
-        const redisB = await storeB.isConnected();
-        expect(redisA).to.be.true;
-        expect(redisB).to.be.true;
-      }
-
       let rateLimited = false;
 
       // Make exactly LIMIT requests through serviceA to hit the limit
@@ -244,18 +194,6 @@ describe('@ratelimiter Shared Rate Limiting Acceptance Tests', function () {
   });
 
   describe('Service Independence and Failover', function () {
-    it('should maintain independent Redis connections', async function () {
-      // Both services should report connected to Redis
-      const storeA = serviceA.rateLimitStore;
-      const storeB = serviceB.rateLimitStore;
-      if (storeA instanceof RedisRateLimitStore && storeB instanceof RedisRateLimitStore) {
-        const connectedA = await storeA.isConnected();
-        const connectedB = await storeB.isConnected();
-        expect(connectedA).to.be.true;
-        expect(connectedB).to.be.true;
-      }
-    });
-
     it('should handle concurrent requests from both services', async function () {
       // Send concurrent requests from both services
       const promises: Promise<boolean>[] = [];

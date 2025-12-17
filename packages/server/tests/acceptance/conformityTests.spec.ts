@@ -7,11 +7,14 @@
 // } from '@open-rpc/meta-schema';
 // import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
 // import { expect } from 'chai';
+import { TransferTransaction } from '@hashgraph/sdk';
 import fs from 'fs';
 import path from 'path';
 
 // import WebSocket from 'ws';
 import openRpcData from '../../../../docs/openrpc.json';
+import { Utils } from '../helpers/utils';
+import genesisData from './data/conformity/genesis.json';
 // import CallerContract from '../contracts/Caller.json';
 // import LogsContract from '../contracts/Logs.json';
 import {
@@ -22,6 +25,7 @@ import {
   sendAccountAddress,
   setCreateContractLegacyTransactionAndBlockHash,
   setCurrentBlockHash,
+  setHapiTransactionHash,
   setLegacyTransactionAndBlockHash,
   setTransaction1559_2930AndBlockHash,
   setTransaction1559AndBlockHash,
@@ -98,7 +102,7 @@ const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwri
  * their behavior will remain consistent with the expectations.
  */
 const initGenesisData = async function () {
-  for (const data of require('./data/conformity/genesis.json')) {
+  for (const data of genesisData) {
     const options = { maxPriorityFeePerGas: gasPrice, maxFeePerGas: gasPrice, gasLimit: gasLimit };
     options['to'] = data.account ? data.account : null;
     if (data.balance) options['value'] = `0x${data.balance.toString(16)}`;
@@ -119,6 +123,37 @@ describe('@api-conformity', async function () {
         await signAndSendRawTransaction(RELAY_URL, createContractLegacyTransaction),
       );
       await initGenesisData();
+
+      // Execute a native HAPI transaction (token transfer via SDK) to test synthetic receipt handling
+      const servicesNode = global.servicesNode;
+      const hapiTestAccount = await Utils.createAliasAccount(
+        global.mirrorNode,
+        global.accounts[0],
+        '1000000000', // 10 HBAR
+      );
+      const tokenId = await servicesNode.createToken(1000);
+      try {
+        await hapiTestAccount.client.associateToken(tokenId);
+      } catch (e: any) {
+        // Ignore if already associated
+        if (!e.message?.includes('TOKEN_ALREADY_ASSOCIATED_TO_ACCOUNT')) {
+          throw e;
+        }
+      }
+      const hapiTransaction = new TransferTransaction()
+        .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
+        .addTokenTransfer(tokenId, hapiTestAccount.accountId, 10)
+        .setTransactionMemo('Conformity test HAPI token transfer');
+      const hapiResp = await hapiTransaction.execute(servicesNode.client);
+      await hapiResp.getRecord(servicesNode.client);
+      // Wait for mirror node to index the transaction
+      await new Promise((r) => setTimeout(r, 3000));
+      // Get the transaction hash from mirror node logs
+      const logsRes = await global.mirrorNode.get(`/contracts/results/logs?limit=1`);
+      if (logsRes.logs && logsRes.logs.length > 0 && logsRes.logs[0].contract_id === tokenId.toString()) {
+        setHapiTransactionHash(logsRes.logs[0].transaction_hash);
+      }
+
       setCurrentBlockHash(await getLatestBlockHash(RELAY_URL));
     });
     //Reading the directories within the ethereum execution api repo

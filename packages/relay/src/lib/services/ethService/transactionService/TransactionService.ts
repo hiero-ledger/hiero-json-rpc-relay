@@ -21,7 +21,7 @@ import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
-import { ICommonService, TransactionPoolService } from '../../index';
+import { ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
 
 export class TransactionService implements ITransactionService {
@@ -45,6 +45,13 @@ export class TransactionService implements ITransactionService {
    * @readonly
    */
   private readonly hapiService: HAPIService;
+
+  /**
+   * The lock service for managing transaction ordering.
+   * @private
+   * @readonly
+   */
+  private readonly lockService: LockService;
 
   /**
    * Logger instance for logging messages.
@@ -86,6 +93,7 @@ export class TransactionService implements ITransactionService {
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
     transactionPoolService: TransactionPoolService,
+    lockService: LockService,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -96,6 +104,7 @@ export class TransactionService implements ITransactionService {
     this.mirrorNodeClient = mirrorNodeClient;
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
+    this.lockService = lockService;
   }
 
   /**
@@ -110,10 +119,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockHashAndIndex(hash=${blockHash}, index=${transactionIndex})`);
-    }
-
     try {
       return await this.getTransactionByBlockHashOrBlockNumAndIndex(
         { title: 'blockHash', value: blockHash },
@@ -140,9 +145,6 @@ export class TransactionService implements ITransactionService {
     transactionIndex: string,
     requestDetails: RequestDetails,
   ): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionByBlockNumberAndIndex(blockNum=${blockNumOrTag}, index=${transactionIndex})`);
-    }
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
 
     try {
@@ -166,10 +168,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<Transaction | null>} A promise that resolves to a Transaction object or null if not found
    */
   async getTransactionByHash(hash: string, requestDetails: RequestDetails): Promise<Transaction | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace({ msg: `getTransactionByHash(hash=${hash})`, hash });
-    }
-
     const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -187,9 +185,7 @@ export class TransactionService implements ITransactionService {
 
       // no tx found
       if (!syntheticLogs.length) {
-        if (this.logger.isLevelEnabled('trace')) {
-          this.logger.trace(`no tx for ${hash}`);
-        }
+        this.logger.trace(`no tx for %s`, hash);
         return null;
       }
 
@@ -218,10 +214,6 @@ export class TransactionService implements ITransactionService {
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionReceipt(${hash})`);
-    }
-
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
       this.mirrorNodeClient.getContractResult.name,
       [hash, requestDetails],
@@ -232,9 +224,7 @@ export class TransactionService implements ITransactionService {
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
     } else {
       const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
-      }
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
 
       return receipt;
     }
@@ -253,36 +243,60 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
-      await this.common.getGasPriceInWeibars(requestDetails),
-    );
+    let lockSessionKey: string | undefined;
 
-    await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-    // Save the transaction to the transaction pool before submitting it to the network
-    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
-
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-     * the transaction hash is calculated and returned immediately after passing all prechecks.
-     * All transaction processing logic is then handled asynchronously in the background.
-     */
-    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-    if (useAsyncTxProcessing) {
-      this.sendRawTransactionProcessor(transactionBuffer, parsedTx, networkGasPriceInWeiBars, requestDetails);
-      return Utils.computeTransactionHash(transactionBuffer);
+    // Acquire lock FIRST - before any side effects or async operations
+    // This ensures proper nonce ordering for transactions from the same sender
+    if (parsedTx.from) {
+      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
     }
 
-    /**
-     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-     * wait for all transaction processing logic to complete before returning the transaction hash.
-     */
-    return await this.sendRawTransactionProcessor(
-      transactionBuffer,
-      parsedTx,
-      networkGasPriceInWeiBars,
-      requestDetails,
-    );
+    try {
+      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+        await this.common.getGasPriceInWeibars(requestDetails),
+      );
+
+      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+      // Save the transaction to the transaction pool before submitting it to the network
+      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
+       * the transaction hash is calculated and returned immediately after passing all prechecks.
+       * All transaction processing logic is then handled asynchronously in the background.
+       */
+      const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+      if (useAsyncTxProcessing) {
+        // Fire and forget - lock will be released after consensus submission
+        this.sendRawTransactionProcessor(
+          transactionBuffer,
+          parsedTx,
+          networkGasPriceInWeiBars,
+          lockSessionKey,
+          requestDetails,
+        );
+        return Utils.computeTransactionHash(transactionBuffer);
+      }
+
+      /**
+       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
+       * wait for all transaction processing logic to complete before returning the transaction hash.
+       */
+      return await this.sendRawTransactionProcessor(
+        transactionBuffer,
+        parsedTx,
+        networkGasPriceInWeiBars,
+        lockSessionKey,
+        requestDetails,
+      );
+    } catch (error) {
+      // Release lock on any error during validation or prechecks
+      if (lockSessionKey) {
+        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -407,9 +421,7 @@ export class TransactionService implements ITransactionService {
 
     // no tx found
     if (!syntheticLogs.length) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`no receipt for ${hash}`);
-      }
+      this.logger.trace(`no receipt for %s`, hash);
       return null;
     }
 
@@ -472,12 +484,14 @@ export class TransactionService implements ITransactionService {
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
+   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
   async sendRawTransactionProcessor(
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
+    lockSessionKey: string | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     let sendRawTransactionError: any;
@@ -495,6 +509,9 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
+    if (lockSessionKey) {
+      await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
+    }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
