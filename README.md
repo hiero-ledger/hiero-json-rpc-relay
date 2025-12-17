@@ -61,13 +61,13 @@ Hoppscotch CLI is used for running API tests against the relay. Environment vari
 npm run hopp
 
 # Override BASE_URL (macOS/Linux)
-BASE_URL=https://mainnet.hashio.io npm run hopp
+BASE_URL=https://mainnet.hashio.io/api npm run hopp
 
 # Override BASE_URL (Windows PowerShell)
-$env:BASE_URL="https://mainnet.hashio.io"; npm run hopp
+$env:BASE_URL="https://mainnet.hashio.io/api"; npm run hopp
 
 # Override BASE_URL (Windows CMD)
-set BASE_URL=https://mainnet.hashio.io && npm run hopp
+set BASE_URL=https://mainnet.hashio.io/api && npm run hopp
 ```
 
 > **Note:** Environment variable override requires modifying the npm script to support dynamic injection. Alternatively, edit `packages/server/tests/hopp-env.json` directly to change the `BASE_URL` value.
