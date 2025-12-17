@@ -18,7 +18,7 @@
           }
         ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.be.an(\"array\");\n    pm.expect(response.result).length(0);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -37,9 +37,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -58,9 +64,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -79,9 +91,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -100,9 +118,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result.baseFeePerGas).to.be.an(\"array\");\n    pm.expect(response.result.baseFeePerGas).length(4);\n    pm.expect(response.result.gasUsedRatio).to.be.an(\"array\");\n    pm.expect(response.result.gasUsedRatio).length(3);\n    pm.expect(response.result.oldestBlock).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.reward).to.be.an(\"array\");\n    pm.expect(response.result.reward).length(3);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -121,9 +145,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -142,9 +172,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -163,9 +199,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result.timestamp).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.difficulty).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.extraData).to.match(/^0x$/);\n    pm.expect(response.result.gasLimit).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.baseFeePerGas).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.gasUsed).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.logsBloom).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.miner).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.mixHash).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.nonce).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.receiptsRoot).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.sha3Uncles).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.size).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.stateRoot).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.totalDifficulty).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.transactions).to.be.an(\"array\");\n    pm.expect(response.result.transactionsRoot).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.uncles).to.be.an(\"array\");\n    pm.expect(response.result.number).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.hash).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.result.parentHash).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -184,9 +226,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -205,9 +253,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.be.null;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -226,9 +280,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.be.null;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -247,9 +307,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.be.null;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -268,9 +334,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    console.log(response);\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(\"0x0\");\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -289,9 +361,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(\"0x0\");\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -310,9 +388,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -331,9 +415,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message).to.match(/\\[Request ID: [0-9a-fA-F-]{36}\\] Method unsupported_function not found/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -352,9 +442,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32600);\n    pm.expect(response.error.message).to.match(/\\[Request ID: [0-9a-fA-F-]{36}\\] Invalid Request/);\n    pm.expect(response.id).is.null;\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -373,9 +469,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(\"0x0\");\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -394,9 +496,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(false);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -415,9 +523,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(false);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -436,9 +550,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.equal(false);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -457,9 +577,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -478,9 +604,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^\\d+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -499,9 +631,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -520,9 +658,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^relay[/]/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -541,9 +685,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0xf956fddff3899ff3cf7ac1773fdbf443ffbfb625c1a673abdba8947251f81bae/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -562,9 +712,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(JSON.stringify(response.error)).to.equal(undefined);\n    pm.expect(response.result).to.match(/^0x[a-f0-9]+$/);\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -583,9 +739,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -604,9 +766,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Unsupported JSON-RPC method\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -625,9 +793,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -646,9 +820,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -667,9 +847,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -688,9 +874,15 @@
         "method": "POST",
         "endpoint": "<<BASE_URL>>",
         "params": [],
-        "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "active": true
+          }
+        ],
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
@@ -708,7 +900,13 @@
       "authType": "inherit",
       "authActive": true
     },
-    "headers": [{ "key": "Content-Type", "value": "application/json", "active": true }],
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "active": true
+      }
+    ],
     "variables": [],
     "description": null
   }
