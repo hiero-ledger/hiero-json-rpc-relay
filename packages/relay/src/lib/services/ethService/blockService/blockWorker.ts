@@ -6,7 +6,6 @@ import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethe
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import _ from 'lodash';
 import pino from 'pino';
-import { Registry } from 'prom-client';
 
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
@@ -16,6 +15,7 @@ import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { BlockFactory } from '../../../factories/blockFactory';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
+import { RegistryFactory } from '../../../factories/registryFactory';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
 import {
   IRegularTransactionReceiptParams,
@@ -34,7 +34,7 @@ import { CommonService } from '../ethCommonService/CommonService';
  * Ref: https://nodejs.org/api/worker_threads.html#worker-threads
  */
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-const register = new Registry();
+const register = RegistryFactory.getInstance();
 const cacheService = new CacheService(CacheClientFactory.create(logger, register), register);
 const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);

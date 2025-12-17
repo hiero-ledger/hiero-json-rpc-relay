@@ -5,6 +5,7 @@ import { Counter, Registry } from 'prom-client';
 
 import { RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
+import { RegistryFactory } from '../../factories/registryFactory';
 
 /**
  * A service that manages caching using different cache implementations based on configuration.
@@ -52,7 +53,7 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(client: ICacheClient, register: Registry = new Registry()) {
+  public constructor(client: ICacheClient, register: Registry = RegistryFactory.getInstance()) {
     this.client = client;
     this.isSharedCacheEnabled = client instanceof RedisCache; // TODO measurements will be moved out of here in the next PR.
     this.shouldMultiSet = ConfigService.get('MULTI_SET'); // TODO measurements will be moved out of here in the next PR.
