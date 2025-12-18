@@ -70,7 +70,9 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return this.getBlock(hash, showDetails, requestDetails);
+    return this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
+      throw this.common.genericErrorHandler(e, `Failed to retrieve block for hash ${hash}`);
+    });
   }
 
   /**
@@ -86,7 +88,9 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return this.getBlock(blockNumber, showDetails, requestDetails);
+    return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
+      throw this.common.genericErrorHandler(e, `Failed to retrieve block for blockNumber ${blockNumber}`);
+    });
   }
 
   /**
