@@ -9,6 +9,8 @@ metadata:
   name: {{ include "json-rpc-relay.fullname" . }}-test
   namespace: {{ include "json-rpc-relay.namespace" . }}
 data:
-  postman.json: |-
-    {{- .Values.test.postman | b64dec | default (.Files.Get "postman.json") | nindent 4 }}
+  hoppscotch.json: |-
+    {{- .Values.test.hoppscotch | b64dec | default (.Files.Get "hoppscotch.json") | nindent 4 }}
+  hopp-env.json: |-
+    {{- .Values.test.hoppEnv | b64dec | default (.Files.Get "hopp-env.json") | nindent 4 }}
 {{- end -}}

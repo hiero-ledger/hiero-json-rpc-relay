@@ -27,8 +27,7 @@ spec:
 {{- end }}
 
 ---
-# Disabled newman temporarily
-{{- if false }} # Force disabled - was: .Values.cronjob.enabled
+{{- if .Values.cronjob.enabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -45,12 +44,20 @@ spec:
           serviceAccountName: {{ include "json-rpc-relay.serviceAccountName" . }}-test
           restartPolicy: Never
           containers:
-            - name: newman
+            - name: hoppscotch
               image: "{{ .Values.cronjob.image.repository }}:{{ .Values.cronjob.image.tag }}"
               imagePullPolicy: {{ .Values.cronjob.image.pullPolicy }}
+              env:
+                - name: BASE_URL
+                  value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
               command: 
                 - /bin/sh
                 - -c
-                - wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/postman.json ; newman run postman.json --env-var baseUrl=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}                     
+                - |
+                  # Install Hoppscotch CLI from npm (not pre-installed in the image)
+                  npm install -g @hoppscotch/cli@{{ .Values.cronjob.cliVersion }} && \
+                  wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hoppscotch.json && \
+                  wget https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/charts/hedera-json-rpc-relay/hopp-env.json && \
+                  hopp test -e hopp-env.json hoppscotch.json                     
 {{- end }}
             

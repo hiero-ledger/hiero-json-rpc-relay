@@ -142,15 +142,22 @@ redis:
   # REDIS_URL=redis://<release-name>-redis-master:6379
   autoconfig: true
 
-# Disabled newman temporarily
 cronjob:
   enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official node image which includes Node.js and build tools,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: node
+    tag: 22
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -250,15 +257,22 @@ readinessProbe:
   initialDelaySeconds: 20
   timeoutSeconds: 5
 
-# Disabled newman temporarily
 test:
   enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official node image which includes Node.js and build tools,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: node
+    tag: 22
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
 
 terminationGracePeriodSeconds: 60
 
