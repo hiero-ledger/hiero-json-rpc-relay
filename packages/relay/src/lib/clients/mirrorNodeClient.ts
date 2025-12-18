@@ -151,7 +151,6 @@ export class MirrorNodeClient {
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
 
   private readonly contentTooLargeMethods = ConfigService.get('CONTENT_TOO_LARGE_METHODS');
-  private readonly maxLogResponseCount = ConfigService.get('MAX_LOG_RESPONSE_COUNT');
   private readonly maxLogResponseSize = ConfigService.get('MAX_LOG_RESPONSE_SIZE');
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
@@ -516,7 +515,7 @@ export class MirrorNodeClient {
 
     if (
       this.contentTooLargeMethods.includes(requestDetails.method ?? '') &&
-      (results.length > this.maxLogResponseCount || JSON.stringify(results).length / 1024 > this.maxLogResponseSize)
+      JSON.stringify(results).length / 1024 > this.maxLogResponseSize
     ) {
       throw predefined.CONTENT_TOO_LARGE;
     }

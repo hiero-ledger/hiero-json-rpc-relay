@@ -328,7 +328,9 @@ export async function getBlockReceipts(
     }
 
     const receipts: ITransactionReceipt[] = [];
-    const effectiveGas = numberTo0x(await commonService.getGasPriceInWeibars(block.timestamp.from.split('.')[0]));
+    const effectiveGas = numberTo0x(
+      await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
+    );
 
     const logsByHash = new Map<string, Log[]>();
     for (const log of logs) {

@@ -103,6 +103,7 @@ export class WorkersPool {
       case JsonRpcError.name: {
         return new JsonRpcError({
           code: parsedErr.code!,
+          data: parsedErr.data!,
           message: parsedErr.message,
         });
       }
@@ -117,7 +118,7 @@ export class WorkersPool {
       }
 
       default:
-        return predefined.INTERNAL_ERROR(`Failed unwrapping piscina error.`);
+        return predefined.INTERNAL_ERROR('Failed unwrapping piscina error.');
     }
   }
 }
