@@ -370,7 +370,7 @@ export class BlockService implements IBlockService {
         (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
       );
       filteredLogs.forEach((log) => {
-        const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
+        const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
           blockNumber: log.blockNumber,
@@ -387,7 +387,7 @@ export class BlockService implements IBlockService {
           s: constants.ZERO_HEX,
           to: log.address,
           transactionIndex: log.transactionIndex,
-          type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+          type: constants.ZERO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
           v: constants.ZERO_HEX,
           value: constants.ZERO_HEX,
         });

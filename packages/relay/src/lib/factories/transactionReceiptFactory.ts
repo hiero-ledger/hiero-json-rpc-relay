@@ -61,7 +61,7 @@ class TransactionReceiptFactory {
       to: syntheticLogs[0].address,
       transactionHash: syntheticLogs[0].transactionHash,
       transactionIndex: syntheticLogs[0].transactionIndex,
-      type: null, // null from HAPI transactions
+      type: constants.ZERO_HEX, // fallback to 0x0 from HAPI transactions
     };
   }
 
@@ -122,7 +122,7 @@ class TransactionReceiptFactory {
       effectiveGasPrice: effectiveGas,
       root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
       status: receiptResponse.status,
-      type: nullableNumberTo0x(receiptResponse.type),
+      type: nanOrNumberTo0x(receiptResponse.type),
     };
 
     // Add revert reason if available
