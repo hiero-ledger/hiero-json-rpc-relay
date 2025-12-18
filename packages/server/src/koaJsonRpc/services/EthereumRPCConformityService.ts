@@ -13,7 +13,7 @@ interface IResponseContext {
   status: number | undefined;
 }
 
-const VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE = ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE');
+const ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE = ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE');
 
 const FALLBACK_RESPONSE_BODY = {
   jsonrpc: '2.0',
@@ -51,18 +51,20 @@ const makeSureBodyExistsAndCanBeChecked = (ctx: IResponseContext) => {
   return true;
 };
 
-/**
- * Ensures a JSON-RPC response uses a valid JSON-RPC 2.0 structure.
- * Normalizes missing or invalid fields for both single and batch responses.
- * May update HTTP status depending on VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE.
- *
- * @param {IResponseContext & ParameterizedContext} ctx - Koa context containing status and body.
- */
-export const jsonRpcComplianceLayer = (ctx: IResponseContext & ParameterizedContext) => {
-  if (!makeSureBodyExistsAndCanBeChecked(ctx)) return;
-  if (ctx.status === 400) {
-    if (!ctx.body.error?.code) ctx.body.error = structuredClone(FALLBACK_RESPONSE_BODY.error);
-    if ([-32600, -32700].includes(Number(ctx.body.error?.code))) return;
-    if (VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE) ctx.status = 200;
+export class EthereumRPCConformityService {
+  /**
+   * Ensures a JSON-RPC response uses a valid JSON-RPC 2.0 structure.
+   * Normalizes missing or invalid fields for both single and batch responses.
+   * May update HTTP status depending on ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE value.
+   *
+   * @param {IResponseContext & ParameterizedContext} ctx - Koa context containing status and body.
+   */
+  static ensureEthereumJsonRpcCompliance(ctx: IResponseContext & ParameterizedContext) {
+    if (!makeSureBodyExistsAndCanBeChecked(ctx)) return;
+    if (ctx.status === 400) {
+      if (!ctx.body.error?.code) ctx.body.error = structuredClone(FALLBACK_RESPONSE_BODY.error);
+      if ([-32600, -32700].includes(Number(ctx.body.error?.code))) return;
+      ctx.status = ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE;
+    }
   }
-};
+}

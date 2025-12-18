@@ -754,10 +754,10 @@ const _CONFIG = {
     required: false,
     defaultValue: 10,
   },
-  VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE: {
-    type: 'boolean',
+  ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE: {
+    type: 'number',
     required: false,
-    defaultValue: false,
+    defaultValue: 400,
   },
 } as const satisfies { [key: string]: ConfigProperty }; // Ensures _CONFIG is read-only and conforms to the ConfigProperty structure
 

@@ -13,11 +13,14 @@ import pino from 'pino';
 import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
-import { INVALID_METHOD_RESPONSE_BODY, jsonRpcComplianceLayer } from './compliance';
 import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
+import {
+  EthereumRPCConformityService,
+  INVALID_METHOD_RESPONSE_BODY,
+} from './koaJsonRpc/services/EthereumRPCConformityService';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
@@ -303,7 +306,7 @@ export async function initializeServer() {
       // support CORS preflight
       ctx.status = 200;
     } else {
-      ctx.status = ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE') ? 200 : 405;
+      ctx.status = 405;
       ctx.body = structuredClone(INVALID_METHOD_RESPONSE_BODY);
     }
   });
@@ -336,7 +339,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
-    jsonRpcComplianceLayer(ctx);
+    EthereumRPCConformityService.ensureEthereumJsonRpcCompliance(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {

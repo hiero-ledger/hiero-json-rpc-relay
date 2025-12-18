@@ -95,26 +95,40 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     expectNoHttp500(response);
   }
 
-  describe('With VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE = false', function () {
-    before(function () {
-      if (ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE')) this.skip();
+  it('Malformed HTTP method/body -> 405', async function () {
+    const getWithBody = await sendRaw('GET', '/', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_blockNumber',
+      params: [],
+    });
+    expect(getWithBody.status).to.equal(405);
+    expectValidJsonRpc(getWithBody);
+    const getNoBody = await sendRaw('GET', '/');
+    expect(getNoBody.status).to.equal(405);
+    expectValidJsonRpc(getNoBody);
+    const putEmptyBody = await sendRaw('PUT', '/', '');
+    expect(putEmptyBody.status).to.equal(405);
+    expectValidJsonRpc(putEmptyBody);
+  });
+
+  it('Behavior corresponds to ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE value', async function () {
+    const response = await sendJsonRpc({
+      jsonrpc: '2.0',
+      id: 'default-value',
+      method: 'eth_getBalance',
+      params: [42, true],
     });
 
-    it('Malformed HTTP method/body -> 405 when flag is false', async function () {
-      const getWithBody = await sendRaw('GET', '/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_blockNumber',
-        params: [],
-      });
-      expect(getWithBody.status).to.equal(405);
-      expectValidJsonRpc(getWithBody);
-      const getNoBody = await sendRaw('GET', '/');
-      expect(getNoBody.status).to.equal(405);
-      expectValidJsonRpc(getNoBody);
-      const putEmptyBody = await sendRaw('PUT', '/', '');
-      expect(putEmptyBody.status).to.equal(405);
-      expectValidJsonRpc(putEmptyBody);
+    expect(response.status).to.equal(ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE'));
+    expect(response.data).to.have.property('error');
+    expect((response.data as JsonRpcResponse).error!.code).to.equal(-32602);
+    expectNoHttp500(response);
+  });
+
+  describe('With ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE = 400', function () {
+    before(function () {
+      if (ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE') !== 400) this.skip();
     });
 
     it('Malformed/missing Content-Type but valid JSON body is still processed as JSON-RPC', async function () {
@@ -145,7 +159,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectCorrectResult(wrongContentType);
     });
 
-    it('Invalid JSON payload -> 400 + JSON-RPC error -32700 when flag is false', async function () {
+    it('Invalid JSON payload -> 400 + JSON-RPC error -32700', async function () {
       const brokenJson = '{"jsonrpc":"2.0",';
 
       const response = await sendRaw('POST', '/', brokenJson, {
@@ -159,7 +173,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Valid JSON but invalid JSON-RPC -> 400 + -32600 when flag is false', async function () {
+    it('Valid JSON but invalid JSON-RPC -> 400 + -32600', async function () {
       const response = await sendJsonRpc({ id: 1 });
 
       expect(response.status).to.equal(400);
@@ -168,7 +182,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Unknown/unsupported method -> 400 + -32601 when flag is false', async function () {
+    it('Unknown/unsupported method -> 400 + -32601', async function () {
       const response = await sendJsonRpc({
         jsonrpc: '2.0',
         id: 1,
@@ -182,7 +196,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Invalid parameters -> 400 + -32602 when flag is false', async function () {
+    it('Invalid parameters -> 400 + -32602', async function () {
       const response = await sendJsonRpc({
         jsonrpc: '2.0',
         id: 1,
@@ -198,7 +212,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Limit exceeded -> 400 + JSON-RPC error when flag is false', async function () {
+    it('Limit exceeded -> 400 + JSON-RPC error', async function () {
       const addresses = Array.from({ length: 1000000 }, (_, i) => {
         const hex = i.toString(16).padStart(40, '0');
         return `0x${hex}`;
@@ -224,7 +238,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Only fully valid requests return 200; all client errors use HTTP 400 when flag is false', async function () {
+    it('Only fully valid requests return 200; all client errors use HTTP 400', async function () {
       const ok = await sendJsonRpc({
         jsonrpc: '2.0',
         id: 1,
@@ -248,20 +262,6 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expect(clientError.data).to.have.property('error');
       expect((clientError.data as JsonRpcResponse).error!.code).to.equal(-32601);
       expectNoHttp500(clientError);
-    });
-
-    it('Flag is configuration-driven: behavior corresponds to VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE=false', async function () {
-      const response = await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: 'flag-off',
-        method: 'eth_getBalance',
-        params: [42, true],
-      });
-
-      expect(response.status).to.equal(400);
-      expect(response.data).to.have.property('error');
-      expect((response.data as JsonRpcResponse).error!.code).to.equal(-32602);
-      expectNoHttp500(response);
     });
 
     it('Valid JSON-RPC response bodies for malformed requests', async function () {
@@ -295,7 +295,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       }
     });
 
-    it('Too many requests in a batch -> array with -32005 errors (flag=false -> HTTP 400)', async function () {
+    it('Too many requests in a batch -> array with -32005 errors (HTTP 400)', async function () {
       const batchSize = 5000;
       const batch = Array.from({ length: batchSize }, (_, i) => ({
         jsonrpc: '2.0',
@@ -307,30 +307,12 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     });
   });
 
-  describe('With VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE = true', function () {
+  describe('With ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE = 200', function () {
     before(function () {
-      if (!ConfigService.get('VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE')) this.skip();
+      if (!ConfigService.get('ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE') !== 200) this.skip();
     });
 
-    it('Malformed HTTP method/body -> 200 + JSON-RPC error when flag is true', async function () {
-      const getWithBody = await sendRaw('GET', '/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_blockNumber',
-        params: [],
-      });
-
-      expect(getWithBody.status).to.equal(200);
-      expect(getWithBody.data).to.have.property('error');
-      const getNoBody = await sendRaw('GET', '/');
-      expect(getNoBody.status).to.equal(200);
-      expect(getNoBody.data).to.have.property('error');
-      const putEmptyBody = await sendRaw('PUT', '/', '');
-      expect(putEmptyBody.status).to.equal(200);
-      expect(putEmptyBody.data).to.have.property('error');
-    });
-
-    it('Malformed/missing Content-Type but valid JSON body is still processed as JSON-RPC (flag=true)', async function () {
+    it('Malformed/missing Content-Type but valid JSON body is still processed as JSON-RPC', async function () {
       const noContentType = await sendRaw(
         'POST',
         '/',
@@ -364,7 +346,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expect(wrongContentType.data).to.not.have.property('error');
     });
 
-    it('Invalid JSON payload -> 400 + JSON-RPC error -32700 when flag is true', async function () {
+    it('Invalid JSON payload -> 400 + JSON-RPC error -32700', async function () {
       const brokenJson = '{"jsonrpc":"2.0",';
 
       const response = await sendRaw('POST', '/', brokenJson, { 'Content-Type': 'application/json' });
@@ -372,13 +354,13 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expect(response.status).to.equal(400);
     });
 
-    it('Valid JSON but invalid JSON-RPC -> 400 + -32600 when flag is true', async function () {
+    it('Valid JSON but invalid JSON-RPC -> 400 + -32600', async function () {
       const response = await sendJsonRpc({ id: 1 });
 
       expect(response.status).to.equal(400);
     });
 
-    it('Unknown/unsupported method -> 200 + -32601 when flag is true', async function () {
+    it('Unknown/unsupported method -> 200 + -32601', async function () {
       const response = await sendJsonRpc({
         jsonrpc: '2.0',
         id: 1,
@@ -392,7 +374,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       expectNoHttp500(response);
     });
 
-    it('Invalid parameters -> 200 + -32602 when flag is true', async function () {
+    it('Invalid parameters -> 200 + -32602', async function () {
       const response = await sendJsonRpc({
         jsonrpc: '2.0',
         id: 1,
@@ -431,21 +413,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       }
     });
 
-    it('Flag is configuration-driven: behavior corresponds to VALID_JSON_RPC_HTTP_REQUESTS_STATUS_CODE=true', async function () {
-      const response = await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: 'flag-on',
-        method: 'eth_getBalance',
-        params: [42, true],
-      });
-
-      expect(response.status).to.equal(200);
-      expect(response.data).to.have.property('error');
-      expect((response.data as JsonRpcResponse).error!.code).to.equal(-32602);
-      expectNoHttp500(response);
-    });
-
-    it('General JSON-RPC shape, clear errors, and no HTTP 500 with flag=true', async function () {
+    it('General JSON-RPC shape, clear errors, and no HTTP 500', async function () {
       const cases = [
         {
           payload: {
@@ -482,7 +450,7 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
       }
     });
 
-    it('Too many requests in a batch -> array with -32005 errors and HTTP 200 when flag=true', async function () {
+    it('Too many requests in a batch -> array with -32005 errors and HTTP 200', async function () {
       const batchSize = 5000;
       const batch = Array.from({ length: batchSize }, (_, i) => ({
         jsonrpc: '2.0',
