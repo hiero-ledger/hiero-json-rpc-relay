@@ -18,6 +18,7 @@ import {
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
   BLOCK_NUMBER_HEX,
+  BLOCK_TIMESTAMP,
   BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
   CONTRACT_RESULTS_WITH_FILTER_URL_2,
@@ -39,7 +40,7 @@ const DEFAULTS: Record<string, any> = {
   [BLOCKS_LIMIT_ORDER_URL]: { blocks: [DEFAULT_BLOCK] },
   [`blocks/${BLOCK_NUMBER}`]: DEFAULT_BLOCK,
   [`blocks/${BLOCK_HASH}`]: DEFAULT_BLOCK,
-  ['network/fees']: DEFAULT_NETWORK_FEES,
+  [`network/fees?timestamp=${BLOCK_TIMESTAMP}`]: DEFAULT_NETWORK_FEES,
 };
 
 describe('@ethGetBlockReceipts using MirrorNode', async function () {
