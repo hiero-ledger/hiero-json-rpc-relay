@@ -17,6 +17,10 @@ import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
+import {
+  EthereumRPCConformityService,
+  INVALID_METHOD_RESPONSE_BODY,
+} from './koaJsonRpc/services/EthereumRPCConformityService';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
@@ -302,7 +306,8 @@ export async function initializeServer() {
       // support CORS preflight
       ctx.status = 200;
     } else {
-      logger.warn(`skipping HTTP method: [${ctx.method}], url: ${ctx.url}, status: ${ctx.status}`);
+      ctx.status = 405;
+      ctx.body = structuredClone(INVALID_METHOD_RESPONSE_BODY);
     }
   });
 
@@ -334,6 +339,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
+    EthereumRPCConformityService.ensureEthereumJsonRpcCompliance(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {
