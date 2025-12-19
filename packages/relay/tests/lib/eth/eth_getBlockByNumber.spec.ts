@@ -161,13 +161,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       .onGet(BLOCKS_LIMIT_ORDER_URL)
       .replyOnce(200, JSON.stringify(DEFAULT_BLOCKS_RES));
 
-    try {
-      await ethImpl.blockNumber(requestDetails);
-    } catch (error) {
-      console.error(error);
-    }
-    const blockNumber = await ethImpl.blockNumber(requestDetails);
+    await expect(ethImpl.blockNumber(requestDetails)).to.eventually.be.rejected;
 
+    const blockNumber = await ethImpl.blockNumber(requestDetails);
     expect(blockNumber).to.be.eq(blockNumber);
   });
 
