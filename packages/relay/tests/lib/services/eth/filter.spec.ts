@@ -8,6 +8,7 @@ import { Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
 import { predefined } from '../../../../src';
+import { trimPrecedingZeros } from '../../../../src/formatters';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
 import constants from '../../../../src/lib/constants';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
@@ -494,7 +495,7 @@ describe('Filter API Test Suite', async function () {
       restMock.onGet(`blocks/${defaultBlock.number}`).reply(200, JSON.stringify(defaultBlock));
       restMock
         .onGet(
-          `contracts/results/logs?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&topic0=${customTopic[0]}&limit=100&order=asc`,
+          `contracts/results/logs?timestamp=gte:${defaultBlock.timestamp.from}&timestamp=lte:${defaultBlock.timestamp.to}&topic0=${trimPrecedingZeros(customTopic[0])}&limit=100&order=asc`,
         )
         .reply(200, JSON.stringify(filteredLogs));
 
