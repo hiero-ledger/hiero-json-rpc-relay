@@ -101,7 +101,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
       it('should return gas price without buffer', async function () {
         await cacheService.clear();
         initialGasPrice = await ethImpl.gasPrice(requestDetails);
-        const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+        const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF * 100;
         expect(initialGasPrice).to.equal(toHex(expectedValue));
       });
 
@@ -112,7 +112,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
           overrideEnvsInMochaDescribe({ GAS_PRICE_PERCENTAGE_BUFFER: GAS_PRICE_PERCENTAGE_BUFFER });
 
           it(`should return gas price with buffer`, async function () {
-            const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+            const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF * 100;
             const expectedInitialGasPrice = toHex(expectedValue);
             const expectedGasPriceWithBuffer = toHex(
               Number(expectedInitialGasPrice) +
