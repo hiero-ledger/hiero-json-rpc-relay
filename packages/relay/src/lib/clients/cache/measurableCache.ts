@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Counter } from 'prom-client';
+import { Counter, Registry } from 'prom-client';
 
 import { ICacheClient } from './ICacheClient';
 
@@ -10,7 +10,7 @@ import { ICacheClient } from './ICacheClient';
  * @implements {ICacheClient}
  */
 export class MeasurableCache implements ICacheClient {
-  private decorated: ICacheClient;
+  private decoratedCacheClient: ICacheClient;
   private readonly cacheMethodsCounter: Counter;
 
   public static readonly methods = {
@@ -26,9 +26,23 @@ export class MeasurableCache implements ICacheClient {
 
   private cacheType: string;
 
-  public constructor(decorated: ICacheClient, cacheMethodsCounter: Counter, cacheType: string) {
-    this.decorated = decorated;
-    this.cacheMethodsCounter = cacheMethodsCounter;
+  public constructor(decorated: ICacheClient, register: Registry, cacheType: string) {
+    this.decoratedCacheClient = decorated;
+
+    /**
+     * Labels:
+     *  callingMethod - The method initiating the cache operation
+     *  cacheType - redis/lru
+     *  method - The CacheService method being called
+     */
+    const metricName = 'rpc_cache_service_methods_counter';
+    register.removeSingleMetric(metricName);
+    this.cacheMethodsCounter = new Counter({
+      name: metricName,
+      help: 'Counter for calls to methods of CacheService separated by CallingMethod and CacheType',
+      registers: [register],
+      labelNames: ['callingMethod', 'cacheType', 'method'],
+    });
     this.cacheType = cacheType;
   }
 
@@ -42,7 +56,7 @@ export class MeasurableCache implements ICacheClient {
    * @deprecated use `get` instead.
    */
   public getAsync(key: string, callingMethod: string): Promise<any> {
-    return this.decorated.get(key, callingMethod);
+    return this.decoratedCacheClient.get(key, callingMethod);
   }
 
   /**
@@ -55,7 +69,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async get(key: string, callingMethod: string): Promise<any> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.GET).inc(1);
-    return await this.decorated.get(key, callingMethod);
+    return await this.decoratedCacheClient.get(key, callingMethod);
   }
 
   /**
@@ -69,7 +83,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.SET).inc(1);
-    return await this.decorated.set(key, value, callingMethod, ttl);
+    return await this.decoratedCacheClient.set(key, value, callingMethod, ttl);
   }
 
   /**
@@ -83,7 +97,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.MSET).inc(1);
-    await this.decorated.multiSet(keyValuePairs, callingMethod, ttl);
+    await this.decoratedCacheClient.multiSet(keyValuePairs, callingMethod, ttl);
   }
 
   /**
@@ -97,7 +111,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.PIPELINE).inc(1);
-    await this.decorated.pipelineSet(keyValuePairs, callingMethod, ttl);
+    await this.decoratedCacheClient.pipelineSet(keyValuePairs, callingMethod, ttl);
   }
 
   /**
@@ -109,14 +123,14 @@ export class MeasurableCache implements ICacheClient {
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.DELETE).inc(1);
-    await this.decorated.delete(key, callingMethod);
+    await this.decoratedCacheClient.delete(key, callingMethod);
   }
 
   /**
    * Calls the method that clears the entire cache, removing all entries.
    */
   public async clear(): Promise<void> {
-    await this.decorated.clear();
+    await this.decoratedCacheClient.clear();
   }
 
   /**
@@ -127,7 +141,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns An array of keys that match the pattern (without the cache prefix).
    */
   public async keys(pattern: string, callingMethod: string): Promise<string[]> {
-    return await this.decorated.keys(pattern, callingMethod);
+    return await this.decoratedCacheClient.keys(pattern, callingMethod);
   }
 
   /**
@@ -140,7 +154,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.INCR_BY).inc(1);
-    return await this.decorated.incrBy(key, amount, callingMethod);
+    return await this.decoratedCacheClient.incrBy(key, amount, callingMethod);
   }
 
   /**
@@ -155,7 +169,7 @@ export class MeasurableCache implements ICacheClient {
    */
   public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.LRANGE).inc(1);
-    return await this.decorated.lRange(key, start, end, callingMethod);
+    return await this.decoratedCacheClient.lRange(key, start, end, callingMethod);
   }
 
   /**
@@ -169,6 +183,6 @@ export class MeasurableCache implements ICacheClient {
    */
   public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
     this.cacheMethodsCounter.labels(callingMethod, this.cacheType, MeasurableCache.methods.RPUSH).inc(1);
-    return await this.decorated.rPush(key, value, callingMethod);
+    return await this.decoratedCacheClient.rPush(key, value, callingMethod);
   }
 }
