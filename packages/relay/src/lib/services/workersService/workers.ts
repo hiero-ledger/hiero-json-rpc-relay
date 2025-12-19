@@ -6,7 +6,8 @@ import { getLogs } from '../ethService/ethCommonService/commonWorker';
 
 interface GetBlockTask {
   type: 'getBlock';
-  blockHashOrNumber: string;
+  contractResults: any;
+  logs: any;
   showDetails: boolean;
   requestDetails: RequestDetails;
   chain: string;
@@ -37,7 +38,7 @@ type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask;
 export default async function handleTask(task: WorkerTask): Promise<any> {
   switch (task.type) {
     case 'getBlock':
-      return await getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
+      return await getBlock(task.contractResults, task.logs, task.showDetails, task.requestDetails, task.chain);
     case 'getBlockReceipts':
       return await getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
     case 'getLogs':

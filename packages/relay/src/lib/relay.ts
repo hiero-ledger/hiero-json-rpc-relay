@@ -28,6 +28,8 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
+import { startBlockingDetector, startMonitoring } from './services/workersService/eventLoopMonitor';
+import { WorkersPool } from './services/workersService/WorkersPool';
 import { TxPoolImpl } from './txpool';
 import {
   IEthExecutionEventPayload,
@@ -261,6 +263,8 @@ export class Relay {
    * Initializes required clients and services
    */
   async initializeRelay() {
+    startMonitoring();
+    startBlockingDetector();
     // 1. Connect to Redis first
     await this.connectRedisClient();
 
@@ -280,6 +284,9 @@ export class Relay {
    * @private
    */
   private initializeServices(): void {
+    // Initialize WorkersPool with the main thread's registry for metrics collection
+    WorkersPool.init(this.register);
+
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);

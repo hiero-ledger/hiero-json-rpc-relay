@@ -237,41 +237,13 @@ async function prepareTransactionArray(
 }
 
 export async function getBlock(
-  blockHashOrNumber: string,
+  contractResults: any,
+  logs: any,
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
-): Promise<Block | null> {
+): Promise<{ receiptsRoot; txArray }> {
   try {
-    const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
-      requestDetails,
-      blockHashOrNumber,
-      true,
-    );
-
-    if (blockResponse == null) return null;
-    const timestampRange = blockResponse.timestamp;
-    const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
-    const params = { timestamp: timestampRangeParams };
-
-    const [contractResults, logs] = await Promise.all([
-      mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
-        requestDetails,
-        params,
-        undefined,
-      ]),
-      commonService.getLogsWithParams(null, params, requestDetails),
-    ]);
-
-    if (contractResults == null && logs.length == 0) {
-      return null;
-    }
-
-    const ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
-    if (showDetails && contractResults.length >= ethGetTransactionCountMaxBlockRange) {
-      throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
-    }
-
     let txArray: Transaction[] | string[] = await prepareTransactionArray(
       contractResults,
       showDetails,
@@ -290,14 +262,10 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await commonService.gasPrice(requestDetails);
-
-    return await BlockFactory.createBlock({
-      blockResponse,
-      txArray,
-      gasPrice,
+    return {
       receiptsRoot,
-    });
+      txArray,
+    };
   } catch (e: unknown) {
     throw WorkersPool.wrapError(e);
   }

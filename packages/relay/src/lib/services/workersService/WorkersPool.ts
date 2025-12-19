@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
+import { Counter, Registry } from 'prom-client';
 
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
@@ -30,11 +31,31 @@ export class WorkersPool {
    */
   private static instance: Piscina;
 
+  private static registry: Registry | undefined;
+
+  /**
+   * Counter metric for tracking completed worker tasks.
+   */
+  private static tasksCompletedCounter: Counter | undefined;
+
+  /**
+   * Initializes the WorkersPool with a Prometheus registry.
+   * Call this once from the main thread during application startup.
+   *
+   * @param registry - The Prometheus registry from the main thread.
+   */
+  static init(registry: Registry): void {
+    this.registry = registry;
+    // Eagerly create the instance so metrics are ready
+    this.getInstance();
+  }
+
   /**
    * Returns the shared Piscina worker pool instance.
    *
    * If the pool has not yet been created, it initializes a new one using configuration-based thread settings.
    *
+   * @param registry - Optional Prometheus registry for metrics (only used on first call).
    * @returns The globally shared `Piscina` instance.
    */
   static getInstance(): Piscina {
@@ -45,23 +66,55 @@ export class WorkersPool {
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),
         maxThreads: ConfigService.get('WORKERS_POOL_MAX_THREADS'),
       });
+
+      // Initialize metrics if registry was set via init()
+      if (this.registry) {
+        this.initMetrics();
+      }
     }
 
     return this.instance;
   }
 
   /**
+   * Initializes Prometheus metrics for the worker pool.
+   */
+  private static initMetrics(): void {
+    if (!this.registry) return;
+
+    const metricName = 'rpc_relay_workers_pool_tasks_completed_total';
+    this.registry.removeSingleMetric(metricName);
+
+    this.tasksCompletedCounter = new Counter({
+      name: metricName,
+      help: 'Total number of tasks completed by the worker pool',
+      labelNames: ['task_type', 'status'],
+      registers: [this.registry],
+    });
+  }
+
+  /**
    * Executes a worker task using the shared Piscina pool.
    *
-   * @param options - The data passed to the worker.
+   * @param options - The data passed to the worker (should include 'type' for metric labeling).
    * @returns A promise resolving to the worker's result.
    */
-  static run(options: unknown): Promise<any> {
-    return this.getInstance()
-      .run(options)
-      .catch((error: unknown) => {
-        throw WorkersPool.unwrapError(error);
-      });
+  static async run(options: unknown): Promise<any> {
+    const taskType = (options as { type?: string })?.type || 'unknown';
+
+    try {
+      const result = await this.getInstance().run(options);
+
+      // Record successful task completion
+      this.tasksCompletedCounter?.labels(taskType, 'success').inc();
+
+      return result;
+    } catch (error: unknown) {
+      // Record failed task
+      this.tasksCompletedCounter?.labels(taskType, 'error').inc();
+
+      throw WorkersPool.unwrapError(error);
+    }
   }
 
   /**

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
+import { predefined } from '../../../errors/JsonRpcError';
+import { BlockFactory } from '../../../factories/blockFactory';
 import { Block } from '../../../model';
 import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
@@ -200,12 +203,63 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return WorkersPool.run({
-      type: 'getBlock',
+    // return
+    const blockResponse: MirrorNodeBlock = await this.common.getHistoricalBlockResponse(
+      requestDetails,
       blockHashOrNumber,
+      true,
+    );
+
+    if (blockResponse == null) return null;
+    const timestampRange = blockResponse.timestamp;
+    const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
+    const params = { timestamp: timestampRangeParams };
+
+    const [contractResults, logs] = await Promise.all([
+      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+        requestDetails,
+        params,
+        undefined,
+      ]),
+      this.common.getLogsWithParams(null, params, requestDetails),
+    ]);
+
+    if (contractResults == null && logs.length == 0) {
+      return null;
+    }
+    const ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
+    if (showDetails && contractResults.length >= ethGetTransactionCountMaxBlockRange) {
+      throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
+    }
+
+    // let txArray: Transaction[] | string[] = await this.prepareTransactionArray(
+    //   contractResults,
+    //   showDetails,
+    //   requestDetails,
+    // );
+
+    // txArray = this.populateSyntheticTransactions(showDetails, logs, txArray);
+
+    // const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
+    //   txArray.map((tx) => (showDetails ? tx.hash : tx)),
+    //   contractResults,
+    //   logs,
+    // );
+    const obj = await WorkersPool.run({
+      type: 'getBlock',
+      contractResults,
+      logs,
       showDetails,
       requestDetails,
       chain: this.chain,
+    });
+    const gasPrice = await this.common.gasPrice(requestDetails);
+
+    return await BlockFactory.createBlock({
+      blockResponse,
+      receiptsRoot: obj.receiptsRoot,
+      txArray: obj.txArray,
+      gasPrice,
     });
   }
 
