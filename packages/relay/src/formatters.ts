@@ -158,6 +158,9 @@ const trimPrecedingZeros = (input: string) => {
     return input;
   }
   const hex = input.startsWith(EMPTY_HEX) ? input.slice(2) : input;
+  if (!/^[0-9a-fA-F]+$/.test(hex)) {
+    return 'NaN';
+  }
   const trimmed = hex.replace(/^0+/, '');
   return trimmed === '' ? '0' : trimmed;
 };
