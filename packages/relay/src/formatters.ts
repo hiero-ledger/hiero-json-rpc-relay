@@ -154,7 +154,12 @@ const prepend0x = (input: string): string => {
 };
 
 const trimPrecedingZeros = (input: string) => {
-  return parseInt(input, 16).toString(16);
+  if (typeof input !== 'string') {
+    return input;
+  }
+  const hex = input.startsWith(EMPTY_HEX) ? input.slice(2) : input;
+  const trimmed = hex.replace(/^0+/, '');
+  return trimmed === '' ? '0' : trimmed;
 };
 
 function stripLeadingZeroForSignatures(signature: string) {

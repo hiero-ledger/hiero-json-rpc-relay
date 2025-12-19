@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import sinon from 'sinon';
 
 import { Eth, predefined } from '../../../src';
+import { trimPrecedingZeros } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
@@ -582,8 +583,8 @@ describe('@ethGetLogs using MirrorNode', async function () {
         `contracts/results/logs` +
           `?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}` +
           `&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}` +
-          `&topic0=${DEFAULT_LOG_TOPICS[0]}&topic1=${DEFAULT_LOG_TOPICS[1]}` +
-          `&topic2=${DEFAULT_LOG_TOPICS[2]}&topic3=${DEFAULT_LOG_TOPICS[3]}&limit=100&order=asc`,
+          `&topic0=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[0])}&topic1=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[1])}` +
+          `&topic2=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[2])}&topic3=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[3])}&limit=100&order=asc`,
       )
       .reply(200, JSON.stringify(filteredLogs));
     for (const log of filteredLogs.logs) {
@@ -610,8 +611,8 @@ describe('@ethGetLogs using MirrorNode', async function () {
         `contracts/results/logs` +
           `?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}` +
           `&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}` +
-          `&topic0=${DEFAULT_LOG_TOPICS_1[0]}` +
-          `&topic1=${DEFAULT_LOG_TOPICS_1[1]}&limit=100&order=asc`,
+          `&topic0=${trimPrecedingZeros(DEFAULT_LOG_TOPICS_1[0])}` +
+          `&topic1=${trimPrecedingZeros(DEFAULT_LOG_TOPICS_1[1])}&limit=100&order=asc`,
       )
       .reply(200, JSON.stringify(filteredLogs));
     for (const log of filteredLogs.logs) {
@@ -642,8 +643,8 @@ describe('@ethGetLogs using MirrorNode', async function () {
         `contracts/results/logs` +
           `?timestamp=gte:${DEFAULT_BLOCK.timestamp.from}` +
           `&timestamp=lte:${DEFAULT_BLOCK.timestamp.to}` +
-          `&topic0=${DEFAULT_LOG_TOPICS[0]}&topic1=${DEFAULT_LOG_TOPICS[1]}` +
-          `&topic2=${DEFAULT_LOG_TOPICS[2]}&topic3=${DEFAULT_LOG_TOPICS[3]}&limit=100&order=asc`,
+          `&topic0=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[0])}&topic1=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[1])}` +
+          `&topic2=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[2])}&topic3=${trimPrecedingZeros(DEFAULT_LOG_TOPICS[3])}&limit=100&order=asc`,
       )
       .reply(200, JSON.stringify(filteredLogs));
     for (const log of filteredLogs.logs) {
@@ -713,5 +714,17 @@ describe('@ethGetLogs using MirrorNode', async function () {
         mockedToTimeStamp,
       ).message,
     );
+  });
+
+  it('should throw an error when nested topics array exceeds 100', async function () {
+    const hugeTopicsArray = Array(101).fill(DEFAULT_LOG_TOPICS[0]);
+    restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(DEFAULT_BLOCKS_RES));
+
+    await expect(
+      ethImpl.getLogs(
+        { blockHash: null, fromBlock: 'latest', toBlock: 'latest', address: null, topics: [hugeTopicsArray] },
+        requestDetails,
+      ),
+    ).to.be.rejectedWith(predefined.INVALID_PARAMETER(0, 'Topic 0 exceeds maximum nested length of 100').message);
   });
 });
