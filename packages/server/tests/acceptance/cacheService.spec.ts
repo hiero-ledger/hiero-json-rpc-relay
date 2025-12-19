@@ -43,7 +43,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     const cache = await cacheService.getAsync(dataLabel, CALLING_METHOD);
     expect(cache).to.deep.eq(DATA, 'set method saves to shared cache');
 
-    expect(cacheService['decorated']).to.be.instanceOf(RedisCache);
+    expect(cacheService['decoratedCacheClient']).to.be.instanceOf(RedisCache);
 
     const cacheFromService = await cacheService.getAsync(dataLabel, CALLING_METHOD);
     expect(cacheFromService).to.deep.eq(DATA, 'getAsync method reads correctly from shared cache');

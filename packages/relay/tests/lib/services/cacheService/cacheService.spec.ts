@@ -236,7 +236,7 @@ describe('CacheService Test Suite', async function () {
 
     describe('should not initialize redis cache if shared cache is not enabled', async function () {
       it('should not initialize redis cache if shared cache is not enabled', async function () {
-        expect(cacheService['decorated']).to.be.an.instanceOf(LocalLRUCache);
+        expect(cacheService['decoratedCacheClient']).to.be.an.instanceOf(LocalLRUCache);
       });
     });
   });
