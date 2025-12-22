@@ -155,24 +155,24 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import { MyClass } from './my-class';
-import { CacheService } from './cache-service';
-import { CacheClientFactory } from './cacheClientFactory';
+import type { ICacheClient } from './cache-client';
+import { CacheClientFactory } from './cache-client-factory';
 
 chai.use(chaiAsPromised);
 
 describe('MyClass', function() {
-  let cacheService: CacheService;
+  let cacheClient: ICacheClient;
   let myClass: MyClass;
 
   beforeEach(function() {
     // Common setup for all tests
-    cacheService = CacheClientFactory.create();
-    myClass = new MyClass(cacheService);
+    cacheClient = CacheClientFactory.create();
+    myClass = new MyClass(cacheClient);
   });
 
   afterEach(async function() {
     // Do not forget to clean up any changes in the state of the system
-    await cacheService.clear();
+    await cacheClient.clear();
   });
 
   describe('myMethod', function() {
@@ -269,8 +269,8 @@ import sinon from 'sinon';
 import pino from 'pino';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer, withOverriddenEnvsInMochaTest } from './helpers';
 
-import { CacheService } from './cache-service';
-import { CacheClientFactory } from './cacheClientFactory';
+import type { ICacheClient } from './cache-client';
+import { CacheClientFactory } from './cache-client-factory';
 
 chai.use(chaiAsPromised);
 
@@ -287,19 +287,19 @@ describe('MyClass', function() {
   });
 
   let serviceThatDependsOnEnv: ServiceThatDependsOnEnv;
-  let cacheService: CacheService;
+  let cacheClient: ICacheClient;
   let myClass: MyClass;
 
   beforeEach(function() {
     // Common setup for all tests
     serviceThatDependsOnEnv = new ServiceThatDependsOnEnv();
-    cacheService = CacheClientFactory.create();
-    myClass = new MyClass(serviceThatDependsOnEnv, cacheService);
+    cacheClient = CacheClientFactory.create();
+    myClass = new MyClass(serviceThatDependsOnEnvcacheClient cacheClient);
   });
 
   afterEach(async function() {
     // Do not forget to clean up any changes in the state of the system
-    await cacheService.clear();
+    await cacheClient.clear();
   });
 
   describe('myMethod', function() {

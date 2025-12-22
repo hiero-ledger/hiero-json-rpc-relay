@@ -6,13 +6,13 @@ import type { Logger } from 'pino';
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x } from '../formatters';
 import { type Debug } from '../index';
 import { MirrorNodeClient } from './clients';
+import type { ICacheClient } from './clients/cache/ICacheClient';
 import { IOpcode } from './clients/models/IOpcode';
 import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { CommonService } from './services';
-import type { CacheService } from './services/cacheService/cacheService';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -59,7 +59,7 @@ export class DebugImpl implements Debug {
    * The cacheService containing useful functions
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * Creates an instance of DebugImpl.
@@ -67,9 +67,9 @@ export class DebugImpl implements Debug {
    * @constructor
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
-   * @param {CacheService} cacheService - Service for managing cached data.
+   * @param {ICacheClient} cacheService - Service for managing cached data.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;

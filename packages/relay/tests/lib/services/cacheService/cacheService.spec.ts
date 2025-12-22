@@ -6,11 +6,10 @@ import { pino } from 'pino';
 import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import { LocalLRUCache } from '../../../../src/lib/clients/cache/localLRUCache';
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -22,7 +21,7 @@ describe('CacheService Test Suite', async function () {
   const registry = new Registry();
   const callingMethod = 'CacheServiceTest';
 
-  let cacheService: CacheService;
+  let cacheService: ICacheClient;
   const describeKeysTestSuite = () => {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;

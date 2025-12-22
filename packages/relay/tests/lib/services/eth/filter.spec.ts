@@ -9,10 +9,10 @@ import { v4 as uuid } from 'uuid';
 
 import { predefined } from '../../../../src';
 import { MirrorNodeClient } from '../../../../src/lib/clients';
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/lib/constants';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CommonService, FilterService } from '../../../../src/lib/services';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../../src/lib/types';
 import RelayAssertions from '../../../assertions';
 import {
@@ -30,7 +30,7 @@ const registry = new Registry();
 let restMock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let filterService: FilterService;
-let cacheService: CacheService;
+let cacheService: ICacheClient;
 
 describe('Filter API Test Suite', async function () {
   this.timeout(10000);

@@ -10,6 +10,7 @@ import { Admin, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
 import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
+import type { ICacheClient } from './clients/cache/ICacheClient';
 import { RedisClientManager } from './clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from './config/hbarSpendingPlanConfigService';
 import constants from './constants';
@@ -22,7 +23,6 @@ import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
 import { LockService, LockStrategyFactory } from './services';
-import { CacheService } from './services/cacheService/cacheService';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
@@ -90,9 +90,9 @@ export class Relay {
   /**
    * @private
    * @readonly
-   * @property {CacheService} cacheService - The service responsible for caching data to improve performance.
+   * @property {ICacheClient} cacheService - The service responsible for caching data to improve performance.
    */
-  private cacheService!: CacheService;
+  private cacheService!: ICacheClient;
 
   /**
    * @private

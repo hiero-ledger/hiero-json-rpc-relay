@@ -2,7 +2,7 @@
 
 import { Counter, Registry } from 'prom-client';
 
-import { ICacheClient } from './ICacheClient';
+import type { ICacheClient } from './ICacheClient';
 
 /**
  * Represents a cache client that performs the caching operations and tracks and counts all processed events.

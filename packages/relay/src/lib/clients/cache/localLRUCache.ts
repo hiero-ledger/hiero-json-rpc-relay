@@ -6,7 +6,7 @@ import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { Utils } from '../../../utils';
-import { ICacheClient } from './ICacheClient';
+import type { ICacheClient } from './ICacheClient';
 
 type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache.OptionsTTLLimit<string, any, unknown>;
 

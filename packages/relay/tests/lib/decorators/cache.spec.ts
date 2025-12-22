@@ -4,13 +4,13 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { expect } from 'chai';
 import sinon from 'sinon';
 
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { __test__, cache } from '../../../src/lib/decorators';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { RequestDetails } from '../../../src/lib/types';
 
 describe('cache decorator', () => {
   let sandbox: sinon.SinonSandbox;
-  let cacheService: sinon.SinonStubbedInstance<CacheService>;
+  let cacheService: sinon.SinonStubbedInstance<ICacheClient>;
 
   const CACHED_RESULT = 'cached result';
   const requestDetails = new RequestDetails({ requestId: '1', ipAddress: '127.0.0.1' });
@@ -33,7 +33,7 @@ describe('cache decorator', () => {
 
   const createDecoratedMethod = (options = {}) => {
     class TestClass {
-      public _cacheService: CacheService = cacheService;
+      public _cacheService: ICacheClient = cacheService;
 
       @cache(options, '_cacheService')
       async testMethod(arg1: any, arg2: any, requestDetails: RequestDetails) {
