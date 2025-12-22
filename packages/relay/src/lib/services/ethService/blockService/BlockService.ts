@@ -296,13 +296,14 @@ export class BlockService implements IBlockService {
     const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
     const params = { timestamp: timestampRangeParams };
 
-    const [contractResults, logs] = await Promise.all([
+    const [contractResults, logs, gasPrice] = await Promise.all([
       this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
         requestDetails,
         params,
         undefined,
       ]),
       this.common.getLogsWithParams(null, params, requestDetails),
+      this.common.gasPrice(requestDetails),
     ]);
 
     if (contractResults == null && logs.length == 0) {
@@ -326,8 +327,6 @@ export class BlockService implements IBlockService {
       contractResults,
       logs,
     );
-
-    const gasPrice = await this.common.gasPrice(requestDetails);
 
     return await BlockFactory.createBlock({
       blockResponse,
