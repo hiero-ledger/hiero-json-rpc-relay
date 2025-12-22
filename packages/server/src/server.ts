@@ -11,7 +11,7 @@ import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
