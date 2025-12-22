@@ -5,7 +5,7 @@ import { Logger } from 'pino';
 import { RedisClientType } from 'redis';
 
 import { Utils } from '../../../../utils';
-import { ICacheClient } from '../ICacheClient';
+import type { ICacheClient } from '../ICacheClient';
 
 /**
  * A class that provides caching functionality using Redis.

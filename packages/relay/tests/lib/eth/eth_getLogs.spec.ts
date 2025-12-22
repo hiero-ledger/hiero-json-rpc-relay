@@ -8,7 +8,7 @@ import sinon from 'sinon';
 
 import { Eth, predefined } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import {
@@ -69,7 +69,7 @@ describe('@ethGetLogs using MirrorNode', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
-  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: CacheService } =
+  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
     generateEthTestEnv();
   const filteredLogs = {
     logs: [DEFAULT_LOGS.logs[0], DEFAULT_LOGS.logs[1]],

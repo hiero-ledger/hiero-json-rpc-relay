@@ -9,8 +9,8 @@ import sinon from 'sinon';
 import { Eth, predefined } from '../../../src';
 import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
@@ -43,7 +43,7 @@ describe('@ethGetStorageAt eth_getStorageAt spec', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
-  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: CacheService } =
+  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
     generateEthTestEnv();
   const requestDetails = new RequestDetails({ requestId: 'eth_getStorageAtTest', ipAddress: '0.0.0.0' });
   function confirmResult(result: string) {

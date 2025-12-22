@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import type { ICacheClient } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/ICacheClient';
 import { RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/redisCache';
 import { CacheClientFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/cacheClientFactory';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/src/lib/clients/redisClientManager';
 import { expect } from 'chai';
 import pino, { type Logger } from 'pino';
@@ -19,7 +19,7 @@ const DATA = {
 const CALLING_METHOD = 'AcceptanceTest';
 
 describe('@cache-service Acceptance Tests for shared cache', function () {
-  let cacheService: CacheService;
+  let cacheService: ICacheClient;
   let logger: Logger;
   let redisClient: RedisClientType;
 

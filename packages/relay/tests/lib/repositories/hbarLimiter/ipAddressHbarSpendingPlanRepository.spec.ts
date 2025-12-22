@@ -7,13 +7,13 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { IPAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/ipAddressHbarSpendingPlan';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IIPAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/ipAddressHbarSpendingPlan';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -26,8 +26,8 @@ describe('IPAddressHbarSpendingPlanRepository', function () {
   const nonExistingIpAddress = 'xxx.xxx.xxx.xxx';
 
   const tests = (isSharedCacheEnabled: boolean) => {
-    let cacheService: CacheService;
-    let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
+    let cacheService: ICacheClient;
+    let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let repository: IPAddressHbarSpendingPlanRepository;
 
     if (isSharedCacheEnabled) {
