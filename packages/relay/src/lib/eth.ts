@@ -5,6 +5,7 @@ import { Logger } from 'pino';
 
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
+import type { ICacheClient } from './clients/cache/ICacheClient';
 import constants from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { JsonRpcError, predefined } from './errors/JsonRpcError';
@@ -23,7 +24,6 @@ import {
   TransactionPoolService,
   TransactionService,
 } from './services';
-import type { CacheService } from './services/cacheService/cacheService';
 import { FeeService } from './services/ethService/feeService/FeeService';
 import { IFeeService } from './services/ethService/feeService/IFeeService';
 import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
@@ -118,14 +118,14 @@ export class EthImpl implements Eth {
    * @param {MirrorNodeClient} mirrorNodeClient - Client for querying the Hedera mirror node.
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
-   * @param {CacheService} cacheService - Service for managing cached data.
+   * @param {ICacheClient} cacheService - Service for managing cached data.
    */
   constructor(
     hapiService: HAPIService,
     mirrorNodeClient: MirrorNodeClient,
     logger: Logger,
     chain: string,
-    public readonly cacheService: CacheService,
+    public readonly cacheService: ICacheClient,
     storage: PendingTransactionStorage,
     lockService: LockService,
   ) {

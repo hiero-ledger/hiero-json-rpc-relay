@@ -21,10 +21,10 @@ import sinon, { useFakeTimers } from 'sinon';
 import { Eth, JsonRpcError, predefined } from '../../../src';
 import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
 import { LockService, TransactionPoolService } from '../../../src/lib/services';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../src/lib/types';
@@ -50,7 +50,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: Eth;
-    cacheService: CacheService;
+    cacheService: ICacheClient;
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });

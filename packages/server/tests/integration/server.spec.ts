@@ -8,7 +8,6 @@ import { predefined, Relay } from '@hashgraph/json-rpc-relay';
 import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { TracerType } from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { DebugImpl } from '@hashgraph/json-rpc-relay/dist/lib/debug';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { Constants, TYPES } from '@hashgraph/json-rpc-relay/dist/lib/validators';
 
 import serverTestConstants from '../helpers/constants';
@@ -23,6 +22,8 @@ import sinon from 'sinon';
 import { GCProfiler } from 'v8';
 
 chai.use(chaiAsPromised);
+
+import { MeasurableCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/measurableCache';
 
 import {
   contractAddress1,
@@ -3093,8 +3094,8 @@ describe('RPC Server', function () {
         });
         callTracer = sinon.stub(DebugImpl.prototype, 'callTracer').resolves(callTracerResult);
         prestateTracer = sinon.stub(DebugImpl.prototype, 'prestateTracer').resolves(prestateTracerResult);
-        cacheGetAsync = sinon.stub(CacheService.prototype, 'getAsync').resolves(null);
-        cacheSet = sinon.stub(CacheService.prototype, 'set').resolves();
+        cacheGetAsync = sinon.stub(MeasurableCache.prototype, 'getAsync').resolves(null);
+        cacheSet = sinon.stub(MeasurableCache.prototype, 'set').resolves();
         requireDebugAPIEnabled = sinon.stub(DebugImpl, 'requireDebugAPIEnabled').returns();
       });
 

@@ -12,10 +12,10 @@ import { Registry } from 'prom-client';
 
 import { MirrorNodeClientError, predefined } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients';
+import type { ICacheClient } from '../../src/lib/clients/cache/ICacheClient';
 import constants from '../../src/lib/constants';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
@@ -28,7 +28,7 @@ describe('MirrorNodeClient', async function () {
   const noTransactions = '?transactions=false';
   const requestDetails = new RequestDetails({ requestId: 'mirrorNodeClientTest', ipAddress: '0.0.0.0' });
 
-  let instance: AxiosInstance, mock: MockAdapter, mirrorNodeInstance: MirrorNodeClient, cacheService: CacheService;
+  let instance: AxiosInstance, mock: MockAdapter, mirrorNodeInstance: MirrorNodeClient, cacheService: ICacheClient;
 
   before(() => {
     // mock axios
@@ -40,7 +40,7 @@ describe('MirrorNodeClient', async function () {
       },
       timeout: 20 * 1000,
     });
-    cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+    cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),

@@ -6,7 +6,7 @@ import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 
 import { Utils } from '../../../utils';
-import { ICacheClient } from './ICacheClient';
+import type { ICacheClient } from './ICacheClient';
 
 type LRUCacheOptions = LRUCache.OptionsMaxLimit<string, any, unknown> & LRUCache.OptionsTTLLimit<string, any, unknown>;
 
@@ -108,6 +108,19 @@ export class LocalLRUCache implements ICacheClient {
    */
   private prefixKey(key: string): string {
     return `${LocalLRUCache.CACHE_KEY_PREFIX}${key}`;
+  }
+
+  /**
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.get(key, callingMethod);
   }
 
   /**

@@ -7,8 +7,8 @@ import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
 import { SDKClient } from '../../../src/lib/clients';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { EthImpl } from '../../../src/lib/eth';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
@@ -52,7 +52,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: EthImpl;
-    cacheService: CacheService;
+    cacheService: ICacheClient;
   } = generateEthTestEnv(true);
   const results = defaultContractResults.results;
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });

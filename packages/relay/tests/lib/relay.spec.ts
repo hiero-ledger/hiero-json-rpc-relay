@@ -9,7 +9,6 @@ import sinon from 'sinon';
 
 import { Relay } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients/mirrorNodeClient';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
@@ -52,8 +51,6 @@ describe('Relay', () => {
     let populatePreconfiguredSpendingPlansSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      // @ts-ignore
-      CacheService.instances = [];
       loggerSpy = sinon.spy(logger);
       populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
     });

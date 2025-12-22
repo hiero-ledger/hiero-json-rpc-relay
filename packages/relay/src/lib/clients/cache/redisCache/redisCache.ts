@@ -5,7 +5,7 @@ import { Logger } from 'pino';
 import { RedisClientType } from 'redis';
 
 import { Utils } from '../../../../utils';
-import { ICacheClient } from '../ICacheClient';
+import type { ICacheClient } from '../ICacheClient';
 
 /**
  * A class that provides caching functionality using Redis.
@@ -63,6 +63,19 @@ export class RedisCache implements ICacheClient {
    */
   private prefixKey(key: string): string {
     return `${RedisCache.CACHE_KEY_PREFIX}${key}`;
+  }
+
+  /**
+   * Alias for the `get` method.
+   *
+   * @param key - The key associated with the cached value.
+   * @param callingMethod - The name of the method calling the cache.
+   * @returns The cached value if found, otherwise null.
+   *
+   * @deprecated use `get` instead.
+   */
+  public getAsync(key: string, callingMethod: string): Promise<any> {
+    return this.get(key, callingMethod);
   }
 
   /**

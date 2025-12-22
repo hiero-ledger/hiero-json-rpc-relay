@@ -18,7 +18,6 @@ import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/rep
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import MetricService from '../../../../src/lib/services/metricService/metricService';
 import {
@@ -136,7 +135,7 @@ describe('Metric Service', function () {
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(CacheClientFactory.create(logger, registry)),
+      CacheClientFactory.create(logger, registry),
       instance,
     );
   });
@@ -148,7 +147,7 @@ describe('Metric Service', function () {
 
     eventEmitter = new EventEmitter<TypedEvents>();
 
-    const cacheService = new CacheService(CacheClientFactory.create(logger, registry));
+    const cacheService = CacheClientFactory.create(logger, registry);
     const hbarSpendingPlanRepository = new HbarSpendingPlanRepository(cacheService, logger);
     const evmAddressHbarSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);
     const ipAddressHbarSpendingPlanRepository = new IPAddressHbarSpendingPlanRepository(cacheService, logger);

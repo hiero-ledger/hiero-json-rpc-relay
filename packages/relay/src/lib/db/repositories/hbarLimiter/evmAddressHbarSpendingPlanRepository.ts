@@ -2,7 +2,7 @@
 
 import { Logger } from 'pino';
 
-import { CacheService } from '../../../services/cacheService/cacheService';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { EvmAddressHbarSpendingPlan } from '../../entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
 import { IEvmAddressHbarSpendingPlan } from '../../types/hbarLimiter/evmAddressHbarSpendingPlan';
@@ -14,7 +14,7 @@ export class EvmAddressHbarSpendingPlanRepository {
    * The cache service used for storing data.
    * @private
    */
-  private readonly cache: CacheService;
+  private readonly cache: ICacheClient;
 
   /**
    * The logger used for logging all output from this class.
@@ -22,7 +22,7 @@ export class EvmAddressHbarSpendingPlanRepository {
    */
   private readonly logger: Logger;
 
-  constructor(cache: CacheService, logger: Logger) {
+  constructor(cache: ICacheClient, logger: Logger) {
     this.cache = cache;
     this.logger = logger;
   }

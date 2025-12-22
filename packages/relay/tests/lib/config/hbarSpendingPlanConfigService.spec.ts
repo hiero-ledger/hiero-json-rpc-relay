@@ -10,6 +10,7 @@ import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { RedisClientManager } from '../../../src/lib/clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from '../../../src/lib/config/hbarSpendingPlanConfigService';
 import { HbarSpendingPlan } from '../../../src/lib/db/entities/hbarLimiter/hbarSpendingPlan';
@@ -24,7 +25,6 @@ import {
 } from '../../../src/lib/db/types/hbarLimiter/errors';
 import { SubscriptionTier } from '../../../src/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { SpendingPlanConfig } from '../../../src/lib/types/spendingPlanConfig';
 import {
   overrideEnvsInMochaDescribe,
@@ -141,14 +141,14 @@ describe('HbarSpendingPlanConfigService', function () {
   });
 
   const tests = (hbarSpendingPlansConfigEnv: string) => {
-    let cacheService: CacheService;
+    let cacheService: ICacheClient;
     let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
     let evmAddressHbarSpendingPlanRepository: EvmAddressHbarSpendingPlanRepository;
     let ipAddressHbarSpendingPlanRepository: IPAddressHbarSpendingPlanRepository;
     let hbarSpendingPlanConfigService: HbarSpendingPlanConfigService;
 
     let loggerSpy: sinon.SinonSpiedInstance<Logger>;
-    let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
+    let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let hbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<HbarSpendingPlanRepository>;
     let evmAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<EvmAddressHbarSpendingPlanRepository>;
     let ipAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<IPAddressHbarSpendingPlanRepository>;
@@ -168,9 +168,11 @@ describe('HbarSpendingPlanConfigService', function () {
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(
-        CacheClientFactory.create(logger.child({ name: 'cache-service' }), registry, reservedKeys, redisClient as any),
+      cacheService = CacheClientFactory.create(
+        logger.child({ name: 'cache-service' }),
         registry,
+        reservedKeys,
+        redisClient as any,
       );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,

@@ -5,8 +5,8 @@ import axios from 'axios';
 
 import type { Admin } from '../index';
 import { Utils } from '../utils';
+import type { ICacheClient } from './clients/cache/ICacheClient';
 import constants from './constants';
-import type { CacheService } from './services/cacheService/cacheService';
 
 interface IAdminRelayConfig {
   version: string;
@@ -25,11 +25,11 @@ export interface IAdminConfig {
 }
 
 export class AdminImpl implements Admin {
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   public static readonly config = 'admin_config';
 
-  constructor(cacheService: CacheService) {
+  constructor(cacheService: ICacheClient) {
     this.cacheService = cacheService;
   }
 

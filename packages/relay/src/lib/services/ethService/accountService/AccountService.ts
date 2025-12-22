@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { RequestDetails } from '../../../types';
 import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
-import { CacheService } from '../../cacheService/cacheService';
 import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
@@ -20,7 +19,7 @@ export class AccountService implements IAccountService {
    *
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The Common Service implementation that contains logic shared by other services.
@@ -86,7 +85,7 @@ export class AccountService implements IAccountService {
    * @param mirrorNodeClient
    */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     common: ICommonService,
     logger: Logger,
     mirrorNodeClient: MirrorNodeClient,
