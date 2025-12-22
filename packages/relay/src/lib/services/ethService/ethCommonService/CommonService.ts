@@ -389,15 +389,19 @@ export class CommonService implements ICommonService {
     topics: any[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
-    return WorkersPool.run({
-      type: 'getLogs',
-      blockHash,
-      fromBlock,
-      toBlock,
-      address,
-      topics,
-      requestDetails,
-    });
+    return WorkersPool.run(
+      {
+        type: 'getLogs',
+        blockHash,
+        fromBlock,
+        toBlock,
+        address,
+        topics,
+        requestDetails,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   public async resolveEvmAddress(

@@ -104,11 +104,15 @@ export class BlockService implements IBlockService {
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt[] | null> {
-    return WorkersPool.run({
-      type: 'getBlockReceipts',
-      blockHashOrBlockNumber,
-      requestDetails,
-    });
+    return WorkersPool.run(
+      {
+        type: 'getBlockReceipts',
+        blockHashOrBlockNumber,
+        requestDetails,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   /**
@@ -204,13 +208,17 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    return WorkersPool.run({
-      type: 'getBlock',
-      blockHashOrNumber,
-      showDetails,
-      requestDetails,
-      chain: this.chain,
-    });
+    return WorkersPool.run(
+      {
+        type: 'getBlock',
+        blockHashOrNumber,
+        showDetails,
+        requestDetails,
+        chain: this.chain,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   /**

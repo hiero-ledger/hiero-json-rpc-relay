@@ -3,8 +3,10 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
 
+import { MirrorNodeClient } from '../../clients';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
+import { CacheService } from '../cacheService/cacheService';
 
 /**
  * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
@@ -31,6 +33,16 @@ export class WorkersPool {
   private static instance: Piscina;
 
   /**
+   * Holds the instance of MirrorNodeClient
+   */
+  private static mirrorNodeClient: MirrorNodeClient;
+
+  /**
+   * Holds the instance of CacheService
+   */
+  private static cacheService: CacheService;
+
+  /**
    * Returns the shared Piscina worker pool instance.
    *
    * If the pool has not yet been created, it initializes a new one using configuration-based thread settings.
@@ -45,6 +57,18 @@ export class WorkersPool {
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),
         maxThreads: ConfigService.get('WORKERS_POOL_MAX_THREADS'),
       });
+
+      this.instance.on('message', (msg) => {
+        if (msg.type === 'addLabelToMirrorResponseHistogram') {
+          this.mirrorNodeClient.addLabelToMirrorResponseHistogram(msg.pathLabel, msg.value, msg.ms);
+        }
+        if (msg.type === 'addLabelToMirrorErrorCodeCounter') {
+          this.mirrorNodeClient.addLabelToMirrorErrorCodeCounter(msg.pathLabel, msg.value);
+        }
+        if (msg.type === 'addLabelToCacheMethodsCounter') {
+          this.cacheService.addLabelToCacheMethodsCounter(msg.callingMethod, msg.cacheType, msg.method);
+        }
+      });
     }
 
     return this.instance;
@@ -54,9 +78,14 @@ export class WorkersPool {
    * Executes a worker task using the shared Piscina pool.
    *
    * @param options - The data passed to the worker.
+   * @param mirrorNodeClient - The mirror node client instance.
+   * @param cacheService - The cache service instance.
    * @returns A promise resolving to the worker's result.
    */
-  static async run(options: unknown): Promise<any> {
+  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: CacheService): Promise<any> {
+    this.mirrorNodeClient = mirrorNodeClient;
+    this.cacheService = cacheService;
+
     return this.getInstance()
       .run(options)
       .catch((error: unknown) => {

@@ -10,6 +10,7 @@ import https from 'https';
 import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
+import { parentPort } from 'worker_threads';
 
 import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
@@ -31,7 +32,6 @@ import {
 import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
-
 type REQUEST_METHODS = 'GET' | 'POST';
 
 export class MirrorNodeClient {
@@ -404,7 +404,7 @@ export class MirrorNodeClient {
           JSON.stringify(response.data),
         );
       }
-      this.mirrorResponseHistogram.labels(pathLabel, response.status?.toString()).observe(ms);
+      this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms, true);
       return response.data;
     } catch (error: any) {
       const ms = Date.now() - start;
@@ -416,14 +416,61 @@ export class MirrorNodeClient {
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
-      this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);
-      this.mirrorErrorCodeCounter.labels(pathLabel, effectiveStatusCode.toString()).inc();
+      this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode, ms, true);
+      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode, true);
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
 
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
+    }
+  }
+
+  /**
+   * Records a mirror response duration in the response time histogram. This method observes the provided duration
+   * value for the given path and result labels. When enabled, the same metric update is forwarded to the parent thread
+   * via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the response outcome (e.g., status or result).
+   * @param ms - Response duration in milliseconds.
+   * @param checkParentPort - When `true`, also sends the observation to the parent thread if `parentPort` is available.
+   */
+  public addLabelToMirrorResponseHistogram(
+    pathLabel: string,
+    value: string,
+    ms: number,
+    checkParentPort: boolean = false,
+  ): void {
+    this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms);
+    if (checkParentPort && parentPort) {
+      parentPort.postMessage({
+        type: 'addLabelToMirrorResponseHistogram',
+        pathLabel,
+        value,
+        ms,
+      });
+    }
+  }
+
+  /**
+   * Increments the mirror error code counter for the given path and error label. This method updates the local
+   * `mirrorErrorCodeCounter` metric and optionally propagates the increment to the parent thread via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the error code or error category.
+   * @param checkParentPort - When `true`, also sends the counter increment to the parent thread if `parentPort` is available.
+   */
+  public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string, checkParentPort: boolean = false): void {
+    this.mirrorErrorCodeCounter.labels(pathLabel, value).inc();
+
+    if (checkParentPort && parentPort) {
+      parentPort.postMessage({
+        type: 'addLabelToMirrorErrorCodeCounter',
+        pathLabel,
+        value,
+      });
     }
   }
 
