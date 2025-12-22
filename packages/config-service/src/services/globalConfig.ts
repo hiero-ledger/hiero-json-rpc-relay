@@ -443,6 +443,26 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  MIRROR_NODE_TIMESTAMP_SLICING_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
+  MIRROR_NODE_TIMESTAMP_SLICING_MIN_DURATION: {
+    type: 'number',
+    required: false,
+    defaultValue: 1.0,
+  },
+  MIRROR_NODE_TIMESTAMP_SLICING_MIN_TX_COUNT: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+  },
+  MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
+  },
   MIRROR_NODE_RETRIES: {
     type: 'number',
     required: false,

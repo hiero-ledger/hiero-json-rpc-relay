@@ -12,6 +12,7 @@ import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
 
 import { formatTransactionId } from '../../formatters';
+import constants from '../constants';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
@@ -29,7 +30,6 @@ import {
   RequestDetails,
 } from '../types';
 import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
-import constants from './../constants';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
 
 type REQUEST_METHODS = 'GET' | 'POST';
@@ -871,43 +871,75 @@ export class MirrorNodeClient {
     return slices;
   }
 
-  /**
-   * Generic method for processing time-sliced data with progressive deduplication.
-   * This method fetches data from multiple time slices in parallel and deduplicates in real-time,
-   * avoiding the need to store all duplicate data in memory before filtering.
-   *
-   * @param timeSlices - Array of timestamp ranges to process in parallel
-   * @param fetchSliceData - Async function that fetches data for a single time slice
-   * @param keyExtractor - Function that extracts a unique key from each data item for deduplication
-   * @param requestDetails - Request details for logging and tracking
-   * @returns Deduplicated and sorted results from all slices
-   */
-  private async getSlicedDataWithProgressiveMerging<T>(
+  // TO DO: Check if deduplication is still needed
+  private deduplicateContractResults(results: any[]): any[] {
+    const seenHashes = new Set<string>();
+    const uniqueResults: any[] = [];
+
+    for (const result of results) {
+      if (result && result.hash && !seenHashes.has(result.hash)) {
+        seenHashes.add(result.hash);
+        uniqueResults.push(result);
+      }
+    }
+
+    return uniqueResults;
+  }
+
+  // TO DO: Check if deduplication is still needed
+  private deduplicateLogs(logs: any[]): any[] {
+    const seenHashes = new Set<string>();
+    const uniqueLogs: any[] = [];
+
+    for (const log of logs) {
+      // Create a unique key combining transaction_hash and index to handle multiple logs per tx
+      const key = log && log.transaction_hash ? `${log.transaction_hash}-${log.index || 0}` : null;
+      if (key && !seenHashes.has(key)) {
+        seenHashes.add(key);
+        uniqueLogs.push(log);
+      }
+    }
+
+    return uniqueLogs;
+  }
+
+  private async getSlicedLogsWithProgressiveMerging(
     timeSlices: string[][],
-    fetchSliceData: (sliceRange: string[]) => Promise<T[]>,
-    keyExtractor: (item: T) => string | null,
+    contractLogsResultsParams: IContractLogsResultsParams,
+    limitOrderParams: ILimitOrderParams | undefined,
     requestDetails: RequestDetails,
-  ): Promise<T[]> {
-    const results: T[] = [];
+  ): Promise<any[]> {
+    const results: any[] = [];
     const seenHashes = new Set<string>();
 
     // Process each slice with timeout protection
     const processSlice = async (sliceRange: string[]): Promise<void> => {
+      const sliceParams = { ...contractLogsResultsParams, timestamp: sliceRange };
+      const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
+
       try {
-        const sliceData = await Promise.race([
-          fetchSliceData(sliceRange),
-          new Promise<T[]>((_, reject) =>
+        const sliceLogs = await Promise.race([
+          this.getPaginatedResults(
+            `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
+            MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+            MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+            requestDetails,
+            [],
+            1,
+            MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+          ),
+          new Promise<any[]>((_, reject) =>
             setTimeout(() => reject(new Error('Slice timeout')), MirrorNodeClient.BATCH_TIMEOUT_MS),
           ),
         ]);
 
-        // Merge results as they come in with real-time deduplication
-        if (Array.isArray(sliceData)) {
-          for (const item of sliceData) {
-            const key = keyExtractor(item);
+        // Merge results as they come in
+        if (Array.isArray(sliceLogs)) {
+          for (const log of sliceLogs) {
+            const key = log && log.transaction_hash ? `${log.transaction_hash}-${log.index || 0}` : null;
             if (key && !seenHashes.has(key)) {
               seenHashes.add(key);
-              results.push(item);
+              results.push(log);
             }
           }
         }
@@ -919,62 +951,18 @@ export class MirrorNodeClient {
       }
     };
 
-    // Process slices in parallel
+    // Process slices in parallel with concurrency limit
     const slicePromises = timeSlices.map(processSlice);
     await Promise.all(slicePromises);
 
     // Sort results by timestamp
-    results.sort((a: any, b: any) => {
+    results.sort((a, b) => {
       const timestampA = parseFloat(a.timestamp || '0');
       const timestampB = parseFloat(b.timestamp || '0');
       return timestampA - timestampB;
     });
 
     return results;
-  }
-
-  private async getSlicedLogsWithProgressiveMerging(
-    timeSlices: string[][],
-    contractLogsResultsParams: IContractLogsResultsParams,
-    limitOrderParams: ILimitOrderParams | undefined,
-    requestDetails: RequestDetails,
-  ): Promise<any[]> {
-    return this.getSlicedDataWithProgressiveMerging(
-      timeSlices,
-      async (sliceRange: string[]) => {
-        const sliceParams = { ...contractLogsResultsParams, timestamp: sliceRange };
-        const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
-        return this.getPaginatedResults(
-          `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
-          MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
-          requestDetails,
-          [],
-          1,
-          MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
-        );
-      },
-      (log) => (log && log.transaction_hash ? `${log.transaction_hash}-${log.index || 0}` : null),
-      requestDetails,
-    );
-  }
-
-  private async getSlicedResultsWithProgressiveMerging(
-    timeSlices: string[][],
-    contractResultsParams: IContractResultsParams,
-    limitOrderParams: ILimitOrderParams | undefined,
-    requestDetails: RequestDetails,
-    methodName: string,
-  ): Promise<any[]> {
-    return this.getSlicedDataWithProgressiveMerging(
-      timeSlices,
-      async (sliceRange: string[]) => {
-        const sliceParams = { ...contractResultsParams, timestamp: sliceRange };
-        return await (this as any)[methodName](requestDetails, sliceParams, limitOrderParams);
-      },
-      (result) => (result && result.hash ? result.hash : null),
-      requestDetails,
-    );
   }
 
   /*
@@ -1049,15 +1037,31 @@ export class MirrorNodeClient {
         }
 
         try {
-          // Split timestamp range and execute parallel requests with progressive merging
+          // Split timestamp range and execute parallel requests
           const timeSlices = this.splitTimestampRange(timestampRange, sliceCount);
-          contractResult = await this.getSlicedResultsWithProgressiveMerging(
-            timeSlices,
-            contractResultsParams,
-            args[2], // limitOrderParams
-            requestDetails,
-            methodName,
-          );
+          const slicePromises = timeSlices.map((sliceRange) => {
+            const sliceParams = { ...contractResultsParams, timestamp: sliceRange };
+            return this[methodName](requestDetails, sliceParams, args[2]); // args[2] is limitOrderParams
+          });
+
+          const sliceResults = await Promise.all(slicePromises);
+
+          // Merge and deduplicate results
+          let mergedResults: any[] = [];
+          for (const sliceResult of sliceResults) {
+            if (Array.isArray(sliceResult)) {
+              mergedResults = mergedResults.concat(sliceResult);
+            }
+          }
+
+          // Deduplicate by hash and sort by timestamp
+          // TO DO: Check if deduplication is still needed after changing 'lt' and 'lte' usage in splitTimestampRange
+          contractResult = this.deduplicateContractResults(mergedResults);
+          contractResult.sort((a, b) => {
+            const timestampA = parseFloat(a.timestamp || '0');
+            const timestampB = parseFloat(b.timestamp || '0');
+            return timestampA - timestampB;
+          });
 
           if (this.logger.isLevelEnabled('debug')) {
             this.logger.debug(

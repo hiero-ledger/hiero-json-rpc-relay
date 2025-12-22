@@ -314,6 +314,7 @@ export class BlockService implements IBlockService {
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
+    // TO DO: Optimize prepareTransactionArray to process data faster
     let txArray: Transaction[] | string[] = await this.prepareTransactionArray(
       contractResults,
       showDetails,
