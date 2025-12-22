@@ -505,11 +505,11 @@ export class MirrorNodeClient {
       results = results.concat(result[resultProperty]);
     }
 
-    if (page === pageMax) {
-      // max page reached
-      this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
-      throw predefined.PAGINATION_MAX(pageMax);
-    }
+    // if (page === pageMax) {
+    //   // max page reached
+    //   this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
+    //   throw predefined.PAGINATION_MAX(pageMax);
+    // }
 
     if (result?.links?.next && page < pageMax) {
       page++;

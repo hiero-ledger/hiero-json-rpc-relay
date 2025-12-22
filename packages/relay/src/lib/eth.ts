@@ -731,7 +731,7 @@ export class EthImpl implements Eth {
     0: { type: 'blockHash', required: true },
     1: { type: 'boolean', required: true },
   })
-  @cache()
+  // @cache()
   async getBlockByHash(hash: string, showDetails: boolean, requestDetails: RequestDetails): Promise<Block | null> {
     return this.blockService.getBlockByHash(hash, showDetails, requestDetails);
   }
@@ -851,9 +851,9 @@ export class EthImpl implements Eth {
     0: { type: 'blockNumber', required: true },
     1: { type: 'boolean', required: true },
   })
-  @cache({
-    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
-  })
+  // @cache({
+  //   skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  // })
   async getBlockByNumber(
     blockNumOrTag: string,
     showDetails: boolean,
@@ -1066,9 +1066,9 @@ export class EthImpl implements Eth {
   @rpcParamValidationRules({
     0: { type: ['blockNumber', 'blockHash'], required: true },
   })
-  @cache({
-    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
-  })
+  // @cache({
+  //   skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  // })
   public async getBlockReceipts(
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
