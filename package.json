@@ -1,6 +1,6 @@
 {
   "name": "root",
-  "version": "0.74.0-SNAPSHOT",
+  "version": "0.75.0-SNAPSHOT",
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@hashgraph/hedera-local": "^2.39.0",
@@ -66,6 +66,7 @@
     "acceptancetest:rpc_api_schema_conformity": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@api-conformity' --exit",
     "acceptancetest:serverconfig": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@server-config' --exit",
     "acceptancetest:send_raw_transaction_extension": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sendRawTransactionExtension' --exit",
+    "acceptancetest:json_rpc_compliance": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@json-rpc-compliance' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
     "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
     "build": "npx lerna run build",
@@ -76,6 +77,7 @@
     "dev": "npm run build && tsc --watch",
     "deploy:docker": "docker push ghcr.io/hiero-ledger/${npm_package_name}:latest",
     "format": "npx lerna run format",
+    "hopp": "hopp test packages/server/tests/hoppscotch.json -e packages/server/tests/hopp-env.json",
     "lint": "npx lerna run lint",
     "start": "npx lerna exec --scope @hashgraph/json-rpc-server -- npm run start",
     "start:ws": "npx lerna exec --scope @hashgraph/json-rpc-ws-server -- npm run start",
@@ -90,6 +92,7 @@
     "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
+    "@hoppscotch/cli": "0.30.0",
     "koa-websocket": "^7.0.0",
     "lerna": "^9.0.0",
     "pino": "^10.1.0",

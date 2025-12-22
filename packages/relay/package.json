@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-relay",
-  "version": "0.74.0-SNAPSHOT",
+  "version": "0.75.0-SNAPSHOT",
   "description": "Hedera Hashgraph implementation of Ethereum JSON RPC APIs. Utilises both the Hedera Consensus Nodes and the Mirror Nodes for transaction management and information retrieval",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "@types/node": "^24.9.1",
     "chai": "^6.0.1",
     "mocha": "^11.7.1",
-    "redis-memory-server": "^0.12.1",
+    "redis-memory-server": "^0.14.0",
     "sinon": "^21.0.0",
     "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",

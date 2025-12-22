@@ -50,6 +50,38 @@ run configuration. You should be able to just run that configuration, and it sho
 
 - It is highly recommended to read the [Testing Guide](docs/testing-guide.md) for detailed testing strategies and best practices.
 
+### Hoppscotch
+
+Hoppscotch CLI is used for running API tests against the relay. Environment variables are configured in `packages/server/tests/hopp-env.json`.
+
+#### Running Tests
+
+```shell
+# Default (localhost:7546)
+npm run hopp
+
+# Override BASE_URL (macOS/Linux)
+BASE_URL=https://mainnet.hashio.io/api npm run hopp
+
+# Override BASE_URL (Windows PowerShell)
+$env:BASE_URL="https://mainnet.hashio.io/api"; npm run hopp
+
+# Override BASE_URL (Windows CMD)
+set BASE_URL=https://mainnet.hashio.io/api && npm run hopp
+```
+
+> **Note:** Environment variable override requires modifying the npm script to support dynamic injection. Alternatively, edit `packages/server/tests/hopp-env.json` directly to change the `BASE_URL` value.
+
+#### Helm Deployment
+
+To enable Hoppscotch test to run via helm deployment add
+
+```yaml
+test:
+  enabled: true
+  schedule: '@daily' #How often to run the Hoppscotch test
+```
+
 ### Acceptance Tests
 
 The relay has a suite of acceptance tests that may be run to confirm E2E operation of the relay in either a `hedera-local-node` or deployed env.

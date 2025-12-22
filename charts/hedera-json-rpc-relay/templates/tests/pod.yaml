@@ -1,5 +1,4 @@
-# Disabled newman temporarily
-{{- if false }} # Force disabled - was: .Values.test.enabled
+{{- if .Values.test.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -14,11 +13,15 @@ spec:
     - name: test
       image: "{{ .Values.test.image.repository }}:{{ .Values.test.image.tag }}"
       imagePullPolicy: {{ .Values.test.image.pullPolicy }}
-      args:
-        - run
-        - /test/postman.json
-        - --env-var
-        - baseUrl=http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}
+      env:
+        - name: BASE_URL
+          value: 'http://{{ include "json-rpc-relay.fullname" . }}:{{ .Values.service.port }}'
+      command:
+        - /bin/sh
+        - -c
+        - |
+          npm install -g @hoppscotch/cli@{{ .Values.test.cliVersion }} && \
+          hopp test -e /test/hopp-env.json /test/hoppscotch.json
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:

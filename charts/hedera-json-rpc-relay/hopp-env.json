@@ -1,0 +1,13 @@
+{
+  "v": 2,
+  "id": "helm-test-env",
+  "name": "Helm Test Environment",
+  "variables": [
+    {
+      "key": "BASE_URL",
+      "initialValue": "http://127.0.0.1:7546",
+      "currentValue": "",
+      "secret": true
+    }
+  ]
+}
