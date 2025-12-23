@@ -29,7 +29,7 @@ You must have installed
 - [node (version 20)](https://nodejs.org/en/about/)
 - [npm](https://www.npmjs.com/)
 - [pnpm](https://pnpm.io/)
-- [Docker](https://docs.docker.com/engine/reference/commandline/docker/)
+- [Docker (if you want to use `docker compose up` to run the server)](https://docs.docker.com/engine/reference/commandline/docker/)
 
 We also recommend installing the "prettier" plugin in IntelliJ.
 
@@ -63,11 +63,26 @@ OPERATOR_KEY_MAIN=                            # Operator private key used to sig
 OPERATOR_KEY_FORMAT=                          # Optional. Operator private key format. Valid types: DER, HEX_ECDSA, or HEX_ED25519
 ```
 
+There are two easy options to get your JSON RPC Relay up and running. You only need to do one of them.
+
+#### Option 1) Docker
+
 Spin up Docker containers (JSON RPC Relay source code & Redis Cache)
 
 ```
 docker compose up -d
 ```
+
+#### Option 2) Node
+
+From the root of the project workspace:
+
+1. Run `npm install`. This will create populate and link `node_modules`.
+2. Run `npm run build`. This will clean and compile the relay library and the server.
+3. Disable Redis in .env by setting `REDIS_ENABLED=false`. This tells the JSON RPC Relay not to try and connect to Redis, which is likely not running on your computer.
+4. Run `npm run start`. This will start the server on port `7546`.
+
+> Pro tip: for local development you can set `HBAR_RATE_LIMIT_TINYBAR=0` in `.env` for unlimted rate limits. This is not recommended for production RPC relays.
 
 ## Testing
 
