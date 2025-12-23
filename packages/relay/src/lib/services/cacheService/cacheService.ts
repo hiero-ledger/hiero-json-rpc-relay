@@ -2,9 +2,11 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Counter, Registry } from 'prom-client';
+import { parentPort } from 'worker_threads';
 
 import { RedisCache } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
+import { RegistryFactory } from '../../factories/registryFactory';
 
 /**
  * A service that manages caching using different cache implementations based on configuration.
@@ -52,7 +54,7 @@ export class CacheService {
 
   private readonly cacheMethodsCounter: Counter;
 
-  public constructor(client: ICacheClient, register: Registry = new Registry()) {
+  public constructor(client: ICacheClient, register: Registry = RegistryFactory.getInstance()) {
     this.client = client;
     this.isSharedCacheEnabled = client instanceof RedisCache; // TODO measurements will be moved out of here in the next PR.
     this.shouldMultiSet = ConfigService.get('MULTI_SET'); // TODO measurements will be moved out of here in the next PR.
@@ -73,6 +75,33 @@ export class CacheService {
   }
 
   /**
+   * Increments the cache methods counter metric with the given label values. This method updates the local
+   * `cacheMethodsCounter` metric and, if enabled, forwards the same update to the parent thread via `parentPort`.
+   *
+   * @param callingMethod - Name of the method initiating the cache operation.
+   * @param cacheType - Type of cache being accessed (e.g., lru, redis).
+   * @param method - Cache operation performed (e.g., get, set, delete).
+   * @param checkParentPort - If `true`, also sends the metric update to the parent thread if `parentPort` is available.
+   */
+  public addLabelToCacheMethodsCounter(
+    callingMethod: string,
+    cacheType: string,
+    method: string,
+    checkParentPort: boolean = false,
+  ): void {
+    if (checkParentPort && parentPort) {
+      parentPort.postMessage({
+        type: 'addLabelToCacheMethodsCounter',
+        callingMethod,
+        cacheType,
+        method,
+      });
+    } else {
+      this.cacheMethodsCounter.labels(callingMethod, cacheType, method).inc(1);
+    }
+  }
+
+  /**
    * Retrieves a value from the cache asynchronously.
    *
    * @param key - The cache key.
@@ -80,9 +109,12 @@ export class CacheService {
    * @returns A Promise that resolves with the cached value or null if not found.
    */
   private async getFromSharedCache(key: string, callingMethod: string): Promise<any> {
-    this.cacheMethodsCounter
-      .labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.GET_ASYNC)
-      .inc(1);
+    this.addLabelToCacheMethodsCounter(
+      callingMethod,
+      CacheService.cacheTypes.REDIS,
+      CacheService.methods.GET_ASYNC,
+      true,
+    );
 
     return await this.client.get(key, callingMethod);
   }
@@ -110,7 +142,7 @@ export class CacheService {
    * @returns A Promise that resolves with the cached value or null if not found.
    */
   private async getFromInternalCache(key: string, callingMethod: string): Promise<any> {
-    this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET).inc(1);
+    this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET, true);
 
     return await this.client.get(key, callingMethod);
   }
@@ -125,9 +157,9 @@ export class CacheService {
    */
   public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
     if (this.isSharedCacheEnabled) {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.SET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.SET, true);
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET, true);
     }
     await this.client.set(key, value, callingMethod, ttl);
   }
@@ -142,9 +174,9 @@ export class CacheService {
     await this.client.multiSet(entries, callingMethod, ttl);
     if (this.isSharedCacheEnabled) {
       const metricsMethod = this.shouldMultiSet ? CacheService.methods.MSET : CacheService.methods.PIPELINE;
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.REDIS, metricsMethod).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.REDIS, metricsMethod, true);
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET, true);
     }
   }
 
@@ -157,9 +189,14 @@ export class CacheService {
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
     if (this.isSharedCacheEnabled) {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.DELETE).inc(1);
+      this.addLabelToCacheMethodsCounter(
+        callingMethod,
+        CacheService.cacheTypes.REDIS,
+        CacheService.methods.DELETE,
+        true,
+      );
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.DELETE).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.DELETE, true);
     }
     await this.client.delete(key, callingMethod);
   }
@@ -182,12 +219,15 @@ export class CacheService {
    */
   public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
     if (this.isSharedCacheEnabled) {
-      this.cacheMethodsCounter
-        .labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.INCR_BY)
-        .inc(1);
+      this.addLabelToCacheMethodsCounter(
+        callingMethod,
+        CacheService.cacheTypes.REDIS,
+        CacheService.methods.INCR_BY,
+        true,
+      );
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET).inc(1);
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET, true);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET, true);
     }
 
     return await this.client.incrBy(key, amount, callingMethod);
@@ -202,10 +242,15 @@ export class CacheService {
    */
   public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
     if (this.isSharedCacheEnabled) {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.RPUSH).inc(1);
+      this.addLabelToCacheMethodsCounter(
+        callingMethod,
+        CacheService.cacheTypes.REDIS,
+        CacheService.methods.RPUSH,
+        true,
+      );
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET).inc(1);
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET, true);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.SET, true);
     }
 
     return await this.client.rPush(key, value, callingMethod);
@@ -222,9 +267,14 @@ export class CacheService {
    */
   public async lRange<T = any>(key: string, start: number, end: number, callingMethod: string): Promise<T[]> {
     if (this.isSharedCacheEnabled) {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.REDIS, CacheService.methods.LRANGE).inc(1);
+      this.addLabelToCacheMethodsCounter(
+        callingMethod,
+        CacheService.cacheTypes.REDIS,
+        CacheService.methods.LRANGE,
+        true,
+      );
     } else {
-      this.cacheMethodsCounter.labels(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET).inc(1);
+      this.addLabelToCacheMethodsCounter(callingMethod, CacheService.cacheTypes.LRU, CacheService.methods.GET, true);
     }
     return await this.client.lRange(key, start, end, callingMethod);
   }

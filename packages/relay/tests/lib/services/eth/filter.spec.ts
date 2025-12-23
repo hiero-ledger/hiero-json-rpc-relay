@@ -20,6 +20,7 @@ import {
   defaultEvmAddress,
   defaultLogs1,
   defaultLogTopics,
+  mockWorkersPool,
   toHex,
   withOverriddenEnvsInMochaTest,
 } from '../../../helpers';
@@ -62,7 +63,7 @@ describe('Filter API Test Suite', async function () {
     expect(cachedFilter.lastQueried).to.be.null;
   };
 
-  this.beforeAll(() => {
+  this.beforeAll(async () => {
     cacheService = new CacheService(CacheClientFactory.create(logger, registry));
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
@@ -80,6 +81,8 @@ describe('Filter API Test Suite', async function () {
       cacheService,
       common,
     );
+
+    await mockWorkersPool(mirrorNodeInstance, common, cacheService);
   });
 
   this.beforeEach(async () => {

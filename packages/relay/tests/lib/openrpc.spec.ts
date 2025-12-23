@@ -58,6 +58,7 @@ import {
   defaultLogTopics,
   defaultNetworkFees,
   defaultTxHash,
+  mockWorkersPool,
   overrideEnvsInMochaDescribe,
   signedTransactionHash,
 } from '../helpers';
@@ -259,6 +260,8 @@ describe('Open RPC Specification', function () {
     mock.onGet(`contracts/${defaultContractResults.results[1].to}`).reply(200);
     mock.onGet(`tokens/${defaultContractResults.results[0].contract_id}`).reply(200);
     mock.onGet(`tokens/${defaultContractResults.results[1].contract_id}`).reply(200);
+
+    await mockWorkersPool(mirrorNodeInstance, ethImpl['common'], cacheService);
   });
 
   const validateResponseSchema = (schema: JSONSchema, response: unknown) => {
