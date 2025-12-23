@@ -54,8 +54,8 @@ export class TransactionFactory {
    * @param type Transaction type (2 by default)
    * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log, type = 2): Transaction1559 {
-    const transaction = TransactionFactory.createTransactionByType(type, {
+  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction1559 {
+    return TransactionFactory.createTransactionByType(type, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
@@ -76,8 +76,6 @@ export class TransactionFactory {
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
-
-    return transaction;
   }
 }
 
