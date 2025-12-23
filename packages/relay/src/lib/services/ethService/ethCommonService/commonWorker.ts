@@ -47,7 +47,11 @@ export async function getLogs(
 
     commonService.addTopicsToParams(params, topics);
 
-    return await commonService.getLogsWithParams(address, params, requestDetails);
+    const maxResponseSize: number = ConfigService.get('CONTENT_TOO_LARGE_METHODS').includes(requestDetails.method ?? '')
+      ? ConfigService.get('MAX_LOG_RESPONSE_SIZE')
+      : 0;
+
+    return await commonService.getLogsWithParams(address, params, requestDetails, maxResponseSize);
   } catch (e: unknown) {
     throw WorkersPool.wrapError(e);
   }

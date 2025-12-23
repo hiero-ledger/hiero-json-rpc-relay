@@ -327,10 +327,15 @@ export class CommonService implements ICommonService {
     }
   }
 
-  public async getLogsByAddress(address: string | string[], params: any, requestDetails: RequestDetails) {
+  public async getLogsByAddress(
+    address: string | string[],
+    params: any,
+    requestDetails: RequestDetails,
+    maxResponseSize: number = 0,
+  ) {
     const addresses = Array.isArray(address) ? address : [address];
     const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined),
+      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined, maxResponseSize),
     );
 
     const logResults = await Promise.all(logPromises);
@@ -346,14 +351,20 @@ export class CommonService implements ICommonService {
     address: string | string[] | null,
     params: any,
     requestDetails: RequestDetails,
+    maxResponseSize: number = 0,
   ): Promise<Log[]> {
     const EMPTY_RESPONSE = [];
 
     let logResults;
     if (address) {
-      logResults = await this.getLogsByAddress(address, params, requestDetails);
+      logResults = await this.getLogsByAddress(address, params, requestDetails, maxResponseSize);
     } else {
-      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, params);
+      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(
+        requestDetails,
+        params,
+        undefined,
+        maxResponseSize,
+      );
     }
 
     if (!logResults) {

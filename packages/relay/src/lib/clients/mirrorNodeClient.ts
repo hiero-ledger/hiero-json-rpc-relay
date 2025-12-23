@@ -547,6 +547,7 @@ export class MirrorNodeClient {
     results = [],
     page = 1,
     pageMax: number = constants.MAX_MIRROR_NODE_PAGINATION,
+    maxResponseSize: number = 0,
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
@@ -560,10 +561,7 @@ export class MirrorNodeClient {
       throw predefined.PAGINATION_MAX(pageMax);
     }
 
-    if (
-      this.contentTooLargeMethods.includes(requestDetails.method ?? '') &&
-      JSON.stringify(results).length / 1024 > this.maxLogResponseSize
-    ) {
+    if (maxResponseSize && JSON.stringify(results).length / 1024 > maxResponseSize) {
       throw predefined.CONTENT_TOO_LARGE;
     }
 
@@ -1024,6 +1022,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
+    maxResponseSize: number = 0,
   ): Promise<any[]> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
@@ -1038,6 +1037,7 @@ export class MirrorNodeClient {
       [],
       1,
       MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+      maxResponseSize,
     );
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
@@ -1085,6 +1085,7 @@ export class MirrorNodeClient {
           [],
           1,
           MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+          maxResponseSize,
         );
       } else {
         break;
@@ -1099,6 +1100,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
+    maxResponseSize: number = 0,
   ) {
     if (address === ethers.ZeroAddress) return [];
 
@@ -1117,6 +1119,7 @@ export class MirrorNodeClient {
       [],
       1,
       MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+      maxResponseSize,
     );
   }
 
