@@ -443,7 +443,6 @@ export class MirrorNodeClient {
     ms: number,
     checkParentPort: boolean = false,
   ): void {
-    this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms);
     if (checkParentPort && parentPort) {
       parentPort.postMessage({
         type: 'addLabelToMirrorResponseHistogram',
@@ -451,6 +450,8 @@ export class MirrorNodeClient {
         value,
         ms,
       });
+    } else {
+      this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms);
     }
   }
 
@@ -463,14 +464,14 @@ export class MirrorNodeClient {
    * @param checkParentPort - When `true`, also sends the counter increment to the parent thread if `parentPort` is available.
    */
   public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string, checkParentPort: boolean = false): void {
-    this.mirrorErrorCodeCounter.labels(pathLabel, value).inc();
-
     if (checkParentPort && parentPort) {
       parentPort.postMessage({
         type: 'addLabelToMirrorErrorCodeCounter',
         pathLabel,
         value,
       });
+    } else {
+      this.mirrorErrorCodeCounter.labels(pathLabel, value).inc();
     }
   }
 

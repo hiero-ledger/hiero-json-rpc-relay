@@ -89,7 +89,6 @@ export class CacheService {
     method: string,
     checkParentPort: boolean = false,
   ): void {
-    this.cacheMethodsCounter.labels(callingMethod, cacheType, method).inc(1);
     if (checkParentPort && parentPort) {
       parentPort.postMessage({
         type: 'addLabelToCacheMethodsCounter',
@@ -97,6 +96,8 @@ export class CacheService {
         cacheType,
         method,
       });
+    } else {
+      this.cacheMethodsCounter.labels(callingMethod, cacheType, method).inc(1);
     }
   }
 
