@@ -792,18 +792,6 @@ export class MirrorNodeClient {
     return response;
   }
 
-  /*
-
-
-
-
-
-
-
-
-
-
-  */
   private shouldUseSlicing(): boolean {
     if (!MirrorNodeClient.timestampSlicingEnabled) return false;
 
@@ -830,7 +818,6 @@ export class MirrorNodeClient {
 
     // Calculate how many pages of data we expect
     const expectedPages = Math.ceil(estimatedTxCount / limitParam);
-    console.log(`Expected Pages: ${expectedPages}`);
 
     // Target: We want max 2 sequential requests per slice to keep it fast
     // So we need roughly (Total Pages / 2) slices
@@ -976,19 +963,6 @@ export class MirrorNodeClient {
       requestDetails,
     );
   }
-
-  /*
-
-
-
-
-
-
-
-
-
-
-  */
 
   /**
    * Retrieves contract results with a retry mechanism to handle immature records.

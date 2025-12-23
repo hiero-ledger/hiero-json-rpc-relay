@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
@@ -314,7 +313,6 @@ export class BlockService implements IBlockService {
       throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
     }
 
-    // TO DO: Optimize prepareTransactionArray to process data faster
     let txArray: Transaction[] | string[] = await this.prepareTransactionArray(
       contractResults,
       showDetails,
@@ -322,19 +320,20 @@ export class BlockService implements IBlockService {
     );
 
     txArray = this.populateSyntheticTransactions(showDetails, logs, txArray);
-
     const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
       txArray.map((tx) => (showDetails ? tx.hash : tx)),
       contractResults,
       logs,
     );
 
-    return await BlockFactory.createBlock({
+    const result = await BlockFactory.createBlock({
       blockResponse,
       receipts,
       txArray,
       gasPrice,
     });
+
+    return result;
   }
 
   /**
@@ -353,6 +352,7 @@ export class BlockService implements IBlockService {
 
   /**
    * Populates the synthetic transactions for the block.
+   * Optimized to use Set/Map for O(1) lookups instead of O(N) array scans.
    * @param showDetails Whether to show transaction details
    * @param logs[] The logs to populate the synthetic transactions from
    * @param transactionsArray The array of transactions to populate
@@ -364,12 +364,27 @@ export class BlockService implements IBlockService {
     logs: Log[],
     transactionsArray: Transaction[] | string[],
   ): Transaction[] | string[] {
-    let filteredLogs: Log[];
+    // Create a Set of existing hashes for instant lookup
+    // This replaces the slow .some() and .includes() checks
+    const existingHashes = new Set<string>();
+
     if (showDetails) {
-      filteredLogs = logs.filter(
-        (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
-      );
-      filteredLogs.forEach((log) => {
+      (transactionsArray as Transaction[]).forEach((tx) => existingHashes.add(tx.hash));
+    } else {
+      (transactionsArray as string[]).forEach((hash) => existingHashes.add(hash));
+    }
+
+    // Use a Map to hold new synthetic transactions.
+    // The Map key ensures uniqueness automatically, replacing _.uniqWith
+    const newSyntheticTxs = new Map<string, Transaction | string>();
+
+    for (const log of logs) {
+      // If we already have this hash (in original array or new batch), skip it
+      if (existingHashes.has(log.transactionHash) || newSyntheticTxs.has(log.transactionHash)) {
+        continue;
+      }
+
+      if (showDetails) {
         const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
@@ -393,20 +408,21 @@ export class BlockService implements IBlockService {
         });
 
         if (transaction !== null) {
-          (transactionsArray as Transaction[]).push(transaction);
+          newSyntheticTxs.set(log.transactionHash, transaction);
         }
-      });
-    } else {
-      filteredLogs = logs.filter((log) => !(transactionsArray as string[]).includes(log.transactionHash));
-      filteredLogs.forEach((log) => {
-        (transactionsArray as string[]).push(log.transactionHash);
-      });
+      } else {
+        newSyntheticTxs.set(log.transactionHash, log.transactionHash);
+      }
     }
 
     this.logger.trace(`Synthetic transaction hashes will be populated in the block response`);
 
-    transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
-    return transactionsArray;
+    // Merge the original array with the new unique synthetic transactions
+    if (showDetails) {
+      return [...(transactionsArray as Transaction[]), ...(Array.from(newSyntheticTxs.values()) as Transaction[])];
+    } else {
+      return [...(transactionsArray as string[]), ...(Array.from(newSyntheticTxs.values()) as string[])];
+    }
   }
 
   /**
@@ -421,28 +437,39 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Transaction[] | string[]> {
-    const txArray: Transaction[] | string[] = [];
-    for (const contractResult of contractResults) {
-      // there are several hedera-specific validations that occur right before entering the evm
-      // if a transaction has reverted there, we should not include that tx in the block response
+    // Filter out reverted transactions
+    const validContractResults = contractResults.filter((contractResult) => {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
         this.logger.debug(
           `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
           contractResult.hash,
           contractResult.result,
         );
-        continue;
+        return false;
       }
+      return true;
+    });
 
-      [contractResult.from, contractResult.to] = await Promise.all([
-        this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-        this.common.resolveEvmAddress(contractResult.to, requestDetails),
-      ]);
+    // Process all transactions in parallel when showDetails is true
+    if (showDetails) {
+      const processedResults = await Promise.all(
+        validContractResults.map(async (contractResult) => {
+          const [from, to] = await Promise.all([
+            this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+            this.common.resolveEvmAddress(contractResult.to, requestDetails),
+          ]);
 
-      contractResult.chain_id = contractResult.chain_id || this.chain;
-      txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
+          contractResult.from = from;
+          contractResult.to = to;
+          contractResult.chain_id = contractResult.chain_id || this.chain;
+          return createTransactionFromContractResult(contractResult);
+        }),
+      );
+      // Filter out any null values (shouldn't happen with valid contract results, but TypeScript requires it)
+      return processedResults.filter((tx): tx is Transaction => tx !== null);
+    } else {
+      // When showDetails is false, just return the hashes (no async operations needed)
+      return validContractResults.map((contractResult) => contractResult.hash);
     }
-
-    return txArray;
   }
 }

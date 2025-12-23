@@ -75,10 +75,27 @@ export class ReceiptsRootUtils {
   public static buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
     const receipts: IReceiptRootHash[] = [];
 
+    // Pre-index logs by transaction hash for O(1) lookup
+    const logsByTxHash = new Map<string, Log[]>();
+    for (const log of logs) {
+      const existing = logsByTxHash.get(log.transactionHash) || [];
+      existing.push(log);
+      logsByTxHash.set(log.transactionHash, existing);
+    }
+
+    // Pre-index contract results by hash for O(1) lookup
+    const contractResultsByHash = new Map<string, any[]>();
+    for (const cr of contractResults) {
+      const existing = contractResultsByHash.get(cr.hash) || [];
+      existing.push(cr);
+      contractResultsByHash.set(cr.hash, existing);
+    }
+
     for (const i in txHashes) {
       const txHash: string = txHashes[i];
-      const logsPerTx: Log[] = logs.filter((log) => log.transactionHash == txHash);
-      const crPerTx: any[] = contractResults.filter((cr) => cr.hash == txHash);
+      // Use Map lookups instead of filter operations
+      const logsPerTx: Log[] = logsByTxHash.get(txHash) || [];
+      const crPerTx: any[] = contractResultsByHash.get(txHash) || [];
 
       // Determine the transaction index for the current transaction hash:
       // - Prefer the `transaction_index` from the contract results (`crPerTx`) if available.
@@ -120,14 +137,17 @@ export class ReceiptsRootUtils {
     }
 
     const trie: Trie = new Trie();
-    receipts.map(async (receipt) => {
-      // key of the element that is being added to the trie
-      const path: Uint8Array =
-        receipt.transactionIndex === constants.ZERO_HEX
-          ? RLP.encode(Buffer.alloc(0))
-          : RLP.encode(bytesToInt(hexToBytes(receipt.transactionIndex ?? constants.ZERO_HEX)));
-      await trie.put(path, this.encodeReceipt(receipt, bytesToInt(hexToBytes(receipt.type ?? constants.ZERO_HEX))));
-    });
+    // Properly await all async trie operations before checkpoint/commit
+    await Promise.all(
+      receipts.map(async (receipt) => {
+        // key of the element that is being added to the trie
+        const path: Uint8Array =
+          receipt.transactionIndex === constants.ZERO_HEX
+            ? RLP.encode(Buffer.alloc(0))
+            : RLP.encode(bytesToInt(hexToBytes(receipt.transactionIndex ?? constants.ZERO_HEX)));
+        await trie.put(path, this.encodeReceipt(receipt, bytesToInt(hexToBytes(receipt.type ?? constants.ZERO_HEX))));
+      }),
+    );
 
     trie.checkpoint();
     await trie.commit();
