@@ -57,7 +57,7 @@ CHAIN_ID=                                     # The network chain id. Local/prev
 HEDERA_NETWORK=                               # Which network to connect to. Can be: previewnet, testnet, mainnet or a map of IPs and nodes e.g. {"127.0.0.1:50211":"0.0.3"}
 MIRROR_NODE_URL=                              # The Mirror Node API endpoint e.g. https://testnet.mirrornode.hedera.com or https://mainnet.mirrornode.hedera.com
 
-# Operator Account (Required for transaction execution; use the Hedera Portal (https://hubs.ly/Q03Vw-vN0) account for 1000 HBAR / day)
+# Operator Account (Required for transaction execution; use the Hedera Portal (https://portal.hedera.com) account for 1000 HBAR / day)
 OPERATOR_ID_MAIN=                             # Operator account ID used to pay for transactions e.g. 0.0.1001
 OPERATOR_KEY_MAIN=                            # Operator private key used to sign transactions in hex encoded DER format
 OPERATOR_KEY_FORMAT=                          # Optional. Operator private key format. Valid types: DER, HEX_ECDSA, or HEX_ED25519
