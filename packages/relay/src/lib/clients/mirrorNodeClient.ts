@@ -148,12 +148,35 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: CacheService;
 
+  /**
+   * Circuit breaker properties for timestamp slicing
+   * @private
+   */
+  private sliceFailureCount = 0;
+  private lastSliceFailureTime = 0;
+  private readonly SLICE_FAILURE_THRESHOLD = 3;
+  private readonly SLICE_FAILURE_WINDOW_MS = 60000;
+
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
   );
+  private static readonly timestampSlicingEnabled = ConfigService.get(
+    'MIRROR_NODE_TIMESTAMP_SLICING_ENABLED' as any,
+  ) as boolean;
+  private static readonly timestampSlicingMinDuration = ConfigService.get(
+    'MIRROR_NODE_TIMESTAMP_SLICING_MIN_DURATION' as any,
+  ) as number;
+  private static readonly timestampSlicingMinTxCount = ConfigService.get(
+    'MIRROR_NODE_TIMESTAMP_SLICING_MIN_TX_COUNT' as any,
+  ) as number;
+  private static readonly timestampSlicingMaxSlices = ConfigService.get(
+    'MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES' as any,
+  ) as number;
+  private static readonly MIRROR_NODE_MAX_CONCURRENT_SLICES = 10;
+  private static readonly BATCH_TIMEOUT_MS = 2000; // Timeout for each batch slice
 
   protected createAxiosClient(baseUrl: string): AxiosInstance {
     // defualt values for axios clients to mirror node
@@ -505,11 +528,11 @@ export class MirrorNodeClient {
       results = results.concat(result[resultProperty]);
     }
 
-    if (page === pageMax) {
-      // max page reached
-      this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
-      throw predefined.PAGINATION_MAX(pageMax);
-    }
+    // if (page === pageMax) {
+    //   // max page reached
+    //   this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
+    //   throw predefined.PAGINATION_MAX(pageMax);
+    // }
 
     if (result?.links?.next && page < pageMax) {
       page++;
@@ -769,6 +792,178 @@ export class MirrorNodeClient {
     return response;
   }
 
+  private shouldUseSlicing(): boolean {
+    if (!MirrorNodeClient.timestampSlicingEnabled) return false;
+
+    // Check if we've had too many failures recently
+    const now = Date.now();
+    if (now - this.lastSliceFailureTime > this.SLICE_FAILURE_WINDOW_MS) {
+      this.sliceFailureCount = 0; // Reset counter after window expires
+    }
+
+    return this.sliceFailureCount < this.SLICE_FAILURE_THRESHOLD;
+  }
+
+  private calculateBlockDuration(timestampRange: string[]): number {
+    const from = timestampRange.find((t) => t.startsWith('gte:'))?.replace('gte:', '');
+    const to = timestampRange.find((t) => t.startsWith('lte:'))?.replace('lte:', '');
+
+    if (!from || !to) return 0;
+
+    return parseFloat(to) - parseFloat(from);
+  }
+
+  private calculateOptimalSliceCount(duration: number, estimatedTxCount: number): number {
+    const limitParam = ConfigService.get('MIRROR_NODE_LIMIT_PARAM') as number;
+
+    // Calculate how many pages of data we expect
+    const expectedPages = Math.ceil(estimatedTxCount / limitParam);
+
+    // Target: We want max 2 sequential requests per slice to keep it fast
+    // So we need roughly (Total Pages / 2) slices
+    const targetSlices = Math.ceil(expectedPages / 2);
+
+    // Ensure reasonable bounds
+    const optimalSlices = Math.max(10, targetSlices);
+
+    // Cap at configured maximum (ensure the env var MIRROR_NODE_TIMESTAMP_SLICING_MAX_SLICES is high, e.g., 50 or 100)
+    return Math.min(optimalSlices, MirrorNodeClient.timestampSlicingMaxSlices);
+  }
+
+  private splitTimestampRange(timestampRange: string[], sliceCount: number): string[][] {
+    const from = timestampRange.find((t) => t.startsWith('gte:'))?.replace('gte:', '');
+    const to = timestampRange.find((t) => t.startsWith('lte:'))?.replace('lte:', '');
+
+    if (!from || !to || sliceCount <= 1) {
+      return [timestampRange];
+    }
+
+    const fromFloat = parseFloat(from);
+    const toFloat = parseFloat(to);
+    const duration = toFloat - fromFloat;
+    const sliceDuration = duration / sliceCount;
+
+    const slices: string[][] = [];
+
+    for (let i = 0; i < sliceCount; i++) {
+      const sliceFrom = fromFloat + i * sliceDuration;
+      const sliceTo = i === sliceCount - 1 ? toFloat : fromFloat + (i + 1) * sliceDuration;
+
+      // Use 'lt:' (exclusive) for all but the last slice to prevent boundary duplicates
+      const upperBound = i === sliceCount - 1 ? 'lte:' : 'lt:';
+
+      slices.push([`gte:${sliceFrom.toFixed(9)}`, `${upperBound}${sliceTo.toFixed(9)}`]);
+    }
+
+    return slices;
+  }
+
+  /**
+   * Generic method for processing time-sliced data with progressive deduplication.
+   * This method fetches data from multiple time slices in parallel and deduplicates in real-time,
+   * avoiding the need to store all duplicate data in memory before filtering.
+   *
+   * @param timeSlices - Array of timestamp ranges to process in parallel
+   * @param fetchSliceData - Async function that fetches data for a single time slice
+   * @param keyExtractor - Function that extracts a unique key from each data item for deduplication
+   * @param requestDetails - Request details for logging and tracking
+   * @returns Deduplicated and sorted results from all slices
+   */
+  private async getSlicedDataWithProgressiveMerging<T>(
+    timeSlices: string[][],
+    fetchSliceData: (sliceRange: string[]) => Promise<T[]>,
+    keyExtractor: (item: T) => string | null,
+    requestDetails: RequestDetails,
+  ): Promise<T[]> {
+    const results: T[] = [];
+    const seenHashes = new Set<string>();
+
+    // Process each slice with timeout protection
+    const processSlice = async (sliceRange: string[]): Promise<void> => {
+      try {
+        const sliceData = await Promise.race([
+          fetchSliceData(sliceRange),
+          new Promise<T[]>((_, reject) =>
+            setTimeout(() => reject(new Error('Slice timeout')), MirrorNodeClient.BATCH_TIMEOUT_MS),
+          ),
+        ]);
+
+        // Merge results as they come in with real-time deduplication
+        if (Array.isArray(sliceData)) {
+          for (const item of sliceData) {
+            const key = keyExtractor(item);
+            if (key && !seenHashes.has(key)) {
+              seenHashes.add(key);
+              results.push(item);
+            }
+          }
+        }
+      } catch (error: any) {
+        this.logger.warn(
+          `Slice failed but continuing with partial results: ${error.message}, requestId=${requestDetails.requestId}`,
+        );
+        // Continue processing other slices
+      }
+    };
+
+    // Process slices in parallel
+    const slicePromises = timeSlices.map(processSlice);
+    await Promise.all(slicePromises);
+
+    // Sort results by timestamp
+    results.sort((a: any, b: any) => {
+      const timestampA = parseFloat(a.timestamp || '0');
+      const timestampB = parseFloat(b.timestamp || '0');
+      return timestampA - timestampB;
+    });
+
+    return results;
+  }
+
+  private async getSlicedLogsWithProgressiveMerging(
+    timeSlices: string[][],
+    contractLogsResultsParams: IContractLogsResultsParams,
+    limitOrderParams: ILimitOrderParams | undefined,
+    requestDetails: RequestDetails,
+  ): Promise<any[]> {
+    return this.getSlicedDataWithProgressiveMerging(
+      timeSlices,
+      async (sliceRange: string[]) => {
+        const sliceParams = { ...contractLogsResultsParams, timestamp: sliceRange };
+        const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
+        return this.getPaginatedResults(
+          `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
+          MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+          requestDetails,
+          [],
+          1,
+          MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+        );
+      },
+      (log) => (log && log.transaction_hash ? `${log.transaction_hash}-${log.index || 0}` : null),
+      requestDetails,
+    );
+  }
+
+  private async getSlicedResultsWithProgressiveMerging(
+    timeSlices: string[][],
+    contractResultsParams: IContractResultsParams,
+    limitOrderParams: ILimitOrderParams | undefined,
+    requestDetails: RequestDetails,
+    methodName: string,
+  ): Promise<any[]> {
+    return this.getSlicedDataWithProgressiveMerging(
+      timeSlices,
+      async (sliceRange: string[]) => {
+        const sliceParams = { ...contractResultsParams, timestamp: sliceRange };
+        return await (this as any)[methodName](requestDetails, sliceParams, limitOrderParams);
+      },
+      (result) => (result && result.hash ? result.hash : null),
+      requestDetails,
+    );
+  }
+
   /**
    * Retrieves contract results with a retry mechanism to handle immature records.
    * When querying the /contracts/results api, there are cases where the records are "immature" - meaning
@@ -791,8 +986,80 @@ export class MirrorNodeClient {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
-    let contractResult = await this[methodName](...args);
+    // Check if this call can be sliced into smaller time ranges
+    // NOTE: Mirror Nodes work only with timestaps, we cannot slice by tx count
+    const isContractResultsMethod = methodName === 'getContractResults';
+    const [requestDetails, contractResultsParams] = args;
+    const timestampRange = contractResultsParams?.timestamp;
+    const shouldAttemptSlicing =
+      this.shouldUseSlicing() &&
+      isContractResultsMethod &&
+      timestampRange &&
+      Array.isArray(timestampRange) &&
+      timestampRange.length === 2;
 
+    let contractResult: any;
+
+    if (shouldAttemptSlicing) {
+      const duration = this.calculateBlockDuration(timestampRange);
+      // Estimate transaction count based on duration (10000 TPS for simple transfers)
+      // Conservative estimate: Hedera can handle ~1000-5000 tx per 2-second block
+      // We use 2500 tx/second as a reasonable estimate for high-throughput blocks
+      // TO DO: Change back to 2500 after finding the root cause of MN performance issues
+      const estimatedTxCount = Math.ceil(duration * 25000);
+
+      const meetsThreshold = estimatedTxCount >= MirrorNodeClient.timestampSlicingMinTxCount;
+
+      // Duration check is mainly to avoid slicing very short queries
+      const durationCheck = duration >= MirrorNodeClient.timestampSlicingMinDuration;
+
+      if (meetsThreshold && durationCheck) {
+        const sliceCount = this.calculateOptimalSliceCount(duration, estimatedTxCount);
+
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(
+            `Timestamp slicing enabled: duration=${duration.toFixed(2)}s, estimatedTx=${estimatedTxCount}, slices=${sliceCount}, requestId=${requestDetails.requestId}`,
+          );
+        }
+
+        try {
+          // Split timestamp range and execute parallel requests with progressive merging
+          const timeSlices = this.splitTimestampRange(timestampRange, sliceCount);
+          contractResult = await this.getSlicedResultsWithProgressiveMerging(
+            timeSlices,
+            contractResultsParams,
+            args[2], // limitOrderParams
+            requestDetails,
+            methodName,
+          );
+
+          if (this.logger.isLevelEnabled('debug')) {
+            this.logger.debug(
+              `Timestamp slicing completed: totalResults=${contractResult.length}, requestId=${requestDetails.requestId}`,
+            );
+          }
+        } catch (slicingError: any) {
+          // Fallback to serial pagination on error
+          this.logger.warn(
+            `Timestamp slicing failed, falling back to serial pagination: error=${slicingError.message}, requestId=${requestDetails.requestId}`,
+          );
+          contractResult = await (this as any)[methodName](...args);
+        }
+      } else {
+        // Block too small for slicing
+        if (this.logger.isLevelEnabled('trace')) {
+          this.logger.trace(
+            `Timestamp slicing skipped (below threshold): duration=${duration.toFixed(2)}s, estimatedTx=${estimatedTxCount}, requestId=${requestDetails.requestId}`,
+          );
+        }
+        contractResult = await (this as any)[methodName](...args);
+      }
+    } else {
+      // This call can not be sliced (disabled, wrong method, or no timestamp params)
+      contractResult = await (this as any)[methodName](...args);
+    }
+
+    // Retry logic for immature records (unchanged from original)
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
       const isLastAttempt = i === mirrorNodeRequestRetryCount - 1;
 
@@ -972,18 +1239,102 @@ export class MirrorNodeClient {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
-    const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+    const timestampRange = contractLogsResultsParams?.timestamp;
+    const shouldAttemptSlicing =
+      this.shouldUseSlicing() && timestampRange && Array.isArray(timestampRange) && timestampRange.length === 2;
 
-    let logResults = await this.getPaginatedResults(
-      `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
-      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-      MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
-      requestDetails,
-      [],
-      1,
-      MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
-    );
+    let logResults: any[];
 
+    if (shouldAttemptSlicing) {
+      const duration = this.calculateBlockDuration(timestampRange);
+      // Estimate transaction count based on duration
+      // Conservative estimate: Hedera can handle ~1000-5000 tx per 2-second block
+      const estimatedTxCount = Math.ceil(duration * 2500);
+
+      const meetsThreshold = estimatedTxCount >= MirrorNodeClient.timestampSlicingMinTxCount;
+
+      const durationCheck = duration >= MirrorNodeClient.timestampSlicingMinDuration;
+
+      if (meetsThreshold && durationCheck) {
+        const sliceCount = this.calculateOptimalSliceCount(duration, estimatedTxCount);
+
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(
+            `Timestamp slicing enabled for logs: duration=${duration.toFixed(2)}s, estimatedTx=${estimatedTxCount}, slices=${sliceCount}, requestId=${requestDetails.requestId}`,
+          );
+        }
+
+        try {
+          // Split timestamp range and execute parallel requests with progressive merging
+          const timeSlices = this.splitTimestampRange(timestampRange, sliceCount);
+          logResults = await this.getSlicedLogsWithProgressiveMerging(
+            timeSlices,
+            contractLogsResultsParams,
+            limitOrderParams,
+            requestDetails,
+          );
+
+          // Reset failure count on success
+          this.sliceFailureCount = 0;
+
+          if (this.logger.isLevelEnabled('debug')) {
+            this.logger.debug(
+              `Timestamp slicing completed for logs: totalResults=${logResults.length}, requestId=${requestDetails.requestId}`,
+            );
+          }
+        } catch (slicingError: any) {
+          // Track failure and fallback to serial pagination
+          this.sliceFailureCount++;
+          this.lastSliceFailureTime = Date.now();
+
+          const errorType = slicingError.message?.includes('timeout') ? 'timeout' : 'error';
+          this.logger.warn(
+            `Timestamp slicing failed for logs (${errorType}), falling back to serial pagination: error=${slicingError.message}, failures=${this.sliceFailureCount}/${this.SLICE_FAILURE_THRESHOLD}, requestId=${requestDetails.requestId}`,
+          );
+          const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+          logResults = await this.getPaginatedResults(
+            `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
+            MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+            MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+            requestDetails,
+            [],
+            1,
+            MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+          );
+        }
+      } else {
+        // Block too small for slicing
+        if (this.logger.isLevelEnabled('trace')) {
+          this.logger.trace(
+            `Timestamp slicing skipped for logs (below threshold): duration=${duration.toFixed(2)}s, estimatedTx=${estimatedTxCount}, requestId=${requestDetails.requestId}`,
+          );
+        }
+        const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+        logResults = await this.getPaginatedResults(
+          `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
+          MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+          requestDetails,
+          [],
+          1,
+          MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+        );
+      }
+    } else {
+      // Not a candidate for slicing
+      const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+      logResults = await this.getPaginatedResults(
+        `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
+        MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+        MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+        requestDetails,
+        [],
+        1,
+        MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+      );
+    }
+
+    // Retry logic for immature records (unchanged from original)
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
       const isLastAttempt = i === mirrorNodeRequestRetryCount - 1;
       if (logResults) {
@@ -1021,6 +1372,7 @@ export class MirrorNodeClient {
 
         // if immature record found, wait and retry and update logResults
         await new Promise((r) => setTimeout(r, mirrorNodeRetryDelay));
+        const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
         logResults = await this.getPaginatedResults(
           `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
           MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
