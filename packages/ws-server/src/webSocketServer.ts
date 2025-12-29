@@ -5,7 +5,8 @@ import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
-import { IPRateLimiterService } from '@hashgraph/json-rpc-relay/dist/lib/services';
+import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
+import { IPRateLimiterService, RateLimitStoreFactory } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
 import { IJsonRpcRequest } from '@hashgraph/json-rpc-server/dist/koaJsonRpc/lib/IJsonRpcRequest';
@@ -14,7 +15,7 @@ import { jsonRespError, jsonRespResult } from '@hashgraph/json-rpc-server/dist/k
 import Koa from 'koa';
 import websockify from 'koa-websocket';
 import pino from 'pino';
-import { collectDefaultMetrics, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Registry } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
 import { getRequestResult } from './controllers/jsonRpcController';
@@ -57,12 +58,35 @@ export async function initializeWsServer() {
   const register = new Registry();
   const relay = await Relay.init(logger, register);
 
+  // Get Redis client if Redis is enabled
+  const redisClient = RedisClientManager.isRedisEnabled() ? await RedisClientManager.getClient(logger) : undefined;
+
+  // Initialize rate limit store failure counter
+  const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';
+  if (register.getSingleMetric(storeFailureMetricName)) {
+    register.removeSingleMetric(storeFailureMetricName);
+  }
+  const rateLimitStoreFailureCounter = new Counter({
+    name: storeFailureMetricName,
+    help: 'Rate limit store failure counter',
+    labelNames: ['storeType', 'operation'],
+    registers: [register],
+  });
+
+  // Create rate limit store using factory pattern
+  const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
+  const rateLimitStore = RateLimitStoreFactory.create(
+    logger.child({ name: 'rate-limit-store' }),
+    rateLimitDuration,
+    rateLimitStoreFailureCounter,
+    redisClient,
+  );
+
   const subscriptionService = new SubscriptionService(relay, logger, register);
 
   const mirrorNodeClient = relay.mirrorClient();
 
-  const rateLimitDuration = ConfigService.get('LIMIT_DURATION');
-  const rateLimiter = new IPRateLimiterService(logger.child({ name: 'ip-rate-limit' }), register, rateLimitDuration);
+  const rateLimiter = new IPRateLimiterService(rateLimitStore, register);
   const limiter = new ConnectionLimiter(logger, register, rateLimiter);
   const wsMetricRegistry = new WsMetricRegistry(register);
 
@@ -240,7 +264,7 @@ export async function initializeWsServer() {
     }
   });
 
-  const koaJsonRpc = new KoaJsonRpc(logger, register, relay);
+  const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
   collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 
@@ -250,19 +274,20 @@ export async function initializeWsServer() {
       ctx.status = 200;
       ctx.body = await register.metrics();
     } else if (ctx.url === '/health/liveness') {
-      //liveness endpoint
-      ctx.status = 200;
+      const redisHealthStatus = await RedisClientManager.isClientHealthy(logger);
+      ctx.status = redisHealthStatus ? 200 : 503;
+      ctx.body = redisHealthStatus ? 'OK' : 'DOWN';
     } else if (ctx.url === '/health/readiness') {
-      // readiness endpoint
       try {
-        const result = relay.eth().chainId();
-        if (result.includes('0x12')) {
-          ctx.status = 200;
-          ctx.body = 'OK';
-        } else {
-          ctx.body = 'DOWN';
-          ctx.status = 503; // UNAVAILABLE
-        }
+        const chainId = relay.eth().chainId();
+        const isChainHealthy = chainId !== '0x';
+
+        // redis disabled - only chain health matters
+        // redis enabled  - both redis and chain must be healthy
+        const isHealthy: boolean = (await RedisClientManager.isClientHealthy(logger)) && isChainHealthy;
+
+        ctx.status = isHealthy ? 200 : 503;
+        ctx.body = isHealthy ? 'OK' : 'DOWN';
       } catch (e) {
         logger.error(e);
         throw e;

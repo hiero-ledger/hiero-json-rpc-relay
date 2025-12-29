@@ -106,7 +106,9 @@ export default class ConnectionLimiter {
     const MAX_CONNECTION_LIMIT = ConfigService.get('WS_CONNECTION_LIMIT');
     if (this.connectedClients > MAX_CONNECTION_LIMIT) {
       this.logger.info(
-        `Closing connection ${ctx.websocket.id} due to exceeded maximum connections (max_con=${MAX_CONNECTION_LIMIT})`,
+        `Closing connection %s due to exceeded maximum connections (max_con=%s)`,
+        ctx.websocket.id,
+        MAX_CONNECTION_LIMIT,
       );
       this.connectionLimitCounter.inc();
       ctx.websocket.send(
@@ -132,7 +134,11 @@ export default class ConnectionLimiter {
     const MAX_CONNECTION_LIMIT_PER_IP = ConfigService.get('WS_CONNECTION_LIMIT_PER_IP');
     if (this.clientIps[ip] && this.clientIps[ip] > MAX_CONNECTION_LIMIT_PER_IP) {
       this.logger.info(
-        `Closing connection ${ctx.websocket.id} due to exceeded maximum connections from a single IP: address ${ip} - ${this.clientIps[ip]} connections. (max_con=${MAX_CONNECTION_LIMIT_PER_IP})`,
+        `Closing connection %s due to exceeded maximum connections from a single IP: address %s - %s connections. (max_con=%s)`,
+        ctx.websocket.id,
+        ip,
+        this.clientIps[ip],
+        MAX_CONNECTION_LIMIT_PER_IP,
       );
       this.ipConnectionLimitCounter.labels(ip).inc();
       ctx.websocket.send(
@@ -175,9 +181,7 @@ export default class ConnectionLimiter {
     websocket.inactivityTTL = setTimeout(() => {
       if (websocket.readyState !== 3) {
         // 3 = CLOSED, Avoid closing already closed connections
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(`Closing connection ${websocket.id} due to reaching TTL (${maxInactivityTTL}ms)`);
-        }
+        this.logger.debug(`Closing connection %s due to reaching TTL (%sms)`, websocket.id, maxInactivityTTL);
         try {
           this.inactivityTTLCounter.inc();
           websocket.send(
@@ -196,7 +200,7 @@ export default class ConnectionLimiter {
           );
           websocket.close(TTL_EXPIRED.code, TTL_EXPIRED.message);
         } catch (e) {
-          this.logger.error(`${websocket.id}: ${e}`);
+          this.logger.error(`%s: %s`, websocket.id, e);
         }
       }
     }, maxInactivityTTL);

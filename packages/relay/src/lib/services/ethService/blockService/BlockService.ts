@@ -84,8 +84,6 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    this.logger.trace(`getBlockByHash(hash=${hash}, showDetails=${showDetails})`);
-
     return this.getBlock(hash, showDetails, requestDetails).catch((e: any) => {
       throw this.common.genericErrorHandler(e, `Failed to retrieve block for hash ${hash}`);
     });
@@ -104,8 +102,6 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    this.logger.trace(`getBlockByNumber(blockNumber=${blockNumber}, showDetails=${showDetails})`);
-
     return this.getBlock(blockNumber, showDetails, requestDetails).catch((e: any) => {
       throw this.common.genericErrorHandler(e, `Failed to retrieve block for blockNumber ${blockNumber}`);
     });
@@ -122,10 +118,6 @@ export class BlockService implements IBlockService {
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt[] | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getBlockReceipt(${JSON.stringify(blockHashOrBlockNumber)})`);
-    }
-
     const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
 
     if (block == null) {
@@ -157,11 +149,11 @@ export class BlockService implements IBlockService {
 
     const receiptPromises = contractResults.map(async (contractResult) => {
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-          );
-        }
+        this.logger.debug(
+          `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+          contractResult.hash,
+          contractResult.result,
+        );
         return null;
       }
 
@@ -208,8 +200,6 @@ export class BlockService implements IBlockService {
    * @returns {Promise<string | null>} The transaction count
    */
   async getBlockTransactionCountByHash(hash: string, requestDetails: RequestDetails): Promise<string | null> {
-    this.logger.trace(`getBlockTransactionCountByHash(hash=${hash}, showDetails=%o)`);
-
     try {
       const block = await this.mirrorNodeClient.getBlock(hash, requestDetails);
       return this.getTransactionCountFromBlockResponse(block);
@@ -228,10 +218,6 @@ export class BlockService implements IBlockService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | null> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getBlockTransactionCountByNumber(blockNum=${blockNumOrTag}, showDetails=%o)`);
-    }
-
     const blockNum = await this.common.translateBlockTag(blockNumOrTag, requestDetails);
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNum, requestDetails);
@@ -249,9 +235,6 @@ export class BlockService implements IBlockService {
    * @returns null as Hedera does not support uncle blocks
    */
   getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleByBlockHashAndIndex(blockHash=${blockHash}, index=${index})`);
-    }
     return null;
   }
 
@@ -263,9 +246,6 @@ export class BlockService implements IBlockService {
    * @returns null as Hedera does not support uncle blocks
    */
   getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleByBlockNumberAndIndex(blockNumOrTag=${blockNumOrTag}, index=${index})`);
-    }
     return null;
   }
 
@@ -276,9 +256,6 @@ export class BlockService implements IBlockService {
    * @returns '0x0' as Hedera does not support uncle blocks
    */
   getUncleCountByBlockHash(blockHash: string): string {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleCountByBlockHash(blockHash=${blockHash})`);
-    }
     return constants.ZERO_HEX;
   }
 
@@ -289,9 +266,6 @@ export class BlockService implements IBlockService {
    * @returns '0x0' as Hedera does not support uncle blocks
    */
   getUncleCountByBlockNumber(blockNumOrTag: string): string {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getUncleCountByBlockNumber(blockNumOrTag=${blockNumOrTag})`);
-    }
     return constants.ZERO_HEX;
   }
 
@@ -429,9 +403,7 @@ export class BlockService implements IBlockService {
       });
     }
 
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`Synthetic transaction hashes will be populated in the block response`);
-    }
+    this.logger.trace(`Synthetic transaction hashes will be populated in the block response`);
 
     transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
     return transactionsArray;
@@ -454,11 +426,11 @@ export class BlockService implements IBlockService {
       // there are several hedera-specific validations that occur right before entering the evm
       // if a transaction has reverted there, we should not include that tx in the block response
       if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `Transaction with hash ${contractResult.hash} is skipped due to hedera-specific validation failure (${contractResult.result})`,
-          );
-        }
+        this.logger.debug(
+          `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+          contractResult.hash,
+          contractResult.result,
+        );
         continue;
       }
 

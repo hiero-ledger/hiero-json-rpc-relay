@@ -83,10 +83,13 @@ describe('@ethGasPrice Gas Price spec', async function () {
       partialNetworkFees.fees.splice(2);
 
       restMock.onGet(`network/fees`).reply(200, JSON.stringify(partialNetworkFees));
-
-      await RelayAssertions.assertRejection(predefined.COULD_NOT_ESTIMATE_GAS_PRICE, ethImpl.gasPrice, true, ethImpl, [
-        requestDetails,
-      ]);
+      await RelayAssertions.assertRejection(
+        predefined.INTERNAL_ERROR('Failed to retrieve gas price from network fees'),
+        ethImpl.gasPrice,
+        true,
+        ethImpl,
+        [requestDetails],
+      );
     });
 
     describe('@ethGasPrice different value for GAS_PRICE_PERCENTAGE_BUFFER env', async function () {
@@ -137,7 +140,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
 
       it('eth_gasPrice with no network fees records found', async function () {
         await RelayAssertions.assertRejection(
-          predefined.COULD_NOT_ESTIMATE_GAS_PRICE,
+          predefined.INTERNAL_ERROR('Failed to retrieve gas price from network fees'),
           ethImpl.gasPrice,
           true,
           ethImpl,

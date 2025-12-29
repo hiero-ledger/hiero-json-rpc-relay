@@ -79,9 +79,7 @@ export class RpcMethodDispatcher {
     const operationHandler = this.methodRegistry.get(rpcMethodName);
 
     if (!operationHandler) {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`RPC method not found in registry: rpcMethodName=${rpcMethodName}`);
-      }
+      this.logger.debug(`RPC method not found in registry: rpcMethodName=%s`, rpcMethodName);
 
       throw this.throwUnregisteredRpcMethods(rpcMethodName);
     }
@@ -92,7 +90,9 @@ export class RpcMethodDispatcher {
     if (methodParamSchemas) {
       if (this.logger.isLevelEnabled('info')) {
         this.logger.info(
-          `Validating method parameters for ${rpcMethodName}, params: ${JSON.stringify(rpcMethodParams)}`,
+          `Validating method parameters for %s, params: %s`,
+          rpcMethodName,
+          JSON.stringify(rpcMethodParams),
         );
       }
       validateParams(rpcMethodParams, methodParamSchemas);
@@ -152,7 +152,7 @@ export class RpcMethodDispatcher {
    */
   private handleRpcMethodError(error: any, rpcMethodName: string): JsonRpcError {
     const errorMessage = error?.message?.toString() || 'Unknown error';
-    this.logger.error(`Error executing method: rpcMethodName=${rpcMethodName}, error=${errorMessage}`);
+    this.logger.error(`Error executing method: rpcMethodName=%s, error=%s`, rpcMethodName, errorMessage);
 
     // If error is already a JsonRpcError, use it directly
     if (error instanceof JsonRpcError) {

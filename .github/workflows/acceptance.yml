@@ -38,10 +38,15 @@ jobs:
           - { name: 'Websocket Batch 3', testfilter: 'ws_batch3', test_ws_server: true }
           - { name: 'Cache Service', testfilter: 'cache-service' }
           - { name: 'Server Config', testfilter: 'serverconfig' }
+          - { name: 'Semantics and varying response status', testfilter: 'json_rpc_compliance' }
+          - name: "Semantics and default OK response status"
+            testfilter: "json_rpc_compliance"
+            on_valid_json_rpc_http_response_status_code: 200
     uses: ./.github/workflows/acceptance-workflow.yml
     with:
       testfilter: ${{ matrix.test.testfilter }}
       test_ws_server: ${{ matrix.test.test_ws_server || false }}
+      on_valid_json_rpc_http_response_status_code: ${{ matrix.test.on_valid_json_rpc_http_response_status_code || 400 }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -52,7 +57,7 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
@@ -63,7 +68,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish Test Report
-        uses: step-security/publish-unit-test-result-action@c8537a200a435e2560109a6a8ed9cac838b62656 # v2.20.5
+        uses: step-security/publish-unit-test-result-action@914f0f642c242f38335a491805adfc9bd64b1cbb # v2.21.1
         with:
           check_name: '' # Set to empty to disable check run
           json_thousands_separator: ','

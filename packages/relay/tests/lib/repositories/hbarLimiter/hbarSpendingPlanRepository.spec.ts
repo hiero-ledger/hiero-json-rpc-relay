@@ -16,6 +16,7 @@ import {
 import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { IHbarSpendingRecord } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingRecord';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -30,7 +31,6 @@ describe('HbarSpendingPlanRepository', function () {
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: HbarSpendingPlanRepository;
-    let redisClientManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
@@ -41,13 +41,11 @@ describe('HbarSpendingPlanRepository', function () {
 
     before(async () => {
       if (isSharedCacheEnabled) {
-        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6380', 1000);
-        await redisClientManager.connect();
-        redisClient = redisClientManager.getClient();
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(logger, registry, new Set(), redisClient);
+      cacheService = new CacheService(CacheClientFactory.create(logger, registry, new Set(), redisClient), registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
     });

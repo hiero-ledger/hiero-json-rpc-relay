@@ -13,6 +13,7 @@ import { EvmAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbar
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IEvmAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
+import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
@@ -27,7 +28,6 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
     let cacheService: CacheService;
     let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
     let repository: EvmAddressHbarSpendingPlanRepository;
-    let redisManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     if (isSharedCacheEnabled) {
@@ -38,13 +38,11 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
 
     before(async () => {
       if (isSharedCacheEnabled) {
-        redisManager = new RedisClientManager(logger, 'redis://127.0.0.1:6382', 1000);
-        await redisManager.connect();
-        redisClient = redisManager.getClient();
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(logger, registry, new Set(), redisClient);
+      cacheService = new CacheService(CacheClientFactory.create(logger, registry, new Set(), redisClient), registry);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,

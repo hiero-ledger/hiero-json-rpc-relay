@@ -338,10 +338,14 @@ describe('@ethCall Eth Call spec', async function () {
       };
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.be.not.null;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
+      const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
     });
 
     it('eth_call with all fields, but mirror node throws NOT_SUPPORTED', async function () {
@@ -356,14 +360,13 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 501, mockData.notSuported, requestDetails);
 
-      try {
-        await ethImpl.call(callData, 'latest', requestDetails);
-        expect.fail('Expected error to be thrown');
-      } catch (error) {
-        expect(error).to.be.instanceOf(MirrorNodeClientError);
-        expect(error.isNotSupported()).to.be.true;
-        expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);
-      }
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.isNotSupported()).to.be.true;
+          expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);
+          return true;
+        });
     });
 
     it('eth_call with all fields, but mirror node throws CONTRACT_REVERTED', async function () {
@@ -378,10 +381,126 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.contractReverted, requestDetails);
       sinon.reset();
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.not.be.null;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.contain(mockData.contractReverted._status.messages[0].message);
+      const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED');
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
+    });
+
+    it('eth_call with 400 error that is not CONTRACT_REVERT but throws COULD_NOT_SIMULATE_TRANSACTION', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.genericBadRequest, requestDetails);
+
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(-32000);
+          expect(error.message).to.contain('Error occurred during transaction simulation');
+          expect(error.message).to.contain(mockData.genericBadRequest._status.messages[0].detail);
+          return true;
+        });
+    });
+
+    it('eth_call with mirrorNode throws 500 Internal Server Error re-throws MirrorNodeClientError', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall(
+        { ...callData, block: 'latest' },
+        false,
+        500,
+        mockData.internalServerError,
+        requestDetails,
+      );
+
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.statusCode).to.equal(500);
+          expect(error.message).to.equal(mockData.internalServerError._status.messages[0].message);
+          return true;
+        });
+    });
+
+    it('eth_call with mirrorNode throws 502 Bad Gateway re-throws MirrorNodeClientError', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 502, mockData.badGateway, requestDetails);
+
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.statusCode).to.equal(502);
+          expect(error.message).to.equal(mockData.badGateway._status.messages[0].message);
+          return true;
+        });
+    });
+
+    it('eth_call with mirrorNode throws 503 Service Unavailable re-throws MirrorNodeClientError', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 503, mockData.serviceUnavailable, requestDetails);
+
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.statusCode).to.equal(503);
+          expect(error.message).to.equal(mockData.serviceUnavailable._status.messages[0].message);
+          return true;
+        });
+    });
+
+    it('eth_call with mirrorNode throws 504 Gateway Timeout re-throws MirrorNodeClientError', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall({ ...callData, block: 'latest' }, false, 504, mockData.gatewayTimeout, requestDetails);
+
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(MirrorNodeClientError)
+        .and.eventually.satisfy((error: MirrorNodeClientError) => {
+          expect(error.statusCode).to.equal(504);
+          expect(error.message).to.equal(mockData.gatewayTimeout._status.messages[0].message);
+          return true;
+        });
     });
 
     it('Mirror Node returns 400 contract revert error', async function () {
@@ -402,7 +521,7 @@ describe('@ethCall Eth Call spec', async function () {
           _status: {
             messages: [
               {
-                message: '',
+                message: 'CONTRACT_REVERT_EXECUTED',
                 detail: defaultErrorMessageText,
                 data: defaultErrorMessageHex,
               },
@@ -412,12 +531,14 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
 
-      const result = await contractService.call(callData, 'latest', requestDetails);
-
-      expect(result).to.exist;
-      expect((result as JsonRpcError).code).to.eq(3);
-      expect((result as JsonRpcError).message).to.equal(`execution reverted: ${defaultErrorMessageText}`);
-      expect((result as JsonRpcError).data).to.equal(defaultErrorMessageHex);
+      const expectedError = predefined.CONTRACT_REVERT(defaultErrorMessageText);
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
     });
 
     it('eth_call with wrong `to` field', async function () {
@@ -513,20 +634,20 @@ describe('@ethCall Eth Call spec', async function () {
     });
 
     it('should throw error when neither block nor hash specified in extractBlockNumberOrTag', async function () {
-      try {
-        await contractService['extractBlockNumberOrTag']({}, requestDetails);
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error.code).to.equal(-32000);
-        expect(error.message).to.contain('neither block nor hash specified');
-      }
+      await expect(contractService['extractBlockNumberOrTag']({}, requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(-32000);
+          expect(error.message).to.contain('neither block nor hash specified');
+          return true;
+        });
     });
 
     it('should handle invalid contract address in validateContractAddress', async function () {
       const invalidAddress = '0xinvalid';
 
-      try {
-        await contractService.call(
+      await expect(
+        contractService.call(
           {
             from: ACCOUNT_ADDRESS_1,
             to: invalidAddress,
@@ -534,12 +655,14 @@ describe('@ethCall Eth Call spec', async function () {
           },
           'latest',
           requestDetails,
-        );
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error.code).to.equal(-32012);
-        expect(error.message).to.contain(`Invalid Contract Address: ${invalidAddress}`);
-      }
+        ),
+      )
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(-32012);
+          expect(error.message).to.contain(`Invalid Contract Address: ${invalidAddress}`);
+          return true;
+        });
     });
 
     async function mockContractCall(

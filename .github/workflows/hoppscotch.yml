@@ -1,11 +1,17 @@
-name: Postman Endpoint Tests
+name: Hoppscotch Endpoint Tests
 
 on:
   pull_request:
-    branches: [ main, release/** ]
+    branches:
+      - main
+      - release/**
   push:
-    branches: [ main, release/** ]
-    tags: [ v* ]
+    branches:
+      - main
+      - release/**
+    tags:
+      - v*
+  workflow_dispatch:
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -16,7 +22,7 @@ permissions:
 
 jobs:
   setup-local-hedera:
-    name: Postman Endpoint Tests
+    name: Hoppscotch Endpoint Tests
     runs-on: hiero-smart-contracts-linux-medium
     permissions:
       contents: write
@@ -59,8 +65,5 @@ jobs:
       - name: Start the local relay
         run: npm run start &
 
-      - name: Install newman
-        run: npm install -g newman
-
-      - name: Run the newman script
-        run: newman run packages/server/tests/postman.json
+      - name: Run Hoppscotch Tests
+        run: npm run hopp

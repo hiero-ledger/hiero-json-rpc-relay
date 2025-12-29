@@ -16,7 +16,6 @@ import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { Log } from '../../../model';
-import { Precheck } from '../../../precheck';
 import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
 import { CacheService } from '../../cacheService/cacheService';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
@@ -100,9 +99,6 @@ export class ContractService implements IContractService {
    * @returns An empty array of addresses
    */
   public accounts(): [] {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`accounts()`);
-    }
     return [];
   }
 
@@ -130,7 +126,7 @@ export class ContractService implements IContractService {
 
       const result = await this.callMirrorNode(call, gas, call.value, blockNumberOrTag, requestDetails);
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`eth_call response: ${JSON.stringify(result)}`);
+        this.logger.debug(`eth_call response: %s`, JSON.stringify(result));
       }
 
       return result;
@@ -160,31 +156,29 @@ export class ContractService implements IContractService {
     blockParam: string | null,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`estimateGas(transaction=${JSON.stringify(transaction)}, blockParam=${blockParam})`);
-    }
-
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
-      if (response?.result) {
-        this.logger.info(`Returning gas: ${response.result}`);
-        return prepend0x(trimPrecedingZeros(response.result));
-      } else {
-        this.logger.error(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
-        return this.predefinedGasForTransaction(transaction, requestDetails);
+      if (!response?.result) {
+        if (this.logger.isLevelEnabled('debug')) {
+          this.logger.debug(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
+        }
+        return predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
+
+      return prepend0x(trimPrecedingZeros(response.result));
     } catch (e: any) {
-      this.logger.error(`Error raised while fetching estimateGas from mirror-node: ${JSON.stringify(e)}`);
-      // in case of contract revert, we don't want to return a predefined gas but the actual error with the reason
-      if (
-        ConfigService.get('ESTIMATE_GAS_THROWS') &&
-        e instanceof MirrorNodeClientError &&
-        e.isContractRevertOpcodeExecuted()
-      ) {
-        return predefined.CONTRACT_REVERT(e.detail ?? e.message, e.data);
+      if (e instanceof MirrorNodeClientError) {
+        if (e.isContractRevert()) {
+          throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+        } else if (e.statusCode === 400) {
+          throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
+        }
       }
-      return this.predefinedGasForTransaction(transaction, requestDetails, e);
+
+      // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
+      // preserve the original error and re-throw to the upper layer for further handling logic
+      throw e;
     }
   }
 
@@ -202,16 +196,11 @@ export class ContractService implements IContractService {
         `The value passed is not a valid blockHash/blockNumber/blockTag value: ${blockNumber}`,
       );
     }
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getCode(address=${address}, blockNumber=${blockNumber})`);
-    }
 
     // check for static precompile cases first before consulting nodes
     // this also account for environments where system entities were not yet exposed to the mirror node
     if (address === constants.HTS_ADDRESS) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`HTS precompile case, return ${constants.INVALID_EVM_INSTRUCTION} for byte code`);
-      }
+      this.logger.trace(`HTS precompile case, return %s for byte code`, constants.INVALID_EVM_INSTRUCTION);
       return constants.INVALID_EVM_INSTRUCTION;
     }
 
@@ -226,9 +215,7 @@ export class ContractService implements IContractService {
           return constants.EMPTY_HEX;
         }
         if (result.type === constants.TYPE_TOKEN) {
-          if (this.logger.isLevelEnabled('trace')) {
-            this.logger.trace(`Token redirect case, return redirectBytecode`);
-          }
+          this.logger.trace(`Token redirect case, return redirectBytecode`);
           return CommonService.redirectBytecodeAddressReplace(address);
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
@@ -237,14 +224,15 @@ export class ContractService implements IContractService {
         }
       }
 
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Address ${address} is not a contract nor an HTS token, returning empty hex`);
-      }
+      this.logger.debug(`Address %s is not a contract nor an HTS token, returning empty hex`, address);
 
       return constants.EMPTY_HEX;
     } catch (error: any) {
       this.logger.error(
-        `Error raised during getCode: address=${address}, blockNumber=${blockNumber}, error=${error.message}`,
+        `Error raised during getCode: address=%s, blockNumber=%s, error=%s`,
+        address,
+        blockNumber,
+        error.message,
       );
       throw error;
     }
@@ -283,12 +271,6 @@ export class ContractService implements IContractService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `getStorageAt(address=${address}, slot=${slot}, blockNumberOrOrHashTag=${blockNumberOrTagOrHash})`,
-      );
-    }
-
     let result = constants.ZERO_HEX_32_BYTE; // if contract or slot not found then return 32 byte 0
 
     const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, false);
@@ -335,16 +317,14 @@ export class ContractService implements IContractService {
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug({
-          msg: `Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" at blockBlockNumberOrTag: "${block}" using mirror-node.`,
-          to: call.to,
-          gas,
-          data: call.data,
-          from: call.from,
-          block,
-        });
-      }
+      this.logger.debug(
+        `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
+        call.to,
+        gas,
+        call.data,
+        call.from,
+        block,
+      );
       const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
       return await this.executeMirrorNodeCall(callData, requestDetails);
     } catch (e: any) {
@@ -500,11 +480,11 @@ export class ContractService implements IContractService {
     // With values over the gas limit, the call will fail with BUSY error so we cap it at 15_000_000
     const gas = Number.parseInt(gasString);
     if (gas > constants.MAX_GAS_PER_SEC) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `eth_call gas amount (${gas}) exceeds network limit, capping gas to ${constants.MAX_GAS_PER_SEC}`,
-        );
-      }
+      this.logger.trace(
+        `eth_call gas amount (%s) exceeds network limit, capping gas to %s`,
+        gas,
+        constants.MAX_GAS_PER_SEC,
+      );
       return constants.MAX_GAS_PER_SEC;
     }
 
@@ -523,15 +503,14 @@ export class ContractService implements IContractService {
       return constants.EMPTY_HEX;
     }
 
-    if (e.isContractReverted()) {
-      if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(
-          `mirror node eth_call request encountered contract revert. message: ${e.message}, details: ${e.detail}, data: ${e.data}`,
-        );
-      }
-      return predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+    if (e.isContractRevert()) {
+      throw predefined.CONTRACT_REVERT(e.detail || e.message, e.data);
+    } else if (e.statusCode === 400) {
+      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
     }
-    // for any other Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.), preserve the original error and re-throw to the upper layer
+
+    // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
+    // preserve the original error and re-throw to the upper layer for further handling logic
     throw e;
   }
 
@@ -553,68 +532,6 @@ export class ContractService implements IContractService {
 
     this.logger.error(e, 'Failed to successfully submit eth_call');
     return predefined.INTERNAL_ERROR(e.message.toString());
-  }
-
-  /**
-   * Fallback calculations for the amount of gas to be used for a transaction.
-   * This method is used when the mirror node fails to return a gas estimate.
-   *
-   * @param {IContractCallRequest} transaction The transaction data for the contract call.
-   * @param {RequestDetails} requestDetails The request details for logging and tracking.
-   * @param error (Optional) received error from the mirror-node contract call request.
-   * @returns {Promise<string | JsonRpcError>} the calculated gas cost for the transaction
-   */
-  private async predefinedGasForTransaction(
-    transaction: IContractCallRequest,
-    requestDetails: RequestDetails,
-    error?: any,
-  ): Promise<string | JsonRpcError> {
-    const isSimpleTransfer = !!transaction?.to && (!transaction.data || transaction.data === '0x');
-    const isContractCall =
-      !!transaction?.to && transaction?.data && transaction.data.length >= constants.FUNCTION_SELECTOR_CHAR_LENGTH;
-    const isContractCreate = !transaction?.to && transaction?.data && transaction.data !== '0x';
-    const contractCallAverageGas = numberTo0x(constants.TX_CONTRACT_CALL_AVERAGE_GAS);
-    const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
-
-    if (isSimpleTransfer) {
-      // Handle Simple Transaction and Hollow Account creation
-      const isZeroOrHigher = Number(transaction.value) >= 0;
-      if (!isZeroOrHigher) {
-        return predefined.INVALID_PARAMETER(
-          0,
-          `Invalid 'value' field in transaction param. Value must be greater than or equal to 0`,
-        );
-      }
-      // when account exists return default base gas
-      if (await this.common.getAccount(transaction.to!, requestDetails)) {
-        this.logger.warn(`Returning predefined gas for simple transfer: ${gasTxBaseCost}`);
-        return gasTxBaseCost;
-      }
-      const minGasTxHollowAccountCreation = numberTo0x(constants.MIN_TX_HOLLOW_ACCOUNT_CREATION_GAS);
-      // otherwise, return the minimum amount of gas for hollow account creation
-      this.logger.warn(`Returning predefined gas for hollow account creation: ${minGasTxHollowAccountCreation}`);
-      return minGasTxHollowAccountCreation;
-    } else if (isContractCreate) {
-      // The size limit of the encoded contract posted to the mirror node can
-      // cause contract deployment transactions to fail with a 400 response code.
-      // The contract is actually deployed on the consensus node, so the contract will work.
-      // In these cases, we don't want to return a CONTRACT_REVERT error.
-      if (
-        ConfigService.get('ESTIMATE_GAS_THROWS') &&
-        error?.isContractReverted() &&
-        error?.message !== MirrorNodeClientError.messages.INVALID_HEX
-      ) {
-        return predefined.CONTRACT_REVERT(error.detail, error.data);
-      }
-      this.logger.warn(`Returning predefined gas for contract creation: ${gasTxBaseCost}`);
-      return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction.data!));
-    } else if (isContractCall) {
-      this.logger.warn(`Returning predefined gas for contract call: ${contractCallAverageGas}`);
-      return contractCallAverageGas;
-    } else {
-      this.logger.warn(`Returning predefined gas for unknown transaction: ${this.defaultGas}`);
-      return this.defaultGas;
-    }
   }
 
   /**

@@ -20,8 +20,8 @@ function createMockContext({
   ip?: string;
   ipCounted?: boolean;
   subscriptions?: number;
-} = {}): MockContext {
-  const websocket: MockWebsocket = {
+} = {}): any {
+  const websocket: any = {
     id: 'test-connection-id',
     send: sinon.stub(),
     close: sinon.stub(),
@@ -67,7 +67,10 @@ describe('Connection Limiter', function () {
     configServiceStub.withArgs('TIER_2_RATE_LIMIT').returns(800);
     configServiceStub.withArgs('TIER_3_RATE_LIMIT').returns(1600);
 
-    const rateLimiter = new IPRateLimiterService(mockLogger, mockRegistry, 9000);
+    const mockStore = {
+      incrementAndCheck: sinon.stub().resolves(false),
+    };
+    const rateLimiter = new IPRateLimiterService(mockStore as any, mockRegistry);
 
     rateLimiterStub = sinon.stub(IPRateLimiterService.prototype, 'shouldRateLimit');
     connectionLimiter = new ConnectionLimiter(mockLogger, mockRegistry, rateLimiter);
@@ -86,7 +89,9 @@ describe('Connection Limiter', function () {
 
       sinon.assert.calledWith(
         mockLogger.info,
-        'Closing connection test-connection-id due to exceeded maximum connections (max_con=100)',
+        'Closing connection %s due to exceeded maximum connections (max_con=%s)',
+        'test-connection-id',
+        100,
       );
 
       sinon.assert.calledWith(
@@ -122,7 +127,11 @@ describe('Connection Limiter', function () {
 
       sinon.assert.calledWith(
         mockLogger.info,
-        'Closing connection test-connection-id due to exceeded maximum connections from a single IP: address 127.0.0.1 - 11 connections. (max_con=10)',
+        'Closing connection %s due to exceeded maximum connections from a single IP: address %s - %s connections. (max_con=%s)',
+        'test-connection-id',
+        '127.0.0.1',
+        11,
+        10,
       );
 
       sinon.assert.calledWith(
@@ -206,6 +215,7 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getBalance';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 50;
+      // eslint-disable-next-line no-import-assign
       methodConfigModule.methodConfiguration = {
         eth_getBalance: { total: 50 },
       };
@@ -223,6 +233,7 @@ describe('Connection Limiter', function () {
       const methodName = 'eth_getLogs';
       const requestDetails = { requestId: 'test-request' };
       const expectedLimit = 25;
+      // eslint-disable-next-line no-import-assign
       methodConfigModule.methodConfiguration = {
         eth_getLogs: { total: 25 },
       };

@@ -90,22 +90,36 @@ From the root of the project workspace:
 
 - It is highly recommended to read the [Testing Guide](docs/testing-guide.md) for detailed testing strategies and best practices.
 
-### Postman
+### Hoppscotch
 
-First ensure newman is installed locally using `npm`, then execute `newman`.
+Hoppscotch CLI is used for running API tests against the relay. Environment variables are configured in `packages/server/tests/hopp-env.json`.
+
+#### Running Tests
 
 ```shell
-npm install -g newman
-newman run packages/server/tests/postman.json --env-var baseUrl=http://localhost:7546
+# Default (localhost:7546)
+npm run hopp
+
+# Override BASE_URL (macOS/Linux)
+BASE_URL=https://mainnet.hashio.io/api npm run hopp
+
+# Override BASE_URL (Windows PowerShell)
+$env:BASE_URL="https://mainnet.hashio.io/api"; npm run hopp
+
+# Override BASE_URL (Windows CMD)
+set BASE_URL=https://mainnet.hashio.io/api && npm run hopp
 ```
 
-To enable Postman test to run via helm deployment add
+> **Note:** Environment variable override requires modifying the npm script to support dynamic injection. Alternatively, edit `packages/server/tests/hopp-env.json` directly to change the `BASE_URL` value.
 
-```
+#### Helm Deployment
+
+To enable Hoppscotch test to run via helm deployment add
+
+```yaml
 test:
   enabled: true
-  schedule: '@daily' #How often to run the Postman test
-  baseUrl: "http://127.0.0.1:7546" # Relay URL to run the test against
+  schedule: '@daily' #How often to run the Hoppscotch test
 ```
 
 ### Acceptance Tests

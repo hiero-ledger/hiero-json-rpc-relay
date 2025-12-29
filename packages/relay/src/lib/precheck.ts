@@ -77,6 +77,7 @@ export class Precheck {
       mirrorAccountInfo.ethereum_nonce + (await this.transactionPoolService.getPendingCount(parsedTx.from!));
     this.nonce(parsedTx, signerNonce);
     this.balance(parsedTx, mirrorAccountInfo.balance);
+    this.accessList(parsedTx);
     await this.receiverAccount(parsedTx, requestDetails);
   }
 
@@ -212,6 +213,14 @@ export class Precheck {
     } else if (gasLimit < intrinsicGasCost) {
       throw predefined.GAS_LIMIT_TOO_LOW(gasLimit, intrinsicGasCost);
     }
+  }
+
+  /**
+   * Checks if the value of the access was not set.
+   * @param tx - The transaction.
+   */
+  accessList(tx: Transaction): void {
+    if (tx.accessList?.length) throw predefined.NOT_YET_IMPLEMENTED;
   }
 
   /**

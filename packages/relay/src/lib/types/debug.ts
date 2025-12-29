@@ -68,6 +68,44 @@ export interface CallTracerResult {
 }
 
 /**
+ * Represents a single operation in the opcode execution trace.
+ */
+export interface StructLog {
+  /** Program counter position. */
+  pc?: number;
+  /** Operation code. */
+  op?: string;
+  /** Gas remaining at this step. */
+  gas?: number;
+  /** Cost of this operation. */
+  gasCost?: number;
+  /** Call depth. */
+  depth?: number;
+  /** Stack contents (if stack tracking enabled), null if disabled. */
+  stack?: string[] | null;
+  /** Memory contents (if memory tracking enabled), null if disabled. */
+  memory?: string[] | null;
+  /** Storage state (if storage tracking enabled), null if disabled. */
+  storage?: Record<string, string> | null;
+  /** Optional reason for operation result. */
+  reason?: string | null;
+}
+
+/**
+ * Represents the result of an opcodeLogger trace operation.
+ */
+export interface OpcodeLoggerResult {
+  /** Total gas consumed by the transaction. */
+  gas?: number;
+  /** Whether the transaction execution failed. */
+  failed?: boolean;
+  /** The return value from the transaction execution. */
+  returnValue?: string;
+  /** Array of operation logs representing the execution trace. */
+  structLogs?: StructLog[];
+}
+
+/**
  * Represents the result of a traceBlockByNumber operation for a single transaction.
  * The result can be either a call trace or a prestate map, depending on tracer type.
  */

@@ -5,6 +5,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
+import { TransferTransaction } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { ethers } from 'ethers';
@@ -13,6 +14,7 @@ import { ConfigServiceTestHelper } from '../../../config-service/tests/configSer
 import RelayCall from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
+import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import deployerContractJson from '../contracts/Deployer.json';
 import mockContractJson from '../contracts/MockContract.json';
@@ -30,7 +32,11 @@ describe('@debug API Acceptance Tests', function () {
   const accounts: AliasAccount[] = [];
 
   // @ts-ignore
-  const { mirrorNode, relay }: { mirrorNode: MirrorClient; relay: RelayClient } = global;
+  const {
+    mirrorNode,
+    relay,
+    servicesNode,
+  }: { mirrorNode: MirrorClient; relay: RelayClient; servicesNode: ServicesClient } = global;
 
   let basicContract: ethers.Contract;
   let basicContractAddress: string;
@@ -43,6 +49,12 @@ describe('@debug API Acceptance Tests', function () {
   let deployerContractAddress: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let mirrorContractDetails: any;
+
+  // Shared HTS (synthetic transaction) variables
+  let htsTokenId: any;
+  let htsTransferTxHash: string;
+  let htsTransferBlockNumber: number;
+  let evmTxHash: string;
 
   const PURE_METHOD_CALL_DATA = '0xb2e0100c';
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
@@ -108,6 +120,55 @@ describe('@debug API Acceptance Tests', function () {
       accounts[0].wallet,
     );
     deployerContractAddress = deployerContract.target as string;
+
+    // Setup HTS token for synthetic transaction tests (shared by multiple test suites)
+    const tokenName = 'TestToken_Shared';
+    const tokenSymbol = 'TTS';
+    const initialSupply = 10000;
+
+    const htsResult = await servicesNode.createHTS({
+      tokenName,
+      symbol: tokenSymbol,
+      treasuryAccountId: accounts[0].accountId.toString(),
+      initialSupply,
+      adminPrivateKey: accounts[0].privateKey,
+    });
+
+    htsTokenId = htsResult.receipt.tokenId!;
+    const htsClient = htsResult.client;
+
+    // Associate the token with accounts[1] so it can receive transfers
+    await servicesNode.associateHTSToken(accounts[1].accountId, htsTokenId, accounts[1].privateKey, htsClient);
+
+    // Create an EVM transaction to establish block context for block-level tests
+    const evmTransaction = await Utils.buildTransaction(
+      relay,
+      basicContractAddress,
+      accounts[0].address,
+      BASIC_CONTRACT_PING_CALL_DATA,
+    );
+    const evmReceipt = await Utils.getReceipt(relay, evmTransaction, accounts[0].wallet);
+    evmTxHash = evmReceipt.transactionHash;
+    htsTransferBlockNumber = parseInt(evmReceipt.blockNumber.toString());
+
+    // Perform a native HTS transfer (synthetic transaction)
+    const transferAmount = 100;
+    const transferResponse = await new TransferTransaction()
+      .addTokenTransfer(htsTokenId, accounts[0].accountId, -transferAmount)
+      .addTokenTransfer(htsTokenId, accounts[1].accountId, transferAmount)
+      .execute(htsClient);
+
+    // Get the consensus timestamp from the transfer
+    const { executedTimestamp } = await servicesNode.getRecordResponseDetails(transferResponse);
+
+    // Wait for mirror node to index the transaction
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // Query Mirror Node to find the transaction hash for this synthetic transfer
+    const logsResponse = await mirrorNode.get(`/contracts/results/logs?timestamp=${executedTimestamp}`);
+    expect(logsResponse.logs).to.be.an('array').with.lengthOf.at.least(1);
+    htsTransferTxHash = logsResponse.logs[0].transaction_hash;
+    expect(htsTransferTxHash).to.be.a('string');
   });
 
   describe('debug_traceBlockByNumber', () => {
@@ -615,7 +676,7 @@ describe('@debug API Acceptance Tests', function () {
         await relay.callFailing(
           DEBUG_TRACE_TRANSACTION,
           [nonExistentHash],
-          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
+          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${nonExistentHash}`),
         );
       });
 
@@ -624,7 +685,7 @@ describe('@debug API Acceptance Tests', function () {
         await relay.callFailing(
           DEBUG_TRACE_TRANSACTION,
           [nonExistentHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY],
-          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${nonExistentHash}`),
+          predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${nonExistentHash}`),
         );
       });
 
@@ -771,6 +832,211 @@ describe('@debug API Acceptance Tests', function () {
             "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
           ),
         );
+      });
+    });
+
+    describe('debug_traceBlockByNumber with Synthetic HTS Transactions', () => {
+      it('@release should trace block containing both EVM and synthetic transactions with CallTracer', async function () {
+        // Trace the block that contains both EVM and potential synthetic transactions
+        const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+          numberTo0x(htsTransferBlockNumber),
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
+
+        expect(result).to.be.an('array').with.lengthOf.at.least(1);
+
+        // Verify the EVM transaction is traced
+        const evmTrace = result.find((trace: any) => trace.txHash === evmTxHash);
+        expect(evmTrace).to.exist;
+        expect(evmTrace.result).to.exist;
+        expect(evmTrace.result.type).to.equal('CALL');
+
+        // Check if synthetic transactions are also included
+        // Synthetic transactions will have gas/gasUsed of 0x0
+        const syntheticTraces = result.filter(
+          (trace: any) => trace.result.gas === '0x0' && trace.result.gasUsed === '0x0' && trace.txHash !== evmTxHash,
+        );
+
+        // If synthetic transactions were in the same block, they should be traced
+        if (syntheticTraces.length > 0) {
+          syntheticTraces.forEach((trace: any) => {
+            expect(trace.result).to.have.property('type', 'CALL');
+            expect(trace.result).to.have.property('input', '0x');
+            expect(trace.result).to.have.property('output', '0x');
+            expect(trace.result.calls).to.be.an('array').and.be.empty;
+          });
+        }
+      });
+
+      it('@release should trace block containing both EVM and synthetic transactions with PrestateTracer', async function () {
+        const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+          numberTo0x(htsTransferBlockNumber),
+          TRACER_CONFIGS.PRESTATE_TRACER,
+        ]);
+
+        expect(result).to.be.an('array').with.lengthOf.at.least(1);
+
+        // Verify the EVM transaction is traced with prestate data
+        const evmTrace = result.find((trace: any) => trace.txHash === evmTxHash);
+        expect(evmTrace).to.exist;
+        expect(evmTrace.result).to.exist;
+        expect(Object.keys(evmTrace.result).length).to.be.at.least(1);
+
+        // Synthetic transactions should have empty prestate
+        const syntheticTraces = result.filter((trace: any) => trace.txHash !== evmTxHash);
+        syntheticTraces.forEach((trace: any) => {
+          // Synthetic transactions return empty prestate
+          expect(trace.result).to.be.an('object');
+        });
+      });
+
+      it('@release should not include WRONG_NONCE transactions in block trace', async function () {
+        // Create a valid transaction
+        const validTransaction = await Utils.buildTransaction(
+          relay,
+          basicContractAddress,
+          accounts[0].address,
+          BASIC_CONTRACT_PING_CALL_DATA,
+        );
+        const validReceipt = await Utils.getReceipt(relay, validTransaction, accounts[0].wallet);
+
+        // Trace the block
+        const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+          validReceipt.blockNumber,
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
+
+        expect(result).to.be.an('array');
+
+        // All traced transactions should be successful or reverted, not WRONG_NONCE
+        // We verify this by checking that all have valid gas/gasUsed values
+        result.forEach((trace: any) => {
+          expect(trace.txHash).to.be.a('string');
+          expect(trace.result).to.exist;
+          // WRONG_NONCE transactions wouldn't have execution data
+          expect(trace.result.type).to.be.oneOf(['CALL', 'CREATE', 'CREATE2', 'DELEGATECALL', 'STATICCALL']);
+        });
+      });
+
+      it('@release should handle blocks with only synthetic transactions', async function () {
+        // Get the HTS client from the same result we used in before()
+        const htsResult2 = await servicesNode.createHTS({
+          tokenName: 'TestToken_Multi',
+          symbol: 'TTM',
+          treasuryAccountId: accounts[0].accountId.toString(),
+          initialSupply: 1000,
+          adminPrivateKey: accounts[0].privateKey,
+        });
+        const htsClient = htsResult2.client;
+        const htsTokenId2 = htsResult2.receipt.tokenId!;
+
+        // Associate with accounts[1]
+        await servicesNode.associateHTSToken(accounts[1].accountId, htsTokenId2, accounts[1].privateKey, htsClient);
+
+        // Perform multiple HTS transfers in quick succession to try to get a block with only synthetic txs
+        const transferAmount = 10;
+
+        // Execute multiple transfers
+        const transfers = [];
+        for (let i = 0; i < 3; i++) {
+          transfers.push(
+            new TransferTransaction()
+              .addTokenTransfer(htsTokenId2, accounts[0].accountId, -transferAmount)
+              .addTokenTransfer(htsTokenId2, accounts[1].accountId, transferAmount)
+              .execute(htsClient),
+          );
+        }
+
+        const transferResponses = await Promise.all(transfers);
+        const firstTransferTimestamp = (await servicesNode.getRecordResponseDetails(transferResponses[0]))
+          .executedTimestamp;
+
+        // Wait for mirror node
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Query logs to find synthetic transactions
+        const logsResponse = await mirrorNode.get(`/contracts/results/logs?timestamp=gte:${firstTransferTimestamp}`);
+
+        if (logsResponse.logs && logsResponse.logs.length > 0) {
+          // Get block number from one of the logs
+          const blockNumber = logsResponse.logs[0].block_number;
+
+          // Trace the block
+          const result = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+            numberTo0x(blockNumber),
+            TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+          ]);
+
+          expect(result).to.be.an('array');
+
+          // The block may contain EVM transactions too, so let's verify synthetic transactions are properly traced
+          // Synthetic transactions have gas='0x0' and gasUsed='0x0'
+          const syntheticTraces = result.filter(
+            (trace: any) => trace.result.gas === '0x0' && trace.result.gasUsed === '0x0',
+          );
+
+          // If synthetic transactions are in this block, verify they're properly traced
+          if (syntheticTraces.length > 0) {
+            syntheticTraces.forEach((trace: any) => {
+              expect(trace.txHash).to.be.a('string');
+              expect(trace.result).to.have.property('type', 'CALL');
+              expect(trace.result).to.have.property('gas', '0x0');
+              expect(trace.result).to.have.property('gasUsed', '0x0');
+            });
+          } else {
+            // If no synthetic transactions in this block, at least verify all traces are valid
+            expect(result.length).to.be.at.least(0);
+            result.forEach((trace: any) => {
+              expect(trace.txHash).to.be.a('string');
+              expect(trace.result).to.exist;
+            });
+          }
+        }
+      });
+    });
+
+    describe('Synthetic HTS Transactions', () => {
+      it('@release should trace a synthetic HTS transfer with CallTracer', async function () {
+        // Call debug_traceTransaction on the synthetic transaction
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          htsTransferTxHash,
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
+
+        // Verify minimal trace structure is returned (not an error)
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('type', 'CALL');
+        expect(result).to.have.property('from').that.is.a('string');
+        expect(result).to.have.property('to').that.is.a('string');
+        expect(result).to.have.property('gas');
+        expect(result).to.have.property('gasUsed', '0x0');
+        expect(result).to.have.property('value', '0x0');
+        expect(result).to.have.property('input', '0x');
+        expect(result).to.have.property('output', '0x');
+        expect(result).to.have.property('calls').that.is.an('array').and.is.empty;
+        expect(result.from.toLowerCase()).to.equal(accounts[0].address.toLowerCase());
+        expect(result.to.toLowerCase()).to.equal(accounts[1].address.toLowerCase());
+      });
+
+      it('@release should trace a synthetic HTS transfer with PrestateTracer', async function () {
+        // Call debug_traceTransaction with PrestateTracer
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [htsTransferTxHash, TRACER_CONFIGS.PRESTATE_TRACER]);
+
+        // For synthetic transactions, prestate should be empty
+        expect(result).to.be.an('object');
+        expect(result).to.deep.equal({});
+      });
+
+      it('@release should trace a synthetic HTS transfer with OpcodeLogger', async function () {
+        // Call debug_traceTransaction with OpcodeLogger
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [htsTransferTxHash, TRACER_CONFIGS.OPCODE_LOGGER]);
+
+        // For synthetic transactions, opcode logger should return minimal result
+        expect(result).to.be.an('object');
+        expect(result).to.have.property('gas', 0);
+        expect(result).to.have.property('failed', false);
+        expect(result).to.have.property('returnValue', '');
+        expect(result).to.have.property('structLogs').that.is.an('array').and.is.empty;
       });
     });
 

@@ -9,7 +9,6 @@ export class MirrorNodeClientError extends Error {
 
   static ErrorCodes = {
     ECONNABORTED: 504,
-    CONTRACT_REVERT_EXECUTED: 400,
     NOT_SUPPORTED: 501,
   };
 
@@ -45,11 +44,7 @@ export class MirrorNodeClientError extends Error {
     return this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNABORTED;
   }
 
-  public isContractReverted(): boolean {
-    return this.statusCode === MirrorNodeClientError.ErrorCodes.CONTRACT_REVERT_EXECUTED;
-  }
-
-  public isContractRevertOpcodeExecuted() {
+  public isContractRevert() {
     return this.message === MirrorNodeClientError.messages.CONTRACT_REVERT_EXECUTED;
   }
 

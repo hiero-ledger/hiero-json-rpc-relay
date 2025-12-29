@@ -112,10 +112,6 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getBalance(account=${account}, blockNumberOrTag=${blockNumberOrTagOrHash})`);
-    }
-
     let latestBlock: LatestBlockNumberTimestamp | null | undefined;
     // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
     // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
@@ -162,9 +158,10 @@ export class AccountService implements IAccountService {
       if (!balanceFound) {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `Unable to find account ${account} in block ${JSON.stringify(
-              blockNumber,
-            )}(${blockNumberOrTagOrHash}), returning 0x0 balance`,
+            `Unable to find account %s in block %s (%s), returning 0x0 balance`,
+            account,
+            JSON.stringify(blockNumber),
+            blockNumberOrTagOrHash,
           );
         }
         return constants.ZERO_HEX;
@@ -190,7 +187,7 @@ export class AccountService implements IAccountService {
 
     if (blockNumberCached) {
       if (this.logger.isLevelEnabled('trace')) {
-        this.logger.trace(`returning cached value ${cacheKey}:${JSON.stringify(blockNumberCached)}`);
+        this.logger.trace(`returning cached value %s:%s`, cacheKey, JSON.stringify(blockNumberCached));
       }
       latestBlock = { blockNumber: blockNumberCached, timeStampTo: '0' };
     } else {
@@ -312,10 +309,6 @@ export class AccountService implements IAccountService {
     blockNumOrTag: string,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`getTransactionCount(address=${address}, blockNumOrTag=${blockNumOrTag})`);
-    }
-
     const blockNum = Number(blockNumOrTag);
     if (blockNum === 0 || blockNum === 1) {
       // previewnet and testnet bug have a genesis blockNumber of 1 but non system account were yet to be created
@@ -345,10 +338,6 @@ export class AccountService implements IAccountService {
     caller: string,
     requestDetails: RequestDetails,
   ): Promise<LatestBlockNumberTimestamp> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`blockNumber()`);
-    }
-
     const cacheKey = `${constants.CACHE_KEY.ETH_BLOCK_NUMBER}`;
 
     const blocksResponse = await this.mirrorNodeClient.getLatestBlock(requestDetails);
@@ -492,7 +481,9 @@ export class AccountService implements IAccountService {
 
     if (accountResult.evm_address !== address.toLowerCase()) {
       this.logger.warn(
-        `eth_transactionCount for a historical block was requested where address: ${address} was not sender: ${transactionResult.address}, returning latest value as best effort.`,
+        `eth_transactionCount for a historical block was requested where address: %s was not sender: %s, returning latest value as best effort.`,
+        address,
+        transactionResult.address,
       );
       return await this.getAccountLatestEthereumNonce(address, requestDetails);
     }

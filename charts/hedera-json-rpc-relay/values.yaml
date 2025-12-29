@@ -31,7 +31,6 @@ config:
   # DEBUG_API_ENABLED:
   # TXPOOL_API_ENABLED:
   # FILTER_API_ENABLED:
-  # ESTIMATE_GAS_THROWS:
   # SUBSCRIPTIONS_ENABLED:
 
   # ========== BATCH REQUESTS ==========
@@ -123,6 +122,11 @@ config:
   # REDIS_RECONNECT_DELAY_MS:
   # MULTI_SET:
 
+  # ========== LOCK SERVICE CONFIGURATION ==========
+  # LOCK_MAX_HOLD_MS:
+  # LOCAL_LOCK_MAX_ENTRIES:
+  # LOCK_QUEUE_POLL_INTERVAL_MS:
+
   # ========== DEVELOPMENT & TESTING ==========
   # LOG_LEVEL: 'trace'
 
@@ -140,12 +144,20 @@ redis:
 
 cronjob:
   enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official node image which includes Node.js and build tools,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: node
+    tag: 22
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
   schedule: '@daily'
 
 fullnameOverride: ''
@@ -246,13 +258,21 @@ readinessProbe:
   timeoutSeconds: 5
 
 test:
-  enabled: true
+  enabled: false
+  # Note: hoppscotch/hopp-cli does not exist as a standalone Docker image.
+  # The CLI is distributed only as an npm package (@hoppscotch/cli).
+  # We use the official node image which includes Node.js and build tools,
+  # and install the CLI at runtime via npm.
   image:
     pullPolicy: IfNotPresent
-    repository: postman/newman
-    tag: 5.3.1-alpine
-  # Custom postman.json in base64 encoding
-  postman: ''
+    repository: node
+    tag: 22
+  # Custom hoppscotch.json in base64 encoding
+  hoppscotch: ''
+  # Custom hopp-env.json in base64 encoding
+  hoppEnv: ''
+  # Version of @hoppscotch/cli to install
+  cliVersion: '0.30.0'
 
 terminationGracePeriodSeconds: 60
 

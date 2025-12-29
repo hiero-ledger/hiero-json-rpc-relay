@@ -23,6 +23,7 @@ import {
   IPAddressHbarSpendingPlanNotFoundError,
 } from '../../../src/lib/db/types/hbarLimiter/errors';
 import { SubscriptionTier } from '../../../src/lib/db/types/hbarLimiter/subscriptionTier';
+import { CacheClientFactory } from '../../../src/lib/factories/cacheClientFactory';
 import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import { SpendingPlanConfig } from '../../../src/lib/types/spendingPlanConfig';
 import {
@@ -151,7 +152,6 @@ describe('HbarSpendingPlanConfigService', function () {
     let hbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<HbarSpendingPlanRepository>;
     let evmAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<EvmAddressHbarSpendingPlanRepository>;
     let ipAddressHbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<IPAddressHbarSpendingPlanRepository>;
-    let redisClientManager: RedisClientManager;
     let redisClient: RedisClientType | undefined;
 
     overrideEnvsInMochaDescribe({
@@ -162,18 +162,15 @@ describe('HbarSpendingPlanConfigService', function () {
 
     before(async function () {
       const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
-      if (ConfigService.get('REDIS_ENABLED')) {
-        redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6384', 1000);
-        await redisClientManager.connect();
-        redisClient = redisClientManager.getClient();
+      if (RedisClientManager.isRedisEnabled()) {
+        RedisClientManager['client'] = null;
+        redisClient = await RedisClientManager.getClient(logger);
       } else {
         redisClient = undefined;
       }
       cacheService = new CacheService(
-        logger.child({ name: 'cache-service' }),
+        CacheClientFactory.create(logger.child({ name: 'cache-service' }), registry, reservedKeys, redisClient as any),
         registry,
-        reservedKeys,
-        redisClient as any,
       );
       hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
         cacheService,
@@ -196,8 +193,8 @@ describe('HbarSpendingPlanConfigService', function () {
     });
 
     after(async function () {
-      if (ConfigService.get('REDIS_ENABLED')) {
-        await redisClientManager.disconnect();
+      if (RedisClientManager.isRedisEnabled()) {
+        await RedisClientManager.disconnect();
       }
     });
 
@@ -447,7 +444,10 @@ describe('HbarSpendingPlanConfigService', function () {
             sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.create, subscriptionTier, neverExpireTtl, id);
             sinon.assert.calledWith(
               loggerSpy.info,
-              `Created HBAR spending plan "${name}" with ID "${id}" and subscriptionTier "${subscriptionTier}"`,
+              `Created HBAR spending plan %s with ID %s and subscriptionTier %s`,
+              name,
+              id,
+              subscriptionTier,
             );
           });
 
@@ -536,7 +536,8 @@ describe('HbarSpendingPlanConfigService', function () {
             sinon.assert.calledWith(hbarSpendingPlanRepositorySpy.delete, id);
             sinon.assert.calledWith(
               loggerSpy.info,
-              `Deleting HBAR spending plan with ID "${id}", as it is no longer in the spending plan configuration...`,
+              `Deleting HBAR spending plan with ID %s, as it is no longer in the spending plan configuration...`,
+              id,
             );
             sinon.assert.calledWithMatch(evmAddressHbarSpendingPlanRepositorySpy.deleteAllByPlanId, id);
             sinon.assert.calledWithMatch(ipAddressHbarSpendingPlanRepositorySpy.deleteAllByPlanId, id);

@@ -11,6 +11,7 @@ import * as sinon from 'sinon';
 
 import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
 import { numberTo0x, toHash32 } from '../src/formatters';
+import { RedisClientManager } from '../src/lib/clients/redisClientManager';
 import constants from '../src/lib/constants';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
@@ -346,6 +347,58 @@ const mockData = {
           message: 'Auto account creation is not supported.',
           detail: '',
           data: '',
+        },
+      ],
+    },
+  },
+
+  genericBadRequest: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad request',
+          detail: 'Invalid request parameters',
+          data: '',
+        },
+      ],
+    },
+  },
+
+  internalServerError: {
+    _status: {
+      messages: [
+        {
+          message: 'Internal Server Error',
+        },
+      ],
+    },
+  },
+
+  badGateway: {
+    _status: {
+      messages: [
+        {
+          message: 'Bad Gateway',
+        },
+      ],
+    },
+  },
+
+  serviceUnavailable: {
+    _status: {
+      messages: [
+        {
+          message: 'Service Unavailable',
+        },
+      ],
+    },
+  },
+
+  gatewayTimeout: {
+    _status: {
+      messages: [
+        {
+          message: 'Gateway Timeout',
         },
       ],
     },
@@ -925,6 +978,7 @@ export const useInMemoryRedisServer = (logger: Logger, port: number) => {
 
   before(async () => {
     redisInMemoryServer = await startRedisInMemoryServer(logger, port);
+    RedisClientManager['client'] = null;
   });
 
   after(async () => {
@@ -1055,6 +1109,7 @@ export const verifyResult = async <T>(
   func: () => Promise<T>,
   expected: Partial<T> | null,
   errorMessage?: string,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   errorType?: Function | Error,
 ): Promise<void> => {
   if (expected) {

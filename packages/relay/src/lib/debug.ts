@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 
-import { decodeErrorMessage, mapKeysAndValues, numberTo0x, strip0x } from '../formatters';
+import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x } from '../formatters';
 import { type Debug } from '../index';
 import { MirrorNodeClient } from './clients';
 import { IOpcode } from './clients/models/IOpcode';
@@ -19,7 +19,7 @@ import {
   EntityTraceStateMap,
   ICallTracerConfig,
   IOpcodeLoggerConfig,
-  MirrorNodeContractResult,
+  OpcodeLoggerResult,
   RequestDetails,
   TraceBlockByNumberTxResult,
   TransactionTracerConfig,
@@ -115,10 +115,6 @@ export class DebugImpl implements Debug {
     tracerObject: TransactionTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceTransaction(${transactionIdOrHash})`);
-    }
-
     //we use a wrapper since we accept a transaction where a second param with tracer/tracerConfig may not be provided
     //and we will still default to opcodeLogger
     const tracer = tracerObject?.tracer ?? TracerType.OpcodeLogger;
@@ -199,70 +195,39 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockByNumberTxResult[]> {
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`traceBlockByNumber(blockNumber=${blockNumber}, tracerObject=${JSON.stringify(tracerObject)})`);
-    }
-
     try {
       DebugImpl.requireDebugAPIEnabled();
       const blockResponse = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
 
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
-      const timestampRangeParams = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+      // Get ALL transaction hashes (EVM + synthetic)
+      const transactionHashes = await this.getAllTransactionHashesFromBlock(blockResponse, requestDetails);
 
-      const contractResults: MirrorNodeContractResult[] = await this.mirrorNodeClient.getContractResultWithRetry(
-        this.mirrorNodeClient.getContractResults.name,
-        [requestDetails, { timestamp: timestampRangeParams }, undefined],
-      );
-
-      if (contractResults == null || contractResults.length === 0) {
-        // return empty array if no EthereumTransaction typed transactions found in the block
+      if (transactionHashes.length === 0) {
         return [];
       }
 
-      let tracer: TracerType = TracerType.CallTracer;
-      let onlyTopCall;
+      const tracer = tracerObject?.tracer ?? TracerType.CallTracer;
+      const onlyTopCall = tracerObject?.tracerConfig?.onlyTopCall;
 
-      if (tracerObject) {
-        tracer = tracerObject.tracer;
-        onlyTopCall = tracerObject.tracerConfig?.onlyTopCall;
-      }
-
+      // Trace all transactions using existing tracer methods
       if (tracer === TracerType.CallTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.callTracer(
-                  contractResult.hash,
-                  { onlyTopCall } as ICallTracerConfig,
-                  requestDetails,
-                ),
-              };
-            }),
+        return await Promise.all(
+          transactionHashes.map(async (txHash) => ({
+            txHash,
+            result: await this.callTracer(txHash, { onlyTopCall }, requestDetails),
+          })),
         );
-
-        return result;
       }
 
       if (tracer === TracerType.PrestateTracer) {
-        const result = await Promise.all(
-          contractResults
-            // filter out transactions with wrong nonce since they do not reach consensus
-            .filter((contractResult) => contractResult.result !== 'WRONG_NONCE')
-            .map(async (contractResult) => {
-              return {
-                txHash: contractResult.hash,
-                result: await this.prestateTracer(contractResult.hash, onlyTopCall, requestDetails),
-              };
-            }),
+        return await Promise.all(
+          transactionHashes.map(async (txHash) => ({
+            txHash,
+            result: await this.prestateTracer(txHash, onlyTopCall, requestDetails),
+          })),
         );
-
-        return result;
       }
 
       return [];
@@ -318,12 +283,12 @@ export class DebugImpl implements Debug {
    * @async
    * @param {IOpcodesResponse | null} result - The response from mirror node.
    * @param {object} options - The options used for the opcode tracer.
-   * @returns {Promise<object>} The formatted opcode response.
+   * @returns {Promise<OpcodeLoggerResult>} The formatted opcode response.
    */
   async formatOpcodesResult(
     result: IOpcodesResponse | null,
     options: { memory?: boolean; stack?: boolean; storage?: boolean },
-  ): Promise<object> {
+  ): Promise<OpcodeLoggerResult> {
     if (!result) {
       return {
         gas: 0,
@@ -415,13 +380,13 @@ export class DebugImpl implements Debug {
    * @param {boolean} tracerConfig.disableStack - Whether to disable stack.
    * @param {boolean} tracerConfig.disableStorage - Whether to disable storage.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<object>} The formatted response.
+   * @returns {Promise<OpcodeLoggerResult>} The formatted response.
    */
   async callOpcodeLogger(
     transactionIdOrHash: string,
     tracerConfig: IOpcodeLoggerConfig,
     requestDetails: RequestDetails,
-  ): Promise<object> {
+  ): Promise<OpcodeLoggerResult> {
     try {
       const options = {
         memory: !!tracerConfig.enableMemory,
@@ -435,9 +400,11 @@ export class DebugImpl implements Debug {
       );
 
       if (!response) {
-        throw predefined.RESOURCE_NOT_FOUND(
-          `Failed to retrieve contract results for transaction ${transactionIdOrHash}`,
-        );
+        return (await this.handleSyntheticTransaction(
+          transactionIdOrHash,
+          TracerType.OpcodeLogger,
+          requestDetails,
+        )) as OpcodeLoggerResult;
       }
 
       return await this.formatOpcodesResult(response, options);
@@ -469,8 +436,12 @@ export class DebugImpl implements Debug {
         ]),
       ]);
 
-      if (!actionsResponse || !transactionsResponse) {
-        throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+      if (!actionsResponse || actionsResponse.length === 0 || !transactionsResponse) {
+        return (await this.handleSyntheticTransaction(
+          transactionHash,
+          TracerType.CallTracer,
+          requestDetails,
+        )) as CallTracerResult;
       }
 
       const { call_type: type } = actionsResponse[0];
@@ -542,8 +513,12 @@ export class DebugImpl implements Debug {
 
     // Get transaction actions
     const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
-    if (!actionsResponse) {
-      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve contract results for transaction ${transactionHash}`);
+    if (!actionsResponse || actionsResponse.length === 0) {
+      return (await this.handleSyntheticTransaction(
+        transactionHash,
+        TracerType.PrestateTracer,
+        requestDetails,
+      )) as EntityTraceStateMap;
     }
 
     // Filter by call_depth if onlyTopCall is true
@@ -625,7 +600,10 @@ export class DebugImpl implements Debug {
           }
         } catch (error) {
           this.logger.error(
-            `Error processing entity ${accountEntity.address} for transaction ${transactionHash}: ${error}`,
+            `Error processing entity %s for transaction %s: %s`,
+            accountEntity.address,
+            transactionHash,
+            error,
           );
         }
       }),
@@ -634,5 +612,110 @@ export class DebugImpl implements Debug {
     // Cache the result before returning
     await this.cacheService.set(cacheKey, result, this.prestateTracer.name);
     return result;
+  }
+
+  /**
+   * Retrieves all transaction hashes in a block (EVM + synthetic).
+   *
+   * @private
+   * @param blockResponse - Block metadata with timestamp range
+   * @param requestDetails - Request tracking details
+   * @returns Array of unique transaction hashes in the block
+   */
+  private async getAllTransactionHashesFromBlock(
+    blockResponse: { timestamp: { from: string; to: string } },
+    requestDetails: RequestDetails,
+  ): Promise<string[]> {
+    const timestampRange = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+
+    // Fetch both contract results and all logs in the block in parallel
+    const [contractResults, allLogs] = await Promise.all([
+      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+        requestDetails,
+        { timestamp: timestampRange },
+        undefined,
+      ]),
+      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
+    ]);
+
+    // Collect all unique transaction hashes
+    const transactionHashes = new Set<string>();
+
+    // Add EVM transaction hashes (excluding WRONG_NONCE)
+    contractResults?.filter((cr) => cr.result !== 'WRONG_NONCE').forEach((cr) => transactionHashes.add(cr.hash));
+
+    // Capture synthetic HTS transaction hashes from logs
+    allLogs?.forEach((log) => {
+      if (log.transaction_hash) {
+        transactionHashes.add(log.transaction_hash);
+      }
+    });
+
+    return Array.from(transactionHashes);
+  }
+
+  /**
+   * Handles synthetic HTS transactions by fetching logs and building
+   * a minimal synthetic trace object for the appropriate trace.
+   *
+   * @private
+   * @param transactionIdOrHash - The ID or hash of the transaction.
+   * @param tracer - The tracer type to use for building the synthetic trace.
+   * @param requestDetails - The request details for logging and tracking.
+   * @returns The synthetic trace result.
+   * @throws Throws RESOURCE_NOT_FOUND if no logs are found.
+   */
+  private async handleSyntheticTransaction(
+    transactionIdOrHash: string,
+    tracer: TracerType,
+    requestDetails: RequestDetails,
+  ): Promise<EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult> {
+    const logs = await this.common.getLogsWithParams(null, { 'transaction.hash': transactionIdOrHash }, requestDetails);
+
+    if (logs.length === 0) {
+      throw predefined.RESOURCE_NOT_FOUND(`Failed to retrieve transaction information for ${transactionIdOrHash}`);
+    }
+
+    const log = logs[0];
+    switch (tracer) {
+      case TracerType.PrestateTracer:
+        // Return empty prestate tracer result for synthetic transactions (no EVM execution)
+        return {};
+      case TracerType.OpcodeLogger:
+        // Return minimal opcode tracer result for synthetic transactions (no EVM execution)
+        return {
+          gas: 0,
+          failed: false,
+          returnValue: '',
+          structLogs: [],
+        };
+      case TracerType.CallTracer: {
+        let from = log.address;
+        let to = log.address;
+
+        // For HTS token transfer logs, the 'from' and 'to' addresses are typically in topics[1] and topics[2]
+        if (log.topics && log.topics.length >= 3) {
+          // Extract addresses from topics - topics are 32-byte hex strings, addresses are last 20 bytes
+          from = prepend0x(log.topics[1].slice(-40));
+          to = prepend0x(log.topics[2].slice(-40));
+        }
+
+        // Resolve addresses to their EVM equivalents
+        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
+
+        // Return minimal call tracer result for synthetic transactions (no EVM execution)
+        return {
+          type: CallType.CALL,
+          from: resolvedFrom,
+          to: resolvedTo,
+          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+          gasUsed: constants.ZERO_HEX,
+          value: constants.ZERO_HEX,
+          input: constants.EMPTY_HEX,
+          output: constants.EMPTY_HEX,
+          calls: [],
+        };
+      }
+    }
   }
 }

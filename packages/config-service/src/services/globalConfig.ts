@@ -173,11 +173,6 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  ESTIMATE_GAS_THROWS: {
-    type: 'boolean',
-    required: false,
-    defaultValue: true,
-  },
   ETH_BLOCK_NUMBER_CACHE_TTL_MS: {
     type: 'number',
     required: false,
@@ -362,6 +357,11 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: null,
+  },
+  LOCAL_LOCK_MAX_ENTRIES: {
+    type: 'number',
+    required: false,
+    defaultValue: 1000,
   },
   LOG_LEVEL: {
     type: 'string',
@@ -654,6 +654,21 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  LOCK_MAX_HOLD_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
+  },
+  LOCK_QUEUE_POLL_INTERVAL_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 50,
+  },
+  ENABLE_NONCE_ORDERING: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,
@@ -738,6 +753,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 10,
+  },
+  ON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE: {
+    type: 'number',
+    required: false,
+    defaultValue: 400,
   },
 } as const satisfies { [key: string]: ConfigProperty }; // Ensures _CONFIG is read-only and conforms to the ConfigProperty structure
 

@@ -3,7 +3,6 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { pino } from 'pino';
-import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
@@ -16,38 +15,40 @@ chai.use(chaiAsPromised);
 describe('RedisCache Test Suite', async function () {
   this.timeout(10000);
 
-  const logger = pino({ level: 'silent' });
-  const registry = new Registry();
+  const mockLogger = {
+    child: sinon.stub().returnsThis(),
+    trace: sinon.stub(),
+    info: sinon.stub(),
+    isLevelEnabled: sinon.stub().returns(true),
+  };
   const callingMethod = 'RedisCacheTest';
 
   let redisCache: RedisCache;
-  let redisClientManager: RedisClientManager;
   let redisClient: RedisClientType;
+
+  const logger = mockLogger.child({ name: 'mock' });
 
   useInMemoryRedisServer(logger, 6379);
 
   this.beforeAll(async () => {
-    redisClientManager = new RedisClientManager(logger, 'redis://127.0.0.1:6379', 1000);
-
-    await redisClientManager.connect();
-    redisClient = redisClientManager.getClient();
-    redisCache = new RedisCache(logger.child({ name: `cache` }), registry, redisClient);
+    redisClient = await RedisClientManager.getClient(logger);
+    redisCache = new RedisCache(logger.child({ name: `cache` }), redisClient);
     redisCache['options'].ttl = 100;
     sinon.spy(redisClient, 'set');
   });
 
   this.beforeEach(async () => {
     logger.info('before each');
-    if (!(await redisClientManager.isConnected())) {
-      await redisClientManager.connect();
+    if (!(await RedisClientManager.isConnected())) {
+      await RedisClientManager.connect();
     }
     await redisCache.clear();
     sinon.resetHistory();
   });
 
   this.afterAll(async () => {
-    if (await redisClientManager.isConnected()) {
-      await redisClientManager.disconnect();
+    if (await RedisClientManager.isConnected()) {
+      await RedisClientManager.disconnect();
     }
   });
 
@@ -160,6 +161,23 @@ describe('RedisCache Test Suite', async function () {
         object: { result: true },
       };
 
+      await redisCache.multiSet(keyValuePairs, callingMethod);
+
+      for (const key in keyValuePairs) {
+        const cachedValue = await redisCache.get(key, callingMethod);
+        expect(cachedValue).deep.equal(keyValuePairs[key]);
+      }
+    });
+
+    it('should fallback to pipeline set when multiset disabled', async function () {
+      const keyValuePairs = {
+        int: 1,
+        string: 'test',
+        boolean: false,
+        array: ['false'],
+        object: { result: true },
+      };
+      redisCache['options'].multiSetEnabled = false;
       await redisCache.multiSet(keyValuePairs, callingMethod);
 
       for (const key in keyValuePairs) {
@@ -417,36 +435,36 @@ describe('RedisCache Test Suite', async function () {
 
   describe('Connect Test Suite', () => {
     it('should connect to the Redis cache', async () => {
-      await redisClientManager.disconnect();
-      await redisClientManager.connect();
-      await expect(redisClientManager.isConnected()).to.be.true;
+      await RedisClientManager.disconnect();
+      await RedisClientManager.connect();
+      await expect(RedisClientManager.isConnected()).to.be.true;
     });
 
     it('should throw an error when the client is already connected', async () => {
-      await expect(redisClientManager.connect()).to.eventually.be.rejectedWith('Socket already opened');
-      await expect(redisClientManager.isConnected()).to.be.true;
+      await expect(RedisClientManager.connect()).to.eventually.be.rejectedWith('Socket already opened');
+      await expect(RedisClientManager.isConnected()).to.be.true;
     });
   });
 
   describe('Is Connected Test Suite', () => {
     it('should return true when connected', async () => {
-      await expect(redisClientManager.isConnected()).to.be.true;
+      await expect(RedisClientManager.isConnected()).to.be.true;
     });
 
     it('should return false when disconnected', async () => {
-      await redisClientManager.disconnect();
-      await expect(redisClientManager.isConnected()).to.be.false;
+      await RedisClientManager.disconnect();
+      await expect(RedisClientManager.isConnected()).to.be.false;
     });
   });
 
   describe('Number of Connections Test Suite', () => {
     it('should return the number of connections', async () => {
-      await expect(redisClientManager.getNumberOfConnections()).to.eventually.equal(1);
+      await expect(RedisClientManager.getNumberOfConnections()).to.eventually.equal(1);
     });
 
     it('should throw an error when the client is closed', async () => {
-      await redisClientManager.disconnect();
-      await expect(redisClientManager.getNumberOfConnections()).to.eventually.be.rejectedWith('The client is closed');
+      await RedisClientManager.disconnect();
+      await expect(RedisClientManager.getNumberOfConnections()).to.eventually.be.rejectedWith('The client is closed');
     });
   });
 
@@ -486,14 +504,14 @@ describe('RedisCache Test Suite', async function () {
 
   describe('Disconnect Test Suite', () => {
     it('should disconnect from the Redis cache', async () => {
-      await redisClientManager.disconnect();
-      await expect(redisClientManager.isConnected()).to.be.false;
+      await RedisClientManager.disconnect();
+      await expect(RedisClientManager.isConnected()).to.be.false;
     });
 
     it('should do nothing when already disconnected', async () => {
-      await redisClientManager.disconnect();
-      await expect(redisClientManager.disconnect()).to.eventually.be.rejectedWith('The client is closed');
-      await expect(redisClientManager.isConnected()).to.be.false;
+      await RedisClientManager.disconnect();
+      await expect(RedisClientManager.disconnect()).to.eventually.be.rejectedWith('The client is closed');
+      await expect(RedisClientManager.isConnected()).to.be.false;
     });
   });
 });

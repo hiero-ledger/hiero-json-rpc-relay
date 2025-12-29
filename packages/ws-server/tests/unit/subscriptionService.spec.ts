@@ -174,17 +174,23 @@ describe('subscriptionService', async function () {
     const count = subscriptionService.unsubscribe(wsConnection);
 
     expect(count).to.be.eq(2);
-    expect(loggerInfoSpy.calledWith(`Connection ${wsConnection.id}: Unsubscribing from all subscriptions`)).to.be.eq(
+    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from all subscriptions`, wsConnection.id)).to.be.eq(
       true,
     );
     expect(
       loggerDebugSpy.calledWith(
-        `Connection ${wsConnection.id}. Unsubscribing subId: ${subId}; tag: ${JSON.stringify(tag1)}`,
+        `Connection %s. Unsubscribing subId: %s; tag: %s`,
+        wsConnection.id,
+        subId,
+        JSON.stringify(tag1),
       ),
     ).to.be.eq(true);
     expect(
       loggerDebugSpy.calledWith(
-        `Connection ${wsConnection.id}. Unsubscribing subId: ${subId2}; tag: ${JSON.stringify(tag2)}`,
+        `Connection %s. Unsubscribing subId: %s; tag: %s`,
+        wsConnection.id,
+        subId2,
+        JSON.stringify(tag2),
       ),
     ).to.be.eq(true);
   });
@@ -205,10 +211,13 @@ describe('subscriptionService', async function () {
     const count = subscriptionService.unsubscribe(wsConnection, subId2);
 
     expect(count).to.be.eq(1);
-    expect(loggerInfoSpy.calledWith(`Connection ${wsConnection.id}: Unsubscribing from ${subId2}`)).to.be.eq(true);
+    expect(loggerInfoSpy.calledWith(`Connection %s: Unsubscribing from %s`), wsConnection.id, subId2).to.be.eq(true);
     expect(
       loggerDebugSpy.calledWith(
-        `Connection ${wsConnection.id}. Unsubscribing subId: ${subId2}; tag: ${JSON.stringify(tag2)}`,
+        `Connection %s. Unsubscribing subId: %s; tag: %s`,
+        wsConnection.id,
+        subId2,
+        JSON.stringify(tag2),
       ),
     ).to.be.eq(true);
   });
