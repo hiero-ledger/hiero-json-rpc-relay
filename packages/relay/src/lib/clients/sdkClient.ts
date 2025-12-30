@@ -342,7 +342,7 @@ export class SDKClient {
         throw e;
       }
 
-      throw new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
+      throw new SDKClientError(e, e.message, transactionId || transaction.transactionId?.toString(), e.nodeAccountId);
     } finally {
       if (transactionId?.length) {
         const transactionHash = transactionResponse?.transactionHash
