@@ -342,18 +342,7 @@ export class SDKClient {
         throw e;
       }
 
-      const sdkClientError = new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
-
-      // WRONG_NONCE is one of the special errors where the SDK still returns a valid transactionResponse.
-      // Throw the WRONG_NONCE error, as additional handling logic is expected in a higher layer.
-      if (sdkClientError.status && sdkClientError.status === Status.WrongNonce) {
-        throw sdkClientError;
-      }
-
-      if (!transactionResponse) {
-        throw sdkClientError;
-      }
-      return transactionResponse;
+      throw new SDKClientError(e, e.message, transaction.transactionId?.toString(), e.nodeAccountId);
     } finally {
       if (transactionId?.length) {
         const transactionHash = transactionResponse?.transactionHash
