@@ -393,11 +393,22 @@ export class DebugImpl implements Debug {
         stack: !tracerConfig.disableStack,
         storage: !tracerConfig.disableStorage,
       };
-      const response = await this.mirrorNodeClient.getContractsResultsOpcodes(
-        transactionIdOrHash,
-        requestDetails,
-        options,
-      );
+
+      let response: any = null;
+
+      try {
+        response = await this.mirrorNodeClient.getContractsResultsOpcodes(transactionIdOrHash, requestDetails, options);
+      } catch (e: any) {
+        // If contract result not found (404), treat as potential synthetic transaction
+        // and allow fallback to handleSyntheticTransaction
+        if (e?.code === -32001 || e?.message?.includes('not found') || e?.isNotFound?.()) {
+          this.logger.debug(
+            `Opcodes not found for transaction ${transactionIdOrHash}, attempting synthetic transaction handling`,
+          );
+        } else {
+          throw e;
+        }
+      }
 
       if (!response) {
         return (await this.handleSyntheticTransaction(
@@ -428,13 +439,28 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
   ): Promise<CallTracerResult> {
     try {
-      const [actionsResponse, transactionsResponse] = await Promise.all([
-        this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
-        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
-          transactionHash,
-          requestDetails,
-        ]),
-      ]);
+      let actionsResponse: any[] | null = null;
+      let transactionsResponse: any = null;
+
+      try {
+        [actionsResponse, transactionsResponse] = await Promise.all([
+          this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
+          this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
+            transactionHash,
+            requestDetails,
+          ]),
+        ]);
+      } catch (e: any) {
+        // If contract result not found (404), treat as potential synthetic transaction
+        // and allow fallback to handleSyntheticTransaction
+        if (e?.code === -32001 || e?.message?.includes('not found') || e?.isNotFound?.()) {
+          this.logger.debug(
+            `Contract result not found for transaction ${transactionHash}, attempting synthetic transaction handling`,
+          );
+        } else {
+          throw e;
+        }
+      }
 
       if (!actionsResponse || actionsResponse.length === 0 || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
@@ -512,7 +538,22 @@ export class DebugImpl implements Debug {
     }
 
     // Get transaction actions
-    const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    let actionsResponse: any[] | null = null;
+
+    try {
+      actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    } catch (e: any) {
+      // If contract result not found (404), treat as potential synthetic transaction
+      // and allow fallback to handleSyntheticTransaction
+      if (e?.code === -32001 || e?.message?.includes('not found') || e?.isNotFound?.()) {
+        this.logger.debug(
+          `Contract actions not found for transaction ${transactionHash}, attempting synthetic transaction handling`,
+        );
+      } else {
+        throw e;
+      }
+    }
+
     if (!actionsResponse || actionsResponse.length === 0) {
       return (await this.handleSyntheticTransaction(
         transactionHash,
