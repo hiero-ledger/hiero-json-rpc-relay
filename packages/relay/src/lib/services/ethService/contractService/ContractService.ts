@@ -344,6 +344,9 @@ export class ContractService implements IContractService {
     if (transaction.gasPrice) {
       transaction.gasPrice = parseInt(transaction.gasPrice.toString());
     }
+
+    // MirrorNode checks the payer balance on its side.
+    // By not submitting `gasPrice`, we avoid this check, and a `gasPrice` of 0 would make this check fail anyway.
     if (Number(transaction.gasPrice) === 0) {
       delete transaction.gasPrice;
     }
