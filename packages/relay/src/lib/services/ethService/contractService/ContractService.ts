@@ -343,8 +343,9 @@ export class ContractService implements IContractService {
     }
     if (transaction.gasPrice) {
       transaction.gasPrice = parseInt(transaction.gasPrice.toString());
-    } else {
-      transaction.gasPrice = await this.common.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
+    }
+    if (Number(transaction.gasPrice) === 0) {
+      delete transaction.gasPrice;
     }
     if (transaction.gas) {
       transaction.gas = parseInt(transaction.gas.toString());
