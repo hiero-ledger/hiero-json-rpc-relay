@@ -8,7 +8,7 @@ import { Gauge, Registry } from 'prom-client';
 
 export interface Poll {
   tag: string;
-  callback: Function;
+  callback: (data: unknown) => void;
   lastPolled?: string;
 }
 
@@ -139,7 +139,7 @@ export class PollerService {
    * @param tag - The tag to add.
    * @param callback - The callback function to call when the poll is triggered.
    */
-  public add(tag: string, callback: Function) {
+  public add(tag: string, callback: (data: unknown) => void) {
     if (!this.hasPoll(tag)) {
       this.logger.info(`${LOGGER_PREFIX} Tag ${tag} added to polling list`);
       this.polls.push({

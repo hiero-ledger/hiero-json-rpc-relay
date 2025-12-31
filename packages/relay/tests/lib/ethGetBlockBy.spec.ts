@@ -11,12 +11,10 @@ import sinon from 'sinon';
 import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
-import { EthImpl } from '../../src/lib/eth';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../src/lib/model';
 import { BlockService, CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
-import { RequestDetails } from '../../src/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);
@@ -94,10 +92,7 @@ const defaultLogs1 = [
 
 describe('eth_getBlockBy', async function () {
   this.timeout(10000);
-  let ethImpl: EthImpl;
   let blockService: BlockService;
-
-  const requestDetails = new RequestDetails({ requestId: 'ethGetBlockByTest', ipAddress: '0.0.0.0' });
 
   useInMemoryRedisServer(logger, 5031);
   overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });

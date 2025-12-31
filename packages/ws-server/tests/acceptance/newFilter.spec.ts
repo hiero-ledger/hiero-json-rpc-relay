@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
+
 import { WsTestConstant, WsTestHelper } from '../helper';
-import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 
 describe('@web-socket-batch-2 eth_newFilter', async function () {
   let wsFilterObj: any, ethersWsProvider: WebSocketProvider;

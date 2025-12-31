@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Octokit } from '@octokit/core';
-import { GitHubContext } from '../types/GitHubContext';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { Octokit } from '@octokit/core';
+
+import { GitHubContext } from '../types/GitHubContext';
 
 /**
  * Client for interacting with GitHub, providing methods to perform operations such as adding comments to pull requests.

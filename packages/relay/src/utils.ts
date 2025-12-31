@@ -10,7 +10,7 @@ import { Logger } from 'pino';
 import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
-import { RequestDetails } from './lib/types';
+import { OperationHandler, RequestDetails } from './lib/types';
 
 export class Utils {
   public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
@@ -162,7 +162,11 @@ export class Utils {
    * @param requestDetails - Request context information
    * @returns Array of parameters arranged for the method
    */
-  public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
+  public static arrangeRpcParams(
+    method: OperationHandler,
+    rpcParams: any[] = [],
+    requestDetails: RequestDetails,
+  ): any[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
 
     // Method only needs requestDetails

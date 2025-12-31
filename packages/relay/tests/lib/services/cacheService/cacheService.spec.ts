@@ -356,7 +356,6 @@ describe('CacheService Test Suite', async function () {
     it('should be able to ignore clear failure in case of Redis error', async function () {
       await RedisClientManager.disconnect();
 
-
       await expect(cacheService.clear()).to.eventually.not.be.rejected;
     });
 
@@ -401,7 +400,6 @@ describe('CacheService Test Suite', async function () {
 
       it('should be able to ignore increment failure in case of Redis error', async function () {
         const key = 'counter';
-        const amount = 5;
         await cacheService.set(key, 10, callingMethod);
         await RedisClientManager.disconnect();
         await expect(cacheService.incrBy(key, 5, callingMethod)).to.eventually.not.be.rejected;

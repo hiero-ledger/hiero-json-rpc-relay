@@ -49,6 +49,7 @@ export const RPC_PARAM_VALIDATION_RULES_KEY = 'hedera-rpc-param-validation-rules
  * @returns Method decorator function
  */
 export function rpcParamValidationRules(validationRules: Record<number, IParamValidation>) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return function (target: any, _context: ClassMethodDecoratorContext): any {
     // Store validation rules directly on the function as a property
     target[RPC_PARAM_VALIDATION_RULES_KEY] = validationRules;

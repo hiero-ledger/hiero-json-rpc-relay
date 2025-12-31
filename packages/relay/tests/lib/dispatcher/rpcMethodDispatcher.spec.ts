@@ -138,7 +138,7 @@ describe('RpcMethodDispatcher', () => {
       try {
         (dispatcher as any).precheckRpcMethod('unknown_method', TEST_PARAMS, TEST_REQUEST_DETAILS);
         expect.fail('Should have thrown an error');
-      } catch (error) {
+      } catch {
         expect(throwUnregisteredSpy.calledOnce).to.be.true;
         expect(throwUnregisteredSpy.calledWith('unknown_method')).to.be.true;
       }

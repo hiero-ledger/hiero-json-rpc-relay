@@ -3,6 +3,7 @@
 // external resources
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
+
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-1 eth_getBlockByHash', async function () {

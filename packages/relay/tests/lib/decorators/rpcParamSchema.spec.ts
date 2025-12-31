@@ -153,6 +153,7 @@ describe('rpcParamValidationRules decorator', () => {
 
   describe('Multiple decorators interaction', () => {
     it('should work alongside other decorators', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const mockDecorator = (target: any, _context: ClassMethodDecoratorContext): void => {
         target.MOCK_KEY = 'mock-value';
       };
