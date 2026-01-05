@@ -58,7 +58,7 @@ let getSdkClientStub: sinon.SinonStubbedMember<HAPIServiceTest['getSDKClient']>;
 
 describe('@ethCall Eth Call spec', async function () {
   this.timeout(10000);
-  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, commonService } = generateEthTestEnv();
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
 
   const contractService = ethImpl['contractService'] as ContractServiceTest;
 
@@ -769,16 +769,21 @@ describe('@ethCall Eth Call spec', async function () {
       expect(transaction.gas).to.equal(50000);
     });
 
-    it('should populate gas price if not provided', async () => {
-      const transaction = {
-        value: '0x2540BE400',
-        gasPrice: undefined,
-      };
+    [
+      { label: 'not provided', gasPrice: undefined },
+      { label: '"0"', gasPrice: '0' },
+      { label: 'empty string', gasPrice: '' },
+      { label: 'number 0', gasPrice: 0 },
+    ].forEach(({ label, gasPrice }) => {
+      it(`should NOT populate gasPrice when it is ${label}`, async () => {
+        const transaction: IContractCallRequest = {
+          value: '0x2540BE400',
+          gasPrice,
+        };
 
-      await contractService['contractCallFormat'](transaction, requestDetails);
-
-      const expectedGasPrice = await commonService.gasPrice(requestDetails);
-      expect(transaction.gasPrice).to.equal(parseInt(expectedGasPrice));
+        await contractService['contractCallFormat'](transaction, requestDetails);
+        expect(transaction.gasPrice).to.be.undefined;
+      });
     });
 
     it('should populate the from field if the from field is not provided and value is provided', async () => {
