@@ -328,9 +328,20 @@ export class CommonService implements ICommonService {
             if (topics[i].length > 100) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
             }
-            params[`topic${i}`] = topics[i].map((t) => trimPrecedingZeros(t));
+            const trimmedTopics = topics[i].map((t: string, j: number) => {
+              const trimmed = trimPrecedingZeros(t);
+              if (trimmed === null) {
+                throw predefined.INVALID_PARAMETER(i, `Topic ${i}[${j}] is not a valid hex string`);
+              }
+              return trimmed;
+            });
+            params[`topic${i}`] = trimmedTopics;
           } else {
-            params[`topic${i}`] = trimPrecedingZeros(topics[i]);
+            const trimmed = trimPrecedingZeros(topics[i]);
+            if (trimmed === null) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} is not a valid hex string`);
+            }
+            params[`topic${i}`] = trimmed;
           }
         }
       }

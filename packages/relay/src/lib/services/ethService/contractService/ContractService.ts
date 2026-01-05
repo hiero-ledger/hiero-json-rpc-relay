@@ -166,7 +166,7 @@ export class ContractService implements IContractService {
         return predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
 
-      return prepend0x(trimPrecedingZeros(response.result));
+      return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e: any) {
       if (e instanceof MirrorNodeClientError) {
         if (e.isContractRevert()) {

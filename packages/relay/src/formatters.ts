@@ -153,13 +153,13 @@ const prepend0x = (input: string): string => {
   return input.startsWith(EMPTY_HEX) ? input : EMPTY_HEX + input;
 };
 
-const trimPrecedingZeros = (input: string) => {
+const trimPrecedingZeros = (input: string): string | null => {
   if (typeof input !== 'string') {
-    return input;
+    return null;
   }
   const hex = input.startsWith(EMPTY_HEX) ? input.slice(2) : input;
   if (!/^[0-9a-fA-F]+$/.test(hex)) {
-    return 'NaN';
+    return null;
   }
   const trimmed = hex.replace(/^0+/, '');
   return trimmed === '' ? '0' : trimmed;
