@@ -7,7 +7,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { Logger } from 'pino';
 import sinon from 'sinon';
 
-import { ASCIIToHex, hashNumber, numberTo0x, prepend0x } from '../../../dist/formatters';
+import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
@@ -161,13 +161,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       .onGet(BLOCKS_LIMIT_ORDER_URL)
       .replyOnce(200, JSON.stringify(DEFAULT_BLOCKS_RES));
 
-    try {
-      await ethImpl.blockNumber(requestDetails);
-    } catch (error) {
-      // eslint-disable-next-line no-empty
-    }
-    const blockNumber = await ethImpl.blockNumber(requestDetails);
+    await expect(ethImpl.blockNumber(requestDetails)).to.eventually.be.rejected;
 
+    const blockNumber = await ethImpl.blockNumber(requestDetails);
     expect(blockNumber).to.be.eq(blockNumber);
   });
 
@@ -357,8 +353,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
       result.transactions.forEach((txn) => {
-        expect(txn.maxFeePerGas).to.exist;
-        expect(txn.maxPriorityFeePerGas).to.exist;
+        expect(txn.maxFeePerGas).to.not.exist;
+        expect(txn.maxPriorityFeePerGas).to.not.exist;
+        expect(txn.type).to.be.eq(constants.ZERO_HEX);
       });
     } else {
       fail('Result is null');

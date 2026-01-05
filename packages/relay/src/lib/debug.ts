@@ -436,7 +436,7 @@ export class DebugImpl implements Debug {
         ]),
       ]);
 
-      if (!actionsResponse || actionsResponse.length === 0 || !transactionsResponse) {
+      if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
