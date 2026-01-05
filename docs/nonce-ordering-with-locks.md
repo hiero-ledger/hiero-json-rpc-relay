@@ -63,6 +63,11 @@ Limitations (by design):
   - Polling interval (in milliseconds) for Redis queue checks when waiting for lock acquisition.
   - Only applicable to Redis locking strategy.
 
+- `LOCK_HEARTBEAT_MISSED_COUNT` (number; default: 5)
+  - Number of consecutive heartbeats that can be missed before a waiter is considered dead and pruned from the queue.
+  - Heartbeat TTL is calculated as `LOCK_QUEUE_POLL_INTERVAL_MS * LOCK_HEARTBEAT_MISSED_COUNT`.
+  - Only applicable to Redis locking strategy.
+
 - `LOCAL_LOCK_MAX_ENTRIES` (number; default: 1000)
   - Maximum number of addresses to track in the local lock cache.
   - Uses LRU eviction when limit is reached.

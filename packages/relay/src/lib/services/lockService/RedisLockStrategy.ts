@@ -36,9 +36,10 @@ export class RedisLockStrategy implements LockStrategy {
     this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
     this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS');
 
-    // Heartbeat TTL is 50x the poll interval to provide ample safety margin.
-    // A process would need to miss ~50 consecutive heartbeat refreshes to be considered dead.
-    this.heartbeatTtlMs = this.pollIntervalMs * 50;
+    // Heartbeat TTL is LOCK_HEARTBEAT_MISSED_COUNT times the poll interval.
+    // A process must miss this many consecutive heartbeats to be considered dead.
+    const heartbeatMissedCount: number = ConfigService.get('LOCK_HEARTBEAT_MISSED_COUNT');
+    this.heartbeatTtlMs = this.pollIntervalMs * heartbeatMissedCount;
   }
 
   /**

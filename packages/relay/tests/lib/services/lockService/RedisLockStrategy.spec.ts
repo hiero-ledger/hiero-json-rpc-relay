@@ -355,8 +355,9 @@ describe('RedisLockStrategy Test Suite', function () {
       heartbeatSetCalls.forEach((call) => {
         const options = call.args[2];
         expect(options).to.have.property('PX');
-        // TTL should be pollIntervalMs * 50
-        const expectedTtl = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS') * 50;
+        // TTL should be pollIntervalMs * LOCK_HEARTBEAT_MISSED_COUNT
+        const expectedTtl =
+          ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS') * ConfigService.get('LOCK_HEARTBEAT_MISSED_COUNT');
         expect(options.PX).to.equal(expectedTtl);
       });
     });
