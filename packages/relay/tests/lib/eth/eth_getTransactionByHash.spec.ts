@@ -179,12 +179,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
       s: '0x',
       to: '0x00000000000000000000000000000000006390e6',
       transactionIndex: '0x7',
-      type: '0x2',
+      type: '0x0',
       v: '0x0',
-      yParity: '0x0',
-      accessList: [],
-      maxPriorityFeePerGas: '0x0',
-      maxFeePerGas: '0x0',
       value: '0x0',
     });
   });
