@@ -35,11 +35,11 @@ export class TransactionFactory {
           maxPriorityFeePerGas:
             fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === constants.EMPTY_HEX
               ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas)),
+              : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas) ?? '0'),
           maxFeePerGas:
             fields.maxFeePerGas === null || fields.maxFeePerGas === constants.EMPTY_HEX
               ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxFeePerGas)),
+              : prepend0x(trimPrecedingZeros(fields.maxFeePerGas) ?? '0'),
         }); // eip 1559 fields
       case null:
         return new Transaction(fields); //hapi
