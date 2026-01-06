@@ -5,14 +5,12 @@ import http from 'k6/http';
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 
-const url = __ENV.RELAY_BASE_URL;
-
 const methodName = 'eth_getBlockByNumber';
 const { options, run } = new TestScenarioBuilder()
-  .name(methodName) // use unique scenario name among all tests
+  .name(methodName)
   .request((testParameters) => {
     const blockNumber = '0x' + testParameters.blockNumberWithManySyntheticTxs.toString(16);
-    return http.post(url, getPayLoad(methodName, [blockNumber, true]), httpParams);
+    return http.post(__ENV.RELAY_BASE_URL, getPayLoad(methodName, [blockNumber, true]), httpParams);
   })
   .check(methodName, (r) => isNonErrorResponse(r))
   .testDuration('60s')

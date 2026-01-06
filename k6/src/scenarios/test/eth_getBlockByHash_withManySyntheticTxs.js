@@ -8,7 +8,7 @@ import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_getBlockByHash';
 const { options, run } = new TestScenarioBuilder()
-  .name(methodName) // use unique scenario name among all tests
+  .name(methodName)
   .request((testParameters) => {
     return http.post(
       testParameters.RELAY_BASE_URL,
