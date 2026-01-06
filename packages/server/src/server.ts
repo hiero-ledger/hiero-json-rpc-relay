@@ -17,10 +17,7 @@ import { formatRequestIdMessage } from './formatters';
 import KoaJsonRpc from './koaJsonRpc';
 import { spec } from './koaJsonRpc/lib/RpcError';
 import { getLimitDuration } from './koaJsonRpc/lib/utils';
-import {
-  EthereumRPCConformityService,
-  INVALID_METHOD_RESPONSE_BODY,
-} from './koaJsonRpc/services/EthereumRPCConformityService';
+import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConformityService';
 
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string }>();
@@ -49,6 +46,8 @@ const mainLogger = pino({
     },
   }),
 });
+
+const ethereumRPCConformityService = new EthereumRPCConformityService();
 
 export const logger = mainLogger.child({ name: 'rpc-server' });
 export const register = new Registry();
@@ -307,7 +306,7 @@ export async function initializeServer() {
       ctx.status = 200;
     } else {
       ctx.status = 405;
-      ctx.body = structuredClone(INVALID_METHOD_RESPONSE_BODY);
+      ctx.body = EthereumRPCConformityService.INVALID_METHOD_RESPONSE_BODY;
     }
   });
 
@@ -339,7 +338,7 @@ export async function initializeServer() {
 
   app.use(async (ctx) => {
     await rpcApp(ctx);
-    EthereumRPCConformityService.ensureEthereumJsonRpcCompliance(ctx);
+    ethereumRPCConformityService.ensureEthereumJsonRpcCompliance(ctx);
   });
 
   process.on('unhandledRejection', (reason, p) => {
