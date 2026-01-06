@@ -214,11 +214,11 @@ describe('Formatters', () => {
       expect('0x' + trimPrecedingZeros('0x00012000000')).to.eq('0x12000000');
     });
 
-    it('should return NaN if inputs are invalid number', () => {
-      expect(trimPrecedingZeros('')).to.eq('NaN');
-      expect(trimPrecedingZeros('0x')).to.eq('NaN');
-      expect(trimPrecedingZeros('Relay')).to.eq('NaN');
-      expect(trimPrecedingZeros('Hedera')).to.eq('NaN');
+    it('should return null if inputs are invalid number', () => {
+      expect(trimPrecedingZeros('')).to.eq(null);
+      expect(trimPrecedingZeros('0x')).to.eq(null);
+      expect(trimPrecedingZeros('Relay')).to.eq(null);
+      expect(trimPrecedingZeros('Hedera')).to.eq(null);
     });
   });
 

@@ -153,7 +153,7 @@ const prepend0x = (input: string): string => {
   return input.startsWith(EMPTY_HEX) ? input : EMPTY_HEX + input;
 };
 
-const trimPrecedingZeros = (input: string): string | null => {
+const trimPrecedingZeros = (input: unknown): string | null => {
   if (typeof input !== 'string') {
     return null;
   }
