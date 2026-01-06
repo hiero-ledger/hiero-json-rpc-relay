@@ -71,7 +71,7 @@ function populateSyntheticTransactions(
     );
 
     filteredLogs.forEach((log) => {
-      const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
+      const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
         accessList: undefined,
         blockHash: log.blockHash,
         blockNumber: log.blockNumber,
@@ -88,7 +88,7 @@ function populateSyntheticTransactions(
         s: constants.ZERO_HEX,
         to: log.address,
         transactionIndex: log.transactionIndex,
-        type: constants.TWO_HEX,
+        type: constants.ZERO_HEX, // 0x0 for legacy and synthetic transactions, 0x1 for access list types, 0x2 for dynamic fees.
         v: constants.ZERO_HEX,
         value: constants.ZERO_HEX,
       });

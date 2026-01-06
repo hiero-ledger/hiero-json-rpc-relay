@@ -122,7 +122,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
   this.afterEach(async () => {
     restMock.resetHandlers();
     sandbox.restore();
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
   });
 
   it('returns `null` for non-existent hash', async function () {
@@ -229,7 +229,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt).to.exist;
     if (receipt == null) return;
 
-    expect(receipt.type).to.be.null;
+    expect(receipt.type).to.be.eq(constants.ZERO_HEX);
   });
 
   it('handles empty bloom', async function () {
@@ -336,7 +336,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       type: defaultDetailedContractResultByHash.type,
     };
 
-    await cacheService.set(cacheKey, cacheReceipt, constants.ETH_GET_TRANSACTION_RECEIPT, requestDetails);
+    await cacheService.set(cacheKey, cacheReceipt, constants.ETH_GET_TRANSACTION_RECEIPT);
 
     // w no mirror node requests
     const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);

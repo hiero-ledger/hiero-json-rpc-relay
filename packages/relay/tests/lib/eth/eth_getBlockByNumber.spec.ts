@@ -346,7 +346,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with match and details and sythetic transactions', async function () {
+  it('eth_getBlockByNumber with match and details and synthetic transactions', async function () {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER_WITH_SYN_TXN}`).reply(200, JSON.stringify(BLOCK_WITH_SYN_TXN));
 
@@ -356,9 +356,10 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
-      result.transactions.forEach((txn) => {
-        expect(txn.maxFeePerGas).to.exist;
-        expect(txn.maxPriorityFeePerGas).to.exist;
+      result.transactions.forEach((tx) => {
+        expect(tx.maxFeePerGas).to.not.exist;
+        expect(tx.maxPriorityFeePerGas).to.not.exist;
+        expect(tx.type).to.be.eq(constants.ZERO_HEX);
       });
     } else {
       fail('Result is null');
