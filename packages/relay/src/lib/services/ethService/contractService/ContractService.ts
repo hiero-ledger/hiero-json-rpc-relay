@@ -341,10 +341,12 @@ export class ContractService implements IContractService {
     if (transaction.value) {
       transaction.value = weibarHexToTinyBarInt(transaction.value);
     }
-    if (transaction.gasPrice) {
-      transaction.gasPrice = parseInt(transaction.gasPrice.toString());
-    } else {
-      transaction.gasPrice = await this.common.gasPrice(requestDetails).then((gasPrice) => parseInt(gasPrice));
+    transaction.gasPrice = parseInt(transaction.gasPrice?.toString() || '0');
+
+    // MirrorNode checks the payer balance on its side.
+    // By not submitting `gasPrice`, we avoid this check, and a `gasPrice` of 0 would make this check fail anyway.
+    if (transaction.gasPrice === 0) {
+      delete transaction.gasPrice;
     }
     if (transaction.gas) {
       transaction.gas = parseInt(transaction.gas.toString());
