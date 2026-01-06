@@ -346,7 +346,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     }
   });
 
-  it('eth_getBlockByNumber with match and details and sythetic transactions', async function () {
+  it('eth_getBlockByNumber with match and details and synthetic transactions', async function () {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_NUMBER_WITH_SYN_TXN}`).reply(200, JSON.stringify(BLOCK_WITH_SYN_TXN));
 
