@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Logger } from 'pino';
+import { Counter, Registry } from 'prom-client';
 
 import { Utils } from '../../utils';
 import { JsonRpcError } from '../errors/JsonRpcError';
@@ -21,16 +22,28 @@ import { RPC_PARAM_VALIDATION_RULES_KEY, validateParams } from '../validators';
  * - Returning properly formatted responses
  */
 export class RpcMethodDispatcher {
+  private readonly consensusNodeErrorsCounter: Counter;
   /**
    * Creates a new RpcMethodDispatcher
    *
    * @param methodRegistry - Map of RPC method names to their implementations
    * @param logger - Logger for recording execution information
+   * @param register - Prometheus metrics registry
    */
   constructor(
     private readonly methodRegistry: RpcMethodRegistry,
     private readonly logger: Logger,
-  ) {}
+    register: Registry = new Registry(),
+  ) {
+    const metricName = 'rpc_relay_consensus_node_errors_total';
+    register.removeSingleMetric(metricName);
+    this.consensusNodeErrorsCounter = new Counter({
+      name: metricName,
+      help: 'Counter for calls to methods of CacheService separated by CallingMethod and CacheType',
+      registers: [register],
+      labelNames: ['status_name'],
+    });
+  }
 
   /**
    * Dispatches an RPC method call to the appropriate operation handler
@@ -159,9 +172,12 @@ export class RpcMethodDispatcher {
       return error;
     }
 
-    // Handle GRPC timeout errors
-    if (error instanceof SDKClientError && error.isGrpcTimeout()) {
-      return predefined.REQUEST_TIMEOUT;
+    // Handle GRPC errors
+    if (error instanceof SDKClientError) {
+      this.consensusNodeErrorsCounter.labels(error.status.toString()).inc(1);
+      return error.isGrpcTimeout()
+        ? predefined.REQUEST_TIMEOUT
+        : predefined.CONSENSUS_NODE_ERROR(error.status.toString(), error.statusCode, error.message);
     }
 
     // Handle MirrorNodeClientError by mapping to the correct JsonRpcError

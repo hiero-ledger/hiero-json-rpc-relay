@@ -538,10 +538,7 @@ export class TransactionService implements ITransactionService {
         );
 
         if (!contractResult) {
-          if (
-            sendRawTransactionError instanceof SDKClientError &&
-            (sendRawTransactionError.isConnectionDropped() || sendRawTransactionError.isTimeoutExceeded())
-          ) {
+          if (sendRawTransactionError instanceof SDKClientError) {
             throw sendRawTransactionError;
           }
 
@@ -695,7 +692,7 @@ export class TransactionService implements ITransactionService {
         );
       }
     } catch (e: any) {
-      if (e instanceof SDKClientError && (e.isConnectionDropped() || e.isTimeoutExceeded())) {
+      if (e instanceof SDKClientError) {
         submittedTransactionId = e.transactionId || '';
       }
 
