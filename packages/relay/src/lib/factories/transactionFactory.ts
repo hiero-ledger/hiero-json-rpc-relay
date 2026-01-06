@@ -51,10 +51,11 @@ export class TransactionFactory {
   /**
    * Creates a transaction object from a log entry
    * @param log The log entry containing transaction data
+   * @param type Transaction type (2 by default)
    * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log): Transaction1559 {
-    const transaction = TransactionFactory.createTransactionByType(2, {
+  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction1559 {
+    return TransactionFactory.createTransactionByType(type, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
@@ -71,12 +72,10 @@ export class TransactionFactory {
       s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      type: numberTo0x(type), // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
-
-    return transaction;
   }
 }
 
