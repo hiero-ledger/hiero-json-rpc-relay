@@ -357,8 +357,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
       result.transactions.forEach((txn) => {
-        expect(txn.maxFeePerGas).to.exist;
-        expect(txn.maxPriorityFeePerGas).to.exist;
+        expect(txn.maxFeePerGas).to.not.exist;
+        expect(txn.maxPriorityFeePerGas).to.not.exist;
+        expect(txn.type).to.be.eq(constants.ZERO_HEX);
       });
     } else {
       fail('Result is null');
