@@ -398,7 +398,7 @@ export class Relay {
     this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);
 
     // Initialize RPC method dispatcher
-    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger);
+    this.rpcMethodDispatcher = new RpcMethodDispatcher(this.rpcMethodRegistry, this.logger, this.register);
 
     this.logger.info('Relay running with chainId=%s', chainId);
   }
