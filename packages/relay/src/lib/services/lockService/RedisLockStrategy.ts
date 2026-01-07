@@ -9,21 +9,25 @@ import { LockStrategy } from '../../types/lock';
 import { LockService } from './LockService';
 
 /**
- * Redis-based distributed lock strategy implementing FIFO queue semantics.
+ * Redis-based distributed lock strategy implementing FIFO queue semantics with crash resilience.
  *
  * Uses Redis SET NX + LIST for distributed locking across multiple relay instances.
- * Provides automatic TTL-based expiration and polling-based lock acquisition.
+ * Provides automatic TTL-based expiration, polling-based lock acquisition, and heartbeat-based
+ * zombie detection to prevent permanent deadlocks on process crashes.
  *
  * @remarks
  * - Lock keys: `{prefix}:{address}` stores current holder's session key
  * - Queue keys: `{prefix}:queue:{address}` stores FIFO queue of waiters
- * - TTL on lock keys provides automatic cleanup on crashes/hangs
+ * - Heartbeat keys: `{prefix}:heartbeat:{sessionKey}` proves waiter liveness
+ * - TTL on lock and heartbeat keys provides automatic cleanup on crashes/hangs
+ * - Active waiters act as "janitors" to prune dead entries from the queue
  */
 export class RedisLockStrategy implements LockStrategy {
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
   private readonly maxLockHoldMs: number;
   private readonly pollIntervalMs: number;
+  private readonly heartbeatTtlMs: number;
   private readonly keyPrefix = 'lock';
 
   constructor(redisClient: RedisClientType, logger: Logger) {
@@ -31,6 +35,11 @@ export class RedisLockStrategy implements LockStrategy {
     this.logger = logger;
     this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
     this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS');
+
+    // Heartbeat TTL is LOCK_HEARTBEAT_MISSED_COUNT times the poll interval.
+    // A process must miss this many consecutive heartbeats to be considered dead.
+    const heartbeatMissedCount: number = ConfigService.get('LOCK_HEARTBEAT_MISSED_COUNT');
+    this.heartbeatTtlMs = this.pollIntervalMs * heartbeatMissedCount;
   }
 
   /**
@@ -43,6 +52,7 @@ export class RedisLockStrategy implements LockStrategy {
     const sessionKey = this.generateSessionKey();
     const lockKey = this.getLockKey(address);
     const queueKey = this.getQueueKey(address);
+    const heartbeatKey = this.getHeartbeatKey(sessionKey);
     const startTime = Date.now();
     let joinedQueue = false;
 
@@ -57,6 +67,10 @@ export class RedisLockStrategy implements LockStrategy {
 
       // Poll until first in queue and can acquire lock
       while (true) {
+        // Refresh own heartbeat of the active waiter (Proof of Life)
+        // note: `1` is just a placeholder value and doesn't matter, only TTL matters
+        await this.redisClient.set(heartbeatKey, '1', { PX: this.heartbeatTtlMs });
+
         // Check if first in line
         const firstInQueue = await this.redisClient.lIndex(queueKey, -1);
 
@@ -78,6 +92,13 @@ export class RedisLockStrategy implements LockStrategy {
             }
 
             return sessionKey;
+          }
+        } else if (firstInQueue) {
+          // Remove zombie (crashed waiter with no heartbeat)
+          const heartbeatExists = await this.redisClient.exists(this.getHeartbeatKey(firstInQueue));
+          if (!heartbeatExists) {
+            await this.redisClient.lRem(queueKey, 0, firstInQueue);
+            continue; // Immediate retry (no sleep)
           }
         }
 
@@ -162,6 +183,16 @@ export class RedisLockStrategy implements LockStrategy {
   private getQueueKey(address: string): string {
     const normalizedAddress = LockService.normalizeAddress(address);
     return `${this.keyPrefix}:queue:${normalizedAddress}`;
+  }
+
+  /**
+   * Generates the Redis key for a heartbeat.
+   *
+   * @param sessionKey - The session key.
+   * @returns The Redis heartbeat key.
+   */
+  private getHeartbeatKey(sessionKey: string): string {
+    return `${this.keyPrefix}:heartbeat:${sessionKey}`;
   }
 
   /**

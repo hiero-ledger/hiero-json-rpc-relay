@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32 } from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
@@ -317,11 +317,33 @@ export class CommonService implements ICommonService {
     return true;
   }
 
+  /**
+   * @param params
+   * @param topics
+   */
   public addTopicsToParams(params: any, topics: any[] | null) {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
         if (!_.isNil(topics[i])) {
-          params[`topic${i}`] = topics[i];
+          if (Array.isArray(topics[i])) {
+            if (topics[i].length > 100) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);
+            }
+            const trimmedTopics = topics[i].map((t: string, j: number) => {
+              const trimmed = trimPrecedingZeros(t);
+              if (trimmed === null) {
+                throw predefined.INVALID_PARAMETER(i, `Topic ${i}[${j}] is not a valid hex string`);
+              }
+              return trimmed;
+            });
+            params[`topic${i}`] = trimmedTopics;
+          } else {
+            const trimmed = trimPrecedingZeros(topics[i]);
+            if (trimmed === null) {
+              throw predefined.INVALID_PARAMETER(i, `Topic ${i} is not a valid hex string`);
+            }
+            params[`topic${i}`] = trimmed;
+          }
         }
       }
     }
