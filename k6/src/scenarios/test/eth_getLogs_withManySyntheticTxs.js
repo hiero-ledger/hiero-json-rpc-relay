@@ -10,7 +10,11 @@ const { options, run } = new TestScenarioBuilder()
   .name(methodName)
   .request((testParameters) => {
     const blockNumber = '0x' + testParameters.blockNumberWithManySyntheticTxs.toString(16);
-    return http.post(__ENV.RELAY_BASE_URL, getPayLoad(methodName, [{ fromBlock: blockNumber, toBlock: blockNumber }]), httpParams);
+    return http.post(
+      __ENV.RELAY_BASE_URL,
+      getPayLoad(methodName, [{ fromBlock: blockNumber, toBlock: blockNumber }]),
+      httpParams
+    );
   })
   .check(methodName, (r) => isNonErrorResponse(r))
   .testDuration('60s')

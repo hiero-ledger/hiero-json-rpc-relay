@@ -4,22 +4,19 @@ import http from 'k6/http';
 
 import { TestScenarioBuilder } from '../../lib/common.js';
 import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
-import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_getBlockByHash';
 const { options, run } = new TestScenarioBuilder()
   .name(methodName)
   .request((testParameters) => {
     return http.post(
-      testParameters.RELAY_BASE_URL,
+      __ENV.RELAY_BASE_URL,
       getPayLoad(methodName, [testParameters.blockHashWithManySyntheticTxs, true]),
-      httpParams,
-    )
+      httpParams
+    );
   })
   .check(methodName, (r) => isNonErrorResponse(r))
   .testDuration('60s')
   .build();
 
 export { options, run };
-
-export const setup = setupTestParameters;

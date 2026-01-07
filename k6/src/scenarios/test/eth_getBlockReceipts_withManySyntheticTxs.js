@@ -11,9 +11,9 @@ const { options, run } = new TestScenarioBuilder()
   .request((testParameters) => {
     const blockNumber = '0x' + testParameters.blockNumberWithManySyntheticTxs.toString(16);
     return http.post(
-      testParameters.RELAY_BASE_URL,
+      __ENV.RELAY_BASE_URL,
       getPayLoad(methodName, [blockNumber]),
-      httpParams,
+      httpParams
     );
   })
   .check(methodName, (r) => isNonErrorResponse(r))
