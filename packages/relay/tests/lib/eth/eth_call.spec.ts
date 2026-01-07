@@ -541,6 +541,49 @@ describe('@ethCall Eth Call spec', async function () {
         });
     });
 
+    it('Mirror Node returns 400 contract revert error with internal transactions details', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+      };
+
+      restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
+      await mockContractCall(
+        { ...callData, block: 'latest' },
+        false,
+        400,
+        {
+          _status: {
+            messages: [
+              {
+                message: 'CONTRACT_REVERT_EXECUTED',
+                detail: '',
+                data: '0x',
+              },
+              {
+                message: 'TOKEN_NOT_ASSOCIATED_TO_ACCOUNT',
+                detail: '',
+                data: '',
+              },
+            ],
+          },
+        },
+        requestDetails,
+      );
+
+      const expectedError = predefined.CONTRACT_REVERT('TOKEN_NOT_ASSOCIATED_TO_ACCOUNT, CONTRACT_REVERT_EXECUTED');
+      await expect(ethImpl.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.eventually.satisfy((error: JsonRpcError) => {
+          expect(error.code).to.equal(expectedError.code);
+          expect(error.message).to.equal(expectedError.message);
+          return true;
+        });
+    });
+
     it('eth_call with wrong `to` field', async function () {
       const args = [
         {
