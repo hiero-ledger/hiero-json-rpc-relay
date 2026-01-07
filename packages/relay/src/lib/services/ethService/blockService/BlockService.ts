@@ -6,6 +6,7 @@ import { Logger } from 'pino';
 import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
 import { Utils } from '../../../../utils';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
@@ -17,7 +18,6 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 
 export class BlockService implements IBlockService {
@@ -25,7 +25,7 @@ export class BlockService implements IBlockService {
    * The cache service used for caching all responses.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The chain id.
@@ -58,7 +58,7 @@ export class BlockService implements IBlockService {
 
   /** Constructor */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
     mirrorNodeClient: MirrorNodeClient,

@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 import { Registry } from 'prom-client';
 import type { RedisClientType } from 'redis';
 
-import { LocalLRUCache, RedisCache } from '../clients';
+import { LocalLRUCache, MeasurableCache, RedisCache } from '../clients';
 import type { ICacheClient } from '../clients/cache/ICacheClient';
 
 export class CacheClientFactory {
@@ -16,7 +16,11 @@ export class CacheClientFactory {
     redisClient?: RedisClientType,
   ): ICacheClient {
     return !ConfigService.get('TEST') && redisClient !== undefined
-      ? new RedisCache(logger.child({ name: 'redisCache' }), redisClient)
-      : new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys);
+      ? new MeasurableCache(new RedisCache(logger.child({ name: 'redisCache' }), redisClient), register, 'redis')
+      : new MeasurableCache(
+          new LocalLRUCache(logger.child({ name: 'localLRUCache' }), register, reservedKeys),
+          register,
+          'lru',
+        );
   }
 }

@@ -7,13 +7,13 @@ import { Logger } from 'pino';
 import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { ICommonService } from './ICommonService';
 
 /**
@@ -30,7 +30,7 @@ export class CommonService implements ICommonService {
    *
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The interface through which we interact with the mirror node
@@ -59,7 +59,7 @@ export class CommonService implements ICommonService {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;
