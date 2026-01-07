@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import { JsonRpcError, MirrorNodeClientError, predefined } from '../../../../dist';
 import { WorkersPool } from '../../../../dist/lib/services/workersService/WorkersPool';
 
-describe.only('WorkersPool Test Suite', () => {
+describe('WorkersPool Test Suite', () => {
   describe('wrapError', () => {
     it('should wrap an JsonRpcError in Error.message', () => {
       const jsonRpcError = predefined.INSUFFICIENT_ACCOUNT_BALANCE;
