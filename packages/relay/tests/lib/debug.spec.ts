@@ -578,80 +578,46 @@ describe('Debug API Test Suite', async function () {
         });
 
         describe('tinybars to weibars conversion', async function () {
-          it('should convert amount from tinybars to weibars in callTracer response', async function () {
-            // 100 tinybars = 100 * 10^10 weibars = 10^12 weibars = 0xe8d4a51000
-            const amountInTinybars = 100;
-            const expectedWeibarValue = '0xe8d4a51000'; // 1_000_000_000_000 in hex
-
-            const contractsResultsWithAmount = {
-              ...contractsResultsByHashResult,
-              amount: amountInTinybars,
-            };
-
-            restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithAmount));
-
-            const result = await debugService.traceTransaction(
-              transactionHash,
-              tracerObjectCallTracerFalse,
-              requestDetails,
-            );
-
-            expect(result.value).to.equal(expectedWeibarValue);
-          });
-
-          it('should return 0x0 for zero amount in callTracer response', async function () {
-            const contractsResultsWithZeroAmount = {
-              ...contractsResultsByHashResult,
+          const conversionTestCases = [
+            {
+              name: 'should convert amount from tinybars to weibars',
+              amount: 100,
+              expectedValue: '0xe8d4a51000', // 100 tinybars = 100 * 10^10 weibars = 10^12 weibars
+            },
+            {
+              name: 'should return 0x0 for zero amount',
               amount: 0,
-            };
-
-            restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithZeroAmount));
-
-            const result = await debugService.traceTransaction(
-              transactionHash,
-              tracerObjectCallTracerFalse,
-              requestDetails,
-            );
-
-            expect(result.value).to.equal('0x0');
-          });
-
-          it('should return 0x0 for null amount in callTracer response', async function () {
-            const contractsResultsWithNullAmount = {
-              ...contractsResultsByHashResult,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for null amount',
               amount: null,
-            };
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should convert large amount (1 HBAR) from tinybars to weibars',
+              amount: 100_000_000, // 1 HBAR = 100_000_000 tinybars = 10^18 weibars
+              expectedValue: '0xde0b6b3a7640000',
+            },
+          ];
 
-            restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithNullAmount));
+          conversionTestCases.forEach(({ name, amount, expectedValue }) => {
+            it(`${name} in callTracer response`, async function () {
+              const contractsResultsWithAmount = {
+                ...contractsResultsByHashResult,
+                amount,
+              };
 
-            const result = await debugService.traceTransaction(
-              transactionHash,
-              tracerObjectCallTracerFalse,
-              requestDetails,
-            );
+              restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithAmount));
 
-            expect(result.value).to.equal('0x0');
-          });
+              const result = await debugService.traceTransaction(
+                transactionHash,
+                tracerObjectCallTracerFalse,
+                requestDetails,
+              );
 
-          it('should convert large amount from tinybars to weibars correctly', async function () {
-            // 1 HBAR = 100_000_000 tinybars = 10^18 weibars = 0xde0b6b3a7640000
-            const oneHbarInTinybars = 100_000_000;
-            const expectedWeibarValue = '0xde0b6b3a7640000'; // 10^18 in hex
-
-            const contractsResultsWithLargeAmount = {
-              ...contractsResultsByHashResult,
-              amount: oneHbarInTinybars,
-            };
-
-            restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithLargeAmount));
-
-            const result = await debugService.traceTransaction(
-              transactionHash,
-              tracerObjectCallTracerFalse,
-              requestDetails,
-            );
-
-            expect(result.value).to.equal(expectedWeibarValue);
+              expect(result.value).to.equal(expectedValue);
+            });
           });
         });
       });
@@ -960,85 +926,65 @@ describe('Debug API Test Suite', async function () {
         });
 
         describe('formatActionsResult tinybars to weibars conversion', async function () {
-          it('should convert action value from tinybars to weibars', async function () {
-            // 100 tinybars = 100 * 10^10 weibars = 10^12 weibars = 0xe8d4a51000
-            const actionWithValue = {
-              actions: [makeCreateAction({ value: 100, index: 0 })],
-            };
+          const singleActionTestCases = [
+            {
+              name: 'should convert action value from tinybars to weibars',
+              value: 100,
+              expectedValue: '0xe8d4a51000', // 100 tinybars = 100 * 10^10 weibars
+            },
+            {
+              name: 'should return 0x0 for zero value',
+              value: 0,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for null value',
+              value: null,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for undefined value',
+              value: undefined,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should convert large value (1 HBAR) from tinybars to weibars',
+              value: 100_000_000, // 1 HBAR = 100_000_000 tinybars = 10^18 weibars
+              expectedValue: '0xde0b6b3a7640000',
+            },
+          ];
 
-            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+          singleActionTestCases.forEach(({ name, value, expectedValue }) => {
+            it(`${name} in formatActionsResult`, async function () {
+              const actionWithValue = {
+                actions: [makeCreateAction({ value, index: 0 })],
+              };
 
-            const result = await debugService.formatActionsResult(actionWithValue.actions, requestDetails);
+              restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
 
-            expect(result).to.be.an('array').with.lengthOf(1);
-            expect(result[0]).to.have.property('value', '0xe8d4a51000');
-          });
+              const result = await debugService.formatActionsResult(actionWithValue.actions, requestDetails);
 
-          it('should return 0x0 for zero value in formatActionsResult', async function () {
-            const actionWithZeroValue = {
-              actions: [makeCreateAction({ value: 0, index: 0 })],
-            };
-
-            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
-
-            const result = await debugService.formatActionsResult(actionWithZeroValue.actions, requestDetails);
-
-            expect(result).to.be.an('array').with.lengthOf(1);
-            expect(result[0]).to.have.property('value', '0x0');
-          });
-
-          it('should return 0x0 for null value in formatActionsResult', async function () {
-            const actionWithNullValue = {
-              actions: [makeCreateAction({ value: null, index: 0 })],
-            };
-
-            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
-
-            const result = await debugService.formatActionsResult(actionWithNullValue.actions, requestDetails);
-
-            expect(result).to.be.an('array').with.lengthOf(1);
-            expect(result[0]).to.have.property('value', '0x0');
-          });
-
-          it('should return 0x0 for undefined value in formatActionsResult', async function () {
-            const actionWithUndefinedValue = {
-              actions: [makeCreateAction({ value: undefined, index: 0 })],
-            };
-
-            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
-
-            const result = await debugService.formatActionsResult(actionWithUndefinedValue.actions, requestDetails);
-
-            expect(result).to.be.an('array').with.lengthOf(1);
-            expect(result[0]).to.have.property('value', '0x0');
-          });
-
-          it('should convert large value from tinybars to weibars in formatActionsResult', async function () {
-            // 1 HBAR = 100_000_000 tinybars = 10^18 weibars = 0xde0b6b3a7640000
-            const oneHbarInTinybars = 100_000_000;
-            const actionWithLargeValue = {
-              actions: [makeCreateAction({ value: oneHbarInTinybars, index: 0 })],
-            };
-
-            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
-
-            const result = await debugService.formatActionsResult(actionWithLargeValue.actions, requestDetails);
-
-            expect(result).to.be.an('array').with.lengthOf(1);
-            expect(result[0]).to.have.property('value', '0xde0b6b3a7640000');
+              expect(result).to.be.an('array').with.lengthOf(1);
+              expect(result[0]).to.have.property('value', expectedValue);
+            });
           });
 
           it('should convert multiple action values from tinybars to weibars', async function () {
+            const multipleActionsTestCases = [
+              { value: 100, expectedValue: '0xe8d4a51000' },
+              { value: 200, expectedValue: '0x1d1a94a2000' },
+            ];
+
             const actionsWithValues = {
               actions: [
-                makeCreateAction({ value: 100, index: 0 }), // 100 tinybars = 0xe8d4a51000
+                makeCreateAction({ value: multipleActionsTestCases[0].value, index: 0 }),
                 makeCreateAction({
                   call_depth: 1,
-                  value: 200,
+                  value: multipleActionsTestCases[1].value,
                   index: 1,
                   from: contractAddress,
                   to: contractAddress2,
-                }), // 200 tinybars = 0x1d1a94a2000
+                }),
               ],
             };
 
@@ -1049,8 +995,9 @@ describe('Debug API Test Suite', async function () {
             const result = await debugService.formatActionsResult(actionsWithValues.actions, requestDetails);
 
             expect(result).to.be.an('array').with.lengthOf(2);
-            expect(result[0]).to.have.property('value', '0xe8d4a51000');
-            expect(result[1]).to.have.property('value', '0x1d1a94a2000');
+            multipleActionsTestCases.forEach((testCase, index) => {
+              expect(result[index]).to.have.property('value', testCase.expectedValue);
+            });
           });
         });
       });

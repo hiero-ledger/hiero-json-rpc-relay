@@ -270,10 +270,7 @@ export class DebugImpl implements Debug {
           gasUsed: numberTo0x(action.gas_used),
           input: contract?.bytecode ?? action.input,
           output: contract?.runtime_bytecode ?? action.result_data,
-          value: (() => {
-            const weibarValue = tinybarsToWeibars(action.value);
-            return weibarValue == null ? DebugImpl.zeroHex : numberTo0x(weibarValue);
-          })(),
+          value: numberTo0x(tinybarsToWeibars(action.value) ?? 0),
         };
       }),
     );
@@ -464,8 +461,7 @@ export class DebugImpl implements Debug {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const weibarAmount = tinybarsToWeibars(amount);
-      const value = weibarAmount == null ? DebugImpl.zeroHex : numberTo0x(weibarAmount);
+      const value = numberTo0x(tinybarsToWeibars(amount) ?? 0);
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {
