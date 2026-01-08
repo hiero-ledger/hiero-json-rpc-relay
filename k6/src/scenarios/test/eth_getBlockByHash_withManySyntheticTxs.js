@@ -7,7 +7,7 @@ import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 
 const methodName = 'eth_getBlockByHash';
 const { options, run } = new TestScenarioBuilder()
-  .name(methodName)
+  .name(`${methodName}_withManySyntheticTxs`)
   .request((testParameters) => {
     return http.post(
       __ENV.RELAY_BASE_URL,

@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const logPayloads = process.env.DEBUG_MODE === 'true';
-const syntheticTxPerBlock = parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK) > 0 ? parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK): 1000;
+const syntheticTxPerBlock = parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK) > 0 ? parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK): 800;
 
 class LoggingProvider extends ethers.JsonRpcProvider {
   async send(method, params) {
@@ -97,8 +97,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
     const signerClient = createClient(network, accountId, signerPk);
     const accountUpdateTx = await new HederaSDK.AccountUpdateTransaction()
       .setAccountId(accountId)
-      .setMaxAutomaticTokenAssociations(1_000)
-      .freezeWith(signerClient);
+      .setMaxAutomaticTokenAssociations(1_000);
     await (await accountUpdateTx.freezeWith(signerClient).sign(signer)).execute(signerClient);
   }
 

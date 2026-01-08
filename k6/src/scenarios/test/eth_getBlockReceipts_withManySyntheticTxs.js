@@ -7,7 +7,7 @@ import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 
 const methodName = 'eth_getBlockReceipts';
 const { options, run } = new TestScenarioBuilder()
-  .name(methodName)
+  .name(`${methodName}_withManySyntheticTxs`)
   .request((testParameters) => {
     const blockNumber = '0x' + testParameters.blockNumberWithManySyntheticTxs.toString(16);
     return http.post(
