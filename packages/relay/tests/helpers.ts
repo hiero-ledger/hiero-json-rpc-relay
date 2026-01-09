@@ -7,6 +7,7 @@ import { expect } from 'chai';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
+import Piscina from 'piscina';
 import proxyquire from 'proxyquire';
 import * as sinon from 'sinon';
 
@@ -1147,7 +1148,6 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
   const blockWorker = proxyquire('../../relay/dist/lib/services/ethService/blockService/blockWorker.js', deps);
   const commonWorker = proxyquire('../../relay/dist/lib/services/ethService/ethCommonService/commonWorker.js', deps);
 
-  // @ts-ignore
   WorkersPool['instance'] = {
     run: async (task: any) => {
       switch (task.type) {
@@ -1168,5 +1168,5 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
           throw new Error(`Unsupported task type ${task.type}`);
       }
     },
-  };
+  } as Piscina<any, any>;
 };
