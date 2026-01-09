@@ -16,7 +16,7 @@ import sinon from 'sinon';
 import openRpcSchema from '../../../../docs/openrpc.json';
 import { LocalPendingTransactionStorage } from '../../dist/lib/services';
 import { Eth, JsonRpcError, Net, TxPool, Web3 } from '../../src';
-import { numberTo0x } from '../../src/formatters';
+import { numberTo0x, trimPrecedingZeros } from '../../src/formatters';
 import { SDKClient } from '../../src/lib/clients';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
@@ -26,7 +26,6 @@ import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositori
 import { EthImpl } from '../../src/lib/eth';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { NetImpl } from '../../src/lib/net';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { LockService } from '../../src/lib/services/lockService/LockService';
@@ -109,7 +108,7 @@ describe('Open RPC Specification', function () {
     });
 
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
-    const cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+    const cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),
       logger.child({ name: `mirror-node` }),
@@ -398,8 +397,8 @@ describe('Open RPC Specification', function () {
         `contracts/results/logs` +
           `?timestamp=gte:${defaultBlock.timestamp.from}` +
           `&timestamp=lte:${defaultBlock.timestamp.to}` +
-          `&topic0=${defaultLogTopics[0]}&topic1=${defaultLogTopics[1]}` +
-          `&topic2=${defaultLogTopics[2]}&topic3=${defaultLogTopics[3]}&limit=100&order=asc`,
+          `&topic0=${trimPrecedingZeros(defaultLogTopics[0])}&topic1=${trimPrecedingZeros(defaultLogTopics[1])}` +
+          `&topic2=${trimPrecedingZeros(defaultLogTopics[2])}&topic3=${trimPrecedingZeros(defaultLogTopics[3])}&limit=100&order=asc`,
       )
       .reply(200, JSON.stringify(filteredLogs));
     mock.onGet('blocks?block.number=gte:0x5&block.number=lte:0x10').reply(

@@ -304,4 +304,9 @@ export const predefined = {
       code: -32000,
       message: `Invalid arguments: ${message}`,
     }),
+  CONSENSUS_NODE_ERROR: (statusName: string, statusCode: number, message: string) =>
+    new JsonRpcError({
+      code: -32000,
+      message: `Consensus node error: ${statusName} (${statusCode}): ${message}`,
+    }),
 };

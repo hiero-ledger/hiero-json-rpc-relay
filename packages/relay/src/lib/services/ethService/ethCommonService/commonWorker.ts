@@ -7,13 +7,12 @@ import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { CommonService } from './CommonService';
 
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
 const register = RegistryFactory.getInstance();
-const cacheService = new CacheService(CacheClientFactory.create(logger, register), register);
+const cacheService = CacheClientFactory.create(logger, register);
 const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 

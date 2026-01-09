@@ -3,7 +3,7 @@
 import { randomBytes, uuidV4 } from 'ethers';
 import { Logger } from 'pino';
 
-import { CacheService } from '../../../services/cacheService/cacheService';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { HbarSpendingPlan } from '../../entities/hbarLimiter/hbarSpendingPlan';
 import { HbarSpendingRecord } from '../../entities/hbarLimiter/hbarSpendingRecord';
 import { HbarSpendingPlanNotActiveError, HbarSpendingPlanNotFoundError } from '../../types/hbarLimiter/errors';
@@ -18,7 +18,7 @@ export class HbarSpendingPlanRepository {
    * The cache service used for storing data.
    * @private
    */
-  private readonly cache: CacheService;
+  private readonly cache: ICacheClient;
 
   /**
    * The logger used for logging all output from this class.
@@ -26,7 +26,7 @@ export class HbarSpendingPlanRepository {
    */
   private readonly logger: Logger;
 
-  constructor(cache: CacheService, logger: Logger) {
+  constructor(cache: ICacheClient, logger: Logger) {
     this.cache = cache;
     this.logger = logger;
   }

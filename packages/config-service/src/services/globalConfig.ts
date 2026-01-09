@@ -679,6 +679,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 50,
   },
+  LOCK_HEARTBEAT_MISSED_COUNT: {
+    type: 'number',
+    required: false,
+    defaultValue: 5,
+  },
   ENABLE_NONCE_ORDERING: {
     type: 'boolean',
     required: false,

@@ -14,7 +14,6 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/reposit
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheClientFactory } from '../../../src/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/lib/services';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 
@@ -35,7 +34,7 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
   ConfigServiceTestHelper.dynamicOverride('ETH_FEE_HISTORY_FIXED', fixedFeeHistory);
   const logger = pino({ level: 'silent' });
   const registry = new Registry();
-  const cacheService = new CacheService(CacheClientFactory.create(logger, registry), registry);
+  const cacheService = CacheClientFactory.create(logger, registry);
   const mirrorNodeInstance = new MirrorNodeClient(
     ConfigService.get('MIRROR_NODE_URL'),
     logger.child({ name: `mirror-node` }),

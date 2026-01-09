@@ -12,12 +12,12 @@ import {
   weibarHexToTinyBarInt,
 } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { Log } from '../../../model';
 import { IContractCallRequest, IContractCallResponse, IGetLogsParams, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { CommonService } from '../../ethService/ethCommonService/CommonService';
 import { ICommonService } from '../../ethService/ethCommonService/ICommonService';
 import HAPIService from '../../hapiService/hapiService';
@@ -32,7 +32,7 @@ export class ContractService implements IContractService {
    * @private
    * @readonly
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The common service used for all common methods.
@@ -72,14 +72,14 @@ export class ContractService implements IContractService {
   /**
    * Creates a new instance of the ContractService
    *
-   * @param {CacheService} cacheService - The cache service for caching responses
+   * @param {ICacheClient} cacheService - The cache service for caching responses
    * @param {CommonService} common - The common service for shared functionality
    * @param {HAPIService} hapiService - The HAPI service for consensus node interaction
    * @param {Logger} logger - The logger for logging
    * @param {MirrorNodeClient} mirrorNodeClient - The mirror node client
    */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     common: ICommonService,
     hapiService: HAPIService,
     logger: Logger,
@@ -166,7 +166,7 @@ export class ContractService implements IContractService {
         return predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
 
-      return prepend0x(trimPrecedingZeros(response.result));
+      return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e: any) {
       if (e instanceof MirrorNodeClientError) {
         if (e.isContractRevert()) {
