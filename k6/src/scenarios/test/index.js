@@ -17,14 +17,18 @@ import * as eth_feeHistory from './eth_feeHistory.js';
 import * as eth_gasPrice from './eth_gasPrice.js';
 import * as eth_getBalance from './eth_getBalance.js';
 import * as eth_getBlockByHash from './eth_getBlockByHash.js';
+import * as eth_getBlockByHash_withManySyntheticTxs from './eth_getBlockByHash_withManySyntheticTxs.js';
 import * as eth_getBlockByNumber from './eth_getBlockByNumber.js';
+import * as eth_getBlockByNumber_withManySyntheticTxs from './eth_getBlockByNumber_withManySyntheticTxs.js';
 import * as eth_getBlockTransactionCountByHash from './eth_getBlockTransactionCountByHash.js';
 import * as eth_getBlockTransactionCountByNumber from './eth_getBlockTransactionCountByNumber.js';
 import * as eth_getBlockReceipts from './eth_getBlockReceipts.js';
+import * as eth_getBlockReceipts_withManySyntheticTxs from './eth_getBlockReceipts_withManySyntheticTxs.js';
 import * as eth_getCode from './eth_getCode.js';
 import * as eth_getFilterChanges from './eth_getFilterChanges.js';
 import * as eth_getFilterLogs from './eth_getFilterLogs.js';
 import * as eth_getLogs from './eth_getLogs.js';
+import * as eth_getLogs_withManySyntheticTxs from './eth_getLogs_withManySyntheticTxs.js';
 import * as eth_getProof from './eth_getProof.js';
 import * as eth_getStorageAt from './eth_getStorageAt.js';
 import * as eth_getTransactionByBlockHashAndIndex from './eth_getTransactionByBlockHashAndIndex.js';
@@ -74,14 +78,18 @@ const tests = {
   eth_gasPrice,
   eth_getBalance,
   eth_getBlockByHash,
+  eth_getBlockByHash_withManySyntheticTxs,
   eth_getBlockByNumber,
+  eth_getBlockByNumber_withManySyntheticTxs,
   eth_getBlockTransactionCountByHash,
   eth_getBlockTransactionCountByNumber,
   eth_getBlockReceipts,
+  eth_getBlockReceipts_withManySyntheticTxs,
   eth_getCode,
   eth_getFilterChanges,
   eth_getFilterLogs,
   eth_getLogs,
+  eth_getLogs_withManySyntheticTxs,
   eth_getProof,
   eth_getStorageAt,
   eth_getTransactionByBlockHashAndIndex,
