@@ -3,10 +3,10 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
 
-import { MirrorNodeClient } from '../../clients';
+import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
-import { CacheService } from '../cacheService/cacheService';
+import { ICacheClient } from '../../clients/cache/ICacheClient';
 
 /**
  * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
@@ -40,7 +40,7 @@ export class WorkersPool {
   /**
    * Holds the instance of CacheService
    */
-  private static cacheService: CacheService;
+  private static cacheService: MeasurableCache;
 
   /**
    * Returns the shared Piscina worker pool instance.
@@ -82,9 +82,9 @@ export class WorkersPool {
    * @param cacheService - The cache service instance.
    * @returns A promise resolving to the worker's result.
    */
-  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: CacheService): Promise<any> {
+  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
     this.mirrorNodeClient = mirrorNodeClient;
-    this.cacheService = cacheService;
+    this.cacheService = cacheService as MeasurableCache;
 
     return this.getInstance()
       .run(options)

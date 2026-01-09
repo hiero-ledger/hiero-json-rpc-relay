@@ -23,7 +23,6 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { CommonService } from '../ethCommonService/CommonService';
 
@@ -35,7 +34,7 @@ import { CommonService } from '../ethCommonService/CommonService';
  */
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
 const register = RegistryFactory.getInstance();
-const cacheService = new CacheService(CacheClientFactory.create(logger, register), register);
+const cacheService = CacheClientFactory.create(logger, register);
 const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 

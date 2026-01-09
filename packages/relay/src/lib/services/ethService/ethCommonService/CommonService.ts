@@ -14,7 +14,6 @@ import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 

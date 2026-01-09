@@ -1143,13 +1143,6 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
         }
       },
     },
-    '../../cacheService/cacheService': {
-      CacheService: class {
-        constructor() {
-          return cacheService;
-        }
-      },
-    },
   };
   const blockWorker = proxyquire('../../relay/dist/lib/services/ethService/blockService/blockWorker.js', deps);
   const commonWorker = proxyquire('../../relay/dist/lib/services/ethService/ethCommonService/commonWorker.js', deps);

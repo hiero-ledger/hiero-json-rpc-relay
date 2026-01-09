@@ -64,7 +64,7 @@ describe('Filter API Test Suite', async function () {
     expect(cachedFilter.lastQueried).to.be.null;
   };
 
-  this.beforeAll(() => {
+  this.beforeAll(async () => {
     cacheService = CacheClientFactory.create(logger, registry);
     mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL'),

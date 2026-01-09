@@ -14,10 +14,7 @@ import type { ICacheClient } from '../../src/lib/clients/cache/ICacheClient';
 import constants from '../../src/lib/constants';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../src/lib/model';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import { __test__ } from '../../src/lib/services/ethService/blockService/blockWorker';
-import { BlockService, CommonService } from '../../src/lib/services';
-import { RequestDetails } from '../../src/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);

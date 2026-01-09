@@ -7,9 +7,9 @@ import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { Block } from '../../../model';
 import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 import { WorkersPool } from '../../workersService/WorkersPool';
+import { ICacheClient } from '../../../clients/cache/ICacheClient';
 
 export class BlockService implements IBlockService {
   /**
