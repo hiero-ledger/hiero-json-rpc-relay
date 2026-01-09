@@ -56,7 +56,7 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     generateEthTestEnv(true);
   const results = defaultContractResults.results;
   const TOTAL_GAS_USED = numberTo0x(results[0].gas_used + results[1].gas_used);
-  const modifiedNetworkFees = JSON.parse(JSON.stringify(DEFAULT_NETWORK_FEES));
+  const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
   modifiedNetworkFees.fees[2].gas = modifiedNetworkFees.fees[2].gas * 100;
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockByHashTest', ipAddress: '0.0.0.0' });
 
