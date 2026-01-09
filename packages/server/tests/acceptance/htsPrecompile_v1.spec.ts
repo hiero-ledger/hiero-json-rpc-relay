@@ -215,4 +215,30 @@ describe('@htsprecompilev1 HTS Precompile V1 Acceptance Tests', async function (
         .responseCode,
     ).to.equal(TX_SUCCESS_CODE);
   });
+
+  describe('@release create a fungible token and fail to transfer it to unassociated account', function () {
+    const ERC20_TRANSFER_ABI = 'function transfer(address to, uint256 amount) returns (bool)';
+    let tokenContractAddress: string;
+    let receiverAddress: string;
+
+    before(async () => {
+      tokenContractAddress = await createHTSToken();
+      receiverAddress = await Utils.createUnassociatedAccount(servicesNode, mirrorNode);
+    });
+
+    [
+      ['eth_estimateGas', 'should fail to estimate gas for transfer to unassociated user and see both failure reasons'],
+      ['eth_call', 'should fail to transfer to unassociated user and see both failure reasons'],
+    ].forEach(([rpcMethod, testDescription]) => {
+      it(testDescription, async function () {
+        const token = new ethers.Contract(tokenContractAddress, [ERC20_TRANSFER_ABI], accounts[0].wallet);
+        const { from, to, data } = await token.transfer.populateTransaction(receiverAddress, 1);
+        const request = relay.provider.send(rpcMethod, [{ from, to, data }, 'latest']);
+
+        expect(request)
+          .to.eventually.be.rejected.and.have.property('message')
+          .that.include('CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
+      });
+    });
+  });
 });

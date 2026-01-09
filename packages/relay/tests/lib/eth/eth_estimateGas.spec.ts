@@ -489,6 +489,38 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
       });
   });
 
+  it('should eth_estimateGas with contract revert with detailed in internal transactions', async function () {
+    await mockContractCall(
+      transaction,
+      true,
+      400,
+      {
+        _status: {
+          messages: [
+            {
+              message: 'CONTRACT_REVERT_EXECUTED',
+              detail: '',
+              data: '0x',
+            },
+            {
+              message: 'TOKEN_NOT_ASSOCIATED_TO_ACCOUNT',
+              detail: '',
+              data: '',
+            },
+          ],
+        },
+      },
+      requestDetails,
+    );
+
+    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.eventually.satisfy((error: JsonRpcError) => {
+        expect(error.message).to.equal('execution reverted: CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
+        return true;
+      });
+  });
+
   it('should eth_estimateGas with contract revert for contract call and generic revert error throws CONTRACT_REVERT error', async function () {
     const decodedMessage = 'Some error message';
     const defaultErrorSignature = keccak256(Buffer.from('Error(string)')).slice(0, 10); // 0x08c379a0

@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
+import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import http from 'http';
@@ -249,6 +249,30 @@ export class Utils {
 
     return await rpcServer.call(RelayCall.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
   };
+
+  /**
+   * Creates account not associated to any token and with auto association disabled using hedera sdk.
+   *
+   * @param {ServicesClient} servicesClient Services client.
+   * @param {MirrorClient} mirrorNode The mirror node client.
+   * @returns {Promise<string>} A promise resolving to the evm address of new account.
+   */
+  static readonly createUnassociatedAccount = async (
+    servicesClient: ServicesClient,
+    mirrorNode: MirrorClient,
+  ): Promise<string> => {
+    const accountKey = PrivateKey.generateECDSA();
+    const accountCreateTransaction = await new AccountCreateTransaction()
+      .setECDSAKeyWithAlias(accountKey)
+      .setInitialBalance(new Hbar(1))
+      .setMaxAutomaticTokenAssociations(0)
+      .execute(servicesClient.client);
+    const { accountId } = await accountCreateTransaction.getReceipt(servicesClient.client);
+    const { evm_address: evmAddress } = await mirrorNode.get(`accounts/${accountId}`);
+
+    return evmAddress;
+  };
+
   /**
    * Creates an alias account on the mirror node with the provided details.
    *
@@ -269,10 +293,12 @@ export class Utils {
     const address = wallet.address;
 
     // create hollow account
-    await (await signer.sendTransaction({
-      to: wallet.address,
-      value: accountBalance,
-    })).wait();
+    await (
+      await signer.sendTransaction({
+        to: wallet.address,
+        value: accountBalance,
+      })
+    ).wait();
 
     const mirrorNodeAccount = (await mirrorNode.get(`/accounts/${address}`)).account;
     const accountId = AccountId.fromString(mirrorNodeAccount);

@@ -6,6 +6,7 @@ export class MirrorNodeClientError extends Error {
   public statusCode: number;
   public data?: string;
   public detail?: string;
+  private children: { message: string; detail?: string; data?: string }[];
 
   static ErrorCodes = {
     ECONNABORTED: 504,
@@ -26,18 +27,26 @@ export class MirrorNodeClientError extends Error {
   constructor(error: any, statusCode: number) {
     // mirror node web3 module sends errors in this format, this is why we need a check to distinguish
     if (error.response?.data?._status?.messages?.length) {
-      const msg = error.response.data._status.messages[0];
+      const [msg, ...children] = error.response.data._status.messages;
       const { message, detail, data } = msg;
       super(message);
 
       this.detail = detail;
       this.data = data;
+      this.children = children || [];
     } else {
       super(error.message);
+
+      this.children = [];
     }
 
     this.statusCode = statusCode;
     Object.setPrototypeOf(this, MirrorNodeClientError.prototype);
+  }
+
+  get revertReason(): string {
+    const reasons = this.children.map((child) => child.detail || child.message).filter(Boolean);
+    return [this.detail || this.message, ...reasons].join(', ');
   }
 
   public isTimeout(): boolean {
