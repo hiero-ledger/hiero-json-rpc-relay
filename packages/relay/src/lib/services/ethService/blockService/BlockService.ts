@@ -1,24 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import _ from 'lodash';
+
 import { Logger } from 'pino';
 
-import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
-import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
-import { Utils } from '../../../../utils';
-import type { ICacheClient } from '../../../clients/cache/ICacheClient';
+import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { predefined } from '../../../errors/JsonRpcError';
-import { BlockFactory } from '../../../factories/blockFactory';
-import { createTransactionFromContractResult, TransactionFactory } from '../../../factories/transactionFactory';
-import {
-  IRegularTransactionReceiptParams,
-  TransactionReceiptFactory,
-} from '../../../factories/transactionReceiptFactory';
-import { Block, Log, Transaction } from '../../../model';
-import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
+import { Block } from '../../../model';
+import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { IBlockService, ICommonService } from '../../index';
+import { WorkersPool } from '../../workersService/WorkersPool';
+import { ICacheClient } from '../../../clients/cache/ICacheClient';
 
 export class BlockService implements IBlockService {
   /**
@@ -38,11 +29,6 @@ export class BlockService implements IBlockService {
    * @private
    */
   private readonly common: ICommonService;
-
-  /**
-   * The maximum block range for the transaction count.
-   */
-  private readonly ethGetTransactionCountMaxBlockRange = ConfigService.get('ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE');
 
   /**
    * The logger used for logging all output from this class.
@@ -118,78 +104,15 @@ export class BlockService implements IBlockService {
     blockHashOrBlockNumber: string,
     requestDetails: RequestDetails,
   ): Promise<ITransactionReceipt[] | null> {
-    const block = await this.common.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
-
-    if (block == null) {
-      return null;
-    }
-
-    const paramTimestamp: IContractResultsParams = {
-      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
-    };
-
-    const [contractResults, logs] = await Promise.all([
-      this.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-      this.common.getLogsWithParams(null, paramTimestamp, requestDetails),
-    ]);
-
-    if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
-      return [];
-    }
-
-    const receipts: ITransactionReceipt[] = [];
-    const effectiveGas = numberTo0x(await this.common.getGasPriceInWeibars(block.timestamp.from.split('.')[0]));
-
-    const logsByHash = new Map<string, Log[]>();
-    for (const log of logs) {
-      const existingLogs = logsByHash.get(log.transactionHash) || [];
-      existingLogs.push(log);
-      logsByHash.set(log.transactionHash, existingLogs);
-    }
-
-    const receiptPromises = contractResults.map(async (contractResult) => {
-      if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-        this.logger.debug(
-          `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-          contractResult.hash,
-          contractResult.result,
-        );
-        return null;
-      }
-
-      contractResult.logs = logsByHash.get(contractResult.hash) || [];
-      const [from, to] = await Promise.all([
-        this.common.resolveEvmAddress(contractResult.from, requestDetails),
-        contractResult.to === null ? null : this.common.resolveEvmAddress(contractResult.to, requestDetails),
-      ]);
-
-      const transactionReceiptParams: IRegularTransactionReceiptParams = {
-        effectiveGas,
-        from,
-        logs: contractResult.logs,
-        receiptResponse: contractResult,
-        to,
-      };
-      return TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
-    });
-
-    const resolvedReceipts = await Promise.all(receiptPromises);
-    receipts.push(...resolvedReceipts.filter(Boolean));
-
-    const regularTxHashes = new Set(contractResults.map((result) => result.hash));
-
-    // filtering out the synthetic tx hashes and creating the synthetic receipt
-    for (const [txHash, logGroup] of logsByHash.entries()) {
-      if (!regularTxHashes.has(txHash)) {
-        const syntheticReceipt = TransactionReceiptFactory.createSyntheticReceipt({
-          syntheticLogs: logGroup,
-          gasPriceForTimestamp: effectiveGas,
-        });
-        receipts.push(syntheticReceipt as ITransactionReceipt);
-      }
-    }
-
-    return receipts;
+    return WorkersPool.run(
+      {
+        type: 'getBlockReceipts',
+        blockHashOrBlockNumber,
+        requestDetails,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   /**
@@ -285,56 +208,17 @@ export class BlockService implements IBlockService {
     showDetails: boolean,
     requestDetails: RequestDetails,
   ): Promise<Block | null> {
-    const blockResponse: MirrorNodeBlock = await this.common.getHistoricalBlockResponse(
-      requestDetails,
-      blockHashOrNumber,
-      true,
-    );
-
-    if (blockResponse == null) return null;
-    const timestampRange = blockResponse.timestamp;
-    const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
-    const params = { timestamp: timestampRangeParams };
-
-    const [contractResults, logs] = await Promise.all([
-      this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResults.name, [
+    return WorkersPool.run(
+      {
+        type: 'getBlock',
+        blockHashOrNumber,
+        showDetails,
         requestDetails,
-        params,
-        undefined,
-      ]),
-      this.common.getLogsWithParams(null, params, requestDetails),
-    ]);
-
-    if (contractResults == null && logs.length == 0) {
-      return null;
-    }
-
-    if (showDetails && contractResults.length >= this.ethGetTransactionCountMaxBlockRange) {
-      throw predefined.MAX_BLOCK_SIZE(blockResponse.count);
-    }
-
-    let txArray: Transaction[] | string[] = await this.prepareTransactionArray(
-      contractResults,
-      showDetails,
-      requestDetails,
+        chain: this.chain,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
     );
-
-    txArray = this.populateSyntheticTransactions(showDetails, logs, txArray);
-
-    const receipts: IReceiptRootHash[] = ReceiptsRootUtils.buildReceiptRootHashes(
-      txArray.map((tx) => (showDetails ? tx.hash : tx)),
-      contractResults,
-      logs,
-    );
-
-    const gasPrice = await this.common.gasPrice(requestDetails);
-
-    return await BlockFactory.createBlock({
-      blockResponse,
-      receipts,
-      txArray,
-      gasPrice,
-    });
   }
 
   /**
@@ -349,100 +233,5 @@ export class BlockService implements IBlockService {
     }
 
     return numberTo0x(block.count);
-  }
-
-  /**
-   * Populates the synthetic transactions for the block.
-   * @param showDetails Whether to show transaction details
-   * @param logs[] The logs to populate the synthetic transactions from
-   * @param transactionsArray The array of transactions to populate
-   * @param requestDetails The request details for logging and tracking
-   * @returns {Array<Transaction | string>} The populated transactions
-   */
-  private populateSyntheticTransactions(
-    showDetails: boolean,
-    logs: Log[],
-    transactionsArray: Transaction[] | string[],
-  ): Transaction[] | string[] {
-    let filteredLogs: Log[];
-    if (showDetails) {
-      filteredLogs = logs.filter(
-        (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
-      );
-      filteredLogs.forEach((log) => {
-        const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
-          accessList: undefined, // we don't support access lists for now
-          blockHash: log.blockHash,
-          blockNumber: log.blockNumber,
-          chainId: this.chain,
-          from: log.address,
-          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
-          gasPrice: constants.INVALID_EVM_INSTRUCTION,
-          hash: log.transactionHash,
-          input: constants.ZERO_HEX_8_BYTE,
-          maxPriorityFeePerGas: constants.ZERO_HEX,
-          maxFeePerGas: constants.ZERO_HEX,
-          nonce: nanOrNumberTo0x(0),
-          r: constants.ZERO_HEX,
-          s: constants.ZERO_HEX,
-          to: log.address,
-          transactionIndex: log.transactionIndex,
-          type: constants.ZERO_HEX, // 0x0 for legacy and synthetic transactions, 0x1 for access list types, 0x2 for dynamic fees.
-          v: constants.ZERO_HEX,
-          value: constants.ZERO_HEX,
-        });
-
-        if (transaction !== null) {
-          (transactionsArray as Transaction[]).push(transaction);
-        }
-      });
-    } else {
-      filteredLogs = logs.filter((log) => !(transactionsArray as string[]).includes(log.transactionHash));
-      filteredLogs.forEach((log) => {
-        (transactionsArray as string[]).push(log.transactionHash);
-      });
-    }
-
-    this.logger.trace(`Synthetic transaction hashes will be populated in the block response`);
-
-    transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
-    return transactionsArray;
-  }
-
-  /**
-   * Prepares the transaction array for the block.
-   * @param contractResults The contract results to prepare the transaction array from
-   * @param showDetails Whether to show transaction details
-   * @param requestDetails The request details for logging and tracking
-   * @returns {Array<Transaction | string>} The prepared transaction array
-   */
-  private async prepareTransactionArray(
-    contractResults: any[],
-    showDetails: boolean,
-    requestDetails: RequestDetails,
-  ): Promise<Transaction[] | string[]> {
-    const txArray: Transaction[] | string[] = [];
-    for (const contractResult of contractResults) {
-      // there are several hedera-specific validations that occur right before entering the evm
-      // if a transaction has reverted there, we should not include that tx in the block response
-      if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
-        this.logger.debug(
-          `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-          contractResult.hash,
-          contractResult.result,
-        );
-        continue;
-      }
-
-      [contractResult.from, contractResult.to] = await Promise.all([
-        this.common.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-        this.common.resolveEvmAddress(contractResult.to, requestDetails),
-      ]);
-
-      contractResult.chain_id = contractResult.chain_id || this.chain;
-      txArray.push(showDetails ? createTransactionFromContractResult(contractResult) : contractResult.hash);
-    }
-
-    return txArray;
   }
 }

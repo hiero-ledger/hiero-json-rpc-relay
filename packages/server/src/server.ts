@@ -5,12 +5,13 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
+import { RegistryFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/registryFactory';
 import { RateLimitStoreFactory } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import cors from '@koa/cors';
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { v4 as uuid } from 'uuid';
 
 import { formatRequestIdMessage } from './formatters';
@@ -50,7 +51,7 @@ const mainLogger = pino({
 const ethereumRPCConformityService = new EthereumRPCConformityService();
 
 export const logger = mainLogger.child({ name: 'rpc-server' });
-export const register = new Registry();
+export const register = RegistryFactory.getInstance(true);
 
 /**
  * Parse RFC 7239 Forwarded header to extract the original client IP

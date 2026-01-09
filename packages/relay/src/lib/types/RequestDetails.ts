@@ -20,12 +20,18 @@ export class RequestDetails {
   connectionId?: string;
 
   /**
+   * The method which is called.
+   */
+  method?: string;
+
+  /**
    * Creates an instance of RequestDetails.
    * @param details - The details of the request.
    */
-  constructor(details: { requestId: string; ipAddress: string; connectionId?: string }) {
+  constructor(details: { requestId: string; ipAddress: string; connectionId?: string; method?: string }) {
     this.requestId = details.requestId;
     this.ipAddress = details.ipAddress;
     this.connectionId = details.connectionId;
+    this.method = details.method;
   }
 }

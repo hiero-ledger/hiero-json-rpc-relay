@@ -6,7 +6,9 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import sinon from 'sinon';
 
+import { CommonService } from '../../../dist/lib/services';
 import { Eth, predefined } from '../../../src';
+import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import { trimPrecedingZeros } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
@@ -23,6 +25,7 @@ import {
   expectLogData2,
   expectLogData3,
   expectLogData4,
+  mockWorkersPool,
   overrideEnvsInMochaDescribe,
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
@@ -70,8 +73,16 @@ describe('@ethGetLogs using MirrorNode', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
-  }: { restMock: MockAdapter; hapiServiceInstance: HAPIService; ethImpl: Eth; cacheService: ICacheClient } =
-    generateEthTestEnv();
+    commonService,
+    mirrorNodeInstance,
+  }: {
+    restMock: MockAdapter;
+    hapiServiceInstance: HAPIService;
+    ethImpl: Eth;
+    cacheService: ICacheClient;
+    commonService: CommonService;
+    mirrorNodeInstance: MirrorNodeClient;
+  } = generateEthTestEnv();
   const filteredLogs = {
     logs: [DEFAULT_LOGS.logs[0], DEFAULT_LOGS.logs[1]],
   };
@@ -79,6 +90,10 @@ describe('@ethGetLogs using MirrorNode', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_getLogsTest', ipAddress: '0.0.0.0' });
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
 
   beforeEach(async () => {
     // reset cache and restMock
@@ -204,7 +219,9 @@ describe('@ethGetLogs using MirrorNode', async function () {
       expect.fail('should have thrown an error');
     } catch (error) {
       expect(error).to.exist;
-      expect(error).to.eq(predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS);
+      const predefinedError = predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
+      expect(error.code).to.equal(predefinedError.code);
+      expect(error.message).to.equal(predefinedError.message);
     }
   });
 
