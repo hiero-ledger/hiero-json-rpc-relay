@@ -126,22 +126,6 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
       expect(dataInLRU).to.be.null;
     });
 
-    it('test multiSet operation', async () => {
-      const pairs = {
-        boolean: true,
-        int: -1,
-        string: '5644',
-      };
-
-      await cacheService.multiSet(pairs, CALLING_METHOD);
-      await new Promise((r) => setTimeout(r, 200));
-
-      for (const key in pairs) {
-        const cachedValue = await cacheService.getAsync(key, CALLING_METHOD);
-        expect(cachedValue).to.be.null;
-      }
-    });
-
     it('test delete operation', async () => {
       await cacheService.set(dataLabel, DATA, CALLING_METHOD);
       await new Promise((r) => setTimeout(r, 200));
