@@ -7,6 +7,7 @@ import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { HbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import {
@@ -17,7 +18,6 @@ import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimi
 import { IHbarSpendingRecord } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingRecord';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -28,8 +28,8 @@ describe('HbarSpendingPlanRepository', function () {
   const ttl = 86_400_000; // 1 day
 
   const tests = (isSharedCacheEnabled: boolean) => {
-    let cacheService: CacheService;
-    let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
+    let cacheService: ICacheClient;
+    let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let repository: HbarSpendingPlanRepository;
     let redisClient: RedisClientType | undefined;
 
@@ -45,7 +45,7 @@ describe('HbarSpendingPlanRepository', function () {
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(CacheClientFactory.create(logger, registry, new Set(), redisClient), registry);
+      cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClient);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new HbarSpendingPlanRepository(cacheService, logger.child({ name: `HbarSpendingPlanRepository` }));
     });

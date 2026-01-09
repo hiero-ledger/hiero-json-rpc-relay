@@ -13,7 +13,6 @@ import { JsonRpcError, predefined } from '../../src';
 import { MirrorNodeClient } from '../../src/lib/clients';
 import constants from '../../src/lib/constants';
 import { Precheck } from '../../src/lib/precheck';
-import { CacheService } from '../../src/lib/services/cacheService/cacheService';
 import {
   blobVersionedHash,
   contractAddress1,
@@ -95,7 +94,7 @@ describe('Precheck', async function () {
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
       registry,
-      new CacheService(CacheClientFactory.create(logger, registry), registry),
+      CacheClientFactory.create(logger, registry),
       instance,
     );
     const transactionPoolService = sinon.createStubInstance(TransactionPoolService);

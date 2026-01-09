@@ -575,6 +575,26 @@ describe('Debug API Test Suite', async function () {
               [syntheticTxHash, tracerObjectCallTracerFalse, requestDetails],
             );
           });
+
+          [
+            { label: 'empty', result: [] },
+            { label: 'missing', result: undefined },
+            { label: 'malformed', result: [{}] },
+          ].forEach(({ label, result }) => {
+            it(`should fallback to synthetic transaction handling for ${label} non-synthetic data`, async function () {
+              restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
+              restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(200, JSON.stringify({ actions: result }));
+              restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(200, JSON.stringify(contractsResultsByHashResult));
+              restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+              restMock.onGet(ACCOUNT_BY_ADDRESS).reply(200, JSON.stringify({ evm_address: accountAddress }));
+              const { type } = await debugService.traceTransaction(
+                syntheticTxHash,
+                tracerObjectCallTracerFalse,
+                requestDetails,
+              );
+              expect(type).to.equal('CALL');
+            });
+          });
         });
       });
 

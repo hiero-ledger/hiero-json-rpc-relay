@@ -15,7 +15,6 @@ import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
-import { CacheService } from '../services/cacheService/cacheService';
 import {
   IAccountRequestParams,
   IContractCallRequest,
@@ -30,6 +29,7 @@ import {
 } from '../types';
 import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
+import type { ICacheClient } from './cache/ICacheClient';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
 
 type REQUEST_METHODS = 'GET' | 'POST';
@@ -146,7 +146,7 @@ export class MirrorNodeClient {
    * The cache service used for caching responses.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
@@ -241,7 +241,7 @@ export class MirrorNodeClient {
     restUrl: string,
     logger: Logger,
     register: Registry,
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     restClient?: AxiosInstance,
     web3Url?: string,
     web3Client?: AxiosInstance,

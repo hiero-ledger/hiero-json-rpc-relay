@@ -12,6 +12,7 @@ import { Counter, Gauge, Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import { prepend0x } from '../../../../src/formatters';
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../../src/lib/constants';
 import { HbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/hbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -25,7 +26,6 @@ import {
 import { IDetailedHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../../../src/lib/db/types/hbarLimiter/subscriptionTier';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '../../../../src/lib/services/hbarLimitService';
 import { RequestDetails } from '../../../../src/lib/types';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
@@ -48,7 +48,7 @@ describe('HBAR Rate Limit Service', function () {
 
   const requestDetails = new RequestDetails({ requestId: '', ipAddress: mockIpAddress });
 
-  let cacheService: CacheService;
+  let cacheService: ICacheClient;
   let hbarLimitService: HbarLimitService;
   let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
   let hbarSpendingPlanRepositorySpy: sinon.SinonSpiedInstance<HbarSpendingPlanRepository>;
@@ -59,7 +59,7 @@ describe('HBAR Rate Limit Service', function () {
   let loggerSpy: sinon.SinonSpiedInstance<Logger>;
 
   beforeEach(async function () {
-    cacheService = new CacheService(CacheClientFactory.create(logger, register));
+    cacheService = CacheClientFactory.create(logger, register);
     loggerSpy = sinon.spy(logger);
     hbarSpendingPlanRepository = new HbarSpendingPlanRepository(
       cacheService,

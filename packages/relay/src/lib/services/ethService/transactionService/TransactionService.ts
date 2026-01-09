@@ -7,6 +7,7 @@ import { Logger } from 'pino';
 
 import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -19,7 +20,6 @@ import {
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
 import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import HAPIService from '../../hapiService/hapiService';
 import { ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
@@ -30,7 +30,7 @@ export class TransactionService implements ITransactionService {
    * @private
    * @readonly
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The common service providing shared functionality.
@@ -85,7 +85,7 @@ export class TransactionService implements ITransactionService {
    * Constructor for the TransactionService class.
    */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
@@ -189,7 +189,7 @@ export class TransactionService implements ITransactionService {
         return null;
       }
 
-      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0]);
+      return TransactionFactory.createTransactionFromLog(this.chain, syntheticLogs[0], 0);
     }
 
     const fromAddress = await this.common.resolveEvmAddress(contractResult.from, requestDetails, [
@@ -538,10 +538,7 @@ export class TransactionService implements ITransactionService {
         );
 
         if (!contractResult) {
-          if (
-            sendRawTransactionError instanceof SDKClientError &&
-            (sendRawTransactionError.isConnectionDropped() || sendRawTransactionError.isTimeoutExceeded())
-          ) {
+          if (sendRawTransactionError instanceof SDKClientError) {
             throw sendRawTransactionError;
           }
 
@@ -695,7 +692,7 @@ export class TransactionService implements ITransactionService {
         );
       }
     } catch (e: any) {
-      if (e instanceof SDKClientError && (e.isConnectionDropped() || e.isTimeoutExceeded())) {
+      if (e instanceof SDKClientError) {
         submittedTransactionId = e.transactionId || '';
       }
 

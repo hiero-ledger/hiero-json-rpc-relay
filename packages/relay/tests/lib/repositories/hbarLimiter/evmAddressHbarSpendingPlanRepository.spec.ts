@@ -8,13 +8,13 @@ import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
+import type { ICacheClient } from '../../../../src/lib/clients/cache/ICacheClient';
 import { RedisClientManager } from '../../../../src/lib/clients/redisClientManager';
 import { EvmAddressHbarSpendingPlan } from '../../../../src/lib/db/entities/hbarLimiter/evmAddressHbarSpendingPlan';
 import { EvmAddressHbarSpendingPlanRepository } from '../../../../src/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { EvmAddressHbarSpendingPlanNotFoundError } from '../../../../src/lib/db/types/hbarLimiter/errors';
 import { IEvmAddressHbarSpendingPlan } from '../../../../src/lib/db/types/hbarLimiter/evmAddressHbarSpendingPlan';
 import { CacheClientFactory } from '../../../../src/lib/factories/cacheClientFactory';
-import { CacheService } from '../../../../src/lib/services/cacheService/cacheService';
 import { overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../../../helpers';
 
 chai.use(chaiAsPromised);
@@ -25,8 +25,8 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
   const ttl = 86_400_000; // 1 day
 
   const tests = (isSharedCacheEnabled: boolean) => {
-    let cacheService: CacheService;
-    let cacheServiceSpy: sinon.SinonSpiedInstance<CacheService>;
+    let cacheService: ICacheClient;
+    let cacheServiceSpy: sinon.SinonSpiedInstance<ICacheClient>;
     let repository: EvmAddressHbarSpendingPlanRepository;
     let redisClient: RedisClientType | undefined;
 
@@ -42,7 +42,7 @@ describe('@evmAddressHbarSpendingPlanRepository EvmAddressHbarSpendingPlanReposi
       } else {
         redisClient = undefined;
       }
-      cacheService = new CacheService(CacheClientFactory.create(logger, registry, new Set(), redisClient), registry);
+      cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClient);
       cacheServiceSpy = sinon.spy(cacheService);
       repository = new EvmAddressHbarSpendingPlanRepository(
         cacheService,

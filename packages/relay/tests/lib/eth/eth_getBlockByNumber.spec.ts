@@ -10,10 +10,10 @@ import sinon from 'sinon';
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
 import { predefined } from '../../../src';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
 import { EthImpl } from '../../../src/lib/eth';
 import { Block, Transaction } from '../../../src/lib/model';
-import { CacheService } from '../../../src/lib/services/cacheService/cacheService';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
@@ -86,7 +86,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: EthImpl;
-    cacheService: CacheService;
+    cacheService: ICacheClient;
     mirrorNodeInstance: MirrorNodeClient;
     logger: Logger;
   } = generateEthTestEnv(true);
@@ -161,13 +161,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       .onGet(BLOCKS_LIMIT_ORDER_URL)
       .replyOnce(200, JSON.stringify(DEFAULT_BLOCKS_RES));
 
-    try {
-      await ethImpl.blockNumber(requestDetails);
-    } catch {
-      // Expected error on first call (404), will succeed on second try
-    }
-    const blockNumber = await ethImpl.blockNumber(requestDetails);
+    await expect(ethImpl.blockNumber(requestDetails)).to.eventually.be.rejected;
 
+    const blockNumber = await ethImpl.blockNumber(requestDetails);
     expect(blockNumber).to.be.eq(blockNumber);
   });
 
@@ -357,8 +353,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
       result.transactions.forEach((txn) => {
-        expect(txn.maxFeePerGas).to.exist;
-        expect(txn.maxPriorityFeePerGas).to.exist;
+        expect(txn.maxFeePerGas).to.not.exist;
+        expect(txn.maxPriorityFeePerGas).to.not.exist;
+        expect(txn.type).to.be.eq(constants.ZERO_HEX);
       });
     } else {
       fail('Result is null');

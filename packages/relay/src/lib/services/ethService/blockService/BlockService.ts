@@ -6,6 +6,7 @@ import { Logger } from 'pino';
 import { nanOrNumberTo0x, numberTo0x } from '../../../../formatters';
 import { IReceiptRootHash, ReceiptsRootUtils } from '../../../../receiptsRootUtils';
 import { Utils } from '../../../../utils';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
@@ -17,7 +18,6 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { CacheService } from '../../cacheService/cacheService';
 import { IBlockService, ICommonService } from '../../index';
 
 export class BlockService implements IBlockService {
@@ -25,7 +25,7 @@ export class BlockService implements IBlockService {
    * The cache service used for caching all responses.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The chain id.
@@ -58,7 +58,7 @@ export class BlockService implements IBlockService {
 
   /** Constructor */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
     mirrorNodeClient: MirrorNodeClient,
@@ -374,7 +374,7 @@ export class BlockService implements IBlockService {
         (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
       );
       filteredLogs.forEach((log) => {
-        const transaction: Transaction | null = TransactionFactory.createTransactionByType(2, {
+        const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
           accessList: undefined, // we don't support access lists for now
           blockHash: log.blockHash,
           blockNumber: log.blockNumber,
@@ -391,7 +391,7 @@ export class BlockService implements IBlockService {
           s: constants.ZERO_HEX,
           to: log.address,
           transactionIndex: log.transactionIndex,
-          type: constants.TWO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+          type: constants.ZERO_HEX, // 0x0 for legacy and synthetic transactions, 0x1 for access list types, 0x2 for dynamic fees.
           v: constants.ZERO_HEX,
           value: constants.ZERO_HEX,
         });

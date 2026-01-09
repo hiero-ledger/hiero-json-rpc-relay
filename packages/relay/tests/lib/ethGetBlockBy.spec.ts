@@ -10,11 +10,13 @@ import sinon from 'sinon';
 
 import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
+import type { ICacheClient } from '../../src/lib/clients/cache/ICacheClient';
 import constants from '../../src/lib/constants';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../src/lib/model';
 import { BlockService, CommonService } from '../../src/lib/services';
 import { CacheService } from '../../src/lib/services/cacheService/cacheService';
+import { RequestDetails } from '../../src/lib/types';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);
@@ -24,7 +26,7 @@ const registry = new Registry();
 
 let restMock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
-let cacheService: CacheService;
+let cacheService: ICacheClient;
 
 const blockHashTrimmed = '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b';
 const blockHash = `${blockHashTrimmed}999fc7e86699f60f2a3fb3ed9a646c6b`;
@@ -104,10 +106,7 @@ describe('eth_getBlockBy', async function () {
       eval: sinon.stub(),
       quit: sinon.stub().resolves(true),
     } as any;
-    cacheService = new CacheService(
-      CacheClientFactory.create(logger, registry, new Set(), redisClientMock as any),
-      registry,
-    );
+    cacheService = CacheClientFactory.create(logger, registry, new Set(), redisClientMock as any);
 
     // @ts-ignore
     mirrorNodeInstance = new MirrorNodeClient(

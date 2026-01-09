@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Status } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import pino from 'pino';
@@ -203,16 +204,34 @@ describe('RpcMethodDispatcher', () => {
       expect(result.message).to.equal(`Test error`);
     });
 
-    it('should return non time out SDKClientError as INTERNAL_ERROR', () => {
+    it('should return non time out SDKClientError as consensus error', () => {
       const error = new SDKClientError(new Error('SDK error'), 'SDK error');
 
       // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
       const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
-      const expected = new JsonRpcError({
-        code: predefined.INTERNAL_ERROR(error.message).code,
-        message: predefined.INTERNAL_ERROR(error.message).message,
-      });
+      const { code, message } = predefined.CONSENSUS_NODE_ERROR(
+        error.status.toString(),
+        error.statusCode,
+        error.message,
+      );
+      const expected = new JsonRpcError({ code, message });
+      expect(result).to.deep.equal(expected);
+    });
 
+    it('should expose correct SDKClientError status name and error code (and collect metrics)', () => {
+      const expectedStatus = Status.AccountDeleted;
+      const error = new SDKClientError({ status: expectedStatus }, 'Any error message will be accepted here');
+      const countSdkErrorSpy = sinon.spy(dispatcher['consensusNodeErrorsCounter']);
+
+      // @ts-expect-error: Property 'handleRpcMethodError' is private and only accessible within class 'RpcMethodDispatcher'.
+      const result = dispatcher.handleRpcMethodError(error, TEST_METHOD_NAME);
+      const { code, message } = predefined.CONSENSUS_NODE_ERROR(
+        expectedStatus.toString(),
+        expectedStatus._code,
+        error.message,
+      );
+      const expected = new JsonRpcError({ code, message });
+      sinon.assert.calledOnceWithExactly(countSdkErrorSpy.labels, sinon.match(expectedStatus.toString()));
       expect(result).to.deep.equal(expected);
     });
 
