@@ -263,4 +263,5 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   output['blockHashWithManySyntheticTxs'] = blockNumberAndHashWithManySyntheticTxs.blockHash;
 
   fs.writeFileSync(path.resolve(__dirname) + '/.smartContractParams.json', JSON.stringify(output, null, 2));
+  process.exit();
 })();
