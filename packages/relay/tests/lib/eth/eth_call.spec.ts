@@ -574,7 +574,7 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
 
-      const expectedError = predefined.CONTRACT_REVERT('TOKEN_NOT_ASSOCIATED_TO_ACCOUNT, CONTRACT_REVERT_EXECUTED');
+      const expectedError = predefined.CONTRACT_REVERT('CONTRACT_REVERT_EXECUTED, TOKEN_NOT_ASSOCIATED_TO_ACCOUNT');
       await expect(ethImpl.call(callData, 'latest', requestDetails))
         .to.be.rejectedWith(JsonRpcError)
         .and.eventually.satisfy((error: JsonRpcError) => {

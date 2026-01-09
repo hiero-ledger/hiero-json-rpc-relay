@@ -46,7 +46,7 @@ export class MirrorNodeClientError extends Error {
 
   get revertReason(): string {
     const reasons = this.children.map((child) => child.detail || child.message).filter(Boolean);
-    return [...reasons, this.detail || this.message].join(', ');
+    return [this.detail || this.message, ...reasons].join(', ');
   }
 
   public isTimeout(): boolean {
