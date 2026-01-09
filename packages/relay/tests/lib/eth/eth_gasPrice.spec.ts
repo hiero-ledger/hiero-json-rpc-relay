@@ -18,7 +18,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getPriceTest', ipAddress: '0.0.0.0' });
-  const modifiedNetworkFees = JSON.parse(JSON.stringify(DEFAULT_NETWORK_FEES));
+  const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   this.beforeEach(async () => {
