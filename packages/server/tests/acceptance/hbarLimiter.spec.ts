@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
+import type { ICacheClient } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/ICacheClient';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
 import { HbarSpendingPlanConfigService } from '@hashgraph/json-rpc-relay/dist/lib/config/hbarSpendingPlanConfigService';
 import { EvmAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
@@ -9,7 +10,6 @@ import { HbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/d
 import { IPAddressHbarSpendingPlanRepository } from '@hashgraph/json-rpc-relay/dist/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '@hashgraph/json-rpc-relay/dist/lib/db/types/hbarLimiter/subscriptionTier';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { HbarLimitService } from '@hashgraph/json-rpc-relay/dist/lib/services/hbarLimitService';
 import { ITransfer } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { SpendingPlanConfig } from '@hashgraph/json-rpc-relay/src/lib/types/spendingPlanConfig';
@@ -74,7 +74,7 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
   const maxPrivilegedSpendingLimit = HbarLimitService.TIER_LIMITS.PRIVILEGED.toTinybars().toNumber();
 
   let redisClient: RedisClientType | undefined;
-  let cacheService: CacheService;
+  let cacheService: ICacheClient;
   let evmAddressSpendingPlanRepository: EvmAddressHbarSpendingPlanRepository;
   let ipSpendingPlanRepository: IPAddressHbarSpendingPlanRepository;
   let hbarSpendingPlanRepository: HbarSpendingPlanRepository;
@@ -87,9 +87,11 @@ describe('@hbarlimiter HBAR Limiter Acceptance Tests', function () {
     const register = new Registry();
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(logger);
 
-    cacheService = new CacheService(
-      CacheClientFactory.create(logger.child({ name: 'cache-service' }), register, reservedKeys, redisClient),
+    cacheService = CacheClientFactory.create(
+      logger.child({ name: 'cache-service' }),
       register,
+      reservedKeys,
+      redisClient,
     );
 
     evmAddressSpendingPlanRepository = new EvmAddressHbarSpendingPlanRepository(cacheService, logger);

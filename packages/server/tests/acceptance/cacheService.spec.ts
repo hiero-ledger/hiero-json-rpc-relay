@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import type { ICacheClient } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/ICacheClient';
 import { RedisCache } from '@hashgraph/json-rpc-relay/dist/lib/clients/cache/redisCache';
 import { CacheClientFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/cacheClientFactory';
-import { CacheService } from '@hashgraph/json-rpc-relay/dist/lib/services/cacheService/cacheService';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/src/lib/clients/redisClientManager';
 import { expect } from 'chai';
 import pino, { type Logger } from 'pino';
@@ -19,7 +19,7 @@ const DATA = {
 const CALLING_METHOD = 'AcceptanceTest';
 
 describe('@cache-service Acceptance Tests for shared cache', function () {
-  let cacheService: CacheService;
+  let cacheService: ICacheClient;
   let logger: Logger;
   let redisClient: RedisClientType;
 
@@ -27,24 +27,23 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     logger = pino({ level: 'silent' });
 
     redisClient = await RedisClientManager.getClient(logger);
-    cacheService = new CacheService(CacheClientFactory.create(logger, undefined, undefined, redisClient));
+    cacheService = CacheClientFactory.create(logger, undefined, undefined, redisClient);
 
     await new Promise((r) => setTimeout(r, 1000));
   });
 
   it('Correctly performs set, get and delete operations', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}1`;
-    const setSharedCacheSpy = sinon.spy(cacheService['client'], 'set');
-    const getSharedCacheSpy = sinon.spy(cacheService['client'], 'get');
-    const deleteSharedCacheSpy = sinon.spy(cacheService['client'], 'delete');
+    const setSharedCacheSpy = sinon.spy(cacheService, 'set');
+    const getSharedCacheSpy = sinon.spy(cacheService, 'getAsync');
+    const deleteSharedCacheSpy = sinon.spy(cacheService, 'delete');
     await cacheService.set(dataLabel, DATA, CALLING_METHOD);
     await new Promise((r) => setTimeout(r, 200));
 
     const cache = await cacheService.getAsync(dataLabel, CALLING_METHOD);
     expect(cache).to.deep.eq(DATA, 'set method saves to shared cache');
-    expect(cacheService['isSharedCacheEnabled']).to.be.true;
 
-    expect(cacheService['client']).to.be.instanceOf(RedisCache);
+    expect(cacheService['decoratedCacheClient']).to.be.instanceOf(RedisCache);
 
     const cacheFromService = await cacheService.getAsync(dataLabel, CALLING_METHOD);
     expect(cacheFromService).to.deep.eq(DATA, 'getAsync method reads correctly from shared cache');
@@ -86,7 +85,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
     it('Falls back to local cache for REDIS_ENABLED !== true', async () => {
       const dataLabel = `${DATA_LABEL_PREFIX}3`;
 
-      const serviceWithDisabledRedis = new CacheService(CacheClientFactory.create(logger));
+      const serviceWithDisabledRedis = CacheClientFactory.create(logger);
       const isRedisEnabled = ConfigService.get('REDIS_ENABLED') && !!ConfigService.get('REDIS_URL');
       await new Promise((r) => setTimeout(r, 1000));
       expect(isRedisEnabled).to.eq(false);
@@ -100,7 +99,7 @@ describe('@cache-service Acceptance Tests for shared cache', function () {
 
   it('Cache set by one instance can be accessed by another', async () => {
     const dataLabel = `${DATA_LABEL_PREFIX}4`;
-    const otherServiceInstance = new CacheService(CacheClientFactory.create(logger, undefined, undefined, redisClient));
+    const otherServiceInstance = CacheClientFactory.create(logger, undefined, undefined, redisClient);
     await cacheService.set(dataLabel, DATA, CALLING_METHOD);
     await new Promise((r) => setTimeout(r, 200));
 

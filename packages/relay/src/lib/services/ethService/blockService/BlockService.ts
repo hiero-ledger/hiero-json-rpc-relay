@@ -16,7 +16,7 @@ export class BlockService implements IBlockService {
    * The cache service used for caching all responses.
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The chain id.
@@ -44,7 +44,7 @@ export class BlockService implements IBlockService {
 
   /** Constructor */
   constructor(
-    cacheService: CacheService,
+    cacheService: ICacheClient,
     chain: string,
     common: ICommonService,
     mirrorNodeClient: MirrorNodeClient,

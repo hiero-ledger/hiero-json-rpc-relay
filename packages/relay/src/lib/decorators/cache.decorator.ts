@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
-import type { CacheService } from '../services/cacheService/cacheService';
+import type { ICacheClient } from '../clients/cache/ICacheClient';
 import { RequestDetails } from '../types';
 
 interface CacheSingleParam {
@@ -27,7 +27,7 @@ interface CacheOptions {
 }
 
 /**
- * Uses a `CacheService` to attempt to retrieve a cached result before executing the original method. If
+ * Uses a `ICacheClient` to attempt to retrieve a cached result before executing the original method. If
  * no cached response exists, the method is executed and its result may be stored in the cache depending on configurable
  * options. Caching can be conditionally skipped based on runtime arguments via `skipParams` (for positional args)
  * and `skipNamedParams` (for object args).
@@ -41,7 +41,7 @@ interface CacheOptions {
  * @returns A method decorator function that wraps the original method with caching logic.
  *
  * @example
- *   @cache(CacheService, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
+ *   @cache(ICacheClient, { skipParams: [...], skipNamesParams: [...], ttl: 300 })
  */
 export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T = 'cacheService' as keyof T) {
   return function (target: any, context: ClassMethodDecoratorContext<T>) {
@@ -49,7 +49,7 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
 
     return async function (this: T, ...args: unknown[]) {
       const cacheKey = generateCacheKey(methodName, args);
-      const cacheService = this[cacheServiceProp] as CacheService;
+      const cacheService = this[cacheServiceProp] as ICacheClient;
 
       const cachedResponse = await cacheService.getAsync(cacheKey, methodName);
       if (cachedResponse) return cachedResponse;
@@ -60,12 +60,7 @@ export function cache<T>(options: CacheOptions = {}, cacheServiceProp: keyof T =
         !shouldSkipCachingForSingleParams(args, options.skipParams) &&
         !shouldSkipCachingForNamedParams(args, options.skipNamedParams)
       ) {
-        await cacheService.set(
-          cacheKey,
-          result,
-          methodName,
-          options.ttl ?? ConfigService.get('CACHE_TTL'),
-        );
+        await cacheService.set(cacheKey, result, methodName, options.ttl ?? ConfigService.get('CACHE_TTL'));
       }
       return result;
     };

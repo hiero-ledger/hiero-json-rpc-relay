@@ -5,12 +5,12 @@ import { Logger } from 'pino';
 
 import { generateRandomHex, toHash32 } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
+import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
 import { Log } from '../../../model';
 import { RequestDetails } from '../../../types';
 import { INewFilterParams } from '../../../types/requestParams';
-import { CacheService } from '../../cacheService/cacheService';
 import { ICommonService } from '../../index';
 import { IFilterService } from './IFilterService';
 
@@ -40,7 +40,7 @@ export class FilterService implements IFilterService {
    *
    * @private
    */
-  private readonly cacheService: CacheService;
+  private readonly cacheService: ICacheClient;
 
   /**
    * The Common Service implementation that contains logic shared by other services.
@@ -53,7 +53,7 @@ export class FilterService implements IFilterService {
   public readonly ethGetFilterChanges = 'eth_getFilterChanges';
   private readonly supportedTypes: string[];
 
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: CacheService, common: ICommonService) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, common: ICommonService) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
     this.cacheService = cacheService;

@@ -11,4 +11,9 @@ export interface ICacheClient {
   incrBy(key: string, amount: number, callingMethod: string): Promise<number>;
   rPush(key: string, value: any, callingMethod: string): Promise<number>;
   lRange<T = any>(key: string, start: number, end: number, callingMethod: string): Promise<T[]>;
+
+  /**
+   * @deprecated Alias of `get`; consider removing. Left in place to avoid modifying the CacheService interface.
+   */
+  getAsync<T = any>(key: string, callingMethod: string): Promise<T>;
 }
