@@ -126,7 +126,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     sdkClientStub = sinon.createStubInstance(SDKClient);
     getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
     const modifiedNetworkFees = JSON.parse(JSON.stringify(DEFAULT_NETWORK_FEES));
-    modifiedNetworkFees.fees[2].gas = modifiedNetworkFees.fees[2].gas * 100;
+    modifiedNetworkFees.fees[2].gas *= 100;
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
