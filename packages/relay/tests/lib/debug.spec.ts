@@ -596,6 +596,50 @@ describe('Debug API Test Suite', async function () {
             });
           });
         });
+
+        describe('tinybars to weibars conversion', async function () {
+          const conversionTestCases = [
+            {
+              name: 'should convert amount from tinybars to weibars',
+              amount: 100,
+              expectedValue: '0xe8d4a51000', // 100 tinybars = 100 * 10^10 weibars = 10^12 weibars
+            },
+            {
+              name: 'should return 0x0 for zero amount',
+              amount: 0,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for null amount',
+              amount: null,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should convert large amount (1 HBAR) from tinybars to weibars',
+              amount: 100_000_000, // 1 HBAR = 100_000_000 tinybars = 10^18 weibars
+              expectedValue: '0xde0b6b3a7640000',
+            },
+          ];
+
+          conversionTestCases.forEach(({ name, amount, expectedValue }) => {
+            it(`${name} in callTracer response`, async function () {
+              const contractsResultsWithAmount = {
+                ...contractsResultsByHashResult,
+                amount,
+              };
+
+              restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsWithAmount));
+
+              const result = await debugService.traceTransaction(
+                transactionHash,
+                tracerObjectCallTracerFalse,
+                requestDetails,
+              );
+
+              expect(result.value).to.equal(expectedValue);
+            });
+          });
+        });
       });
 
       describe('opcodeLogger', async function () {
@@ -898,6 +942,82 @@ describe('Debug API Test Suite', async function () {
             const calledWithNullId = getContractSpy.getCalls().some((c) => c.args[0] == null);
             expect(calledWithNullId).to.be.false;
             getContractSpy.restore();
+          });
+        });
+
+        describe('formatActionsResult tinybars to weibars conversion', async function () {
+          const singleActionTestCases = [
+            {
+              name: 'should convert action value from tinybars to weibars',
+              value: 100,
+              expectedValue: '0xe8d4a51000', // 100 tinybars = 100 * 10^10 weibars
+            },
+            {
+              name: 'should return 0x0 for zero value',
+              value: 0,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for null value',
+              value: null,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should return 0x0 for undefined value',
+              value: undefined,
+              expectedValue: '0x0',
+            },
+            {
+              name: 'should convert large value (1 HBAR) from tinybars to weibars',
+              value: 100_000_000, // 1 HBAR = 100_000_000 tinybars = 10^18 weibars
+              expectedValue: '0xde0b6b3a7640000',
+            },
+          ];
+
+          singleActionTestCases.forEach(({ name, value, expectedValue }) => {
+            it(`${name} in formatActionsResult`, async function () {
+              const actionWithValue = {
+                actions: [makeCreateAction({ value, index: 0 })],
+              };
+
+              restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+
+              const result = await debugService.formatActionsResult(actionWithValue.actions, requestDetails);
+
+              expect(result).to.be.an('array').with.lengthOf(1);
+              expect(result[0]).to.have.property('value', expectedValue);
+            });
+          });
+
+          it('should convert multiple action values from tinybars to weibars', async function () {
+            const multipleActionsTestCases = [
+              { value: 100, expectedValue: '0xe8d4a51000' },
+              { value: 200, expectedValue: '0x1d1a94a2000' },
+            ];
+
+            const actionsWithValues = {
+              actions: [
+                makeCreateAction({ value: multipleActionsTestCases[0].value, index: 0 }),
+                makeCreateAction({
+                  call_depth: 1,
+                  value: multipleActionsTestCases[1].value,
+                  index: 1,
+                  from: contractAddress,
+                  to: contractAddress2,
+                }),
+              ],
+            };
+
+            restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+            restMock.onGet(CONTRACT_BY_ADDRESS).reply(200, JSON.stringify(contractResult));
+            restMock.onGet(CONTRACT_BY_ADDRESS2).reply(200, JSON.stringify(contractResultSecond));
+
+            const result = await debugService.formatActionsResult(actionsWithValues.actions, requestDetails);
+
+            expect(result).to.be.an('array').with.lengthOf(2);
+            multipleActionsTestCases.forEach((testCase, index) => {
+              expect(result[index]).to.have.property('value', testCase.expectedValue);
+            });
           });
         });
       });
