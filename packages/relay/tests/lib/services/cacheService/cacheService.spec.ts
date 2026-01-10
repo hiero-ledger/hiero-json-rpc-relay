@@ -22,6 +22,13 @@ describe('CacheService Test Suite', async function () {
   const callingMethod = 'CacheServiceTest';
 
   let cacheService: ICacheClient;
+
+  const initCacheEntriesForTests = async (datasetEntries) => {
+    for (const [key, value] of Object.entries(datasetEntries)) {
+      await cacheService.set(key, value, callingMethod);
+    }
+  };
+
   const describeKeysTestSuite = () => {
     describe('keys', async function () {
       let internalCacheSpy: sinon.SinonSpiedInstance<ICacheClient>;
@@ -35,7 +42,7 @@ describe('CacheService Test Suite', async function () {
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         const keys = await cacheService.keys('*', callingMethod);
         expect(keys).to.have.members(Object.keys(entries));
@@ -47,7 +54,7 @@ describe('CacheService Test Suite', async function () {
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         const keys = await cacheService.keys('key*', callingMethod);
         expect(keys).to.have.members(Object.keys(entries));
@@ -59,7 +66,7 @@ describe('CacheService Test Suite', async function () {
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         const keys = await cacheService.keys('key?', callingMethod);
         expect(keys).to.have.members(Object.keys(entries));
@@ -71,7 +78,7 @@ describe('CacheService Test Suite', async function () {
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         const keys = await cacheService.keys('key[1-2]', callingMethod);
         expect(keys).to.have.members(['key1', 'key2']);
@@ -83,7 +90,7 @@ describe('CacheService Test Suite', async function () {
         entries['key2'] = 'value2';
         entries['key3'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         // [^3] should match all keys except key3
         const keys = await cacheService.keys('key[^3]', callingMethod);
@@ -96,7 +103,7 @@ describe('CacheService Test Suite', async function () {
         entries['keyb'] = 'value2';
         entries['keyc'] = 'value3';
 
-        await cacheService.multiSet(entries, callingMethod);
+        await initCacheEntriesForTests(entries);
 
         const keys = await cacheService.keys('key[a-c]', callingMethod);
         expect(keys).to.have.members(Object.keys(entries));
@@ -120,10 +127,10 @@ describe('CacheService Test Suite', async function () {
           entries['key3'] = 'value3';
 
           await RedisClientManager.disconnect();
-          await cacheService.multiSet(entries, callingMethod);
+          await initCacheEntriesForTests(entries);
           const keys = await cacheService.keys('*', callingMethod);
           expect(keys).to.have.members(Object.keys(entries));
-          expect(internalCacheSpy.multiSet.called).to.be.true;
+          expect(internalCacheSpy.set.called).to.be.true;
         });
       }
     });
@@ -171,13 +178,13 @@ describe('CacheService Test Suite', async function () {
       expect(cachedValue).eq(value);
     });
 
-    it('should be able to set using multiSet and get them separately', async function () {
+    it('should be able to set multiple keys and get them separately', async function () {
       const entries: Record<string, any> = {};
       entries['key1'] = 'value1';
       entries['key2'] = 'value2';
       entries['key3'] = 'value3';
 
-      await cacheService.multiSet(entries, callingMethod);
+      await initCacheEntriesForTests(entries);
 
       for (const [key, value] of Object.entries(entries)) {
         const valueFromCache = await cacheService.getAsync(key, callingMethod);
@@ -248,7 +255,6 @@ describe('CacheService Test Suite', async function () {
     };
 
     useInMemoryRedisServer(logger, 6381);
-    overrideEnvsInMochaDescribe({ MULTI_SET: true });
 
     before(async () => {
       cacheService = CacheClientFactory.create(logger, registry, new Set(), await RedisClientManager.getClient(logger));
@@ -296,8 +302,8 @@ describe('CacheService Test Suite', async function () {
       expect(cachedValue).eq(value);
     });
 
-    it('should be able to set using multiSet and get them separately using internal cache', async function () {
-      await cacheService.multiSet(multiSetEntries, callingMethod);
+    it('should be able to set multiple keys and get them separately using internal cache', async function () {
+      await initCacheEntriesForTests(multiSetEntries);
 
       for (const [key, value] of Object.entries(multiSetEntries)) {
         const valueFromCache = await cacheService.getAsync(key, callingMethod);
@@ -305,11 +311,8 @@ describe('CacheService Test Suite', async function () {
       }
     });
 
-    it('should be able to set using pipelineSet and get them separately using internal cache', async function () {
-      // @ts-ignore
-      cacheService['shouldMultiSet'] = false;
-
-      await cacheService.multiSet(multiSetEntries, callingMethod);
+    it('should be able to set multiple keys and get them separately using internal cache', async function () {
+      await initCacheEntriesForTests(multiSetEntries);
 
       for (const [key, value] of Object.entries(multiSetEntries)) {
         const valueFromCache = await cacheService.getAsync(key, callingMethod);
@@ -334,21 +337,6 @@ describe('CacheService Test Suite', async function () {
       await expect(cacheService.set(key, value, callingMethod)).to.eventually.not.be.rejected;
     });
 
-    it('should be able to ignore multiSet failure in case of Redis error', async function () {
-      await RedisClientManager.disconnect();
-
-      await expect(cacheService.multiSet(multiSetEntries, callingMethod)).to.eventually.not.be.rejected;
-    });
-
-    it('should be able to ignore pipelineSet failure in case of Redis error', async function () {
-      // @ts-ignore
-      cacheService['shouldMultiSet'] = false;
-
-      await RedisClientManager.disconnect();
-
-      await expect(cacheService.multiSet(multiSetEntries, callingMethod)).to.eventually.not.be.rejected;
-    });
-
     it('should be able to ignore clear failure in case of Redis error', async function () {
       await RedisClientManager.disconnect();
 
@@ -367,14 +355,6 @@ describe('CacheService Test Suite', async function () {
       const value = 'value';
 
       await expect(cacheService.set(key, value, callingMethod)).to.eventually.not.be.rejected;
-    });
-
-    it('should be able to multiset to shared cache', async function () {
-      const items: Record<string, any> = {};
-      items['key1'] = 'value1';
-      items['key2'] = 'value2';
-
-      await expect(cacheService.multiSet(items, callingMethod)).to.eventually.not.be.rejected;
     });
 
     it('should be able to delete from shared cache', async function () {

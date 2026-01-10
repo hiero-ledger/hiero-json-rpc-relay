@@ -28,7 +28,6 @@ export class RedisCache implements ICacheClient {
   private readonly options = {
     // Max time to live in ms, for items before they are considered stale.
     ttl: ConfigService.get('CACHE_TTL'),
-    multiSetEnabled: ConfigService.get('MULTI_SET'),
   };
 
   /**
@@ -128,68 +127,6 @@ export class RedisCache implements ICacheClient {
       this.logger.trace(`%s`, message);
     }
     // TODO: add metrics
-  }
-
-  /**
-   * Stores multiple key-value pairs in the cache.
-   *
-   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
-   * @param callingMethod - The name of the calling method.
-   * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds. Used in fallback to pipelineSet.
-   * @returns A Promise that resolves when the values are cached.
-   */
-  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    if (!this.options.multiSetEnabled) return this.pipelineSet(keyValuePairs, callingMethod, ttl);
-    // Serialize values and add prefix
-    const serializedKeyValuePairs: Record<string, string> = {};
-    for (const [key, value] of Object.entries(keyValuePairs)) {
-      const prefixedKey = this.prefixKey(key);
-      serializedKeyValuePairs[prefixedKey] = JSON.stringify(value);
-    }
-
-    // Perform mSet operation
-    await this.client.mSet(serializedKeyValuePairs);
-
-    // Log the operation
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `caching multiple keys via %s, total keys: %s`,
-        callingMethod,
-        Object.keys(keyValuePairs).length,
-      );
-    }
-  }
-
-  /**
-   * Stores multiple key-value pairs in the cache using pipelining.
-   *
-   * @param keyValuePairs - An object where each property is a key and its value is the value to be cached.
-   * @param callingMethod - The name of the calling method.
-   * @param [ttl] - The time-to-live (expiration) of the cache item in milliseconds.
-   * @returns A Promise that resolves when the values are cached.
-   */
-  async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    const resolvedTtl = ttl ?? this.options.ttl; // in milliseconds
-
-    const pipeline = this.client.multi();
-
-    for (const [key, value] of Object.entries(keyValuePairs)) {
-      const prefixedKey = this.prefixKey(key);
-      const serializedValue = JSON.stringify(value);
-      pipeline.set(prefixedKey, serializedValue, { PX: resolvedTtl });
-    }
-
-    // Execute pipeline operation
-    await pipeline.execAsPipeline();
-
-    // Log the operation
-    if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(
-        `caching multiple keys via %s, total keys: %s`,
-        callingMethod,
-        Object.keys(keyValuePairs).length,
-      );
-    }
   }
 
   /**

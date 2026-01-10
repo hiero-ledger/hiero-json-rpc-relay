@@ -55,32 +55,6 @@ export class SafeRedisCache extends RedisCache {
   }
 
   /**
-   * Stores multiple key-value pairs safely.
-   *
-   * Wraps {@link RedisCache.multiSet} with error suppression.
-   *
-   * @param keyValuePairs - Object of key-value pairs to set.
-   * @param callingMethod - Name of the calling method.
-   * @param ttl - Optional TTL used in fallback pipeline mode.
-   */
-  async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    await this.safeCall(() => super.multiSet(keyValuePairs, callingMethod, ttl), undefined);
-  }
-
-  /**
-   * Performs a pipelined multi-set operation safely.
-   *
-   * Wraps {@link RedisCache.pipelineSet} with error suppression.
-   *
-   * @param keyValuePairs - Key-value pairs to write.
-   * @param callingMethod - Name of the calling method.
-   * @param ttl - Optional TTL.
-   */
-  async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    await this.safeCall(() => super.pipelineSet(keyValuePairs, callingMethod, ttl), undefined);
-  }
-
-  /**
    * Deletes a value from the cache safely.
    *
    * Wraps {@link RedisCache.delete} with error suppression.

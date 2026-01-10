@@ -63,7 +63,6 @@ config:
   REDIS_ENABLED: false
   # REDIS_URL:
   # REDIS_RECONNECT_DELAY_MS:
-  # MULTI_SET:
 
   # ========== OTHER SETTINGS ==========
   # CLIENT_TRANSPORT_SECURITY:
