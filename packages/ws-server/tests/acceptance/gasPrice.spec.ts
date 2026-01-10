@@ -3,6 +3,7 @@
 // external resources
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
+
 import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@release @web-socket-batch-1 eth_gasPrice', async function () {

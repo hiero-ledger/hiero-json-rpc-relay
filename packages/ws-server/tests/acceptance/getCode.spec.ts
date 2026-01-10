@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { expect } from 'chai';
-import { ethers, WebSocketProvider } from 'ethers';
-import { WsTestConstant, WsTestHelper } from '../helper';
+import basicContractJson from '@hashgraph/json-rpc-server/tests/contracts/Basic.json';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
-import basicContractJson from '@hashgraph/json-rpc-server/tests/contracts/Basic.json';
+import { expect } from 'chai';
+import { ethers, WebSocketProvider } from 'ethers';
+
+import { WsTestConstant, WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 eth_getCode', async function () {
   const METHOD_NAME = 'eth_getCode';

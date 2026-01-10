@@ -148,7 +148,7 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: ICacheClient;
 
-  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
+  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
@@ -1435,7 +1435,7 @@ export class MirrorNodeClient {
       // the index is needed afterward for detecting the resolved promise type (contract, account, or token)
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
-    } catch (e) {
+    } catch {
       return null;
     }
 

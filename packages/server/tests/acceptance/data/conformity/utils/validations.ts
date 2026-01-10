@@ -8,6 +8,7 @@ import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 let execApisOpenRpcData: any = null;
 function getExecApisOpenRpcData() {
   if (!execApisOpenRpcData) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     execApisOpenRpcData = require('../../../../../../../openrpc_exec_apis.json');
   }
   return execApisOpenRpcData;

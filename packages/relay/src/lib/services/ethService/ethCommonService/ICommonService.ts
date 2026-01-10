@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Log } from '../../../model';
-import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
+import { IAccountInfo, RequestDetails } from '../../../types';
 
 export interface ICommonService {
   addTopicsToParams(params: any, topics: any[] | null): void;

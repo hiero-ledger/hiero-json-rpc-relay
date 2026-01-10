@@ -14,6 +14,7 @@ import Axios from 'axios';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
 import { BaseContract, ethers } from 'ethers';
+import Long from 'long';
 
 import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
 import { GAS_LIMIT } from '../../../relay/tests/lib/eth/eth-config';

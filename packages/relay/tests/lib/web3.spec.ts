@@ -14,11 +14,9 @@ const web3Impl = new Web3Impl();
 const logger = pino({ level: 'silent' });
 
 describe('Web3', function () {
-  let relay: Relay;
-
   before(async () => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
-    relay = await Relay.init(logger, new Registry());
+    await Relay.init(logger, new Registry());
   });
 
   after(() => {

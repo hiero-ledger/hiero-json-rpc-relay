@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RedisMemoryServer } from 'redis-memory-server';
 import { Logger } from 'pino';
+import { RedisMemoryServer } from 'redis-memory-server';
 
 export class RedisInMemoryServer {
   /**

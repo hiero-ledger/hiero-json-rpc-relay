@@ -8,7 +8,6 @@ import * as sinon from 'sinon';
 
 import { RedisRateLimitStore } from '../../../../src/lib/services/rateLimiterService/RedisRateLimitStore';
 import { RateLimitKey } from '../../../../src/lib/types/rateLimiter';
-import { RequestDetails } from '../../../../src/lib/types/RequestDetails';
 
 describe('RedisRateLimitStore Test Suite', function () {
   this.timeout(10000);
@@ -21,7 +20,6 @@ describe('RedisRateLimitStore Test Suite', function () {
   const testDuration = 5000;
   const testKey = new RateLimitKey('127.0.0.1', 'eth_chainId');
   const testLimit = 5;
-  const requestDetails = new RequestDetails({ requestId: 'test-request-id', ipAddress: '127.0.0.1' });
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });

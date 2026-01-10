@@ -52,6 +52,7 @@ export const RPC_LAYOUT = {
  * @param layout - Parameter layout specification
  */
 export function rpcParamLayoutConfig(layout: string | ParamTransformFn) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return function (target: any, _context: ClassMethodDecoratorContext): any {
     target[RPC_PARAM_LAYOUT_KEY] = layout;
     return target;

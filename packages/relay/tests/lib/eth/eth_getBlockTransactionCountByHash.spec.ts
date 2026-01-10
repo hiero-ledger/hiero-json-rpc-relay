@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, use } from 'chai';
-import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
+import sinon from 'sinon';
 
-import { SDKClient } from '../../../src/lib/clients';
 import { numberTo0x } from '../../../dist/formatters';
+import { SDKClient } from '../../../src/lib/clients';
+import { RequestDetails } from '../../../src/lib/types';
 import {
   BLOCK_HASH,
   BLOCK_TRANSACTION_COUNT,
@@ -14,7 +15,6 @@ import {
   NO_SUCH_BLOCK_EXISTS_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
-import { RequestDetails } from '../../../src/lib/types';
 
 use(chaiAsPromised);
 
@@ -23,7 +23,7 @@ let getSdkClientStub: sinon.SinonStub;
 
 describe('@ethGetBlockTransactionCountByHash using MirrorNode', async function () {
   this.timeout(10000);
-  let { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
+  const { restMock, hapiServiceInstance, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({
     requestId: 'eth_getBlockTransactionCountByHashTest',

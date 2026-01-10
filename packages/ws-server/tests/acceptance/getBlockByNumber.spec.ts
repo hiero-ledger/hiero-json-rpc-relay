@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
+import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { expect } from 'chai';
 import { ethers, WebSocketProvider } from 'ethers';
+
 import { WsTestConstant, WsTestHelper } from '../helper';
-import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 
 describe('@web-socket-batch-1 eth_getBlockByNumber', async function () {
   const METHOD_NAME = 'eth_getBlockByNumber';
