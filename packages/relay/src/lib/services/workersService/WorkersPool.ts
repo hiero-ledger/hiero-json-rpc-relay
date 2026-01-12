@@ -4,9 +4,9 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import Piscina from 'piscina';
 
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
+import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
-import { ICacheClient } from '../../clients/cache/ICacheClient';
 
 /**
  * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
@@ -59,14 +59,22 @@ export class WorkersPool {
       });
 
       this.instance.on('message', (msg) => {
-        if (msg.type === 'addLabelToMirrorResponseHistogram') {
-          this.mirrorNodeClient.addLabelToMirrorResponseHistogram(msg.pathLabel, msg.value, msg.ms);
+        if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM) {
+          this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM](
+            msg.pathLabel,
+            msg.value,
+            msg.ms,
+          );
         }
-        if (msg.type === 'addLabelToMirrorErrorCodeCounter') {
-          this.mirrorNodeClient.addLabelToMirrorErrorCodeCounter(msg.pathLabel, msg.value);
+        if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER) {
+          this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER](msg.pathLabel, msg.value);
         }
-        if (msg.type === 'addLabelToCacheMethodsCounter') {
-          this.cacheService.addLabelToCacheMethodsCounter(msg.callingMethod, msg.cacheType, msg.method);
+        if (msg.type === MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER) {
+          this.cacheService[MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER](
+            msg.callingMethod,
+            msg.cacheType,
+            msg.method,
+          );
         }
       });
     }

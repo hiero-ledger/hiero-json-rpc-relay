@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Counter, Registry } from 'prom-client';
+import { parentPort } from 'worker_threads';
 
 import type { ICacheClient } from './ICacheClient';
-import { parentPort } from 'worker_threads';
 
 /**
  * Represents a cache client that performs the caching operations and tracks and counts all processed events.
@@ -26,6 +26,8 @@ export class MeasurableCache implements ICacheClient {
   };
 
   private cacheType: string;
+
+  public static ADD_LABEL_TO_CACHE_METHODS_COUNTER = 'addLabelToCacheMethodsCounter';
 
   public constructor(decorated: ICacheClient, register: Registry, cacheType: string) {
     this.decoratedCacheClient = decorated;
@@ -69,7 +71,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns The cached value if found, otherwise null.
    */
   public async get(key: string, callingMethod: string): Promise<any> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.GET, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.GET);
     return await this.decoratedCacheClient.get(key, callingMethod);
   }
 
@@ -83,7 +85,7 @@ export class MeasurableCache implements ICacheClient {
    * @param ttl - Time to live for the cached value in milliseconds (optional).
    */
   public async set(key: string, value: any, callingMethod: string, ttl?: number): Promise<void> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.SET, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.SET);
     return await this.decoratedCacheClient.set(key, value, callingMethod, ttl);
   }
 
@@ -97,7 +99,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns A Promise that resolves when the values are cached.
    */
   public async multiSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.MSET, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.MSET);
     await this.decoratedCacheClient.multiSet(keyValuePairs, callingMethod, ttl);
   }
 
@@ -111,7 +113,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns A Promise that resolves when the values are cached.
    */
   public async pipelineSet(keyValuePairs: Record<string, any>, callingMethod: string, ttl?: number): Promise<void> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.PIPELINE, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.PIPELINE);
     await this.decoratedCacheClient.pipelineSet(keyValuePairs, callingMethod, ttl);
   }
 
@@ -123,7 +125,7 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod - The name of the method calling the cache.
    */
   public async delete(key: string, callingMethod: string): Promise<void> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.DELETE, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.DELETE);
     await this.decoratedCacheClient.delete(key, callingMethod);
   }
 
@@ -154,7 +156,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns The value of the key after incrementing
    */
   public async incrBy(key: string, amount: number, callingMethod: string): Promise<number> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.INCR_BY, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.INCR_BY);
     return await this.decoratedCacheClient.incrBy(key, amount, callingMethod);
   }
 
@@ -169,7 +171,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns The list of elements in the range
    */
   public async lRange(key: string, start: number, end: number, callingMethod: string): Promise<any[]> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.LRANGE, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.LRANGE);
     return await this.decoratedCacheClient.lRange(key, start, end, callingMethod);
   }
 
@@ -183,7 +185,7 @@ export class MeasurableCache implements ICacheClient {
    * @returns The length of the list after pushing
    */
   public async rPush(key: string, value: any, callingMethod: string): Promise<number> {
-    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.RPUSH, true);
+    this.addLabelToCacheMethodsCounter(callingMethod, this.cacheType, MeasurableCache.methods.RPUSH);
     return await this.decoratedCacheClient.rPush(key, value, callingMethod);
   }
 
@@ -194,17 +196,11 @@ export class MeasurableCache implements ICacheClient {
    * @param callingMethod - Name of the method initiating the cache operation.
    * @param cacheType - Type of cache being accessed (e.g., lru, redis).
    * @param method - Cache operation performed (e.g., get, set, delete).
-   * @param checkParentPort - If `true`, also sends the metric update to the parent thread if `parentPort` is available.
    */
-  public addLabelToCacheMethodsCounter(
-    callingMethod: string,
-    cacheType: string,
-    method: string,
-    checkParentPort: boolean = false,
-  ): void {
-    if (checkParentPort && parentPort) {
+  public addLabelToCacheMethodsCounter(callingMethod: string, cacheType: string, method: string): void {
+    if (parentPort) {
       parentPort.postMessage({
-        type: 'addLabelToCacheMethodsCounter',
+        type: MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER,
         callingMethod,
         cacheType,
         method,

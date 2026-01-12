@@ -113,6 +113,12 @@ export class MirrorNodeClient {
   private static readonly IS_MODULARIZED = 'Is-Modularized';
 
   /**
+   * Metrics related vars
+   */
+  public static ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM: string = 'addLabelToMirrorResponseHistogram';
+  public static ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER: string = 'addLabelToMirrorErrorCodeCounter';
+
+  /**
    * The logger used for logging all output from this class.
    * @private
    */
@@ -150,8 +156,6 @@ export class MirrorNodeClient {
 
   static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
 
-  private readonly contentTooLargeMethods = ConfigService.get('CONTENT_TOO_LARGE_METHODS');
-  private readonly maxLogResponseSize = ConfigService.get('MAX_LOG_RESPONSE_SIZE');
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
@@ -404,7 +408,7 @@ export class MirrorNodeClient {
           JSON.stringify(response.data),
         );
       }
-      this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms, true);
+      this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms);
       return response.data;
     } catch (error: any) {
       const ms = Date.now() - start;
@@ -416,8 +420,8 @@ export class MirrorNodeClient {
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
-      this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode, ms, true);
-      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode, true);
+      this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode, ms);
+      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode);
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -435,17 +439,11 @@ export class MirrorNodeClient {
    * @param pathLabel - Label identifying the mirrored request path.
    * @param value - Label value representing the response outcome (e.g., status or result).
    * @param ms - Response duration in milliseconds.
-   * @param checkParentPort - When `true`, also sends the observation to the parent thread if `parentPort` is available.
    */
-  public addLabelToMirrorResponseHistogram(
-    pathLabel: string,
-    value: string,
-    ms: number,
-    checkParentPort: boolean = false,
-  ): void {
-    if (checkParentPort && parentPort) {
+  public addLabelToMirrorResponseHistogram(pathLabel: string, value: string, ms: number): void {
+    if (parentPort) {
       parentPort.postMessage({
-        type: 'addLabelToMirrorResponseHistogram',
+        type: MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
         pathLabel,
         value,
         ms,
@@ -461,12 +459,11 @@ export class MirrorNodeClient {
    *
    * @param pathLabel - Label identifying the mirrored request path.
    * @param value - Label value representing the error code or error category.
-   * @param checkParentPort - When `true`, also sends the counter increment to the parent thread if `parentPort` is available.
    */
-  public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string, checkParentPort: boolean = false): void {
-    if (checkParentPort && parentPort) {
+  public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string): void {
+    if (parentPort) {
       parentPort.postMessage({
-        type: 'addLabelToMirrorErrorCodeCounter',
+        type: MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
         pathLabel,
         value,
       });
