@@ -192,6 +192,80 @@ curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"2","
 The expected response should be of the form `{"result":"0x10bc1576c00","jsonrpc":"2.0","id":"2"}`
 Where result returns a valid hexadecimal number
 
+### Running with PM2
+
+[PM2](https://pm2.keymetrics.io/) is a production process manager for Node.js applications with a built-in load balancer. It allows you to keep applications alive forever, reload them without downtime, and manage application logging, monitoring, and clustering.
+
+#### Prerequisites
+
+- Ensure the relay is built: `npm run build`
+- PM2 is included as a dev dependency, so no additional installation is needed
+
+#### Configuration
+
+The relay includes an `ecosystem.config.js` file for PM2 configuration. Before starting, ensure you have:
+
+1. A `.env` file with your configuration (copy from `.env.http.example`)
+2. Required environment variables set (especially `OPERATOR_ID_MAIN` and `OPERATOR_KEY_MAIN` if you want to send transactions)
+
+#### Starting the Relay with PM2
+
+```shell
+# Start the relay
+npm run pm2:start
+
+# Check status
+npm run pm2:status
+
+# View logs (live)
+npm run pm2:logs
+
+# Stop the relay
+npm run pm2:stop
+
+# Restart the relay
+npm run pm2:restart
+
+# Remove from PM2
+npm run pm2:delete
+```
+
+#### Direct PM2 Commands
+
+You can also use PM2 directly:
+
+```shell
+# Start with ecosystem config
+pm2 start ecosystem.config.js
+
+# List all processes
+pm2 list
+
+# Monitor with dashboard
+pm2 monit
+
+# View logs with filters
+pm2 logs hedera-relay --lines 100
+
+# Save process list (to restart on reboot)
+pm2 save
+
+# Generate startup script
+pm2 startup
+```
+
+#### Logs Location
+
+PM2 logs are stored in:
+- Output logs: `packages/server/logs/pm2-out.log`
+- Error logs: `packages/server/logs/pm2-error.log`
+
+#### Notes
+
+- The relay will run in the background and automatically restart on crashes
+- Use `pm2 monit` for real-time monitoring of CPU and memory usage
+- The ecosystem config includes automatic restarts with a max of 10 restarts and minimum uptime of 10 seconds
+
 ### Helm Chart
 
 This repos `charts` directory contains the templates and values to deploy Hedera's json-rpc relay to a K8s cluster. This directory is packaged and distributed via helm repo.
