@@ -1021,6 +1021,7 @@ export class MirrorNodeClient {
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
     const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+    const maxPage = this.calculateMaxPage(contractLogsResultsParams);
 
     let logResults = await this.getPaginatedResults(
       `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
@@ -1029,7 +1030,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      this.calculateMaxPage(contractLogsResultsParams),
+      maxPage,
     );
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
@@ -1076,7 +1077,7 @@ export class MirrorNodeClient {
           requestDetails,
           [],
           1,
-          this.calculateMaxPage(contractLogsResultsParams),
+          maxPage,
         );
       } else {
         break;
