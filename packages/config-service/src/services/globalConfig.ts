@@ -403,6 +403,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
+  MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
+  },
   MIRROR_NODE_CONTRACT_RESULTS_PG_MAX: {
     type: 'number',
     required: false,

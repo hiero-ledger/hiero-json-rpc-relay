@@ -160,6 +160,9 @@ export class MirrorNodeClient {
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
   );
+  public static readonly mirrorNodeContractResultsLogsBlockRangePageMax = ConfigService.get(
+    'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
+  );
 
   protected createAxiosClient(baseUrl: string): AxiosInstance {
     // defualt values for axios clients to mirror node
@@ -989,21 +992,17 @@ export class MirrorNodeClient {
     return this.getQueryParams(queryParamObject);
   }
 
-  private getValueFromTimestampArray(arr: string[], key: string) {
-    return Number(arr.find((v) => v.startsWith(key + ':'))?.split(':')[1]);
-  }
-
   private calculateMaxPage(params?: IContractLogsResultsParams): number {
     const timestamp = params?.timestamp;
     if (!Array.isArray(timestamp)) {
       return MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
     }
-    const gte = this.getValueFromTimestampArray(timestamp, 'gte');
-    const lte = this.getValueFromTimestampArray(timestamp, 'lte');
+    const gte = Number(timestamp.find((v) => v.startsWith('gte' + ':'))?.split(':')[1]);
+    const lte = Number(timestamp.find((v) => v.startsWith('lte' + ':'))?.split(':')[1]);
 
     // difference of less than 3 seconds guarantees that we're querying only 1 block
     return Number.isFinite(gte) && Number.isFinite(lte) && lte - gte < 3
-      ? 9999
+      ? MirrorNodeClient.mirrorNodeContractResultsLogsBlockRangePageMax
       : MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
   }
 
