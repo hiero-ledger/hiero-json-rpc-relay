@@ -2,6 +2,7 @@
 
 // external resources
 import MirrorClient from '@hashgraph/json-rpc-server/tests/clients/mirrorClient';
+import RelayClient from '@hashgraph/json-rpc-server/tests/clients/relayClient';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';

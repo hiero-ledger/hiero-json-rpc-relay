@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AccountId, KeyList, PrivateKey } from '@hashgraph/sdk';
-import ServicesClient from '../clients/servicesClient';
 import { ethers } from 'ethers';
+
+import ServicesClient from '../clients/servicesClient';
 
 export interface AliasAccount {
   readonly alias: AccountId;

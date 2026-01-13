@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // external resources
-import { expect } from 'chai';
-import { WsTestHelper } from '../helper';
 import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
+import { expect } from 'chai';
+
+import { WsTestHelper } from '../helper';
 
 describe('@web-socket-batch-2 web3_clientVersion', async function () {
   const METHOD_NAME = 'web3_clientVersion';

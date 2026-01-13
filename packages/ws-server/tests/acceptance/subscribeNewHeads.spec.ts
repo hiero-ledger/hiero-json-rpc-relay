@@ -10,6 +10,7 @@ import { Utils } from '@hashgraph/json-rpc-server/tests/helpers/utils';
 import { AliasAccount } from '@hashgraph/json-rpc-server/tests/types/AliasAccount';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
+import type { Done } from 'mocha';
 import WebSocket from 'ws';
 
 import { WsTestHelper } from '../helper';
@@ -17,7 +18,7 @@ import { WsTestHelper } from '../helper';
 const WS_RELAY_URL = `${ConfigService.get('WS_RELAY_URL')}`;
 const evmAddressRegex = /^0x[a-fA-F0-9]*$/;
 
-function verifyResponse(response: any, done: Mocha.Done, webSocket: any, includeTransactions: boolean) {
+function verifyResponse(response: any, done: Done, webSocket: any, includeTransactions: boolean) {
   if (response?.params?.result?.transactions?.length > 0) {
     try {
       expect(response).to.have.property('jsonrpc', '2.0');

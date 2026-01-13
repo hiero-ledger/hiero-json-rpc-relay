@@ -433,7 +433,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (evmAddress) {
       try {
         return await this.getSpendingPlanByEvmAddress(evmAddress);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Spending plan not found: evmAddress='${evmAddress}'`);
         }
@@ -443,7 +443,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (ipAddress) {
       try {
         return await this.getSpendingPlanByIPAddress(requestDetails);
-      } catch (error) {
+      } catch {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(` Spending plan not found for IP address.`);
         }

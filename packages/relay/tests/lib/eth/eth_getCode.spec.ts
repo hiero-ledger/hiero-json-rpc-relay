@@ -6,7 +6,6 @@ import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../src';
 import constants from '../../../src/lib/constants';
-import { ContractService } from '../../../src/lib/services';
 import { CommonService } from '../../../src/lib/services';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';

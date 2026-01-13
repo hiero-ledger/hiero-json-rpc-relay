@@ -1569,7 +1569,6 @@ describe('MirrorNodeClient', async function () {
   describe('getTransactionRecordMetrics', () => {
     const mockedTxFee = 36900000;
     const operatorAcocuntId = `0.0.1022`;
-    const mockedCallerName = 'caller_name';
     const mockedConstructorName = 'constructor_name';
     const mockedTransactionId = '0.0.1022@1681130064.409933500';
     const mockedTransactionIdFormatted = '0.0.1022-1681130064-409933500';
