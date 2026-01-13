@@ -10,7 +10,6 @@ import https from 'https';
 import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
-import { parentPort } from 'worker_threads';
 
 import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
