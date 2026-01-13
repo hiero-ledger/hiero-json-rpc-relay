@@ -61,6 +61,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
       expect(firstGasResult).to.equal(numberTo0x(expectedFirstWeiBars));
 
       // Modify network fees to return a different gas price
+      const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
       modifiedNetworkFees.fees[2].gas = modifiedNetworkFees.fees[2].gas * 100;
 
       restMock.onGet(`network/fees`).reply(200, JSON.stringify(modifiedNetworkFees));
