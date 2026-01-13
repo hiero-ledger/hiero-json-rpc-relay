@@ -545,7 +545,6 @@ export class MirrorNodeClient {
     results = [],
     page = 1,
     pageMax: number = constants.MAX_MIRROR_NODE_PAGINATION,
-    maxResponseSize: number = 0,
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
@@ -557,10 +556,6 @@ export class MirrorNodeClient {
       // max page reached
       this.logger.trace(`Max page reached %s with %s results`, pageMax, results.length);
       throw predefined.PAGINATION_MAX(pageMax);
-    }
-
-    if (maxResponseSize && JSON.stringify(results).length / 1024 > maxResponseSize) {
-      throw predefined.CONTENT_TOO_LARGE;
     }
 
     if (result?.links?.next && page < pageMax) {
@@ -996,6 +991,22 @@ export class MirrorNodeClient {
     return this.getQueryParams(queryParamObject);
   }
 
+  public static calculateMaxPage(params?: IContractLogsResultsParams): number {
+    const timestamp = params?.timestamp;
+    if (!Array.isArray(timestamp)) {
+      return MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
+    }
+
+    const getValue = (arr: string[], key: string) => Number(arr.find((v) => v.startsWith(key + ':'))?.split(':')[1]);
+    const gte = getValue(timestamp, 'gte');
+    const lte = getValue(timestamp, 'lte');
+
+    // difference of less than 3 seconds guarantees that we're querying only 1 block
+    return Number.isFinite(gte) && Number.isFinite(lte) && lte - gte < 3
+      ? 9999
+      : MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
+  }
+
   /**
    * Retrieves contract results log with a retry mechanism to handle immature records.
    * When querying the /contracts/results/logs api, there are cases where the records are "immature" - meaning
@@ -1020,7 +1031,6 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
-    maxResponseSize: number = 0,
   ): Promise<any[]> {
     const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
@@ -1034,8 +1044,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
-      maxResponseSize,
+      MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
     );
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
@@ -1082,8 +1091,7 @@ export class MirrorNodeClient {
           requestDetails,
           [],
           1,
-          MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
-          maxResponseSize,
+          MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
         );
       } else {
         break;
@@ -1098,7 +1106,6 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
-    maxResponseSize: number = 0,
   ) {
     if (address === ethers.ZeroAddress) return [];
 
@@ -1116,8 +1123,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
-      maxResponseSize,
+      MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
     );
   }
 

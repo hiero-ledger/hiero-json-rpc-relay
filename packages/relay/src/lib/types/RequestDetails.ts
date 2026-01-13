@@ -20,11 +20,6 @@ export class RequestDetails {
   connectionId?: string;
 
   /**
-   * The method which is called.
-   */
-  method?: string;
-
-  /**
    * Creates an instance of RequestDetails.
    * @param details - The details of the request.
    */
@@ -32,6 +27,5 @@ export class RequestDetails {
     this.requestId = details.requestId;
     this.ipAddress = details.ipAddress;
     this.connectionId = details.connectionId;
-    this.method = details.method;
   }
 }
