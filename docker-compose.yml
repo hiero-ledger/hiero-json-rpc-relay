@@ -17,7 +17,7 @@ services:
   relay-ws:
     container_name: hedera-json-rpc-relay-ws
     image: "ghcr.io/hiero-ledger/hiero-json-rpc-relay:main"
-    command: start:ws
+    command: start:ws,http
     environment:
       HEALTHCHECK_PORT: 8547
       SUBSCRIPTIONS_ENABLED: true

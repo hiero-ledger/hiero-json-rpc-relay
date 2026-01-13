@@ -263,6 +263,7 @@ export async function initializeWsServer() {
       }, pingInterval);
     }
   });
+  if (!ConfigService.get('SERVER_HTTP_ENABLED')) return { app, httpApp: null }; // Starting WS server only
 
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();

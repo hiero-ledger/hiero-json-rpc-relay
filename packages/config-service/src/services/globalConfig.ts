@@ -764,6 +764,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 400,
   },
+  SERVER_HTTP_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
 } as const satisfies { [key: string]: ConfigProperty }; // Ensures _CONFIG is read-only and conforms to the ConfigProperty structure
 
 export type ConfigKey = keyof typeof _CONFIG;

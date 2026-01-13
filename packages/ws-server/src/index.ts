@@ -12,7 +12,7 @@ async function main() {
 
     const host = ConfigService.get('SERVER_HOST');
     app.listen({ port: constants.WEB_SOCKET_PORT, host });
-    httpApp.listen({ port: constants.WEB_SOCKET_HTTP_PORT, host });
+    if (httpApp) httpApp.listen({ port: constants.WEB_SOCKET_HTTP_PORT, host });
   } catch (error) {
     logger.fatal(error);
     process.exit(1);
