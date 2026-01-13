@@ -3,6 +3,7 @@
 import { Counter, Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
+import { WorkersPool } from '../../services/workersService/WorkersPool';
 import type { ICacheClient } from './ICacheClient';
 
 /**
@@ -198,15 +199,14 @@ export class MeasurableCache implements ICacheClient {
    * @param method - Cache operation performed (e.g., get, set, delete).
    */
   public addLabelToCacheMethodsCounter(callingMethod: string, cacheType: string, method: string): void {
-    if (parentPort) {
-      parentPort.postMessage({
-        type: MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER,
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER,
+      {
         callingMethod,
         cacheType,
         method,
-      });
-    } else {
-      this.cacheMethodsCounter.labels(callingMethod, cacheType, method).inc(1);
-    }
+      },
+      () => this.cacheMethodsCounter.labels(callingMethod, cacheType, method).inc(1),
+    );
   }
 }

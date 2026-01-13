@@ -16,6 +16,7 @@ import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
+import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
   IAccountRequestParams,
   IContractCallRequest,
@@ -441,16 +442,15 @@ export class MirrorNodeClient {
    * @param ms - Response duration in milliseconds.
    */
   public addLabelToMirrorResponseHistogram(pathLabel: string, value: string, ms: number): void {
-    if (parentPort) {
-      parentPort.postMessage({
-        type: MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
+      {
         pathLabel,
         value,
         ms,
-      });
-    } else {
-      this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms);
-    }
+      },
+      () => this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms),
+    );
   }
 
   /**
@@ -461,15 +461,14 @@ export class MirrorNodeClient {
    * @param value - Label value representing the error code or error category.
    */
   public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string): void {
-    if (parentPort) {
-      parentPort.postMessage({
-        type: MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
+      {
         pathLabel,
         value,
-      });
-    } else {
-      this.mirrorErrorCodeCounter.labels(pathLabel, value).inc();
-    }
+      },
+      () => this.mirrorErrorCodeCounter.labels(pathLabel, value).inc(),
+    );
   }
 
   async get<T = any>(

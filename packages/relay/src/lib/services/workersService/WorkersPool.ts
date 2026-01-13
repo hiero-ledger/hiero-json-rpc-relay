@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
+import { parentPort } from 'worker_threads';
 
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
@@ -41,6 +42,21 @@ export class WorkersPool {
    * Holds the instance of CacheService
    */
   private static cacheService: MeasurableCache;
+
+  public static updateMetricViaWorkerOrLocal(
+    messageType: string,
+    params: Record<string, any>,
+    metricUpdateFunc: () => void,
+  ): void {
+    if (parentPort) {
+      parentPort.postMessage({
+        type: messageType,
+        ...params,
+      });
+    } else {
+      metricUpdateFunc();
+    }
+  }
 
   /**
    * Returns the shared Piscina worker pool instance.
