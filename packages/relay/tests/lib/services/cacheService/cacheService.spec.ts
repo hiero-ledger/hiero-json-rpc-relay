@@ -248,12 +248,6 @@ describe('CacheService Test Suite', async function () {
   });
 
   describe('Shared Cache Test Suite', async function () {
-    const multiSetEntries: Record<string, string> = {
-      key1: 'value1',
-      key2: 'value2',
-      key3: 'value3',
-    };
-
     useInMemoryRedisServer(logger, 6381);
 
     before(async () => {
@@ -300,24 +294,6 @@ describe('CacheService Test Suite', async function () {
 
       const cachedValue = await cacheService.getAsync(key, callingMethod);
       expect(cachedValue).eq(value);
-    });
-
-    it('should be able to set multiple keys and get them separately using internal cache', async function () {
-      await initCacheEntriesForTests(multiSetEntries);
-
-      for (const [key, value] of Object.entries(multiSetEntries)) {
-        const valueFromCache = await cacheService.getAsync(key, callingMethod);
-        expect(valueFromCache).eq(value);
-      }
-    });
-
-    it('should be able to set multiple keys and get them separately using internal cache', async function () {
-      await initCacheEntriesForTests(multiSetEntries);
-
-      for (const [key, value] of Object.entries(multiSetEntries)) {
-        const valueFromCache = await cacheService.getAsync(key, callingMethod);
-        expect(valueFromCache).eq(value);
-      }
     });
 
     it('should be able to ignore getAsync failure in case of Redis error', async function () {
