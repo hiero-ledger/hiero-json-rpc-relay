@@ -15,7 +15,7 @@ const { options, run } = new TestScenarioBuilder()
       httpParams
     );
   })
-  .check(methodName, (r) => isNonErrorResponse(r))
+  .check(methodName, isNonErrorResponse)
   .testDuration('60s')
   .build();
 
