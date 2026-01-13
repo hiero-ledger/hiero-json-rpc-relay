@@ -230,7 +230,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   describe('Read-Only mode', function () {
-    it('@release should fail to execute "eth_sendRawTransaction" in Read-Only mode', async function () {
+    it('should fail to execute "eth_sendRawTransaction" in Read-Only mode', async function () {
       const readOnly = ConfigService.get('READ_ONLY');
       ConfigServiceTestHelper.dynamicOverride('READ_ONLY', true);
 
