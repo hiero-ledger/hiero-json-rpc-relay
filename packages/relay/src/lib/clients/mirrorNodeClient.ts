@@ -989,15 +989,17 @@ export class MirrorNodeClient {
     return this.getQueryParams(queryParamObject);
   }
 
-  public static calculateMaxPage(params?: IContractLogsResultsParams): number {
+  private getValueFromTimestampArray(arr: string[], key: string) {
+    return Number(arr.find((v) => v.startsWith(key + ':'))?.split(':')[1]);
+  }
+
+  private calculateMaxPage(params?: IContractLogsResultsParams): number {
     const timestamp = params?.timestamp;
     if (!Array.isArray(timestamp)) {
       return MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
     }
-
-    const getValue = (arr: string[], key: string) => Number(arr.find((v) => v.startsWith(key + ':'))?.split(':')[1]);
-    const gte = getValue(timestamp, 'gte');
-    const lte = getValue(timestamp, 'lte');
+    const gte = this.getValueFromTimestampArray(timestamp, 'gte');
+    const lte = this.getValueFromTimestampArray(timestamp, 'lte');
 
     // difference of less than 3 seconds guarantees that we're querying only 1 block
     return Number.isFinite(gte) && Number.isFinite(lte) && lte - gte < 3
@@ -1042,7 +1044,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
+      this.calculateMaxPage(contractLogsResultsParams),
     );
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
@@ -1089,7 +1091,7 @@ export class MirrorNodeClient {
           requestDetails,
           [],
           1,
-          MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
+          this.calculateMaxPage(contractLogsResultsParams),
         );
       } else {
         break;
@@ -1121,7 +1123,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.calculateMaxPage(contractLogsResultsParams),
+      this.calculateMaxPage(contractLogsResultsParams),
     );
   }
 
