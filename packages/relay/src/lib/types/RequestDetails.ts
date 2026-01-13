@@ -23,7 +23,7 @@ export class RequestDetails {
    * Creates an instance of RequestDetails.
    * @param details - The details of the request.
    */
-  constructor(details: { requestId: string; ipAddress: string; connectionId?: string; method?: string }) {
+  constructor(details: { requestId: string; ipAddress: string; connectionId?: string }) {
     this.requestId = details.requestId;
     this.ipAddress = details.ipAddress;
     this.connectionId = details.connectionId;
