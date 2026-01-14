@@ -84,4 +84,23 @@ export class MirrorNodeClientError extends Error {
   isInvalidTransaction() {
     return this.message === 'INVALID_TRANSACTION';
   }
+
+  public toJSON() {
+    return {
+      statusCode: this.statusCode,
+      data: this.data,
+      detail: this.detail,
+      message: this.message,
+      name: MirrorNodeClientError.name,
+    };
+  }
+
+  public static fromJSON(statusCode: number, message: string, data?: string, detail?: string): MirrorNodeClientError {
+    const err: MirrorNodeClientError = new MirrorNodeClientError({}, statusCode);
+    err.data = data;
+    err.detail = detail;
+    err.message = message;
+
+    return err;
+  }
 }

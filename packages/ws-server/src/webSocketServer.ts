@@ -6,6 +6,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { Relay } from '@hashgraph/json-rpc-relay/dist';
 import { RedisClientManager } from '@hashgraph/json-rpc-relay/dist/lib/clients/redisClientManager';
+import { RegistryFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/registryFactory';
 import { IPRateLimiterService, RateLimitStoreFactory } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import KoaJsonRpc from '@hashgraph/json-rpc-server/dist/koaJsonRpc';
@@ -55,7 +56,7 @@ const mainLogger = pino({
 
 export const logger = mainLogger.child({ name: 'rpc-ws-server' });
 export async function initializeWsServer() {
-  const register = new Registry();
+  const register = RegistryFactory.getInstance(true);
   const relay = await Relay.init(logger, register);
 
   // Get Redis client if Redis is enabled

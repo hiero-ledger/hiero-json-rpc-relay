@@ -15,6 +15,7 @@ import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../errors/MirrorNodeClientError';
 import { SDKClientError } from '../errors/SDKClientError';
+import { WorkersPool } from '../services/workersService/WorkersPool';
 import {
   IAccountRequestParams,
   IContractCallRequest,
@@ -31,7 +32,6 @@ import { ContractAction, MirrorNodeBlock } from '../types/mirrorNode';
 import constants from './../constants';
 import type { ICacheClient } from './cache/ICacheClient';
 import { IOpcodesResponse } from './models/IOpcodesResponse';
-
 type REQUEST_METHODS = 'GET' | 'POST';
 
 export class MirrorNodeClient {
@@ -113,6 +113,12 @@ export class MirrorNodeClient {
   private static readonly IS_MODULARIZED = 'Is-Modularized';
 
   /**
+   * Metrics related vars
+   */
+  public static ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM: string = 'addLabelToMirrorResponseHistogram';
+  public static ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER: string = 'addLabelToMirrorErrorCodeCounter';
+
+  /**
    * The logger used for logging all output from this class.
    * @private
    */
@@ -153,6 +159,9 @@ export class MirrorNodeClient {
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
+  );
+  public static readonly mirrorNodeContractResultsLogsBlockRangePageMax = ConfigService.get(
+    'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
   );
 
   protected createAxiosClient(baseUrl: string): AxiosInstance {
@@ -402,7 +411,9 @@ export class MirrorNodeClient {
           JSON.stringify(response.data),
         );
       }
-      this.mirrorResponseHistogram.labels(pathLabel, response.status?.toString()).observe(ms);
+
+      this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms);
+
       return response.data;
     } catch (error: any) {
       const ms = Date.now() - start;
@@ -414,8 +425,8 @@ export class MirrorNodeClient {
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
-      this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms);
-      this.mirrorErrorCodeCounter.labels(pathLabel, effectiveStatusCode.toString()).inc();
+      this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode, ms);
+      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode);
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -423,6 +434,45 @@ export class MirrorNodeClient {
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
     }
+  }
+
+  /**
+   * Records a mirror response duration in the response time histogram. This method observes the provided duration
+   * value for the given path and result labels. When enabled, the same metric update is forwarded to the parent thread
+   * via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the response outcome (e.g., status or result).
+   * @param ms - Response duration in milliseconds.
+   */
+  public addLabelToMirrorResponseHistogram(pathLabel: string, value: string, ms: number): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
+      {
+        pathLabel,
+        value,
+        ms,
+      },
+      () => this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms),
+    );
+  }
+
+  /**
+   * Increments the mirror error code counter for the given path and error label. This method updates the local
+   * `mirrorErrorCodeCounter` metric and optionally propagates the increment to the parent thread via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the error code or error category.
+   */
+  public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
+      {
+        pathLabel,
+        value,
+      },
+      () => this.mirrorErrorCodeCounter.labels(pathLabel, value).inc(),
+    );
   }
 
   async get<T = any>(
@@ -944,6 +994,20 @@ export class MirrorNodeClient {
     return this.getQueryParams(queryParamObject);
   }
 
+  private calculateMaxPage(params?: IContractLogsResultsParams): number {
+    const timestamp = params?.timestamp;
+    if (!Array.isArray(timestamp)) {
+      return MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
+    }
+    const gte = Number(timestamp.find((v) => v.startsWith('gte' + ':'))?.split(':')[1]);
+    const lte = Number(timestamp.find((v) => v.startsWith('lte' + ':'))?.split(':')[1]);
+
+    // difference of less than 3 seconds guarantees that we're querying only 1 block
+    return Number.isFinite(gte) && Number.isFinite(lte) && lte - gte < 3
+      ? MirrorNodeClient.mirrorNodeContractResultsLogsBlockRangePageMax
+      : MirrorNodeClient.mirrorNodeContractResultsLogsPageMax;
+  }
+
   /**
    * Retrieves contract results log with a retry mechanism to handle immature records.
    * When querying the /contracts/results/logs api, there are cases where the records are "immature" - meaning
@@ -973,6 +1037,7 @@ export class MirrorNodeClient {
     const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
 
     const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+    const maxPage = this.calculateMaxPage(contractLogsResultsParams);
 
     let logResults = await this.getPaginatedResults(
       `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
@@ -981,7 +1046,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+      maxPage,
     );
 
     for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
@@ -1028,7 +1093,7 @@ export class MirrorNodeClient {
           requestDetails,
           [],
           1,
-          MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+          maxPage,
         );
       } else {
         break;
@@ -1060,7 +1125,7 @@ export class MirrorNodeClient {
       requestDetails,
       [],
       1,
-      MirrorNodeClient.mirrorNodeContractResultsLogsPageMax,
+      this.calculateMaxPage(contractLogsResultsParams),
     );
   }
 

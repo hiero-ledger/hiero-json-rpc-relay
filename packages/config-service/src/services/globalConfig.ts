@@ -412,6 +412,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
+  MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
+  },
   MIRROR_NODE_CONTRACT_RESULTS_PG_MAX: {
     type: 'number',
     required: false,
@@ -737,6 +742,16 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  WORKERS_POOL_MAX_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 4,
+  },
+  WORKERS_POOL_MIN_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 2,
   },
   WS_PING_INTERVAL: {
     type: 'number',

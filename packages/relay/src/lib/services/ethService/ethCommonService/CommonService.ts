@@ -14,6 +14,7 @@ import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
 import { IAccountInfo, RequestDetails } from '../../../types';
+import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
 /**
@@ -374,7 +375,7 @@ export class CommonService implements ICommonService {
     if (address) {
       logResults = await this.getLogsByAddress(address, params, requestDetails);
     } else {
-      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, params);
+      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, params, undefined);
     }
 
     if (!logResults) {
@@ -410,22 +411,19 @@ export class CommonService implements ICommonService {
     topics: any[] | null,
     requestDetails: RequestDetails,
   ): Promise<Log[]> {
-    const EMPTY_RESPONSE = [];
-    const params: any = {};
-
-    if (blockHash) {
-      if (!(await this.validateBlockHashAndAddTimestampToParams(params, blockHash, requestDetails))) {
-        return EMPTY_RESPONSE;
-      }
-    } else if (
-      !(await this.validateBlockRangeAndAddTimestampToParams(params, fromBlock, toBlock, requestDetails, address))
-    ) {
-      return EMPTY_RESPONSE;
-    }
-
-    this.addTopicsToParams(params, topics);
-
-    return this.getLogsWithParams(address, params, requestDetails);
+    return WorkersPool.run(
+      {
+        type: 'getLogs',
+        blockHash,
+        fromBlock,
+        toBlock,
+        address,
+        topics,
+        requestDetails,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   public async resolveEvmAddress(
