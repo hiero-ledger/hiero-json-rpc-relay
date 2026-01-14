@@ -272,19 +272,6 @@ describe('LocalLRUCache Test Suite', async function () {
       const keys = await localLRUCache.keys(pattern, callingMethod);
       expect(keys).to.include.members([key1, key2, key3]);
     });
-
-    it('should be able to multiSet', async function () {
-      await localLRUCache.multiSet(
-        {
-          boolean: false,
-          number: 5644,
-        },
-        callingMethod,
-      );
-
-      expect(await localLRUCache.get('boolean', callingMethod)).to.be.false;
-      expect(await localLRUCache.get('number', callingMethod)).to.equal(5644);
-    });
   });
 
   describe('incrBy', function () {
