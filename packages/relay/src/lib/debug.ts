@@ -23,7 +23,9 @@ import {
   RequestDetails,
   TraceBlockByNumberTxResult,
   TransactionTracerConfig,
+  TxHashToContractResultOrActionsMap,
 } from './types';
+import type { ContractAction, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -201,8 +203,11 @@ export class DebugImpl implements Debug {
 
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
-      // Get ALL transaction hashes (EVM + synthetic)
-      const transactionHashes = await this.getAllTransactionHashesFromBlock(blockResponse, requestDetails);
+      // Get ALL transaction hashes (EVM + synthetic) along with pre-fetched data
+      const { transactionHashes, preFetchedData } = await this.getAllTransactionHashesFromBlock(
+        blockResponse,
+        requestDetails,
+      );
 
       if (transactionHashes.length === 0) {
         return [];
@@ -211,12 +216,18 @@ export class DebugImpl implements Debug {
       const tracer = tracerObject?.tracer ?? TracerType.CallTracer;
       const onlyTopCall = tracerObject?.tracerConfig?.onlyTopCall;
 
-      // Trace all transactions using existing tracer methods
+      // Trace all transactions using existing tracer methods with pre-fetched data
       if (tracer === TracerType.CallTracer) {
         return await Promise.all(
           transactionHashes.map(async (txHash) => ({
             txHash,
-            result: await this.callTracer(txHash, { onlyTopCall }, requestDetails),
+            result: await this.callTracer(
+              txHash,
+              { onlyTopCall },
+              requestDetails,
+              preFetchedData[txHash]?.contractResult,
+              preFetchedData[txHash]?.actions,
+            ),
           })),
         );
       }
@@ -225,7 +236,7 @@ export class DebugImpl implements Debug {
         return await Promise.all(
           transactionHashes.map(async (txHash) => ({
             txHash,
-            result: await this.prestateTracer(txHash, onlyTopCall, requestDetails),
+            result: await this.prestateTracer(txHash, onlyTopCall, requestDetails, preFetchedData[txHash]?.actions),
           })),
         );
       }
@@ -420,22 +431,30 @@ export class DebugImpl implements Debug {
    * @param {string} transactionHash - The hash of the transaction to be debugged.
    * @param {ICallTracerConfig} tracerConfig - The tracer config to be used.
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @param {MirrorNodeContractResult} preFetchedTransactionsResponse - Optional pre-fetched contract result data.
+   * @param {ContractAction[]} preFetchedActionsResponse - Optional pre-fetched actions data.
    * @returns {Promise<object>} The formatted response.
    */
   async callTracer(
     transactionHash: string,
     tracerConfig: ICallTracerConfig,
     requestDetails: RequestDetails,
+    preFetchedTransactionsResponse?: MirrorNodeContractResult,
+    preFetchedActionsResponse?: ContractAction[],
   ): Promise<CallTracerResult> {
-    try {
-      const [actionsResponse, transactionsResponse] = await Promise.all([
+    let actionsResponse = preFetchedActionsResponse;
+    let transactionsResponse = preFetchedTransactionsResponse;
+    if (!preFetchedTransactionsResponse && !preFetchedActionsResponse) {
+      [actionsResponse, transactionsResponse] = await Promise.all([
         this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
         this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
           transactionHash,
           requestDetails,
         ]),
       ]);
+    }
 
+    try {
       if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
@@ -472,9 +491,9 @@ export class DebugImpl implements Debug {
         gas: numberTo0x(gas),
         gasUsed: numberTo0x(gasUsed),
         input,
-        output: result !== constants.SUCCESS ? error : output,
+        output: result !== constants.SUCCESS && error ? error : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),
-        ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error) }),
+        ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error ?? undefined) }),
         // if we have more than one call executed during the transactions we would return all calls
         // except the first one in the sub-calls array,
         // therefore we need to exclude the first one from the actions response
@@ -494,6 +513,7 @@ export class DebugImpl implements Debug {
    * @param {string} transactionHash - The hash of the transaction to trace.
    * @param {boolean} onlyTopCall - When true, only includes accounts involved in top-level calls.
    * @param {RequestDetails} requestDetails - Details for request tracking and logging.
+   * @param {ContractAction[]} preFetchedActionsResponse - Optional pre-fetched actions data.
    * @returns {Promise<object>} A Promise that resolves to an object containing the pre-state information.
    *                           The object keys are EVM addresses, and values contain balance, nonce, code, and storage data.
    * @throws {Error} Throws a RESOURCE_NOT_FOUND error if contract results cannot be retrieved.
@@ -502,6 +522,7 @@ export class DebugImpl implements Debug {
     transactionHash: string,
     onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
+    preFetchedActionsResponse?: ContractAction[],
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
@@ -511,8 +532,11 @@ export class DebugImpl implements Debug {
       return cachedResult;
     }
 
-    // Get transaction actions
-    const actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    let actionsResponse = preFetchedActionsResponse;
+    if (!preFetchedActionsResponse || preFetchedActionsResponse.length === 0) {
+      actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
+    }
+
     if (!actionsResponse || actionsResponse.length === 0) {
       return (await this.handleSyntheticTransaction(
         transactionHash,
@@ -615,17 +639,20 @@ export class DebugImpl implements Debug {
   }
 
   /**
-   * Retrieves all transaction hashes in a block (EVM + synthetic).
+   * Retrieves all transaction hashes in a block (EVM + synthetic) along with pre-fetched data.
    *
    * @private
    * @param blockResponse - Block metadata with timestamp range
    * @param requestDetails - Request tracking details
-   * @returns Array of unique transaction hashes in the block
+   * @returns Object containing transaction hashes and pre-fetched data (contract results and actions)
    */
   private async getAllTransactionHashesFromBlock(
     blockResponse: { timestamp: { from: string; to: string } },
     requestDetails: RequestDetails,
-  ): Promise<string[]> {
+  ): Promise<{
+    transactionHashes: string[];
+    preFetchedData: TxHashToContractResultOrActionsMap;
+  }> {
     const timestampRange = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
 
     // Fetch both contract results and all logs in the block in parallel
@@ -637,6 +664,14 @@ export class DebugImpl implements Debug {
       ]),
       this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
     ]);
+
+    // Create a map of contract results by hash for quick lookup
+    const contractResultsByHash = new Map<string, MirrorNodeContractResult>();
+    contractResults
+      ?.filter((cr) => cr.result !== 'WRONG_NONCE')
+      .forEach((cr) => {
+        contractResultsByHash.set(cr.hash, cr);
+      });
 
     // Collect all unique transaction hashes
     const transactionHashes = new Set<string>();
@@ -651,7 +686,38 @@ export class DebugImpl implements Debug {
       }
     });
 
-    return Array.from(transactionHashes);
+    const txHashArray = Array.from(transactionHashes);
+
+    // Fetch actions for all transactions in parallel
+    const actionsPromises = txHashArray.map(async (txHash) => {
+      try {
+        const actions = await this.mirrorNodeClient.getContractsResultsActions(txHash, requestDetails);
+        return { txHash, actions };
+      } catch (error) {
+        // If actions fetch fails, return empty array (synthetic transactions may not have actions)
+        this.logger.warn(`Failed to fetch actions for transaction ${txHash}: ${error}`);
+        return { txHash, actions: [] };
+      }
+    });
+
+    const actionsResults = await Promise.all(actionsPromises);
+
+    // Build pre-fetched data map
+    const preFetchedData: TxHashToContractResultOrActionsMap = {};
+
+    txHashArray.forEach((txHash) => {
+      const contractResult = contractResultsByHash.get(txHash);
+      const actionsResult = actionsResults.find((ar) => ar.txHash === txHash);
+      preFetchedData[txHash] = {
+        ...(contractResult && { contractResult }),
+        ...(actionsResult?.actions && actionsResult.actions.length > 0 && { actions: actionsResult.actions }),
+      };
+    });
+
+    return {
+      transactionHashes: txHashArray,
+      preFetchedData,
+    };
   }
 
   /**
