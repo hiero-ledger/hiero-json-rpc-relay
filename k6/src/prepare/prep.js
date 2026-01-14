@@ -155,7 +155,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   const blockInfo = await (await fetch(
     `${mirrorNodeBaseUrl}/blocks/${logInfo.logs[0].block_number}`
   )).json();
-  if (syntheticTxPerBlock > blockInfo.count) {
+  if (blockInfo.count < syntheticTxPerBlock) {
     throw Error(`There was a problem sending ${syntheticTxPerBlock} transactions and block ${logInfo.logs[0].block_number} does not contain enough synthetic transactions.`);
   }
 
