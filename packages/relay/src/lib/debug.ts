@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 
-import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x } from '../formatters';
+import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -270,7 +270,7 @@ export class DebugImpl implements Debug {
           gasUsed: numberTo0x(action.gas_used),
           input: contract?.bytecode ?? action.input,
           output: contract?.runtime_bytecode ?? action.result_data,
-          value: numberTo0x(action.value),
+          value: numberTo0x(tinybarsToWeibars(action.value) ?? 0),
         };
       }),
     );
@@ -461,7 +461,7 @@ export class DebugImpl implements Debug {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const value = amount === 0 ? DebugImpl.zeroHex : numberTo0x(amount);
+      const value = numberTo0x(tinybarsToWeibars(amount) ?? 0);
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {

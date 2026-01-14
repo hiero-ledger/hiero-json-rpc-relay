@@ -2,11 +2,12 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
+import { parentPort } from 'worker_threads';
 
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
+import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
-import { ICacheClient } from '../../clients/cache/ICacheClient';
 
 /**
  * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
@@ -43,6 +44,34 @@ export class WorkersPool {
   private static cacheService: MeasurableCache;
 
   /**
+   * Updates a metric either by delegating the update to a worker thread
+   * or by executing the update locally when no worker context is present.
+   *
+   * If running inside a worker (i.e., `parentPort` is available), this method
+   * sends a message to the parent thread containing the provided message type
+   * and parameters. Otherwise, it falls back to executing the provided
+   * metric update function synchronously in the current thread.
+   *
+   * @param messageType - The message type identifier sent to the parent thread.
+   * @param params - Additional parameters to include in the message payload.
+   * @param metricUpdateFunc - Callback executed locally to update the metric when no worker context is available.
+   */
+  public static updateMetricViaWorkerOrLocal(
+    messageType: string,
+    params: Record<string, any>,
+    metricUpdateFunc: () => void,
+  ): void {
+    if (parentPort) {
+      parentPort.postMessage({
+        type: messageType,
+        ...params,
+      });
+    } else {
+      metricUpdateFunc();
+    }
+  }
+
+  /**
    * Returns the shared Piscina worker pool instance.
    *
    * If the pool has not yet been created, it initializes a new one using configuration-based thread settings.
@@ -59,14 +88,22 @@ export class WorkersPool {
       });
 
       this.instance.on('message', (msg) => {
-        if (msg.type === 'addLabelToMirrorResponseHistogram') {
-          this.mirrorNodeClient.addLabelToMirrorResponseHistogram(msg.pathLabel, msg.value, msg.ms);
+        if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM) {
+          this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM](
+            msg.pathLabel,
+            msg.value,
+            msg.ms,
+          );
         }
-        if (msg.type === 'addLabelToMirrorErrorCodeCounter') {
-          this.mirrorNodeClient.addLabelToMirrorErrorCodeCounter(msg.pathLabel, msg.value);
+        if (msg.type === MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER) {
+          this.mirrorNodeClient[MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER](msg.pathLabel, msg.value);
         }
-        if (msg.type === 'addLabelToCacheMethodsCounter') {
-          this.cacheService.addLabelToCacheMethodsCounter(msg.callingMethod, msg.cacheType, msg.method);
+        if (msg.type === MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER) {
+          this.cacheService[MeasurableCache.ADD_LABEL_TO_CACHE_METHODS_COUNTER](
+            msg.callingMethod,
+            msg.cacheType,
+            msg.method,
+          );
         }
       });
     }

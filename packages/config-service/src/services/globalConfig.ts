@@ -133,11 +133,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 15000,
   },
-  CONTENT_TOO_LARGE_METHODS: {
-    type: 'strArray',
-    required: false,
-    defaultValue: ['eth_getLogs', 'eth_getFilterChanges', 'eth_getFilterLogs'],
-  },
   CONTRACT_CALL_GAS_LIMIT: {
     type: 'number',
     required: false,
@@ -393,16 +388,6 @@ const _CONFIG = {
     required: false,
     defaultValue: 0,
   },
-  MAX_LOG_RESPONSE_COUNT: {
-    type: 'number',
-    required: false,
-    defaultValue: 30_000, // total logs
-  },
-  MAX_LOG_RESPONSE_SIZE: {
-    type: 'number',
-    required: false,
-    defaultValue: 20_480, // size in KB
-  },
   MEMWATCH_ENABLED: {
     type: 'boolean',
     required: false,
@@ -417,6 +402,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 200,
+  },
+  MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
   },
   MIRROR_NODE_CONTRACT_RESULTS_PG_MAX: {
     type: 'number',

@@ -1273,8 +1273,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'input', 'calls', 'gas'],
-            ['from', 'to', 'input', 'output', 'gas'],
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
             successResultCreateWithDepth,
           );
           expect(resultDebug.calls).to.have.lengthOf(1);
@@ -1304,8 +1304,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'calls'],
-            ['to', 'from', 'output', 'input'],
+            ['to', 'output', 'calls', 'gasUsed'],
+            ['to', 'from', 'output', 'input', 'gasUsed'],
             successResultCallWithDepth,
           );
           expect(resultDebug.calls).to.have.lengthOf(1);
@@ -1333,7 +1333,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[0].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('should be able to debug a failing CALL transaction with revert reason of type Legacy with call depth and onlyTopCall false', async function () {
@@ -1358,7 +1358,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[0].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
 
         //onlyTopCall:true
@@ -1382,7 +1387,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           defaultResponseFields.from = accounts[0].address;
           defaultResponseFields.input = bytecode;
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], defaultResponseFields);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
         });
 
         it('should be able to debug a successful CALL transaction of type Legacy with call depth and onlyTopCall false', async function () {
@@ -1407,7 +1417,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
           successResultCall.from = accounts[0].address;
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], successResultCall);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
         it('should be able to debug a failing CREATE transaction of type Legacy with call depth and onlyTopCall true', async function () {
@@ -1432,7 +1442,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[0].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('should be able to debug a failing CALL transaction of type Legacy with call depth and onlyTopCall true', async function () {
@@ -1457,7 +1467,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[0].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
       });
 
@@ -1485,8 +1500,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'input', 'calls', 'gas'],
-            ['from', 'to', 'input', 'output', 'gas'],
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
             successResultCreateWithDepth,
           );
           expect(resultDebug.calls).to.have.lengthOf(1);
@@ -1516,7 +1531,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           defaultResponseFields.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
           defaultResponseFields.from = accounts[0].address;
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], defaultResponseFields);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            defaultResponseFields,
+          );
         });
 
         it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall false', async function () {
@@ -1541,7 +1561,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[2].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('should be able to debug a failing CALL transaction of type 2930 with call depth and onlyTopCall false', async function () {
@@ -1566,7 +1586,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[0].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
 
         //onlyTopCall:true
@@ -1594,7 +1619,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'input', 'calls'],
+            ['to', 'output', 'input', 'calls', 'gasUsed'],
             [],
             defaultResponseFields,
           );
@@ -1622,7 +1647,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
           successResultCall.from = accounts[0].address;
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], successResultCall);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
         it('should be able to debug a failing CREATE transaction of type 2930 with call depth and onlyTopCall true', async function () {
@@ -1647,7 +1672,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[0].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('should be able to debug a failing CALL transaction of type 2930 with call depth and onlyTopCall true', async function () {
@@ -1672,7 +1697,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[1].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
       });
 
@@ -1700,8 +1730,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'input', 'calls', 'gas'],
-            ['from', 'to', 'input', 'output', 'gas'],
+            ['to', 'output', 'input', 'calls', 'gas', 'gasUsed'],
+            ['from', 'to', 'input', 'output', 'gas', 'gasUsed'],
             successResultCreateWithDepth,
           );
           expect(resultDebug.calls).to.have.lengthOf(1);
@@ -1730,7 +1760,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'calls', 'gas'],
+            ['to', 'output', 'calls', 'gas', 'gasUsed'],
             [],
             defaultResponseFields,
           );
@@ -1758,7 +1788,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[2].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('@release should be able to debug a failing CALL transaction of type 1559 with call depth and onlyTopCall false', async function () {
@@ -1782,7 +1812,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[0].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
 
         //onlyTopCall:true
@@ -1810,7 +1845,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
 
           Assertions.validateResultDebugValues(
             resultDebug,
-            ['to', 'output', 'input', 'calls'],
+            ['to', 'output', 'input', 'calls', 'gasUsed'],
             [],
             defaultResponseFields,
           );
@@ -1837,7 +1872,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           successResultCall.input = '0xc648049d0000000000000000000000000000000000000000000000000000000000000001';
           successResultCall.from = accounts[0].address;
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], successResultCall);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], successResultCall);
         });
 
         it('should be able to debug a failing CREATE transaction of type 1559 with call depth and onlyTopCall true', async function () {
@@ -1861,7 +1896,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCreate.from = accounts[0].address;
           failingResultCreate.input = '0x01121212';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output'], [], failingResultCreate);
+          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'gasUsed'], [], failingResultCreate);
         });
 
         it('should be able to debug a failing CALL transaction of type 1559 with call depth and onlyTopCall true', async function () {
@@ -1886,7 +1921,12 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
           failingResultCall.from = accounts[1].address;
           failingResultCall.input = '0x0323d234';
 
-          Assertions.validateResultDebugValues(resultDebug, ['to', 'output', 'calls'], [], failingResultCall);
+          Assertions.validateResultDebugValues(
+            resultDebug,
+            ['to', 'output', 'calls', 'gasUsed'],
+            [],
+            failingResultCall,
+          );
         });
       });
     });

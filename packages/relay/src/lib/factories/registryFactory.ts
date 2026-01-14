@@ -14,13 +14,7 @@ export class RegistryFactory {
    * @returns The globally shared `Registry` instance.
    */
   static getInstance(forceCreate: boolean = false): Registry {
-    if (!this.instance) {
-      this.instance = new Registry();
-    }
-
-    if (forceCreate) {
-      this.instance = new Registry();
-    }
+    if (!this.instance || forceCreate) this.instance = new Registry();
 
     return this.instance;
   }
