@@ -412,15 +412,8 @@ export class MirrorNodeClient {
         );
       }
 
-      WorkersPool.updateMetricViaWorkerOrLocal(
-        MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
-        {
-          pathLabel,
-          value: response.status?.toString(),
-          ms,
-        },
-        () => this.mirrorResponseHistogram.labels(pathLabel, response.status?.toString()).observe(ms),
-      );
+      this.addLabelToMirrorResponseHistogram(pathLabel, response.status?.toString(), ms);
+
       return response.data;
     } catch (error: any) {
       const ms = Date.now() - start;
@@ -432,24 +425,8 @@ export class MirrorNodeClient {
         MirrorNodeClient.unknownServerErrorHttpStatusCode; // Use custom 567 status code as fallback
 
       // Record metrics
-      WorkersPool.updateMetricViaWorkerOrLocal(
-        MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
-        {
-          pathLabel,
-          value: effectiveStatusCode,
-          ms,
-        },
-        () => this.mirrorResponseHistogram.labels(pathLabel, effectiveStatusCode).observe(ms),
-      );
-
-      WorkersPool.updateMetricViaWorkerOrLocal(
-        MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
-        {
-          pathLabel,
-          value: effectiveStatusCode,
-        },
-        () => this.mirrorErrorCodeCounter.labels(pathLabel, effectiveStatusCode).inc(),
-      );
+      this.addLabelToMirrorResponseHistogram(pathLabel, effectiveStatusCode, ms);
+      this.addLabelToMirrorErrorCodeCounter(pathLabel, effectiveStatusCode);
 
       // always abort the request on failure as the axios call can hang until the parent code/stack times out (might be a few minutes in a server-side applications)
       controller.abort();
@@ -457,6 +434,45 @@ export class MirrorNodeClient {
       // either return null for accepted error codes or throw a MirrorNodeClientError
       return this.handleError(error, path, pathLabel, effectiveStatusCode, method);
     }
+  }
+
+  /**
+   * Records a mirror response duration in the response time histogram. This method observes the provided duration
+   * value for the given path and result labels. When enabled, the same metric update is forwarded to the parent thread
+   * via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the response outcome (e.g., status or result).
+   * @param ms - Response duration in milliseconds.
+   */
+  public addLabelToMirrorResponseHistogram(pathLabel: string, value: string, ms: number): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_RESPONSE_HISTOGRAM,
+      {
+        pathLabel,
+        value,
+        ms,
+      },
+      () => this.mirrorResponseHistogram.labels(pathLabel, value).observe(ms),
+    );
+  }
+
+  /**
+   * Increments the mirror error code counter for the given path and error label. This method updates the local
+   * `mirrorErrorCodeCounter` metric and optionally propagates the increment to the parent thread via `parentPort`.
+   *
+   * @param pathLabel - Label identifying the mirrored request path.
+   * @param value - Label value representing the error code or error category.
+   */
+  public addLabelToMirrorErrorCodeCounter(pathLabel: string, value: string): void {
+    WorkersPool.updateMetricViaWorkerOrLocal(
+      MirrorNodeClient.ADD_LABEL_TO_MIRROR_ERROR_CODE_COUNTER,
+      {
+        pathLabel,
+        value,
+      },
+      () => this.mirrorErrorCodeCounter.labels(pathLabel, value).inc(),
+    );
   }
 
   async get<T = any>(

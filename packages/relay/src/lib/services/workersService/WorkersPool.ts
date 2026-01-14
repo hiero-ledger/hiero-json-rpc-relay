@@ -43,6 +43,19 @@ export class WorkersPool {
    */
   private static cacheService: MeasurableCache;
 
+  /**
+   * Updates a metric either by delegating the update to a worker thread
+   * or by executing the update locally when no worker context is present.
+   *
+   * If running inside a worker (i.e., `parentPort` is available), this method
+   * sends a message to the parent thread containing the provided message type
+   * and parameters. Otherwise, it falls back to executing the provided
+   * metric update function synchronously in the current thread.
+   *
+   * @param messageType - The message type identifier sent to the parent thread.
+   * @param params - Additional parameters to include in the message payload.
+   * @param metricUpdateFunc - Callback executed locally to update the metric when no worker context is available.
+   */
   public static updateMetricViaWorkerOrLocal(
     messageType: string,
     params: Record<string, any>,
