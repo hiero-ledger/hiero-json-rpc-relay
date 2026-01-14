@@ -221,7 +221,16 @@ const _CONFIG = {
   HEDERA_SPECIFIC_REVERT_STATUSES: {
     type: 'strArray',
     required: false,
-    defaultValue: ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'],
+    defaultValue: [
+      'WRONG_NONCE',
+      'INVALID_ACCOUNT_ID',
+      'SCHEDULE_FUTURE_THROTTLE_EXCEEDED',
+      'SCHEDULE_FUTURE_GAS_LIMIT_EXCEEDED',
+      'THROTTLED_AT_CONSENSUS',
+      'EVM_HOOK_GAS_THROTTLED',
+      'BUSY',
+      'CONSENSUS_GAS_EXHAUSTED',
+    ],
   },
   FEE_HISTORY_MAX_RESULTS: {
     type: 'number',
@@ -487,11 +496,6 @@ const _CONFIG = {
     type: 'string',
     required: false,
     defaultValue: null,
-  },
-  MULTI_SET: {
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
   },
   // the actual env var in the node process is npm_package_version
   npm_package_version: {
