@@ -11,7 +11,7 @@ const { options, run } = new TestScenarioBuilder()
   .request((testParameters) => {
     return http.post(
       __ENV.RELAY_BASE_URL,
-      getPayLoad(methodName, [testParameters.blockHashWithManySyntheticTxs, true]),
+      getPayLoad(methodName, [testParameters.blockHashWithManySyntheticTxs.slice(0, 66), true]),
       httpParams
     );
   })

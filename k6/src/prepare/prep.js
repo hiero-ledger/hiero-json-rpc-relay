@@ -72,9 +72,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
     295n: 'Mainnet'
   };
   const network = CHAIN_ID_TO_NETWORK[chainId] ?? 'LocalNode';
-  const mirrorNodeBaseUrl = network !== 'LocalNode'
-    ? `https://${network.toLowerCase()}.mirrornode.hedera.com/api/v1`
-    : 'http://localhost:5551/api/v1';
+  const mirrorNodeBaseUrl = `${process.env.MIRROR_BASE_URL}/api/v1`;
 
   // define helpers
   async function sleep(ms) {
@@ -165,7 +163,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
 
   return {
     blockNumber: logInfo.logs[0].block_number,
-    blockHash: logInfo.logs[0].block_hash.slice(0, 66),
+    blockHash: logInfo.logs[0].block_hash,
   };
 }
 
