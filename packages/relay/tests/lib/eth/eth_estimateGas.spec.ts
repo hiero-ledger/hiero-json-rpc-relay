@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256 } from 'ethers';
+import { AbiCoder, keccak256, Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -13,8 +13,11 @@ import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
+import { Precheck } from '../../../src/lib/precheck';
+import { LockService } from '../../../src/lib/services/lockService/LockService';
+import { LocalPendingTransactionStorage } from '../../../src/lib/services/transactionPoolService/LocalPendingTransactionStorage';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -78,7 +81,17 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    const lockServiceStub = createStubInstance(LockService);
+    const storageStub = createStubInstance(LocalPendingTransactionStorage);
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      storageStub,
+      lockServiceStub,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getOperatorAccountId()!.toString(), 200, {
@@ -427,6 +440,51 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients" throws CONTRACT_REVERT error', async function () {
+    await mockContractCall(
+      transaction,
+      true,
+      400,
+      {
+        _status: {
+          messages: [
+            {
+              data: '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+              detail: 'Invalid number of recipients',
+              message: 'CONTRACT_REVERT_EXECUTED',
+            },
+          ],
+        },
+      },
+      requestDetails,
+    );
+
+    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.eventually.satisfy((error: JsonRpcError) => {
+        expect(error.data).to.equal(
+          '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+        );
+        expect(error.message).to.equal('execution reverted: Invalid number of recipients');
+        return true;
+      });
+  });
+
+  withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
+    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
+      const originalEstimateGas = contractService.estimateGas;
+      contractService.estimateGas = async () => {
+        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
+      };
+
+      const result = await ethImpl.estimateGas(transaction, id, requestDetails);
+
+      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction)));
+
+      contractService.estimateGas = originalEstimateGas;
+    });
+  });
+
+  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async function () {
     await mockContractCall(
       transaction,
       true,

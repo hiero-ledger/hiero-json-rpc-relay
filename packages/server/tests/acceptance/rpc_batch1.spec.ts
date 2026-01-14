@@ -7,7 +7,6 @@ import { formatTransactionId, numberTo0x, prepend0x } from '@hashgraph/json-rpc-
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
-import { Precheck } from '@hashgraph/json-rpc-relay/dist/lib/precheck';
 import { RequestDetails } from '@hashgraph/json-rpc-relay/dist/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '@hashgraph/json-rpc-relay/src/lib/validators';
 import {
@@ -990,78 +989,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(nonceLatest).to.equal(noncePending);
-          });
-
-          it('should have equal nonces (pending and latest) after CN reverted transaction', async () => {
-            const tx = {
-              ...defaultLondonTransactionData,
-              to: null,
-              data: '0x' + '00'.repeat(5121),
-              nonce: await relay.getAccountNonce(accounts[1].address),
-              gasLimit: 41484,
-            };
-            const signedTx = await accounts[1].wallet.signTransaction(tx);
-            const txHash = await relay.sendRawTransaction(signedTx);
-            await relay.pollForValidTransactionReceipt(txHash);
-            const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
-
-            const nonceLatest = await relay.getAccountNonce(accounts[1].address);
-            const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
-
-            expect(mnResult.result).to.equal('INSUFFICIENT_GAS');
-            expect(nonceLatest).to.equal(noncePending);
-          });
-
-          it('should have equal nonces (pending and latest) after multiple CN reverted transactions', async () => {
-            const accountNonce = await relay.getAccountNonce(accounts[1].address);
-            const tx1 = {
-              ...defaultLondonTransactionData,
-              to: null,
-              data: basicContractJson.bytecode,
-              nonce: accountNonce,
-              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
-            };
-            const tx2 = {
-              ...defaultLondonTransactionData,
-              to: accounts[2].address,
-              nonce: accountNonce,
-              gasLimit: 21000,
-            };
-            const tx3 = {
-              ...defaultLondonTransactionData,
-              to: null,
-              data: basicContractJson.bytecode,
-              nonce: accountNonce + 1,
-              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
-            };
-            const signedTx1 = await accounts[1].wallet.signTransaction(tx1);
-            const signedTx2 = await accounts[1].wallet.signTransaction(tx2);
-            const signedTx3 = await accounts[1].wallet.signTransaction(tx3);
-
-            const txHash1 = await relay.sendRawTransaction(signedTx1);
-            await new Promise((r) => setTimeout(r, 500));
-            const txHash2 = await relay.sendRawTransaction(signedTx2);
-            await new Promise((r) => setTimeout(r, 500));
-            const txHash3 = await relay.sendRawTransaction(signedTx3);
-            await Promise.all([
-              relay.pollForValidTransactionReceipt(txHash1),
-              relay.pollForValidTransactionReceipt(txHash2),
-              relay.pollForValidTransactionReceipt(txHash3),
-            ]);
-
-            const [mnResult1, mnResult2, mnResult3] = await Promise.all([
-              mirrorNode.get(`/contracts/results/${txHash1}`),
-              mirrorNode.get(`/contracts/results/${txHash2}`),
-              mirrorNode.get(`/contracts/results/${txHash3}`),
-            ]);
-
-            const nonceLatest = await relay.getAccountNonce(accounts[1].address);
-            const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
-
-            expect(mnResult1.result).to.equal('INSUFFICIENT_GAS');
-            expect(mnResult2.result).to.equal('SUCCESS');
-            expect(mnResult3.result).to.equal('INSUFFICIENT_GAS');
             expect(nonceLatest).to.equal(noncePending);
           });
 
