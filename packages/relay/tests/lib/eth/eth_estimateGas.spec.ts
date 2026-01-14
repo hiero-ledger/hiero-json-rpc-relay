@@ -11,11 +11,10 @@ import { numberTo0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
 import { LocalPendingTransactionStorage, LockService, TransactionPoolService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
-import { mockData, overrideEnvsInMochaDescribe } from '../../helpers';
+import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -24,6 +23,7 @@ import {
   RECEIVER_ADDRESS,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
+import { Precheck } from '../../../src/lib/precheck';
 
 use(chaiAsPromised);
 
@@ -457,6 +457,51 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients" throws CONTRACT_REVERT error', async function () {
+    await mockContractCall(
+      transaction,
+      true,
+      400,
+      {
+        _status: {
+          messages: [
+            {
+              data: '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+              detail: 'Invalid number of recipients',
+              message: 'CONTRACT_REVERT_EXECUTED',
+            },
+          ],
+        },
+      },
+      requestDetails,
+    );
+
+    await expect(ethImpl.estimateGas(transaction, id, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.eventually.satisfy((error: JsonRpcError) => {
+        expect(error.data).to.equal(
+          '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001c496e76616c6964206e756d626572206f6620726563697069656e747300000000',
+        );
+        expect(error.message).to.equal('execution reverted: Invalid number of recipients');
+        return true;
+      });
+  });
+
+  withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
+    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
+      const originalEstimateGas = contractService.estimateGas;
+      contractService.estimateGas = async () => {
+        return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
+      };
+
+      const result = await ethImpl.estimateGas(transaction, id, requestDetails);
+
+      expect(result).to.equal(numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction)));
+
+      contractService.estimateGas = originalEstimateGas;
+    });
+  });
+
+  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async function () {
     await mockContractCall(
       transaction,
       true,
