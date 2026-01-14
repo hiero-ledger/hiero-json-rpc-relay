@@ -156,7 +156,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
     `${mirrorNodeBaseUrl}/blocks/${logInfo.logs[0].block_number}`
   )).json();
   if (syntheticTxPerBlock > blockInfo.count) {
-    throw Error(`There was a problem sending ${syntheticTxPerBlock} txs and block ${logInfo.logs[0].block_number} does not contain enough synthetic transactions.`);
+    throw Error(`There was a problem sending ${syntheticTxPerBlock} transactions and block ${logInfo.logs[0].block_number} does not contain enough synthetic transactions.`);
   }
 
   console.log(`Executed ${tokenTransferPromises.length} HTS transfers in block ${logInfo.logs[0].block_number}.`);
