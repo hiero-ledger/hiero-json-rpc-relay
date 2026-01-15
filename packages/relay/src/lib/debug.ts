@@ -204,7 +204,7 @@ export class DebugImpl implements Debug {
       if (blockResponse == null) throw predefined.RESOURCE_NOT_FOUND(`Block ${blockNumber} not found`);
 
       // Get ALL transaction hashes (EVM + synthetic) along with pre-fetched data
-      const { transactionHashes, preFetchedData } = await this.getAllTransactionHashesFromBlock(
+      const { transactionHashes, preFetchedData } = await this.getBlockTransactionDetails(
         blockResponse,
         requestDetails,
       );
@@ -533,7 +533,7 @@ export class DebugImpl implements Debug {
     }
 
     let actionsResponse = preFetchedActionsResponse;
-    if (!preFetchedActionsResponse || preFetchedActionsResponse.length === 0) {
+    if (!preFetchedActionsResponse?.length) {
       actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
     }
 
@@ -646,7 +646,7 @@ export class DebugImpl implements Debug {
    * @param requestDetails - Request tracking details
    * @returns Object containing transaction hashes and pre-fetched data (contract results and actions)
    */
-  private async getAllTransactionHashesFromBlock(
+  private async getBlockTransactionDetails(
     blockResponse: { timestamp: { from: string; to: string } },
     requestDetails: RequestDetails,
   ): Promise<{
@@ -665,19 +665,17 @@ export class DebugImpl implements Debug {
       this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
     ]);
 
+    // Collect all unique transaction hashes
+    const transactionHashes = new Set<string>();
+
     // Create a map of contract results by hash for quick lookup
     const contractResultsByHash = new Map<string, MirrorNodeContractResult>();
     contractResults
       ?.filter((cr) => cr.result !== 'WRONG_NONCE')
       .forEach((cr) => {
         contractResultsByHash.set(cr.hash, cr);
+        transactionHashes.add(cr.hash);
       });
-
-    // Collect all unique transaction hashes
-    const transactionHashes = new Set<string>();
-
-    // Add EVM transaction hashes (excluding WRONG_NONCE)
-    contractResults?.filter((cr) => cr.result !== 'WRONG_NONCE').forEach((cr) => transactionHashes.add(cr.hash));
 
     // Capture synthetic HTS transaction hashes from logs
     allLogs?.forEach((log) => {
