@@ -6,10 +6,13 @@ import * as fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import * as HederaSDK from '@hashgraph/sdk';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const logPayloads = process.env.DEBUG_MODE === 'true';
+const syntheticTxPerBlock = parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK) > 0 ? parseInt(process.env.SYNTHETIC_TXS_PER_BLOCK): 800;
 
 class LoggingProvider extends ethers.JsonRpcProvider {
   async send(method, params) {
@@ -58,6 +61,110 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   }
 
   return signedTxCollection;
+}
+
+async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, mainPrivateKeyString, wallets) {
+
+  // define constants
+  const CHAIN_ID_TO_NETWORK = {
+    297n: 'Previewnet',
+    296n: 'Testnet',
+    295n: 'Mainnet'
+  };
+  const network = CHAIN_ID_TO_NETWORK[chainId] ?? 'LocalNode';
+  const mirrorNodeBaseUrl = `${process.env.MIRROR_BASE_URL}/api/v1`;
+
+  // define helpers
+  async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function fetchAccountInfo(mirrorNodeBaseUrl, address) {
+    return (await fetch(`${mirrorNodeBaseUrl}/accounts/${address}`)).json();
+  }
+
+  function createClient(network, accountId, privateKey) {
+    return HederaSDK.Client[`for${network}`]().setOperator(
+        HederaSDK.AccountId.fromString(accountId),
+        privateKey
+      );
+  }
+
+  async function updateMaxAutomaticTokenAssociations(network, signerPk, accountId) {
+    const signer = HederaSDK.PrivateKey.fromStringECDSA(signerPk);
+    const signerClient = createClient(network, accountId, signerPk);
+    const accountUpdateTx = await new HederaSDK.AccountUpdateTransaction()
+      .setAccountId(accountId)
+      .setMaxAutomaticTokenAssociations(1_000);
+    await (await accountUpdateTx.freezeWith(signerClient).sign(signer)).execute(signerClient);
+  }
+
+  async function createFungibleToken(mainAccountInfo, mainAccountPk, mainAccountClient) {
+    let tokenCreateTx = new HederaSDK.TokenCreateTransaction()
+      .setTokenName('TestToken')
+      .setTokenSymbol('TT')
+      .setTokenType(HederaSDK.TokenType.FungibleCommon)
+      .setDecimals(2)
+      .setInitialSupply(1_000_000_000)
+      .setTreasuryAccountId(mainAccountInfo.account)
+      .setSupplyType(HederaSDK.TokenSupplyType.Infinite)
+      .setSupplyKey(mainAccountPk.publicKey)
+      .freezeWith(mainAccountClient);
+    const tokenCreateSign = await tokenCreateTx.sign(mainAccountPk);
+    const tokenCreateSubmit = await tokenCreateSign.execute(mainAccountClient);
+
+    return (await tokenCreateSubmit.getReceipt(mainAccountClient)).tokenId;
+  }
+
+  // wait before executing MN calls
+  await sleep(5_000);
+
+  // fetch main account info from the MN
+  const mainAccountInfo = await fetchAccountInfo(mirrorNodeBaseUrl, mainWallet.address);
+  const mainAccountPk = HederaSDK.PrivateKey.fromStringECDSA(mainPrivateKeyString);
+  const mainAccountClient = createClient(network, mainAccountInfo.account, mainAccountPk);
+
+  // create fungible token and wait for its population in the MN
+  const tokenId = await createFungibleToken(mainAccountInfo, mainAccountPk, mainAccountClient);
+  await sleep(5_000);
+
+  // fetch signer info from the MN
+  const signerInfo = await fetchAccountInfo(mirrorNodeBaseUrl, wallets[0].address);
+  const signerPk = wallets[0].privateKey;
+  await updateMaxAutomaticTokenAssociations(network, signerPk, signerInfo.account);
+
+  // create an array of HTS transfer promises and execute them
+  let tokenTransferPromises = [];
+  for (let i = 0; i < syntheticTxPerBlock; i++) {
+    const tokenTransferTransaction = new HederaSDK.TransferTransaction()
+      .addTokenTransfer(tokenId, HederaSDK.AccountId.fromString(signerInfo.account), 1)
+      .addTokenTransfer(tokenId, HederaSDK.AccountId.fromString(mainAccountInfo.account), -1);
+    tokenTransferPromises.push((await tokenTransferTransaction.freezeWith(mainAccountClient).sign(mainAccountPk)).execute(mainAccountClient));
+  }
+  const txIds = await Promise.all(tokenTransferPromises);
+
+  // wait for MN population
+  await sleep(10_000);
+
+  // get the log info from MN
+  const txHash = Buffer.from(txIds[0].transactionHash).toString('hex');
+  const logInfo = await (await fetch(
+    `${mirrorNodeBaseUrl}/contracts/results/logs?transaction.hash=${txHash}`
+  )).json();
+
+  const blockInfo = await (await fetch(
+    `${mirrorNodeBaseUrl}/blocks/${logInfo.logs[0].block_number}`
+  )).json();
+  if (blockInfo.count < syntheticTxPerBlock) {
+    throw Error(`There was a problem sending ${syntheticTxPerBlock} transactions and block ${logInfo.logs[0].block_number} does not contain enough synthetic transactions.`);
+  }
+
+  console.log(`Executed ${tokenTransferPromises.length} HTS transfers in block ${logInfo.logs[0].block_number}.`);
+
+  return {
+    blockNumber: logInfo.logs[0].block_number,
+    blockHash: logInfo.logs[0].block_hash,
+  };
 }
 
 (async () => {
@@ -147,8 +254,9 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   filters.logFilterId = logFilterResponse;
   console.log('Log filter created:', logFilterResponse);
 
-  console.log('Creating smartContractParams.json file...');
+  const blockNumberAndHashWithManySyntheticTxs = await getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, mainPrivateKeyString, wallets);
 
+  console.log('Creating smartContractParams.json file...');
   const output = {};
   output['mainWalletAddress'] = mainWallet.address;
   output['latestBlock'] = latestBlock;
@@ -156,6 +264,9 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   output['contractsAddresses'] = smartContracts;
   output['wallets'] = wallets;
   output['filters'] = filters;
+  output['blockNumberWithManySyntheticTxs'] = blockNumberAndHashWithManySyntheticTxs.blockNumber;
+  output['blockHashWithManySyntheticTxs'] = blockNumberAndHashWithManySyntheticTxs.blockHash;
 
   fs.writeFileSync(path.resolve(__dirname) + '/.smartContractParams.json', JSON.stringify(output, null, 2));
+  process.exit();
 })();
