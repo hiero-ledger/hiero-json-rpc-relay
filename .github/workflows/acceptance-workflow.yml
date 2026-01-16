@@ -10,6 +10,10 @@ on:
         required: false
         default: false
         type: boolean
+      test_rate_limits:
+        required: false
+        default: false
+        type: boolean
       on_valid_json_rpc_http_response_status_code:
         required: false
         default: 400
@@ -54,6 +58,17 @@ jobs:
           if [ -n "${{ inputs.operator_id }}" ]; then
             echo "OPERATOR_ID_MAIN=${{ inputs.operator_id }}" >> $GITHUB_ENV
           fi
+
+      - name: Set rate limiting variables
+        if: ${{ inputs.test_rate_limits == true }}
+        run: |
+          echo "RATE_LIMIT_DISABLED=false" >> $GITHUB_ENV
+          echo "DEFAULT_RATE_LIMIT=200" >> $GITHUB_ENV
+          echo "TIER_1_RATE_LIMIT=100" >> $GITHUB_ENV
+          echo "TIER_2_RATE_LIMIT=800" >> $GITHUB_ENV
+          echo "TIER_3_RATE_LIMIT=1600" >> $GITHUB_ENV
+          echo "LIMIT_DURATION=60000" >> $GITHUB_ENV
+
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:

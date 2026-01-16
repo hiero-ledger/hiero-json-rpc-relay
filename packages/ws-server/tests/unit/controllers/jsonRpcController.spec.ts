@@ -9,6 +9,7 @@ import Koa from 'koa';
 import { Counter } from 'prom-client';
 import sinon from 'sinon';
 
+import { withOverriddenEnvsInMochaTest } from '../../../../relay/tests/helpers';
 import { getRequestResult } from '../../../dist/controllers/jsonRpcController';
 import WsMetricRegistry from '../../../dist/metrics/wsMetricRegistry';
 import { SubscriptionService } from '../../../dist/service/subscriptionService';
@@ -120,31 +121,32 @@ describe('JSON Rpc Controller', function () {
       expect(resp.error.code).to.equal(-32608);
       expect(resp.error.message).to.include('Exceeded maximum allowed subscriptions');
     });
+    withOverriddenEnvsInMochaTest({ SUBSCRIPTIONS_ENABLED: false }, async function () {
+      it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
+        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
+        defaultRequestParams[3] = {
+          id: '2',
+          method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
+          jsonrpc: '2.0',
+        } as IJsonRpcRequest;
+        const resp = await getRequestResult(...defaultRequestParams);
 
-    it('should throw error on eth_subscribe if WS Subscriptions are disabled', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(true);
-      defaultRequestParams[3] = {
-        id: '2',
-        method: WS_CONSTANTS.METHODS.ETH_SUBSCRIBE,
-        jsonrpc: '2.0',
-      } as IJsonRpcRequest;
-      const resp = await getRequestResult(...defaultRequestParams);
+        expect(resp.error.code).to.equal(-32207);
+        expect(resp.error.message).to.include('WS Subscriptions are disabled');
+      });
 
-      expect(resp.error.code).to.equal(-32207);
-      expect(resp.error.message).to.include('WS Subscriptions are disabled');
-    });
+      it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
+        stubConnectionLimiter.validateSubscriptionLimit.returns(true);
+        defaultRequestParams[3] = {
+          id: '2',
+          method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
+          jsonrpc: '2.0',
+        } as IJsonRpcRequest;
+        const resp = await getRequestResult(...defaultRequestParams);
 
-    it('should throw error on eth_unsubscribe if WS Subscriptions are disabled', async function () {
-      stubConnectionLimiter.validateSubscriptionLimit.returns(true);
-      defaultRequestParams[3] = {
-        id: '2',
-        method: WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE,
-        jsonrpc: '2.0',
-      } as IJsonRpcRequest;
-      const resp = await getRequestResult(...defaultRequestParams);
-
-      expect(resp.error.code).to.equal(-32207);
-      expect(resp.error.message).to.include('WS Subscriptions are disabled');
+        expect(resp.error.code).to.equal(-32207);
+        expect(resp.error.message).to.include('WS Subscriptions are disabled');
+      });
     });
 
     it('should be able to execute `eth_chainId` and get a proper response', async function () {

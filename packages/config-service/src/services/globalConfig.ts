@@ -171,7 +171,7 @@ const _CONFIG = {
   ENABLE_TX_POOL: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   ETH_BLOCK_NUMBER_CACHE_TTL_MS: {
     type: 'number',
@@ -330,7 +330,7 @@ const _CONFIG = {
   HBAR_RATE_LIMIT_TINYBAR: {
     type: 'number',
     required: false,
-    defaultValue: 25_000_000_000, // 250 hbar
+    defaultValue: 0, // limits turned off
   },
   HEDERA_NETWORK: {
     type: 'string',
@@ -536,7 +536,7 @@ const _CONFIG = {
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   READ_ONLY: {
     type: 'boolean',
@@ -546,7 +546,7 @@ const _CONFIG = {
   REDIS_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   IP_RATE_LIMIT_STORE: {
     type: 'string',
@@ -601,7 +601,7 @@ const _CONFIG = {
   SUBSCRIPTIONS_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: false,
+    defaultValue: true,
   },
   TEST: {
     type: 'boolean',
@@ -661,7 +661,7 @@ const _CONFIG = {
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   LOCK_MAX_HOLD_MS: {
     type: 'number',
