@@ -2,12 +2,14 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import Piscina from 'piscina';
+import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
 import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
+import { RegistryFactory } from '../../factories/registryFactory';
 
 /**
  * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
@@ -42,6 +44,16 @@ export class WorkersPool {
    * Holds the instance of CacheService
    */
   private static cacheService: MeasurableCache;
+
+  private static workerTaskDurationSecondsHistogram: Histogram;
+
+  private static workerTasksCompletedTotalCounter: Counter;
+
+  private static workerQueueWaitTimeGauge: Gauge;
+
+  private static workerPoolUtilizationGauge: Gauge;
+
+  private static workerPoolActiveThreadsGauge: Gauge;
 
   /**
    * Updates a metric either by delegating the update to a worker thread
@@ -106,9 +118,61 @@ export class WorkersPool {
           );
         }
       });
+
+      this.initializeMetrics();
     }
 
     return this.instance;
+  }
+
+  /**
+   * Initialize metrics related to worker threads
+   */
+  static initializeMetrics(): void {
+    const registry: Registry = RegistryFactory.getInstance();
+
+    const workerTaskDurationSecondsName = 'rpc_relay_worker_task_duration_seconds';
+    registry.removeSingleMetric(workerTaskDurationSecondsName);
+    this.workerTaskDurationSecondsHistogram = new Histogram({
+      name: workerTaskDurationSecondsName,
+      help: 'Tracks how long each task takes to execute (in seconds).',
+      labelNames: ['function'],
+      registers: [registry],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 90, 120],
+    });
+
+    const workerTasksCompletedTotalName = 'rpc_relay_worker_tasks_completed_total';
+    registry.removeSingleMetric(workerTasksCompletedTotalName);
+    this.workerTasksCompletedTotalCounter = new Counter({
+      name: workerTasksCompletedTotalName,
+      help: 'Counts total tasks by type.',
+      labelNames: ['function'],
+      registers: [registry],
+    });
+
+    const workerQueueWaitTimeName = 'rpc_relay_worker_queue_wait_time_seconds';
+    registry.removeSingleMetric(workerQueueWaitTimeName);
+    this.workerQueueWaitTimeGauge = new Gauge({
+      name: workerQueueWaitTimeName,
+      help: 'Time tasks have spent waiting in queue.',
+      registers: [registry],
+    });
+
+    const workerPoolUtilizationName = 'rpc_relay_worker_pool_utilization';
+    registry.removeSingleMetric(workerPoolUtilizationName);
+    this.workerPoolUtilizationGauge = new Gauge({
+      name: workerPoolUtilizationName,
+      help: 'Ratio (0-1) of how busy workers are.',
+      registers: [registry],
+    });
+
+    const workerPoolActiveThreadsName = 'rpc_relay_worker_pool_active_threads';
+    registry.removeSingleMetric(workerPoolActiveThreadsName);
+    this.workerPoolActiveThreadsGauge = new Gauge({
+      name: workerPoolActiveThreadsName,
+      help: 'Current number of worker threads.',
+      registers: [registry],
+    });
   }
 
   /**
@@ -119,15 +183,28 @@ export class WorkersPool {
    * @param cacheService - The cache service instance.
    * @returns A promise resolving to the worker's result.
    */
-  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
+  static async run(options: any, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService as MeasurableCache;
 
-    return this.getInstance()
+    const startTime = process.hrtime.bigint();
+    const result = await this.getInstance()
       .run(options)
       .catch((error: unknown) => {
         throw WorkersPool.unwrapError(error);
       });
+
+    // division in floating-point math is slightly slower and may introduce rounding errors (especially when the
+    // elapsed nanoseconds exceed 2^53) so using BigInt first and then multiplying by 1e-9 is safer than dividing by 1e9
+    this.workerTaskDurationSecondsHistogram
+      ?.labels(options.type)
+      .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
+    this.workerTasksCompletedTotalCounter?.labels(options.type).inc();
+    this.workerQueueWaitTimeGauge?.set(this.instance.histogram.waitTime.average);
+    this.workerPoolUtilizationGauge?.set(this.instance.utilization);
+    this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
+
+    return result;
   }
 
   /**
