@@ -77,6 +77,12 @@ export class SDKClient {
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
   ) {
+    const clientTransportSecurity = ConfigService.get('CLIENT_TRANSPORT_SECURITY');
+    const sdkRequestTimeout = ConfigService.get('SDK_REQUEST_TIMEOUT');
+    const sdkMaxAttempts = ConfigService.get('SDK_MAX_ATTEMPTS');
+    const sdkLogLevel = ConfigService.get('SDK_LOG_LEVEL');
+    const sdkDeadline = this.determineSdkDeadline(logger);
+
     const client =
       hederaNetwork in constants.CHAIN_IDS
         ? Client.forName(hederaNetwork)
@@ -87,27 +93,21 @@ export class SDKClient {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    client.setTransportSecurity(ConfigService.get('CLIENT_TRANSPORT_SECURITY'));
-
-    const SDK_REQUEST_TIMEOUT = ConfigService.get('SDK_REQUEST_TIMEOUT');
-    client.setRequestTimeout(SDK_REQUEST_TIMEOUT);
-
-    // Set up SDK logger with child configuration inheriting from the main logger
-    const sdkLogger = new HederaLogger(LogLevel._fromString(ConfigService.get('SDK_LOG_LEVEL')));
-    // @ts-ignore
-    sdkLogger.setLogger(logger.child({ name: 'sdk-client' }, { level: ConfigService.get('SDK_LOG_LEVEL') }));
-    client.setLogger(sdkLogger);
-
-    logger.info(
-      `SDK client successfully configured to ${JSON.stringify(hederaNetwork)} for account ${
-        client.operatorAccountId
-      } with request timeout value: ${SDK_REQUEST_TIMEOUT}`,
+    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel)).setLogger(
+      // @ts-ignore
+      logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );
 
-    // sets the maximum time in ms for the SDK to wait when submitting
-    // a transaction/query before throwing a TIMEOUT error
-    this.clientMain = client.setMaxExecutionTime(ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'));
+    logger.info(
+      `SDK client successfully configured: network=${JSON.stringify(hederaNetwork)}, transportSecurity=${clientTransportSecurity}, requestTimeout=${sdkRequestTimeout}ms, maxAttempts=${sdkMaxAttempts}, logLevel=${sdkLogLevel}, deadline=${sdkDeadline}ms.`,
+    );
 
+    this.clientMain = client
+      .setTransportSecurity(clientTransportSecurity)
+      .setRequestTimeout(sdkRequestTimeout)
+      .setMaxAttempts(sdkMaxAttempts)
+      .setMaxExecutionTime(sdkDeadline)
+      .setLogger(sdkLogger);
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
@@ -642,5 +642,48 @@ export class SDKClient {
     const exchangeRateInCents = exchangeRate.exchangeRateInCents;
     const hbarToTinybar = Hbar.from(1, HbarUnit.Hbar).toTinybars().toNumber();
     return Math.round((constants.NETWORK_FEES_IN_CENTS.TRANSACTION_GET_RECORD / exchangeRateInCents) * hbarToTinybar);
+  }
+
+  /**
+   * Determines the SDK deadline value, handling the precedence between SDK_GRPC_DEADLINE and the legacy CONSENSUS_MAX_EXECUTION_TIME.
+   *
+   * SDK_GRPC_DEADLINE is the preferred configuration option.
+   * CONSENSUS_MAX_EXECUTION_TIME is deprecated and maintained only for backward compatibility.
+   *
+   * Precedence order:
+   * 1. SDK_GRPC_DEADLINE (if set)
+   * 2. CONSENSUS_MAX_EXECUTION_TIME (legacy fallback)
+   * 3. SDK_GRPC_DEADLINE default value
+   *
+   * @param logger - The logger instance for logging warnings.
+   * @returns The SDK deadline value in milliseconds.
+   */
+  private determineSdkDeadline(logger: Logger): number {
+    const sdkGrpcDeadlineEnv = process.env.SDK_GRPC_DEADLINE;
+    const consensusMaxExecutionTimeEnv = process.env.CONSENSUS_MAX_EXECUTION_TIME;
+
+    // Case 1: Both are explicitly set - use SDK_GRPC_DEADLINE and warn about redundant configuration
+    if (sdkGrpcDeadlineEnv !== undefined && consensusMaxExecutionTimeEnv !== undefined) {
+      logger.warn(
+        `Detected both SDK_GRPC_DEADLINE and CONSENSUS_MAX_EXECUTION_TIME in configuration. CONSENSUS_MAX_EXECUTION_TIME is deprecated; please remove it and use SDK_GRPC_DEADLINE exclusively.`,
+      );
+      return ConfigService.get('SDK_GRPC_DEADLINE');
+    }
+
+    // Case 2: Only SDK_GRPC_DEADLINE is set - preferred path
+    if (sdkGrpcDeadlineEnv !== undefined) {
+      return ConfigService.get('SDK_GRPC_DEADLINE');
+    }
+
+    // Case 3: Only CONSENSUS_MAX_EXECUTION_TIME is set - legacy configuration, advise migration
+    if (consensusMaxExecutionTimeEnv !== undefined) {
+      logger.warn(
+        `CONSENSUS_MAX_EXECUTION_TIME is deprecated and will be removed in a future release. Please migrate to SDK_GRPC_DEADLINE for configuring the max execution time for the SDK.`,
+      );
+      return ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME');
+    }
+
+    // Case 4: Neither is set - use SDK_GRPC_DEADLINE default
+    return ConfigService.get('SDK_GRPC_DEADLINE');
   }
 }

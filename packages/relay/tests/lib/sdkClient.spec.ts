@@ -3,6 +3,7 @@
 import assert from 'node:assert';
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { ConfigServiceTestHelper } from '@hashgraph/json-rpc-config-service/tests/configServiceTestHelper';
 import {
   AccountId,
   Client,
@@ -204,6 +205,7 @@ describe('SdkClient', async function () {
     const createMockLogger = (additionalProps = {}) => ({
       child: sinon.stub().returns({ name: 'sdk-client' }),
       info: sinon.stub(),
+      warn: sinon.stub(),
       ...additionalProps,
     });
 
@@ -213,6 +215,7 @@ describe('SdkClient', async function () {
         setOperator: sinon.stub().returnsThis(),
         setTransportSecurity: sinon.stub().returnsThis(),
         setRequestTimeout: sinon.stub().returnsThis(),
+        setMaxAttempts: sinon.stub().returnsThis(),
         setLogger: sinon.stub().returnsThis(),
         setMaxExecutionTime: sinon.stub().returnsThis(),
         operatorAccountId: null,
@@ -320,6 +323,192 @@ describe('SdkClient', async function () {
           expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level })).to.be.true;
         } finally {
           cleanupStubs(configStub, clientStub);
+        }
+      });
+    });
+  });
+
+  describe('SDK Deadline Configuration', () => {
+    // Test constants
+    const CUSTOM_DEADLINE_VALUE = 15000;
+    const LEGACY_DEADLINE_VALUE = 20000;
+
+    // Type for mocked client with Sinon stubs
+    interface MockedClient {
+      setOperator: sinon.SinonStub;
+      setTransportSecurity: sinon.SinonStub;
+      setRequestTimeout: sinon.SinonStub;
+      setMaxAttempts: sinon.SinonStub;
+      setLogger: sinon.SinonStub;
+      setMaxExecutionTime: sinon.SinonStub;
+      operatorAccountId: null;
+      operatorPublicKey: null;
+    }
+
+    // Test state
+    let mockLogger: ReturnType<typeof createMockLogger>;
+    let clientStub: sinon.SinonStub;
+    let mockedClient: MockedClient;
+
+    const createMockLogger = () => ({
+      child: sinon.stub().returns({ name: 'sdk-client', warn: sinon.stub() }),
+      info: sinon.stub(),
+      warn: sinon.stub(),
+    });
+
+    const setupMocks = () => {
+      mockLogger = createMockLogger();
+      mockedClient = {
+        setOperator: sinon.stub().returnsThis(),
+        setTransportSecurity: sinon.stub().returnsThis(),
+        setRequestTimeout: sinon.stub().returnsThis(),
+        setMaxAttempts: sinon.stub().returnsThis(),
+        setLogger: sinon.stub().returnsThis(),
+        setMaxExecutionTime: sinon.stub().returnsThis(),
+        operatorAccountId: null,
+        operatorPublicKey: null,
+      };
+      clientStub = sinon.stub(Client, 'forName').returns(mockedClient as unknown as Client);
+    };
+
+    const cleanupMocks = () => {
+      clientStub.restore();
+    };
+
+    /**
+     * Helper to override both process.env and ConfigService for SDK deadline tests.
+     * This is needed because `determineSdkDeadline()` checks process.env directly
+     * for presence detection, but uses ConfigService.get() for the actual values.
+     */
+    const withDeadlineEnvOverrides = (
+      envs: { SDK_GRPC_DEADLINE?: number; CONSENSUS_MAX_EXECUTION_TIME?: number },
+      testFn: () => void,
+    ) => {
+      // Save original state
+      const originalProcessEnv = {
+        SDK_GRPC_DEADLINE: process.env.SDK_GRPC_DEADLINE,
+        CONSENSUS_MAX_EXECUTION_TIME: process.env.CONSENSUS_MAX_EXECUTION_TIME,
+      };
+      const originalConfigValues = {
+        SDK_GRPC_DEADLINE: ConfigService.get('SDK_GRPC_DEADLINE'),
+        CONSENSUS_MAX_EXECUTION_TIME: ConfigService.get('CONSENSUS_MAX_EXECUTION_TIME'),
+      };
+
+      // Apply overrides
+      for (const [key, value] of Object.entries(envs) as [
+        'SDK_GRPC_DEADLINE' | 'CONSENSUS_MAX_EXECUTION_TIME',
+        number | undefined,
+      ][]) {
+        if (value === undefined) {
+          delete process.env[key];
+          ConfigServiceTestHelper.remove(key);
+        } else {
+          process.env[key] = String(value);
+          ConfigServiceTestHelper.dynamicOverride(key, value);
+        }
+      }
+
+      try {
+        testFn();
+      } finally {
+        // Restore process.env
+        for (const [key, value] of Object.entries(originalProcessEnv) as [string, string | undefined][]) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+        // Restore ConfigService cache
+        for (const [key, value] of Object.entries(originalConfigValues) as [string, number | undefined][]) {
+          if (value === undefined) {
+            ConfigServiceTestHelper.remove(key);
+          } else {
+            ConfigServiceTestHelper.dynamicOverride(key, value);
+          }
+        }
+      }
+    };
+
+    it('should warn and use SDK_GRPC_DEADLINE when both env vars are set', () => {
+      withDeadlineEnvOverrides(
+        { SDK_GRPC_DEADLINE: CUSTOM_DEADLINE_VALUE, CONSENSUS_MAX_EXECUTION_TIME: LEGACY_DEADLINE_VALUE },
+        () => {
+          setupMocks();
+          try {
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+
+            expect(mockLogger.warn.calledOnce, 'should log warning about both env vars being set').to.be.true;
+            expect(mockLogger.warn.firstCall.args[0]).to.include(
+              'Detected both SDK_GRPC_DEADLINE and CONSENSUS_MAX_EXECUTION_TIME in configuration.',
+            );
+            expect(
+              mockedClient.setMaxExecutionTime.calledWith(CUSTOM_DEADLINE_VALUE),
+              'should use SDK_GRPC_DEADLINE value',
+            ).to.be.true;
+          } finally {
+            cleanupMocks();
+          }
+        },
+      );
+    });
+
+    it('should warn about deprecation when only CONSENSUS_MAX_EXECUTION_TIME is set', () => {
+      withDeadlineEnvOverrides(
+        { SDK_GRPC_DEADLINE: undefined, CONSENSUS_MAX_EXECUTION_TIME: LEGACY_DEADLINE_VALUE },
+        () => {
+          setupMocks();
+          try {
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+
+            expect(mockLogger.warn.calledOnce, 'should log deprecation warning').to.be.true;
+            expect(mockLogger.warn.firstCall.args[0]).to.include(
+              'CONSENSUS_MAX_EXECUTION_TIME is deprecated and will be removed in a future release.',
+            );
+            expect(
+              mockedClient.setMaxExecutionTime.calledWith(LEGACY_DEADLINE_VALUE),
+              'should use CONSENSUS_MAX_EXECUTION_TIME value',
+            ).to.be.true;
+          } finally {
+            cleanupMocks();
+          }
+        },
+      );
+    });
+
+    it('should use SDK_GRPC_DEADLINE without warnings when only SDK_GRPC_DEADLINE is set', () => {
+      withDeadlineEnvOverrides(
+        { SDK_GRPC_DEADLINE: CUSTOM_DEADLINE_VALUE, CONSENSUS_MAX_EXECUTION_TIME: undefined },
+        () => {
+          setupMocks();
+          try {
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+
+            expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
+            expect(
+              mockedClient.setMaxExecutionTime.calledWith(CUSTOM_DEADLINE_VALUE),
+              'should use SDK_GRPC_DEADLINE value',
+            ).to.be.true;
+          } finally {
+            cleanupMocks();
+          }
+        },
+      );
+    });
+
+    it('should use SDK_GRPC_DEADLINE default without warnings when neither env var is set', () => {
+      withDeadlineEnvOverrides({ SDK_GRPC_DEADLINE: undefined, CONSENSUS_MAX_EXECUTION_TIME: undefined }, () => {
+        setupMocks();
+        try {
+          new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+
+          expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
+          expect(
+            mockedClient.setMaxExecutionTime.calledWith(ConfigService.get('SDK_GRPC_DEADLINE')),
+            'should use SDK_GRPC_DEADLINE default',
+          ).to.be.true;
+        } finally {
+          cleanupMocks();
         }
       });
     });

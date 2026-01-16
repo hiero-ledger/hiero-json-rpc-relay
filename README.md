@@ -294,7 +294,8 @@ Expected response:
         "config": {
             "CHAIN_ID": "0x128",
             "CLIENT_TRANSPORT_SECURITY": "false",
-            "CONSENSUS_MAX_EXECUTION_TIME": "15000",
+            "SDK_GRPC_DEADLINE": "10000",
+            "SDK_MAX_ATTEMPTS": "10",
             ...
         }
     },
@@ -303,7 +304,7 @@ Expected response:
             "service": "consensusNode",
             "version": "0.59.3",
             "config": {
-                "SDK_REQUEST_TIMEOUT": "10000"
+                "SDK_REQUEST_TIMEOUT": "30000"
             }
         },
         {
