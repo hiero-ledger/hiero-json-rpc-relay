@@ -113,7 +113,7 @@ jobs:
 
       - name: Create Release Notes
         if: ${{ steps.milestone.outputs.milestone_id != '' }}
-        uses: step-security/release-notes-generator-action@e516c8543bd60352a98cb3a9bb39a0be6b17314b # v3.2.0
+        uses: step-security/release-notes-generator-action@386be8cec3789e440dede47c9d2cd45d39cafb54 # v3.2.1
         env:
           FILENAME: ${{ env.RELEASE_NOTES_FILENAME }}
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
