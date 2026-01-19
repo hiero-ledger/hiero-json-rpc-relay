@@ -49,11 +49,15 @@ export class WorkersPool {
 
   private static workerTasksCompletedTotalCounter: Counter;
 
-  private static workerQueueWaitTimeGauge: Gauge;
+  private static workerTaskFailuresCounter: Counter;
+
+  private static workerQueueWaitTimeGauge: Histogram;
 
   private static workerPoolUtilizationGauge: Gauge;
 
   private static workerPoolActiveThreadsGauge: Gauge;
+
+  private static workerPoolQueueSizeGauge: Gauge;
 
   /**
    * Updates a metric either by delegating the update to a worker thread
@@ -150,12 +154,22 @@ export class WorkersPool {
       registers: [registry],
     });
 
+    const workerTaskFailuresTotalName = 'rpc_relay_worker_task_failures_total';
+    registry.removeSingleMetric(workerTaskFailuresTotalName);
+    this.workerTaskFailuresCounter = new Counter({
+      name: workerTaskFailuresTotalName,
+      help: 'Counts total failures by task type.',
+      labelNames: ['function', 'error_type'],
+      registers: [registry],
+    });
+
     const workerQueueWaitTimeName = 'rpc_relay_worker_queue_wait_time_seconds';
     registry.removeSingleMetric(workerQueueWaitTimeName);
-    this.workerQueueWaitTimeGauge = new Gauge({
+    this.workerQueueWaitTimeGauge = new Histogram({
       name: workerQueueWaitTimeName,
       help: 'Time tasks have spent waiting in queue.',
       registers: [registry],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60],
     });
 
     const workerPoolUtilizationName = 'rpc_relay_worker_pool_utilization';
@@ -171,6 +185,14 @@ export class WorkersPool {
     this.workerPoolActiveThreadsGauge = new Gauge({
       name: workerPoolActiveThreadsName,
       help: 'Current number of worker threads.',
+      registers: [registry],
+    });
+
+    const workerPoolQueueSizeName = 'rpc_relay_worker_pool_queue_size';
+    registry.removeSingleMetric(workerPoolQueueSizeName);
+    this.workerPoolQueueSizeGauge = new Gauge({
+      name: workerPoolQueueSizeName,
+      help: 'The current number of tasks waiting to be assigned.',
       registers: [registry],
     });
   }
@@ -191,7 +213,9 @@ export class WorkersPool {
     const result = await this.getInstance()
       .run(options)
       .catch((error: unknown) => {
-        throw WorkersPool.unwrapError(error);
+        const unwrappedErr = WorkersPool.unwrapError(error);
+        this.workerTaskFailuresCounter?.labels(options.type, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
+        throw unwrappedErr;
       });
 
     // division in floating-point math is slightly slower and may introduce rounding errors (especially when the
@@ -200,9 +224,10 @@ export class WorkersPool {
       ?.labels(options.type)
       .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
     this.workerTasksCompletedTotalCounter?.labels(options.type).inc();
-    this.workerQueueWaitTimeGauge?.set(this.instance.histogram.waitTime.average);
+    this.workerQueueWaitTimeGauge?.observe(this.instance.histogram.waitTime.average);
     this.workerPoolUtilizationGauge?.set(this.instance.utilization);
     this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
+    this.workerPoolQueueSizeGauge?.set(this.instance.queueSize);
 
     return result;
   }
