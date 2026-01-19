@@ -309,4 +309,9 @@ export const predefined = {
       code: -32000,
       message: `Consensus node error: ${statusName} (${statusCode}): ${message}`,
     }),
+  TRANSACTION_REJECTED: (status: string, errorMessage?: string) =>
+    new JsonRpcError({
+      code: -32003,
+      message: `Transaction rejected: ${status}${errorMessage ? ` - ${errorMessage}` : ''}`,
+    }),
 };

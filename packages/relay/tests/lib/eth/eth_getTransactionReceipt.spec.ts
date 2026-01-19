@@ -8,7 +8,7 @@ import { predefined } from '../../../src';
 import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
-import { defaultErrorMessageHex } from '../../helpers';
+import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { DEFAULT_BLOCK, EMPTY_LOGS_RESPONSE } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -371,5 +371,88 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     const receipt = await ethImpl.getTransactionReceipt(uniqueTxHash, requestDetails);
     expect(receipt).to.exist;
     expect(receipt?.to).to.be.null;
+  });
+
+  describe('Transaction Failure Detection', () => {
+    const failedTxHash = '0x27cad7b827375d12d73af57b6a3e84353645fd31305ea58ff52dda53ec640533';
+
+    const createFailedContractResult = (result: string, errorMessage: string | null = null) => ({
+      ...defaultDetailedContractResultByHash,
+      hash: failedTxHash,
+      result,
+      error_message: errorMessage,
+    });
+
+    withOverriddenEnvsInMochaTest({ ENABLE_TRANSACTION_FAILURE_DETECTION: true }, () => {
+      it('should throw TRANSACTION_REJECTED error for WRONG_NONCE status', async function () {
+        const failedResult = createFailedContractResult('WRONG_NONCE');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
+
+        await expect(ethImpl.getTransactionReceipt(failedTxHash, requestDetails)).to.be.rejectedWith(
+          'Transaction rejected: WRONG_NONCE',
+        );
+      });
+
+      it('should throw TRANSACTION_REJECTED error for THROTTLED_AT_CONSENSUS status', async function () {
+        const failedResult = createFailedContractResult('THROTTLED_AT_CONSENSUS');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
+
+        await expect(ethImpl.getTransactionReceipt(failedTxHash, requestDetails)).to.be.rejectedWith(
+          'Transaction rejected: THROTTLED_AT_CONSENSUS',
+        );
+      });
+
+      it('should throw TRANSACTION_REJECTED error for CONSENSUS_GAS_EXHAUSTED status', async function () {
+        const failedResult = createFailedContractResult('CONSENSUS_GAS_EXHAUSTED');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
+
+        await expect(ethImpl.getTransactionReceipt(failedTxHash, requestDetails)).to.be.rejectedWith(
+          'Transaction rejected: CONSENSUS_GAS_EXHAUSTED',
+        );
+      });
+
+      it('should throw TRANSACTION_REJECTED error for INVALID_ACCOUNT_ID status', async function () {
+        const failedResult = createFailedContractResult('INVALID_ACCOUNT_ID');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
+
+        await expect(ethImpl.getTransactionReceipt(failedTxHash, requestDetails)).to.be.rejectedWith(
+          'Transaction rejected: INVALID_ACCOUNT_ID',
+        );
+      });
+
+      it('should return receipt normally for SUCCESS status', async function () {
+        const successResult = createFailedContractResult('SUCCESS');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(successResult));
+        restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
+        stubBlockAndFeesFunc(sandbox);
+
+        const receipt = await ethImpl.getTransactionReceipt(failedTxHash, requestDetails);
+        expect(receipt).to.exist;
+        expect(receipt?.transactionHash).to.eq(failedTxHash);
+      });
+
+      it('should return null for non-existent transaction', async function () {
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(404, JSON.stringify({ _status: { messages: [] } }));
+        restMock
+          .onGet(`contracts/results/logs?transaction.hash=${failedTxHash}&limit=100&order=asc`)
+          .reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
+
+        const receipt = await ethImpl.getTransactionReceipt(failedTxHash, requestDetails);
+        expect(receipt).to.be.null;
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ ENABLE_TRANSACTION_FAILURE_DETECTION: false }, () => {
+      it('should return receipt for failed transaction when feature flag is disabled', async function () {
+        const failedResult = createFailedContractResult('WRONG_NONCE');
+        restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
+        restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
+        stubBlockAndFeesFunc(sandbox);
+
+        const receipt = await ethImpl.getTransactionReceipt(failedTxHash, requestDetails);
+        expect(receipt).to.exist;
+        expect(receipt?.transactionHash).to.eq(failedTxHash);
+      });
+    });
   });
 });
