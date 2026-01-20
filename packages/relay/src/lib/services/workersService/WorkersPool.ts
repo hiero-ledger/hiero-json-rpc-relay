@@ -45,18 +45,39 @@ export class WorkersPool {
    */
   private static cacheService: MeasurableCache;
 
+  /**
+   * Histogram tracking the duration (in seconds) of tasks executed by the worker.
+   */
   private static workerTaskDurationSecondsHistogram: Histogram;
 
+  /**
+   * Counter for the total number of tasks successfully completed by the worker.
+   */
   private static workerTasksCompletedTotalCounter: Counter;
 
+  /**
+   * Counter for the total number of tasks that failed during execution by the worker (labeled by function name).
+   */
   private static workerTaskFailuresCounter: Counter;
 
-  private static workerQueueWaitTimeGauge: Histogram;
+  /**
+   * Histogram tracking the time (in seconds) tasks spend waiting in the worker queue before execution.
+   */
+  private static workerQueueWaitTimeHistogram: Histogram;
 
+  /**
+   * Gauge representing the current utilization of the worker pool (e.g., fraction of active threads).
+   */
   private static workerPoolUtilizationGauge: Gauge;
 
+  /**
+   * Gauge representing the number of active threads currently running in the worker pool.
+   */
   private static workerPoolActiveThreadsGauge: Gauge;
 
+  /**
+   * Gauge representing the current number of tasks waiting in the worker pool queue.
+   */
   private static workerPoolQueueSizeGauge: Gauge;
 
   /**
@@ -165,7 +186,7 @@ export class WorkersPool {
 
     const workerQueueWaitTimeName = 'rpc_relay_worker_queue_wait_time_seconds';
     registry.removeSingleMetric(workerQueueWaitTimeName);
-    this.workerQueueWaitTimeGauge = new Histogram({
+    this.workerQueueWaitTimeHistogram = new Histogram({
       name: workerQueueWaitTimeName,
       help: 'Time tasks have spent waiting in queue.',
       registers: [registry],
@@ -209,12 +230,23 @@ export class WorkersPool {
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService as MeasurableCache;
 
+    this.workerTasksCompletedTotalCounter?.labels(options.type).inc();
+    this.workerQueueWaitTimeHistogram?.observe(this.instance.histogram.waitTime.average);
+    this.workerPoolUtilizationGauge?.set(this.instance.utilization);
+    this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
+    this.workerPoolQueueSizeGauge?.set(this.instance.queueSize);
+
     const startTime = process.hrtime.bigint();
     const result = await this.getInstance()
       .run(options)
       .catch((error: unknown) => {
         const unwrappedErr = WorkersPool.unwrapError(error);
+
         this.workerTaskFailuresCounter?.labels(options.type, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
+        this.workerTaskDurationSecondsHistogram
+          ?.labels(options.type)
+          .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
+
         throw unwrappedErr;
       });
 
@@ -223,11 +255,6 @@ export class WorkersPool {
     this.workerTaskDurationSecondsHistogram
       ?.labels(options.type)
       .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
-    this.workerTasksCompletedTotalCounter?.labels(options.type).inc();
-    this.workerQueueWaitTimeGauge?.observe(this.instance.histogram.waitTime.average);
-    this.workerPoolUtilizationGauge?.set(this.instance.utilization);
-    this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
-    this.workerPoolQueueSizeGauge?.set(this.instance.queueSize);
 
     return result;
   }
