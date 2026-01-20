@@ -4,7 +4,6 @@ import { RLP } from '@ethereumjs/rlp';
 import { Trie } from '@ethereumjs/trie';
 import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethereumjs/util';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import _ from 'lodash';
 import pino from 'pino';
 
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
@@ -56,20 +55,48 @@ interface IReceiptRootHash {
 
 type SerializedLog = [Uint8Array, Uint8Array[], Uint8Array];
 
+/**
+ * Populates synthetic transactions from contract logs that are not already present
+ * in the transactions array.
+ *
+ * @param showDetails - If true, returns full Transaction objects; if false, returns hash strings
+ * @param logs - Array of contract logs to extract synthetic transactions from
+ * @param transactionsArray - Existing transactions (either Transaction objects or hash strings)
+ * @param chain - Chain ID for synthetic transaction creation
+ * @returns Merged array of original and new synthetic transactions, deduplicated by hash
+ */
 function populateSyntheticTransactions(
   showDetails: boolean,
   logs: Log[],
   transactionsArray: Transaction[] | string[],
   chain: string,
 ): Transaction[] | string[] {
-  let filteredLogs: Log[];
+  // Deduplicate the input array and build O(1) lookup set from existing transaction hashes
+  const seenHashes = new Set<string>();
+  const deduplicatedInput: (Transaction | string)[] = [];
 
-  if (showDetails) {
-    filteredLogs = logs.filter(
-      (log) => !(transactionsArray as Transaction[]).some((transaction) => transaction.hash === log.transactionHash),
-    );
+  // Single pass through transactions array
+  for (const item of transactionsArray) {
+    const hash = showDetails ? (item as Transaction).hash : (item as string);
+    if (!seenHashes.has(hash)) {
+      seenHashes.add(hash);
+      deduplicatedInput.push(item);
+    }
+  }
 
-    filteredLogs.forEach((log) => {
+  // Track new synthetic transactions; Map auto-deduplicates by key
+  const syntheticTransactions = new Map<string, Transaction | string>();
+
+  // Single pass through logs
+  for (const log of logs) {
+    const hash = log.transactionHash;
+
+    // Skip if already in original array or already added as synthetic
+    if (seenHashes.has(hash) || syntheticTransactions.has(hash)) {
+      continue;
+    }
+
+    if (showDetails) {
       const transaction: Transaction | null = TransactionFactory.createTransactionByType(0, {
         accessList: undefined,
         blockHash: log.blockHash,
@@ -93,18 +120,15 @@ function populateSyntheticTransactions(
       });
 
       if (transaction !== null) {
-        (transactionsArray as Transaction[]).push(transaction);
+        syntheticTransactions.set(hash, transaction);
       }
-    });
-  } else {
-    filteredLogs = logs.filter((log) => !(transactionsArray as string[]).includes(log.transactionHash));
-    filteredLogs.forEach((log) => {
-      (transactionsArray as string[]).push(log.transactionHash);
-    });
+    } else {
+      syntheticTransactions.set(hash, hash);
+    }
   }
 
-  transactionsArray = _.uniqWith(transactionsArray as string[], _.isEqual);
-  return transactionsArray;
+  // Merge deduplicated original transactions with new unique synthetic transactions
+  return [...deduplicatedInput, ...syntheticTransactions.values()] as Transaction[] | string[];
 }
 
 function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
