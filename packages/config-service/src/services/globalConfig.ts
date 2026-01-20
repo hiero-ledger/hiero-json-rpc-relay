@@ -131,7 +131,7 @@ const _CONFIG = {
   CONSENSUS_MAX_EXECUTION_TIME: {
     type: 'number',
     required: false,
-    defaultValue: 15000,
+    defaultValue: 10000,
   },
   CONTRACT_CALL_GAS_LIMIT: {
     type: 'number',
@@ -573,10 +573,20 @@ const _CONFIG = {
     required: false,
     defaultValue: 'silent',
   },
-  SDK_REQUEST_TIMEOUT: {
+  SDK_GRPC_DEADLINE: {
     type: 'number',
     required: false,
     defaultValue: 10000,
+  },
+  SDK_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  SDK_REQUEST_TIMEOUT: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
   },
   SEND_RAW_TRANSACTION_SIZE_LIMIT: {
     type: 'number',
