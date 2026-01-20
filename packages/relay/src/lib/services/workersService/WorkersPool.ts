@@ -231,7 +231,6 @@ export class WorkersPool {
     this.cacheService = cacheService as MeasurableCache;
 
     const taskType = (options as { type: string }).type;
-    this.workerTasksCompletedTotalCounter?.labels(taskType).inc();
     this.workerQueueWaitTimeHistogram?.observe(this.instance.histogram.waitTime.average);
     this.workerPoolUtilizationGauge?.set(this.instance.utilization);
     this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
@@ -243,10 +242,10 @@ export class WorkersPool {
       .catch((error: unknown) => {
         const unwrappedErr = WorkersPool.unwrapError(error);
 
-        this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
         this.workerTaskDurationSecondsHistogram
           ?.labels(taskType)
           .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
+        this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
 
         throw unwrappedErr;
       });
@@ -256,6 +255,7 @@ export class WorkersPool {
     this.workerTaskDurationSecondsHistogram
       ?.labels(taskType)
       .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
+    this.workerTasksCompletedTotalCounter?.labels(taskType).inc();
 
     return result;
   }
