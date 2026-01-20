@@ -226,11 +226,12 @@ export class WorkersPool {
    * @param cacheService - The cache service instance.
    * @returns A promise resolving to the worker's result.
    */
-  static async run(options: any, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
+  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService as MeasurableCache;
 
-    this.workerTasksCompletedTotalCounter?.labels(options.type).inc();
+    const taskType = (options as { type: string }).type;
+    this.workerTasksCompletedTotalCounter?.labels(taskType).inc();
     this.workerQueueWaitTimeHistogram?.observe(this.instance.histogram.waitTime.average);
     this.workerPoolUtilizationGauge?.set(this.instance.utilization);
     this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
@@ -242,9 +243,9 @@ export class WorkersPool {
       .catch((error: unknown) => {
         const unwrappedErr = WorkersPool.unwrapError(error);
 
-        this.workerTaskFailuresCounter?.labels(options.type, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
+        this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
         this.workerTaskDurationSecondsHistogram
-          ?.labels(options.type)
+          ?.labels(taskType)
           .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
 
         throw unwrappedErr;
@@ -253,7 +254,7 @@ export class WorkersPool {
     // division in floating-point math is slightly slower and may introduce rounding errors (especially when the
     // elapsed nanoseconds exceed 2^53) so using BigInt first and then multiplying by 1e-9 is safer than dividing by 1e9
     this.workerTaskDurationSecondsHistogram
-      ?.labels(options.type)
+      ?.labels(taskType)
       .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
 
     return result;
