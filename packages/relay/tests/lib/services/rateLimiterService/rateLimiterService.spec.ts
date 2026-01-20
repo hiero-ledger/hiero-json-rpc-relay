@@ -146,6 +146,10 @@ describe('IPRateLimiterService Test Suite', function () {
   });
 
   describe('LRU Store Integration Tests', () => {
+    overrideEnvsInMochaDescribe({
+      RATE_LIMIT_DISABLED: false,
+    });
+
     let lruStore: LruRateLimitStore;
 
     beforeEach(() => {
