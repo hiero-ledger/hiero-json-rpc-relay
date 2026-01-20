@@ -693,7 +693,7 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  ENABLE_TRANSACTION_FAILURE_DETECTION: {
+  ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: {
     type: 'boolean',
     required: false,
     defaultValue: false,

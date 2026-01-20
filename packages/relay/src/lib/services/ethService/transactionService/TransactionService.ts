@@ -227,7 +227,7 @@ export class TransactionService implements ITransactionService {
 
     // Check for consensus-time failures when the feature flag is enabled
     if (
-      ConfigService.get('ENABLE_TRANSACTION_FAILURE_DETECTION') &&
+      ConfigService.get('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS') &&
       Utils.isRevertedDueToHederaSpecificValidation(receiptResponse)
     ) {
       this.logger.debug(`Transaction %s failed at consensus with status: %s`, hash, receiptResponse.result);

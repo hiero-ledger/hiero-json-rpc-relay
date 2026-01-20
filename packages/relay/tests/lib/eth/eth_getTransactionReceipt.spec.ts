@@ -383,7 +383,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       error_message: errorMessage,
     });
 
-    withOverriddenEnvsInMochaTest({ ENABLE_TRANSACTION_FAILURE_DETECTION: true }, () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: true }, () => {
       it('should throw TRANSACTION_REJECTED error for WRONG_NONCE status', async function () {
         const failedResult = createFailedContractResult('WRONG_NONCE');
         restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
@@ -442,7 +442,7 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
       });
     });
 
-    withOverriddenEnvsInMochaTest({ ENABLE_TRANSACTION_FAILURE_DETECTION: false }, () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: false }, () => {
       it('should return receipt for failed transaction when feature flag is disabled', async function () {
         const failedResult = createFailedContractResult('WRONG_NONCE');
         restMock.onGet(`contracts/results/${failedTxHash}`).reply(200, JSON.stringify(failedResult));
