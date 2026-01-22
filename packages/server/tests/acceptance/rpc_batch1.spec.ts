@@ -1444,25 +1444,33 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
-      describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag', () => {
-        /**
-         * Tests for the ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag.
-         *
-         * When enabled, eth_getTransactionReceipt throws JSON-RPC error code -32003 (Transaction rejected)
-         * for transactions that fail at consensus due to Hedera-specific validation errors
-         * (e.g., WRONG_NONCE, THROTTLED_AT_CONSENSUS, CONSENSUS_GAS_EXHAUSTED).
-         *
-         * Note: The error-throwing scenario when encountering failed transactions is tested in unit tests
-         * (packages/relay/tests/lib/eth/eth_getTransactionReceipt.spec.ts) because WRONG_NONCE transactions
-         * are typically filtered out (404) by the Mirror Node, making it difficult to test in acceptance tests.
-         * The tests below verify backward compatibility - that successful transactions still return receipts
-         * normally when the feature flag is enabled.
-         */
+      /**
+       * Tests for ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag.
+       *
+       * When enabled, eth_getTransactionReceipt throws JSON-RPC error code -32003 (Transaction rejected)
+       * for transactions that fail at consensus due to Hedera-specific validation errors
+       * (e.g., WRONG_NONCE, THROTTLED_AT_CONSENSUS, CONSENSUS_GAS_EXHAUSTED).
+       *
+       * Full feature testing is done in unit tests (packages/relay/tests/lib/eth/eth_getTransactionReceipt.spec.ts)
+       * because:
+       * 1. WRONG_NONCE transactions are typically filtered out (404) by the Mirror Node
+       * 2. @release tests run against production servers where env overrides don't work
+       *
+       * The local-only tests below verify behavior with different flag settings.
+       */
+      describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag (local relay only)', () => {
+        before(function () {
+          // Skip these tests when running against remote relay (e.g., @release suite)
+          // since we cannot override environment variables on production servers
+          if (!global.relayIsLocal) {
+            this.skip();
+          }
+        });
 
         describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = true', () => {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: true });
 
-          it('@release should return receipt normally for successful transaction when feature flag is enabled', async function () {
+          it('should return receipt normally for successful transaction when feature flag is enabled', async function () {
             const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
             const transaction = {
               ...defaultLondonTransactionData,
@@ -1485,7 +1493,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             expect(res.status).to.equal('0x1'); // Transaction succeeded
           });
 
-          it('@release should return null for non-existing transaction when feature flag is enabled', async function () {
+          it('should return null for non-existing transaction when feature flag is enabled', async function () {
             const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
               Address.NON_EXISTING_TX_HASH,
             ]);
@@ -1496,7 +1504,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = false', () => {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: false });
 
-          it('@release should return receipt normally for successful transaction when feature flag is disabled', async function () {
+          it('should return receipt normally for successful transaction when feature flag is disabled', async function () {
             const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
             const transaction = {
               ...defaultLondonTransactionData,
