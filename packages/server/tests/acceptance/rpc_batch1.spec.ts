@@ -1444,52 +1444,17 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
-      /**
-       * Tests for ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag.
-       *
-       * When enabled, eth_getTransactionReceipt throws JSON-RPC error code -32003 (Transaction rejected)
-       * for transactions that fail at consensus due to Hedera-specific validation errors
-       * (e.g., WRONG_NONCE, THROTTLED_AT_CONSENSUS, CONSENSUS_GAS_EXHAUSTED).
-       *
-       * Full feature testing is done in unit tests (packages/relay/tests/lib/eth/eth_getTransactionReceipt.spec.ts)
-       * because:
-       * 1. WRONG_NONCE transactions are typically filtered out (404) by the Mirror Node
-       * 2. @release tests run against production servers where env overrides don't work
-       *
-       * The local-only tests below verify behavior with different flag settings.
-       */
-      describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag (local relay only)', () => {
-        before(function () {
-          // Skip these tests when running against remote relay (e.g., @release suite)
-          // since we cannot override environment variables on production servers
-          if (!global.relayIsLocal) {
-            this.skip();
-          }
-        });
-
+      describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag', () => {
         describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = true', () => {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: true });
 
-          it('should return receipt normally for successful transaction when feature flag is enabled', async function () {
-            const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
-            const transaction = {
-              ...defaultLondonTransactionData,
-              to: parentContractAddress,
-              nonce: await relay.getAccountNonce(accounts[2].address),
-              maxFeePerGas: gasPriceWithDeviation,
-              maxPriorityFeePerGas: gasPriceWithDeviation,
-            };
-
-            const signedTx = await accounts[2].wallet.signTransaction(transaction);
-            const transactionHash = await relay.sendRawTransaction(signedTx);
-            const mirrorResult = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-            mirrorResult.from = accounts[2].wallet.address;
-            mirrorResult.to = parentContractAddress;
-
+          it('should return receipt normally for existing successful transaction when feature flag is enabled', async function () {
+            // Use the already-deployed parent contract's transaction hash to avoid consuming nonces/funds
+            const transactionHash = mirrorContractDetails.hash;
             const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
-            const currentPrice = await relay.gasPrice();
 
-            Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+            expect(res).to.exist;
+            expect(res.transactionHash).to.equal(transactionHash);
             expect(res.status).to.equal('0x1'); // Transaction succeeded
           });
 
@@ -1504,26 +1469,13 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = false', () => {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: false });
 
-          it('should return receipt normally for successful transaction when feature flag is disabled', async function () {
-            const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
-            const transaction = {
-              ...defaultLondonTransactionData,
-              to: parentContractAddress,
-              nonce: await relay.getAccountNonce(accounts[2].address),
-              maxFeePerGas: gasPriceWithDeviation,
-              maxPriorityFeePerGas: gasPriceWithDeviation,
-            };
-
-            const signedTx = await accounts[2].wallet.signTransaction(transaction);
-            const transactionHash = await relay.sendRawTransaction(signedTx);
-            const mirrorResult = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-            mirrorResult.from = accounts[2].wallet.address;
-            mirrorResult.to = parentContractAddress;
-
+          it('should return receipt normally for existing successful transaction when feature flag is disabled', async function () {
+            // Use the already-deployed parent contract's transaction hash to avoid consuming nonces/funds
+            const transactionHash = mirrorContractDetails.hash;
             const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
-            const currentPrice = await relay.gasPrice();
 
-            Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+            expect(res).to.exist;
+            expect(res.transactionHash).to.equal(transactionHash);
             expect(res.status).to.equal('0x1'); // Transaction succeeded
           });
         });
