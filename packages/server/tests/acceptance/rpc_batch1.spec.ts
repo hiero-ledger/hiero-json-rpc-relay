@@ -1449,13 +1449,12 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: true });
 
           it('should return receipt normally for existing successful transaction when feature flag is enabled', async function () {
-            // Use the already-deployed parent contract's transaction hash to avoid consuming nonces/funds
             const transactionHash = mirrorContractDetails.hash;
             const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
 
             expect(res).to.exist;
             expect(res.transactionHash).to.equal(transactionHash);
-            expect(res.status).to.equal('0x1'); // Transaction succeeded
+            expect(res.status).to.equal('0x1');
           });
 
           it('should return null for non-existing transaction when feature flag is enabled', async function () {
@@ -1470,13 +1469,12 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: false });
 
           it('should return receipt normally for existing successful transaction when feature flag is disabled', async function () {
-            // Use the already-deployed parent contract's transaction hash to avoid consuming nonces/funds
             const transactionHash = mirrorContractDetails.hash;
             const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
 
             expect(res).to.exist;
             expect(res.transactionHash).to.equal(transactionHash);
-            expect(res.status).to.equal('0x1'); // Transaction succeeded
+            expect(res.status).to.equal('0x1');
           });
         });
       });
