@@ -2,6 +2,7 @@
 
 import { TracerType } from '../constants';
 import { ICallTracerConfig, ITracerConfig } from './ITracerConfig';
+import { ContractAction, MirrorNodeContractResult } from './mirrorNode';
 
 /**
  * Configuration object for block tracing operations.
@@ -117,3 +118,11 @@ export interface TraceBlockByNumberTxResult {
    */
   result: CallTracerResult | EntityTraceStateMap | null;
 }
+
+/**
+ * Represents map of a transaction hash and its associated contract result and/or contract actions.
+ */
+export type TxHashToContractResultOrActionsMap = Record<
+  string,
+  { contractResult?: MirrorNodeContractResult; actions?: ContractAction[] }
+>;

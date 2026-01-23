@@ -231,12 +231,9 @@ classDiagram
         -planId: string
     }
 
-    class CacheService {
-        -internalCache: ICacheClient
-        -sharedCache: ICacheClient
+    class ICacheClient {
         +getAsync<T>(key: string, callingMethod: string, requestIdPrefix?: string): Promise<T>
         +set(key: string, value: any, callingMethod: string, ttl?: number, requestIdPrefix?: string): Promise<void>
-        +multiSet(entries: Record<string, any>, callingMethod: string, ttl?: number, requestIdPrefix?: string): Promise<void>
         +delete(key: string, callingMethod: string, requestIdPrefix?: string): Promise<void>
         +clear(requestIdPrefix?: string): Promise<void>
         +incrBy(key: string, amount: number, callingMethod: string, requestIdPrefix?: string): Promise<number>
@@ -245,7 +242,7 @@ classDiagram
     }
 
     class HbarSpendingPlanRepository {
-        -cache: CacheService
+        -cache: ICacheClient
         +findById(id: string): Promise<IHbarSpendingPlan>
         +findByIdWithDetails(id: string): Promise<IDetailedHbarSpendingPlan>
         +create(subscriptionTier: SubscriptionTier): Promise<IDetailedHbarSpendingPlan>
@@ -257,14 +254,14 @@ classDiagram
     }
 
     class EvmAddressHbarSpendingPlanRepository {
-        -cache: CacheService
+        -cache: ICacheClient
         +findByAddress(evmAddress: string): Promise<EvmAddressHbarSpendingPlan>
         +save(evmAddressPlan: EvmAddressHbarSpendingPlan): Promise<void>
         +delete(evmAddress: string): Promise<void>
     }
 
     class IpAddressHbarSpendingPlanRepository {
-        -cache: CacheService
+        -cache: ICacheClient
         +findByIp(ip: string): Promise<IpAddressHbarSpendingPlan>
         +save(ipAddressPlan: IpAddressHbarSpendingPlan): Promise<void>
         +delete(ip: string): Promise<void>
@@ -282,9 +279,9 @@ classDiagram
     EvmAddressHbarSpendingPlan --> HbarSpendingPlan : links an EVM address to
     IpAddressHbarSpendingPlan --> HbarSpendingPlan : links an IP address to
 
-    HbarSpendingPlanRepository --> CacheService : uses
-    EvmAddressHbarSpendingPlanRepository --> CacheService : uses
-    IpAddressHbarSpendingPlanRepository --> CacheService : uses
+    HbarSpendingPlanRepository --> ICacheClient : uses
+    EvmAddressHbarSpendingPlanRepository --> ICacheClient : uses
+    IpAddressHbarSpendingPlanRepository --> ICacheClient : uses
 ```
 ### Support flexible alerting mechanisms for spending thresholds
 The existing technical infrastructure, prometheus and grafana will be used to trigger alerts.  At the time of this writing 10K HBar is the maximum the relay operator can spend in one day, on HashIO.

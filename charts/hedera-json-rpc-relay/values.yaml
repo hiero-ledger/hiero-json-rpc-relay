@@ -120,7 +120,6 @@ config:
   REDIS_ENABLED: false
   # REDIS_URL:
   # REDIS_RECONNECT_DELAY_MS:
-  # MULTI_SET:
 
   # ========== LOCK SERVICE CONFIGURATION ==========
   # LOCK_MAX_HOLD_MS:

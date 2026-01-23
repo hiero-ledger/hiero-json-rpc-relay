@@ -6,17 +6,19 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
-import { SDKClient } from '../../../src/lib/clients';
+import { CommonService } from '../../../dist/lib/services';
+import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { EthImpl } from '../../../src/lib/eth';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
-import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1 } from '../../helpers';
+import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1, mockWorkersPool } from '../../helpers';
 import {
   BLOCK_HASH,
   BLOCK_HASH_TRIMMED,
   BLOCK_NUMBER,
   BLOCK_NUMBER_HEX,
+  BLOCK_TIMESTAMP,
   BLOCKS_LIMIT_ORDER_URL,
   CONTRACT_RESULTS_LOGS_WITH_FILTER_URL_2,
   CONTRACT_RESULTS_WITH_FILTER_URL_2,
@@ -38,7 +40,7 @@ const DEFAULTS: Record<string, any> = {
   [BLOCKS_LIMIT_ORDER_URL]: { blocks: [DEFAULT_BLOCK] },
   [`blocks/${BLOCK_NUMBER}`]: DEFAULT_BLOCK,
   [`blocks/${BLOCK_HASH}`]: DEFAULT_BLOCK,
-  ['network/fees']: DEFAULT_NETWORK_FEES,
+  [`network/fees?timestamp=${BLOCK_TIMESTAMP}`]: DEFAULT_NETWORK_FEES,
 };
 
 describe('@ethGetBlockReceipts using MirrorNode', async function () {
@@ -48,14 +50,22 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     hapiServiceInstance,
     ethImpl,
     cacheService,
+    commonService,
+    mirrorNodeInstance,
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: EthImpl;
     cacheService: ICacheClient;
+    commonService: CommonService;
+    mirrorNodeInstance: MirrorNodeClient;
   } = generateEthTestEnv(true);
   const results = defaultContractResults.results;
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });
+
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
 
   this.beforeEach(async () => {
     // reset cache and restMock
@@ -233,7 +243,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractCreationResults,
       });
 
-      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      const resolveEvmAddressStub = sinon.stub(commonService, 'resolveEvmAddress');
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
 
       const receipts = await ethImpl.getBlockReceipts(BLOCK_HASH, requestDetails);
@@ -267,7 +277,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractCreationResults,
       });
 
-      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      const resolveEvmAddressStub = sinon.stub(commonService, 'resolveEvmAddress');
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
       resolveEvmAddressStub.withArgs(undefined, sinon.match.any).resolves(null);
 
@@ -303,7 +313,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         [CONTRACT_RESULTS_WITH_FILTER_URL_2]: contractResults,
       });
 
-      const resolveEvmAddressStub = sinon.stub(ethImpl['common'], 'resolveEvmAddress');
+      const resolveEvmAddressStub = sinon.stub(commonService, 'resolveEvmAddress');
       resolveEvmAddressStub.withArgs(results[0].from, sinon.match.any).resolves('0xresolvedFromAddress');
       resolveEvmAddressStub.withArgs(originalToAddress, sinon.match.any).resolves(resolvedToAddress);
 
@@ -331,9 +341,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     it('should return null when block is not found', async function () {
-      const getHistoricalBlockResponseStub = sinon
-        .stub(ethImpl['blockService']['common'], 'getHistoricalBlockResponse')
-        .resolves(null);
+      const getHistoricalBlockResponseStub = sinon.stub(commonService, 'getHistoricalBlockResponse').resolves(null);
 
       const result = await ethImpl.getBlockReceipts('0x123456', requestDetails);
 
@@ -347,7 +355,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     let spyCommonGetHistoricalBlockResponse;
 
     beforeEach(() => {
-      spyCommonGetHistoricalBlockResponse = sinon.spy(ethImpl.common, 'getHistoricalBlockResponse');
+      spyCommonGetHistoricalBlockResponse = sinon.spy(commonService, 'getHistoricalBlockResponse');
     });
 
     afterEach(() => {

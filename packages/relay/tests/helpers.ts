@@ -7,12 +7,15 @@ import { expect } from 'chai';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
+import Piscina from 'piscina';
+import proxyquire from 'proxyquire';
 import * as sinon from 'sinon';
 
 import { ConfigServiceTestHelper } from '../../config-service/tests/configServiceTestHelper';
 import { numberTo0x, toHash32 } from '../src/formatters';
 import { RedisClientManager } from '../src/lib/clients/redisClientManager';
 import constants from '../src/lib/constants';
+import { WorkersPool } from '../src/lib/services/workersService/WorkersPool';
 import { RedisInMemoryServer } from './redisInMemoryServer';
 
 // Randomly generated key
@@ -1123,4 +1126,47 @@ export const verifyResult = async <T>(
       await expect(func()).to.eventually.be.rejected;
     }
   }
+};
+
+export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheService) => {
+  const deps = {
+    '../../../clients/mirrorNodeClient': {
+      MirrorNodeClient: class {
+        constructor() {
+          return mirrorNodeInstance;
+        }
+      },
+    },
+    '../ethCommonService/CommonService': {
+      CommonService: class {
+        constructor() {
+          return commonService;
+        }
+      },
+    },
+  };
+  const blockWorker = proxyquire('../../relay/dist/lib/services/ethService/blockService/blockWorker.js', deps);
+  const commonWorker = proxyquire('../../relay/dist/lib/services/ethService/ethCommonService/commonWorker.js', deps);
+
+  WorkersPool['instance'] = {
+    run: async (task: any) => {
+      switch (task.type) {
+        case 'getBlock':
+          return await blockWorker.getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
+        case 'getBlockReceipts':
+          return await blockWorker.getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+        case 'getLogs':
+          return await commonWorker.getLogs(
+            task.blockHash,
+            task.fromBlock,
+            task.toBlock,
+            task.address,
+            task.topics,
+            task.requestDetails,
+          );
+        default:
+          throw new Error(`Unsupported task type ${task.type}`);
+      }
+    },
+  } as Piscina<any, any>;
 };

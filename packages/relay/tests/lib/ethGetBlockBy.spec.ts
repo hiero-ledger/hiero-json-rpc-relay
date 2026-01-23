@@ -12,11 +12,9 @@ import { nanOrNumberTo0x, nullableNumberTo0x, numberTo0x, toHash32 } from '../..
 import { MirrorNodeClient } from '../../src/lib/clients';
 import type { ICacheClient } from '../../src/lib/clients/cache/ICacheClient';
 import constants from '../../src/lib/constants';
-import { EthImpl } from '../../src/lib/eth';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { Log, Transaction } from '../../src/lib/model';
-import { BlockService, CommonService } from '../../src/lib/services';
-import { RequestDetails } from '../../src/lib/types';
+import { __test__ } from '../../src/lib/services/ethService/blockService/blockWorker';
 import { defaultDetailedContractResults, overrideEnvsInMochaDescribe, useInMemoryRedisServer } from '../helpers';
 
 use(chaiAsPromised);
@@ -94,10 +92,6 @@ const defaultLogs1 = [
 
 describe('eth_getBlockBy', async function () {
   this.timeout(10000);
-  let ethImpl: EthImpl;
-  let blockService: BlockService;
-
-  const requestDetails = new RequestDetails({ requestId: 'ethGetBlockByTest', ipAddress: '0.0.0.0' });
 
   useInMemoryRedisServer(logger, 5031);
   overrideEnvsInMochaDescribe({ ETH_FEE_HISTORY_FIXED: false });
@@ -121,9 +115,6 @@ describe('eth_getBlockBy', async function () {
 
     // @ts-ignore
     restMock = new MockAdapter(mirrorNodeInstance.getMirrorNodeRestInstance(), { onNoMatch: 'throwException' });
-
-    const common = new CommonService(mirrorNodeInstance, logger, cacheService);
-    blockService = new BlockService(cacheService, '0x12a', common, mirrorNodeInstance, logger);
   });
 
   this.beforeEach(async () => {
@@ -131,7 +122,7 @@ describe('eth_getBlockBy', async function () {
     restMock.reset();
   });
 
-  const mirrorLogToModelLog = (mirrorLog) => {
+  const mirrorLogToModelLog = (mirrorLog: (typeof defaultLogs1)[0]) => {
     return new Log({
       address: mirrorLog.address,
       blockHash: mirrorLog.block_hash,
@@ -152,47 +143,44 @@ describe('eth_getBlockBy', async function () {
     const showDetails = false;
 
     it('populateSyntheticTransactions with no dupes in empty transactionHashes', async function () {
-      const initHashes = [];
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, initHashes);
-      expect(initHashes.length).to.equal(defaultLogs1.length);
-      expect(initHashes[0]).to.equal(modelLog1.transactionHash);
-      expect(initHashes[1]).to.equal(modelLog2.transactionHash);
-      expect(initHashes[2]).to.equal(modelLog3.transactionHash);
+      const initHashes: string[] = [];
+      const result = __test__.__private.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, '0x12a');
+      expect(result.length).to.equal(defaultLogs1.length);
+      expect(result[0]).to.equal(modelLog1.transactionHash);
+      expect(result[1]).to.equal(modelLog2.transactionHash);
+      expect(result[2]).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with no dupes in non empty transactionHashes', async function () {
       const initHashes = ['txHash1', 'txHash2'];
-      const txHashes = initHashes.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txHashes);
-      expect(txHashes.length).to.equal(initHashes.length + defaultLogs1.length);
-      expect(txHashes[initHashes.length + 0]).to.equal(modelLog1.transactionHash);
-      expect(txHashes[initHashes.length + 1]).to.equal(modelLog2.transactionHash);
-      expect(txHashes[initHashes.length + 2]).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, '0x12a');
+      expect(result.length).to.equal(initHashes.length + defaultLogs1.length);
+      expect(result[initHashes.length + 0]).to.equal(modelLog1.transactionHash);
+      expect(result[initHashes.length + 1]).to.equal(modelLog2.transactionHash);
+      expect(result[initHashes.length + 2]).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with 1 transaction dupes in transactionHashes', async function () {
       const initHashes = [modelLog2.transactionHash];
-      const txHashes = initHashes.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txHashes);
-      expect(txHashes.length).to.equal(referenceLogs.length);
-      expect(txHashes[0]).to.equal(contractHash2);
-      expect(txHashes[1]).to.equal(modelLog1.transactionHash);
-      expect(txHashes[2]).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, '0x12a');
+      expect(result.length).to.equal(referenceLogs.length);
+      expect(result[0]).to.equal(contractHash2);
+      expect(result[1]).to.equal(modelLog1.transactionHash);
+      expect(result[2]).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with all dupes in transactionHashes', async function () {
       const initHashes = [modelLog1.transactionHash, modelLog2.transactionHash, modelLog3.transactionHash];
-      const txHashes = initHashes.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txHashes);
-      expect(txHashes.length).to.equal(referenceLogs.length);
-      expect(txHashes[0]).to.equal(modelLog1.transactionHash);
-      expect(txHashes[1]).to.equal(modelLog2.transactionHash);
-      expect(txHashes[2]).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(showDetails, referenceLogs, initHashes, '0x12a');
+      expect(result.length).to.equal(referenceLogs.length);
+      expect(result[0]).to.equal(modelLog1.transactionHash);
+      expect(result[1]).to.equal(modelLog2.transactionHash);
+      expect(result[2]).to.equal(modelLog3.transactionHash);
     });
   });
 
   describe('populateSyntheticTransactions w showDetails=true', () => {
-    const getTransactionModel = (transactionHash) => {
+    const getTransactionModel = (transactionHash: string) => {
       return new Transaction({
         accessList: undefined, // we don't support access lists for now, so punt
         blockHash: toHash32(defaultDetailedContractResults.block_hash),
@@ -219,31 +207,44 @@ describe('eth_getBlockBy', async function () {
     const showDetails = true;
     it('populateSyntheticTransactions with no dupes in empty txObjects', async function () {
       const initTxObjects: Transaction[] = [];
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, initTxObjects);
-      expect(initTxObjects.length).to.equal(defaultLogs1.length);
-      expect(initTxObjects[0].hash).to.equal(modelLog1.transactionHash);
-      expect(initTxObjects[1].hash).to.equal(modelLog2.transactionHash);
-      expect(initTxObjects[2].hash).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(
+        showDetails,
+        referenceLogs,
+        initTxObjects,
+        '0x12a',
+      ) as Transaction[];
+      expect(result.length).to.equal(defaultLogs1.length);
+      expect(result[0].hash).to.equal(modelLog1.transactionHash);
+      expect(result[1].hash).to.equal(modelLog2.transactionHash);
+      expect(result[2].hash).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with no dupes in non empty txObjects', async function () {
       const initTxObjects = [getTransactionModel('txHash1'), getTransactionModel('txHash2')];
-      const txObjects = initTxObjects.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txObjects);
-      expect(txObjects.length).to.equal(initTxObjects.length + defaultLogs1.length);
-      expect(txObjects[initTxObjects.length + 0].hash).to.equal(modelLog1.transactionHash);
-      expect(txObjects[initTxObjects.length + 1].hash).to.equal(modelLog2.transactionHash);
-      expect(txObjects[initTxObjects.length + 2].hash).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(
+        showDetails,
+        referenceLogs,
+        initTxObjects,
+        '0x12a',
+      ) as Transaction[];
+      expect(result.length).to.equal(initTxObjects.length + defaultLogs1.length);
+      expect(result[initTxObjects.length + 0].hash).to.equal(modelLog1.transactionHash);
+      expect(result[initTxObjects.length + 1].hash).to.equal(modelLog2.transactionHash);
+      expect(result[initTxObjects.length + 2].hash).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with 1 transaction dupes in txObjects', async function () {
       const initTxObjects = [getTransactionModel(modelLog2.transactionHash)];
-      const txObjects = initTxObjects.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txObjects);
-      expect(txObjects.length).to.equal(referenceLogs.length);
-      expect(txObjects[0].hash).to.equal(contractHash2);
-      expect(txObjects[1].hash).to.equal(modelLog1.transactionHash);
-      expect(txObjects[2].hash).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(
+        showDetails,
+        referenceLogs,
+        initTxObjects,
+        '0x12a',
+      ) as Transaction[];
+      expect(result.length).to.equal(referenceLogs.length);
+      expect(result[0].hash).to.equal(contractHash2);
+      expect(result[1].hash).to.equal(modelLog1.transactionHash);
+      expect(result[2].hash).to.equal(modelLog3.transactionHash);
     });
 
     it('populateSyntheticTransactions with all dupes in txObjects', async function () {
@@ -252,12 +253,16 @@ describe('eth_getBlockBy', async function () {
         getTransactionModel(modelLog2.transactionHash),
         getTransactionModel(modelLog3.transactionHash),
       ];
-      const txObjects = initTxObjects.slice();
-      blockService['populateSyntheticTransactions'](showDetails, referenceLogs, txObjects);
-      expect(txObjects.length).to.equal(referenceLogs.length);
-      expect(txObjects[0].hash).to.equal(modelLog1.transactionHash);
-      expect(txObjects[1].hash).to.equal(modelLog2.transactionHash);
-      expect(txObjects[2].hash).to.equal(modelLog3.transactionHash);
+      const result = __test__.__private.populateSyntheticTransactions(
+        showDetails,
+        referenceLogs,
+        initTxObjects,
+        '0x12a',
+      ) as Transaction[];
+      expect(result.length).to.equal(referenceLogs.length);
+      expect(result[0].hash).to.equal(modelLog1.transactionHash);
+      expect(result[1].hash).to.equal(modelLog2.transactionHash);
+      expect(result[2].hash).to.equal(modelLog3.transactionHash);
     });
 
     it('deduplicates duplicate transaction objects in the result', async function () {
@@ -266,13 +271,57 @@ describe('eth_getBlockBy', async function () {
       const initTxObjects = [tx1, tx2];
 
       const txObjects = initTxObjects.slice();
-      const returnedTxObjects = blockService['populateSyntheticTransactions'](true, referenceLogs, txObjects);
+      const returnedTxObjects = __test__.__private.populateSyntheticTransactions(
+        true,
+        referenceLogs,
+        txObjects,
+        '0x12a',
+      );
 
       // Should only have one object with modelLog1.transactionHash
       const count = returnedTxObjects.filter((tx) => (tx as Transaction).hash === modelLog1.transactionHash).length;
       expect(count).to.equal(1);
 
       expect(returnedTxObjects.length).to.equal(referenceLogs.length);
+    });
+
+    it('handles duplicate log transaction hashes correctly', async function () {
+      const duplicateLogs = [
+        mirrorLogToModelLog({ ...defaultLogs1[0], transaction_hash: contractHash1 }),
+        mirrorLogToModelLog({ ...defaultLogs1[1], transaction_hash: contractHash1 }), // Same hash as above
+        mirrorLogToModelLog({ ...defaultLogs1[2], transaction_hash: contractHash2 }),
+      ];
+
+      const result = __test__.__private.populateSyntheticTransactions(
+        true,
+        duplicateLogs,
+        [],
+        '0x12a',
+      ) as Transaction[];
+
+      // Should only have 2 unique hashes despite 3 logs
+      expect(result.length).to.equal(2);
+      expect(result.map((tx) => tx.hash)).to.include(contractHash1);
+      expect(result.map((tx) => tx.hash)).to.include(contractHash2);
+    });
+
+    it('handles large transaction arrays with O(n) performance', async function () {
+      // Generate 20000 logs with unique hashes
+      const largeLogs = Array.from({ length: 20000 }, (_, i) =>
+        mirrorLogToModelLog({
+          ...defaultLogs1[0],
+          transaction_hash: `0x${i.toString(16).padStart(64, '0')}`,
+          index: i,
+        }),
+      );
+
+      const start = performance.now();
+      const result = __test__.__private.populateSyntheticTransactions(false, largeLogs, [], '0x12a');
+      const duration = performance.now() - start;
+
+      expect(result.length).to.equal(20000);
+      // With O(n) complexity, 20000 items should complete well under 10ms
+      expect(duration).to.be.lessThan(10);
     });
   });
 });

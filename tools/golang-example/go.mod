@@ -3,7 +3,7 @@ module hedera-golang-example-project
 go 1.24.0
 
 require (
-	github.com/ethereum/go-ethereum v1.16.7
+	github.com/ethereum/go-ethereum v1.16.8
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.11.1
 )

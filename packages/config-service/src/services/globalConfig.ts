@@ -131,7 +131,7 @@ const _CONFIG = {
   CONSENSUS_MAX_EXECUTION_TIME: {
     type: 'number',
     required: false,
-    defaultValue: 15000,
+    defaultValue: 10000,
   },
   CONTRACT_CALL_GAS_LIMIT: {
     type: 'number',
@@ -412,6 +412,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 200,
   },
+  MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 500,
+  },
   MIRROR_NODE_CONTRACT_RESULTS_PG_MAX: {
     type: 'number',
     required: false,
@@ -492,11 +497,6 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
-  MULTI_SET: {
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
-  },
   // the actual env var in the node process is npm_package_version
   npm_package_version: {
     type: 'string',
@@ -573,10 +573,20 @@ const _CONFIG = {
     required: false,
     defaultValue: 'silent',
   },
-  SDK_REQUEST_TIMEOUT: {
+  SDK_GRPC_DEADLINE: {
     type: 'number',
     required: false,
     defaultValue: 10000,
+  },
+  SDK_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  SDK_REQUEST_TIMEOUT: {
+    type: 'number',
+    required: false,
+    defaultValue: 30000,
   },
   SEND_RAW_TRANSACTION_SIZE_LIMIT: {
     type: 'number',
@@ -742,6 +752,16 @@ const _CONFIG = {
     type: 'boolean',
     required: false,
     defaultValue: true,
+  },
+  WORKERS_POOL_MAX_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 4,
+  },
+  WORKERS_POOL_MIN_THREADS: {
+    type: 'number',
+    required: false,
+    defaultValue: 2,
   },
   WS_PING_INTERVAL: {
     type: 'number',

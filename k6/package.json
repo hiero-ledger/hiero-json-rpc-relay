@@ -12,6 +12,7 @@
     "prep-and-stress": "npm run prep && npm run stress-test"
   },
   "dependencies": {
+    "@hashgraph/sdk": "^2.79.0",
     "env-cmd": "^11.0.0",
     "ethers": "^6.16.0"
   },

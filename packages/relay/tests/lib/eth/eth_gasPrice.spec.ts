@@ -18,12 +18,11 @@ describe('@ethGasPrice Gas Price spec', async function () {
   const { restMock, ethImpl, cacheService } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getPriceTest', ipAddress: '0.0.0.0' });
-
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
@@ -35,7 +34,8 @@ describe('@ethGasPrice Gas Price spec', async function () {
   describe('@ethGasPrice', async function () {
     it('eth_gasPrice', async function () {
       const weiBars = await ethImpl.gasPrice(requestDetails);
-      const expectedWeiBars = DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+      const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+      const expectedWeiBars = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
       expect(weiBars).to.equal(numberTo0x(expectedWeiBars));
     });
 
@@ -43,9 +43,8 @@ describe('@ethGasPrice Gas Price spec', async function () {
     // todo: rewrotk cache logic for eth_gasPrice method and re-add this test
     xit('eth_gasPrice with cached value', async function () {
       const firstGasResult = await ethImpl.gasPrice(requestDetails);
-
-      const modifiedNetworkFees = { ...DEFAULT_NETWORK_FEES };
-      modifiedNetworkFees.fees[2].gas = DEFAULT_NETWORK_FEES.fees[2].gas * 100;
+      const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+      modifiedNetworkFees.fees[2].gas = modifiedNetworkFees.fees[2].gas * 100;
 
       restMock.onGet(`network/fees`).reply(200, JSON.stringify(modifiedNetworkFees));
 
@@ -59,18 +58,19 @@ describe('@ethGasPrice Gas Price spec', async function () {
     it('eth_gasPrice does not use cache and returns updated values', async function () {
       // First call to get initial gas price
       const firstGasResult = await ethImpl.gasPrice(requestDetails);
-      const expectedFirstWeiBars = DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+      const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+      const expectedFirstWeiBars = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
       expect(firstGasResult).to.equal(numberTo0x(expectedFirstWeiBars));
 
       // Modify network fees to return a different gas price
-      const modifiedNetworkFees = { ...DEFAULT_NETWORK_FEES };
-      modifiedNetworkFees.fees[2].gas = DEFAULT_NETWORK_FEES.fees[2].gas * 100;
+      const modifiedNetworkFeesMultiplied = structuredClone(DEFAULT_NETWORK_FEES);
+      modifiedNetworkFeesMultiplied.fees[2].gas = modifiedNetworkFeesMultiplied.fees[2].gas * 100;
 
-      restMock.onGet(`network/fees`).reply(200, JSON.stringify(modifiedNetworkFees));
+      restMock.onGet(`network/fees`).reply(200, JSON.stringify(modifiedNetworkFeesMultiplied));
 
       // Second call should return the updated gas price (not cached)
       const secondGasResult = await ethImpl.gasPrice(requestDetails);
-      const expectedSecondWeiBars = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+      const expectedSecondWeiBars = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF * 100;
 
       // Verify the results are different, proving cache is not used
       expect(secondGasResult).to.not.equal(firstGasResult);
@@ -102,9 +102,11 @@ describe('@ethGasPrice Gas Price spec', async function () {
       let initialGasPrice: string;
 
       it('should return gas price without buffer', async function () {
-        await cacheService.clear(requestDetails);
+        await cacheService.clear();
         initialGasPrice = await ethImpl.gasPrice(requestDetails);
-        expect(initialGasPrice).to.equal(toHex(DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF));
+        const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+        const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+        expect(initialGasPrice).to.equal(toHex(expectedValue));
       });
 
       for (const testCaseName in GAS_PRICE_PERCENTAGE_BUFFER_TESTCASES) {
@@ -114,7 +116,9 @@ describe('@ethGasPrice Gas Price spec', async function () {
           overrideEnvsInMochaDescribe({ GAS_PRICE_PERCENTAGE_BUFFER: GAS_PRICE_PERCENTAGE_BUFFER });
 
           it(`should return gas price with buffer`, async function () {
-            const expectedInitialGasPrice = toHex(DEFAULT_NETWORK_FEES.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF);
+            const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
+            const expectedValue = modifiedNetworkFees.fees[2].gas * constants.TINYBAR_TO_WEIBAR_COEF;
+            const expectedInitialGasPrice = toHex(expectedValue);
             const expectedGasPriceWithBuffer = toHex(
               Number(expectedInitialGasPrice) +
                 Math.round(
