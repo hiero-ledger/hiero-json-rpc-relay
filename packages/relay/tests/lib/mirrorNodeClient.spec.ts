@@ -1080,6 +1080,179 @@ describe('MirrorNodeClient', async function () {
     expect(results).to.deep.equal([]);
   });
 
+  describe('`getContractResultsLogsByAddress` with timestamp slicing', () => {
+    const testAddress = '0x0000000000000000000000000000000000001389';
+    const validTimestampRange = ['gte:1707944548.000000000', 'lte:1707944550.000000000'];
+
+    const createMockLog = (timestamp: string, index: number, txHash: string) => ({
+      address: testAddress,
+      bloom: '0x0123',
+      contract_id: '0.0.5001',
+      data: '0x0123',
+      index,
+      topics: ['0x97c1fc0a6ed5551bc831571325e9bdb365d06803100dc20648640ba24ce69750'],
+      block_hash: '0xd773ec74b26ace67ee3924879a6bd35f3c4653baaa19f6c9baec7fac1269c55e',
+      block_number: 73884554,
+      root_contract_id: '0.0.3045981',
+      timestamp,
+      transaction_hash: txHash,
+      transaction_index: 3,
+    });
+
+    it('should use sequential pagination when sliceCount=1', async () => {
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(
+        200,
+        JSON.stringify({
+          logs: [createMockLog('1707944548.500000000', 0, '0xabc123')],
+        }),
+      );
+
+      await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: validTimestampRange },
+        undefined,
+        1, // sliceCount
+      );
+
+      // Sequential pagination uses the original gte/lte range without splitting
+      const requestUrl = decodeURIComponent(mock.history.get[0].url || '');
+      expect(requestUrl).to.include(testAddress);
+      expect(requestUrl).to.include(validTimestampRange[0]);
+      expect(requestUrl).to.include(validTimestampRange[1]);
+    });
+
+    it('should use parallel slicing when sliceCount > 1', async () => {
+      let callCount = 0;
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(() => {
+        const log = createMockLog(`1707944548.${callCount}00000000`, callCount, `0xabc${callCount++}`);
+        return [200, JSON.stringify({ logs: [log] })];
+      });
+
+      await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: validTimestampRange },
+        undefined,
+        2, // sliceCount
+      );
+
+      // Parallel slicing splits the range - each request should have different timestamp boundaries
+      const requestUrls = mock.history.get.map((req) => decodeURIComponent(req.url || ''));
+
+      // All requests should be for the correct address
+      requestUrls.forEach((url) => expect(url).to.include(testAddress));
+
+      // First slice should start at original gte and use lt: (not lte:) for upper bound
+      expect(requestUrls[0]).to.include(validTimestampRange[0]);
+      expect(requestUrls[0]).to.match(/lt:1707944549\.\d+/);
+
+      // Second slice should start where first ended and use lte: for final upper bound
+      expect(requestUrls[1]).to.match(/gte:1707944549\.\d+/);
+      expect(requestUrls[1]).to.include(validTimestampRange[1]);
+
+      // Verify slices are contiguous (end of first equals start of second)
+      const firstSliceEnd = requestUrls[0].match(/lt:(\d+\.\d+)/)?.[1];
+      const secondSliceStart = requestUrls[1].match(/gte:(\d+\.\d+)/)?.[1];
+      expect(firstSliceEnd).to.equal(secondSliceStart);
+    });
+
+    it('should deduplicate logs using transaction_hash:index composite key', async () => {
+      const duplicateLog1 = createMockLog('1707944548.500000000', 0, '0xdup123');
+      const duplicateLog2 = createMockLog('1707944548.600000000', 0, '0xdup123'); // same hash+index
+      const uniqueLog = createMockLog('1707944549.000000000', 0, '0xunique456');
+
+      let callCount = 0;
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(() => {
+        callCount++;
+        if (callCount === 1) return [200, JSON.stringify({ logs: [duplicateLog1, uniqueLog] })];
+        return [200, JSON.stringify({ logs: [duplicateLog2] })]; // Should be deduplicated
+      });
+
+      const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: validTimestampRange },
+        undefined,
+        2,
+      );
+
+      // Should have 2 logs: one for 0xdup123 (deduplicated) and one for 0xunique456
+      expect(result).to.have.length(2);
+      expect(result.map((l) => l.transaction_hash)).to.include.members(['0xdup123', '0xunique456']);
+
+      // Verify first occurrence wins
+      const keptDupLog = result.find((l) => l.transaction_hash === '0xdup123');
+      expect(keptDupLog?.timestamp).to.equal('1707944548.500000000');
+    });
+
+    it('should sort results by timestamp ascending', async () => {
+      let callCount = 0;
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(() => {
+        // Return later timestamp first, earlier second
+        const ts = callCount === 0 ? '1707944549.000000000' : '1707944548.000000000';
+        const hash = callCount === 0 ? '0xlater' : '0xearlier';
+        callCount++;
+        return [200, JSON.stringify({ logs: [createMockLog(ts, 0, hash)] })];
+      });
+
+      const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: validTimestampRange },
+        undefined,
+        2,
+      );
+
+      expect(result[0].transaction_hash).to.equal('0xearlier');
+      expect(result[1].transaction_hash).to.equal('0xlater');
+    });
+
+    it('should fall back to sequential pagination when timestamp format is invalid', async () => {
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(
+        200,
+        JSON.stringify({
+          logs: [createMockLog('1707944548.500000000', 0, '0xabc123')],
+        }),
+      );
+
+      const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: ['gte:invalid', 'lte:also-invalid'] },
+        undefined,
+        2,
+      );
+
+      // Should still return results via sequential fallback
+      expect(result).to.have.length(1);
+
+      // Only 1 request made (sequential), not 2 (parallel slicing failed)
+      expect(mock.history.get.length).to.equal(1);
+
+      // Verify the request used the original invalid timestamps (fallback behavior)
+      const requestUrl = decodeURIComponent(mock.history.get[0].url || '');
+      expect(requestUrl).to.include('gte:invalid');
+      expect(requestUrl).to.include('lte:also-invalid');
+    });
+
+    it('should return empty array when all slices return no logs', async () => {
+      mock.onGet(/contracts\/.*\/results\/logs.*/).reply(200, JSON.stringify({ logs: [] }));
+
+      const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
+        testAddress,
+        requestDetails,
+        { timestamp: validTimestampRange },
+        undefined,
+        2,
+      );
+
+      expect(result).to.be.an('array').that.is.empty;
+      // Both slices should have been queried
+      expect(mock.history.get.length).to.equal(2);
+    });
+  });
+
   it('`getContractCurrentStateByAddressAndSlot`', async () => {
     mock
       .onGet(
@@ -2024,6 +2197,466 @@ describe('MirrorNodeClient', async function () {
       expect(result[0].value).to.equal(firstPageResponse.state[0].value);
       expect(result[2].slot).to.equal(secondPageResponse.state[0].slot);
       expect(result[2].value).to.equal(secondPageResponse.state[0].value);
+    });
+  });
+
+  // ============================================================================
+  // Timestamp Slicing Tests for Parallel Block Retrieval
+  // ============================================================================
+
+  describe('Timestamp Slicing Methods', () => {
+    const createMockLog = (timestamp: string, index: number, txHash: string) => ({
+      address: '0x0000000000000000000000000000000000001389',
+      bloom: '0x0123',
+      contract_id: '0.0.5001',
+      data: '0x0123',
+      index,
+      topics: ['0x97c1fc0a6ed5551bc831571325e9bdb365d06803100dc20648640ba24ce69750'],
+      block_hash: '0xd773ec74b26ace67ee3924879a6bd35f3c4653baaa19f6c9baec7fac1269c55e',
+      block_number: 73884554,
+      root_contract_id: '0.0.3045981',
+      timestamp,
+      transaction_hash: txHash,
+      transaction_index: 3,
+    });
+
+    // ========================================================================
+    // Unit Tests for Private Methods
+    // ========================================================================
+
+    describe('parseTimestampRange', () => {
+      const invalidInputCases = [
+        { input: 'not-an-array', error: 'expected an array', desc: 'non-array input' },
+        { input: ['gte:1707944548.000000000'], error: 'expected exactly 2 elements', desc: 'single element array' },
+        {
+          input: ['gte:1707944548.000000000', 'lte:1707944550.000000000', 'extra'],
+          error: 'expected exactly 2 elements',
+          desc: 'three element array',
+        },
+        { input: [123, 456], error: 'expected both elements to be strings', desc: 'non-string elements' },
+        {
+          input: ['1707944548.000000000', 'lte:1707944550.000000000'],
+          error: 'missing gte: or lte: prefix',
+          desc: 'missing gte: prefix',
+        },
+        {
+          input: ['gte:1707944548.000000000', '1707944550.000000000'],
+          error: 'missing gte: or lte: prefix',
+          desc: 'missing lte: prefix',
+        },
+        {
+          input: ['gte:invalid', 'lte:1707944550.000000000'],
+          error: 'expected seconds.nanoseconds format',
+          desc: 'invalid timestamp format',
+        },
+        {
+          input: ['gte:1707944548', 'lte:1707944550.000000000'],
+          error: 'expected seconds.nanoseconds format',
+          desc: 'timestamp without nanoseconds',
+        },
+      ];
+
+      invalidInputCases.forEach(({ input, error, desc }) => {
+        it(`should throw for ${desc}`, () => {
+          expect(() => mirrorNodeInstance['parseTimestampRange'](input)).to.throw(error);
+        });
+      });
+
+      it('should parse valid timestamp range correctly', () => {
+        const result = mirrorNodeInstance['parseTimestampRange']([
+          'gte:1707944548.000000000',
+          'lte:1707944550.000000000',
+        ]);
+
+        expect(result.fromNanos).to.be.a('bigint');
+        expect(result.toNanos).to.be.a('bigint');
+        expect(result.toNanos > result.fromNanos).to.be.true;
+      });
+
+      it('should handle varying nanosecond precision', () => {
+        const result = mirrorNodeInstance['parseTimestampRange'](['gte:1707944548.1', 'lte:1707944550.123456789']);
+
+        expect(result.fromNanos).to.equal(BigInt('1707944548100000000'));
+        expect(result.toNanos).to.equal(BigInt('1707944550123456789'));
+      });
+    });
+
+    describe('timestampToNanos / nanosToTimestamp', () => {
+      const conversionCases = [
+        { timestamp: '1707944548.123456789', nanos: '1707944548123456789', desc: 'full precision' },
+        { timestamp: '1707944548.1', nanos: '1707944548100000000', desc: 'partial nanoseconds' },
+        { timestamp: '1707944548.000000000', nanos: '1707944548000000000', desc: 'zero nanoseconds' },
+        { timestamp: '9999999999.999999999', nanos: '9999999999999999999', desc: 'large values' },
+        { timestamp: '1000.5', nanos: '1000500000000', desc: 'single digit nanoseconds' },
+      ];
+
+      conversionCases.forEach(({ timestamp, nanos, desc }) => {
+        it(`timestampToNanos: ${desc}`, () => {
+          expect(mirrorNodeInstance['timestampToNanos'](timestamp)).to.equal(BigInt(nanos));
+        });
+      });
+
+      const inverseConversionCases = [
+        { nanos: '1707944548123456789', timestamp: '1707944548.123456789', desc: 'full precision' },
+        { nanos: '1707944548000000001', timestamp: '1707944548.000000001', desc: 'leading zeros in nanos' },
+        { nanos: '1707944548000000000', timestamp: '1707944548.000000000', desc: 'zero nanoseconds' },
+      ];
+
+      inverseConversionCases.forEach(({ nanos, timestamp, desc }) => {
+        it(`nanosToTimestamp: ${desc}`, () => {
+          expect(mirrorNodeInstance['nanosToTimestamp'](BigInt(nanos))).to.equal(timestamp);
+        });
+      });
+
+      it('should be bidirectionally invertible', () => {
+        const original = '1707944548.123456789';
+        const nanos = mirrorNodeInstance['timestampToNanos'](original);
+        expect(mirrorNodeInstance['nanosToTimestamp'](nanos)).to.equal(original);
+      });
+    });
+
+    describe('splitTimestampRange', () => {
+      const fromNanos = BigInt('1000000000000000000');
+      const toNanos = BigInt('1000000004000000000');
+      const duration = toNanos - fromNanos;
+
+      it('should create the correct number of slices', () => {
+        [1, 2, 4, 10].forEach((sliceCount) => {
+          const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, sliceCount);
+          expect(slices).to.have.length(sliceCount);
+        });
+      });
+
+      it('should use lt: for non-final slices and lte: for final slice', () => {
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 3);
+
+        slices.slice(0, -1).forEach((slice) => {
+          expect(slice.to).to.include('lt:');
+          expect(slice.to).to.not.include('lte:');
+        });
+        expect(slices[slices.length - 1].to).to.include('lte:');
+      });
+
+      it('should use gte: for all lower bounds', () => {
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 4);
+        slices.forEach((slice) => expect(slice.from).to.include('gte:'));
+      });
+
+      it('should create contiguous non-overlapping slices', () => {
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 4);
+
+        for (let i = 0; i < slices.length - 1; i++) {
+          const currentTo = slices[i].to.replace(/l?te?:/, '');
+          const nextFrom = slices[i + 1].from.replace('gte:', '');
+          expect(currentTo).to.equal(nextFrom);
+        }
+      });
+
+      it('should cover the entire timestamp range', () => {
+        const slices = mirrorNodeInstance['splitTimestampRange'](
+          BigInt('1707944548000000000'),
+          BigInt('1707944550000000000'),
+          BigInt('2000000000'),
+          2,
+        );
+
+        expect(slices[0].from).to.include('1707944548.000000000');
+        expect(slices[slices.length - 1].to).to.include('1707944550.000000000');
+      });
+    });
+
+    describe('mergeLogSliceResults', () => {
+      const createMergeContext = () => ({ results: [] as any[], seenHashes: new Set<string>() });
+
+      it('should add unique logs and track them in seenHashes', () => {
+        const { results, seenHashes } = createMergeContext();
+        const items = [
+          { transaction_hash: '0xabc', index: 0 },
+          { transaction_hash: '0xdef', index: 1 },
+        ];
+
+        mirrorNodeInstance['mergeLogSliceResults'](results, items, seenHashes);
+
+        expect(results).to.have.length(2);
+        expect(seenHashes.size).to.equal(2);
+      });
+
+      it('should deduplicate by transaction_hash and index', () => {
+        const { results, seenHashes } = createMergeContext();
+
+        mirrorNodeInstance['mergeLogSliceResults'](
+          results,
+          [{ transaction_hash: '0xabc', index: 0, data: 'first' }],
+          seenHashes,
+        );
+        mirrorNodeInstance['mergeLogSliceResults'](
+          results,
+          [{ transaction_hash: '0xabc', index: 0, data: 'dup' }],
+          seenHashes,
+        );
+
+        expect(results).to.have.length(1);
+        expect(results[0].data).to.equal('first');
+      });
+
+      it('should allow same transaction_hash with different indices', () => {
+        const { results, seenHashes } = createMergeContext();
+        const items = [
+          { transaction_hash: '0xabc', index: 0 },
+          { transaction_hash: '0xabc', index: 1 },
+        ];
+
+        mirrorNodeInstance['mergeLogSliceResults'](results, items, seenHashes);
+        expect(results).to.have.length(2);
+      });
+
+      const fallbackCases = [
+        {
+          items: [
+            { transaction_hash: null, index: 0 },
+            { transaction_hash: null, index: 0 },
+          ],
+          desc: 'null transaction_hash',
+        },
+        {
+          items: [
+            { transaction_hash: '0xabc', index: null },
+            { transaction_hash: '0xabc', index: null },
+          ],
+          desc: 'null index',
+        },
+        {
+          items: [{ transaction_hash: undefined, index: undefined }, { data: 'missing-props' }],
+          desc: 'undefined/missing props',
+        },
+      ];
+
+      fallbackCases.forEach(({ items, desc }) => {
+        it(`should include all logs when ${desc} (fallback behavior)`, () => {
+          const { results, seenHashes } = createMergeContext();
+          mirrorNodeInstance['mergeLogSliceResults'](results, items, seenHashes);
+          expect(results).to.have.length(items.length);
+        });
+      });
+
+      it('should handle empty newItems array', () => {
+        const results = [{ existing: true }];
+        mirrorNodeInstance['mergeLogSliceResults'](results, [], new Set());
+        expect(results).to.have.length(1);
+      });
+    });
+
+    describe('getContractResultsLogsWithRetry with slicing', () => {
+      const validTimestampRange = ['gte:1707944548.000000000', 'lte:1707944550.000000000'];
+
+      it('should use sequential pagination when sliceCount=1 (original timestamp range preserved)', async () => {
+        mock.onGet(/contracts\/results\/logs.*/).reply(
+          200,
+          JSON.stringify({
+            logs: [createMockLog('1707944548.500000000', 0, '0xabc123')],
+          }),
+        );
+
+        await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: validTimestampRange },
+          undefined,
+          1, // sliceCount
+        );
+
+        // Sequential pagination uses the original gte/lte range without splitting
+        const requestUrl = decodeURIComponent(mock.history.get[0].url || '');
+        expect(requestUrl).to.include(validTimestampRange[0]);
+        expect(requestUrl).to.include(validTimestampRange[1]);
+      });
+
+      it('should use parallel slicing when sliceCount > 1 (timestamp range split into non-overlapping slices)', async () => {
+        let callCount = 0;
+        mock.onGet(/contracts\/results\/logs.*/).reply(() => {
+          const log = createMockLog(`1707944548.${callCount}00000000`, callCount, `0xabc${callCount++}`);
+          return [200, JSON.stringify({ logs: [log] })];
+        });
+
+        await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: validTimestampRange },
+          undefined,
+          2, // sliceCount
+        );
+
+        // Parallel slicing splits the range - each request should have different timestamp boundaries
+        const requestUrls = mock.history.get.map((req) => decodeURIComponent(req.url || ''));
+
+        // First slice should start at original gte and use lt: (not lte:) for upper bound
+        expect(requestUrls[0]).to.include(validTimestampRange[0]);
+        expect(requestUrls[0]).to.match(/lt:1707944549\.\d+/);
+
+        // Second slice should start where first ended and use lte: for final upper bound
+        expect(requestUrls[1]).to.match(/gte:1707944549\.\d+/);
+        expect(requestUrls[1]).to.include(validTimestampRange[1]);
+
+        // Verify slices are contiguous (end of first equals start of second)
+        const firstSliceEnd = requestUrls[0].match(/lt:(\d+\.\d+)/)?.[1];
+        const secondSliceStart = requestUrls[1].match(/gte:(\d+\.\d+)/)?.[1];
+        expect(firstSliceEnd).to.equal(secondSliceStart);
+      });
+
+      it('should deduplicate logs using transaction_hash:index composite key', async () => {
+        // Same tx_hash + index = should deduplicate to 1 log
+        const duplicateLog1 = createMockLog('1707944548.500000000', 0, '0xdup123');
+        const duplicateLog2 = createMockLog('1707944548.600000000', 0, '0xdup123'); // same hash+index, different timestamp
+
+        // Different tx_hash but same index = should NOT deduplicate (2 logs)
+        const uniqueLog = createMockLog('1707944549.000000000', 0, '0xunique456');
+
+        let callCount = 0;
+        mock.onGet(/contracts\/results\/logs.*/).reply(() => {
+          callCount++;
+          if (callCount === 1) return [200, JSON.stringify({ logs: [duplicateLog1, uniqueLog] })];
+          return [200, JSON.stringify({ logs: [duplicateLog2] })]; // This should be deduplicated
+        });
+
+        const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: validTimestampRange },
+          undefined,
+          2,
+        );
+
+        // Should have 2 logs: one for 0xdup123 (deduplicated) and one for 0xunique456
+        expect(result).to.have.length(2);
+        expect(result.map((l) => l.transaction_hash)).to.include.members(['0xdup123', '0xunique456']);
+
+        // Verify first occurrence wins (duplicateLog1 with earlier timestamp should be kept)
+        const keptDupLog = result.find((l) => l.transaction_hash === '0xdup123');
+        expect(keptDupLog?.timestamp).to.equal('1707944548.500000000');
+      });
+
+      it('should sort results by timestamp ascending', async () => {
+        let callCount = 0;
+        mock.onGet(/contracts\/results\/logs.*/).reply(() => {
+          // Return later timestamp first, earlier second
+          const ts = callCount === 0 ? '1707944549.000000000' : '1707944548.000000000';
+          const hash = callCount === 0 ? '0xlater' : '0xearlier';
+          callCount++;
+          return [200, JSON.stringify({ logs: [createMockLog(ts, 0, hash)] })];
+        });
+
+        const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: validTimestampRange },
+          undefined,
+          2,
+        );
+
+        expect(result[0].transaction_hash).to.equal('0xearlier');
+        expect(result[1].transaction_hash).to.equal('0xlater');
+      });
+
+      it('should fall back to sequential pagination when timestamp format is invalid', async () => {
+        mock.onGet(/contracts\/results\/logs.*/).reply(
+          200,
+          JSON.stringify({
+            logs: [createMockLog('1707944548.500000000', 0, '0xabc123')],
+          }),
+        );
+
+        const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: ['gte:invalid', 'lte:also-invalid'] },
+          undefined,
+          2,
+        );
+
+        // Should still return results via sequential fallback
+        expect(result).to.have.length(1);
+
+        // Only 1 request made (sequential), not 2 (parallel slicing failed)
+        expect(mock.history.get.length).to.equal(1);
+
+        // Verify the request used the original invalid timestamps (fallback behavior)
+        const requestUrl = decodeURIComponent(mock.history.get[0].url || '');
+        expect(requestUrl).to.include('gte:invalid');
+        expect(requestUrl).to.include('lte:also-invalid');
+      });
+
+      it('should return empty array when all slices return no logs', async () => {
+        mock.onGet(/contracts\/results\/logs.*/).reply(200, JSON.stringify({ logs: [] }));
+
+        const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: validTimestampRange },
+          undefined,
+          2,
+        );
+
+        expect(result).to.be.an('array').that.is.empty;
+        // Both slices should have been queried
+        expect(mock.history.get.length).to.equal(2);
+      });
+    });
+
+    describe('Immature record handling with slicing', () => {
+      it('should retry slices until mature records are returned', async () => {
+        // Immature records lack block_number, transaction_index, or have '0x' block_hash
+        const immatureLog = {
+          ...createMockLog('1707944548.500000000', 0, '0xabc'),
+          transaction_index: null,
+          block_number: null,
+          block_hash: '0x',
+        };
+        const matureLog = createMockLog('1707944548.500000000', 0, '0xabc');
+
+        let callCount = 0;
+        mock.onGet(/contracts\/results\/logs.*/).reply(() => {
+          callCount++;
+          // First 2 calls return immature, subsequent calls return mature
+          return callCount <= 2
+            ? [200, JSON.stringify({ logs: [immatureLog] })]
+            : [200, JSON.stringify({ logs: [matureLog] })];
+        });
+
+        const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+          requestDetails,
+          { timestamp: ['gte:1707944548.000000000', 'lte:1707944550.000000000'] },
+          undefined,
+          2,
+        );
+
+        // Verify mature records were eventually returned
+        const matureLogs = result.filter((log) => log.transaction_index !== null && log.block_number !== null);
+        expect(matureLogs.length).to.be.greaterThan(0);
+
+        // Verify retry occurred (more requests than slice count)
+        expect(mock.history.get.length).to.be.greaterThan(2);
+      });
+    });
+
+    describe('Concurrency control', () => {
+      withOverriddenEnvsInMochaTest({ MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: 2 }, () => {
+        it('should complete all slices despite limited concurrency', async () => {
+          let callCount = 0;
+          mock.onGet(/contracts\/results\/logs.*/).reply(() => {
+            const log = createMockLog(`1707944548.${callCount}00000000`, callCount, `0xabc${callCount++}`);
+            return [200, JSON.stringify({ logs: [log] })];
+          });
+
+          const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
+            requestDetails,
+            { timestamp: ['gte:1707944548.000000000', 'lte:1707944552.000000000'] },
+            undefined,
+            4,
+          );
+
+          // All 4 slices should complete and return unique logs
+          expect(result).to.have.length(4);
+          expect(mock.history.get.length).to.equal(4);
+
+          // Verify each slice returned a unique log
+          const uniqueHashes = new Set(result.map((l) => l.transaction_hash));
+          expect(uniqueHashes.size).to.equal(4);
+        });
+      });
     });
   });
 });

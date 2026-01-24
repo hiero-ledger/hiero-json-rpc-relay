@@ -27,9 +27,17 @@ export async function getLogs(
   try {
     const EMPTY_RESPONSE = [];
     const params: any = {};
+    const sliceCountWrapper = { value: 1 };
 
     if (blockHash) {
-      if (!(await commonService.validateBlockHashAndAddTimestampToParams(params, blockHash, requestDetails))) {
+      if (
+        !(await commonService.validateBlockHashAndAddTimestampToParams(
+          params,
+          blockHash,
+          requestDetails,
+          sliceCountWrapper,
+        ))
+      ) {
         return EMPTY_RESPONSE;
       }
     } else if (
@@ -39,6 +47,7 @@ export async function getLogs(
         toBlock,
         requestDetails,
         address,
+        sliceCountWrapper,
       ))
     ) {
       return EMPTY_RESPONSE;
@@ -46,7 +55,7 @@ export async function getLogs(
 
     commonService.addTopicsToParams(params, topics);
 
-    return await commonService.getLogsWithParams(address, params, requestDetails);
+    return await commonService.getLogsWithParams(address, params, requestDetails, sliceCountWrapper.value);
   } catch (e: unknown) {
     throw WorkersPool.wrapError(e);
   }

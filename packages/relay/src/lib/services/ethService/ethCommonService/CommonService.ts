@@ -86,6 +86,7 @@ export class CommonService implements ICommonService {
     toBlock: string,
     requestDetails: RequestDetails,
     address?: string | string[] | null,
+    sliceCountWrapper?: { value: number },
   ) {
     if (this.blockTagIsLatestOrPending(toBlock)) {
       toBlock = constants.BLOCK_LATEST;
@@ -118,6 +119,13 @@ export class CommonService implements ICommonService {
 
     if (fromBlock === toBlock) {
       params.timestamp.push(`lte:${fromBlockResponse.timestamp.to}`);
+
+      // Calculate slice count for parallel timestamp slicing optimization
+      if (sliceCountWrapper) {
+        sliceCountWrapper.value = Math.ceil(
+          fromBlockResponse.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+        );
+      }
     } else {
       fromBlockNum = parseInt(fromBlockResponse.number);
       const toBlockResponse = await this.getHistoricalBlockResponse(requestDetails, toBlock, true);
@@ -298,11 +306,19 @@ export class CommonService implements ICommonService {
     params: any,
     blockHash: string,
     requestDetails: RequestDetails,
+    sliceCountWrapper?: { value: number },
   ) {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockHash, requestDetails);
       if (block) {
         params.timestamp = [`gte:${block.timestamp.from}`, `lte:${block.timestamp.to}`];
+
+        // Calculate slice count for parallel timestamp slicing optimization
+        if (sliceCountWrapper) {
+          sliceCountWrapper.value = Math.ceil(
+            block.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+          );
+        }
       } else {
         return false;
       }
@@ -349,10 +365,24 @@ export class CommonService implements ICommonService {
     }
   }
 
-  public async getLogsByAddress(address: string | string[], params: any, requestDetails: RequestDetails) {
+  /**
+   * Retrieves logs for one or more contract addresses with optional parallel timestamp slicing.
+   *
+   * @param address - Single address or array of addresses to fetch logs for
+   * @param params - Query parameters including timestamp range
+   * @param requestDetails - Request details for logging and tracking
+   * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
+   * @returns Sorted array of logs from all specified addresses
+   */
+  public async getLogsByAddress(
+    address: string | string[],
+    params: any,
+    requestDetails: RequestDetails,
+    sliceCount: number = 1,
+  ) {
     const addresses = Array.isArray(address) ? address : [address];
     const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined),
+      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined, sliceCount),
     );
 
     const logResults = await Promise.all(logPromises);
@@ -368,14 +398,20 @@ export class CommonService implements ICommonService {
     address: string | string[] | null,
     params: any,
     requestDetails: RequestDetails,
+    sliceCount: number = 1,
   ): Promise<Log[]> {
     const EMPTY_RESPONSE = [];
 
     let logResults;
     if (address) {
-      logResults = await this.getLogsByAddress(address, params, requestDetails);
+      logResults = await this.getLogsByAddress(address, params, requestDetails, sliceCount);
     } else {
-      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, params, undefined);
+      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(
+        requestDetails,
+        params,
+        undefined,
+        sliceCount,
+      );
     }
 
     if (!logResults) {

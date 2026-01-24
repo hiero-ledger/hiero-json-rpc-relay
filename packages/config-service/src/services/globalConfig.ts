@@ -497,6 +497,16 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+  },
+  MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: {
+    type: 'number',
+    required: false,
+    defaultValue: 30,
+  },
   // the actual env var in the node process is npm_package_version
   npm_package_version: {
     type: 'string',

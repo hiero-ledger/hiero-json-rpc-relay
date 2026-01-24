@@ -138,7 +138,8 @@ export interface IMirrorNodeTransactionRecord {
   valid_duration_seconds: number;
   valid_start_timestamp: string;
 }
-interface ITimestamp {
+
+export interface ITimestamp {
   from: string;
   to: string;
 }

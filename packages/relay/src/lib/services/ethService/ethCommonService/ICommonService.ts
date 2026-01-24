@@ -37,9 +37,19 @@ export interface ICommonService {
     requestDetails: RequestDetails,
   ): Promise<Log[]>;
 
-  getLogsByAddress(address: string | [string], params: any, requestDetails: RequestDetails): Promise<any>;
+  getLogsByAddress(
+    address: string | [string],
+    params: any,
+    requestDetails: RequestDetails,
+    sliceCount?: number,
+  ): Promise<any>;
 
-  getLogsWithParams(address: string | [string] | null, params: any, requestDetails: RequestDetails): Promise<Log[]>;
+  getLogsWithParams(
+    address: string | [string] | null,
+    params: any,
+    requestDetails: RequestDetails,
+    sliceCount?: number,
+  ): Promise<Log[]>;
 
   isBlockHash(blockHash: string): boolean;
 
@@ -53,6 +63,7 @@ export interface ICommonService {
     params: any,
     blockHash: string,
     requestDetails: RequestDetails,
+    sliceCountWrapper?: { value: number },
   ): Promise<boolean>;
 
   validateBlockRange(fromBlock: string, toBlock: string, requestDetails: RequestDetails): Promise<boolean>;
@@ -63,5 +74,6 @@ export interface ICommonService {
     toBlock: string,
     requestDetails: RequestDetails,
     address?: string | string[] | null,
+    sliceCountOutput?: { value: number },
   ): Promise<boolean>;
 }

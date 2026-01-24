@@ -277,13 +277,18 @@ export async function getBlock(
     const timestampRangeParams = [`gte:${timestampRange.from}`, `lte:${timestampRange.to}`];
     const params = { timestamp: timestampRangeParams };
 
+    // Calculate slice count based on actual transaction count
+    const calculatedSliceCount = Math.ceil(
+      blockResponse.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+    );
+
     const [contractResults, logs] = await Promise.all([
       mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
         requestDetails,
         params,
         undefined,
       ]),
-      commonService.getLogsWithParams(null, params, requestDetails),
+      commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
     if (contractResults == null && logs.length == 0) {
@@ -341,9 +346,12 @@ export async function getBlockReceipts(
       timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
     };
 
+    // Calculate slice count based on actual transaction count for optimized parallel log retrieval
+    const calculatedSliceCount = Math.ceil(block.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'));
+
     const [contractResults, logs] = await Promise.all([
       mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-      commonService.getLogsWithParams(null, paramTimestamp, requestDetails),
+      commonService.getLogsWithParams(null, paramTimestamp, requestDetails, calculatedSliceCount),
     ]);
 
     if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
