@@ -1152,7 +1152,7 @@ export class MirrorNodeClient {
     // Attempt parallel timestamp slicing when applicable
     if (timestampRange && sliceCount > 1) {
       try {
-        return await this.getContractResultsLogsWithSlicing(
+        return await this.getContractResultsLogsWithTimestampSlicing(
           requestDetails,
           timestampRange,
           contractLogsResultsParams,
@@ -1786,7 +1786,7 @@ export class MirrorNodeClient {
    * @param apiEndpoint - API endpoint to use for log retrieval (supports address-specific endpoints)
    * @returns Deduplicated and sorted array of contract result logs from all slices
    */
-  private async getContractResultsLogsWithSlicing(
+  private async getContractResultsLogsWithTimestampSlicing(
     requestDetails: RequestDetails,
     timestampRange: unknown,
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
