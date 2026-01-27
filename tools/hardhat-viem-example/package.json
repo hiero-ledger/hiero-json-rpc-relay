@@ -13,7 +13,7 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "hardhat": "^2.26.1"
   },
   "overrides": {
