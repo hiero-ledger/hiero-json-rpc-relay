@@ -64,6 +64,12 @@ export class ConfigService {
     }
 
     this.validateReadOnlyMode();
+
+    // note: temporary bandage solution
+    // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
+    if (this.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE') === 0) {
+      throw new Error('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE cannot be zero.');
+    }
   }
 
   /**
