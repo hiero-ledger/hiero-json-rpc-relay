@@ -1084,6 +1084,7 @@ export class MirrorNodeClient {
   ): Promise<MirrorNodeContractLog[]> {
     return this.fetchContractLogsWithSlicingSupport(
       MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
       requestDetails,
       contractLogsResultsParams,
       limitOrderParams,
@@ -1120,6 +1121,7 @@ export class MirrorNodeClient {
 
     return this.fetchContractLogsWithSlicingSupport(
       apiEndpoint,
+      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT,
       requestDetails,
       contractLogsResultsParams,
       limitOrderParams,
@@ -1135,6 +1137,7 @@ export class MirrorNodeClient {
    * Falls back to sequential pagination on recoverable errors or when slicing is not applicable.
    *
    * @param apiEndpoint - API endpoint to use for log retrieval
+   * @param pathLabel - Template path for error handling categorization
    * @param requestDetails - Request details for logging and tracking
    * @param contractLogsResultsParams - Query parameters for contract logs results
    * @param limitOrderParams - Pagination limit and ordering parameters
@@ -1143,6 +1146,7 @@ export class MirrorNodeClient {
    */
   private async fetchContractLogsWithSlicingSupport(
     apiEndpoint: string,
+    pathLabel: string,
     requestDetails: RequestDetails,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
@@ -1160,6 +1164,7 @@ export class MirrorNodeClient {
           limitOrderParams,
           sliceCount,
           apiEndpoint,
+          pathLabel,
         );
       } catch (error) {
         // Determine if error is recoverable (should fallback to sequential) vs fatal (should propagate).
@@ -1193,10 +1198,6 @@ export class MirrorNodeClient {
 
     // Sequential fetching: fallback or when slicing not applicable
     const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
-
-    // For address-specific endpoints, use template path for error handling
-    // Replace actual address (0x + 40 hex chars) with placeholder
-    const pathLabel = apiEndpoint.replace(/0x[a-fA-F0-9]{40}/, MirrorNodeClient.ADDRESS_PLACEHOLDER);
 
     return this.fetchLogsWithImmatureRetry(
       () =>
@@ -1635,7 +1636,8 @@ export class MirrorNodeClient {
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
     maxAttempts: number,
-    apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+    apiEndpoint: string,
+    pathLabel: string,
   ): Promise<MirrorNodeContractLog[]> {
     const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
     const sliceParams: IContractLogsResultsParams = {
@@ -1644,10 +1646,6 @@ export class MirrorNodeClient {
     };
 
     const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
-
-    // For address-specific endpoints, use template path for error handling
-    // Replace actual address (0x + 40 hex chars) with placeholder
-    const pathLabel = apiEndpoint.replace(/0x[a-fA-F0-9]{40}/, MirrorNodeClient.ADDRESS_PLACEHOLDER);
 
     return this.fetchLogsWithImmatureRetry(
       () =>
@@ -1680,7 +1678,8 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
-    apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+    apiEndpoint: string,
+    pathLabel: string,
   ): Promise<MirrorNodeContractLog[]> {
     const concurrency: number = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY');
     const maxAttempts = this.getMirrorNodeRequestRetryCount();
@@ -1700,6 +1699,7 @@ export class MirrorNodeClient {
           limitOrderParams,
           maxAttempts,
           apiEndpoint,
+          pathLabel,
         );
         sliceResults[sliceIndex] = data;
       })();
@@ -1794,7 +1794,8 @@ export class MirrorNodeClient {
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
     sliceCount: number,
-    apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+    apiEndpoint: string,
+    pathLabel: string,
   ): Promise<MirrorNodeContractLog[]> {
     // Parse and validate timestamp range
     const { fromNanos, toNanos } = this.parseTimestampRange(timestampRange);
@@ -1815,6 +1816,7 @@ export class MirrorNodeClient {
       contractLogsResultsParams,
       limitOrderParams,
       apiEndpoint,
+      pathLabel,
     );
   }
 
