@@ -123,7 +123,7 @@ export class CommonService implements ICommonService {
       // Calculate slice count for parallel timestamp slicing optimization
       if (sliceCountWrapper) {
         sliceCountWrapper.value = Math.ceil(
-          fromBlockResponse.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+          fromBlockResponse.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
         );
       }
     } else {
@@ -316,7 +316,7 @@ export class CommonService implements ICommonService {
         // Calculate slice count for parallel timestamp slicing optimization
         if (sliceCountWrapper) {
           sliceCountWrapper.value = Math.ceil(
-            block.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+            block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
           );
         }
       } else {

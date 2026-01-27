@@ -279,7 +279,7 @@ export async function getBlock(
 
     // Calculate slice count based on actual transaction count
     const calculatedSliceCount = Math.ceil(
-      blockResponse.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'),
+      blockResponse.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
     );
 
     const [contractResults, logs] = await Promise.all([
@@ -347,7 +347,9 @@ export async function getBlockReceipts(
     };
 
     // Calculate slice count based on actual transaction count for optimized parallel log retrieval
-    const calculatedSliceCount = Math.ceil(block.count / ConfigService.get('MIRROR_NODE_MAX_LOGS_PER_TIMESTAMP_SLICE'));
+    const calculatedSliceCount = Math.ceil(
+      block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
+    );
 
     const [contractResults, logs] = await Promise.all([
       mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
