@@ -1586,23 +1586,20 @@ export class MirrorNodeClient {
    * @returns Array of timestamp slice boundaries with Mirror Node API format
    * @throws Error if input validation fails
    */
-  private splitTimestampRange(
-    fromNanos: bigint,
-    toNanos: bigint,
-    durationNanos: bigint,
-    sliceCount: number,
-  ): ITimestamp[] {
+  private splitTimestampRange(fromNanos: bigint, toNanos: bigint, sliceCount: number): ITimestamp[] {
     if (sliceCount <= 0) {
       throw new Error(`Invalid timestamp range: sliceCount must be positive, received ${sliceCount}`);
     }
     if (fromNanos >= toNanos) {
       throw new Error(`Invalid timestamp range: fromNanos (${fromNanos}) must be less than toNanos (${toNanos})`);
     }
-    if (durationNanos <= BigInt(0)) {
-      throw new Error(`Invalid timestamp range: durationNanos must be positive, received ${durationNanos}`);
+
+    const blockDurationNanos = toNanos - fromNanos;
+    if (blockDurationNanos <= BigInt(0)) {
+      throw new Error(`Invalid timestamp range: blockDurationNanos must be positive, received ${blockDurationNanos}`);
     }
 
-    const sliceDurationNanos = durationNanos / BigInt(sliceCount);
+    const sliceDurationNanos = blockDurationNanos / BigInt(sliceCount);
     const slices: ITimestamp[] = [];
 
     for (let i = 0; i < sliceCount; i++) {
@@ -1803,8 +1800,7 @@ export class MirrorNodeClient {
     const { fromNanos, toNanos } = this.parseTimestampRange(timestampRange);
 
     // Split into timestamp slices for parallel fetching
-    const blockDurationNanos = toNanos - fromNanos;
-    const slices = this.splitTimestampRange(fromNanos, toNanos, blockDurationNanos, sliceCount);
+    const slices = this.splitTimestampRange(fromNanos, toNanos, sliceCount);
 
     this.logger.debug(
       `Starting executing log retrieval with concurrency: slices=%s, concurrency=%s`,

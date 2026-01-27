@@ -2318,13 +2318,13 @@ describe('MirrorNodeClient', async function () {
 
       it('should create the correct number of slices', () => {
         [1, 2, 4, 10].forEach((sliceCount) => {
-          const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, sliceCount);
+          const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, sliceCount);
           expect(slices).to.have.length(sliceCount);
         });
       });
 
       it('should use lt: for non-final slices and lte: for final slice', () => {
-        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 3);
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, 3);
 
         slices.slice(0, -1).forEach((slice) => {
           expect(slice.to).to.include('lt:');
@@ -2334,12 +2334,12 @@ describe('MirrorNodeClient', async function () {
       });
 
       it('should use gte: for all lower bounds', () => {
-        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 4);
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, 4);
         slices.forEach((slice) => expect(slice.from).to.include('gte:'));
       });
 
       it('should create contiguous non-overlapping slices', () => {
-        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, duration, 4);
+        const slices = mirrorNodeInstance['splitTimestampRange'](fromNanos, toNanos, 4);
 
         for (let i = 0; i < slices.length - 1; i++) {
           const currentTo = slices[i].to.replace(/l?te?:/, '');
@@ -2352,7 +2352,6 @@ describe('MirrorNodeClient', async function () {
         const slices = mirrorNodeInstance['splitTimestampRange'](
           BigInt('1707944548000000000'),
           BigInt('1707944550000000000'),
-          BigInt('2000000000'),
           2,
         );
 
