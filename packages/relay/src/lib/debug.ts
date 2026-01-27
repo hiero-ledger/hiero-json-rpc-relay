@@ -662,7 +662,9 @@ export class DebugImpl implements Debug {
         { timestamp: timestampRange },
         undefined,
       ]),
-      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
+      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, 1, {
+        timestamp: timestampRange,
+      }),
     ]);
 
     // Collect all unique transaction hashes

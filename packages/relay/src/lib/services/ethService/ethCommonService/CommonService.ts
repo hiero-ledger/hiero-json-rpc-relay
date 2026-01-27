@@ -382,7 +382,7 @@ export class CommonService implements ICommonService {
   ): Promise<MirrorNodeContractLog[]> {
     const addresses = Array.isArray(address) ? address : [address];
     const logPromises = addresses.map((addr) =>
-      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined, sliceCount),
+      this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, sliceCount, params),
     );
 
     const logResults = await Promise.all(logPromises);
@@ -406,12 +406,7 @@ export class CommonService implements ICommonService {
     if (address) {
       logResults = await this.getLogsByAddress(address, params, requestDetails, sliceCount);
     } else {
-      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(
-        requestDetails,
-        params,
-        undefined,
-        sliceCount,
-      );
+      logResults = await this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, sliceCount, params);
     }
 
     if (!logResults) {

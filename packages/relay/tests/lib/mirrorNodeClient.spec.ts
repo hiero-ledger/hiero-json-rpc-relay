@@ -1108,9 +1108,9 @@ describe('MirrorNodeClient', async function () {
       await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        1,
         { timestamp: validTimestampRange },
         undefined,
-        1, // sliceCount
       );
 
       // Sequential pagination uses the original gte/lte range without splitting
@@ -1130,9 +1130,9 @@ describe('MirrorNodeClient', async function () {
       await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        2,
         { timestamp: validTimestampRange },
         undefined,
-        2, // sliceCount
       );
 
       // Parallel slicing splits the range - each request should have different timestamp boundaries
@@ -1170,9 +1170,9 @@ describe('MirrorNodeClient', async function () {
       const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        2,
         { timestamp: validTimestampRange },
         undefined,
-        2,
       );
 
       // Should have 2 logs: one for 0xdup123 (deduplicated) and one for 0xunique456
@@ -1197,9 +1197,9 @@ describe('MirrorNodeClient', async function () {
       const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        2,
         { timestamp: validTimestampRange },
         undefined,
-        2,
       );
 
       expect(result[0].transaction_hash).to.equal('0xearlier');
@@ -1217,9 +1217,9 @@ describe('MirrorNodeClient', async function () {
       const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        2,
         { timestamp: ['gte:invalid', 'lte:also-invalid'] },
         undefined,
-        2,
       );
 
       // Should still return results via sequential fallback
@@ -1240,9 +1240,9 @@ describe('MirrorNodeClient', async function () {
       const result = await mirrorNodeInstance.getContractResultsLogsByAddress(
         testAddress,
         requestDetails,
+        2,
         { timestamp: validTimestampRange },
         undefined,
-        2,
       );
 
       expect(result).to.be.an('array').that.is.empty;
@@ -2443,9 +2443,9 @@ describe('MirrorNodeClient', async function () {
 
         await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          1,
           { timestamp: validTimestampRange },
           undefined,
-          1, // sliceCount
         );
 
         // Sequential pagination uses the original gte/lte range without splitting
@@ -2463,9 +2463,9 @@ describe('MirrorNodeClient', async function () {
 
         await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: validTimestampRange },
           undefined,
-          2, // sliceCount
         );
 
         // Parallel slicing splits the range - each request should have different timestamp boundaries
@@ -2502,9 +2502,9 @@ describe('MirrorNodeClient', async function () {
 
         const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: validTimestampRange },
           undefined,
-          2,
         );
 
         // Should have 2 logs: one for 0xdup123 (deduplicated) and one for 0xunique456
@@ -2528,9 +2528,9 @@ describe('MirrorNodeClient', async function () {
 
         const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: validTimestampRange },
           undefined,
-          2,
         );
 
         expect(result[0].transaction_hash).to.equal('0xearlier');
@@ -2547,9 +2547,9 @@ describe('MirrorNodeClient', async function () {
 
         const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: ['gte:invalid', 'lte:also-invalid'] },
           undefined,
-          2,
         );
 
         // Should still return results via sequential fallback
@@ -2569,9 +2569,9 @@ describe('MirrorNodeClient', async function () {
 
         const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: validTimestampRange },
           undefined,
-          2,
         );
 
         expect(result).to.be.an('array').that.is.empty;
@@ -2602,9 +2602,9 @@ describe('MirrorNodeClient', async function () {
 
         const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
           requestDetails,
+          2,
           { timestamp: ['gte:1707944548.000000000', 'lte:1707944550.000000000'] },
           undefined,
-          2,
         );
 
         // Verify mature records were eventually returned
@@ -2627,9 +2627,9 @@ describe('MirrorNodeClient', async function () {
 
           const result = await mirrorNodeInstance.getContractResultsLogsWithRetry(
             requestDetails,
+            4,
             { timestamp: ['gte:1707944548.000000000', 'lte:1707944552.000000000'] },
             undefined,
-            4,
           );
 
           // All 4 slices should complete and return unique logs
