@@ -281,6 +281,34 @@ export interface MirrorNodeContractResult {
 }
 
 /**
+ * Represents a log emitted by a contract execution as returned by the Hedera Mirror Node.
+ */
+export interface MirrorNodeContractLog {
+  /** The address of the contract that emitted the log. */
+  address: string;
+  /** The bloom filter for the log. */
+  bloom: string;
+  /** The unique identifier of the contract. */
+  contract_id: string;
+  /** The data emitted with the log. */
+  data: string;
+  /** The index of the log within the transaction. */
+  index: number;
+  /** The topics associated with the log. */
+  topics: string[];
+  /** The hash of the block containing the log. */
+  block_hash: string;
+  /** The block number containing the log. */
+  block_number: number;
+  /** The consensus timestamp of the log. */
+  timestamp: string;
+  /** The transaction hash. */
+  transaction_hash: string;
+  /** The index of the transaction within the block. */
+  transaction_index: number;
+}
+
+/**
  * Represents an action performed by a contract on the Hedera Mirror Node.
  */
 export interface ContractAction {

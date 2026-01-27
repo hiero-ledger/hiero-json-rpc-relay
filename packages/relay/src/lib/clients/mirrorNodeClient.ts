@@ -26,6 +26,7 @@ import {
   IMirrorNodeTransactionRecord,
   ITimestamp,
   ITransactionRecordMetric,
+  MirrorNodeContractLog,
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
@@ -1028,11 +1029,11 @@ export class MirrorNodeClient {
    * @throws DEPENDENT_SERVICE_IMMATURE_RECORDS error if immature records persist after all attempts
    */
   private async fetchLogsWithImmatureRetry(
-    fetchFn: () => Promise<any[]>,
+    fetchFn: () => Promise<MirrorNodeContractLog[]>,
     requestDetails: RequestDetails,
     maxAttempts: number,
     attempt: number = 0,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     const logResults = await fetchFn();
     const hasImmatureRecords = logResults.some(
       (log) =>
@@ -1080,7 +1081,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
     sliceCount: number = 1,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     return this.fetchContractLogsWithSlicingSupport(
       MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
       requestDetails,
@@ -1109,7 +1110,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
     sliceCount: number = 1,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     if (address === ethers.ZeroAddress) return [];
 
     const apiEndpoint = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT.replace(
@@ -1146,7 +1147,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
     sliceCount: number = 1,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     const timestampRange = contractLogsResultsParams?.timestamp;
 
     // Attempt parallel timestamp slicing when applicable
@@ -1638,7 +1639,7 @@ export class MirrorNodeClient {
     limitOrderParams: ILimitOrderParams | undefined,
     maxAttempts: number,
     apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
     const sliceParams: IContractLogsResultsParams = {
       ...baseParams,
@@ -1683,10 +1684,10 @@ export class MirrorNodeClient {
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
     apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     const concurrency: number = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY');
     const maxAttempts = this.getMirrorNodeRequestRetryCount();
-    const sliceResults: any[][] = [];
+    const sliceResults: MirrorNodeContractLog[][] = [];
     const activeRequestsPool = new Set<Promise<void>>();
 
     for (const slice of slices) {
@@ -1721,7 +1722,7 @@ export class MirrorNodeClient {
     await Promise.all(activeRequestsPool);
 
     // Merge all slice results with deduplication (single-threaded, no race condition)
-    const allLogs: any[] = [];
+    const allLogs: MirrorNodeContractLog[] = [];
     const deduplicationKeys = new Set<string>();
     for (const sliceData of sliceResults) {
       this.mergeLogSliceResults(allLogs, sliceData, deduplicationKeys);
@@ -1744,7 +1745,11 @@ export class MirrorNodeClient {
    * @param newItems - New items from a slice to merge
    * @param deduplicationKeys - Set of composite keys for deduplication tracking (modified in-place)
    */
-  private mergeLogSliceResults(allLogs: any[], newItems: any[], deduplicationKeys: Set<string>): void {
+  private mergeLogSliceResults(
+    allLogs: MirrorNodeContractLog[],
+    newItems: MirrorNodeContractLog[],
+    deduplicationKeys: Set<string>,
+  ): void {
     for (const item of newItems) {
       // Primary key: transaction_hash + log index (most reliable)
       const hasPrimaryKey =
@@ -1793,7 +1798,7 @@ export class MirrorNodeClient {
     limitOrderParams: ILimitOrderParams | undefined,
     sliceCount: number,
     apiEndpoint: string = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-  ): Promise<any[]> {
+  ): Promise<MirrorNodeContractLog[]> {
     // Parse and validate timestamp range
     const { fromNanos, toNanos } = this.parseTimestampRange(timestampRange);
 

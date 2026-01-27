@@ -13,7 +13,7 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, RequestDetails } from '../../../types';
+import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
@@ -379,7 +379,7 @@ export class CommonService implements ICommonService {
     params: any,
     requestDetails: RequestDetails,
     sliceCount: number = 1,
-  ) {
+  ): Promise<MirrorNodeContractLog[]> {
     const addresses = Array.isArray(address) ? address : [address];
     const logPromises = addresses.map((addr) =>
       this.mirrorNodeClient.getContractResultsLogsByAddress(addr, requestDetails, params, undefined, sliceCount),
@@ -387,7 +387,7 @@ export class CommonService implements ICommonService {
 
     const logResults = await Promise.all(logPromises);
     const logs = logResults.flatMap((logResult) => (logResult ? logResult : []));
-    logs.sort((a: any, b: any) => {
+    logs.sort((a: MirrorNodeContractLog, b: MirrorNodeContractLog) => {
       return a.timestamp >= b.timestamp ? 1 : -1;
     });
 
@@ -402,7 +402,7 @@ export class CommonService implements ICommonService {
   ): Promise<Log[]> {
     const EMPTY_RESPONSE = [];
 
-    let logResults;
+    let logResults: MirrorNodeContractLog[];
     if (address) {
       logResults = await this.getLogsByAddress(address, params, requestDetails, sliceCount);
     } else {
@@ -419,7 +419,7 @@ export class CommonService implements ICommonService {
     }
 
     const logs: Log[] = [];
-    for (const log of logResults) {
+    for (const log of logResults as MirrorNodeContractLog[]) {
       logs.push(
         new Log({
           address: log.address,

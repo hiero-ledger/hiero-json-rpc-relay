@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Log } from '../../../model';
-import { IAccountInfo, IContractCallRequest, RequestDetails } from '../../../types';
+import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
 
 export interface ICommonService {
   addTopicsToParams(params: any, topics: any[] | null): void;
@@ -38,14 +38,14 @@ export interface ICommonService {
   ): Promise<Log[]>;
 
   getLogsByAddress(
-    address: string | [string],
+    address: string | string[],
     params: any,
     requestDetails: RequestDetails,
     sliceCount?: number,
-  ): Promise<any>;
+  ): Promise<MirrorNodeContractLog[]>;
 
   getLogsWithParams(
-    address: string | [string] | null,
+    address: string | string[] | null,
     params: any,
     requestDetails: RequestDetails,
     sliceCount?: number,

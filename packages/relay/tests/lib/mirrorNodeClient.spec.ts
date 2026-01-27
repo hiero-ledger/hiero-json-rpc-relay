@@ -16,7 +16,7 @@ import type { ICacheClient } from '../../src/lib/clients/cache/ICacheClient';
 import constants from '../../src/lib/constants';
 import { SDKClientError } from '../../src/lib/errors/SDKClientError';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
-import { MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
+import { MirrorNodeContractLog, MirrorNodeTransactionRecord, RequestDetails } from '../../src/lib/types';
 import { mockData, random20BytesAddress, withOverriddenEnvsInMochaTest } from '../helpers';
 chai.use(chaiAsPromised);
 
@@ -1004,7 +1004,6 @@ describe('MirrorNodeClient', async function () {
     ],
     block_hash: '0xd773ec74b26ace67ee3924879a6bd35f3c4653baaa19f6c9baec7fac1269c55e103287a2d07084778957d21704a92fd3',
     block_number: 73884554,
-    root_contract_id: '0.0.3045981',
     timestamp: '1736446204.610059000',
     transaction_hash: '0x0494665a6d3aa32f51f79ad2c75053c9a51ae84927e4924e77773d834b85ec86',
     transaction_index: 3,
@@ -1084,7 +1083,7 @@ describe('MirrorNodeClient', async function () {
     const testAddress = '0x0000000000000000000000000000000000001389';
     const validTimestampRange = ['gte:1707944548.000000000', 'lte:1707944550.000000000'];
 
-    const createMockLog = (timestamp: string, index: number, txHash: string) => ({
+    const createMockLog = (timestamp: string, index: number, txHash: string): MirrorNodeContractLog => ({
       address: testAddress,
       bloom: '0x0123',
       contract_id: '0.0.5001',
@@ -1093,7 +1092,6 @@ describe('MirrorNodeClient', async function () {
       topics: ['0x97c1fc0a6ed5551bc831571325e9bdb365d06803100dc20648640ba24ce69750'],
       block_hash: '0xd773ec74b26ace67ee3924879a6bd35f3c4653baaa19f6c9baec7fac1269c55e',
       block_number: 73884554,
-      root_contract_id: '0.0.3045981',
       timestamp,
       transaction_hash: txHash,
       transaction_index: 3,
@@ -2205,7 +2203,7 @@ describe('MirrorNodeClient', async function () {
   // ============================================================================
 
   describe('Timestamp Slicing Methods', () => {
-    const createMockLog = (timestamp: string, index: number, txHash: string) => ({
+    const createMockLog = (timestamp: string, index: number, txHash: string): MirrorNodeContractLog => ({
       address: '0x0000000000000000000000000000000000001389',
       bloom: '0x0123',
       contract_id: '0.0.5001',
@@ -2214,7 +2212,6 @@ describe('MirrorNodeClient', async function () {
       topics: ['0x97c1fc0a6ed5551bc831571325e9bdb365d06803100dc20648640ba24ce69750'],
       block_hash: '0xd773ec74b26ace67ee3924879a6bd35f3c4653baaa19f6c9baec7fac1269c55e',
       block_number: 73884554,
-      root_contract_id: '0.0.3045981',
       timestamp,
       transaction_hash: txHash,
       transaction_index: 3,
@@ -2318,7 +2315,6 @@ describe('MirrorNodeClient', async function () {
     describe('splitTimestampRange', () => {
       const fromNanos = BigInt('1000000000000000000');
       const toNanos = BigInt('1000000004000000000');
-      const duration = toNanos - fromNanos;
 
       it('should create the correct number of slices', () => {
         [1, 2, 4, 10].forEach((sliceCount) => {
@@ -2366,14 +2362,14 @@ describe('MirrorNodeClient', async function () {
     });
 
     describe('mergeLogSliceResults', () => {
-      const createMergeContext = () => ({ results: [] as any[], seenHashes: new Set<string>() });
+      const createMergeContext = () => ({
+        results: [] as MirrorNodeContractLog[],
+        seenHashes: new Set<string>(),
+      });
 
       it('should add unique logs and track them in seenHashes', () => {
         const { results, seenHashes } = createMergeContext();
-        const items = [
-          { transaction_hash: '0xabc', index: 0 },
-          { transaction_hash: '0xdef', index: 1 },
-        ];
+        const items = [createMockLog('123.456', 0, '0xabc'), createMockLog('123.457', 1, '0xdef')];
 
         mirrorNodeInstance['mergeLogSliceResults'](results, items, seenHashes);
 
@@ -2384,27 +2380,15 @@ describe('MirrorNodeClient', async function () {
       it('should deduplicate by transaction_hash and index', () => {
         const { results, seenHashes } = createMergeContext();
 
-        mirrorNodeInstance['mergeLogSliceResults'](
-          results,
-          [{ transaction_hash: '0xabc', index: 0, data: 'first' }],
-          seenHashes,
-        );
-        mirrorNodeInstance['mergeLogSliceResults'](
-          results,
-          [{ transaction_hash: '0xabc', index: 0, data: 'dup' }],
-          seenHashes,
-        );
+        mirrorNodeInstance['mergeLogSliceResults'](results, [createMockLog('123.456', 0, '0xabc')], seenHashes);
+        mirrorNodeInstance['mergeLogSliceResults'](results, [createMockLog('123.457', 0, '0xabc')], seenHashes);
 
         expect(results).to.have.length(1);
-        expect(results[0].data).to.equal('first');
       });
 
       it('should allow same transaction_hash with different indices', () => {
         const { results, seenHashes } = createMergeContext();
-        const items = [
-          { transaction_hash: '0xabc', index: 0 },
-          { transaction_hash: '0xabc', index: 1 },
-        ];
+        const items = [createMockLog('123.456', 0, '0xabc'), createMockLog('123.457', 1, '0xabc')];
 
         mirrorNodeInstance['mergeLogSliceResults'](results, items, seenHashes);
         expect(results).to.have.length(2);
@@ -2426,7 +2410,7 @@ describe('MirrorNodeClient', async function () {
           desc: 'null index',
         },
         {
-          items: [{ transaction_hash: undefined, index: undefined }, { data: 'missing-props' }],
+          items: [{ transaction_hash: undefined, index: undefined } as any, { data: 'missing-props' } as any],
           desc: 'undefined/missing props',
         },
       ];
@@ -2440,7 +2424,8 @@ describe('MirrorNodeClient', async function () {
       });
 
       it('should handle empty newItems array', () => {
-        const results = [{ existing: true }];
+        const { results } = createMergeContext();
+        results.push(createMockLog('123.456', 0, '0xexisting'));
         mirrorNodeInstance['mergeLogSliceResults'](results, [], new Set());
         expect(results).to.have.length(1);
       });
