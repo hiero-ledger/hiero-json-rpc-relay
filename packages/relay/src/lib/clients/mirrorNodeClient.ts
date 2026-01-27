@@ -1720,7 +1720,13 @@ export class MirrorNodeClient {
     const allLogs: MirrorNodeContractLog[] = [];
     const deduplicationKeys = new Set<string>();
     for (const sliceData of sliceResults) {
-      this.mergeLogSliceResults(allLogs, sliceData, deduplicationKeys);
+      for (const item of sliceData) {
+        const primaryKey = `${item.transaction_hash}-${item.index}`;
+        if (!deduplicationKeys.has(primaryKey)) {
+          deduplicationKeys.add(primaryKey);
+          allLogs.push(item);
+        }
+      }
     }
 
     // Sort by timestamp for consistent ordering (using BigInt for nanosecond precision)
@@ -1729,47 +1735,6 @@ export class MirrorNodeClient {
       const bNanos = this.timestampToNanos(b.timestamp || '0.0');
       return aNanos < bNanos ? -1 : aNanos > bNanos ? 1 : 0;
     });
-  }
-
-  /**
-   * Merges log slice results into main results array with O(1) deduplication.
-   * Uses composite key (transaction_hash + log index) for precise uniqueness checking.
-   * Items without complete primary key data are included without deduplication to prevent data loss.
-   *
-   * @param allLogs - Main results array to merge into (modified in-place)
-   * @param newItems - New items from a slice to merge
-   * @param deduplicationKeys - Set of composite keys for deduplication tracking (modified in-place)
-   */
-  private mergeLogSliceResults(
-    allLogs: MirrorNodeContractLog[],
-    newItems: MirrorNodeContractLog[],
-    deduplicationKeys: Set<string>,
-  ): void {
-    for (const item of newItems) {
-      // Primary key: transaction_hash + log index (most reliable)
-      const hasPrimaryKey =
-        item?.transaction_hash !== null &&
-        item?.transaction_hash !== undefined &&
-        item?.index !== null &&
-        item?.index !== undefined;
-
-      if (hasPrimaryKey) {
-        const primaryKey = `${item.transaction_hash}-${item.index}`;
-        if (!deduplicationKeys.has(primaryKey)) {
-          deduplicationKeys.add(primaryKey);
-          allLogs.push(item);
-        }
-      } else {
-        // Fallback: include item without deduplication to prevent data loss.
-        // Items without complete primary key cannot be reliably deduplicated.
-        this.logger.warn(
-          'Log item missing transaction_hash or index, including without deduplication: timestamp=%s, address=%s',
-          item?.timestamp || 'unknown',
-          item?.address || 'unknown',
-        );
-        allLogs.push(item);
-      }
-    }
   }
 
   /**
