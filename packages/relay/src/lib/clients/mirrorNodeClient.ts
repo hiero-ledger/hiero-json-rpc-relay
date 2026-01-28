@@ -24,7 +24,9 @@ import {
   IContractResultsParams,
   ILimitOrderParams,
   IMirrorNodeTransactionRecord,
+  ITimestamp,
   ITransactionRecordMetric,
+  MirrorNodeContractLog,
   MirrorNodeTransactionRecord,
   RequestDetails,
 } from '../types';
@@ -1019,113 +1021,197 @@ export class MirrorNodeClient {
    * - `block_number` being null/undefined
    * - `block_hash` being '0x' (empty hex)
    *
-   * This method implements a retry mechanism to handle immature records by polling until either:
-   * - The record matures (all fields are properly populated)
-   * - The maximum retry count is reached
-   *
-   * @param {RequestDetails} requestDetails - Details used for logging and tracking the request.
-   * @param {IContractLogsResultsParams} [contractLogsResultsParams] - Parameters for querying contract logs results.
-   * @param {ILimitOrderParams} [limitOrderParams] - Parameters for limit and order when fetching the logs.
-   * @returns {Promise<any[]>} - A promise resolving to the paginated contract logs results, either mature or the last fetched result after retries.
+   * @param fetchFn - Async function that fetches the log results
+   * @param requestDetails - Request details for logging
+   * @param maxAttempts - Maximum total fetch attempts (initial + retries). For example, 10 means 1 initial + 9 retries.
+   * @param attempt - Current attempt number
+   * @returns Array of mature log results
+   * @throws DEPENDENT_SERVICE_IMMATURE_RECORDS error if immature records persist after all attempts
    */
-  public async getContractResultsLogsWithRetry(
+  private async fetchLogsWithImmatureRetry(
+    fetchFn: () => Promise<MirrorNodeContractLog[]>,
     requestDetails: RequestDetails,
-    contractLogsResultsParams?: IContractLogsResultsParams,
-    limitOrderParams?: ILimitOrderParams,
-  ): Promise<any[]> {
-    const mirrorNodeRetryDelay = this.getMirrorNodeRetryDelay();
-    const mirrorNodeRequestRetryCount = this.getMirrorNodeRequestRetryCount();
-
-    const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
-    const maxPage = this.calculateMaxPage(contractLogsResultsParams);
-
-    let logResults = await this.getPaginatedResults(
-      `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
-      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-      MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
-      requestDetails,
-      [],
-      1,
-      maxPage,
+    maxAttempts: number,
+    attempt: number = 0,
+  ): Promise<MirrorNodeContractLog[]> {
+    const logResults = await fetchFn();
+    const hasImmatureRecords = logResults.some(
+      (log) =>
+        log &&
+        (log.transaction_index == null ||
+          log.block_number == null ||
+          log.index == null ||
+          log.block_hash === constants.EMPTY_HEX),
     );
 
-    for (let i = 0; i < mirrorNodeRequestRetryCount; i++) {
-      const isLastAttempt = i === mirrorNodeRequestRetryCount - 1;
-      if (logResults) {
-        let foundImmatureRecord = false;
-
-        for (const log of logResults) {
-          if (
-            log &&
-            (log.transaction_index == null ||
-              log.block_number == null ||
-              log.index == null ||
-              log.block_hash === constants.EMPTY_HEX)
-          ) {
-            // Found immature record, log the info, set flag and exit record traversal
-            if (this.logger.isLevelEnabled('debug')) {
-              this.logger.debug(
-                `Contract result log contains nullable transaction_index, block_number, index, or block_hash is an empty hex (0x): log=%s. %s`,
-                JSON.stringify(log),
-                !isLastAttempt ? `Retrying after a delay of ${mirrorNodeRetryDelay} ms.` : ``,
-              );
-            }
-
-            // If immature records persist after the final polling attempt, throw the DEPENDENT_SERVICE_IMMATURE_RECORDS error.
-            if (isLastAttempt) {
-              throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
-            }
-
-            foundImmatureRecord = true;
-            break;
-          }
-        }
-
-        // if foundImmatureRecord is still false after record traversal, it means no immature record was found. Simply return logResults to stop the polling process
-        if (!foundImmatureRecord) return logResults;
-
-        // if immature record found, wait and retry and update logResults
-        await new Promise((r) => setTimeout(r, mirrorNodeRetryDelay));
-        logResults = await this.getPaginatedResults(
-          `${MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT}${queryParams}`,
-          MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
-          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
-          requestDetails,
-          [],
-          1,
-          maxPage,
+    if (hasImmatureRecords) {
+      const isLastAttempt = attempt >= maxAttempts - 1;
+      if (!isLastAttempt) {
+        const retryDelay = this.getMirrorNodeRetryDelay();
+        this.logger.debug(
+          'Immature log records detected, retrying after %sms (attempt %s/%s)',
+          retryDelay,
+          attempt + 1,
+          maxAttempts,
         );
+        await new Promise((r) => setTimeout(r, retryDelay));
+        return this.fetchLogsWithImmatureRetry(fetchFn, requestDetails, maxAttempts, attempt + 1);
       } else {
-        break;
+        throw predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS;
       }
     }
 
-    return logResults;
+    return logResults || [];
   }
 
+  /**
+   * Retrieves contract results logs with retry mechanism for immature records.
+   *
+   * Supports parallel timestamp slicing for optimized performance on large result sets.
+   * When sliceCount > 1, splits timestamp range into concurrent slices for parallel fetching.
+   *
+   * @param requestDetails - Request details for logging and tracking
+   * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
+   * @param contractLogsResultsParams - Query parameters for contract logs results
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Mature contract logs results array
+   */
+  public async getContractResultsLogsWithRetry(
+    requestDetails: RequestDetails,
+    sliceCount: number = 1,
+    contractLogsResultsParams?: IContractLogsResultsParams,
+    limitOrderParams?: ILimitOrderParams,
+  ): Promise<MirrorNodeContractLog[]> {
+    return this.fetchContractLogsWithSlicingSupport(
+      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+      MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_ENDPOINT,
+      requestDetails,
+      sliceCount,
+      contractLogsResultsParams,
+      limitOrderParams,
+    );
+  }
+
+  /**
+   * Retrieves contract results logs for a specific address with retry mechanism for immature records.
+   *
+   * Supports parallel timestamp slicing for optimized performance on large result sets.
+   * When sliceCount > 1, splits timestamp range into concurrent slices for parallel fetching.
+   *
+   * @param address - Contract address to fetch logs for
+   * @param requestDetails - Request details for logging and tracking
+   * @param sliceCount - Number of timestamp slices for parallel fetching. Default is 1 (sequential mode).
+   * @param contractLogsResultsParams - Query parameters for contract logs results
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Mature contract logs results array for the specified address
+   */
   public async getContractResultsLogsByAddress(
     address: string,
     requestDetails: RequestDetails,
+    sliceCount: number = 1,
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
-  ) {
+  ): Promise<MirrorNodeContractLog[]> {
     if (address === ethers.ZeroAddress) return [];
-
-    const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
 
     const apiEndpoint = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT.replace(
       MirrorNodeClient.ADDRESS_PLACEHOLDER,
       address,
     );
 
-    return this.getPaginatedResults(
-      `${apiEndpoint}${queryParams}`,
+    return this.fetchContractLogsWithSlicingSupport(
+      apiEndpoint,
       MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT,
-      MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
       requestDetails,
-      [],
-      1,
-      this.calculateMaxPage(contractLogsResultsParams),
+      sliceCount,
+      contractLogsResultsParams,
+      limitOrderParams,
+    );
+  }
+
+  /**
+   * Core implementation for fetching contract logs with optional parallel timestamp slicing.
+   * Shared by both generic and address-specific log retrieval methods to eliminate duplication.
+   *
+   * Attempts timestamp slicing when sliceCount > 1 and timestamp range is provided.
+   * Falls back to sequential pagination on recoverable errors or when slicing is not applicable.
+   *
+   * @param apiEndpoint - API endpoint to use for log retrieval
+   * @param pathLabel - Template path for error handling categorization
+   * @param requestDetails - Request details for logging and tracking
+   * @param sliceCount - Number of timestamp slices for parallel fetching
+   * @param contractLogsResultsParams - Query parameters for contract logs results
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Mature contract logs results array
+   */
+  private async fetchContractLogsWithSlicingSupport(
+    apiEndpoint: string,
+    pathLabel: string,
+    requestDetails: RequestDetails,
+    sliceCount: number,
+    contractLogsResultsParams?: IContractLogsResultsParams,
+    limitOrderParams?: ILimitOrderParams,
+  ): Promise<MirrorNodeContractLog[]> {
+    const timestampRange = contractLogsResultsParams?.timestamp;
+
+    // Attempt parallel timestamp slicing when applicable
+    if (timestampRange && sliceCount > 1) {
+      try {
+        return await this.getContractResultsLogsWithTimestampSlicing(
+          apiEndpoint,
+          pathLabel,
+          requestDetails,
+          timestampRange,
+          sliceCount,
+          contractLogsResultsParams,
+          limitOrderParams,
+        );
+      } catch (error) {
+        // Determine if error is recoverable (should fallback to sequential) vs fatal (should propagate).
+        // Recoverable errors: timestamp format issues, API errors during slicing (slicing is optional optimization).
+        // Fatal errors: immature records (indicates data consistency issue that won't be fixed by sequential).
+        const isTimestampError =
+          error instanceof Error &&
+          (error.message.startsWith('Invalid timestamp range') || error.message.startsWith('Invalid Hedera timestamp'));
+        const isApiError = error instanceof MirrorNodeClientError;
+        const isImmatureRecordsError =
+          error !== null &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code: number }).code === predefined.DEPENDENT_SERVICE_IMMATURE_RECORDS.code;
+
+        // Immature records should propagate - sequential won't resolve data maturity issues
+        if (isImmatureRecordsError) {
+          throw error;
+        }
+
+        // Log recoverable errors and fallback to sequential
+        if (isTimestampError || isApiError) {
+          this.logger.warn(
+            'Timestamp slicing failed (%s), falling back to sequential: %s',
+            isTimestampError ? 'configuration error' : 'API error',
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      }
+    }
+
+    // Sequential fetching: fallback or when slicing not applicable
+    const queryParams = this.prepareLogsParams(contractLogsResultsParams, limitOrderParams);
+
+    return this.fetchLogsWithImmatureRetry(
+      () =>
+        this.getPaginatedResults(
+          `${apiEndpoint}${queryParams}`,
+          pathLabel,
+          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+          requestDetails,
+          [],
+          1,
+          this.calculateMaxPage(contractLogsResultsParams),
+        ),
+      requestDetails,
+      this.getMirrorNodeRequestRetryCount(),
     );
   }
 
@@ -1411,6 +1497,291 @@ export class MirrorNodeClient {
         queryParamObject[key] += `&${key}=${value}`;
       }
     }
+  }
+
+  /**
+   * Parses timestamp range into nanosecond values.
+   * Validates format and extracts boundaries from array containing 'gte:' and 'lte:' prefixed timestamps.
+   * Preserves full nanosecond precision using BigInt arithmetic.
+   *
+   * @param timestampRange - Array containing two Hedera timestamp strings with 'gte:' and 'lte:' prefixes
+   * @returns Object with parsed timestamp boundaries in nanoseconds as BigInt
+   * @throws Error if timestamp format is invalid or missing required elements
+   */
+  private parseTimestampRange(timestampRange: unknown): { fromNanos: bigint; toNanos: bigint } {
+    if (!Array.isArray(timestampRange)) {
+      throw new Error('Invalid timestamp range: expected an array');
+    }
+
+    if (timestampRange.length !== 2) {
+      throw new Error('Invalid timestamp range: expected exactly 2 elements');
+    }
+
+    if (!timestampRange.every((t) => typeof t === 'string')) {
+      throw new Error('Invalid timestamp range: expected both elements to be strings');
+    }
+
+    const fromStr = timestampRange.find((t) => t.startsWith('gte:'))?.replace('gte:', '');
+    const toStr = timestampRange.find((t) => t.startsWith('lte:'))?.replace('lte:', '');
+
+    if (!fromStr || !toStr) {
+      throw new Error('Invalid timestamp range format: missing gte: or lte: prefix');
+    }
+
+    const timestampPattern = /^\d+\.\d{1,9}$/;
+    if (!timestampPattern.test(fromStr) || !timestampPattern.test(toStr)) {
+      throw new Error('Invalid Hedera timestamp format: expected seconds.nanoseconds format');
+    }
+
+    return {
+      fromNanos: this.timestampToNanos(fromStr),
+      toNanos: this.timestampToNanos(toStr),
+    };
+  }
+
+  /**
+   * Converts Hedera timestamp string to total nanoseconds using BigInt.
+   * Standard JavaScript number/float methods lose precision when handling 9-decimal nanoseconds;
+   * this method ensures full precision is preserved for range arithmetic.
+   *
+   * @param timestamp - Timestamp string in "seconds.nanoseconds" format (e.g., "1707944548.002213864")
+   * @returns Total nanoseconds as BigInt for precision arithmetic
+   */
+  private timestampToNanos(timestamp: string): bigint {
+    const [secondsStr, nanosStr] = timestamp.split('.');
+    const seconds = BigInt(secondsStr);
+    const nanosPadded = nanosStr.padEnd(9, '0');
+    const nanos = BigInt(nanosPadded);
+    return seconds * constants.NANOS_PER_SECOND + nanos;
+  }
+
+  /**
+   * Converts nanoseconds back to Hedera timestamp string format.
+   * Restores the 9-decimal precision required by the Mirror Node API, ensuring
+   * that arithmetic results remain consistent with original Hedera timestamps.
+   *
+   * @param nanos - Total nanoseconds as BigInt
+   * @returns Hedera timestamp string in "seconds.nanoseconds" format
+   */
+  private nanosToTimestamp(nanos: bigint): string {
+    const seconds = nanos / constants.NANOS_PER_SECOND;
+    const remainingNanos = nanos % constants.NANOS_PER_SECOND;
+    const nanosStr = remainingNanos.toString().padStart(9, '0');
+    return `${seconds}.${nanosStr}`;
+  }
+
+  /**
+   * Splits timestamp range into non-overlapping slices for parallel processing.
+   * Uses exclusive upper bound (lt:) for non-final slices to prevent duplicate records.
+   * Final slice uses inclusive upper bound (lte:) to ensure complete coverage.
+   * Preserves full nanosecond precision using BigInt arithmetic.
+   *
+   * @param fromNanos - Start timestamp in nanoseconds (must be less than toNanos)
+   * @param toNanos - End timestamp in nanoseconds (must be greater than fromNanos)
+   * @param durationNanos - Total duration in nanoseconds (must be positive)
+   * @param sliceCount - Number of slices to create (must be positive integer)
+   * @returns Array of timestamp slice boundaries with Mirror Node API format
+   * @throws Error if input validation fails
+   */
+  private splitTimestampRange(fromNanos: bigint, toNanos: bigint, sliceCount: number): ITimestamp[] {
+    if (sliceCount <= 0) {
+      throw new Error(`Invalid timestamp range: sliceCount must be positive, received ${sliceCount}`);
+    }
+    if (fromNanos >= toNanos) {
+      throw new Error(`Invalid timestamp range: fromNanos (${fromNanos}) must be less than toNanos (${toNanos})`);
+    }
+
+    const blockDurationNanos = toNanos - fromNanos;
+    if (blockDurationNanos <= BigInt(0)) {
+      throw new Error(`Invalid timestamp range: blockDurationNanos must be positive, received ${blockDurationNanos}`);
+    }
+
+    const sliceDurationNanos = blockDurationNanos / BigInt(sliceCount);
+    const slices: ITimestamp[] = [];
+
+    for (let i = 0; i < sliceCount; i++) {
+      const sliceFromNanos = fromNanos + sliceDurationNanos * BigInt(i);
+      const sliceToNanos = fromNanos + sliceDurationNanos * BigInt(i + 1);
+      const isLast = i === sliceCount - 1;
+
+      slices.push({
+        from: `gte:${this.nanosToTimestamp(sliceFromNanos)}`,
+        to: isLast ? `lte:${this.nanosToTimestamp(toNanos)}` : `lt:${this.nanosToTimestamp(sliceToNanos)}`,
+      });
+    }
+
+    return slices;
+  }
+
+  /**
+   * Fetches contract result logs for a single timestamp slice with retry logic.
+   * Delegates to shared retry helper for consistent immature record handling.
+   *
+   * @param apiEndpoint - API endpoint to use for log retrieval
+   * @param pathLabel - Template path for error handling categorization
+   * @param requestDetails - Request details for logging and tracking
+   * @param slice - Timestamp boundaries for the current slice
+   * @param maxAttempts - Maximum number of retry attempts for immature records
+   * @param contractLogsResultsParams - Base query parameters
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Mature contract logs results for the slice
+   * @throws DEPENDENT_SERVICE_IMMATURE_RECORDS if immature records persist after all attempts
+   */
+  private async fetchLogSliceWithRetry(
+    apiEndpoint: string,
+    pathLabel: string,
+    requestDetails: RequestDetails,
+    slice: ITimestamp,
+    maxAttempts: number,
+    contractLogsResultsParams: IContractLogsResultsParams | undefined,
+    limitOrderParams: ILimitOrderParams | undefined,
+  ): Promise<MirrorNodeContractLog[]> {
+    const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
+    const sliceParams: IContractLogsResultsParams = {
+      ...baseParams,
+      timestamp: [slice.from, slice.to],
+    };
+
+    const queryParams = this.prepareLogsParams(sliceParams, limitOrderParams);
+
+    return this.fetchLogsWithImmatureRetry(
+      () =>
+        this.getPaginatedResults(
+          `${apiEndpoint}${queryParams}`,
+          pathLabel,
+          MirrorNodeClient.CONTRACT_RESULT_LOGS_PROPERTY,
+          requestDetails,
+        ),
+      requestDetails,
+      maxAttempts,
+    );
+  }
+
+  /**
+   * Executes timestamp slices with bounded concurrency for parallel log retrieval.
+   * Uses a sliding window approach to maintain constant request throughput.
+   * Collects all results first, then performs deduplication to avoid race conditions.
+   *
+   * @param apiEndpoint - API endpoint to use for log retrieval
+   * @param pathLabel - Template path for error handling categorization
+   * @param requestDetails - Request details for logging and tracking
+   * @param slices - Array of timestamp slice boundaries for parallel fetching
+   * @param contractLogsResultsParams - Original query parameters excluding timestamp
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Deduplicated and timestamp-sorted array of contract result logs
+   * @throws Error if any slice fails after exhausting retries
+   */
+  private async executeLogsSlicesWithConcurrency(
+    apiEndpoint: string,
+    pathLabel: string,
+    requestDetails: RequestDetails,
+    slices: ITimestamp[],
+    contractLogsResultsParams: IContractLogsResultsParams | undefined,
+    limitOrderParams: ILimitOrderParams | undefined,
+  ): Promise<MirrorNodeContractLog[]> {
+    const concurrency: number = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY');
+    const maxAttempts = this.getMirrorNodeRequestRetryCount();
+    const sliceResults: MirrorNodeContractLog[][] = [];
+    const activeRequestsPool = new Set<Promise<void>>();
+
+    for (const slice of slices) {
+      const sliceIndex = sliceResults.length;
+      sliceResults.push([]); // Pre-allocate slot for ordered results
+
+      // Start fetch request for the particular slice
+      const activeRequest = (async () => {
+        const data = await this.fetchLogSliceWithRetry(
+          apiEndpoint,
+          pathLabel,
+          requestDetails,
+          slice,
+          maxAttempts,
+          contractLogsResultsParams,
+          limitOrderParams,
+        );
+        sliceResults[sliceIndex] = data;
+      })();
+
+      // Add the activeRequest to the pool and set up self-cleanup
+      activeRequestsPool.add(activeRequest);
+      activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
+
+      // Throttle: pause iteration when concurrency limit is reached
+      // Resume and add new requests to the pool when any active request completes
+      if (activeRequestsPool.size >= concurrency) {
+        await Promise.race(activeRequestsPool);
+      }
+    }
+
+    // Wait for all remaining requests to complete
+    await Promise.all(activeRequestsPool);
+
+    // Merge all slice results with deduplication (single-threaded, no race condition)
+    const allLogs: MirrorNodeContractLog[] = [];
+    const deduplicationKeys = new Set<string>();
+    for (const sliceData of sliceResults) {
+      for (const item of sliceData) {
+        const primaryKey = `${item.transaction_hash}-${item.index}`;
+        if (!deduplicationKeys.has(primaryKey)) {
+          deduplicationKeys.add(primaryKey);
+          allLogs.push(item);
+        }
+      }
+    }
+
+    // Sort by timestamp for consistent ordering (using BigInt for nanosecond precision)
+    return allLogs.sort((a, b) => {
+      const aNanos = this.timestampToNanos(a.timestamp || '0.0');
+      const bNanos = this.timestampToNanos(b.timestamp || '0.0');
+      return aNanos < bNanos ? -1 : aNanos > bNanos ? 1 : 0;
+    });
+  }
+
+  /**
+   * Fetches contract results logs using parallel timestamp slicing.
+   * Optimized for large result sets typical of synthetic transactions.
+   * Splits timestamp range into concurrent slices with immature record retry logic.
+   * Preserves full nanosecond precision using BigInt arithmetic.
+   *
+   * @param apiEndpoint - API endpoint to use for log retrieval
+   * @param pathLabel - Template path for error handling categorization
+   * @param requestDetails - Request details for logging and tracking
+   * @param timestampRange - Timestamp range array to validate and parse
+   * @param sliceCount - Number of slices to create for parallel fetching
+   * @param contractLogsResultsParams - Original query parameters excluding timestamp
+   * @param limitOrderParams - Pagination limit and ordering parameters
+   * @returns Deduplicated and sorted array of contract result logs from all slices
+   */
+  private async getContractResultsLogsWithTimestampSlicing(
+    apiEndpoint: string,
+    pathLabel: string,
+    requestDetails: RequestDetails,
+    timestampRange: unknown,
+    sliceCount: number,
+    contractLogsResultsParams: IContractLogsResultsParams | undefined,
+    limitOrderParams: ILimitOrderParams | undefined,
+  ): Promise<MirrorNodeContractLog[]> {
+    // Parse and validate timestamp range
+    const { fromNanos, toNanos } = this.parseTimestampRange(timestampRange);
+
+    // Split into timestamp slices for parallel fetching
+    const slices = this.splitTimestampRange(fromNanos, toNanos, sliceCount);
+
+    this.logger.debug(
+      `Starting executing log retrieval with concurrency: slices=%s, concurrency=%s`,
+      slices.length,
+      ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY'),
+    );
+
+    // Execute all slices with concurrency control and immature record retries
+    return await this.executeLogsSlicesWithConcurrency(
+      apiEndpoint,
+      pathLabel,
+      requestDetails,
+      slices,
+      contractLogsResultsParams,
+      limitOrderParams,
+    );
   }
 
   /**

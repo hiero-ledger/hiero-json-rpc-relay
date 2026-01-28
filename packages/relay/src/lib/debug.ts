@@ -25,7 +25,7 @@ import {
   TransactionTracerConfig,
   TxHashToContractResultOrActionsMap,
 } from './types';
-import type { ContractAction, MirrorNodeContractResult } from './types/mirrorNode';
+import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -640,20 +640,25 @@ export class DebugImpl implements Debug {
 
   /**
    * Retrieves all transaction hashes in a block (EVM + synthetic) along with pre-fetched data.
+   * Optimizes performance by using parallel timestamp slicing for large result sets.
    *
    * @private
-   * @param blockResponse - Block metadata with timestamp range
+   * @param blockResponse - Block metadata including timestamp range and transaction count
    * @param requestDetails - Request tracking details
    * @returns Object containing transaction hashes and pre-fetched data (contract results and actions)
    */
   private async getBlockTransactionDetails(
-    blockResponse: { timestamp: { from: string; to: string } },
+    blockResponse: MirrorNodeBlock,
     requestDetails: RequestDetails,
   ): Promise<{
     transactionHashes: string[];
     preFetchedData: TxHashToContractResultOrActionsMap;
   }> {
     const timestampRange = [`gte:${blockResponse.timestamp.from}`, `lte:${blockResponse.timestamp.to}`];
+
+    // Calculate slice count based on actual transaction count in the block
+    const maxLogsPerSlice = ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE');
+    const sliceCount = Math.ceil(blockResponse.count / maxLogsPerSlice);
 
     // Fetch both contract results and all logs in the block in parallel
     const [contractResults, allLogs] = await Promise.all([
@@ -662,7 +667,9 @@ export class DebugImpl implements Debug {
         { timestamp: timestampRange },
         undefined,
       ]),
-      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, { timestamp: timestampRange }),
+      this.mirrorNodeClient.getContractResultsLogsWithRetry(requestDetails, sliceCount, {
+        timestamp: timestampRange,
+      }),
     ]);
 
     // Collect all unique transaction hashes
