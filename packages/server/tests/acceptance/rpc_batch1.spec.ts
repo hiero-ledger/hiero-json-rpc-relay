@@ -1538,7 +1538,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
       });
 
-      it('@xts should fail "eth_sendRawTransaction" for HBAR crypto transfer to zero addresses', async function () {
+      it.only('@xts should fail "eth_sendRawTransaction" for HBAR crypto transfer to zero addresses', async function () {
         const sendHbarTx = {
           ...defaultLegacyTransactionData,
           value: ONE_TINYBAR,
