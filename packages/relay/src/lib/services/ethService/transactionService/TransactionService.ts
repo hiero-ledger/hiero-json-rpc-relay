@@ -261,9 +261,6 @@ export class TransactionService implements ITransactionService {
     const parsedTx = Precheck.parseRawTransaction(transaction);
     let lockSessionKey: string | undefined;
 
-    // Save the transaction to the transaction pool before submitting it to the network
-    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
-
     // Acquire lock FIRST - before any side effects or async operations
     // This ensures proper nonce ordering for transactions from the same sender
     if (parsedTx.from) {
@@ -276,6 +273,9 @@ export class TransactionService implements ITransactionService {
       );
 
       await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
+
+      // Save the transaction to the transaction pool before submitting it to the network
+      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
       /**
        * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,

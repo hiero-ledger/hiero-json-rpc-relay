@@ -32,8 +32,13 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     return addressTransactions ? addressTransactions.size : 0;
   }
 
+  /**
+   * Retrieves the total number of unique pending transactions across all addresses.
+   *
+   * @returns Promise resolving to the count of globally pending RLP hex payloads
+   */
   async getSetSize(): Promise<number> {
-    return this.globalTransactionIndex.size;
+    return this.pendingTransactions.size;
   }
 
   /**

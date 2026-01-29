@@ -48,6 +48,7 @@ describe('RedisLockStrategy Test Suite', function () {
       recordZombieCleanup: sinon.stub(),
       incrementActiveCount: sinon.stub(),
       decrementActiveCount: sinon.stub(),
+      incrementRedisLockErrors: sinon.stub(),
     } as sinon.SinonStubbedInstance<LockMetricsService>;
 
     redisLockStrategy = new RedisLockStrategy(
