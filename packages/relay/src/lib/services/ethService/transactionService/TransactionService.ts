@@ -618,7 +618,9 @@ export class TransactionService implements ITransactionService {
       this.hapiService.decrementErrorCounter(e.statusCode);
       if (e.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
         if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
-          this.wrongNonceMetric.inc();
+          this.wrongNonceMetric.labels('none').inc();
+        } else {
+          this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
         }
         const mirrorNodeGetContractResultRetries = this.mirrorNodeClient.getMirrorNodeRequestRetryCount();
 
