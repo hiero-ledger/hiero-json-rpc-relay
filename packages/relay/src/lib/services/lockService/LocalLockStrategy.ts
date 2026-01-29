@@ -119,17 +119,16 @@ export class LocalLockStrategy implements LockStrategy {
     if (state) {
       // Ensure only the lock owner can release
       if (state.sessionKey === sessionKey) {
-        const holdTimeMs = Date.now() - state.acquiredAt!;
+        const holdTime = Date.now() - state.acquiredAt!;
 
         await this.doRelease(state);
 
-        // Record hold duration and decrement active count
-        this.lockMetricsService.recordHoldDuration('local', holdTimeMs / 1000);
+        this.lockMetricsService.recordHoldDuration('local', holdTime / 1000);
         this.lockMetricsService.decrementActiveCount('local');
 
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
-            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTimeMs}ms.`,
+            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`,
           );
         }
       }
