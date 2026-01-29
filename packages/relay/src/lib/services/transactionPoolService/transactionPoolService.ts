@@ -101,7 +101,7 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     this.activeAddressesGauge = new Gauge({
       name: 'rpc_relay_txpool_active_addresses',
-      help: '...',
+      help: 'All current unique addresses having transactions in the pending pool',
       registers: [register],
       collect: async () => {
         const count = await this.getUniqueAddresses();

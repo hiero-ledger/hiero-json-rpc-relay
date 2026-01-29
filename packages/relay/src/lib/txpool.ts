@@ -3,6 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
+import { Registry } from 'prom-client';
 
 import { numberTo0x } from '../formatters';
 import { predefined, TxPool } from '../index';
@@ -72,8 +73,8 @@ export class TxPoolImpl implements TxPool {
    * @param storage - Underlying storage for pending transactions.
    * @param logger - Logger instance for output.
    */
-  constructor(storage: PendingTransactionStorage, logger: Logger) {
-    this.txPoolService = new TransactionPoolService(storage, logger);
+  constructor(storage: PendingTransactionStorage, logger: Logger, registry: Registry) {
+    this.txPoolService = new TransactionPoolService(storage, logger, registry);
   }
 
   /**
