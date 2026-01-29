@@ -1045,6 +1045,48 @@ describe('Debug API Test Suite', async function () {
     const contractResultWrongNonce = {
       hash: '0xghi789',
       result: 'WRONG_NONCE',
+      from: '0x00000000000000000000000000000000005d9d73',
+      to: null,
+      gas_limit: 100000,
+      amount: 0,
+      function_parameters: '0x',
+      error_message: null,
+    };
+    const contractResultMaxGasLimitExceeded = {
+      hash: '0xjkl012',
+      result: 'MAX_GAS_LIMIT_EXCEEDED',
+      from: '0x00000000000000000000000000000000005d9d73',
+      to: null,
+      gas_limit: 100000000,
+      amount: 0,
+      function_parameters: '0x',
+      error_message: '0x4d41585f4741535f4c494d49545f4558434545444544',
+    };
+    const emptyCallTracerResult = {
+      type: 'CALL',
+      from: '0x00000000000000000000000000000000005d9d73',
+      to: '0x0',
+      gas: '0x0',
+      gasUsed: '0x0',
+      input: '0x',
+      output: '0x',
+      value: '0x0',
+      error: 'WRONG_NONCE',
+      revertReason: 'WRONG_NONCE',
+      calls: [],
+    };
+    const emptyCallTracerResultMaxGas = {
+      type: 'CALL',
+      from: '0x00000000000000000000000000000000005d9d73',
+      to: '0x0',
+      gas: '0x0',
+      gasUsed: '0x0',
+      input: '0x',
+      output: '0x',
+      value: '0x0',
+      error: 'MAX_GAS_LIMIT_EXCEEDED',
+      revertReason: 'MAX_GAS_LIMIT_EXCEEDED',
+      calls: [],
     };
     const callTracerResult1 = {
       type: 'CREATE',
@@ -1180,17 +1222,19 @@ describe('Debug API Test Suite', async function () {
           sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
         });
 
-        it('should trace block with CallTracer and filter out WRONG_NONCE results', async function () {
+        it('should trace block with CallTracer and return empty trace for WRONG_NONCE results', async function () {
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
 
           sinon
             .stub(debugService, 'callTracer')
-            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(callTracerResult1)
-            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
-            .resolves(callTracerResult2);
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(emptyCallTracerResult);
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
@@ -1198,9 +1242,45 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.be.an('array').with.lengthOf(3);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
           expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+          expect(result[2]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: emptyCallTracerResult });
+        });
+
+        it('should trace block with CallTracer and return empty trace for MAX_GAS_LIMIT_EXCEEDED results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultMaxGasLimitExceeded]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2)
+            .withArgs(
+              contractResultMaxGasLimitExceeded.hash,
+              sinon.match.any,
+              sinon.match.any,
+              sinon.match.any,
+              sinon.match.any,
+            )
+            .resolves(emptyCallTracerResultMaxGas);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(3);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+          expect(result[2]).to.deep.equal({
+            txHash: contractResultMaxGasLimitExceeded.hash,
+            result: emptyCallTracerResultMaxGas,
+          });
         });
 
         it('should use default CallTracer when no tracer is specified', async function () {
@@ -1228,17 +1308,19 @@ describe('Debug API Test Suite', async function () {
           sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
         });
 
-        it('should trace block with PrestateTracer and filter out WRONG_NONCE results', async function () {
+        it('should trace block with PrestateTracer and return empty prestate for WRONG_NONCE results', async function () {
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
 
           sinon
             .stub(debugService, 'prestateTracer')
-            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(prestateTracerResult1)
-            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
-            .resolves(prestateTracerResult2);
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult2)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves({});
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
@@ -1246,9 +1328,10 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.be.an('array').with.lengthOf(3);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
           expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: prestateTracerResult2 });
+          expect(result[2]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: {} });
         });
       });
 
