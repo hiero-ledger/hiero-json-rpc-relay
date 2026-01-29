@@ -128,6 +128,7 @@ export class RedisLockStrategy implements LockStrategy {
       this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
       // Record failed acquisition
       this.lockMetricsService.recordAcquisition('redis', 'fail');
+      this.lockMetricsService.incrementRedisLockErrors('acquire');
       return;
     } finally {
       if (joinedQueue) {
@@ -198,6 +199,7 @@ export class RedisLockStrategy implements LockStrategy {
     } catch (error) {
       this.logger.error(error, `Failed to release lock: address=${address}, sessionKey=${sessionKey}`);
       this.acquisitionTimes.delete(sessionKey);
+      this.lockMetricsService.incrementRedisLockErrors('release');
       // Don't throw - release failures should not block the caller
     }
   }
