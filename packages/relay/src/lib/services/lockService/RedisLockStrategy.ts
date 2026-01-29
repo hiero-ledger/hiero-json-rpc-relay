@@ -86,24 +86,24 @@ export class RedisLockStrategy implements LockStrategy {
 
         if (firstInQueue === sessionKey) {
           // Try to acquire lock with TTL
-          const lockResult = await this.redisClient.set(lockKey, sessionKey, {
+          const acquired = await this.redisClient.set(lockKey, sessionKey, {
             NX: true, // Only set if not exists
             PX: this.maxLockHoldMs, // TTL in milliseconds
           });
 
-          if (lockResult) {
-            const acquisitionDurationMs = Date.now() - startTime;
+          if (acquired) {
+            const acquisitionDuration = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 
             this.acquisitionTimes.set(sessionKey, Date.now());
 
-            this.lockMetricsService.recordWaitTime('redis', acquisitionDurationMs / 1000);
+            this.lockMetricsService.recordWaitTime('redis', acquisitionDuration / 1000);
             this.lockMetricsService.recordAcquisition('redis', 'success');
             this.lockMetricsService.incrementActiveCount('redis');
 
             if (this.logger.isLevelEnabled('debug')) {
               this.logger.debug(
-                `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDurationMs}ms, queueLength=${queueLength}`,
+                `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
               );
             }
 
