@@ -230,6 +230,7 @@ const _CONFIG = {
       'EVM_HOOK_GAS_THROTTLED',
       'BUSY',
       'CONSENSUS_GAS_EXHAUSTED',
+      'MAX_GAS_LIMIT_EXCEEDED',
     ],
   },
   FEE_HISTORY_MAX_RESULTS: {
