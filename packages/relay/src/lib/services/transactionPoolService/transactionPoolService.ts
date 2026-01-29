@@ -179,7 +179,14 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async getPendingCount(address: string): Promise<number> {
     const addressLowerCased = address.toLowerCase();
-    return await this.storage.getList(addressLowerCased);
+
+    try {
+      return await this.storage.getList(addressLowerCased);
+    } catch (error) {
+      this.logger.error({ address, error: (error as Error).message }, 'Failed to get pending count');
+      this.storageErrorsCounter.labels('get', this.storageType).inc();
+      throw error;
+    }
   }
 
   /**
@@ -190,11 +197,16 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async getTransactions(address: string): Promise<Set<string>> {
     const addressLowerCased = address.toLowerCase();
-    const payloads = await this.storage.getTransactionPayloads(addressLowerCased);
 
-    this.logger.debug({ address, totalPayloads: payloads.size }, 'Retrieved transactions for address');
-
-    return payloads;
+    try {
+      const payloads = await this.storage.getTransactionPayloads(addressLowerCased);
+      this.logger.debug({ address, totalPayloads: payloads.size }, 'Retrieved transactions for address');
+      return payloads;
+    } catch (error) {
+      this.logger.error({ address, error: (error as Error).message }, 'Failed to get transactions for address');
+      this.storageErrorsCounter.labels('get', this.storageType).inc();
+      throw error;
+    }
   }
 
   /**
@@ -203,12 +215,27 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @returns A promise that resolves to a Set of RLP hex strings.
    */
   async getAllTransactions(): Promise<Set<string>> {
-    const payloads = await this.storage.getAllTransactionPayloads();
-
-    return payloads;
+    try {
+      return await this.storage.getAllTransactionPayloads();
+    } catch (error) {
+      this.logger.error({ error: (error as Error).message }, 'Failed to get all transactions');
+      this.storageErrorsCounter.labels('get', this.storageType).inc();
+      throw error;
+    }
   }
 
+  /**
+   * Retrieves the number of unique addresses with pending transactions.
+   *
+   * @returns A promise that resolves to the count of unique addresses.
+   */
   async getUniqueAddresses(): Promise<number> {
-    return this.storage.getSetSize();
+    try {
+      return await this.storage.getSetSize();
+    } catch (error) {
+      this.logger.error({ error: (error as Error).message }, 'Failed to get unique addresses count');
+      this.storageErrorsCounter.labels('get', this.storageType).inc();
+      throw error;
+    }
   }
 }
