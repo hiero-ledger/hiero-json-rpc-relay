@@ -2,6 +2,7 @@
 
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
+import { Registry } from 'prom-client';
 
 import { Eth } from '../index';
 import { MirrorNodeClient } from './clients';
@@ -128,6 +129,7 @@ export class EthImpl implements Eth {
     public readonly cacheService: ICacheClient,
     storage: PendingTransactionStorage,
     lockService: LockService,
+    registry: Registry,
   ) {
     this.chain = chain;
     this.logger = logger;
@@ -138,7 +140,7 @@ export class EthImpl implements Eth {
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    const transactionPoolService = new TransactionPoolService(storage, logger);
+    const transactionPoolService = new TransactionPoolService(storage, logger, registry);
     this.transactionService = new TransactionService(
       cacheService,
       chain,
@@ -149,6 +151,7 @@ export class EthImpl implements Eth {
       mirrorNodeClient,
       transactionPoolService,
       lockService,
+      registry,
     );
     this.accountService = new AccountService(
       cacheService,

@@ -4,6 +4,7 @@ import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
+import { Counter, Registry } from 'prom-client';
 
 import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
@@ -67,11 +68,15 @@ export class TransactionService implements ITransactionService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
+  private readonly wrongNonceMetric: Counter;
+
   /**
    * The precheck class used for checking the fields like nonce before the tx execution.
    * @private
    */
   private readonly precheck: Precheck;
+
+  private readonly registry: Registry;
 
   private readonly transactionPoolService: TransactionPoolService;
 
@@ -94,6 +99,7 @@ export class TransactionService implements ITransactionService {
     mirrorNodeClient: MirrorNodeClient,
     transactionPoolService: TransactionPoolService,
     lockService: LockService,
+    registry: Registry,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -105,6 +111,16 @@ export class TransactionService implements ITransactionService {
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
     this.lockService = lockService;
+    this.registry = registry;
+
+    const metricName = 'rpc_relay_wrong_nonce_errors_total';
+    this.registry.removeSingleMetric(metricName);
+    this.wrongNonceMetric = new Counter({
+      name: metricName,
+      help: 'Wrong nonce errors counter',
+      labelNames: ['strategy'],
+      registers: [registry],
+    });
   }
 
   /**
@@ -630,6 +646,9 @@ export class TransactionService implements ITransactionService {
       // WRONG_NONCE requires special handling to determine if nonce is too high or too low
       // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
+        if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
+          this.wrongNonceMetric.inc();
+        }
         let accountNonce: number | null = null;
         try {
           accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;

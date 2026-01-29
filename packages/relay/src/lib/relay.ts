@@ -351,6 +351,7 @@ export class Relay {
       this.cacheService,
       storage,
       lockService,
+      this.register,
     );
 
     // Set up event listeners
@@ -366,7 +367,7 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }));
+    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }), this.register);
 
     // Create Debug and Admin implementations
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService);
