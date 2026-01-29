@@ -332,10 +332,11 @@ export class SDKClient {
     } catch (e: any) {
       this.logger.warn(
         e,
-        `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s`,
+        `Transaction failed while executing transaction via the SDK: transactionId=%s, callerName=%s, txConstructorName=%s%s`,
         transaction.transactionId,
         callerName,
         txConstructorName,
+        e.nodeAccountId ? `, nodeAccountId=${e.nodeAccountId}` : '',
       );
 
       if (e instanceof JsonRpcError) {
