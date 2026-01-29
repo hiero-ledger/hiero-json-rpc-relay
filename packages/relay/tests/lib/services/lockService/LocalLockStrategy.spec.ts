@@ -5,15 +5,33 @@ import { pino } from 'pino';
 import sinon from 'sinon';
 
 import { LocalLockStrategy, LockState } from '../../../../src/lib/services/lockService/LocalLockStrategy';
+import { LockMetricsService } from '../../../../src/lib/services/lockService/LockMetricsService';
 import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('LocalLockStrategy', function () {
   this.timeout(10000);
 
   let lockStrategy: LocalLockStrategy;
+  let mockMetricsService: sinon.SinonStubbedInstance<LockMetricsService>;
 
   beforeEach(() => {
-    lockStrategy = new LocalLockStrategy(pino({ level: 'silent' }));
+    // Create a mock metrics service
+    mockMetricsService = {
+      recordWaitTime: sinon.stub(),
+      recordHoldDuration: sinon.stub(),
+      incrementWaitingTxns: sinon.stub(),
+      decrementWaitingTxns: sinon.stub(),
+      recordAcquisition: sinon.stub(),
+      recordTimeoutRelease: sinon.stub(),
+      recordZombieCleanup: sinon.stub(),
+      incrementActiveCount: sinon.stub(),
+      decrementActiveCount: sinon.stub(),
+    } as sinon.SinonStubbedInstance<LockMetricsService>;
+
+    lockStrategy = new LocalLockStrategy(
+      pino({ level: 'silent' }),
+      mockMetricsService as unknown as LockMetricsService,
+    );
   });
 
   afterEach(() => {

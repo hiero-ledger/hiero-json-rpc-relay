@@ -7,6 +7,7 @@ import { Logger, pino } from 'pino';
 import { RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
+import { LockMetricsService } from '../../../../src/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../src/lib/services/lockService/RedisLockStrategy';
 
 use(chaiAsPromised);
@@ -16,6 +17,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
   let logger: Logger;
   let mockRedisClient: sinon.SinonStubbedInstance<RedisClientType>;
+  let mockMetricsService: sinon.SinonStubbedInstance<LockMetricsService>;
   let redisLockStrategy: RedisLockStrategy;
 
   const testAddress = '0x1234567890abcdef1234567890abcdef12345678';
@@ -35,7 +37,24 @@ describe('RedisLockStrategy Test Suite', function () {
       exists: sinon.stub(),
     } as any;
 
-    redisLockStrategy = new RedisLockStrategy(mockRedisClient as any, logger);
+    // Create a mock metrics service
+    mockMetricsService = {
+      recordWaitTime: sinon.stub(),
+      recordHoldDuration: sinon.stub(),
+      incrementWaitingTxns: sinon.stub(),
+      decrementWaitingTxns: sinon.stub(),
+      recordAcquisition: sinon.stub(),
+      recordTimeoutRelease: sinon.stub(),
+      recordZombieCleanup: sinon.stub(),
+      incrementActiveCount: sinon.stub(),
+      decrementActiveCount: sinon.stub(),
+    } as sinon.SinonStubbedInstance<LockMetricsService>;
+
+    redisLockStrategy = new RedisLockStrategy(
+      mockRedisClient as any,
+      logger,
+      mockMetricsService as unknown as LockMetricsService,
+    );
   });
 
   afterEach(() => {

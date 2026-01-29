@@ -7,6 +7,7 @@ import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
 import { LockStrategy } from '../../types/lock';
+import { LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
 /**
@@ -41,12 +42,21 @@ export class LocalLockStrategy implements LockStrategy {
   private readonly logger: Logger;
 
   /**
+   * Metrics service for recording lock-related metrics.
+   *
+   * @private
+   */
+  private readonly lockMetricsService: LockMetricsService;
+
+  /**
    * Creates a new LocalLockStrategy instance.
    *
    * @param logger - The logger
+   * @param lockMetricsService - The metrics service for recording lock metrics
    */
-  constructor(logger: Logger) {
+  constructor(logger: Logger, lockMetricsService: LockMetricsService) {
     this.logger = logger;
+    this.lockMetricsService = lockMetricsService;
   }
 
   /**
@@ -58,24 +68,43 @@ export class LocalLockStrategy implements LockStrategy {
    */
   async acquireLock(address: string): Promise<string | undefined> {
     const sessionKey = randomUUID();
+    const startTime = Date.now();
+
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
     }
     const state = this.getOrCreateState(address);
 
-    // Acquire the mutex (this will block until available)
-    await state.mutex.acquire();
+    this.lockMetricsService.incrementWaitingTxns('local');
 
-    // Record lock ownership metadata
-    state.sessionKey = sessionKey;
-    state.acquiredAt = Date.now();
+    try {
+      // Acquire the mutex (this will block until available)
+      await state.mutex.acquire();
 
-    // Start a 30-second timer to auto-release if lock not manually released
-    state.lockTimeoutId = setTimeout(() => {
-      this.forceReleaseExpiredLock(address, sessionKey);
-    }, ConfigService.get('LOCK_MAX_HOLD_MS'));
+      // Record wait time
+      const waitTimeSeconds = (Date.now() - startTime) / 1000;
+      this.lockMetricsService.recordWaitTime('local', waitTimeSeconds);
 
-    return sessionKey;
+      // Record lock ownership metadata
+      state.sessionKey = sessionKey;
+      state.acquiredAt = Date.now();
+
+      // Start a 30-second timer to auto-release if lock not manually released
+      state.lockTimeoutId = setTimeout(() => {
+        this.forceReleaseExpiredLock(address, sessionKey);
+      }, ConfigService.get('LOCK_MAX_HOLD_MS'));
+
+      // Record successful acquisition
+      this.lockMetricsService.recordAcquisition('local', 'success');
+      this.lockMetricsService.incrementActiveCount('local');
+
+      return sessionKey;
+    } catch (error) {
+      this.lockMetricsService.recordAcquisition('local', 'fail');
+      throw error;
+    } finally {
+      this.lockMetricsService.decrementWaitingTxns('local');
+    }
   }
 
   /**
@@ -90,11 +119,17 @@ export class LocalLockStrategy implements LockStrategy {
     if (state) {
       // Ensure only the lock owner can release
       if (state.sessionKey === sessionKey) {
+        const holdTimeMs = Date.now() - state.acquiredAt!;
+
         await this.doRelease(state);
+
+        // Record hold duration and decrement active count
+        this.lockMetricsService.recordHoldDuration('local', holdTimeMs / 1000);
+        this.lockMetricsService.decrementActiveCount('local');
+
         if (this.logger.isLevelEnabled('debug')) {
-          const holdTime = Date.now() - state.acquiredAt!;
           this.logger.debug(
-            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTime}ms.`,
+            `Releasing lock for address ${address} and session key ${sessionKey} held for ${holdTimeMs}ms.`,
           );
         }
       }
@@ -151,11 +186,17 @@ export class LocalLockStrategy implements LockStrategy {
     const state = this.localLockStates.get(normalizedAddress);
 
     if (state?.sessionKey === sessionKey) {
+      const holdTimeMs = Date.now() - state.acquiredAt!;
+
       await this.doRelease(state);
 
+      // Record metrics for timeout release
+      this.lockMetricsService.recordHoldDuration('local', holdTimeMs / 1000);
+      this.lockMetricsService.recordTimeoutRelease('local');
+      this.lockMetricsService.decrementActiveCount('local');
+
       if (this.logger.isLevelEnabled('debug')) {
-        const holdTime = Date.now() - state.acquiredAt!;
-        this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTime}ms.`);
+        this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTimeMs}ms.`);
       }
     }
   }

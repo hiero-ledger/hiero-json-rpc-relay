@@ -20,3 +20,4 @@ export * from './transactionPoolService/LocalPendingTransactionStorage';
 export * from './transactionPoolService/transactionPoolService';
 export * from './lockService/LockService';
 export * from './lockService/LockStrategyFactory';
+export * from './lockService/LockMetricsService';
