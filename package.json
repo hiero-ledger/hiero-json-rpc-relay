@@ -2,7 +2,6 @@
   "name": "root",
   "version": "0.75.0-SNAPSHOT",
   "devDependencies": {
-    "@hashgraph/sdk": "^2.80.0",
     "@eslint/js": "^9.38.0",
     "@hashgraph/hedera-local": "^2.39.0",
     "@open-rpc/schema-utils-js": "^2.1.2",
