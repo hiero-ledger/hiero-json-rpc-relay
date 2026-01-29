@@ -12,6 +12,8 @@ export type LockStrategyLabel = 'local' | 'redis';
  */
 export type LockAcquisitionStatus = 'success' | 'fail';
 
+export type RedisOperationLabel = 'acquire' | 'release' | 'hearbeat';
+
 /**
  * Service responsible for managing all lock-related metrics.
  * Provides a centralized place for metric definitions and recording methods.
@@ -56,6 +58,8 @@ export class LockMetricsService {
    */
   private readonly activeCountGauge: Gauge;
 
+  private readonly redisLockErrors: Counter;
+
   constructor(register: Registry) {
     // Remove existing metrics if they exist (for hot reloading scenarios)
     const metricNames = [
@@ -66,6 +70,7 @@ export class LockMetricsService {
       'rpc_relay_lock_timeout_releases_total',
       'rpc_relay_lock_zombie_cleanups_total',
       'rpc_relay_lock_active_count',
+      'rpc_relay_lock_redis_errors_total',
     ];
     metricNames.forEach((name) => register.removeSingleMetric(name));
 
@@ -117,6 +122,13 @@ export class LockMetricsService {
       name: 'rpc_relay_lock_active_count',
       help: 'Currently held locks.',
       labelNames: ['strategy'],
+      registers: [register],
+    });
+
+    this.redisLockErrors = new Counter({
+      name: 'rpc_relay_lock_redis_errors_total',
+      help: 'Redis Lock Service errors',
+      labelNames: ['operation'],
       registers: [register],
     });
   }
@@ -204,5 +216,9 @@ export class LockMetricsService {
    */
   decrementActiveCount(strategy: LockStrategyLabel): void {
     this.activeCountGauge.labels(strategy).dec();
+  }
+
+  incrementRedisLockErrors(operation: RedisOperationLabel): void {
+    this.redisLockErrors.labels(operation).inc();
   }
 }
