@@ -3,11 +3,13 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Transaction } from 'ethers';
 import { Logger } from 'pino';
+import { Counter, Gauge, Registry } from 'prom-client';
 
 import {
   PendingTransactionStorage,
   TransactionPoolService as ITransactionPoolService,
 } from '../../types/transactionPool';
+import { RedisPendingTransactionStorage } from './RedisPendingTransactionStorage';
 
 /**
  * Service implementation that orchestrates pending transaction management.
@@ -36,14 +38,76 @@ export class TransactionPoolService implements ITransactionPoolService {
   private readonly storage: PendingTransactionStorage;
 
   /**
+   * Gauge tracking current total pending transactions across all addresses.
+   */
+  private readonly pendingCountGauge: Gauge;
+
+  /**
+   * Counter tracking pool operations (add, remove).
+   */
+  private readonly operationsCounter: Counter;
+
+  /**
+   * Counter tracking storage operation failures by operation and backend type.
+   */
+  private readonly storageErrorsCounter: Counter;
+
+  /**
+   * Gauge tracking number of unique addresses with pending transactions.
+   */
+  private readonly activeAddressesGauge: Gauge;
+
+  private readonly storageType: string;
+
+  /**
    * Creates a new TransactionPoolService instance.
    *
    * @param storage - The storage backend for pending transactions.
    * @param logger - The logger instance for transaction pool operations.
+   * @param register - Prometheus registry for metrics.
    */
-  constructor(storage: PendingTransactionStorage, logger: Logger) {
+  constructor(storage: PendingTransactionStorage, logger: Logger, register: Registry) {
     this.storage = storage;
     this.logger = logger.child({ name: 'transaction-pool-service' });
+    this.storageType = storage instanceof RedisPendingTransactionStorage ? 'redis' : 'local';
+    // Remove existing metrics if they exist (for hot reloading scenarios)
+    const metricNames = [
+      'rpc_relay_txpool_pending_count',
+      'rpc_relay_txpool_operations_total',
+      'rpc_relay_txpool_storage_errors_total',
+      'rpc_relay_txpool_active_addresses',
+    ];
+    metricNames.forEach((name) => register.removeSingleMetric(name));
+
+    this.pendingCountGauge = new Gauge({
+      name: 'rpc_relay_txpool_pending_count',
+      help: 'Current total pending transactions across all addresses.',
+      registers: [register],
+    });
+
+    this.operationsCounter = new Counter({
+      name: 'rpc_relay_txpool_operations_total',
+      help: 'Pool operations. Operation: add, remove.',
+      labelNames: ['operation'],
+      registers: [register],
+    });
+
+    this.storageErrorsCounter = new Counter({
+      name: 'rpc_relay_txpool_storage_errors_total',
+      help: 'Storage operation failures. Backend: local, redis. Operation: add, remove, get.',
+      labelNames: ['operation', 'backend'],
+      registers: [register],
+    });
+
+    this.activeAddressesGauge = new Gauge({
+      name: 'rpc_relay_txpool_active_addresses',
+      help: '...',
+      registers: [register],
+      collect: async () => {
+        const count = await this.getUniqueAddresses();
+        this.activeAddressesGauge.set(count);
+      },
+    });
   }
 
   /**
@@ -63,12 +127,15 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     try {
       await this.storage.addToList(addressLowerCased, rlpHex);
+      this.pendingCountGauge.inc();
+      this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {
       this.logger.error(
         { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
         'Failed to save transaction to pool',
       );
+      this.storageErrorsCounter.labels('add', this.storageType).inc();
       throw error;
     }
   }
@@ -96,7 +163,11 @@ export class TransactionPoolService implements ITransactionPoolService {
         { address, error: (error as Error).message, rlpHex: rlpHex.substring(0, 20) + '...' },
         'Failed to remove transaction from pool',
       );
+      this.storageErrorsCounter.labels('remove', this.storageType).inc();
       throw error;
+    } finally {
+      this.pendingCountGauge.dec();
+      this.operationsCounter.labels('remove').inc();
     }
   }
 
@@ -135,5 +206,9 @@ export class TransactionPoolService implements ITransactionPoolService {
     const payloads = await this.storage.getAllTransactionPayloads();
 
     return payloads;
+  }
+
+  async getUniqueAddresses(): Promise<number> {
+    return this.storage.getSetSize();
   }
 }

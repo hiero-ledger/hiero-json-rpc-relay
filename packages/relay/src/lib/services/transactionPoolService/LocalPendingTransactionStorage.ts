@@ -32,6 +32,10 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
     return addressTransactions ? addressTransactions.size : 0;
   }
 
+  async getSetSize(): Promise<number> {
+    return this.globalTransactionIndex.size;
+  }
+
   /**
    * Adds a pending transaction entry for the given address.
    * Atomically indexes the transaction (per-address + global) and persists its payload.

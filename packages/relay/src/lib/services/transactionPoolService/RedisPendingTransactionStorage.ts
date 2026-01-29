@@ -103,6 +103,15 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
+   * Retrieves the size of the global set, giving all unique addresses in the pool
+   *
+   * @returns Number of unique addresses in the pool
+   */
+  async getSetSize(): Promise<number> {
+    return await this.redisClient.sCard(this.globalPendingTxsKey);
+  }
+
+  /**
    * Retrieves all pending transaction payloads (RLP hex) across all addresses.
    *
    * @returns Set of all pending transaction RLP hex strings
