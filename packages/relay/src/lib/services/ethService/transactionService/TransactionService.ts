@@ -647,7 +647,9 @@ export class TransactionService implements ITransactionService {
       // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
         if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
-          this.wrongNonceMetric.inc();
+          this.wrongNonceMetric.labels('none').inc();
+        } else {
+          this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
         }
         let accountNonce: number | null = null;
         try {
