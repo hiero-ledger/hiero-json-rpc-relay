@@ -64,7 +64,6 @@ export class RedisLockStrategy implements LockStrategy {
     const heartbeatKey = this.getHeartbeatKey(sessionKey);
     const startTime = Date.now();
     let joinedQueue = false;
-    let acquired = false;
 
     try {
       // Join FIFO queue
@@ -93,7 +92,6 @@ export class RedisLockStrategy implements LockStrategy {
           });
 
           if (lockResult) {
-            acquired = true;
             const acquisitionDurationMs = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 

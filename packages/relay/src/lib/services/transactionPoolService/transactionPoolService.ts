@@ -17,11 +17,9 @@ import { RedisPendingTransactionStorage } from './RedisPendingTransactionStorage
  */
 export class TransactionPoolService implements ITransactionPoolService {
   /**
-   * Return if the transaction pool is enabled based on ENABLE_TX_POOL env
+   * Gauge tracking number of unique addresses with pending transactions.
    */
-  public static isEnabled(): boolean {
-    return ConfigService.get('ENABLE_TX_POOL');
-  }
+  private readonly activeAddressesGauge: Gauge;
 
   /**
    * The logger used for logging transaction pool operations.
@@ -31,11 +29,9 @@ export class TransactionPoolService implements ITransactionPoolService {
   private readonly logger: Logger;
 
   /**
-   * The storage implementation for managing pending transactions.
-   *
-   * @private
+   * Counter tracking pool operations (add, remove).
    */
-  private readonly storage: PendingTransactionStorage;
+  private readonly operationsCounter: Counter;
 
   /**
    * Gauge tracking current total pending transactions across all addresses.
@@ -43,21 +39,33 @@ export class TransactionPoolService implements ITransactionPoolService {
   private readonly pendingCountGauge: Gauge;
 
   /**
-   * Counter tracking pool operations (add, remove).
-   */
-  private readonly operationsCounter: Counter;
-
-  /**
    * Counter tracking storage operation failures by operation and backend type.
    */
   private readonly storageErrorsCounter: Counter;
 
   /**
-   * Gauge tracking number of unique addresses with pending transactions.
+   * The storage implementation for managing pending transactions.
+   *
+   * @private
    */
-  private readonly activeAddressesGauge: Gauge;
+  private readonly storage: PendingTransactionStorage;
 
+  /**
+   * The type of storage backend used for managing pending transactions.
+   * Value can be 'redis' for Redis-backed storage, or 'local' for in-memory storage.
+   * Used for metric labeling and operation tracking.
+   *
+   * @private
+   * @readonly
+   */
   private readonly storageType: string;
+
+  /**
+   * Return if the transaction pool is enabled based on ENABLE_TX_POOL env
+   */
+  public static isEnabled(): boolean {
+    return ConfigService.get('ENABLE_TX_POOL');
+  }
 
   /**
    * Creates a new TransactionPoolService instance.
@@ -70,7 +78,6 @@ export class TransactionPoolService implements ITransactionPoolService {
     this.storage = storage;
     this.logger = logger.child({ name: 'transaction-pool-service' });
     this.storageType = storage instanceof RedisPendingTransactionStorage ? 'redis' : 'local';
-    // Remove existing metrics if they exist (for hot reloading scenarios)
     const metricNames = [
       'rpc_relay_txpool_pending_count',
       'rpc_relay_txpool_operations_total',

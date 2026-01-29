@@ -141,6 +141,7 @@ describe('Open RPC Specification', function () {
       '0x01f871808209b085a54f4c3c00830186a0949b6feaea745fe564158da9a5313eb4dd4dc3a940880de0b6b3a764000080c080a05e2d00db2121fdd3c761388c64fc72d123f17e67fddd85a41c819694196569b5a03dc6b2429ed7694f42cdc46309e08cc78eb96864a0da58537fe938d4d9f334f2';
     storageStub.getTransactionPayloads.resolves(new Set([rlpTx]));
     storageStub.getAllTransactionPayloads.resolves(new Set([rlpTx]));
+    const testRegistry = new Registry();
     ethImpl = new EthImpl(
       clientServiceInstance,
       mirrorNodeInstance,
@@ -149,8 +150,9 @@ describe('Open RPC Specification', function () {
       cacheService,
       storageStub,
       lockServiceStub,
+      testRegistry,
     );
-    txpoolImpl = new TxPoolImpl(storageStub, logger);
+    txpoolImpl = new TxPoolImpl(storageStub, logger, testRegistry);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl(), txpool: txpoolImpl };
 
     // mocked data

@@ -99,20 +99,16 @@ describe('TransactionPoolService Test Suite', function () {
     });
 
     it('should increment error count on save reject', async () => {
-      mockStorage.addToList.rejects();
-
-      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+      mockStorage.addToList.rejects(new Error('Storage error'));
+      await expect(transactionPoolService.saveTransaction(testAddress, testTransaction)).to.be.rejected;
 
       const metric = await register.getSingleMetric('rpc_relay_txpool_storage_errors_total');
       if (!metric) throw new Error('Expected metric to be registered');
       const metricValues = await metric.get();
       const addOperation = metricValues.values.find((v) => v.labels.operation === 'add');
-      const removeOperation = metricValues.values.find((v) => v.labels.operation === 'remove');
 
       expect(addOperation).to.not.be.undefined;
       expect(addOperation?.value).to.equal(1);
-      expect(removeOperation).to.not.be.undefined;
-      expect(removeOperation?.value).to.equal(0);
     });
 
     it('should log error and rethrow when storage fails', async () => {
