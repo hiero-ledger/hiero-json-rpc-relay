@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
+import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import { IOpcode } from './clients/models/IOpcode';
@@ -676,9 +677,10 @@ export class DebugImpl implements Debug {
     const transactionHashes = new Set<string>();
 
     // Create a map of contract results by hash for quick lookup
+    // Filter out transactions that failed pre-execution validation (no EVM trace data exists)
     const contractResultsByHash = new Map<string, MirrorNodeContractResult>();
     contractResults
-      ?.filter((cr) => cr.result !== 'WRONG_NONCE')
+      ?.filter((cr) => !Utils.isRevertedDueToHederaSpecificValidation(cr))
       .forEach((cr) => {
         contractResultsByHash.set(cr.hash, cr);
         transactionHashes.add(cr.hash);

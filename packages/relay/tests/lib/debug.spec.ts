@@ -1046,6 +1046,10 @@ describe('Debug API Test Suite', async function () {
       hash: '0xghi789',
       result: 'WRONG_NONCE',
     };
+    const contractResultMaxGasLimitExceeded = {
+      hash: '0xjkl012',
+      result: 'MAX_GAS_LIMIT_EXCEEDED',
+    };
     const callTracerResult1 = {
       type: 'CREATE',
       from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
@@ -1184,6 +1188,29 @@ describe('Debug API Test Suite', async function () {
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResult2, contractResultWrongNonce]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+        });
+
+        it('should trace block with CallTracer and filter out MAX_GAS_LIMIT_EXCEEDED results', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResult2, contractResultMaxGasLimitExceeded]);
 
           sinon
             .stub(debugService, 'callTracer')
