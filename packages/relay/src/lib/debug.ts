@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
+import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import { IOpcode } from './clients/models/IOpcode';
@@ -236,7 +237,13 @@ export class DebugImpl implements Debug {
         return await Promise.all(
           transactionHashes.map(async (txHash) => ({
             txHash,
-            result: await this.prestateTracer(txHash, onlyTopCall, requestDetails, preFetchedData[txHash]?.actions),
+            result: await this.prestateTracer(
+              txHash,
+              onlyTopCall,
+              requestDetails,
+              preFetchedData[txHash]?.actions,
+              preFetchedData[txHash]?.contractResult,
+            ),
           })),
         );
       }
@@ -456,6 +463,29 @@ export class DebugImpl implements Debug {
 
     try {
       if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
+        // Check if this is a pre-execution validation failure (e.g., MAX_GAS_LIMIT_EXCEEDED, WRONG_NONCE)
+        // These transactions never executed EVM bytecode, so return an empty trace with the error
+        if (transactionsResponse && Utils.isRevertedDueToHederaSpecificValidation(transactionsResponse)) {
+          const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
+            transactionsResponse.from,
+            transactionsResponse.to,
+            requestDetails,
+          );
+          return {
+            type: CallType.CALL,
+            from: resolvedFrom,
+            to: resolvedTo ?? constants.ZERO_HEX,
+            gas: numberTo0x(transactionsResponse.gas_limit ?? 0),
+            gasUsed: constants.ZERO_HEX,
+            input: transactionsResponse.function_parameters || constants.EMPTY_HEX,
+            output: constants.EMPTY_HEX,
+            value: numberTo0x(tinybarsToWeibars(transactionsResponse.amount) ?? 0),
+            error: transactionsResponse.result,
+            revertReason: transactionsResponse.result,
+            calls: [],
+          };
+        }
+
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
@@ -523,6 +553,7 @@ export class DebugImpl implements Debug {
     onlyTopCall: boolean = false,
     requestDetails: RequestDetails,
     preFetchedActionsResponse?: ContractAction[],
+    preFetchedContractResult?: MirrorNodeContractResult,
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
@@ -538,6 +569,11 @@ export class DebugImpl implements Debug {
     }
 
     if (!actionsResponse || actionsResponse.length === 0) {
+      // Check if this is a pre-execution validation failure - return empty prestate
+      if (preFetchedContractResult && Utils.isRevertedDueToHederaSpecificValidation(preFetchedContractResult)) {
+        return {};
+      }
+
       return (await this.handleSyntheticTransaction(
         transactionHash,
         TracerType.PrestateTracer,
@@ -676,13 +712,12 @@ export class DebugImpl implements Debug {
     const transactionHashes = new Set<string>();
 
     // Create a map of contract results by hash for quick lookup
+    // Include all transactions, even pre-execution failures - they will return empty traces
     const contractResultsByHash = new Map<string, MirrorNodeContractResult>();
-    contractResults
-      ?.filter((cr) => cr.result !== 'WRONG_NONCE')
-      .forEach((cr) => {
-        contractResultsByHash.set(cr.hash, cr);
-        transactionHashes.add(cr.hash);
-      });
+    contractResults?.forEach((cr) => {
+      contractResultsByHash.set(cr.hash, cr);
+      transactionHashes.add(cr.hash);
+    });
 
     // Capture synthetic HTS transaction hashes from logs
     allLogs?.forEach((log) => {
