@@ -926,7 +926,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
       withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
         SDK_CONSENSUS_ERRORS.forEach(({ statusName, statusCode }) => {
-          it(`should throw SDKClientError for ${statusName} without polling MN`, async function () {
+          it(`should throw TRANSACTION_REJECTED for ${statusName} without polling MN`, async function () {
             // Reset history to ensure we're only checking calls from this test
             restMock.resetHistory();
             const signed = await signTransaction(transaction);
@@ -943,10 +943,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             // Set up MN mock (should NOT be called for consensus errors)
             restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-            // Should throw SDKClientError, not return the hash from Mirror Node
+            // Should throw TRANSACTION_REJECTED JsonRpcError, not return the hash from Mirror Node
+            const expectedError = predefined.TRANSACTION_REJECTED(statusName, statusName);
             await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
-              SDKClientError,
-              statusName,
+              JsonRpcError,
+              expectedError.message,
             );
 
             // Verify Mirror Node contracts/results/ endpoint was NOT called

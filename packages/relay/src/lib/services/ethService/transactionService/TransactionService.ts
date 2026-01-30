@@ -513,59 +513,102 @@ export class TransactionService implements ITransactionService {
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
-    // Determine if Mirror Node verification is needed
-    const shouldVerifyWithMirrorNode = submittedTransactionId && this.shouldVerifyWithMirrorNode(error);
+    // Handle submission errors - throws for definitive failures, returns for MN polling cases
+    await this.handleSubmissionError(error, parsedTx, requestDetails);
 
-    if (!shouldVerifyWithMirrorNode) {
-      // Definitive failure: handle error immediately without MN polling
-      await this.sendRawTransactionErrorHandler(error, parsedTx, requestDetails);
-    }
-
-    // Poll Mirror Node to validate transaction & retrieve transaction hash
+    // At this point, either no error or a post-execution failure that needs MN polling
     return this.getTransactionHashFromMirrorNode(submittedTransactionId, error, requestDetails);
   }
 
   /**
-   * Determines whether to poll the Mirror Node to validate a transaction after submission.
+   * Handles transaction submission errors by classifying and routing them appropriately.
    *
-   * Polling is skipped for errors that definitively indicate transaction failure without execution:
-   * - Non-SDK errors (application-level failures)
-   * - Pre-execution failures (status codes in `HEDERA_SPECIFIC_REVERT_STATUSES`)
-   * - SDK timeout errors (network timeouts or connection failures)
+   * This method serves as the single decision point for error handling after transaction submission.
+   * It evaluates the error type and either throws immediately or returns to allow Mirror Node polling.
    *
-   * Polling is performed for:
-   * - Successful submissions (to retrieve the transaction hash)
-   * - Post-execution failures (transactions that executed on-chain but reverted)
+   * Error handling flow:
+   * 1. No error → return (proceed to MN polling for tx hash)
+   * 2. Non-SDK error → throw as-is (application-level failure)
+   * 3. SDK timeout error → throw as-is (network failure)
+   * 4. Pre-execution failure (in HEDERA_SPECIFIC_REVERT_STATUSES):
+   *    - WRONG_NONCE: polls MN for account nonce, throws NONCE_TOO_HIGH/NONCE_TOO_LOW
+   *    - Others: throws TRANSACTION_REJECTED with status details
+   * 5. Post-execution failure → return (proceed to MN polling for tx hash)
    *
-   * @param error - The error from transaction submission, or `null` if successful
-   * @returns `true` if the Mirror Node should be polled, `false` otherwise
+   * @param error - The error from transaction submission, or null/undefined if successful
+   * @param parsedTx - The parsed transaction for nonce comparison (used for WRONG_NONCE handling)
+   * @param requestDetails - Request details for logging and tracking
+   * @throws {JsonRpcError} NONCE_TOO_HIGH or NONCE_TOO_LOW for wrong nonce errors
+   * @throws {JsonRpcError} TRANSACTION_REJECTED for pre-execution failures
+   * @throws {Error} Original error for non-SDK or timeout errors
    */
-  private shouldVerifyWithMirrorNode(error: any): boolean {
-    // Success case - always poll to get transaction hash
+  private async handleSubmissionError(
+    error: any,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+  ): Promise<void> {
+    // No error - proceed to MN polling for transaction validation and txhash retrieval
     if (!error) {
-      return true;
+      return;
     }
 
-    // Non-SDK errors are application-level failures - don't poll
+    // Non-SDK errors are definitive failures - propagate as-is
     if (!(error instanceof SDKClientError)) {
-      return false;
+      throw error;
     }
 
     // Update metrics for SDK errors
     this.hapiService.decrementErrorCounter(error.statusCode);
 
-    // SDK timeout errors indicate consensus node did not process the transaction
+    // SDK timeout errors - propagate as-is
     if (error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout()) {
-      return false;
+      throw error;
     }
 
     // Check if this is a pre-execution failure
     const preExecutionFailures: string[] = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
-    const isPreExecutionFailure = preExecutionFailures.includes(error.status.toString());
+    if (preExecutionFailures.includes(error.status.toString())) {
+      // WRONG_NONCE requires special handling to determine if nonce is too high or too low
+      // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
+      if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
+        const mirrorNodeGetContractResultRetries = this.mirrorNodeClient.getMirrorNodeRequestRetryCount();
 
-    // Return true if error is NOT in pre-execution failures list -> poll MN
-    // Return false if error IS in pre-execution failures list -> throw immediately
-    return !isPreExecutionFailure;
+        // Poll Mirror Node to get updated account nonce for comparison
+        let accountNonce: number | null = null;
+        for (let i = 0; i < mirrorNodeGetContractResultRetries; i++) {
+          const accountInfo = await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails);
+          if (accountInfo.ethereum_nonce !== parsedTx.nonce) {
+            accountNonce = accountInfo.ethereum_nonce;
+            break;
+          }
+
+          this.logger.trace(
+            `Repeating retry to poll for updated account nonce. Count %d of %d. Waiting %d ms before initiating a new request`,
+            i,
+            mirrorNodeGetContractResultRetries,
+            this.mirrorNodeClient.getMirrorNodeRetryDelay(),
+          );
+          await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
+        }
+
+        if (accountNonce === null) {
+          throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
+        }
+
+        if (parsedTx.nonce > accountNonce) {
+          throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
+        } else {
+          throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
+        }
+      }
+
+      // All other pre-execution failures throw TRANSACTION_REJECTED (-32003)
+      throw predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
+    }
+
+    // Post-execution failure (e.g. CONTRACT_REVERT_EXECUTED, INVALID_ALIAS_KEY, etc.)
+    // proceed to allow MN polling for transaction hash
+    return;
   }
 
   /**
@@ -614,66 +657,6 @@ export class TransactionService implements ITransactionService {
     throw predefined.INTERNAL_ERROR(
       `Transaction submitted but record unavailable: transactionId=${submittedTransactionId}`,
     );
-  }
-
-  /**
-   * Handles errors that occur during raw transaction processing.
-   *
-   * This method performs special handling for WRONG_NONCE errors by polling the
-   * Mirror Node to determine the current account nonce and throwing the appropriate
-   * NONCE_TOO_HIGH or NONCE_TOO_LOW error.
-   *
-   * All other errors are re-thrown as-is
-   * to preserve their type and details for proper handling by upstream callers.
-   *
-   * @param error - The error that occurred during transaction processing
-   * @param parsedTx - The parsed transaction for nonce comparison
-   * @param requestDetails - Request details for logging and tracking
-   * @throws {JsonRpcError} Throws NONCE_TOO_HIGH or NONCE_TOO_LOW for wrong nonce errors
-   * @throws {Error} Re-throws all other errors as-is
-   */
-  private async sendRawTransactionErrorHandler(
-    error: any,
-    parsedTx: EthersTransaction,
-    requestDetails: RequestDetails,
-  ): Promise<never> {
-    if (error instanceof SDKClientError) {
-      // Handle WRONG_NONCE errors by determining if nonce is too high or too low
-      if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
-        const mirrorNodeGetContractResultRetries = this.mirrorNodeClient.getMirrorNodeRequestRetryCount();
-
-        // Poll Mirror Node to get updated account nonce for comparison
-        let accountNonce: number | null = null;
-        for (let i = 0; i < mirrorNodeGetContractResultRetries; i++) {
-          const accountInfo = await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails);
-          if (accountInfo.ethereum_nonce !== parsedTx.nonce) {
-            accountNonce = accountInfo.ethereum_nonce;
-            break;
-          }
-
-          this.logger.trace(
-            `Repeating retry to poll for updated account nonce. Count %d of %d. Waiting %d ms before initiating a new request`,
-            i,
-            mirrorNodeGetContractResultRetries,
-            this.mirrorNodeClient.getMirrorNodeRetryDelay(),
-          );
-          await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
-        }
-
-        if (accountNonce === null) {
-          throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
-        }
-
-        if (parsedTx.nonce > accountNonce) {
-          throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
-        } else {
-          throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
-        }
-      }
-    }
-
-    // Re-throw all other errors as-is to preserve error type and details
-    throw error;
   }
 
   /**
