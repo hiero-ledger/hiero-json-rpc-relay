@@ -514,9 +514,9 @@ export class TransactionService implements ITransactionService {
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
     // Determine if Mirror Node verification is needed
-    const shouldPollMirrorNode = submittedTransactionId && this.shouldVerifyWithMirrorNode(error);
+    const shouldVerifyWithMirrorNode = submittedTransactionId && this.shouldVerifyWithMirrorNode(error);
 
-    if (!shouldPollMirrorNode) {
+    if (!shouldVerifyWithMirrorNode) {
       // Definitive failure: handle error immediately without MN polling
       await this.sendRawTransactionErrorHandler(error, parsedTx, requestDetails);
     }
@@ -526,32 +526,40 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Determines whether Mirror Node verification is needed for a transaction.
+   * Determines whether to poll Mirror Node after transaction submission.
    *
-   * Mirror Node polling is required in two scenarios:
-   * 1. No error occurred - transaction succeeded, need to retrieve tx hash from Mirror Node
-   * 2. SDK timeout error - transaction may have succeeded at consensus despite timeout
+   * Mirror Node polling is skipped only for pre-execution failures listed in HEDERA_SPECIFIC_REVERT_STATUSES
+   * (errors that occur before consensus).
    *
-   * @param error - The error from transaction submission, or null if successful
-   * @returns True if Mirror Node verification should be performed
+   * Polling is needed for:
+   * - Successful submissions (to retrieve transaction hash)
+   * - Timeouts (transaction may have succeeded despite timeout)
+   * - Post-execution failures (CONTRACT_REVERT_EXECUTED has valid tx hash)
+   *
+   * @param error - Error from transaction submission, or null if successful
+   * @returns True if Mirror Node should be polled
    */
   private shouldVerifyWithMirrorNode(error: any): boolean {
-    // No error means success - need MN to get transaction hash
+    // Success case - always poll to get transaction hash
     if (!error) {
       return true;
     }
 
-    // Non-SDK errors are definitive failures
+    // Non-SDK errors are application-level failures - don't poll
     if (!(error instanceof SDKClientError)) {
       return false;
     }
 
-    // error can only be SDKClientError at this point
-    // Decrement error counter for HAPI service monitoring
+    // Update metrics for SDK errors
     this.hapiService.decrementErrorCounter(error.statusCode);
 
-    // SDK timeout errors require MN verification since tx may have succeeded
-    return error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout();
+    // Check if this is a pre-execution failure
+    const preExecutionFailures: string[] = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
+    const isPreExecutionFailure = preExecutionFailures.includes(error.status.toString());
+
+    // Return true if error is NOT in pre-execution failures list -> poll MN
+    // Return false if error IS in pre-execution failures list -> throw immediately
+    return !isPreExecutionFailure;
   }
 
   /**
@@ -587,8 +595,9 @@ export class TransactionService implements ITransactionService {
       return contractResult.hash;
     }
 
-    // If contractResult not found and the error is valid, it's a timeout case
-    // propagate to preserve error context
+    // If contractResult not found and the error is valid,
+    // it's either a timeout or pre-execution failure from consensus level.
+    // Therefore, propagate to preserve error context
     if (submissionError) {
       throw submissionError;
     }

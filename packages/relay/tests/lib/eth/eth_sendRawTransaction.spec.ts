@@ -927,19 +927,30 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
        * masked by returning a transaction hash. These errors occur when a transaction
        * reaches consensus but fails validation at the network level.
        *
-       * Each error in HEDERA_SPECIFIC_REVERT_STATUSES should be thrown as an SDKClientError
-       * rather than returning a hash from Mirror Node.
+       * Note: WRONG_NONCE is excluded here and tested separately due to special handling that
+       * converts it to NONCE_TOO_HIGH or NONCE_TOO_LOW based on account state.
        */
-      const SDK_CONSENSUS_ERRORS: Array<{ statusName: string; statusCode: number }> = [
-        // WRONG_NONCE (312) is excluded - need a dedicated suite due to special handling to convert to NONCE_TOO_HIGH/LOW
-        { statusName: 'INVALID_ACCOUNT_ID', statusCode: 15 },
-        { statusName: 'SCHEDULE_FUTURE_THROTTLE_EXCEEDED', statusCode: 308 },
-        { statusName: 'SCHEDULE_FUTURE_GAS_LIMIT_EXCEEDED', statusCode: 309 },
-        { statusName: 'THROTTLED_AT_CONSENSUS', statusCode: 366 },
-        { statusName: 'EVM_HOOK_GAS_THROTTLED', statusCode: 500 },
-        { statusName: 'BUSY', statusCode: 12 },
-        { statusName: 'CONSENSUS_GAS_EXHAUSTED', statusCode: 279 },
-      ];
+      const SDK_CONSENSUS_ERRORS: Array<{ statusName: string; statusCode: number }> = ConfigService.get(
+        'HEDERA_SPECIFIC_REVERT_STATUSES',
+      )
+        .filter((statusName) => statusName !== 'WRONG_NONCE')
+        .map((statusName) => {
+          // Convert SNAKE_CASE to PascalCase (e.g., 'INVALID_ACCOUNT_ID' → 'InvalidAccountId')
+          const pascalCase = statusName
+            .split('_')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join('');
+
+          const statusValue = (Status as any)[pascalCase];
+          if (!statusValue) {
+            throw new Error(`Status.${pascalCase} not found in Hedera SDK Status enum`);
+          }
+
+          return {
+            statusName,
+            statusCode: statusValue._code,
+          };
+        });
 
       /**
        * Helper to check if the Mirror Node contract results endpoint was called.
@@ -957,8 +968,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             const signed = await signTransaction(transaction);
 
             // SDK throws error with transaction ID (simulating consensus-level failure)
+            // Use Status._fromCode to create proper Status object matching real SDK behavior
             const sdkError = new SDKClientError(
-              { status: { _code: statusCode }, message: statusName },
+              { status: Status._fromCode(statusCode), message: statusName },
               statusName,
               transactionIdServicesFormat,
             );
@@ -1038,6 +1050,44 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             );
 
             // Verify Mirror Node contracts/results/ endpoint WAS called (even though it returned 404)
+            expect(wasContractResultEndpointCalled()).to.be.true;
+          });
+        });
+
+        /**
+         * Post-execution errors (not in HEDERA_SPECIFIC_REVERT_STATUSES) should trigger
+         * Mirror Node polling because the transaction executed on the network and has a
+         * valid transaction record, even though it failed.
+         *
+         * Examples: CONTRACT_REVERT_EXECUTED, INVALID_CONTRACT_ID, INVALID_ALIAS_KEY
+         */
+        const POST_EXECUTION_ERRORS: Array<{ statusName: string; statusCode: number }> = [
+          { statusName: 'CONTRACT_REVERT_EXECUTED', statusCode: Status.ContractRevertExecuted._code },
+          { statusName: 'INVALID_CONTRACT_ID', statusCode: Status.InvalidContractId._code },
+          { statusName: 'INVALID_ALIAS_KEY', statusCode: Status.InvalidAliasKey._code },
+        ];
+
+        POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
+          it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws post-execution error with transaction ID
+            const sdkError = new SDKClientError(
+              { status: Status._fromCode(statusCode), message: statusName },
+              statusName,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+
+            // Mirror Node returns transaction hash (transaction executed but failed)
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect(result).to.equal(ethereumHash);
+
+            // Verify Mirror Node contracts/results/ endpoint WAS called for post-execution errors
             expect(wasContractResultEndpointCalled()).to.be.true;
           });
         });
