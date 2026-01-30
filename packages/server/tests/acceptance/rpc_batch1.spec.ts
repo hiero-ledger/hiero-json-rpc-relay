@@ -1495,8 +1495,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           Assertions.expectedError();
         } catch (e: any) {
           const { error } = e?.response ? e.response.bodyJson : e;
-          expect(error.code).to.eq(predefined.INTERNAL_ERROR().code);
-          expect(error.message).to.contain(`failed precheck with status INVALID_SOLIDITY_ADDRESS against node account`);
+          expect(error.code).to.eq(-32003); // TRANSACTION_REJECTED
+          expect(error.message).to.contain(`INVALID_SOLIDITY_ADDRESS`);
         }
       });
 
