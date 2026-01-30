@@ -526,18 +526,19 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Determines whether to poll Mirror Node after transaction submission.
+   * Determines whether to poll the Mirror Node to validate a transaction after submission.
    *
-   * Mirror Node polling is skipped only for pre-execution failures listed in HEDERA_SPECIFIC_REVERT_STATUSES
-   * (errors that occur before consensus).
+   * Polling is skipped for errors that definitively indicate transaction failure without execution:
+   * - Non-SDK errors (application-level failures)
+   * - Pre-execution failures (status codes in `HEDERA_SPECIFIC_REVERT_STATUSES`)
+   * - SDK timeout errors (network timeouts or connection failures)
    *
-   * Polling is needed for:
-   * - Successful submissions (to retrieve transaction hash)
-   * - Timeouts (transaction may have succeeded despite timeout)
-   * - Post-execution failures (CONTRACT_REVERT_EXECUTED has valid tx hash)
+   * Polling is performed for:
+   * - Successful submissions (to retrieve the transaction hash)
+   * - Post-execution failures (transactions that executed on-chain but reverted)
    *
-   * @param error - Error from transaction submission, or null if successful
-   * @returns True if Mirror Node should be polled
+   * @param error - The error from transaction submission, or `null` if successful
+   * @returns `true` if the Mirror Node should be polled, `false` otherwise
    */
   private shouldVerifyWithMirrorNode(error: any): boolean {
     // Success case - always poll to get transaction hash
@@ -553,6 +554,11 @@ export class TransactionService implements ITransactionService {
     // Update metrics for SDK errors
     this.hapiService.decrementErrorCounter(error.statusCode);
 
+    // SDK timeout errors indicate consensus node did not process the transaction
+    if (error.isTimeoutExceeded() || error.isConnectionDropped() || error.isGrpcTimeout()) {
+      return false;
+    }
+
     // Check if this is a pre-execution failure
     const preExecutionFailures: string[] = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
     const isPreExecutionFailure = preExecutionFailures.includes(error.status.toString());
@@ -565,17 +571,20 @@ export class TransactionService implements ITransactionService {
   /**
    * Retrieves the transaction hash from Mirror Node after transaction submission.
    *
-   * This method is called when a transaction has a valid transaction ID and either succeeded or
-   * encountered an SDK timeout. If the Mirror Node cannot find the transaction record:
-   *  - if there is an SDK timeout error, throw to propagate and preserve context;
-   *  - if there is no error, throw INTERNAL_ERROR because this is unexpected and the transaction should exist.
+   * This method is called when a transaction has a valid transaction ID and either:
+   * - Succeeded without error
+   * - Failed with a post-execution error (transaction executed at consensus but reverted)
+   *
+   * If the Mirror Node cannot find the transaction record:
+   * - If there is any unknown SDK errors, propagate to preserve the original failure context
+   * - If there is no error, throw INTERNAL_ERROR because the transaction should exist after successful submission
    *
    * @param submittedTransactionId - The transaction ID to query
-   * @param submissionError - Original submission error (null if successful, SDK timeout if applicable)
+   * @param submissionError - Original submission error
    * @param requestDetails - Request details for logging and tracking
    * @returns The transaction hash
-   * @throws {SDKClientError} Throws original SDK error when MN record not found after timeout
-   * @throws {JsonRpcError} Throws INTERNAL_ERROR when MN record unexpectedly missing
+   * @throws {SDKClientError} Throws original SDK error when MN record not found and if submissionError exists
+   * @throws {JsonRpcError} Throws INTERNAL_ERROR when MN record unexpectedly missing after successful submission
    */
   private async getTransactionHashFromMirrorNode(
     submittedTransactionId: string,
@@ -595,9 +604,8 @@ export class TransactionService implements ITransactionService {
       return contractResult.hash;
     }
 
-    // If contractResult not found and the error is valid,
-    // it's either a timeout or pre-execution failure from consensus level.
-    // Therefore, propagate to preserve error context
+    // Contract result not found on Mirror Node
+    // If there's any unknown SDK errors, propagate to preserve the original failure context
     if (submissionError) {
       throw submissionError;
     }

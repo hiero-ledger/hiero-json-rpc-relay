@@ -448,42 +448,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
               expect(error.message).to.include(expectedInternalError.message),
           );
       });
-
-      ['timeout exceeded', 'Connection dropped'].forEach((error) => {
-        it(`[USE_ASYNC_TX_PROCESSING=false] should poll mirror node upon ${error} error for valid transaction and return correct transaction hash`, async function () {
-          restMock
-            .onGet(contractResultEndpoint)
-            .replyOnce(404, mockData.notFound)
-            .onGet(contractResultEndpoint)
-            .reply(200, JSON.stringify({ hash: ethereumHash }));
-
-          sdkClientStub.submitEthereumTransaction
-            .onCall(0)
-            .throws(new SDKClientError({ status: 21 }, error, transactionIdServicesFormat));
-
-          const signed = await signTransaction(transaction);
-
-          const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
-          expect(resultingHash).to.equal(ethereumHash);
-        });
-
-        it(`[USE_ASYNC_TX_PROCESSING=false] should poll mirror node upon ${error} error for valid transaction and throw original SDK error if no transaction is found`, async function () {
-          restMock
-            .onGet(contractResultEndpoint)
-            .replyOnce(404, mockData.notFound)
-            .onGet(contractResultEndpoint)
-            .reply(200, JSON.stringify(null));
-
-          sdkClientStub.submitEthereumTransaction
-            .onCall(0)
-            .throws(new SDKClientError({ status: 21 }, error, transactionIdServicesFormat));
-
-          const signed = await signTransaction(transaction);
-
-          // SDK error is preserved and thrown instead of converting to JsonRpcError
-          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(SDKClientError, error);
-        });
-      });
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
@@ -991,8 +955,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         /**
-         * SDK timeout errors should trigger Mirror Node polling because the transaction
-         * may have succeeded at consensus despite the client-side timeout.
+         * Timeout error should be thrown immediately without MN polling
          */
         const SDK_TIMEOUT_ERRORS: Array<{ name: string; statusCode: number; message: string }> = [
           { name: 'timeout exceeded', statusCode: Status.Unknown._code, message: 'timeout exceeded' },
@@ -1005,7 +968,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         ];
 
         SDK_TIMEOUT_ERRORS.forEach(({ name, statusCode, message }) => {
-          it(`should poll Mirror Node for SDK timeout error (${name}) and return hash when found`, async function () {
+          it(`should throw SDK timeout error (${name}) immediately without polling Mirror Node`, async function () {
             // Reset history to ensure we're only checking calls from this test
             restMock.resetHistory();
             const signed = await signTransaction(transaction);
@@ -1018,39 +981,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             );
             sdkClientStub.submitEthereumTransaction.throws(timeoutError);
 
-            // Mirror Node returns transaction hash (transaction succeeded at consensus despite timeout)
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-            expect(result).to.equal(ethereumHash);
-
-            // Verify Mirror Node contracts/results/ endpoint WAS called for timeout errors
-            expect(wasContractResultEndpointCalled()).to.be.true;
-          });
-
-          it(`should poll Mirror Node for SDK timeout error (${name}) and throw original error when no record found`, async function () {
-            // Reset history to ensure we're only checking calls from this test
-            restMock.resetHistory();
-            const signed = await signTransaction(transaction);
-
-            // SDK throws timeout error with transaction ID
-            const timeoutError = new SDKClientError(
-              { status: { _code: statusCode }, message },
-              message,
-              transactionIdServicesFormat,
-            );
-            sdkClientStub.submitEthereumTransaction.throws(timeoutError);
-
-            // Mirror Node returns no result (transaction did not reach consensus)
-            restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
-
+            // Timeout error should be thrown immediately without MN polling
             await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
               SDKClientError,
               message,
             );
 
-            // Verify Mirror Node contracts/results/ endpoint WAS called (even though it returned 404)
-            expect(wasContractResultEndpointCalled()).to.be.true;
+            // Verify Mirror Node contracts/results/ endpoint was NOT called
+            expect(wasContractResultEndpointCalled()).to.be.false;
           });
         });
 
