@@ -13,7 +13,7 @@ import { HbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hba
 import { IPAddressHbarSpendingPlanRepository } from '../../../src/lib/db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { EthImpl } from '../../../src/lib/eth';
 import { CacheClientFactory } from '../../../src/lib/factories/cacheClientFactory';
-import { CommonService } from '../../../src/lib/services';
+import { CommonService, LocalPendingTransactionStorage, LockService } from '../../../src/lib/services';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 
@@ -63,7 +63,18 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
 
   const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
 
-  const ethImpl = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+  const storage = new LocalPendingTransactionStorage(logger.child({ name: 'local-pending-tx-storage' }));
+  const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} });
+  const ethImpl = new EthImpl(
+    hapiServiceInstance,
+    mirrorNodeInstance,
+    logger,
+    '0x12a',
+    cacheService,
+    storage,
+    lockService,
+    registry,
+  );
 
   return {
     cacheService,

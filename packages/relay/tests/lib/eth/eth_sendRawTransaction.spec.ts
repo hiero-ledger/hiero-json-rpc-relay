@@ -46,11 +46,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     hapiServiceInstance,
     ethImpl,
     cacheService,
+    registry,
   }: {
     restMock: MockAdapter;
     hapiServiceInstance: HAPIService;
     ethImpl: Eth;
     cacheService: ICacheClient;
+    registry: import('prom-client').Registry;
   } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });
@@ -70,8 +72,10 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         addToList: sinon.stub(),
         removeFromList: sinon.stub(),
         removeAll: sinon.stub(),
+        getSetSize: sinon.stub(),
       },
       pino({ level: 'silent' }),
+      registry,
     );
     ethImpl['transactionService']['precheck']['transactionPoolService'] = txPoolServiceWithMockedStorage;
     ethImpl['transactionService']['transactionPoolService'] = txPoolServiceWithMockedStorage;

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Logger } from 'pino';
+import { Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
 
 import { LockStrategy } from '../../types';
 import { LocalLockStrategy } from './LocalLockStrategy';
+import { LockMetricsService } from './LockMetricsService';
 import { RedisLockStrategy } from './RedisLockStrategy';
 
 /**
@@ -20,14 +22,16 @@ export class LockStrategyFactory {
    * @param redisClient - Optional Redis client. If provided, creates Redis-backed lock strategy;
    *                      otherwise creates local in-memory lock strategy.
    * @param logger - Logger instance for the lock strategy.
+   * @param register - Prometheus registry for metrics.
    * @returns A LockStrategy implementation.
    */
+  static create(redisClient: RedisClientType | undefined, logger: Logger, register: Registry): LockStrategy {
+    const metricsService = new LockMetricsService(register);
 
-  static create(redisClient: RedisClientType | undefined, logger: Logger): LockStrategy {
     if (redisClient) {
-      return new RedisLockStrategy(redisClient, logger.child({ name: 'redis-lock-strategy' }));
+      return new RedisLockStrategy(redisClient, logger.child({ name: 'redis-lock-strategy' }), metricsService);
     }
 
-    return new LocalLockStrategy(logger.child({ name: 'local-lock-strategy' }));
+    return new LocalLockStrategy(logger.child({ name: 'local-lock-strategy' }), metricsService);
   }
 }

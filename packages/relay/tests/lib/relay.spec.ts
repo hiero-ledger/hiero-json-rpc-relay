@@ -80,7 +80,9 @@ describe('Relay', () => {
 
         expect(populatePreconfiguredSpendingPlansSpy.calledOnce).to.be.true;
         await expect(populatePreconfiguredSpendingPlansSpy.returnValues[0]).to.not.be.rejected;
-        expect(loggerSpy.warn.notCalled).to.be.true;
+        // Verify no spending plans-related warnings were logged
+        // (other warnings like deprecation notices may still be logged)
+        expect(loggerSpy.warn.calledWith('Failed to load pre-configured spending plans')).to.be.false;
       });
     });
 

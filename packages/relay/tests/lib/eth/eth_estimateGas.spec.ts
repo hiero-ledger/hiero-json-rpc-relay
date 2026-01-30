@@ -13,6 +13,7 @@ import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
+import { LocalPendingTransactionStorage, LockService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
@@ -33,7 +34,7 @@ const gasTxBaseCost = numberTo0x(constants.TX_BASE_COST);
 
 describe('@ethEstimateGas Estimate Gas spec', async function () {
   this.timeout(10000);
-  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger } =
+  const { restMock, web3Mock, hapiServiceInstance, ethImpl, cacheService, mirrorNodeInstance, logger, registry } =
     generateEthTestEnv();
 
   const contractService = ethImpl['contractService'];
@@ -78,7 +79,18 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    ethImplOverridden = new EthImpl(hapiServiceInstance, mirrorNodeInstance, logger, '0x12a', cacheService);
+    const storage = new LocalPendingTransactionStorage(logger.child({ name: 'local-pending-tx-storage' }));
+    const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} });
+    ethImplOverridden = new EthImpl(
+      hapiServiceInstance,
+      mirrorNodeInstance,
+      logger,
+      '0x12a',
+      cacheService,
+      storage,
+      lockService,
+      registry,
+    );
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/undefined${NO_TRANSACTIONS}`).reply(404);
     mockGetAccount(hapiServiceInstance.getOperatorAccountId()!.toString(), 200, {

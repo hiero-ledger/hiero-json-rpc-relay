@@ -6,6 +6,7 @@ import { Logger } from 'pino';
 import { RedisClientType } from 'redis';
 
 import { LockStrategy } from '../../types/lock';
+import { LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
 /**
@@ -25,14 +26,22 @@ import { LockService } from './LockService';
 export class RedisLockStrategy implements LockStrategy {
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
+  private readonly lockMetricsService: LockMetricsService;
   private readonly maxLockHoldMs: number;
   private readonly pollIntervalMs: number;
   private readonly heartbeatTtlMs: number;
   private readonly keyPrefix = 'lock';
 
-  constructor(redisClient: RedisClientType, logger: Logger) {
+  /**
+   * In-memory map to track lock acquisition times by session key.
+   * Used for calculating hold duration metrics.
+   */
+  private readonly acquisitionTimes: Map<string, number> = new Map();
+
+  constructor(redisClient: RedisClientType, logger: Logger, lockMetricsService: LockMetricsService) {
     this.redisClient = redisClient;
     this.logger = logger;
+    this.lockMetricsService = lockMetricsService;
     this.maxLockHoldMs = ConfigService.get('LOCK_MAX_HOLD_MS');
     this.pollIntervalMs = ConfigService.get('LOCK_QUEUE_POLL_INTERVAL_MS');
 
@@ -61,6 +70,7 @@ export class RedisLockStrategy implements LockStrategy {
       await this.redisClient.lPush(queueKey, sessionKey);
       joinedQueue = true;
 
+      this.lockMetricsService.incrementWaitingTxns('redis');
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`Lock acquisition started: address=${address}, sessionKey=${sessionKey}`);
       }
@@ -85,6 +95,12 @@ export class RedisLockStrategy implements LockStrategy {
             const acquisitionDuration = Date.now() - startTime;
             const queueLength = await this.redisClient.lLen(queueKey);
 
+            this.acquisitionTimes.set(sessionKey, Date.now());
+
+            this.lockMetricsService.recordWaitTime('redis', acquisitionDuration / 1000);
+            this.lockMetricsService.recordAcquisition('redis', 'success');
+            this.lockMetricsService.incrementActiveCount('redis');
+
             if (this.logger.isLevelEnabled('debug')) {
               this.logger.debug(
                 `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
@@ -98,6 +114,7 @@ export class RedisLockStrategy implements LockStrategy {
           const heartbeatExists = await this.redisClient.exists(this.getHeartbeatKey(firstInQueue));
           if (!heartbeatExists) {
             await this.redisClient.lRem(queueKey, 0, firstInQueue);
+            this.lockMetricsService.recordZombieCleanup('redis');
             continue; // Immediate retry (no sleep)
           }
         }
@@ -107,10 +124,13 @@ export class RedisLockStrategy implements LockStrategy {
       }
     } catch (error) {
       this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
+      // Record failed acquisition
+      this.lockMetricsService.recordAcquisition('redis', 'fail');
+      this.lockMetricsService.incrementRedisLockErrors('acquire');
       return;
     } finally {
-      // Always remove from queue if we joined it (whether success or failure)
       if (joinedQueue) {
+        this.lockMetricsService.decrementWaitingTxns('redis');
         await this.removeFromQueue(queueKey, sessionKey, address);
       }
     }
@@ -125,6 +145,7 @@ export class RedisLockStrategy implements LockStrategy {
    */
   async releaseLock(address: string, sessionKey: string): Promise<void> {
     const lockKey = this.getLockKey(address);
+    const acquisitionTime = this.acquisitionTimes.get(sessionKey);
 
     try {
       // Atomic check-and-delete using Lua script
@@ -144,11 +165,29 @@ export class RedisLockStrategy implements LockStrategy {
       );
 
       if (result === 1) {
+        if (acquisitionTime) {
+          const holdDurationMs = Date.now() - acquisitionTime;
+          this.lockMetricsService.recordHoldDuration('redis', holdDurationMs / 1000);
+          this.acquisitionTimes.delete(sessionKey);
+        }
+        this.lockMetricsService.decrementActiveCount('redis');
+
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Lock released: address=${address}, sessionKey=${sessionKey}`);
         }
       } else {
-        // Lock was already released or owned by someone else - ignore
+        // Lock was already released (likely due to TTL timeout) or owned by someone else
+        if (acquisitionTime) {
+          const holdDurationMs = Date.now() - acquisitionTime;
+          // If hold duration exceeds max hold time, it was a timeout release
+          if (holdDurationMs >= this.maxLockHoldMs) {
+            this.lockMetricsService.recordHoldDuration('redis', holdDurationMs / 1000);
+            this.lockMetricsService.recordTimeoutRelease('redis');
+            this.lockMetricsService.decrementActiveCount('redis');
+          }
+          this.acquisitionTimes.delete(sessionKey);
+        }
+
         if (this.logger.isLevelEnabled('trace')) {
           this.logger.trace(
             `Lock release ignored (not owner or already released): address=${address}, sessionKey=${sessionKey}`,
@@ -157,6 +196,8 @@ export class RedisLockStrategy implements LockStrategy {
       }
     } catch (error) {
       this.logger.error(error, `Failed to release lock: address=${address}, sessionKey=${sessionKey}`);
+      this.acquisitionTimes.delete(sessionKey);
+      this.lockMetricsService.incrementRedisLockErrors('release');
       // Don't throw - release failures should not block the caller
     }
   }

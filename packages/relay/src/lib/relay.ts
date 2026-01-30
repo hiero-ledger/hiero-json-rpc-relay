@@ -316,7 +316,7 @@ export class Relay {
       duration,
     );
 
-    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger));
+    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger, this.register));
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
@@ -351,6 +351,7 @@ export class Relay {
       this.cacheService,
       storage,
       lockService,
+      this.register,
     );
 
     // Set up event listeners
@@ -366,7 +367,7 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }));
+    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }), this.register);
 
     // Create Debug and Admin implementations
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService);
