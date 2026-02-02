@@ -8,6 +8,7 @@ import {
   Hbar,
   HbarUnit,
   Long,
+  Status,
   TransactionId,
   TransactionResponse,
 } from '@hashgraph/sdk';
@@ -20,7 +21,7 @@ import sinon, { useFakeTimers } from 'sinon';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
 import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
-import { SDKClient } from '../../../src/lib/clients';
+import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
 import { SDKClientError } from '../../../src/lib/errors/SDKClientError';
@@ -125,6 +126,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       receiver_sig_required: false,
     };
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+    // Expect INTERNAL_ERROR because MN doesn't have the record
+    const expectedInternalError = predefined.INTERNAL_ERROR('Transaction submitted but record unavailable');
 
     beforeEach(() => {
       clock = useFakeTimers();
@@ -351,7 +354,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           removeStub.restore();
         });
 
-        it('should save and remove transaction (fallback path uses parsedTx.serialized)', async function () {
+        it('should save and remove transaction even when MN returns 404 (tx pool cleanup happens before MN polling)', async function () {
           const signed = await signTransaction(transaction);
           const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
 
@@ -359,7 +362,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
           sinon.stub(txPool, 'getPendingCount').resolves(0);
 
-          // Cause MN polling to fail, forcing fallback
+          // MN returns 404, which causes INTERNAL_ERROR after cleanup
           restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
           sdkClientStub.submitEthereumTransaction.resolves({
             txResponse: {
@@ -368,8 +371,15 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             fileId: null,
           });
 
-          await ethImpl.sendRawTransaction(signed, requestDetails);
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(expectedInternalError.code) &&
+                expect(error.message).to.include(expectedInternalError.message),
+            );
 
+          // Verify tx pool operations still happened (before MN polling)
           sinon.assert.calledOnce(saveStub);
           sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
 
@@ -381,7 +391,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
       });
 
-      it('[USE_ASYNC_TX_PROCESSING=true] should throw internal error when transaction returned from mirror node is null', async function () {
+      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transaction returned from mirror node is null', async function () {
         const signed = await signTransaction(transaction);
 
         restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
@@ -393,10 +403,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           fileId: null,
         });
 
-        const response = (await ethImpl.sendRawTransaction(signed, requestDetails)) as JsonRpcError;
-
-        expect(response.code).to.equal(predefined.INTERNAL_ERROR().code);
-        expect(`Error invoking RPC: ${response.message}`).to.equal(predefined.INTERNAL_ERROR(response.message).message);
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+          .to.be.rejectedWith(JsonRpcError)
+          .and.eventually.satisfy(
+            (error: JsonRpcError) =>
+              expect(error.code).to.equal(expectedInternalError.code) &&
+              expect(error.message).to.include(expectedInternalError.message),
+          );
       });
 
       it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transactionID is invalid', async function () {
@@ -411,10 +424,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           fileId: null,
         });
 
-        const response = (await ethImpl.sendRawTransaction(signed, requestDetails)) as JsonRpcError;
-
-        expect(response.code).to.equal(predefined.INTERNAL_ERROR().code);
-        expect(`Error invoking RPC: ${response.message}`).to.equal(predefined.INTERNAL_ERROR(response.message).message);
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+          .to.be.rejectedWith(JsonRpcError)
+          .and.eventually.satisfy((error: JsonRpcError) => expect(error.code).to.equal(expectedInternalError.code));
       });
 
       it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error if ContractResult from mirror node contains a null hash', async function () {
@@ -428,47 +440,13 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
         const signed = await signTransaction(transaction);
 
-        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
-
-        expect(response).to.be.instanceOf(JsonRpcError);
-        expect((response as JsonRpcError).message).to.include(`Transaction returned a null transaction hash`);
-      });
-
-      ['timeout exceeded', 'Connection dropped'].forEach((error) => {
-        it(`[USE_ASYNC_TX_PROCESSING=false] should poll mirror node upon ${error} error for valid transaction and return correct transaction hash`, async function () {
-          restMock
-            .onGet(contractResultEndpoint)
-            .replyOnce(404, mockData.notFound)
-            .onGet(contractResultEndpoint)
-            .reply(200, JSON.stringify({ hash: ethereumHash }));
-
-          sdkClientStub.submitEthereumTransaction
-            .onCall(0)
-            .throws(new SDKClientError({ status: 21 }, error, transactionIdServicesFormat));
-
-          const signed = await signTransaction(transaction);
-
-          const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
-          expect(resultingHash).to.equal(ethereumHash);
-        });
-
-        it(`[USE_ASYNC_TX_PROCESSING=false] should poll mirror node upon ${error} error for valid transaction and return correct ${error} error if no transaction is found`, async function () {
-          restMock
-            .onGet(contractResultEndpoint)
-            .replyOnce(404, mockData.notFound)
-            .onGet(contractResultEndpoint)
-            .reply(200, JSON.stringify(null));
-
-          sdkClientStub.submitEthereumTransaction
-            .onCall(0)
-            .throws(new SDKClientError({ status: 21 }, error, transactionIdServicesFormat));
-
-          const signed = await signTransaction(transaction);
-
-          const response = (await ethImpl.sendRawTransaction(signed, requestDetails)) as JsonRpcError;
-          expect(response).to.be.instanceOf(JsonRpcError);
-          expect(response.message).to.include(error);
-        });
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+          .to.be.rejectedWith(JsonRpcError)
+          .and.eventually.satisfy(
+            (error: JsonRpcError) =>
+              expect(error.code).to.equal(expectedInternalError.code) &&
+              expect(error.message).to.include(expectedInternalError.message),
+          );
       });
     });
 
@@ -903,6 +881,284 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           } finally {
             computeHashSpy.restore();
           }
+        });
+      });
+    });
+
+    describe('SDK Consensus Errors', function () {
+      /**
+       * Tests that SDK consensus errors are properly surfaced to clients instead of being
+       * masked by returning a transaction hash. These errors occur when a transaction
+       * reaches consensus but fails validation at the network level.
+       *
+       * Note: WRONG_NONCE is excluded here and tested separately due to special handling that
+       * converts it to NONCE_TOO_HIGH or NONCE_TOO_LOW based on account state.
+       */
+      const SDK_CONSENSUS_ERRORS: Array<{ statusName: string; statusCode: number }> = ConfigService.get(
+        'HEDERA_SPECIFIC_REVERT_STATUSES',
+      )
+        .filter((statusName) => statusName !== 'WRONG_NONCE')
+        .map((statusName) => {
+          // Convert SNAKE_CASE to PascalCase (e.g., 'INVALID_ACCOUNT_ID' → 'InvalidAccountId')
+          const pascalCase = statusName
+            .split('_')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join('');
+
+          const statusValue = (Status as any)[pascalCase];
+          if (!statusValue) {
+            throw new Error(`Status.${pascalCase} not found in Hedera SDK Status enum`);
+          }
+
+          return {
+            statusName,
+            statusCode: statusValue._code,
+          };
+        });
+
+      /**
+       * Helper to check if the Mirror Node contract results endpoint was called.
+       * Uses restMock.history.get to inspect actual HTTP calls made.
+       */
+      const wasContractResultEndpointCalled = (): boolean => {
+        return restMock.history.get.some((req) => req.url?.includes(MirrorNodeClient['GET_CONTRACT_RESULT_ENDPOINT']));
+      };
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        SDK_CONSENSUS_ERRORS.forEach(({ statusName, statusCode }) => {
+          it(`should throw TRANSACTION_REJECTED for ${statusName} without polling MN`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws error with transaction ID (simulating consensus-level failure)
+            // Use Status._fromCode to create proper Status object matching real SDK behavior
+            const sdkError = new SDKClientError(
+              { status: Status._fromCode(statusCode), message: statusName },
+              statusName,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+
+            // Set up MN mock (should NOT be called for consensus errors)
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            // Should throw TRANSACTION_REJECTED JsonRpcError, not return the hash from Mirror Node
+            const expectedError = predefined.TRANSACTION_REJECTED(statusName, statusName);
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+              JsonRpcError,
+              expectedError.message,
+            );
+
+            // Verify Mirror Node contracts/results/ endpoint was NOT called
+            expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        /**
+         * Timeout error should be thrown immediately without MN polling
+         */
+        const SDK_TIMEOUT_ERRORS: Array<{ name: string; statusCode: number; message: string }> = [
+          { name: 'timeout exceeded', statusCode: Status.Unknown._code, message: 'timeout exceeded' },
+          { name: 'Connection dropped', statusCode: Status.Unknown._code, message: 'Connection dropped' },
+          {
+            name: 'gRPC timeout',
+            statusCode: Status.InvalidTransactionId._code,
+            message: 'gRPC timeout',
+          },
+        ];
+
+        SDK_TIMEOUT_ERRORS.forEach(({ name, statusCode, message }) => {
+          it(`should throw SDK timeout error (${name}) immediately without polling Mirror Node`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws timeout error with transaction ID
+            const timeoutError = new SDKClientError(
+              { status: { _code: statusCode }, message },
+              message,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(timeoutError);
+
+            // Timeout error should be thrown immediately without MN polling
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+              SDKClientError,
+              message,
+            );
+
+            // Verify Mirror Node contracts/results/ endpoint was NOT called
+            expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        /**
+         * Post-execution errors (not in HEDERA_SPECIFIC_REVERT_STATUSES) should trigger
+         * Mirror Node polling because the transaction executed on the network and has a
+         * valid transaction record, even though it failed.
+         *
+         * Examples: CONTRACT_REVERT_EXECUTED, INVALID_CONTRACT_ID, INVALID_ALIAS_KEY
+         */
+        const POST_EXECUTION_ERRORS: Array<{ statusName: string; statusCode: number }> = [
+          { statusName: 'CONTRACT_REVERT_EXECUTED', statusCode: Status.ContractRevertExecuted._code },
+          { statusName: 'INVALID_CONTRACT_ID', statusCode: Status.InvalidContractId._code },
+          { statusName: 'INVALID_ALIAS_KEY', statusCode: Status.InvalidAliasKey._code },
+        ];
+
+        POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
+          it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws post-execution error with transaction ID
+            const sdkError = new SDKClientError(
+              { status: Status._fromCode(statusCode), message: statusName },
+              statusName,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+
+            // Mirror Node returns transaction hash (transaction executed but failed)
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect(result).to.equal(ethereumHash);
+
+            // Verify Mirror Node contracts/results/ endpoint WAS called for post-execution errors
+            expect(wasContractResultEndpointCalled()).to.be.true;
+          });
+        });
+
+        it('should throw immediately for non-SDKClientError errors without polling MN', async function () {
+          // Reset history to ensure we're only checking calls from this test
+          restMock.resetHistory();
+          const signed = await signTransaction(transaction);
+
+          // Non-SDK error thrown during transaction submission
+          const genericError = new Error('Generic network failure');
+          sdkClientStub.submitEthereumTransaction.throws(genericError);
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            Error,
+            'Generic network failure',
+          );
+
+          // Verify Mirror Node contracts/results/ endpoint was NOT called
+          expect(wasContractResultEndpointCalled()).to.be.false;
+        });
+      });
+    });
+
+    describe('WRONG_NONCE Error Handling', function () {
+      /**
+       * Tests that WRONG_NONCE errors are properly converted to NONCE_TOO_HIGH or NONCE_TOO_LOW
+       * based on comparing the transaction nonce with the current account nonce from Mirror Node.
+       */
+
+      /**
+       * Helper to check if the Mirror Node accounts endpoint was called.
+       */
+      const wasAccountEndpointCalled = (): boolean => {
+        return restMock.history.get.some((req) => req.url?.includes('accounts/'));
+      };
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        it('should throw NONCE_TOO_HIGH when transaction nonce > account nonce', async function () {
+          // Create transaction with nonce 10
+          const txWithHighNonce = {
+            ...transaction,
+            nonce: 10,
+          };
+          const signed = await signTransaction(txWithHighNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set nonce 5 (lower than tx nonce 10)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.NONCE_TOO_HIGH(10, 5).code) &&
+                expect(error.message).to.include('Nonce too high'),
+            );
+
+          // Verify accounts endpoint WAS called to get current nonce
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw NONCE_TOO_LOW when transaction nonce < account nonce', async function () {
+          // Create transaction with nonce 3
+          const txWithLowNonce = {
+            ...transaction,
+            nonce: 3,
+          };
+          const signed = await signTransaction(txWithLowNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set nonce 8 (higher than tx nonce 3)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 8 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.NONCE_TOO_LOW(3, 8).code) &&
+                expect(error.message).to.include('Nonce too low'),
+            );
+
+          // Verify accounts endpoint WAS called to get current nonce
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw INTERNAL_ERROR when Mirror Node cannot return updated nonce', async function () {
+          // Create transaction with specific nonce
+          const txWithNonce = {
+            ...transaction,
+            nonce: 5,
+          };
+          const signed = await signTransaction(txWithNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set same nonce as transaction (cannot determine difference)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.INTERNAL_ERROR().code) &&
+                expect(error.message).to.include('Cannot find updated account nonce for WRONG_NONCE error'),
+            );
+
+          // Verify accounts endpoint WAS called (multiple times due to retry)
+          expect(wasAccountEndpointCalled()).to.be.true;
         });
       });
     });
