@@ -8,6 +8,7 @@
  * Implementations must normalize addresses (e.g., lowercase) internally to ensure consistency.
  */
 export interface LockStrategy {
+  readonly type: string;
   /**
    * Acquires a lock for the specified address.
    * Blocks until the lock is available or timeout is reached.

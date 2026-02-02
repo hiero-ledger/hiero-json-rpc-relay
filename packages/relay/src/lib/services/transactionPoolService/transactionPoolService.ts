@@ -90,6 +90,10 @@ export class TransactionPoolService implements ITransactionPoolService {
       name: 'rpc_relay_txpool_pending_count',
       help: 'Current total pending transactions across all addresses.',
       registers: [register],
+      collect: async () => {
+        const count = (await this.getAllTransactions()).size;
+        this.pendingCountGauge.set(count);
+      },
     });
 
     this.operationsCounter = new Counter({
@@ -111,7 +115,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       help: 'All current unique addresses having transactions in the pending pool',
       registers: [register],
       collect: async () => {
-        const count = await this.getUniqueAddresses();
+        const count = await this.getUniqueAddressesCount();
         this.activeAddressesGauge.set(count);
       },
     });
@@ -164,6 +168,8 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     try {
       await this.storage.removeFromList(addressLowerCased, rlpHex);
+      this.pendingCountGauge.dec();
+      this.operationsCounter.labels('remove').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction removed from pool');
     } catch (error) {
       this.logger.error(
@@ -172,9 +178,6 @@ export class TransactionPoolService implements ITransactionPoolService {
       );
       this.storageErrorsCounter.labels('remove', this.storageType).inc();
       throw error;
-    } finally {
-      this.pendingCountGauge.dec();
-      this.operationsCounter.labels('remove').inc();
     }
   }
 
@@ -236,7 +239,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @returns A promise that resolves to the count of unique addresses.
    */
-  async getUniqueAddresses(): Promise<number> {
+  async getUniqueAddressesCount(): Promise<number> {
     try {
       return await this.storage.getSetSize();
     } catch (error) {

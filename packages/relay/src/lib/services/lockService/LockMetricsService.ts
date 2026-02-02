@@ -12,7 +12,7 @@ export type LockStrategyLabel = 'local' | 'redis';
  */
 export type LockAcquisitionStatus = 'success' | 'fail';
 
-export type RedisOperationLabel = 'acquire' | 'release' | 'hearbeat';
+export type RedisOperationLabel = 'acquire' | 'release' | 'heartbeat';
 
 /**
  * Service responsible for managing all lock-related metrics.
@@ -58,6 +58,10 @@ export class LockMetricsService {
    */
   private readonly activeCountGauge: Gauge;
 
+  /**
+   * Counter tracking the number of Redis-related lock errors, labeled by operation type.
+   * Helps monitor and diagnose issues in the Redis lock strategy.
+   */
   private readonly redisLockErrors: Counter;
 
   constructor(register: Registry) {
@@ -218,6 +222,13 @@ export class LockMetricsService {
     this.activeCountGauge.labels(strategy).dec();
   }
 
+  /**
+   * Increments the Redis lock errors counter for the specified operation type.
+   * Useful for tracking and monitoring Redis-related lock errors, such as
+   * acquire, release, or heartbeat operation failures.
+   *
+   * @param operation - The Redis lock operation that encountered an error ('acquire', 'release', or 'heartbeat').
+   */
   incrementRedisLockErrors(operation: RedisOperationLabel): void {
     this.redisLockErrors.labels(operation).inc();
   }

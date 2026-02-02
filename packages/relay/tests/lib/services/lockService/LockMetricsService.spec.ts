@@ -304,11 +304,11 @@ describe('LockMetricsService', function () {
       metricsService.incrementRedisLockErrors('acquire');
       metricsService.incrementRedisLockErrors('acquire');
       metricsService.incrementRedisLockErrors('release');
-      metricsService.incrementRedisLockErrors('hearbeat');
+      metricsService.incrementRedisLockErrors('heartbeat');
 
       const acquireValue = await getMetricValue('rpc_relay_lock_redis_errors_total', { operation: 'acquire' });
       const releaseValue = await getMetricValue('rpc_relay_lock_redis_errors_total', { operation: 'release' });
-      const heartbeatValue = await getMetricValue('rpc_relay_lock_redis_errors_total', { operation: 'hearbeat' });
+      const heartbeatValue = await getMetricValue('rpc_relay_lock_redis_errors_total', { operation: 'heartbeat' });
 
       expect(acquireValue).to.equal(2);
       expect(releaseValue).to.equal(1);
