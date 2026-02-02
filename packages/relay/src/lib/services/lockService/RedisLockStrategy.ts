@@ -24,6 +24,7 @@ import { LockService } from './LockService';
  * - Active waiters act as "janitors" to prune dead entries from the queue
  */
 export class RedisLockStrategy implements LockStrategy {
+  readonly type: string = 'redis';
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
   private readonly lockMetricsService: LockMetricsService;

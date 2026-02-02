@@ -16,7 +16,7 @@ import { LockService } from './LockService';
 export interface LockState {
   mutex: Mutex;
   sessionKey: string | null;
-  acquiredAt: number | null;
+  acquiredAt: bigint | null;
   lockTimeoutId: NodeJS.Timeout | null;
 }
 
@@ -33,6 +33,8 @@ export class LocalLockStrategy implements LockStrategy {
   private localLockStates = new LRUCache<string, LockState>({
     max: ConfigService.get('LOCAL_LOCK_MAX_ENTRIES'),
   });
+
+  readonly type: string = 'local';
 
   /**
    * Logger.
@@ -68,7 +70,7 @@ export class LocalLockStrategy implements LockStrategy {
    */
   async acquireLock(address: string): Promise<string | undefined> {
     const sessionKey = randomUUID();
-    const startTime = Date.now();
+    const startTime = process.hrtime.bigint();
 
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(`Acquiring lock for address ${address} and sessionkey ${sessionKey}.`);
@@ -82,12 +84,12 @@ export class LocalLockStrategy implements LockStrategy {
       await state.mutex.acquire();
 
       // Record wait time
-      const waitTimeSeconds = (Date.now() - startTime) / 1000;
+      const waitTimeSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
       this.lockMetricsService.recordWaitTime('local', waitTimeSeconds);
 
       // Record lock ownership metadata
       state.sessionKey = sessionKey;
-      state.acquiredAt = Date.now();
+      state.acquiredAt = process.hrtime.bigint();
 
       // Start a 30-second timer to auto-release if lock not manually released
       state.lockTimeoutId = setTimeout(() => {
@@ -119,11 +121,12 @@ export class LocalLockStrategy implements LockStrategy {
     if (state) {
       // Ensure only the lock owner can release
       if (state.sessionKey === sessionKey) {
-        const holdTime = Date.now() - state.acquiredAt!;
-
         await this.doRelease(state);
 
-        this.lockMetricsService.recordHoldDuration('local', holdTime / 1000);
+        // get hold time in seconds
+        const holdTime = Number(process.hrtime.bigint() - state.acquiredAt!) / 1e9;
+
+        this.lockMetricsService.recordHoldDuration('local', holdTime);
         this.lockMetricsService.decrementActiveCount('local');
 
         if (this.logger.isLevelEnabled('debug')) {
@@ -185,17 +188,17 @@ export class LocalLockStrategy implements LockStrategy {
     const state = this.localLockStates.get(normalizedAddress);
 
     if (state?.sessionKey === sessionKey) {
-      const holdTimeMs = Date.now() - state.acquiredAt!;
+      const holdTimeS = Number(process.hrtime.bigint() - state.acquiredAt!) / 1e9;
 
       await this.doRelease(state);
 
       // Record metrics for timeout release
-      this.lockMetricsService.recordHoldDuration('local', holdTimeMs / 1000);
+      this.lockMetricsService.recordHoldDuration('local', holdTimeS);
       this.lockMetricsService.recordTimeoutRelease('local');
       this.lockMetricsService.decrementActiveCount('local');
 
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTimeMs}ms.`);
+        this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTimeS}ms.`);
       }
     }
   }

@@ -3,7 +3,6 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 import { LockStrategy } from '../../types';
-import { RedisLockStrategy } from './RedisLockStrategy';
 
 /**
  * Service that manages transaction ordering through distributed locking.
@@ -24,7 +23,7 @@ export class LockService {
    */
   constructor(strategy: LockStrategy) {
     this.strategy = strategy;
-    this.strategyType = strategy instanceof RedisLockStrategy ? 'redis' : 'local';
+    this.strategyType = strategy.type;
   }
 
   /**
