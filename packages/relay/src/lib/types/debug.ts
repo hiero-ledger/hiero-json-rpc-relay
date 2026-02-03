@@ -107,10 +107,10 @@ export interface OpcodeLoggerResult {
 }
 
 /**
- * Represents the result of a traceBlockByNumber operation for a single transaction.
+ * Represents the result of a block trace operation for a single transaction.
  * The result can be either a call trace or a prestate map, depending on tracer type.
  */
-export interface TraceBlockByNumberTxResult {
+export interface TraceBlockTxResult {
   /** The hash of the transaction being traced. */
   txHash: string;
   /**

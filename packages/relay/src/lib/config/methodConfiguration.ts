@@ -174,6 +174,9 @@ export function getMethodConfiguration(): MethodRateLimitConfiguration {
     debug_traceBlockByNumber: {
       total: tier1rateLimit,
     },
+    debug_traceBlockByHash: {
+      total: tier1rateLimit,
+    },
     batch_request: {
       total: tier1rateLimit,
     },
