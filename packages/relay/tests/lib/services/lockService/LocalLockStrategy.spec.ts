@@ -44,33 +44,36 @@ describe('LocalLockStrategy', function () {
   it('should acquire and release a lock successfully', async () => {
     const address = 'test-address';
 
-    const sessionKey = await lockStrategy.acquireLock(address);
-    expect(sessionKey).to.be.a('string');
+    const result = await lockStrategy.acquireLock(address);
+    expect(result).to.not.be.undefined;
+    expect(result!.sessionKey).to.be.a('string');
+    expect(result!.acquiredAt).to.be.a('bigint');
 
     const lockEntryAfterAcquisition = getStateEntry(address);
+    console.log('Lock entry', lockEntryAfterAcquisition);
     expect(lockEntryAfterAcquisition.sessionKey).to.not.be.null;
 
-    await lockStrategy.releaseLock(address, sessionKey);
+    await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
     const lockEntryAfterRelease = getStateEntry(address);
     expect(lockEntryAfterRelease.sessionKey).to.be.null;
   });
 
   it('should not allow a non-owner to release a lock', async () => {
     const address = 'test-non-owner';
-    const sessionKey = await lockStrategy.acquireLock(address);
+    const result = await lockStrategy.acquireLock(address);
 
     const lockEntryAfterAcquisition = getStateEntry(address);
-    expect(lockEntryAfterAcquisition.sessionKey).to.equal(sessionKey);
+    expect(lockEntryAfterAcquisition.sessionKey).to.equal(result!.sessionKey);
 
     const wrongKey = 'fake-session';
     const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
     await lockStrategy.releaseLock(address, wrongKey);
 
     const lockEntryAfterFakeRelease = getStateEntry(address);
-    expect(lockEntryAfterFakeRelease.sessionKey).to.equal(sessionKey);
+    expect(lockEntryAfterFakeRelease.sessionKey).to.equal(result!.sessionKey);
     expect(doReleaseSpy.called).to.be.false;
 
-    await lockStrategy.releaseLock(address, sessionKey);
+    await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
 
     const lockEntryAfterRelease = getStateEntry(address);
     expect(lockEntryAfterRelease.sessionKey).to.be.null;
@@ -79,13 +82,13 @@ describe('LocalLockStrategy', function () {
   it('should block a second acquire until the first is released', async () => {
     const address = 'test-sequential';
 
-    const sessionKey1 = await lockStrategy.acquireLock(address);
+    const result1 = await lockStrategy.acquireLock(address);
     let secondAcquired = false;
 
     const acquire2 = (async () => {
-      const key2 = await lockStrategy.acquireLock(address);
+      const result2 = await lockStrategy.acquireLock(address);
       secondAcquired = true;
-      await lockStrategy.releaseLock(address, key2);
+      await lockStrategy.releaseLock(address, result2!.sessionKey, result2!.acquiredAt);
     })();
 
     // Wait 100ms to ensure second acquire is blocked
@@ -93,7 +96,7 @@ describe('LocalLockStrategy', function () {
     expect(secondAcquired).to.be.false;
 
     // Now release first
-    await lockStrategy.releaseLock(address, sessionKey1);
+    await lockStrategy.releaseLock(address, result1!.sessionKey, result1!.acquiredAt);
 
     // Wait for second acquire to complete
     await acquire2;
@@ -134,13 +137,13 @@ describe('LocalLockStrategy', function () {
 
   it('should clear timeout and reset state on release', async () => {
     const address = 'test-reset';
-    const sessionKey = await lockStrategy.acquireLock(address);
+    const result = await lockStrategy.acquireLock(address);
     const state = lockStrategy['localLockStates'].get(address);
 
-    expect(state.sessionKey).to.equal(sessionKey);
+    expect(state.sessionKey).to.equal(result!.sessionKey);
     expect(state.lockTimeoutId).to.not.be.null;
 
-    await lockStrategy.releaseLock(address, sessionKey);
+    await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
 
     expect(state.sessionKey).to.be.null;
     expect(state.lockTimeoutId).to.be.null;
@@ -149,16 +152,16 @@ describe('LocalLockStrategy', function () {
 
   it('should ignore forceReleaseExpiredLock if session key does not match', async () => {
     const address = 'test-force-mismatch';
-    const sessionKey = await lockStrategy.acquireLock(address);
+    const result = await lockStrategy.acquireLock(address);
 
     const state = lockStrategy['localLockStates'].get(address);
-    expect(state.sessionKey).to.equal(sessionKey);
+    expect(state.sessionKey).to.equal(result!.sessionKey);
 
     // Modify session key to simulate ownership change
     state.sessionKey = 'different-key';
 
     const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
-    await lockStrategy['forceReleaseExpiredLock'](address, sessionKey);
+    await lockStrategy['forceReleaseExpiredLock'](address, result!.sessionKey);
 
     expect(doReleaseSpy.called).to.be.false;
 
@@ -168,7 +171,7 @@ describe('LocalLockStrategy', function () {
   describe('Metrics verification', () => {
     it('should record metrics on successful lock acquisition', async () => {
       const address = 'test-metrics-acquire';
-      const sessionKey = await lockStrategy.acquireLock(address);
+      const result = await lockStrategy.acquireLock(address);
 
       expect(mockMetricsService.incrementWaitingTxns.calledWith('local')).to.be.true;
       expect(mockMetricsService.recordWaitTime.calledOnce).to.be.true;
@@ -177,17 +180,17 @@ describe('LocalLockStrategy', function () {
       expect(mockMetricsService.incrementActiveCount.calledWith('local')).to.be.true;
       expect(mockMetricsService.decrementWaitingTxns.calledWith('local')).to.be.true;
 
-      await lockStrategy.releaseLock(address, sessionKey);
+      await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
     });
 
     it('should record metrics on lock release', async () => {
       const address = 'test-metrics-release';
-      const sessionKey = await lockStrategy.acquireLock(address);
+      const result = await lockStrategy.acquireLock(address);
 
       mockMetricsService.recordHoldDuration.resetHistory();
       mockMetricsService.decrementActiveCount.resetHistory();
 
-      await lockStrategy.releaseLock(address, sessionKey);
+      await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
 
       expect(mockMetricsService.recordHoldDuration.calledOnce).to.be.true;
       expect(mockMetricsService.recordHoldDuration.firstCall.args[0]).to.equal('local');
@@ -197,7 +200,7 @@ describe('LocalLockStrategy', function () {
 
     it('should not record hold duration metrics when non-owner attempts release', async () => {
       const address = 'test-metrics-non-owner';
-      const sessionKey = await lockStrategy.acquireLock(address);
+      const result = await lockStrategy.acquireLock(address);
 
       mockMetricsService.recordHoldDuration.resetHistory();
       mockMetricsService.decrementActiveCount.resetHistory();
@@ -207,7 +210,7 @@ describe('LocalLockStrategy', function () {
       expect(mockMetricsService.recordHoldDuration.called).to.be.false;
       expect(mockMetricsService.decrementActiveCount.called).to.be.false;
 
-      await lockStrategy.releaseLock(address, sessionKey);
+      await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
     });
 
     withOverriddenEnvsInMochaTest({ LOCK_MAX_HOLD_MS: 200 }, () => {
@@ -231,7 +234,7 @@ describe('LocalLockStrategy', function () {
 
     it('should decrement waiting transactions even when lock acquisition is blocked', async () => {
       const address = 'test-metrics-waiting';
-      const sessionKey1 = await lockStrategy.acquireLock(address);
+      const result1 = await lockStrategy.acquireLock(address);
 
       mockMetricsService.incrementWaitingTxns.resetHistory();
       mockMetricsService.decrementWaitingTxns.resetHistory();
@@ -245,14 +248,14 @@ describe('LocalLockStrategy', function () {
       expect(mockMetricsService.incrementWaitingTxns.calledWith('local')).to.be.true;
 
       // Release first lock
-      await lockStrategy.releaseLock(address, sessionKey1);
+      await lockStrategy.releaseLock(address, result1!.sessionKey, result1!.acquiredAt);
 
       // Wait for second acquire to complete
-      const sessionKey2 = await acquire2Promise;
+      const result2 = await acquire2Promise;
 
       expect(mockMetricsService.decrementWaitingTxns.calledWith('local')).to.be.true;
 
-      await lockStrategy.releaseLock(address, sessionKey2!);
+      await lockStrategy.releaseLock(address, result2!.sessionKey, result2!.acquiredAt);
     });
   });
 });

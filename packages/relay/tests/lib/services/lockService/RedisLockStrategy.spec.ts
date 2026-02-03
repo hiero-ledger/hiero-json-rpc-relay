@@ -78,7 +78,9 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
+      expect(result!.acquiredAt).to.be.a('bigint');
       expect(mockRedisClient.lPush.calledOnce).to.be.true;
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, sessionKey)).to.be.true;
 
@@ -105,7 +107,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
       expect(mockRedisClient.lIndex.callCount).to.equal(2);
       expect(mockRedisClient.exists.calledOnce).to.be.true; // Checked other waiter's heartbeat
       expect(mockRedisClient.lRem.calledOnce).to.be.true;
@@ -241,7 +244,8 @@ describe('RedisLockStrategy Test Suite', function () {
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(session1);
 
       const result1 = await redisLockStrategy.acquireLock(testAddress);
-      expect(result1).to.equal(session1);
+      expect(result1).to.not.be.undefined;
+      expect(result1!.sessionKey).to.equal(session1);
 
       // Verify LPUSH was called (adding to queue)
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, session1)).to.be.true;
@@ -295,7 +299,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
 
       // Should have checked zombie's heartbeat
       expect(mockRedisClient.exists.calledOnce).to.be.true;
@@ -333,7 +338,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
 
       // Should have refreshed heartbeat on EACH poll (3 times for heartbeat + 1 for lock)
       expect(mockRedisClient.set.callCount).to.be.at.least(4);
@@ -457,7 +463,7 @@ describe('RedisLockStrategy Test Suite', function () {
     it('should record metrics on lock release', async () => {
       const sessionKey = 'test-session-key';
 
-      // First acquire the lock to populate acquisitionTimes
+      // First acquire the lock
       mockRedisClient.lPush.resolves(1);
       mockRedisClient.lIndex.resolves(sessionKey);
       mockRedisClient.set.resolves('OK');
@@ -466,7 +472,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
-      await redisLockStrategy.acquireLock(testAddress);
+      const result = await redisLockStrategy.acquireLock(testAddress);
 
       mockMetricsService.recordHoldDuration.resetHistory();
       mockMetricsService.decrementActiveCount.resetHistory();
@@ -474,7 +480,8 @@ describe('RedisLockStrategy Test Suite', function () {
       // Release returns 1 (successful deletion)
       mockRedisClient.eval.resolves(1);
 
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      // Pass acquiredAt from the acquisition result
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, result!.acquiredAt);
 
       expect(mockMetricsService.recordHoldDuration.calledOnce).to.be.true;
       expect(mockMetricsService.recordHoldDuration.firstCall.args[0]).to.equal('redis');
@@ -522,7 +529,9 @@ describe('RedisLockStrategy Test Suite', function () {
 
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
 
-      await redisLockStrategy.acquireLock(testAddress);
+      const result = await redisLockStrategy.acquireLock(testAddress);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
 
       expect(mockMetricsService.recordZombieCleanup.calledWith('redis')).to.be.true;
     });
