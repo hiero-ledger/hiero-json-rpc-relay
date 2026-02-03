@@ -5,7 +5,7 @@
     "test": "hardhat --network hardhat test"
   },
   "devDependencies": {
-    "@hashgraph/hedera-local": "^2.39.0",
+    "@hashgraph/hedera-local": "^2.39.2",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^17.2.3",
     "hardhat": "^2.26.1"
