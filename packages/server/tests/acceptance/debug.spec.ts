@@ -589,12 +589,11 @@ describe('@debug API Acceptance Tests', function () {
     it('should return RESOURCE_NOT_FOUND for non-existent block hash', async function () {
       const nonExistentBlockHash = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-      try {
-        await relay.call(DEBUG_TRACE_BLOCK_BY_HASH, [nonExistentBlockHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE]);
-        expect.fail('Expected the call to throw an error but it did not');
-      } catch (error: any) {
-        expect(error.body).to.contain('RESOURCE_NOT_FOUND');
-      }
+      await relay.callFailing(
+        DEBUG_TRACE_BLOCK_BY_HASH,
+        [nonExistentBlockHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+        predefined.RESOURCE_NOT_FOUND(`Block ${nonExistentBlockHash} not found`),
+      );
     });
   });
 
