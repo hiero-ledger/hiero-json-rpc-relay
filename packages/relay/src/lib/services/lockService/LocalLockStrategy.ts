@@ -34,6 +34,11 @@ export class LocalLockStrategy implements LockStrategy {
     max: ConfigService.get('LOCAL_LOCK_MAX_ENTRIES'),
   });
 
+  /**
+   * The type of lock strategy being implemented.
+   * Always set to 'local' for LocalLockStrategy.
+   * @readonly
+   */
   readonly type: string = 'local';
 
   /**

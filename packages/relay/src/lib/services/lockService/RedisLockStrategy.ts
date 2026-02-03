@@ -109,7 +109,7 @@ export class RedisLockStrategy implements LockStrategy {
           const heartbeatExists = await this.redisClient.exists(this.getHeartbeatKey(firstInQueue));
           if (!heartbeatExists) {
             await this.redisClient.lRem(queueKey, 0, firstInQueue);
-            this.lockMetricsService.recordZombieCleanup('redis');
+            this.lockMetricsService.recordZombieCleanup();
             continue; // Immediate retry (no sleep)
           }
         }
@@ -124,6 +124,7 @@ export class RedisLockStrategy implements LockStrategy {
       this.lockMetricsService.incrementRedisLockErrors('acquire');
       return;
     } finally {
+      // Always remove from queue if we joined it (whether success or failure)
       if (joinedQueue) {
         this.lockMetricsService.decrementWaitingTxns('redis');
         await this.removeFromQueue(queueKey, sessionKey, address);
