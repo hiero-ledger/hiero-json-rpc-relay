@@ -1129,7 +1129,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           expect(wasAccountEndpointCalled()).to.be.true;
         });
 
-        it('should throw INTERNAL_ERROR when Mirror Node cannot return updated nonce', async function () {
+        it('should throw TRANSACTION_REJECTED when Mirror Node cannot determine nonce discrepancy', async function () {
           // Create transaction with specific nonce
           const txWithNonce = {
             ...transaction,
@@ -1153,11 +1153,53 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             .to.be.rejectedWith(JsonRpcError)
             .and.eventually.satisfy(
               (error: JsonRpcError) =>
-                expect(error.code).to.equal(predefined.INTERNAL_ERROR().code) &&
-                expect(error.message).to.include('Cannot find updated account nonce for WRONG_NONCE error'),
+                expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
             );
 
-          // Verify accounts endpoint WAS called (multiple times due to retry)
+          // Verify accounts endpoint WAS called
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw TRANSACTION_REJECTED when Mirror Node request fails', async function () {
+          // Create transaction with specific nonce
+          const txWithNonce = {
+            ...transaction,
+            nonce: 5,
+          };
+          const signed = await signTransaction(txWithNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset all handlers, then set up responses:
+          // - network/fees, networkExchangeRate, receiverAccount needed for precheck
+          // - First accountEndpoint call (precheck) succeeds
+          // - Second accountEndpoint call (during WRONG_NONCE handler) fails with 500
+          restMock.reset();
+          restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock
+            .onGet(accountEndpoint)
+            .replyOnce(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }))
+            .onGet(accountEndpoint)
+            .replyOnce(500);
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
+            );
+
+          // Verify accounts endpoint WAS called
           expect(wasAccountEndpointCalled()).to.be.true;
         });
       });
