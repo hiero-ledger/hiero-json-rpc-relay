@@ -30,6 +30,8 @@ export interface Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any>;
+
+  traceBlockByHash(blockHash: string, tracerObject: BlockTracerConfig, requestDetails: RequestDetails): Promise<any>;
 }
 
 export interface Web3 {

@@ -37,6 +37,19 @@
       "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByNumber\",\"params\":[],\"id\":1}",
       "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}}"
     },
+    "debug_traceBlockByHash - callTracer": {
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByHash\",\"params\":[\"0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b\",{\"tracer\":\"callTracer\",\"tracerConfig\":{\"onlyTopCall\":false}}],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":[]}"
+    },
+    "debug_traceBlockByHash - prestateTracer": {
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByHash\",\"params\":[\"0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b\",{\"tracer\":\"prestateTracer\"}],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":[]}"
+    },
+    "debug_traceBlockByHash - invalid params": {
+      "status": 400,
+      "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceBlockByHash\",\"params\":[],\"id\":1}",
+      "response": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"Invalid params\"}}"
+    },
     "debug_anyMethod": {
       "status": 400,
       "request": "{\"jsonrpc\":\"2.0\",\"method\":\"debug_anyMethod\",\"params\":[\"0x1\"],\"id\":1}",
