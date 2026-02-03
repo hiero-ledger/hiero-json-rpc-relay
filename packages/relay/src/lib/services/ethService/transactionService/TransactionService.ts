@@ -20,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
+import { ITransactionReceipt, LockAcquisitionResult, RequestDetails, TypedEvents } from '../../../types';
 import HAPIService from '../../hapiService/hapiService';
 import { ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
@@ -68,6 +68,12 @@ export class TransactionService implements ITransactionService {
    */
   private readonly mirrorNodeClient: MirrorNodeClient;
 
+  /**
+   * Counter metric for tracking the total number of wrong nonce errors encountered.
+   *
+   * @private
+   * @readonly
+   */
   private readonly wrongNonceMetric: Counter;
 
   /**
@@ -76,8 +82,12 @@ export class TransactionService implements ITransactionService {
    */
   private readonly precheck: Precheck;
 
-  private readonly registry: Registry;
-
+  /**
+   * The service for handling the local transaction pool.
+   * Responsible for storing, retrieving, and managing transactions before submission to the network.
+   * @private
+   * @readonly
+   */
   private readonly transactionPoolService: TransactionPoolService;
 
   /**
@@ -111,10 +121,9 @@ export class TransactionService implements ITransactionService {
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
     this.lockService = lockService;
-    this.registry = registry;
 
     const metricName = 'rpc_relay_wrong_nonce_errors_total';
-    this.registry.removeSingleMetric(metricName);
+    registry.removeSingleMetric(metricName);
     this.wrongNonceMetric = new Counter({
       name: metricName,
       help: 'Wrong nonce errors counter',
@@ -259,12 +268,12 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    let lockSessionKey: string | undefined;
+    let lockResult: LockAcquisitionResult | undefined;
 
     // Acquire lock FIRST - before any side effects or async operations
     // This ensures proper nonce ordering for transactions from the same sender
     if (parsedTx.from) {
-      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
+      lockResult = await this.lockService.acquireLock(parsedTx.from);
     }
 
     try {
@@ -289,7 +298,7 @@ export class TransactionService implements ITransactionService {
           transactionBuffer,
           parsedTx,
           networkGasPriceInWeiBars,
-          lockSessionKey,
+          lockResult,
           requestDetails,
         );
         return Utils.computeTransactionHash(transactionBuffer);
@@ -303,13 +312,13 @@ export class TransactionService implements ITransactionService {
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        lockSessionKey,
+        lockResult,
         requestDetails,
       );
     } catch (error) {
       // Release lock on any error during validation or prechecks
-      if (lockSessionKey) {
-        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+      if (lockResult) {
+        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
       }
       throw error;
     }
@@ -555,15 +564,15 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
+   * @param {LockAcquisitionResult | undefined} lockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
-   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
   async sendRawTransactionProcessor(
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    lockSessionKey: string | undefined,
+    lockResult: LockAcquisitionResult | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const originalCallerAddress = parsedTx.from?.toString() || '';
@@ -579,8 +588,8 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
-    if (lockSessionKey) {
-      await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
+    if (lockResult) {
+      await this.lockService.releaseLock(originalCallerAddress, lockResult.sessionKey, lockResult.acquiredAt);
     }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
