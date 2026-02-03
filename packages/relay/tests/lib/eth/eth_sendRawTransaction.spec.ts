@@ -578,8 +578,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
+          const currentTime = process.hrtime.bigint();
           // Simulate successful lock acquisition
-          lockServiceStub.acquireLock.resolves('test-session-key-123');
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-123', acquiredAt: currentTime });
 
           // Simulate lock release failure
           lockServiceStub.releaseLock.resolves();
@@ -594,7 +595,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           // Verify lock release was attempted
           sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-123');
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-123', currentTime);
         });
 
         it('should preserve original precheck error when lock release fails', async function () {
@@ -650,7 +651,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
-          lockServiceStub.acquireLock.resolves('test-session-key-success');
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
           lockServiceStub.releaseLock.resolves(); // Successful release
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
@@ -659,7 +661,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           );
           // Verify lock was properly released
           sinon.assert.calledOnce(lockServiceStub.releaseLock);
-          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success');
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success', currentTime);
         });
       });
 
@@ -673,7 +675,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
           restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-          lockServiceStub.acquireLock.resolves('test-session-key-success');
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
           lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
 
           sdkClientStub.submitEthereumTransaction.resolves({
@@ -757,7 +760,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
           restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-          lockServiceStub.acquireLock.resolves('session-after-consensus-1');
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'session-after-consensus-1', acquiredAt: currentTime });
           lockServiceStub.releaseLock.resolves();
 
           sdkClientStub.submitEthereumTransaction.resolves({
@@ -802,7 +806,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
         restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
 
-        lockServiceStub.acquireLock.resolves('session-mn-fail');
+        const currentTime = process.hrtime.bigint();
+        lockServiceStub.acquireLock.resolves({ sessionKey: 'session-mn-fail', acquiredAt: currentTime });
         lockServiceStub.releaseLock.resolves();
 
         sdkClientStub.submitEthereumTransaction.resolves({
@@ -862,7 +867,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
             restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
-            lockServiceStub.acquireLock.resolves('session-sync');
+            const currentTime = process.hrtime.bigint();
+            lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
             lockServiceStub.releaseLock.resolves();
 
             sdkClientStub.submitEthereumTransaction.resolves({

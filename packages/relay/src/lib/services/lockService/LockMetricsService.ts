@@ -12,6 +12,14 @@ export type LockStrategyLabel = 'local' | 'redis';
  */
 export type LockAcquisitionStatus = 'success' | 'fail';
 
+/**
+ * Operation types used as labels for Redis-related lock metrics.
+ *
+ * @remarks
+ * - 'acquire': Attempting to acquire a lock using Redis.
+ * - 'release': Releasing a lock that was previously acquired using Redis.
+ * - 'heartbeat': Sending heartbeat signals to maintain Redis lock queue entries.
+ */
 export type RedisOperationLabel = 'acquire' | 'release' | 'heartbeat';
 
 /**
@@ -118,7 +126,6 @@ export class LockMetricsService {
     this.zombieCleanupsCounter = new Counter({
       name: 'rpc_relay_lock_zombie_cleanups_total',
       help: 'Zombie queue entries removed (crashed waiters detected via missing heartbeat). Only applicable to Redis strategy.',
-      labelNames: ['strategy'],
       registers: [register],
     });
 
@@ -200,8 +207,8 @@ export class LockMetricsService {
    *
    * @param strategy - The lock strategy type ('local' or 'redis').
    */
-  recordZombieCleanup(strategy: LockStrategyLabel): void {
-    this.zombieCleanupsCounter.labels(strategy).inc();
+  recordZombieCleanup(): void {
+    this.zombieCleanupsCounter.inc();
   }
 
   /**
