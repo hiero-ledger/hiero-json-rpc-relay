@@ -531,7 +531,10 @@ export class TransactionService implements ITransactionService {
    * 2. Non-SDK error → throw as-is (application-level failure)
    * 3. SDK timeout error → throw as-is (network failure)
    * 4. Pre-execution failure (in HEDERA_SPECIFIC_REVERT_STATUSES):
-   *    - WRONG_NONCE: polls MN for account nonce, throws NONCE_TOO_HIGH/NONCE_TOO_LOW
+   *    - WRONG_NONCE: fetch account nonce from MN
+   *      - If nonce too high → throw NONCE_TOO_HIGH
+   *      - If nonce too low → throw NONCE_TOO_LOW
+   *      - If unable to determine → fallback to original status
    *    - Others: throws TRANSACTION_REJECTED with status details
    * 5. Post-execution failure → return (proceed to MN polling for tx hash)
    *
@@ -571,34 +574,22 @@ export class TransactionService implements ITransactionService {
       // WRONG_NONCE requires special handling to determine if nonce is too high or too low
       // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
-        const mirrorNodeGetContractResultRetries = this.mirrorNodeClient.getMirrorNodeRequestRetryCount();
-
-        // Poll Mirror Node to get updated account nonce for comparison
         let accountNonce: number | null = null;
-        for (let i = 0; i < mirrorNodeGetContractResultRetries; i++) {
-          const accountInfo = await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails);
-          if (accountInfo.ethereum_nonce !== parsedTx.nonce) {
-            accountNonce = accountInfo.ethereum_nonce;
-            break;
+        try {
+          accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;
+        } catch (mirrorNodeError) {
+          // Mirror Node request failed (e.g., 404, 429, 5xx)
+          // Simply ignore and fallback to the original rejection to avoid masking the true error
+          this.logger.debug(mirrorNodeError, `Failed to fetch account nonce for WRONG_NONCE error handling`);
+        }
+
+        // Determine if nonce is too high or too low
+        if (accountNonce != null && accountNonce !== parsedTx.nonce) {
+          if (parsedTx.nonce > accountNonce) {
+            throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
+          } else {
+            throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
           }
-
-          this.logger.trace(
-            `Repeating retry to poll for updated account nonce. Count %d of %d. Waiting %d ms before initiating a new request`,
-            i,
-            mirrorNodeGetContractResultRetries,
-            this.mirrorNodeClient.getMirrorNodeRetryDelay(),
-          );
-          await new Promise((r) => setTimeout(r, this.mirrorNodeClient.getMirrorNodeRetryDelay()));
-        }
-
-        if (accountNonce === null) {
-          throw predefined.INTERNAL_ERROR(`Cannot find updated account nonce for WRONG_NONCE error.`);
-        }
-
-        if (parsedTx.nonce > accountNonce) {
-          throw predefined.NONCE_TOO_HIGH(parsedTx.nonce, accountNonce);
-        } else {
-          throw predefined.NONCE_TOO_LOW(parsedTx.nonce, accountNonce);
         }
       }
 
