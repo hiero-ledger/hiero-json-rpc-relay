@@ -557,20 +557,25 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       });
 
       describe('Validation Error Path', () => {
+        const poorAccount = {
+          ...ACCOUNT_RES,
+          balance: { balance: 1000 }, // Very low balance
+        };
+
         it('should preserve original validation error when lock release fails', async function () {
           const transaction = {
             chainId: Number(ConfigService.get('CHAIN_ID')),
             to: ACCOUNT_ADDRESS_1,
             from: accountAddress,
-            value: '0x1',
-            gasPrice: '0x1', // Too low - will fail validation
+            value: 10_000_000_000,
+            gasPrice,
             gasLimit: MAX_GAS_LIMIT_HEX,
             nonce: 0,
           };
           const signed = await signTransaction(transaction);
 
           // Mock account data
-          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
@@ -581,7 +586,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           lockServiceStub.releaseLock.resolves();
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
-            "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+            'Insufficient funds for transfer',
           );
 
           // Verify lock was acquired
@@ -606,10 +611,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const signed = await signTransaction(transaction);
 
           // Mock insufficient balance
-          const poorAccount = {
-            ...ACCOUNT_RES,
-            balance: { balance: 1000 }, // Very low balance
-          };
           restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
@@ -631,18 +632,22 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         });
 
         it('should successfully release lock when validation fails and lock service works', async function () {
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
           const transaction = {
             chainId: Number(ConfigService.get('CHAIN_ID')),
             to: ACCOUNT_ADDRESS_1,
             from: accountAddress,
-            value: '0x1',
-            gasPrice: '0x1', // Too low
+            value: 10_000_000_000,
+            gasPrice,
             gasLimit: MAX_GAS_LIMIT_HEX,
             nonce: 0,
           };
           const signed = await signTransaction(transaction);
 
-          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
 
@@ -651,12 +656,43 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
             JsonRpcError,
-            "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+            'Insufficient funds for transfer',
           );
           // Verify lock was properly released
           sinon.assert.calledOnce(lockServiceStub.releaseLock);
           sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success');
+
+          // Transaction should be added to the tx pool and removed from it after failed async validation.
+          sinon.assert.calledOnce(saveStub);
+          sinon.assert.calledOnce(removeStub);
         });
+      });
+
+      it('should not initialize lock when base sync precheck fails and lock service works', async function () {
+        const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+        const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+
+        const transaction = {
+          chainId: Number(ConfigService.get('CHAIN_ID')),
+          to: ACCOUNT_ADDRESS_1,
+          from: accountAddress,
+          value: '0x1', // Less than one tinybar
+          gasPrice,
+          gasLimit: MAX_GAS_LIMIT_HEX,
+          nonce: 0,
+        };
+        const signed = await signTransaction(transaction);
+
+        restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+        restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+        restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+          JsonRpcError,
+          "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+        );
+        sinon.assert.neverCalledWith(saveStub);
+        sinon.assert.neverCalledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success');
       });
 
       describe('Successful Transaction Path', () => {
