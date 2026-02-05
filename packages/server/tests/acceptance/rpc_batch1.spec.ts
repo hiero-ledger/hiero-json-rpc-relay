@@ -1300,6 +1300,68 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(response).to.be.null;
       });
 
+      it('@release should execute "eth_getTransactionByBlockHashAndIndex" for synthetic HTS transaction', async function () {
+        const tokenId = await servicesNode.createToken(1000);
+        await accounts[2].client.associateToken(tokenId);
+        const transaction = new TransferTransaction()
+          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .setTransactionMemo('Relay test synthetic tx by block hash and index');
+        const resp = await transaction.execute(servicesNode.client);
+
+        // Get the exact consensus timestamp from the transaction record
+        const { executedTimestamp } = await servicesNode.getRecordResponseDetails(resp);
+        await Utils.wait(3000);
+
+        // Query logs with the exact timestamp to get the correct transaction details
+        const logsRes = await mirrorNode.get(`/contracts/results/logs?timestamp=${executedTimestamp}`);
+        expect(logsRes.logs).to.be.an('array').with.lengthOf.at.least(1);
+
+        const blockHash = logsRes.logs[0].block_hash;
+        const transactionIndex = logsRes.logs[0].transaction_index;
+        const transactionHash = logsRes.logs[0].transaction_hash;
+
+        const response = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_HASH_AND_INDEX, [
+          blockHash.substring(0, 66),
+          numberTo0x(transactionIndex),
+        ]);
+
+        expect(response).to.not.be.null;
+        expect(response.hash).to.equal(transactionHash.substring(0, 66));
+        expect(response.transactionIndex).to.equal(numberTo0x(transactionIndex));
+      });
+
+      it('@release should execute "eth_getTransactionByBlockNumberAndIndex" for synthetic HTS transaction', async function () {
+        const tokenId = await servicesNode.createToken(1000);
+        await accounts[2].client.associateToken(tokenId);
+        const transaction = new TransferTransaction()
+          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .setTransactionMemo('Relay test synthetic tx by block number and index');
+        const resp = await transaction.execute(servicesNode.client);
+
+        // Get the exact consensus timestamp from the transaction record
+        const { executedTimestamp } = await servicesNode.getRecordResponseDetails(resp);
+        await Utils.wait(3000);
+
+        // Query logs with the exact timestamp to get the correct transaction details
+        const logsRes = await mirrorNode.get(`/contracts/results/logs?timestamp=${executedTimestamp}`);
+        expect(logsRes.logs).to.be.an('array').with.lengthOf.at.least(1);
+
+        const blockNumber = logsRes.logs[0].block_number;
+        const transactionIndex = logsRes.logs[0].transaction_index;
+        const transactionHash = logsRes.logs[0].transaction_hash;
+
+        const response = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX, [
+          numberTo0x(blockNumber),
+          numberTo0x(transactionIndex),
+        ]);
+
+        expect(response).to.not.be.null;
+        expect(response.hash).to.equal(transactionHash.substring(0, 66));
+        expect(response.transactionIndex).to.equal(numberTo0x(transactionIndex));
+      });
+
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of legacy transaction', async function () {
         const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
         const transaction = {

@@ -347,7 +347,10 @@ export class TransactionService implements ITransactionService {
       ],
     );
 
-    if (!contractResults[0]) return null;
+    if (!contractResults[0]) {
+      // Handle synthetic transactions (e.g., HAPI crypto transfers for tokens)
+      return this.getSyntheticTransactionByBlockAndIndex(blockParam, transactionIndex, requestDetails);
+    }
 
     const [resolvedToAddress, resolvedFromAddress] = await Promise.all([
       this.common.resolveEvmAddress(contractResults[0].to, requestDetails),
@@ -359,6 +362,59 @@ export class TransactionService implements ITransactionService {
       from: resolvedFromAddress,
       to: resolvedToAddress,
     });
+  }
+
+  /**
+   * Retrieves a synthetic transaction by block (hash or number) and transaction index.
+   *
+   * @param blockParam - The block identifier containing either blockHash or blockNumber
+   * @param transactionIndex - The index of the transaction within the block (hex string)
+   * @param requestDetails - Request details for logging and tracking
+   * @returns A Transaction object if a synthetic transaction is found, null otherwise
+   */
+  private async getSyntheticTransactionByBlockAndIndex(
+    blockParam: {
+      title: 'blockHash' | 'blockNumber';
+      value: string | number;
+    },
+    transactionIndex: string,
+    requestDetails: RequestDetails,
+  ): Promise<Transaction | null> {
+    const block = await this.mirrorNodeClient.getBlock(blockParam.value, requestDetails);
+
+    if (!block) {
+      this.logger.trace(`Block not found for %s=%s`, blockParam.title, blockParam.value);
+      return null;
+    }
+
+    // Calculate slice count for parallel log retrieval based on block transaction count
+    const sliceCount = Math.ceil(block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'));
+
+    // Query logs within the block's timestamp range using timestamp slicing
+    const syntheticLogs = await this.common.getLogsWithParams(
+      null,
+      {
+        timestamp: [`gte:${block.timestamp.from}`, `lte:${block.timestamp.to}`],
+      },
+      requestDetails,
+      sliceCount,
+    );
+
+    if (!syntheticLogs.length) {
+      this.logger.trace(`No synthetic transactions found for block %s`, blockParam.value);
+      return null;
+    }
+
+    // Find the log matching the specified transaction index
+    const txIndexHex = numberTo0x(Number(transactionIndex));
+    const matchingLog = syntheticLogs.find((log) => log.transactionIndex === txIndexHex);
+
+    if (!matchingLog) {
+      this.logger.trace(`No synthetic transaction found at index %s in block %s`, transactionIndex, blockParam.value);
+      return null;
+    }
+
+    return TransactionFactory.createTransactionFromLog(this.chain, matchingLog, 0);
   }
 
   /**

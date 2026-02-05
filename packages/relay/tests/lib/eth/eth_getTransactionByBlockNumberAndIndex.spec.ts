@@ -25,8 +25,11 @@ import {
   DEFAULT_BLOCK,
   DEFAULT_BLOCKS_RES,
   DEFAULT_NETWORK_FEES,
+  EMPTY_LOGS_RESPONSE,
   NO_SUCH_CONTRACT_RESULT,
   NOT_FOUND_RES,
+  SYNTHETIC_LOG,
+  SYNTHETIC_TX_HASH,
 } from './eth-config';
 import { contractResultsByNumberByIndexURL, generateEthTestEnv } from './eth-helpers';
 
@@ -134,6 +137,8 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
     restMock
       .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
       .reply(404, JSON.stringify(NO_SUCH_CONTRACT_RESULT));
+    // Mock block endpoint returning 404 so synthetic transaction fallback also returns null
+    restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
     const result = await ethImpl.getTransactionByBlockNumberAndIndex(
       numberTo0x(DEFAULT_BLOCK.number),
@@ -170,6 +175,8 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
     restMock
       .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
       .reply(200, JSON.stringify({ results: [] }));
+    // Mock block endpoint returning 404 so synthetic transaction fallback also returns null
+    restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
 
     const result = await ethImpl.getTransactionByBlockNumberAndIndex(
       numberTo0x(DEFAULT_BLOCK.number),
@@ -264,5 +271,161 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
       requestDetails,
     );
     verifyAggregatedInfo(result);
+  });
+
+  describe('synthetic transaction handling', function () {
+    it('returns synthetic transaction when contract result is empty but logs exist', async function () {
+      // Mock contract results returning empty (no EVM transaction)
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, SYNTHETIC_LOG.transaction_index))
+        .reply(200, JSON.stringify({ results: [] }));
+
+      // Mock block endpoint returning block with timestamp range
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+      // Mock logs endpoint returning synthetic log
+      restMock.onGet(/contracts\/results\/logs.*/).reply(200, JSON.stringify({ logs: [SYNTHETIC_LOG] }));
+
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(SYNTHETIC_LOG.transaction_index),
+        requestDetails,
+      );
+
+      expect(result).to.not.be.null;
+      expect(result?.hash).to.equal(SYNTHETIC_TX_HASH.slice(0, 66)); // toHash32 truncates
+      expect(result?.transactionIndex).to.equal(numberTo0x(SYNTHETIC_LOG.transaction_index));
+      expect(result?.from).to.equal(SYNTHETIC_LOG.address);
+      expect(result?.to).to.equal(SYNTHETIC_LOG.address);
+    });
+
+    it('returns null when contract result is empty and block not found', async function () {
+      // Mock contract results returning empty
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
+        .reply(200, JSON.stringify({ results: [] }));
+
+      // Mock block endpoint returning 404
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(DEFAULT_BLOCK.count),
+        requestDetails,
+      );
+
+      expect(result).to.equal(null);
+    });
+
+    it('returns null when contract result is empty and no logs in block', async function () {
+      // Mock contract results returning empty
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
+        .reply(200, JSON.stringify({ results: [] }));
+
+      // Mock block endpoint returning block
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+      // Mock logs endpoint returning empty
+      restMock.onGet(/contracts\/results\/logs.*/).reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
+
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(DEFAULT_BLOCK.count),
+        requestDetails,
+      );
+
+      expect(result).to.equal(null);
+    });
+
+    it('returns null when contract result is empty and no log matches transaction index', async function () {
+      const nonMatchingTransactionIndex = 999;
+
+      // Mock contract results returning empty
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, nonMatchingTransactionIndex))
+        .reply(200, JSON.stringify({ results: [] }));
+
+      // Mock block endpoint returning block
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+      // Mock logs endpoint returning log with different transaction index
+      restMock.onGet(/contracts\/results\/logs.*/).reply(200, JSON.stringify({ logs: [SYNTHETIC_LOG] }));
+
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(nonMatchingTransactionIndex),
+        requestDetails,
+      );
+
+      expect(result).to.equal(null);
+    });
+
+    it('returns null when contract result returns 404 and no synthetic transaction found', async function () {
+      // Mock contract results returning 404
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count))
+        .reply(404, JSON.stringify(NO_SUCH_CONTRACT_RESULT));
+
+      // Mock block endpoint returning block
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+
+      // Mock logs endpoint returning empty
+      restMock.onGet(/contracts\/results\/logs.*/).reply(200, JSON.stringify(EMPTY_LOGS_RESPONSE));
+
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(DEFAULT_BLOCK.count),
+        requestDetails,
+      );
+
+      expect(result).to.equal(null);
+    });
+
+    it('uses timestamp slicing for blocks with high transaction count', async function () {
+      // Create a block with high transaction count to trigger timestamp slicing
+      const largeBlock = {
+        ...DEFAULT_BLOCK,
+        count: 10000, // High transaction count triggers slicing (sliceCount = count / MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE)
+        timestamp: {
+          from: '1651560386.000000000',
+          to: '1651560390.000000000',
+        },
+      };
+
+      const syntheticLogForLargeBlock = {
+        ...SYNTHETIC_LOG,
+        transaction_index: 5000,
+      };
+
+      // Mock contract results returning empty
+      restMock
+        .onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, syntheticLogForLargeBlock.transaction_index))
+        .reply(200, JSON.stringify({ results: [] }));
+
+      // Mock block endpoint returning large block
+      restMock.onGet(`blocks/${DEFAULT_BLOCK.number}`).reply(200, JSON.stringify(largeBlock));
+
+      // Track the number of log requests (timestamp slicing makes parallel requests)
+      let logRequestCount = 0;
+      restMock.onGet(/contracts\/results\/logs.*/).reply(() => {
+        logRequestCount++;
+        return [200, JSON.stringify({ logs: [syntheticLogForLargeBlock] })];
+      });
+
+      const startTime = Date.now();
+      const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+        numberTo0x(DEFAULT_BLOCK.number),
+        numberTo0x(syntheticLogForLargeBlock.transaction_index),
+        requestDetails,
+      );
+      const elapsedTime = Date.now() - startTime;
+
+      expect(result).to.not.be.null;
+      // Verify timestamp slicing was applied (multiple parallel requests should have been made)
+      expect(logRequestCount).to.be.greaterThan(1, 'Expected multiple parallel requests for timestamp slicing');
+      // Performance check: parallel execution should complete within reasonable time (100ms)
+      expect(elapsedTime).to.be.lessThan(100, 'Expected parallel execution to complete within 100ms');
+    });
   });
 });
