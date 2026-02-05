@@ -60,6 +60,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   let account2Address: string;
   let expectedGasPrice: string;
   let createChildTx: ethers.ContractTransactionResponse;
+  let htsTokenId: any; // Shared HTS token for synthetic transaction tests
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const requestId = 'rpc_batch1Test';
   const requestIdPrefix = Utils.formatRequestIdMessage(requestId);
@@ -137,6 +138,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
       mirrorContractDetails.from = accounts[0].address;
       account2Address = accounts[2].address;
+
+      // Create shared HTS token for synthetic transaction tests
+      htsTokenId = await servicesNode.createToken(1000);
+      await accounts[2].client.associateToken(htsTokenId);
     });
 
     describe('txpool_* RPC methods', async () => {
@@ -915,11 +920,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('should execute "eth_getBlockReceipts" for a block that contains synthetic transaction', async function () {
-        const tokenId = await servicesNode.createToken(1000);
-        await accounts[2].client.associateToken(tokenId);
         const transaction = new TransferTransaction()
-          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
-          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
           .setTransactionMemo('Relay test token transfer');
         const resp = await transaction.execute(servicesNode.client);
         await resp.getRecord(servicesNode.client);
@@ -929,7 +932,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const formattedBlockNumber = prepend0x(blockNumber.toString(16));
         const contractId = logsRes.logs[0].contract_id;
         const transactionHash = logsRes.logs[0].transaction_hash;
-        if (contractId !== tokenId.toString()) {
+        if (contractId !== htsTokenId.toString()) {
           return;
         }
 
@@ -1301,11 +1304,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@release should execute "eth_getTransactionByBlockHashAndIndex" for synthetic HTS transaction', async function () {
-        const tokenId = await servicesNode.createToken(1000);
-        await accounts[2].client.associateToken(tokenId);
         const transaction = new TransferTransaction()
-          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
-          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
           .setTransactionMemo('Relay test synthetic tx by block hash and index');
         const resp = await transaction.execute(servicesNode.client);
 
@@ -1332,11 +1333,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@release should execute "eth_getTransactionByBlockNumberAndIndex" for synthetic HTS transaction', async function () {
-        const tokenId = await servicesNode.createToken(1000);
-        await accounts[2].client.associateToken(tokenId);
         const transaction = new TransferTransaction()
-          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
-          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
           .setTransactionMemo('Relay test synthetic tx by block number and index');
         const resp = await transaction.execute(servicesNode.client);
 
@@ -1453,12 +1452,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@release should return the right "effectiveGasPrice" for SYNTHETIC HTS transaction', async function () {
-        const tokenId = await servicesNode.createToken(1000);
-        await accounts[2].client.associateToken(tokenId);
         const currentPrice = await relay.gasPrice();
         const transaction = new TransferTransaction()
-          .addTokenTransfer(tokenId, servicesNode._thisAccountId(), -10)
-          .addTokenTransfer(tokenId, accounts[2].accountId, 10)
+          .addTokenTransfer(htsTokenId, servicesNode._thisAccountId(), -10)
+          .addTokenTransfer(htsTokenId, accounts[2].accountId, 10)
           .setTransactionMemo('Relay test token transfer');
         const resp = await transaction.execute(servicesNode.client);
         await resp.getRecord(servicesNode.client);
@@ -1468,7 +1465,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const formattedBlockNumber = prepend0x(blockNumber.toString(16));
         const contractId = logsRes.logs[0].contract_id;
         const transactionHash = logsRes.logs[0].transaction_hash;
-        if (contractId !== tokenId.toString()) {
+        if (contractId !== htsTokenId.toString()) {
           return;
         }
 
