@@ -253,6 +253,34 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(result?.logsBloom).equal(blockLogsBloom);
     });
 
+    it('eth_getBlockByNumber with match and details and transactions with same hash but different fields', async function () {
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+        200,
+        JSON.stringify({
+          results: [
+            ...defaultContractResults.results,
+            {
+              ...defaultContractResults.results[0],
+              transaction_index: defaultContractResults.results[0].transaction_index + 1,
+            },
+          ],
+        }),
+      );
+
+      const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), true, requestDetails);
+
+      if (result) {
+        // verify aggregated info
+        veriftAggregatedInfo(result);
+        expect(result.gasUsed).equal(TOTAL_GAS_USED);
+        verifyTransactions(result.transactions as Array<Transaction>);
+
+        // verify expected constants
+        RelayAssertions.verifyBlockConstants(result);
+        expect(result.receiptsRoot).to.equal(DEFAULT_BLOCK_RECEIPTS_ROOT_HASH);
+      }
+    });
+
     it('eth_getBlockByNumber with match paginated', async function () {
       restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(LINKS_NEXT_RES));
       restMock.onGet(CONTRACTS_RESULTS_NEXT_URL).reply(200, JSON.stringify(defaultContractResults));
