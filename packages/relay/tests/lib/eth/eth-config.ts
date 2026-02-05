@@ -52,6 +52,29 @@ export const DEFAULT_BLOCK = {
   gas_used: GAS_USED_1 + GAS_USED_2,
   logs_bloom: '0x',
 };
+
+// Synthetic transaction test data
+export const SYNTHETIC_TX_HASH = '0x1b1aaac9ee7b1ad9f95651aeec8d3beb80bb0197d01234a85a643e2ea02a55a5';
+export const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+export const SYNTHETIC_LOG = {
+  address: '0x00000000000000000000000000000000006390e6',
+  bloom: '0x00',
+  contract_id: '0.0.6525158',
+  data: '0x000000000000000000000000000000000000000000000000000000000000000a',
+  index: 0,
+  topics: [
+    TRANSFER_EVENT_SIGNATURE,
+    '0x000000000000000000000000b562f7740eb5b7a2177994765f76c7b964437e85',
+    '0x00000000000000000000000025639d1a6b4d3ace699d541d15b898bd6a7fd5bb',
+  ],
+  block_hash: BLOCK_HASH,
+  block_number: BLOCK_NUMBER,
+  root_contract_id: '0.0.6525158',
+  timestamp: `${BLOCK_TIMESTAMP}.060890949`,
+  transaction_hash: SYNTHETIC_TX_HASH,
+  transaction_index: BLOCK_TRANSACTION_COUNT,
+};
+
 export const DEFAULT_NETWORK_FEES = {
   fees: [
     {
