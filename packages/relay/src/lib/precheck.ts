@@ -55,22 +55,43 @@ export class Precheck {
   }
 
   /**
-   * Sends a raw transaction after performing various prechecks.
+   * Performs basic, stateless prechecks to determine whether a transaction
+   * is eligible to be stored in the transaction pool.
+   *
+   * This method validates transaction properties that can be checked
+   * without fetching additional data asynchronously.
+   *
+   * It throws if any of the checks fail.
+   *
    * @param parsedTx - The parsed transaction.
-   * @param networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
-   * @param requestDetails - The request details for logging and tracking.
+   * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  async sendRawTransactionCheck(
-    parsedTx: ethers.Transaction,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  ensureTxPoolEligibility(parsedTx: ethers.Transaction) {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
     this.gasLimit(parsedTx);
     this.chainId(parsedTx);
     this.value(parsedTx);
+  }
+
+  /**
+   * Performs additional, stateful validation checks required before sending
+   * a transaction that was retrieved from the transaction pool.
+   *
+   * This method MUST only be used for transactions that have already
+   * passed {@link ensureTxPoolEligibility}.
+   *
+   * @param parsedTx - Parsed Ethereum transaction from the tx pool.
+   * @param networkGasPriceInWeiBars - Current network gas price in weiBars
+   * @param requestDetails - Request metadata used for logging and tracking.
+   * @throws If the transaction does not meet send-time requirements.
+   */
+  async sendRawTransactionCheck(
+    parsedTx: ethers.Transaction,
+    networkGasPriceInWeiBars: number,
+    requestDetails: RequestDetails,
+  ): Promise<void> {
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
     const signerNonce =

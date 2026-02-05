@@ -243,6 +243,11 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
+
+    // Save the transaction to the transaction pool before submitting it to the network
+    this.validateRawTransactionTxPoolEligibility(parsedTx);
+    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+
     let lockSessionKey: string | undefined;
 
     // Acquire lock FIRST - before any side effects or async operations
@@ -255,11 +260,7 @@ export class TransactionService implements ITransactionService {
       const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
         await this.common.getGasPriceInWeibars(requestDetails),
       );
-
-      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-      // Save the transaction to the transaction pool before submitting it to the network
-      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+      await this.validateRawTransactionSendReadiness(parsedTx, networkGasPriceInWeiBars, requestDetails);
 
       /**
        * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
@@ -444,26 +445,47 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Validates a parsed transaction by performing prechecks
+   * Validates a parsed transaction by performing basic, sync prechecks
+   * @param parsedTx The parsed Ethereum transaction to validate
+   * @throws {JsonRpcError} If validation fails
+   */
+  private validateRawTransactionTxPoolEligibility(parsedTx: EthersTransaction) {
+    try {
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(`Transaction undergoing sync prechecks: transaction=${JSON.stringify(parsedTx)}`);
+      }
+
+      this.precheck.ensureTxPoolEligibility(parsedTx);
+    } catch (e: any) {
+      this.logger.error(e, `Sync precheck failed: errorMessage=${e.message}`);
+      this.common.genericErrorHandler(e);
+    }
+  }
+
+  /**
+   * Validates a parsed transaction by performing additional, complex, async prechecks.
+   * Invalid transaction will be removed from the pending queue.
    * @param parsedTx The parsed Ethereum transaction to validate
    * @param networkGasPriceInWeiBars The current network gas price in wei bars
    * @param requestDetails The request details for logging and tracking
    * @throws {JsonRpcError} If validation fails
    */
-  private async validateRawTransaction(
+  private async validateRawTransactionSendReadiness(
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
     try {
       if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Transaction undergoing prechecks: transaction=${JSON.stringify(parsedTx)}`);
+        this.logger.debug(`Transaction undergoing async prechecks: transaction=${JSON.stringify(parsedTx)}`);
       }
 
       await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (e: any) {
-      this.logger.error(e, `Precheck failed: errorMessage=${e.message}`);
-      throw this.common.genericErrorHandler(e);
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
+
+      this.logger.error(e, `Async precheck failed: errorMessage=${e.message}`);
+      this.common.genericErrorHandler(e);
     }
   }
 

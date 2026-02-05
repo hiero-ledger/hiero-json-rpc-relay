@@ -566,5 +566,42 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         expect(finalNonce).to.equal(startNonce);
       });
     });
+    withOverriddenEnvsInMochaTest(
+      {
+        TXPOOL_API_ENABLED: true,
+        ENABLE_TX_POOL: true,
+      },
+      () => {
+        it('should queue multiple transactions and keep more than one pending in the tx pool at the same time', async function () {
+          const waitForPendingNoncesCount = async (minCount: number) => {
+            const started = Date.now();
+            while (Date.now() - started < 30_000) {
+              const content = await relay.call('txpool_content', []);
+              const pendingForSender = content?.pending?.[sender.address];
+              const pendingNonces = pendingForSender ? Object.keys(pendingForSender) : [];
+              if (pendingNonces.length >= minCount) return pendingNonces.map(Number);
+              await new Promise((r) => setTimeout(r, 300));
+            }
+            return [];
+          };
+
+          const sender = accounts[0];
+          const startNonce = await relay.getAccountNonce(sender.address);
+          const gasPrice = await relay.gasPrice();
+          const minPending = 3;
+
+          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 10, gasPrice);
+          const pendingNonces = await waitForPendingNoncesCount(minPending);
+          await Promise.allSettled(transactionPromises);
+
+          expect(pendingNonces.length).to.be.gte(
+            minPending,
+            `At no point there were at least ${minPending} pending nonces assinged to ${sender.address} in the tx pool.`,
+          );
+
+          expect(Math.min(...pendingNonces)).to.be.at.least(startNonce);
+        });
+      },
+    );
   });
 });
