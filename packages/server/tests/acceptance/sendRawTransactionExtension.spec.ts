@@ -369,7 +369,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
     overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true, USE_ASYNC_TX_PROCESSING: true });
     const sendTransactionWithoutWaiting = (signer: any, nonce: number, numOfTxs: number, gasPrice: number) => {
-      const signedTransactions = Array.from({ length: numOfTxs }, async (_, i) => {
+      const txPromises = Array.from({ length: numOfTxs }, async (_, i) => {
         const tx = {
           ...defaultLondonTransactionData,
           to: accounts[2].address,
@@ -378,10 +378,11 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
         };
-        return await signer.wallet.signTransaction(tx);
+        const signedTx = await signer.wallet.signTransaction(tx);
+        return relay.sendRawTransaction(signedTx);
       });
 
-      return signedTransactions.map((signedTx) => relay.sendRawTransaction(signedTx));
+      return txPromises;
     };
 
     it('should handle rapid burst of 10 transactions from same sender', async function () {
@@ -579,7 +580,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
               const pendingForSender = content?.pending?.[sender.address];
               const pendingNonces = pendingForSender ? Object.keys(pendingForSender) : [];
               if (pendingNonces.length >= minCount) return pendingNonces.map(Number);
-              await new Promise((r) => setTimeout(r, 100));
+              await new Promise((r) => setTimeout(r, 300));
             }
             return [];
           };
@@ -588,7 +589,19 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           const startNonce = await relay.getAccountNonce(sender.address);
           const gasPrice = await relay.gasPrice();
           const minPending = 3;
-          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 50, gasPrice);
+          const tx = {
+            ...defaultLondonTransactionData,
+            to: accounts[2].address,
+            value: ONE_TINYBAR,
+            maxPriorityFeePerGas: gasPrice,
+            maxFeePerGas: gasPrice,
+          };
+          const signedTransactions = await Promise.all(
+            Array.from({ length: 10 }, async (_, i) => sender.wallet.signTransaction({ ...tx, nonce: startNonce + i })),
+          );
+          const transactionPromises = signedTransactions.map((signedTransaction) =>
+            relay.sendRawTransaction(signedTransaction),
+          );
           const pendingNonces = await waitForPendingNoncesCount(minPending);
           await Promise.allSettled(transactionPromises);
 
