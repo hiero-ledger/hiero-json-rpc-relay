@@ -32,13 +32,7 @@ import { RequestDetails } from '../../../src/lib/types';
 import { Utils } from '../../../src/utils';
 import RelayAssertions from '../../assertions';
 import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
-import {
-  ACCOUNT_ADDRESS_1,
-  DEFAULT_NETWORK_FEES,
-  MAX_GAS_LIMIT_HEX,
-  NO_TRANSACTIONS,
-  ONE_TINYBAR_IN_WEI_HEX,
-} from './eth-config';
+import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
 use(chaiAsPromised);

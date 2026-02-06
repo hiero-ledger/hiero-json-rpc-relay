@@ -55,8 +55,8 @@ export class Precheck {
   }
 
   /**
-   * Performs basic, stateless prechecks to determine whether a transaction
-   * is eligible to be stored in the transaction pool.
+   * Performs basic, stateless prechecks (for example, to determine whether
+   * a transaction is eligible to be stored in the transaction pool).
    *
    * This method validates transaction properties that can be checked
    * without fetching additional data asynchronously.
@@ -66,7 +66,7 @@ export class Precheck {
    * @param parsedTx - The parsed transaction.
    * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  ensureTxPoolEligibility(parsedTx: ethers.Transaction) {
+  validateBasicPropertiesStateless(parsedTx: ethers.Transaction) {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
@@ -76,18 +76,18 @@ export class Precheck {
   }
 
   /**
-   * Performs additional, stateful validation checks required before sending
-   * a transaction that was retrieved from the transaction pool.
+   * Performs additional, stateful validation checks (required for example
+   * before sending a transaction that was retrieved from the transaction pool).
    *
    * This method MUST only be used for transactions that have already
-   * passed {@link ensureTxPoolEligibility}.
+   * passed {@link validateBasicPropertiesStateless}.
    *
    * @param parsedTx - Parsed Ethereum transaction from the tx pool.
    * @param networkGasPriceInWeiBars - Current network gas price in weiBars
    * @param requestDetails - Request metadata used for logging and tracking.
    * @throws If the transaction does not meet send-time requirements.
    */
-  async sendRawTransactionCheck(
+  async validateAccountAndNetworkStateful(
     parsedTx: ethers.Transaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
