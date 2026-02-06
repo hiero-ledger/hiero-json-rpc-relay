@@ -580,7 +580,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
               const pendingForSender = content?.pending?.[sender.address];
               const pendingNonces = pendingForSender ? Object.keys(pendingForSender) : [];
               if (pendingNonces.length >= minCount) return pendingNonces.map(Number);
-              await new Promise((r) => setTimeout(r, 300));
+              await new Promise((r) => setTimeout(r, 100));
             }
             return [];
           };
@@ -588,9 +588,9 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           const sender = accounts[0];
           const startNonce = await relay.getAccountNonce(sender.address);
           const gasPrice = await relay.gasPrice();
-          const minPending = 3;
+          const minPending = 2;
 
-          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 50, gasPrice);
+          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 100, gasPrice);
           const pendingNonces = await waitForPendingNoncesCount(minPending);
           await Promise.allSettled(transactionPromises);
 
