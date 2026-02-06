@@ -191,8 +191,6 @@ export class DebugImpl implements Debug {
     1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
-  // skipParams excludes non-cacheable block tags like 'latest' from the cache key;
-  // traceBlockByHash does not need this since block hashes always reference a specific immutable block.
   @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
@@ -226,6 +224,8 @@ export class DebugImpl implements Debug {
     1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
+  // skipParams excludes non-cacheable block tags like 'latest' from the cache key;
+  // traceBlockByHash does not need this since block hashes always reference a specific immutable block.
   @cache()
   async traceBlockByHash(
     blockHash: string,
@@ -846,7 +846,7 @@ export class DebugImpl implements Debug {
 
   /**
    * Shared implementation for tracing all transactions in a block.
-   * Used by both traceBlockByNumber and traceBlockByHash.
+   * Used by both debug_traceBlockByNumber and debug_traceBlockByHash.
    *
    * @private
    * @param blockIdentifier - The block number (hex) or block hash to trace.
