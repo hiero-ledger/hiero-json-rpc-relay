@@ -418,6 +418,16 @@ export class DebugImpl implements Debug {
       );
 
       if (!response) {
+        // Fetch contract result to check for pre-execution validation failure
+        const contractResult = await this.mirrorNodeClient.getContractResultWithRetry(
+          this.mirrorNodeClient.getContractResult.name,
+          [transactionIdOrHash, requestDetails],
+        );
+
+        if (contractResult && Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
+          return this.getEmptyTracerObject(TracerType.OpcodeLogger) as OpcodeLoggerResult;
+        }
+
         return (await this.handleSyntheticTransaction(
           transactionIdOrHash,
           TracerType.OpcodeLogger,
@@ -462,30 +472,26 @@ export class DebugImpl implements Debug {
     }
 
     try {
-      if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
-        // Check if this is a pre-execution validation failure (e.g., MAX_GAS_LIMIT_EXCEEDED, WRONG_NONCE)
-        // These transactions never executed EVM bytecode, so return an empty trace with the error
-        if (transactionsResponse && Utils.isRevertedDueToHederaSpecificValidation(transactionsResponse)) {
-          const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
-            transactionsResponse.from,
-            transactionsResponse.to,
-            requestDetails,
-          );
-          return {
-            type: CallType.CALL,
-            from: resolvedFrom,
-            to: resolvedTo ?? constants.ZERO_HEX,
-            gas: numberTo0x(transactionsResponse.gas_limit ?? 0),
-            gasUsed: constants.ZERO_HEX,
-            input: transactionsResponse.function_parameters || constants.EMPTY_HEX,
-            output: constants.EMPTY_HEX,
-            value: numberTo0x(tinybarsToWeibars(transactionsResponse.amount) ?? 0),
-            error: transactionsResponse.result,
-            revertReason: transactionsResponse.result,
-            calls: [],
-          };
-        }
+      // Check for pre-execution validation failure first (e.g., MAX_GAS_LIMIT_EXCEEDED, WRONG_NONCE)
+      // These transactions never executed EVM bytecode, so return an empty trace with the error
+      if (transactionsResponse && Utils.isRejectedDueToHederaSpecificValidation(transactionsResponse)) {
+        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(
+          transactionsResponse.from,
+          transactionsResponse.to,
+          requestDetails,
+        );
+        return {
+          ...(this.getEmptyTracerObject(
+            TracerType.CallTracer,
+            resolvedFrom,
+            resolvedTo ?? constants.ZERO_HEX,
+          ) as CallTracerResult),
+          error: transactionsResponse.result,
+          revertReason: transactionsResponse.result,
+        };
+      }
 
+      if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
@@ -564,16 +570,25 @@ export class DebugImpl implements Debug {
     }
 
     let actionsResponse = preFetchedActionsResponse;
-    if (!preFetchedActionsResponse?.length) {
+    let transactionsResponse = preFetchedContractResult;
+    if (!preFetchedContractResult && !preFetchedActionsResponse) {
+      [actionsResponse, transactionsResponse] = await Promise.all([
+        this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails),
+        this.mirrorNodeClient.getContractResultWithRetry(this.mirrorNodeClient.getContractResult.name, [
+          transactionHash,
+          requestDetails,
+        ]),
+      ]);
+    } else if (!preFetchedActionsResponse?.length) {
       actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
     }
 
-    if (!actionsResponse || actionsResponse.length === 0) {
-      // Check if this is a pre-execution validation failure - return empty prestate
-      if (preFetchedContractResult && Utils.isRevertedDueToHederaSpecificValidation(preFetchedContractResult)) {
-        return {};
-      }
+    // Check for pre-execution validation failure first - return empty prestate
+    if (transactionsResponse && Utils.isRejectedDueToHederaSpecificValidation(transactionsResponse)) {
+      return this.getEmptyTracerObject(TracerType.PrestateTracer) as EntityTraceStateMap;
+    }
 
+    if (!actionsResponse || actionsResponse.length === 0) {
       return (await this.handleSyntheticTransaction(
         transactionHash,
         TracerType.PrestateTracer,
@@ -728,8 +743,13 @@ export class DebugImpl implements Debug {
 
     const txHashArray = Array.from(transactionHashes);
 
-    // Fetch actions for all transactions in parallel
+    // Fetch actions for all transactions in parallel, skipping pre-execution failures
+    // to avoid unnecessary API latency (they have no EVM actions)
     const actionsPromises = txHashArray.map(async (txHash) => {
+      const cr = contractResultsByHash.get(txHash);
+      if (cr && Utils.isRejectedDueToHederaSpecificValidation(cr)) {
+        return { txHash, actions: [] };
+      }
       try {
         const actions = await this.mirrorNodeClient.getContractsResultsActions(txHash, requestDetails);
         return { txHash, actions };
@@ -761,6 +781,47 @@ export class DebugImpl implements Debug {
   }
 
   /**
+   * Returns an empty/minimal tracer result object for a given tracer type.
+   * Used for pre-execution validation failures and synthetic transactions that have no EVM execution.
+   *
+   * @private
+   * @param tracer - The tracer type to build the empty object for.
+   * @param resolvedFrom - Optional resolved 'from' address (used by CallTracer).
+   * @param resolvedTo - Optional resolved 'to' address (used by CallTracer).
+   * @returns The empty tracer result object.
+   */
+  private getEmptyTracerObject(
+    tracer: TracerType,
+    resolvedFrom?: string,
+    resolvedTo?: string,
+  ): EntityTraceStateMap | OpcodeLoggerResult | CallTracerResult {
+    switch (tracer) {
+      case TracerType.PrestateTracer:
+        return {};
+      case TracerType.OpcodeLogger:
+        return {
+          gas: 0,
+          failed: false,
+          returnValue: '',
+          structLogs: [],
+        };
+      case TracerType.CallTracer: {
+        return {
+          type: CallType.CALL,
+          from: resolvedFrom ?? constants.ZERO_HEX,
+          to: resolvedTo ?? constants.ZERO_HEX,
+          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
+          gasUsed: constants.ZERO_HEX,
+          value: constants.ZERO_HEX,
+          input: constants.EMPTY_HEX,
+          output: constants.EMPTY_HEX,
+          calls: [],
+        };
+      }
+    }
+  }
+
+  /**
    * Handles synthetic HTS transactions by fetching logs and building
    * a minimal synthetic trace object for the appropriate trace.
    *
@@ -783,45 +844,24 @@ export class DebugImpl implements Debug {
     }
 
     const log = logs[0];
-    switch (tracer) {
-      case TracerType.PrestateTracer:
-        // Return empty prestate tracer result for synthetic transactions (no EVM execution)
-        return {};
-      case TracerType.OpcodeLogger:
-        // Return minimal opcode tracer result for synthetic transactions (no EVM execution)
-        return {
-          gas: 0,
-          failed: false,
-          returnValue: '',
-          structLogs: [],
-        };
-      case TracerType.CallTracer: {
-        let from = log.address;
-        let to = log.address;
 
-        // For HTS token transfer logs, the 'from' and 'to' addresses are typically in topics[1] and topics[2]
-        if (log.topics && log.topics.length >= 3) {
-          // Extract addresses from topics - topics are 32-byte hex strings, addresses are last 20 bytes
-          from = prepend0x(log.topics[1].slice(-40));
-          to = prepend0x(log.topics[2].slice(-40));
-        }
+    if (tracer === TracerType.CallTracer) {
+      let from = log.address;
+      let to = log.address;
 
-        // Resolve addresses to their EVM equivalents
-        const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
-
-        // Return minimal call tracer result for synthetic transactions (no EVM execution)
-        return {
-          type: CallType.CALL,
-          from: resolvedFrom,
-          to: resolvedTo,
-          gas: numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT),
-          gasUsed: constants.ZERO_HEX,
-          value: constants.ZERO_HEX,
-          input: constants.EMPTY_HEX,
-          output: constants.EMPTY_HEX,
-          calls: [],
-        };
+      // For HTS token transfer logs, the 'from' and 'to' addresses are typically in topics[1] and topics[2]
+      if (log.topics && log.topics.length >= 3) {
+        // Extract addresses from topics - topics are 32-byte hex strings, addresses are last 20 bytes
+        from = prepend0x(log.topics[1].slice(-40));
+        to = prepend0x(log.topics[2].slice(-40));
       }
+
+      // Resolve addresses to their EVM equivalents
+      const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
+
+      return this.getEmptyTracerObject(TracerType.CallTracer, resolvedFrom, resolvedTo) as CallTracerResult;
     }
+
+    return this.getEmptyTracerObject(tracer) as EntityTraceStateMap | OpcodeLoggerResult;
   }
 }

@@ -698,6 +698,8 @@ describe('Debug API Test Suite', async function () {
           it('should return minimal opcode result for synthetic transaction', async function () {
             const defaultOpcodeParams = getQueryParams({ memory: false, stack: true, storage: true });
             web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES_SYNTHETIC}${defaultOpcodeParams}`).reply(404);
+            // Mock contract result (returns 404 for synthetic tx)
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
 
             const tracerObject = { tracer: opcodeLogger, tracerConfig: {} };
@@ -716,6 +718,8 @@ describe('Debug API Test Suite', async function () {
           it('should throw RESOURCE_NOT_FOUND when no opcodes and no logs exist', async function () {
             const defaultOpcodeParams = getQueryParams({ memory: false, stack: true, storage: true });
             web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES_SYNTHETIC}${defaultOpcodeParams}`).reply(404);
+            // Mock contract result (returns 404)
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
 
             const tracerObject = { tracer: opcodeLogger, tracerConfig: {} };
@@ -830,6 +834,8 @@ describe('Debug API Test Suite', async function () {
 
           it('should return empty prestate for synthetic transaction', async function () {
             restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            // Mock contract result (returns 404 for synthetic tx)
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [syntheticLog] }));
 
             const result = await debugService.prestateTracer(syntheticTxHash, false, requestDetails);
@@ -840,6 +846,8 @@ describe('Debug API Test Suite', async function () {
 
           it('should throw RESOURCE_NOT_FOUND when no actions and no logs exist', async function () {
             restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
+            // Mock contract result (returns 404)
+            restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
             restMock.onGet(CONTRACT_RESULTS_LOGS_SYNTHETIC).reply(200, JSON.stringify({ logs: [] }));
 
             await expect(debugService.prestateTracer(syntheticTxHash, false, requestDetails)).to.be.rejectedWith(
@@ -1456,7 +1464,7 @@ describe('Debug API Test Suite', async function () {
           expect(callTracerStub.callCount).to.equal(1);
         });
 
-        it('should filter out WRONG_NONCE transactions and still trace synthetic transactions', async function () {
+        it('should include WRONG_NONCE transactions with empty traces and skip actions fetch for them', async function () {
           // Mock contract results with WRONG_NONCE transaction
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
@@ -1465,13 +1473,24 @@ describe('Debug API Test Suite', async function () {
           // Mock logs with synthetic transaction
           sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
 
-          // Mock callTracer - should not be called for WRONG_NONCE
-          const callTracerStub = sinon
+          // Mock callTracer - WRONG_NONCE should be called with pre-fetched contract result (returns empty trace)
+          sinon
             .stub(debugService, 'callTracer')
-            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(callTracerResult1)
-            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
+            .withArgs(
+              contractResultWrongNonce.hash,
+              sinon.match.any,
+              sinon.match.any,
+              sinon.match.any,
+              sinon.match.any,
+            )
+            .resolves(emptyCallTracerResult)
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(syntheticCallTracerResult1);
+
+          // Spy on getContractsResultsActions to verify it's not called for WRONG_NONCE
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
 
           const result = await debugService.traceBlockByNumber(
             blockNumber,
@@ -1479,15 +1498,16 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.be.an('array').with.lengthOf(3);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
-          expect(result[1]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: emptyCallTracerResult });
+          expect(result[2]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
 
-          // Verify WRONG_NONCE transaction was not traced
-          const wrongNonceCalls = callTracerStub
+          // Verify actions were NOT fetched for the WRONG_NONCE transaction
+          const wrongNonceActionsCalls = getActionsStub
             .getCalls()
             .filter((call) => call.args[0] === contractResultWrongNonce.hash);
-          expect(wrongNonceCalls).to.be.empty;
+          expect(wrongNonceActionsCalls).to.be.empty;
         });
       });
 
@@ -1616,6 +1636,9 @@ describe('Debug API Test Suite', async function () {
           .withArgs(transactionHash, sinon.match.any)
           .resolves(actionsResponseMock);
 
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
+
         sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
             return contractEntityMock;
@@ -1645,6 +1668,9 @@ describe('Debug API Test Suite', async function () {
           .stub(mirrorNodeInstance, 'getContractsResultsActions')
           .withArgs(transactionHash, sinon.match.any)
           .resolves(actionsResponseMock);
+
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
 
         sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
@@ -1684,6 +1710,9 @@ describe('Debug API Test Suite', async function () {
           .stub(mirrorNodeInstance, 'getContractsResultsActions')
           .withArgs(transactionHash, sinon.match.any)
           .resolves(actionsResponseMock);
+
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
 
         const resolveEntityTypeStub = sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
@@ -1740,6 +1769,9 @@ describe('Debug API Test Suite', async function () {
           .withArgs(transactionHash, sinon.match.any)
           .resolves([]);
 
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
+
         // Mock logs call to return empty array (no synthetic transaction)
         restMock
           .onGet(`contracts/results/logs?transaction.hash=${transactionHash}&limit=100&order=asc`)
@@ -1754,8 +1786,17 @@ describe('Debug API Test Suite', async function () {
         // Create a separate DebugImpl instance just for this test
         const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
 
-        // Mock the API call to throw the expected error
+        // Mock the API calls for actions and contract result to return 404
         restMock.onGet(`contracts/results/${nonExistentTransactionHash}/actions`).reply(
+          404,
+          JSON.stringify({
+            _status: {
+              messages: [{ message: 'Not found' }],
+            },
+          }),
+        );
+
+        restMock.onGet(`contracts/results/${nonExistentTransactionHash}`).reply(
           404,
           JSON.stringify({
             _status: {
@@ -1785,6 +1826,9 @@ describe('Debug API Test Suite', async function () {
           .withArgs(transactionHash, sinon.match.any)
           .resolves(actionsResponseMock);
 
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
+
         sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
             throw new Error('Failed to resolve contract');
@@ -1813,6 +1857,9 @@ describe('Debug API Test Suite', async function () {
           .stub(mirrorNodeInstance, 'getContractsResultsActions')
           .withArgs(transactionHash, sinon.match.any)
           .resolves(actionsResponseMock);
+
+        // Mock contract result (returns SUCCESS so not a pre-execution failure)
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({ result: 'SUCCESS' });
 
         sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
           if (address === contractAddress) {
