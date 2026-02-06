@@ -44,7 +44,7 @@ export class LockService {
    * @param sessionKey - The session key obtained during lock acquisition.
    * @param acquiredAt - The timestamp when the lock was acquired (for metrics calculation).
    */
-  async releaseLock(address: string, sessionKey: string, acquiredAt?: bigint): Promise<void> {
+  async releaseLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void> {
     if (ConfigService.get('ENABLE_NONCE_ORDERING')) {
       await this.strategy.releaseLock(address, sessionKey, acquiredAt);
     }

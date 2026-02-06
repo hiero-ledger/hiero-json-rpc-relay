@@ -12,6 +12,11 @@ export interface LockAcquisitionResult {
 }
 
 /**
+ * Strategy type label values for lock metrics.
+ */
+export type LockStrategyLabel = 'local' | 'redis';
+
+/**
  * Interface for lock strategy implementations.
  * Strategies handle the actual locking mechanism (local in-memory or distributed via Redis).
  *
@@ -19,7 +24,12 @@ export interface LockAcquisitionResult {
  * Implementations must normalize addresses (e.g., lowercase) internally to ensure consistency.
  */
 export interface LockStrategy {
-  readonly type: string;
+  /**
+   * The type of lock strategy implementation (e.g., 'local', 'redis').
+   * Used for diagnostics, metrics, or conditional logic in LockService.
+   */
+  readonly type: LockStrategyLabel;
+
   /**
    * Acquires a lock for the specified address.
    * Blocks until the lock is available or timeout is reached.
@@ -38,5 +48,5 @@ export interface LockStrategy {
    * @param acquiredAt - The timestamp when the lock was acquired (for metrics calculation).
    * @returns A promise that resolves when the lock is released or rejected if not owner.
    */
-  releaseLock(address: string, sessionKey: string, acquiredAt?: bigint): Promise<void>;
+  releaseLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void>;
 }

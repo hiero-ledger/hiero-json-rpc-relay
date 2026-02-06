@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { Logger } from 'pino';
 import { RedisClientType } from 'redis';
 
-import { LockAcquisitionResult, LockStrategy } from '../../types/lock';
+import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types/lock';
 import { LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
@@ -24,7 +24,7 @@ import { LockService } from './LockService';
  * - Active waiters act as "janitors" to prune dead entries from the queue
  */
 export class RedisLockStrategy implements LockStrategy {
-  readonly type: string = 'redis';
+  readonly type: LockStrategyLabel = 'redis';
   private readonly redisClient: RedisClientType;
   private readonly logger: Logger;
   private readonly lockMetricsService: LockMetricsService;

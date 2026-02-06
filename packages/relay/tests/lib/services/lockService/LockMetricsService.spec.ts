@@ -243,11 +243,11 @@ describe('LockMetricsService', function () {
 
   describe('recordZombieCleanup', () => {
     it('should record zombie cleanup and verify count', async () => {
-      metricsService.recordZombieCleanup('redis');
-      metricsService.recordZombieCleanup('redis');
-      metricsService.recordZombieCleanup('redis');
+      metricsService.recordZombieCleanup();
+      metricsService.recordZombieCleanup();
+      metricsService.recordZombieCleanup();
 
-      const value = await getMetricValue('rpc_relay_lock_zombie_cleanups_total', { strategy: 'redis' });
+      const value = await getMetricValue('rpc_relay_lock_zombie_cleanups_total');
       expect(value).to.equal(3);
     });
   });

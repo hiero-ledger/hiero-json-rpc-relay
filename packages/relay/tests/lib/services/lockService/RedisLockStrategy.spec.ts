@@ -533,7 +533,7 @@ describe('RedisLockStrategy Test Suite', function () {
       expect(result).to.not.be.undefined;
       expect(result!.sessionKey).to.equal(sessionKey);
 
-      expect(mockMetricsService.recordZombieCleanup.calledWith('redis')).to.be.true;
+      expect(mockMetricsService.recordZombieCleanup.called).to.be.true;
     });
 
     it('should not record hold duration when release fails (not owner)', async () => {

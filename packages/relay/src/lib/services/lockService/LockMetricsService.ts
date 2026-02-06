@@ -2,10 +2,7 @@
 
 import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 
-/**
- * Strategy type label values for lock metrics.
- */
-export type LockStrategyLabel = 'local' | 'redis';
+import { LockStrategyLabel } from '../../types/lock';
 
 /**
  * Status label values for lock acquisition metrics.

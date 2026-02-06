@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { LRUCache } from 'lru-cache';
 import { Logger } from 'pino';
 
-import { LockAcquisitionResult, LockStrategy } from '../../types/lock';
+import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types/lock';
 import { LockMetricsService } from './LockMetricsService';
 import { LockService } from './LockService';
 
@@ -16,7 +16,6 @@ import { LockService } from './LockService';
 export interface LockState {
   mutex: Mutex;
   sessionKey: string | null;
-  acquiredAt: bigint | null;
   lockTimeoutId: NodeJS.Timeout | null;
 }
 
@@ -39,7 +38,7 @@ export class LocalLockStrategy implements LockStrategy {
    * Always set to 'local' for LocalLockStrategy.
    * @readonly
    */
-  readonly type: string = 'local';
+  readonly type: LockStrategyLabel = 'local';
 
   /**
    * Logger.
@@ -95,11 +94,10 @@ export class LocalLockStrategy implements LockStrategy {
 
       // Record lock ownership metadata
       state.sessionKey = sessionKey;
-      state.acquiredAt = acquiredAt;
 
       // Start a 30-second timer to auto-release if lock not manually released
       state.lockTimeoutId = setTimeout(() => {
-        this.forceReleaseExpiredLock(address, sessionKey);
+        this.forceReleaseExpiredLock(address, sessionKey, acquiredAt);
       }, ConfigService.get('LOCK_MAX_HOLD_MS'));
 
       // Record successful acquisition
@@ -131,7 +129,7 @@ export class LocalLockStrategy implements LockStrategy {
         await this.doRelease(state);
 
         // get hold time in seconds
-        const holdTimeNs = process.hrtime.bigint() - state.acquiredAt!;
+        const holdTimeNs = process.hrtime.bigint() - acquiredAt!;
         const holdTimeMs = Number(holdTimeNs) / 1e6;
         this.lockMetricsService.recordHoldDuration('local', Number(holdTimeNs) / 1e9);
         this.lockMetricsService.decrementActiveCount('local');
@@ -157,7 +155,6 @@ export class LocalLockStrategy implements LockStrategy {
       this.localLockStates.set(normalizedAddress, {
         mutex: new Mutex(),
         sessionKey: null,
-        acquiredAt: null,
         lockTimeoutId: null,
       });
     }
@@ -177,7 +174,6 @@ export class LocalLockStrategy implements LockStrategy {
     // Reset state
     state.sessionKey = null;
     state.lockTimeoutId = null;
-    state.acquiredAt = null;
 
     // Release the mutex lock
     state.mutex.release();
@@ -190,12 +186,12 @@ export class LocalLockStrategy implements LockStrategy {
    * @param address - The resource key associated with the lock
    * @param sessionKey - The session key to verify ownership before releasing
    */
-  private async forceReleaseExpiredLock(address: string, sessionKey: string): Promise<void> {
+  private async forceReleaseExpiredLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void> {
     const normalizedAddress = LockService.normalizeAddress(address);
     const state = this.localLockStates.get(normalizedAddress);
 
     if (state?.sessionKey === sessionKey) {
-      const holdTimeNs = process.hrtime.bigint() - state.acquiredAt!;
+      const holdTimeNs = process.hrtime.bigint() - acquiredAt;
       const holdTimeMs = Number(holdTimeNs) / 1e6;
       await this.doRelease(state);
 
