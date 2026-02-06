@@ -306,22 +306,50 @@ describe('eth_getBlockBy', async function () {
     });
 
     it('handles large transaction arrays with O(n) performance', async function () {
+      const makeLogs = (count: number) =>
+        Array.from({ length: count }, (_, i) =>
+          mirrorLogToModelLog({
+            ...defaultLogs1[0],
+            transaction_hash: `0x${i.toString(16).padStart(64, '0')}`,
+            index: i,
+          }),
+        );
+
+      const runOnce = (logs: ReturnType<typeof makeLogs>) =>
+        __test__.__private.populateSyntheticTransactions(false, logs, [], '0x12a');
+
+      const median = (values: number[]) => {
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+      };
+
+      // Generate 10000 logs with unique hashes
+      const logsN = makeLogs(10000);
       // Generate 20000 logs with unique hashes
-      const largeLogs = Array.from({ length: 20000 }, (_, i) =>
-        mirrorLogToModelLog({
-          ...defaultLogs1[0],
-          transaction_hash: `0x${i.toString(16).padStart(64, '0')}`,
-          index: i,
-        }),
-      );
+      const logs2N = makeLogs(20000);
 
-      const start = performance.now();
-      const result = __test__.__private.populateSyntheticTransactions(false, largeLogs, [], '0x12a');
-      const duration = performance.now() - start;
+      // Warm-up
+      runOnce(logsN);
 
-      expect(result.length).to.equal(20000);
-      // With O(n) complexity, 20000 items should complete well under 10ms
-      expect(duration).to.be.lessThan(10);
+      const measureRuns = (logs: ReturnType<typeof makeLogs>, expectedLen: number, runs = 5) => {
+        const times: number[] = [];
+        for (let i = 0; i < runs; i++) {
+          const t0 = performance.now();
+          const result = runOnce(logs);
+          times.push(performance.now() - t0);
+          expect(result.length).to.equal(expectedLen);
+        }
+        return times;
+      };
+
+      const timesN = measureRuns(logsN, 10000);
+      const times2N = measureRuns(logs2N, 20000);
+
+      const ratio = median(times2N) / median(timesN);
+
+      // Loose bound to avoid flakiness but still catch superlinear behavior.
+      expect(ratio).to.be.lessThan(2.5);
     });
   });
 });
