@@ -138,7 +138,6 @@ export class TransactionPoolService implements ITransactionPoolService {
 
     try {
       await this.storage.addToList(addressLowerCased, rlpHex);
-      this.pendingCountGauge.inc();
       this.operationsCounter.labels('add').inc();
       this.logger.debug({ address, rlpHex: rlpHex.substring(0, 20) + '...' }, 'Transaction saved to pool');
     } catch (error) {
