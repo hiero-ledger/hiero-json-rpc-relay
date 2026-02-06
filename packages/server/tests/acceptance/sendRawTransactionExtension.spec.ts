@@ -368,7 +368,13 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   describe('@nonce-ordering Lock Service Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
     overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true, USE_ASYNC_TX_PROCESSING: true });
-    const sendTransactionWithoutWaiting = (signer: any, nonce: number, numOfTxs: number, gasPrice: number) => {
+    const sendTransactionWithoutWaiting = (
+      signer: any,
+      nonce: number,
+      numOfTxs: number,
+      gasPrice: number,
+      data?: string,
+    ) => {
       const txPromises = Array.from({ length: numOfTxs }, async (_, i) => {
         const tx = {
           ...defaultLondonTransactionData,
@@ -377,6 +383,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           nonce: nonce + i,
           maxPriorityFeePerGas: gasPrice,
           maxFeePerGas: gasPrice,
+          data,
         };
         const signedTx = await signer.wallet.signTransaction(tx);
         return relay.sendRawTransaction(signedTx);
@@ -589,8 +596,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           const startNonce = await relay.getAccountNonce(sender.address);
           const gasPrice = await relay.gasPrice();
           const minPending = 2;
-
-          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 100, gasPrice);
+          const data = '0x' + '00'.repeat(Constants.CALL_DATA_SIZE_LIMIT);
+          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 100, gasPrice, data);
           const pendingNonces = await waitForPendingNoncesCount(minPending);
           await Promise.allSettled(transactionPromises);
 
