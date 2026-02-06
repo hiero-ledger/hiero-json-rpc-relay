@@ -588,7 +588,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           const startNonce = await relay.getAccountNonce(sender.address);
           const gasPrice = await relay.gasPrice();
           const minPending = 3;
-          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 25, gasPrice);
+          const transactionPromises = sendTransactionWithoutWaiting(sender, startNonce, 50, gasPrice);
           const pendingNonces = await waitForPendingNoncesCount(minPending);
           await Promise.allSettled(transactionPromises);
 
