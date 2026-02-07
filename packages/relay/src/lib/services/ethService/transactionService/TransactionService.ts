@@ -254,15 +254,15 @@ export class TransactionService implements ITransactionService {
     await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
     let lockSessionKey: string | undefined;
-
-    // Acquire lock FIRST - before any side effects or async operations
-    // This ensures proper nonce ordering for transactions from the same sender
-    if (parsedTx.from) {
-      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
-    }
+    let networkGasPriceInWeiBars: number;
 
     try {
-      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+      // Acquire lock FIRST - before any side effects or async operations
+      // This ensures proper nonce ordering for transactions from the same sender
+      if (parsedTx.from) {
+        lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
+      }
+      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
         await this.common.getGasPriceInWeibars(requestDetails),
       );
       if (this.logger.isLevelEnabled('debug')) {
@@ -271,7 +271,13 @@ export class TransactionService implements ITransactionService {
         );
       }
       await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    } catch (validationError) {
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
+      if (lockSessionKey) await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+      throw validationError;
+    }
 
+    try {
       /**
        * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
        * the transaction hash is calculated and returned immediately after passing all prechecks.
@@ -302,7 +308,6 @@ export class TransactionService implements ITransactionService {
         requestDetails,
       );
     } catch (error) {
-      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
         await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
