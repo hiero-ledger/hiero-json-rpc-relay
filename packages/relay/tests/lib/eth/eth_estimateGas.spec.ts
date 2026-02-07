@@ -13,7 +13,7 @@ import constants from '../../../src/lib/constants';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../src/lib/eth';
-import { LocalPendingTransactionStorage, LockService } from '../../../src/lib/services';
+import { LocalPendingTransactionStorage, LockService, TransactionPoolService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
@@ -79,15 +79,16 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
     // @ts-expect-error: Argument of type '"getSDKClient"' is not assignable to parameter of type 'keyof HAPIService'.
     getSdkClientStub = stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
-    const storage = new LocalPendingTransactionStorage(logger.child({ name: 'local-pending-tx-storage' }));
-    const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} });
+    const storage = new LocalPendingTransactionStorage();
+    const lockService = new LockService({ acquireLock: async () => undefined, releaseLock: async () => {} } as any);
+    const transactionPoolService = new TransactionPoolService(storage, logger, registry);
     ethImplOverridden = new EthImpl(
       hapiServiceInstance,
       mirrorNodeInstance,
       logger,
       '0x12a',
       cacheService,
-      storage,
+      transactionPoolService,
       lockService,
       registry,
     );

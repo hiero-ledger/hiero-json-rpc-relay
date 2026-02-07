@@ -49,7 +49,7 @@ describe('TransactionPoolService Test Suite', function () {
       removeAll: sinon.stub(),
       getTransactionPayloads: sinon.stub(),
       getAllTransactionPayloads: sinon.stub(),
-      getSetSize: sinon.stub(),
+      getUniqueAddressCount: sinon.stub(),
     };
 
     transactionPoolService = new TransactionPoolService(mockStorage, logger, register);

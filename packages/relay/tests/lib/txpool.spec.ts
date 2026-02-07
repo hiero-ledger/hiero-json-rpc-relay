@@ -129,7 +129,8 @@ describe('Txpool', async function () {
     sandbox.stub(ConfigService, 'get').returns(true);
 
     const registry = new Registry();
-    txPool = new TxPoolImpl({} as any, logger, registry);
+    const txPoolService = new TransactionPoolService({} as any, logger, registry);
+    txPool = new TxPoolImpl(txPoolService);
     txPoolServiceMock = sandbox.createStubInstance(TransactionPoolService);
     (txPool as any).txPoolService = txPoolServiceMock;
   });

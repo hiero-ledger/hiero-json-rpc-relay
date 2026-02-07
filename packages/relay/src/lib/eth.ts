@@ -38,7 +38,6 @@ import {
   RequestDetails,
   TypedEvents,
 } from './types';
-import { PendingTransactionStorage } from './types/transactionPool';
 import { rpcParamValidationRules } from './validators';
 
 /**
@@ -120,6 +119,9 @@ export class EthImpl implements Eth {
    * @param {Logger} logger - Logger instance for logging system messages.
    * @param {string} chain - The chain identifier for the current blockchain environment.
    * @param {ICacheClient} cacheService - Service for managing cached data.
+   * @param {TransactionPoolService} transactionPoolService - Service managing the pending transaction pool.
+   * @param {LockService} lockService - Service providing per-address locking for nonce ordering.
+   * @param {Registry} registry - Prometheus registry for metrics.
    */
   constructor(
     hapiService: HAPIService,
@@ -127,7 +129,7 @@ export class EthImpl implements Eth {
     logger: Logger,
     chain: string,
     public readonly cacheService: ICacheClient,
-    storage: PendingTransactionStorage,
+    transactionPoolService: TransactionPoolService,
     lockService: LockService,
     registry: Registry,
   ) {
@@ -140,7 +142,6 @@ export class EthImpl implements Eth {
     this.feeService = new FeeService(mirrorNodeClient, this.common, logger);
     this.contractService = new ContractService(cacheService, this.common, hapiService, logger, mirrorNodeClient);
     this.blockService = new BlockService(cacheService, chain, this.common, mirrorNodeClient, logger);
-    const transactionPoolService = new TransactionPoolService(storage, logger, registry);
     this.transactionService = new TransactionService(
       cacheService,
       chain,

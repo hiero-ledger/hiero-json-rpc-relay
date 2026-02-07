@@ -52,7 +52,6 @@ describe('LocalLockStrategy', function () {
     const lockEntryAfterAcquisition = getStateEntry(address);
 
     expect(lockEntryAfterAcquisition).to.not.be.null;
-    console.log('Lock entry', lockEntryAfterAcquisition);
     expect(lockEntryAfterAcquisition.sessionKey).to.not.be.null;
 
     await lockStrategy.releaseLock(address, result!.sessionKey, result!.acquiredAt);
@@ -69,7 +68,7 @@ describe('LocalLockStrategy', function () {
 
     const wrongKey = 'fake-session';
     const doReleaseSpy = sinon.spy<any, any>(lockStrategy as any, 'doRelease');
-    await lockStrategy.releaseLock(address, wrongKey);
+    await lockStrategy.releaseLock(address, wrongKey, process.hrtime.bigint());
 
     const lockEntryAfterFakeRelease = getStateEntry(address);
     expect(lockEntryAfterFakeRelease.sessionKey).to.equal(result!.sessionKey);
@@ -208,7 +207,7 @@ describe('LocalLockStrategy', function () {
       mockMetricsService.recordHoldDuration.resetHistory();
       mockMetricsService.decrementActiveCount.resetHistory();
 
-      await lockStrategy.releaseLock(address, 'wrong-key');
+      await lockStrategy.releaseLock(address, 'wrong-key', process.hrtime.bigint());
 
       expect(mockMetricsService.recordHoldDuration.called).to.be.false;
       expect(mockMetricsService.decrementActiveCount.called).to.be.false;

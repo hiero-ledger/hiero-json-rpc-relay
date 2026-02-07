@@ -103,12 +103,13 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
-   * Retrieves the size of the global set, giving all unique addresses in the pool
+   * Retrieves the number of unique addresses with pending transactions.
    *
-   * @returns Number of unique addresses in the pool
+   * @returns Promise resolving to the count of unique addresses in the pending pool.
    */
-  async getSetSize(): Promise<number> {
-    return await this.redisClient.sCard(this.globalPendingTxsKey);
+  async getUniqueAddressCount(): Promise<number> {
+    const keys = await this.redisClient.keys(`${this.keyPrefix}*`);
+    return keys.filter((k) => k !== this.globalPendingTxsKey).length;
   }
 
   /**

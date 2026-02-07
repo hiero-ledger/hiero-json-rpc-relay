@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
-import { LockAcquisitionResult, LockStrategy } from '../../types';
+import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types';
 
 /**
  * Service that manages transaction ordering through distributed locking.
@@ -63,9 +63,9 @@ export class LockService {
   /**
    * Returns the type of the underlying lock strategy implementation.
    *
-   * @returns The type of the current lock strategy.
+   * @returns The lock strategy label ('local' or 'redis').
    */
-  getStrategyType(): string {
+  getStrategyType(): LockStrategyLabel {
     return this.strategy.type;
   }
 }

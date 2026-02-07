@@ -33,11 +33,11 @@ export class LocalPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
-   * Retrieves the total number of unique pending transactions across all addresses.
+   * Retrieves the number of unique addresses with pending transactions.
    *
-   * @returns Promise resolving to the count of globally pending RLP hex payloads
+   * @returns Promise resolving to the count of unique addresses in the pending pool.
    */
-  async getSetSize(): Promise<number> {
+  async getUniqueAddressCount(): Promise<number> {
     return this.pendingTransactions.size;
   }
 

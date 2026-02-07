@@ -2,15 +2,12 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ethers } from 'ethers';
-import { Logger } from 'pino';
-import { Registry } from 'prom-client';
 
 import { numberTo0x } from '../formatters';
 import { predefined, TxPool } from '../index';
 import constants from './constants';
 import { rpcMethod } from './decorators';
 import { TransactionPoolService } from './services';
-import { PendingTransactionStorage } from './types/transactionPool';
 import { rpcParamValidationRules } from './validators';
 
 export interface TxPoolTransaction {
@@ -70,11 +67,10 @@ export class TxPoolImpl implements TxPool {
   /**
    * Creates a new instance of TxPoolImpl.
    *
-   * @param storage - Underlying storage for pending transactions.
-   * @param logger - Logger instance for output.
+   * @param transactionPoolService - Service managing the pending transaction pool.
    */
-  constructor(storage: PendingTransactionStorage, logger: Logger, registry: Registry) {
-    this.txPoolService = new TransactionPoolService(storage, logger, registry);
+  constructor(transactionPoolService: TransactionPoolService) {
+    this.txPoolService = transactionPoolService;
   }
 
   /**

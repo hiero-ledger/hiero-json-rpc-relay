@@ -26,6 +26,7 @@ import { IPAddressHbarSpendingPlanRepository } from '../../src/lib/db/repositori
 import { EthImpl } from '../../src/lib/eth';
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
 import { NetImpl } from '../../src/lib/net';
+import { TransactionPoolService } from '../../src/lib/services';
 import ClientService from '../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../src/lib/services/hbarLimitService';
 import { LockService } from '../../src/lib/services/lockService/LockService';
@@ -142,17 +143,18 @@ describe('Open RPC Specification', function () {
     storageStub.getTransactionPayloads.resolves(new Set([rlpTx]));
     storageStub.getAllTransactionPayloads.resolves(new Set([rlpTx]));
     const testRegistry = new Registry();
+    const transactionPoolService = new TransactionPoolService(storageStub, logger, testRegistry);
     ethImpl = new EthImpl(
       clientServiceInstance,
       mirrorNodeInstance,
       logger,
       '0x12a',
       cacheService,
-      storageStub,
+      transactionPoolService,
       lockServiceStub,
       testRegistry,
     );
-    txpoolImpl = new TxPoolImpl(storageStub, logger, testRegistry);
+    txpoolImpl = new TxPoolImpl(transactionPoolService);
     ns = { eth: ethImpl, net: new NetImpl(), web3: new Web3Impl(), txpool: txpoolImpl };
 
     // mocked data

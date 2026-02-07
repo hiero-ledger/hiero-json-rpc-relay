@@ -81,7 +81,7 @@ export class LocalLockStrategy implements LockStrategy {
     }
     const state = this.getOrCreateState(address);
 
-    this.lockMetricsService.incrementWaitingTxns('local');
+    this.lockMetricsService.incrementWaitingTxns(this.type);
 
     try {
       // Acquire the mutex (this will block until available)
@@ -90,7 +90,7 @@ export class LocalLockStrategy implements LockStrategy {
       const acquiredAt = process.hrtime.bigint();
       // Record wait time
       const waitTimeSeconds = Number(acquiredAt - startTime) / 1e9;
-      this.lockMetricsService.recordWaitTime('local', waitTimeSeconds);
+      this.lockMetricsService.recordWaitTime(this.type, waitTimeSeconds);
 
       // Record lock ownership metadata
       state.sessionKey = sessionKey;
@@ -101,15 +101,15 @@ export class LocalLockStrategy implements LockStrategy {
       }, ConfigService.get('LOCK_MAX_HOLD_MS'));
 
       // Record successful acquisition
-      this.lockMetricsService.recordAcquisition('local', 'success');
-      this.lockMetricsService.incrementActiveCount('local');
+      this.lockMetricsService.recordAcquisition(this.type, 'success');
+      this.lockMetricsService.incrementActiveCount(this.type);
 
       return { sessionKey, acquiredAt };
     } catch (error) {
-      this.lockMetricsService.recordAcquisition('local', 'fail');
+      this.lockMetricsService.recordAcquisition(this.type, 'fail');
       throw error;
     } finally {
-      this.lockMetricsService.decrementWaitingTxns('local');
+      this.lockMetricsService.decrementWaitingTxns(this.type);
     }
   }
 
@@ -118,9 +118,9 @@ export class LocalLockStrategy implements LockStrategy {
    *
    * @param address - The locked resource key
    * @param sessionKey - The session key of the lock holder
-   * @param acquiredAt - The timestamp when the lock was acquired (optional, uses internal state if not provided)
+   * @param acquiredAt - High-resolution timestamp (nanoseconds) when the lock was acquired
    */
-  async releaseLock(address: string, sessionKey: string, acquiredAt?: bigint): Promise<void> {
+  async releaseLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void> {
     const normalizedAddress = LockService.normalizeAddress(address);
     const state = this.localLockStates.get(normalizedAddress);
     if (state) {
@@ -128,11 +128,10 @@ export class LocalLockStrategy implements LockStrategy {
       if (state.sessionKey === sessionKey) {
         await this.doRelease(state);
 
-        // get hold time in seconds
-        const holdTimeNs = process.hrtime.bigint() - acquiredAt!;
+        const holdTimeNs = process.hrtime.bigint() - acquiredAt;
         const holdTimeMs = Number(holdTimeNs) / 1e6;
-        this.lockMetricsService.recordHoldDuration('local', Number(holdTimeNs) / 1e9);
-        this.lockMetricsService.decrementActiveCount('local');
+        this.lockMetricsService.recordHoldDuration(this.type, Number(holdTimeNs) / 1e9);
+        this.lockMetricsService.decrementActiveCount(this.type);
 
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(
@@ -196,9 +195,9 @@ export class LocalLockStrategy implements LockStrategy {
       await this.doRelease(state);
 
       // Record metrics for timeout release
-      this.lockMetricsService.recordHoldDuration('local', Number(holdTimeNs) / 1e9);
-      this.lockMetricsService.recordTimeoutRelease('local');
-      this.lockMetricsService.decrementActiveCount('local');
+      this.lockMetricsService.recordHoldDuration(this.type, Number(holdTimeNs) / 1e9);
+      this.lockMetricsService.recordTimeoutRelease(this.type);
+      this.lockMetricsService.decrementActiveCount(this.type);
 
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(`Force releasing expired local lock for address ${address} held for ${holdTimeMs}ms.`);

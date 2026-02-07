@@ -73,7 +73,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         addToList: sinon.stub(),
         removeFromList: sinon.stub(),
         removeAll: sinon.stub(),
-        getSetSize: sinon.stub(),
+        getUniqueAddressCount: sinon.stub(),
       },
       pino({ level: 'silent' }),
       registry,

@@ -240,7 +240,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async getUniqueAddressesCount(): Promise<number> {
     try {
-      return await this.storage.getSetSize();
+      return await this.storage.getUniqueAddressCount();
     } catch (error) {
       this.logger.error({ error: (error as Error).message }, 'Failed to get unique addresses count');
       this.storageErrorsCounter.labels('get', this.storageType).inc();

@@ -179,7 +179,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // Mock Lua script execution - return 1 for successful deletion
       mockRedisClient.eval.resolves(1);
 
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
       const evalCall = mockRedisClient.eval.getCall(0);
@@ -197,7 +197,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.eval.resolves(0);
 
       // Should not throw
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
     });
@@ -209,7 +209,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.eval.rejects(redisError);
 
       // Should not throw - release failures should not block caller
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
     });
@@ -220,7 +220,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       mockRedisClient.eval.resolves(1);
 
-      await redisLockStrategy.releaseLock(upperCaseAddress, sessionKey);
+      await redisLockStrategy.releaseLock(upperCaseAddress, sessionKey, process.hrtime.bigint());
 
       const evalCall = mockRedisClient.eval.getCall(0);
       expect(evalCall).to.not.be.null;
@@ -511,7 +511,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       mockRedisClient.eval.rejects(redisError);
 
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockMetricsService.incrementRedisLockErrors.calledWith('release')).to.be.true;
     });
@@ -545,7 +545,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockMetricsService.recordHoldDuration.resetHistory();
       mockMetricsService.decrementActiveCount.resetHistory();
 
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       // Should not record metrics since we weren't tracking this lock
       expect(mockMetricsService.recordHoldDuration.called).to.be.false;

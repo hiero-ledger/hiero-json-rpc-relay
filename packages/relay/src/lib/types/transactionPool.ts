@@ -65,7 +65,7 @@ export interface PendingTransactionStorage {
    *
    * @returns A promise that resolves to the number of unique addresses.
    */
-  getSetSize(): Promise<number>;
+  getUniqueAddressCount(): Promise<number>;
 
   /**
    * Adds a pending transaction for the given address.

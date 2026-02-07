@@ -65,7 +65,7 @@ export class RedisLockStrategy implements LockStrategy {
       await this.redisClient.lPush(queueKey, sessionKey);
       joinedQueue = true;
 
-      this.lockMetricsService.incrementWaitingTxns('redis');
+      this.lockMetricsService.incrementWaitingTxns(this.type);
       if (this.logger.isLevelEnabled('trace')) {
         this.logger.trace(`Lock acquisition started: address=${address}, sessionKey=${sessionKey}`);
       }
@@ -92,13 +92,13 @@ export class RedisLockStrategy implements LockStrategy {
             const acquisitionDuration = Number(acquiredAt - startTime) / 1e9;
             const queueLength = await this.redisClient.lLen(queueKey);
 
-            this.lockMetricsService.recordWaitTime('redis', acquisitionDuration);
-            this.lockMetricsService.recordAcquisition('redis', 'success');
-            this.lockMetricsService.incrementActiveCount('redis');
+            this.lockMetricsService.recordWaitTime(this.type, acquisitionDuration);
+            this.lockMetricsService.recordAcquisition(this.type, 'success');
+            this.lockMetricsService.incrementActiveCount(this.type);
 
             if (this.logger.isLevelEnabled('debug')) {
               this.logger.debug(
-                `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${acquisitionDuration}ms, queueLength=${queueLength}`,
+                `Lock acquired: address=${address}, sessionKey=${sessionKey}, duration=${(acquisitionDuration * 1e3).toFixed(2)}ms, queueLength=${queueLength}`,
               );
             }
 
@@ -120,13 +120,13 @@ export class RedisLockStrategy implements LockStrategy {
     } catch (error) {
       this.logger.error(error, `Failed to acquire lock: address=${address}, sessionKey=${sessionKey}. Failing open.`);
       // Record failed acquisition
-      this.lockMetricsService.recordAcquisition('redis', 'fail');
+      this.lockMetricsService.recordAcquisition(this.type, 'fail');
       this.lockMetricsService.incrementRedisLockErrors('acquire');
       return;
     } finally {
       // Always remove from queue if we joined it (whether success or failure)
       if (joinedQueue) {
-        this.lockMetricsService.decrementWaitingTxns('redis');
+        this.lockMetricsService.decrementWaitingTxns(this.type);
         await this.removeFromQueue(queueKey, sessionKey, address);
       }
     }
@@ -138,9 +138,9 @@ export class RedisLockStrategy implements LockStrategy {
    *
    * @param address - The sender address to release the lock for (will be normalized).
    * @param sessionKey - The session key proving ownership of the lock.
-   * @param acquiredAt - The timestamp when the lock was acquired (for metrics calculation).
+   * @param acquiredAt - High-resolution timestamp (nanoseconds) when the lock was acquired.
    */
-  async releaseLock(address: string, sessionKey: string, acquiredAt?: bigint): Promise<void> {
+  async releaseLock(address: string, sessionKey: string, acquiredAt: bigint): Promise<void> {
     const lockKey = this.getLockKey(address);
 
     try {
@@ -161,26 +161,22 @@ export class RedisLockStrategy implements LockStrategy {
       );
 
       if (result === 1) {
-        if (acquiredAt) {
-          const holdDurationNs = process.hrtime.bigint() - acquiredAt;
-          this.lockMetricsService.recordHoldDuration('redis', Number(holdDurationNs) / 1e9);
-        }
-        this.lockMetricsService.decrementActiveCount('redis');
+        const holdDurationNs = process.hrtime.bigint() - acquiredAt;
+        this.lockMetricsService.recordHoldDuration(this.type, Number(holdDurationNs) / 1e9);
+        this.lockMetricsService.decrementActiveCount(this.type);
 
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`Lock released: address=${address}, sessionKey=${sessionKey}`);
         }
       } else {
         // Lock was already released (likely due to TTL timeout) or owned by someone else
-        if (acquiredAt) {
-          const holdDurationNs = process.hrtime.bigint() - acquiredAt;
-          const holdDurationMs = Number(holdDurationNs) / 1e6;
-          // If hold duration exceeds max hold time, it was a timeout release
-          if (holdDurationMs >= this.maxLockHoldMs) {
-            this.lockMetricsService.recordHoldDuration('redis', Number(holdDurationNs) / 1e9);
-            this.lockMetricsService.recordTimeoutRelease('redis');
-            this.lockMetricsService.decrementActiveCount('redis');
-          }
+        const holdDurationNs = process.hrtime.bigint() - acquiredAt;
+        const holdDurationMs = Number(holdDurationNs) / 1e6;
+        // If hold duration exceeds max hold time, it was a timeout release
+        if (holdDurationMs >= this.maxLockHoldMs) {
+          this.lockMetricsService.recordHoldDuration(this.type, Number(holdDurationNs) / 1e9);
+          this.lockMetricsService.recordTimeoutRelease(this.type);
+          this.lockMetricsService.decrementActiveCount(this.type);
         }
 
         if (this.logger.isLevelEnabled('trace')) {
