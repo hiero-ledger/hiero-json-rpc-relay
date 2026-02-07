@@ -302,6 +302,7 @@ export class TransactionService implements ITransactionService {
         requestDetails,
       );
     } catch (error) {
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
       // Release lock on any error during validation or prechecks
       if (lockSessionKey) {
         await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
