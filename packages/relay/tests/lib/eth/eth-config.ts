@@ -614,6 +614,16 @@ export const DEFAULT_TRANSACTION = {
   v: 1,
   value: DEFAULT_TRANSACTION_VALUE,
 };
+export const DEFAULT_AUTHORIZATION_LIST = [
+  {
+    s: '0x7c9f3a1b8e4d2f6a9c1e5b7d3f8a2c4e9b6d1a',
+    r: '0x5e2d8c4a9f1b7e3d6c8a2f4b9d1e7a5c3f6b',
+    yParity: '0x1',
+    address: '0x5b98Ce3a4D1e1AC55F15Da174D5CeFcc5b8FB994',
+    chainId: '0x12a',
+    nonce: '0x0',
+  },
+];
 export const DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH = {
   address: '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9',
   amount: 2000000000,

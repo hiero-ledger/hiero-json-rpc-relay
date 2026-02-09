@@ -13,11 +13,11 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { Log, Transaction, Transaction1559, Transaction2930 } from '../model';
+import { Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number, fields: any): Transaction1559;
+  public static createTransactionByType(type: number, fields: any): Transaction7702;
 
   public static createTransactionByType(type: number, fields: any): Transaction | null {
     switch (type) {
@@ -32,14 +32,14 @@ export class TransactionFactory {
         return new Transaction1559({
           ...fields,
           accessList: [],
-          maxPriorityFeePerGas:
-            fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === constants.EMPTY_HEX
-              ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas) ?? '0'),
-          maxFeePerGas:
-            fields.maxFeePerGas === null || fields.maxFeePerGas === constants.EMPTY_HEX
-              ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxFeePerGas) ?? '0'),
+          ...extractSanitizedEIP1559FeeFields(fields),
+        }); // eip 1559 fields
+      case 4:
+        return new Transaction7702({
+          ...fields,
+          accessList: [],
+          ...extractSanitizedEIP1559FeeFields(fields),
+          ...extractSanitizedEIP7702AuthorizationList(fields),
         }); // eip 1559 fields
       case null:
         return new Transaction(fields); //hapi
@@ -78,6 +78,36 @@ export class TransactionFactory {
     });
   }
 }
+
+const extractSanitizedEIP1559FeeFields = (fields: any) => ({
+  maxPriorityFeePerGas:
+    fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === constants.EMPTY_HEX
+      ? constants.ZERO_HEX
+      : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas) ?? '0'),
+  maxFeePerGas:
+    fields.maxFeePerGas === null || fields.maxFeePerGas === constants.EMPTY_HEX
+      ? constants.ZERO_HEX
+      : prepend0x(trimPrecedingZeros(fields.maxFeePerGas) ?? '0'),
+});
+
+const extractSanitizedEIP7702AuthorizationList = (fields: any) => ({
+  authorizationList:
+    fields.authorizationList && Array.isArray(fields.authorizationList)
+      ? fields.authorizationList
+          ?.filter((item: any) => typeof item === 'object')
+          .map((item: any) => ({
+            ...item, // additional properties remain allowed for authorization list items
+            chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
+            nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
+            address: !item.address
+              ? constants.ZERO_ADDRESS_HEX
+              : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+            yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
+            r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
+            s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
+          }))
+      : [],
+});
 
 /**
  * Creates a Transaction object from a contract result
@@ -122,5 +152,6 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     ...commonFields,
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
+    authorizationList: cr.authorization_list,
   });
 };

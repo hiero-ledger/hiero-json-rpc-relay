@@ -163,9 +163,27 @@ export class Transaction1559 extends Transaction2930 {
   }
 }
 
+export class Transaction7702 extends Transaction1559 {
+  public readonly authorizationList!: AuthorizationListEntry[] | null | [];
+
+  constructor(args: any) {
+    super(args);
+    this.authorizationList = args.authorizationList;
+  }
+}
+
 export declare class AccessListEntry {
   readonly address: string;
   readonly storageKeys: string[];
+}
+
+export declare class AuthorizationListEntry {
+  readonly chainId: string;
+  readonly nonce: string;
+  readonly address: string;
+  readonly yParity: string;
+  readonly r: string;
+  readonly s: string;
 }
 
 export class Log {
@@ -179,6 +197,7 @@ export class Log {
   public readonly topics: string[];
   public readonly transactionHash: string;
   public readonly transactionIndex: string;
+  public readonly authorizationList: AuthorizationListEntry[];
 
   constructor(args: any) {
     this.address = args.address;
@@ -191,5 +210,6 @@ export class Log {
     this.topics = args.topics;
     this.transactionHash = args.transactionHash;
     this.transactionIndex = args.transactionIndex;
+    this.authorizationList = args.authorizationList || [];
   }
 }
