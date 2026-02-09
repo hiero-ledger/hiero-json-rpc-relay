@@ -13,12 +13,12 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@hashgraph/sdk": "^2.78.0",
-    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.151",
-    "@layerzerolabs/lz-v2-utilities": "^3.0.151",
+    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.159",
+    "@layerzerolabs/lz-v2-utilities": "^3.0.159",
     "@layerzerolabs/oapp-evm": "^0.4.1",
     "@layerzerolabs/onft-evm": "^0.2.4",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-    "dotenv": "^17.2.3",
-    "hardhat": "^2.28.3"
+    "dotenv": "^17.2.4",
+    "hardhat": "^2.28.4"
   }
 }

@@ -14,7 +14,7 @@
     "@typescript-eslint/eslint-plugin": "^4.33.0",
     "@typescript-eslint/parser": "^4.33.0",
     "chai": "^4.3.7",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.2.4",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-standard": "^16.0.3",
@@ -30,7 +30,7 @@
     "prettier": "^2.7.1",
     "prettier-plugin-solidity": "^1.0.0",
     "solhint": "^3.3.7",
-    "solidity-coverage": "^0.8.16",
+    "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.2",
     "typechain": "^5.2.0",
     "typescript": "^5.8.3"
