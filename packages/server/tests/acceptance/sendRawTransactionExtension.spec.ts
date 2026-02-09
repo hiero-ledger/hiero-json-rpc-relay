@@ -605,8 +605,8 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
           const transactionPromises = signedTransactions.map((signedTransaction) =>
             relay.sendRawTransaction(signedTransaction),
           );
-          const maxPendingNouncesCount = await recordPeakPendingTxCount();
-          console.log(`Max pending nonces enountered during tests was: ${maxPendingNouncesCount}`);
+          const maxPendingNoncesCount = await recordPeakPendingTxCount();
+          console.log(`Max pending nonces encountered during tests was: ${maxPendingNoncesCount}`);
 
           // We should eventually remove all the transactions from the pending pool
           // no matter if they succeeded or not

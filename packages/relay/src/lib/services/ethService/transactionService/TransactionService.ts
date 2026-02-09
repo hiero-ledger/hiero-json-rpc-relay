@@ -272,8 +272,8 @@ export class TransactionService implements ITransactionService {
       }
       await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
     } catch (validationError) {
-      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
       if (lockSessionKey) await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
       throw validationError;
     }
 
