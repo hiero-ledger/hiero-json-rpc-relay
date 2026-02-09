@@ -35,7 +35,7 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-    "build": "pnpm clean && pnpm compile",
+    "build": "npm run clean && npm run compile",
     "clean": "rm -rf ./dist && rm -rf tsconfig.tsbuildinfo",
     "compile": "tsc -b tsconfig.json",
     "acceptancetest": "c8 ts-mocha tests/acceptance/index.spec.ts",
