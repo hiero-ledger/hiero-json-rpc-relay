@@ -103,6 +103,16 @@ export class RedisPendingTransactionStorage implements PendingTransactionStorage
   }
 
   /**
+   * Retrieves the number of unique addresses with pending transactions.
+   *
+   * @returns Promise resolving to the count of unique addresses in the pending pool.
+   */
+  async getUniqueAddressCount(): Promise<number> {
+    const keys = await this.redisClient.keys(`${this.keyPrefix}*`);
+    return keys.filter((k) => k !== this.globalPendingTxsKey).length;
+  }
+
+  /**
    * Retrieves all pending transaction payloads (RLP hex) across all addresses.
    *
    * @returns Set of all pending transaction RLP hex strings

@@ -7,6 +7,7 @@ import { Logger, pino } from 'pino';
 import { RedisClientType } from 'redis';
 import * as sinon from 'sinon';
 
+import { LockMetricsService } from '../../../../src/lib/services/lockService/LockMetricsService';
 import { RedisLockStrategy } from '../../../../src/lib/services/lockService/RedisLockStrategy';
 
 use(chaiAsPromised);
@@ -16,6 +17,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
   let logger: Logger;
   let mockRedisClient: sinon.SinonStubbedInstance<RedisClientType>;
+  let mockMetricsService: sinon.SinonStubbedInstance<LockMetricsService>;
   let redisLockStrategy: RedisLockStrategy;
 
   const testAddress = '0x1234567890abcdef1234567890abcdef12345678';
@@ -35,7 +37,25 @@ describe('RedisLockStrategy Test Suite', function () {
       exists: sinon.stub(),
     } as any;
 
-    redisLockStrategy = new RedisLockStrategy(mockRedisClient as any, logger);
+    // Create a mock metrics service
+    mockMetricsService = {
+      recordWaitTime: sinon.stub(),
+      recordHoldDuration: sinon.stub(),
+      incrementWaitingTxns: sinon.stub(),
+      decrementWaitingTxns: sinon.stub(),
+      recordAcquisition: sinon.stub(),
+      recordTimeoutRelease: sinon.stub(),
+      recordZombieCleanup: sinon.stub(),
+      incrementActiveCount: sinon.stub(),
+      decrementActiveCount: sinon.stub(),
+      incrementRedisLockErrors: sinon.stub(),
+    } as sinon.SinonStubbedInstance<LockMetricsService>;
+
+    redisLockStrategy = new RedisLockStrategy(
+      mockRedisClient as any,
+      logger,
+      mockMetricsService as unknown as LockMetricsService,
+    );
   });
 
   afterEach(() => {
@@ -58,7 +78,9 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
+      expect(result!.acquiredAt).to.be.a('bigint');
       expect(mockRedisClient.lPush.calledOnce).to.be.true;
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, sessionKey)).to.be.true;
 
@@ -85,7 +107,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
       expect(mockRedisClient.lIndex.callCount).to.equal(2);
       expect(mockRedisClient.exists.calledOnce).to.be.true; // Checked other waiter's heartbeat
       expect(mockRedisClient.lRem.calledOnce).to.be.true;
@@ -156,7 +179,7 @@ describe('RedisLockStrategy Test Suite', function () {
       // Mock Lua script execution - return 1 for successful deletion
       mockRedisClient.eval.resolves(1);
 
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
       const evalCall = mockRedisClient.eval.getCall(0);
@@ -174,7 +197,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.eval.resolves(0);
 
       // Should not throw
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
     });
@@ -186,7 +209,7 @@ describe('RedisLockStrategy Test Suite', function () {
       mockRedisClient.eval.rejects(redisError);
 
       // Should not throw - release failures should not block caller
-      await redisLockStrategy.releaseLock(testAddress, sessionKey);
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
 
       expect(mockRedisClient.eval.calledOnce).to.be.true;
     });
@@ -197,7 +220,7 @@ describe('RedisLockStrategy Test Suite', function () {
 
       mockRedisClient.eval.resolves(1);
 
-      await redisLockStrategy.releaseLock(upperCaseAddress, sessionKey);
+      await redisLockStrategy.releaseLock(upperCaseAddress, sessionKey, process.hrtime.bigint());
 
       const evalCall = mockRedisClient.eval.getCall(0);
       expect(evalCall).to.not.be.null;
@@ -221,7 +244,8 @@ describe('RedisLockStrategy Test Suite', function () {
       sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(session1);
 
       const result1 = await redisLockStrategy.acquireLock(testAddress);
-      expect(result1).to.equal(session1);
+      expect(result1).to.not.be.undefined;
+      expect(result1!.sessionKey).to.equal(session1);
 
       // Verify LPUSH was called (adding to queue)
       expect(mockRedisClient.lPush.calledWith(`lock:queue:${normalizedAddress}`, session1)).to.be.true;
@@ -275,7 +299,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
 
       // Should have checked zombie's heartbeat
       expect(mockRedisClient.exists.calledOnce).to.be.true;
@@ -313,7 +338,8 @@ describe('RedisLockStrategy Test Suite', function () {
 
       const result = await redisLockStrategy.acquireLock(testAddress);
 
-      expect(result).to.equal(sessionKey);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
 
       // Should have refreshed heartbeat on EACH poll (3 times for heartbeat + 1 for lock)
       expect(mockRedisClient.set.callCount).to.be.at.least(4);
@@ -409,6 +435,121 @@ describe('RedisLockStrategy Test Suite', function () {
 
       // Cleanup was attempted
       expect(mockRedisClient.lRem.calledOnce).to.be.true;
+    });
+  });
+
+  describe('Metrics verification', () => {
+    it('should record metrics on successful lock acquisition', async () => {
+      const sessionKey = 'test-session-key';
+
+      mockRedisClient.lPush.resolves(1);
+      mockRedisClient.lIndex.resolves(sessionKey);
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      await redisLockStrategy.acquireLock(testAddress);
+
+      expect(mockMetricsService.incrementWaitingTxns.calledWith('redis')).to.be.true;
+      expect(mockMetricsService.recordWaitTime.calledOnce).to.be.true;
+      expect(mockMetricsService.recordWaitTime.firstCall.args[0]).to.equal('redis');
+      expect(mockMetricsService.recordAcquisition.calledWith('redis', 'success')).to.be.true;
+      expect(mockMetricsService.incrementActiveCount.calledWith('redis')).to.be.true;
+      expect(mockMetricsService.decrementWaitingTxns.calledWith('redis')).to.be.true;
+    });
+
+    it('should record metrics on lock release', async () => {
+      const sessionKey = 'test-session-key';
+
+      // First acquire the lock
+      mockRedisClient.lPush.resolves(1);
+      mockRedisClient.lIndex.resolves(sessionKey);
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      const result = await redisLockStrategy.acquireLock(testAddress);
+
+      mockMetricsService.recordHoldDuration.resetHistory();
+      mockMetricsService.decrementActiveCount.resetHistory();
+
+      // Release returns 1 (successful deletion)
+      mockRedisClient.eval.resolves(1);
+
+      // Pass acquiredAt from the acquisition result
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, result!.acquiredAt);
+
+      expect(mockMetricsService.recordHoldDuration.calledOnce).to.be.true;
+      expect(mockMetricsService.recordHoldDuration.firstCall.args[0]).to.equal('redis');
+      expect(mockMetricsService.recordHoldDuration.firstCall.args[1]).to.be.a('number');
+      expect(mockMetricsService.decrementActiveCount.calledWith('redis')).to.be.true;
+    });
+
+    it('should record failed acquisition metrics on Redis error', async () => {
+      const sessionKey = 'test-session-key';
+      const redisError = new Error('Redis connection failed');
+
+      mockRedisClient.lPush.resolves(1);
+      mockRedisClient.lIndex.rejects(redisError);
+      mockRedisClient.lRem.resolves(1);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      await redisLockStrategy.acquireLock(testAddress);
+
+      expect(mockMetricsService.recordAcquisition.calledWith('redis', 'fail')).to.be.true;
+      expect(mockMetricsService.incrementRedisLockErrors.calledWith('acquire')).to.be.true;
+    });
+
+    it('should record redis error metrics on release failure', async () => {
+      const sessionKey = 'test-session-key';
+      const redisError = new Error('Redis connection failed');
+
+      mockRedisClient.eval.rejects(redisError);
+
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
+
+      expect(mockMetricsService.incrementRedisLockErrors.calledWith('release')).to.be.true;
+    });
+
+    it('should record zombie cleanup metrics when removing dead waiter', async () => {
+      const sessionKey = 'test-session-key';
+      const zombieSessionKey = 'zombie-session-key';
+
+      mockRedisClient.lPush.resolves(2);
+      mockRedisClient.lIndex.onFirstCall().resolves(zombieSessionKey).onSecondCall().resolves(sessionKey);
+      mockRedisClient.exists.resolves(0); // Zombie's heartbeat is MISSING
+      mockRedisClient.set.resolves('OK');
+      mockRedisClient.lRem.resolves(1);
+      mockRedisClient.lLen.resolves(0);
+
+      sinon.stub(redisLockStrategy as any, 'generateSessionKey').returns(sessionKey);
+
+      const result = await redisLockStrategy.acquireLock(testAddress);
+      expect(result).to.not.be.undefined;
+      expect(result!.sessionKey).to.equal(sessionKey);
+
+      expect(mockMetricsService.recordZombieCleanup.called).to.be.true;
+    });
+
+    it('should not record hold duration when release fails (not owner)', async () => {
+      const sessionKey = 'test-session-key';
+
+      // Lua script returns 0 (not owner or already released)
+      mockRedisClient.eval.resolves(0);
+
+      mockMetricsService.recordHoldDuration.resetHistory();
+      mockMetricsService.decrementActiveCount.resetHistory();
+
+      await redisLockStrategy.releaseLock(testAddress, sessionKey, process.hrtime.bigint());
+
+      // Should not record metrics since we weren't tracking this lock
+      expect(mockMetricsService.recordHoldDuration.called).to.be.false;
+      expect(mockMetricsService.decrementActiveCount.called).to.be.false;
     });
   });
 });

@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 import pino from 'pino';
+import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
 import constants from '../../../relay/src/lib/constants';
@@ -127,7 +128,9 @@ describe('Txpool', async function () {
     sandbox = sinon.createSandbox();
     sandbox.stub(ConfigService, 'get').returns(true);
 
-    txPool = new TxPoolImpl({} as any, logger);
+    const registry = new Registry();
+    const txPoolService = new TransactionPoolService({} as any, logger, registry);
+    txPool = new TxPoolImpl(txPoolService);
     txPoolServiceMock = sandbox.createStubInstance(TransactionPoolService);
     (txPool as any).txPoolService = txPoolServiceMock;
   });
