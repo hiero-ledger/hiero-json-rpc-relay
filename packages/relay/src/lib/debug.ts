@@ -248,6 +248,29 @@ export class DebugImpl implements Debug {
   }
 
   /**
+   * Returns a list of bad blocks that the client has seen.
+   * Due to Hedera's architecture, bad blocks do not occur, so this method always returns an empty array.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getBadBlocks RPC endpoint
+   *
+   * @returns {Promise<[]>} A Promise that resolves to an empty array.
+   *
+   * @example
+   * const result = await getBadBlocks();
+   * // result: []
+   */
+  @rpcMethod
+  async getBadBlocks(): Promise<[]> {
+    try {
+      DebugImpl.requireDebugAPIEnabled();
+      return [];
+    } catch (error) {
+      throw this.common.genericErrorHandler(error);
+    }
+  }
+
+  /**
    * Formats the result from the actions endpoint to the expected response
    *
    * @async
