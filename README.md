@@ -29,20 +29,60 @@ You must have installed
 - [node (version 20)](https://nodejs.org/en/about/)
 - [npm](https://www.npmjs.com/)
 - [pnpm](https://pnpm.io/)
-- [Docker](https://docs.docker.com/engine/reference/commandline/docker/)
+- [Docker (if you want to use `docker compose up` to run the server)](https://docs.docker.com/engine/reference/commandline/docker/)
 
 We also recommend installing the "prettier" plugin in IntelliJ.
 
-### Steps
+### Quickstart
+
+Clone the repository
+
+```bash
+git clone https://github.com/hiero-ledger/hiero-json-rpc-relay.git
+cd hiero-json-rpc-relay
+```
+
+Configure required environment variables
+
+```bash
+cp .env.http.example .env
+```
+
+Open .env in your code editor and populate these vars
+
+```
+# ========== REQUIRED CONFIGURATION ==========
+# Network Configuration
+CHAIN_ID=                                     # The network chain id. Local/previewnet = 0x12a (298), Previewnet = 0x129 (297), Testnet = 0x128 (296), Mainnet = 0x127 (295)
+HEDERA_NETWORK=                               # Which network to connect to. Can be: previewnet, testnet, mainnet or a map of IPs and nodes e.g. {"127.0.0.1:50211":"0.0.3"}
+MIRROR_NODE_URL=                              # The Mirror Node API endpoint e.g. https://testnet.mirrornode.hedera.com or https://mainnet.mirrornode.hedera.com
+
+# Operator Account (Required for transaction execution; use the Hedera Portal (https://portal.hedera.com) account for 1000 HBAR / day)
+OPERATOR_ID_MAIN=                             # Operator account ID used to pay for transactions e.g. 0.0.1001
+OPERATOR_KEY_MAIN=                            # Operator private key used to sign transactions in hex encoded DER format
+OPERATOR_KEY_FORMAT=                          # Optional. Operator private key format. Valid types: DER, HEX_ECDSA, or HEX_ED25519
+```
+
+There are two easy options to get your JSON RPC Relay up and running. You only need to do one of them.
+
+#### Option 1) Docker
+
+Spin up Docker containers (JSON RPC Relay source code & Redis Cache)
+
+```
+docker compose up -d
+```
+
+#### Option 2) Node
 
 From the root of the project workspace:
 
 1. Run `npm install`. This will create populate and link `node_modules`.
 2. Run `npm run build`. This will clean and compile the relay library and the server.
-3. Run `npm run start`. This will start the server on port `7546`.
+3. Disable Redis in .env by setting `REDIS_ENABLED=false`. This tells the JSON RPC Relay not to try and connect to Redis, which is likely not running on your computer.
+4. Run `npm run start`. This will start the server on port `7546`.
 
-Alternatively, after `npm install`, from within the IDE, you should see the `Start Relay Microservice`
-run configuration. You should be able to just run that configuration, and it should start the server on port `7546`.
+> Pro tip: for local development you can set `HBAR_RATE_LIMIT_TINYBAR=0` in `.env` for unlimted rate limits. This is not recommended for production RPC relays.
 
 ## Testing
 
