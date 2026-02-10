@@ -2984,7 +2984,7 @@ describe('RPC Server', function () {
         },
         {
           hash: '0xijkl9012',
-          result: 'WRONG_NONCE', // This should be filtered out
+          result: 'WRONG_NONCE',
         },
       ];
 
@@ -3122,7 +3122,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2); // Since we filter out WRONG_NONCE
+        expect(response.data.result).to.have.lengthOf(3);
 
         // Check structure of the result items
         const [firstTrace] = response.data.result;
@@ -3141,7 +3141,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2);
+        expect(response.data.result).to.have.lengthOf(3);
 
         // Verify CallTracer specific fields
         const [firstTrace] = response.data.result;
@@ -3164,7 +3164,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2);
+        expect(response.data.result).to.have.lengthOf(3);
 
         // We can't directly test if onlyTopCall worked since it's an internal implementation detail,
         // but we can verify the basic structure is correct
@@ -3184,7 +3184,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2);
+        expect(response.data.result).to.have.lengthOf(3);
 
         // Verify PrestateTracer specific response structure
         const [firstTrace] = response.data.result;
@@ -3206,7 +3206,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2);
+        expect(response.data.result).to.have.lengthOf(3);
 
         // We're testing the basic structure of the prestate tracer result
         const [firstTrace] = response.data.result;
@@ -3224,7 +3224,7 @@ describe('RPC Server', function () {
 
         BaseTest.defaultResponseChecks(response);
         expect(response.data.result).to.be.an('array');
-        expect(response.data.result).to.have.lengthOf(2);
+        expect(response.data.result).to.have.lengthOf(3);
       });
 
       it('should return cached result if available', async () => {

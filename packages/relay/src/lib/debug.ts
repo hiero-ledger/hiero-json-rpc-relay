@@ -579,8 +579,6 @@ export class DebugImpl implements Debug {
           requestDetails,
         ]),
       ]);
-    } else if (!preFetchedActionsResponse?.length) {
-      actionsResponse = await this.mirrorNodeClient.getContractsResultsActions(transactionHash, requestDetails);
     }
 
     // Check for pre-execution validation failure first - return empty prestate
