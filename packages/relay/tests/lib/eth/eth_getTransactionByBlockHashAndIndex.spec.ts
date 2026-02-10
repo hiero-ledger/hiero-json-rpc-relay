@@ -226,6 +226,10 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
       requestDetails,
     );
     expect(result).to.be.an.instanceOf(Transaction1559);
+    if (result) {
+      expect((result as Transaction1559).maxFeePerGas).to.equal('0xa54f4c3c00');
+      expect((result as Transaction1559).maxPriorityFeePerGas).to.equal('0xa54f4c3c00');
+    }
   });
 
   describe('synthetic transaction handling', function () {

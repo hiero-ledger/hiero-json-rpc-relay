@@ -118,9 +118,23 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
   };
 
+  const maxPriorityFeePerGas =
+    cr.max_priority_fee_per_gas === null || cr.max_priority_fee_per_gas === constants.EMPTY_HEX
+      ? null
+      : isHex(cr.max_priority_fee_per_gas)
+        ? numberTo0x(BigInt(cr.max_priority_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : nanOrNumberTo0x(cr.max_priority_fee_per_gas);
+
+  const maxFeePerGas =
+    cr.max_fee_per_gas === null || cr.max_fee_per_gas === constants.EMPTY_HEX
+      ? null
+      : isHex(cr.max_fee_per_gas)
+        ? numberTo0x(BigInt(cr.max_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : nanOrNumberTo0x(cr.max_fee_per_gas);
+
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
-    maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-    maxFeePerGas: cr.max_fee_per_gas,
+    maxPriorityFeePerGas,
+    maxFeePerGas,
   });
 };

@@ -11,7 +11,7 @@ import { Eth } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
-import { Transaction } from '../../../src/lib/model';
+import { Transaction, Transaction1559 } from '../../../src/lib/model';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
@@ -21,6 +21,7 @@ import {
   BLOCK_NUMBER_HEX,
   CONTRACT_ADDRESS_1,
   CONTRACT_HASH_1,
+  CONTRACT_RESULT_MOCK,
   CONTRACT_TIMESTAMP_1,
   DEFAULT_BLOCK,
   DEFAULT_BLOCKS_RES,
@@ -271,6 +272,34 @@ describe('@ethGetTransactionByBlockNumberAndIndex using MirrorNode', async funct
       requestDetails,
     );
     verifyAggregatedInfo(result);
+  });
+
+  it('eth_getTransactionByBlockNumberAndIndex returns 1559 transaction for type 2 with converted fee caps', async function () {
+    restMock.onGet(contractResultsByNumberByIndexURL(DEFAULT_BLOCK.number, DEFAULT_BLOCK.count)).reply(
+      200,
+      JSON.stringify({
+        results: [
+          {
+            ...CONTRACT_RESULT_MOCK,
+            type: 2,
+            access_list: [],
+            max_fee_per_gas: '0x47',
+            max_priority_fee_per_gas: '0x47',
+          },
+        ],
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByBlockNumberAndIndex(
+      numberTo0x(DEFAULT_BLOCK.number),
+      numberTo0x(DEFAULT_BLOCK.count),
+      requestDetails,
+    );
+    expect(result).to.be.an.instanceOf(Transaction1559);
+    if (result) {
+      expect((result as Transaction1559).maxFeePerGas).to.equal('0xa54f4c3c00');
+      expect((result as Transaction1559).maxPriorityFeePerGas).to.equal('0xa54f4c3c00');
+    }
   });
 
   describe('synthetic transaction handling', function () {
