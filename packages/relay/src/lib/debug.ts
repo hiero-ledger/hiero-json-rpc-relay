@@ -224,8 +224,6 @@ export class DebugImpl implements Debug {
     1: { type: 'tracerConfigWrapper', required: false },
   })
   @rpcParamLayoutConfig(RPC_LAYOUT.custom((params) => [params[0], params[1]]))
-  // skipParams excludes non-cacheable block tags like 'latest' from the cache key;
-  // traceBlockByHash does not need this since block hashes always reference a specific immutable block.
   @cache()
   async traceBlockByHash(
     blockHash: string,
