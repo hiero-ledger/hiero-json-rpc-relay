@@ -32,6 +32,7 @@ import {
   BLOCK_NUMBER,
   BLOCK_NUMBER_HEX,
   BLOCK_NUMBER_WITH_SYN_TXN,
+  BLOCK_TIMESTAMP,
   BLOCK_TIMESTAMP_HEX,
   BLOCK_WITH_SYN_TXN,
   BLOCKS_LIMIT_ORDER_URL,
@@ -128,6 +129,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
     modifiedNetworkFees.fees[2].gas *= 100;
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
+    restMock.onGet(/network\/fees\?timestamp=\d+/).reply(200, JSON.stringify(modifiedNetworkFees));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[0].to}?transactions=false`).reply(200);
@@ -444,7 +446,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal(`network/fees?timestamp=${BLOCK_TIMESTAMP}`);
       confirmResult(result);
     });
 
@@ -479,7 +481,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal(`network/fees?timestamp=${BLOCK_TIMESTAMP}`);
       confirmResult(result);
     });
 
@@ -494,7 +496,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal(`network/fees?timestamp=${BLOCK_TIMESTAMP}`);
       confirmResult(result);
     });
 
@@ -584,6 +586,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    restMock.onGet(/network\/fees\?timestamp=\d+/).reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
 
     const nullEntitiedLogs = [
       {

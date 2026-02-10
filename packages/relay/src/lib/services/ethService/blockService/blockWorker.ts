@@ -318,7 +318,10 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await commonService.gasPrice(requestDetails);
+    // Use block-time gas price (not current) so baseFeePerGas matches effectiveGasPrice.
+    // Mirrors the pattern in getBlockReceipts (line 364).
+    const blockTimestamp = blockResponse.timestamp?.from?.split('.')[0] ?? '';
+    const gasPrice = numberTo0x(await commonService.getGasPriceInWeibars(requestDetails, blockTimestamp));
 
     return await BlockFactory.createBlock({
       blockResponse,
