@@ -92,7 +92,7 @@
     "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/trie": "^6.2.1",
     "@ethereumjs/util": "^9.1.0",
-    "@hoppscotch/cli": "0.30.0",
+    "@hoppscotch/cli": "0.30.2",
     "koa-websocket": "^7.0.0",
     "lerna": "^9.0.0",
     "pino": "^10.1.0",
