@@ -617,7 +617,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     );
   });
 
-  describe.only('EIP-7702 (authorizationList)', function () {
+  describe('EIP-7702 (authorizationList)', function () {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167'; // Delegate the calls anywhere, HTS can do.
 
     it('should install delegation via type-4 tx and verify the created transaction has correct authorization list', async function () {
