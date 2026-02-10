@@ -272,7 +272,8 @@ export class TransactionService implements ITransactionService {
     // Validate and save the transaction to the transaction pool before submitting it to the network
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `Transaction undergoing basic properties (stateless) prechecks: transaction=${JSON.stringify(parsedTx)}`,
+        `Transaction undergoing basic properties (stateless) prechecks: transaction=%s`,
+        JSON.stringify(parsedTx),
       );
     }
     this.precheck.validateBasicPropertiesStateless(parsedTx);
@@ -292,7 +293,8 @@ export class TransactionService implements ITransactionService {
       );
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `Transaction undergoing account and network (stateful) prechecks: transaction=${JSON.stringify(parsedTx)}`,
+          `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
+          JSON.stringify(parsedTx),
         );
       }
       await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
@@ -530,7 +532,7 @@ export class TransactionService implements ITransactionService {
     const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
     }
 
     return receipt;
