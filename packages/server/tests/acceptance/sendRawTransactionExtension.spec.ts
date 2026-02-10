@@ -616,4 +616,48 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       },
     );
   });
+
+  describe.only('EIP-7702 (authorizationList)', function () {
+    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167'; // Delegate the calls anywhere, HTS can do.
+
+    it('should install delegation via type-4 tx and verify the created transaction has correct authorization list', async function () {
+      const signer = accounts[1];
+      const gasPrice = await relay.gasPrice();
+
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const unsignedTx = {
+        type: 4,
+        chainId: Number(CHAIN_ID),
+        nonce: currentNonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        value: ONE_TINYBAR,
+        authorizationList,
+      };
+
+      const signedTx = await signer.wallet.signTransaction(unsignedTx);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const tx = await relay.call('eth_getTransactionByHash', [txHash]);
+
+      expect(tx).to.exist;
+      expect(tx.type).to.equal('0x4');
+
+      expect(tx.authorizationList).to.exist;
+      expect(tx.authorizationList).to.be.an('array').that.is.not.empty;
+
+      expect(tx.authorizationList).to.deep.equal(authorizationList);
+    });
+  });
 });
