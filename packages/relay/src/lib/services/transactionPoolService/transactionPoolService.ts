@@ -106,7 +106,6 @@ export class TransactionPoolService implements ITransactionPoolService {
    * @param address - The account address to query.
    * @returns A promise that resolves to the number of pending transactions.
    *          Returns 0 if the transaction pool is disabled.
-   * @throws When the transaction pool is enabled but the storage is unavailable.
    */
   async getPendingCount(address: string): Promise<number> {
     if (!TransactionPoolService.isEnabled()) {
