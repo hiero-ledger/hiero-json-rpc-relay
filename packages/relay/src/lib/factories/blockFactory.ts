@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { RLP } from '@ethereumjs/rlp';
+
 import { numberTo0x, toHash32 } from '../../formatters';
 import constants from '../constants';
 import { Block } from '../model';
@@ -43,5 +45,33 @@ export class BlockFactory {
       transactionsRoot: txArray.length == 0 ? constants.DEFAULT_ROOT_HASH : blockHash,
       uncles: [],
     });
+  }
+
+  static rlpEncode(block: Block): Uint8Array {
+    return RLP.encode([
+      block.timestamp,
+      block.difficulty,
+      block.extraData,
+      block.gasLimit,
+      block.baseFeePerGas,
+      block.gasUsed,
+      block.logsBloom,
+      block.miner,
+      block.mixHash,
+      block.nonce,
+      block.receiptsRoot,
+      block.sha3Uncles,
+      block.size,
+      block.stateRoot,
+      block.totalDifficulty,
+      [...block.transactions.map((tx) => (typeof tx === 'object' ? tx.hash : (tx as string)))],
+      block.transactionsRoot,
+      [], // uncles
+      [], // withdrawals
+      block.withdrawalsRoot,
+      block.number,
+      block.hash,
+      block.parentHash,
+    ]);
   }
 }

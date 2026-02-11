@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
+import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
@@ -54,6 +55,7 @@ describe('@debug API Acceptance Tests', function () {
   let htsTokenId: any;
   let htsTransferTxHash: string;
   let htsTransferBlockNumber: number;
+  let htsTransferBlockHash: string;
   let evmTxHash: string;
 
   const PURE_METHOD_CALL_DATA = '0xb2e0100c';
@@ -61,6 +63,7 @@ describe('@debug API Acceptance Tests', function () {
 
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
+  const DEBUG_GET_RAW_BLOCK = 'debug_getRawBlock';
 
   const TRACER_CONFIGS = {
     CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
@@ -150,6 +153,7 @@ describe('@debug API Acceptance Tests', function () {
     const evmReceipt = await Utils.getReceipt(relay, evmTransaction, accounts[0].wallet);
     evmTxHash = evmReceipt.transactionHash;
     htsTransferBlockNumber = parseInt(evmReceipt.blockNumber.toString());
+    htsTransferBlockHash = evmReceipt.blockHash;
 
     // Perform a native HTS transfer (synthetic transaction)
     const transferAmount = 100;
@@ -832,6 +836,58 @@ describe('@debug API Acceptance Tests', function () {
             "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
           ),
         );
+      });
+    });
+
+    describe('debug_getRawBlock', async () => {
+      const QUANTITY_FIELDS: Set<string> = new Set([
+        'difficulty',
+        'number',
+        'gasLimit',
+        'gasUsed',
+        'baseFeePerGas',
+        'size',
+        'totalDifficulty',
+        'timestamp',
+      ]);
+
+      const hexToData = (buf: Uint8Array): string => `0x${Buffer.from(buf).toString('hex')}`;
+
+      const hexToQuantity = (buf: Uint8Array): string => {
+        if (buf.length === 0) return '0x0';
+
+        const hex = Buffer.from(buf).toString('hex').replace(/^0+/, '');
+
+        return `0x${hex || '0'}`;
+      };
+
+      const decodeField = (field: string, value: string[] | string): string[] | string => {
+        const formatter: any = QUANTITY_FIELDS.has(field) ? hexToQuantity : hexToData;
+
+        return Array.isArray(value) ? value.map(formatter) : formatter(value);
+      };
+
+      let blockInfo;
+      before(async () => {
+        blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), false]);
+      });
+
+      it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
+        const rawBlock = await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]);
+
+        const decodedRawBlock = RLP.decode(rawBlock);
+        Object.entries(blockInfo).forEach(([key, expected], index) => {
+          expect(expected).to.deep.equal(decodeField(key, decodedRawBlock[index]));
+        });
+      });
+
+      it('should check whether the RLP block has correct info using block hash for debug_getRawBlock parameter ', async () => {
+        const rawBlock = await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]);
+
+        const decodedRawBlock = RLP.decode(rawBlock);
+        Object.entries(blockInfo).forEach(([key, expected], index) => {
+          expect(expected).to.deep.equal(decodeField(key, decodedRawBlock[index]));
+        });
       });
     });
 

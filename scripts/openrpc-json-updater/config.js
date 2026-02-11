@@ -29,7 +29,6 @@ export const UNSUPPORTED_METHODS = [
 
 export const NOT_IMPLEMENTED_METHODS = [
   'debug_getBadBlocks',
-  'debug_getRawBlock',
   'debug_getRawHeader',
   'debug_getRawReceipts',
   'debug_getRawTransaction',

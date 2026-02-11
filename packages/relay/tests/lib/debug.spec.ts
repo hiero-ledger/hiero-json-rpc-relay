@@ -8,6 +8,8 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
+import { EthImpl } from '../../dist/lib/eth';
+import { Block } from '../../dist/lib/model';
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
 import { MirrorNodeClient } from '../../src/lib/clients';
@@ -34,6 +36,7 @@ let restMock: MockAdapter;
 let web3Mock: MockAdapter;
 let mirrorNodeInstance: MirrorNodeClient;
 let debugService: DebugImpl;
+let ethImpl: EthImpl;
 
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
@@ -340,12 +343,72 @@ describe('Debug API Test Suite', async function () {
 
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
+    ethImpl = sinon.createStubInstance(EthImpl);
+
     // Create the debug service
-    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, ethImpl);
   });
 
   this.beforeEach(() => {
     cacheService.clear();
+  });
+
+  describe('debug_getRawBlock', async function () {
+    const blockNumber = '0x160c';
+    const blockHash = '0xcf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506ce';
+
+    beforeEach(() => {
+      sinon.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return "0x" when block is not found using block number', async function () {
+        sinon.stub(debugService['eth'], 'getBlockByNumber').resolves(null);
+        const result = await debugService.getRawBlock(blockNumber, requestDetails);
+        expect(result).to.equal('0x');
+      });
+
+      it('should return "0x" when block is not found using block hash', async function () {
+        sinon.stub(debugService['eth'], 'getBlockByHash').resolves(null);
+        const result = await debugService.getRawBlock(blockHash, requestDetails);
+        expect(result).to.equal('0x');
+      });
+
+      it('should return a RLP block for existing block', async () => {
+        const blockInfo = {
+          timestamp: '0x698afa66',
+          difficulty: '0x0',
+          extraData: '0x',
+          gasLimit: '0x1c9c380',
+          baseFeePerGas: '0xdd30699c00',
+          gasUsed: '0xa32c1',
+          logsBloom:
+            '0x0000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000',
+          miner: '0x0000000000000000000000000000000000000000',
+          mixHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          nonce: '0x0000000000000000',
+          receiptsRoot: '0x26c9ecffe4aa9e2e19f814a570bd1e9093ff55e9e6c18f39f4192de6e36153db',
+          sha3Uncles: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347',
+          size: '0x1b81',
+          stateRoot: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421',
+          totalDifficulty: '0x0',
+          transactions: ['0x4454bdc6328e6cafb477c76af5e6a72dcb9f97e5aa79d76900f8ca65712a8151'],
+          transactionsRoot: '0xcf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506ce',
+          uncles: [],
+          withdrawals: [],
+          withdrawalsRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          number: '0x1de1f54',
+          hash: '0xcf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506ce',
+          parentHash: '0xd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa',
+        };
+        const expectedRlpHex =
+          '0xf9026c84698afa6600808401c9c38085dd30699c00830a32c1b901000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000940000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000880000000000000000a026c9ecffe4aa9e2e19f814a570bd1e9093ff55e9e6c18f39f4192de6e36153dba01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347821b81a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b42100e1a04454bdc6328e6cafb477c76af5e6a72dcb9f97e5aa79d76900f8ca65712a8151a0cf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506cec0c0a000000000000000000000000000000000000000000000000000000000000000008401de1f54a0cf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506cea0d7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa';
+
+        sinon.stub(debugService['eth'], 'getBlockByHash').resolves(blockInfo as Block);
+        const result = await debugService.getRawBlock(blockHash, requestDetails);
+        expect(result).to.equal(expectedRlpHex);
+      });
+    });
   });
 
   describe('debug_traceTransaction', async function () {
