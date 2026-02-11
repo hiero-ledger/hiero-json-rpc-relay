@@ -1,22 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-// import {
-//   JSONSchemaObject,
-//   MethodObject,
-//   MethodOrReference,
-//   OpenrpcDocument,
-// } from '@open-rpc/meta-schema';
-// import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
-// import { expect } from 'chai';
 import { TransferTransaction } from '@hashgraph/sdk';
+import { JSONSchemaObject, MethodObject, MethodOrReference, OpenrpcDocument } from '@open-rpc/meta-schema';
+import { parseOpenRPCDocument } from '@open-rpc/schema-utils-js';
+import { expect } from 'chai';
 import fs from 'fs';
 import path from 'path';
+import WebSocket from 'ws';
 
-// import WebSocket from 'ws';
 import openRpcData from '../../../../docs/openrpc.json';
+import CallerContract from '../contracts/Caller.json';
+import LogsContract from '../contracts/Logs.json';
 import { Utils } from '../helpers/utils';
 import genesisData from './data/conformity/genesis.json';
-// import CallerContract from '../contracts/Caller.json';
-// import LogsContract from '../contracts/Logs.json';
 import {
   chainId,
   gasLimit,
@@ -30,9 +25,9 @@ import {
   setTransaction1559_2930AndBlockHash,
   setTransaction1559AndBlockHash,
   setTransaction2930AndBlockHash,
-  // WS_RELAY_URL,
+  WS_RELAY_URL,
 } from './data/conformity/utils/constants';
-// import { TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
+import { TestCase, TestCases, UpdateParamFunction } from './data/conformity/utils/interfaces';
 import { processFileContent, splitReqAndRes } from './data/conformity/utils/processors';
 import {
   createContractLegacyTransaction,
@@ -41,53 +36,78 @@ import {
   transaction1559_2930,
   transaction2930,
 } from './data/conformity/utils/transactions';
-import {
-  getLatestBlockHash,
-  // sendRequestToRelay,
-  signAndSendRawTransaction,
-} from './data/conformity/utils/utils';
-// import { hasResponseFormatIssues, isResponseValid } from './data/conformity/utils/validations';
+import { getLatestBlockHash, sendRequestToRelay, signAndSendRawTransaction } from './data/conformity/utils/utils';
+import { getMissingKeys, isResponseValid } from './data/conformity/utils/validations';
+import testCasesBatch2 from './data/conformity-tests-batch-2.json';
+import testCasesBatch3 from './data/conformity-tests-batch-3.json';
+import testCasesBatch4 from './data/conformity-tests-batch-4.json';
+import testCasesBatch5 from './data/conformity-tests-batch-5.json';
 
 const directoryPath = path.resolve(__dirname, '../../../../node_modules/execution-apis/tests');
 const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
 
-// let relayOpenRpcData: OpenrpcDocument;
-// (async () => {
-//   relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
-// })().catch((error) => console.error('Error parsing OpenRPC document:', error));
+let relayOpenRpcData: OpenrpcDocument;
+(async () => {
+  relayOpenRpcData = await parseOpenRPCDocument(JSON.stringify(openRpcData));
+})().catch((error) => console.error('Error parsing OpenRPC document:', error));
 
-// const synthesizeTestCases = function (testCases: TestCases, updateParamIfNeeded: UpdateParamFunction) {
-//   for (const testName in testCases) {
-//     it(`${testName}`, async function () {
-//       const isErrorStatusExpected: boolean =
-//         (testCases[testName]?.status && testCases[testName].status != 200) ||
-//         !!JSON.parse(testCases[testName].response).error;
-//       const method = relayOpenRpcData.methods.find(
-//         (m: MethodOrReference): m is MethodObject => 'name' in m && m.name === testName.split(' ')[0],
-//       );
-//       const schema: JSONSchemaObject | undefined =
-//         method?.result && 'schema' in method.result && typeof method.result.schema === 'object'
-//           ? method.result.schema
-//           : undefined;
-//       try {
-//         const req = updateParamIfNeeded(testName, JSON.parse(testCases[testName].request));
-//         const res = await sendRequestToRelay(RELAY_URL, req, false);
-//         const isResFormatInvalid: boolean = hasResponseFormatIssues(res, JSON.parse(testCases[testName].response));
-//
-//         if (schema && schema.pattern) {
-//           const check = isResponseValid(schema, res);
-//           expect(check).to.be.true;
-//         }
-//
-//         expect(isResFormatInvalid).to.be.false;
-//         expect(isErrorStatusExpected).to.be.false;
-//       } catch (e: any) {
-//         expect(isErrorStatusExpected).to.be.true;
-//         expect(e?.response?.status).to.equal(testCases[testName].status);
-//       }
-//     });
-//   }
-// };
+/**
+ * Determines whether a given test case is expected to return an error response.
+ *
+ * @param testCase - The test case to evaluate.
+ * @returns {boolean} `true` if an error response is expected, otherwise `false`.
+ *
+ * @example
+ * ```typescript
+ * const tc = { status: 404, response: '{"error": "Not found"}' };
+ * console.log(isErrorResponseExpected(tc)); // true
+ * ```
+ */
+const isErrorResponseExpected = function (testCase: TestCase): boolean {
+  return (testCase?.status && testCase.status != 200) || !!JSON.parse(testCase.response).error;
+};
+
+/**
+ * Retrieves the JSON schema object for the result of a given method name from the OpenRPC data.
+ *
+ * @param name - The name of the method to look up.
+ * @returns {JSONSchemaObject | undefined} The method's result schema, or `undefined` if not found or invalid.
+ *
+ * @example
+ * ```typescript
+ * const schema = getMethodSchema("eth_getBalance");
+ * console.log(schema); // JSON schema object or undefined
+ * ```
+ */
+const getMethodSchema = function (name: string): JSONSchemaObject | undefined {
+  const method = relayOpenRpcData.methods.find(
+    (m: MethodOrReference): m is MethodObject => 'name' in m && m.name === name,
+  );
+  return method?.result && 'schema' in method.result && typeof method.result.schema === 'object'
+    ? method.result.schema
+    : undefined;
+};
+
+const synthesizeTestCases = function (testCases: TestCases, updateParamIfNeeded: UpdateParamFunction) {
+  for (const testName in testCases) {
+    it(`${testName}`, async function () {
+      const isErrorStatusExpected = isErrorResponseExpected(testCases[testName]);
+      const schema = getMethodSchema(testName.split(' ')[0]);
+      try {
+        const req = updateParamIfNeeded(testName, JSON.parse(testCases[testName].request));
+        const res = await sendRequestToRelay(RELAY_URL, req, false);
+        if (schema && schema.pattern) {
+          const check = isResponseValid(schema, res);
+          expect(check).to.be.true;
+        }
+        expect(isErrorStatusExpected).to.be.false;
+      } catch (e: any) {
+        expect(isErrorStatusExpected).to.be.true;
+        expect(e?.response?.status).to.equal(testCases[testName].status);
+      }
+    });
+  }
+};
 
 /**
  * To run the Ethereum Execution API tests as defined in the repository ethereum/execution-apis, it’s necessary
@@ -187,7 +207,7 @@ describe('@api-conformity', async function () {
   //
   // These test suites must be un-skipped. The code requires refactoring to resolve the
   // static analysis issues before they can be re-enabled.
-  /*  describe.skip('@conformity-batch-2 Ethereum execution apis tests', async function () {
+  describe('@conformity-batch-2 Ethereum execution apis tests', async function () {
     this.timeout(240 * 1000);
 
     let existingBlockFilter: string;
@@ -238,9 +258,6 @@ describe('@api-conformity', async function () {
       ).result;
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TEST_CASES_BATCH_2 = require('./data/conformity-tests-batch-2.json');
-
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
         case 'eth_getFilterChanges - existing filter':
@@ -254,10 +271,10 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(TEST_CASES_BATCH_2, updateParamIfNeeded);
+    synthesizeTestCases(testCasesBatch2, updateParamIfNeeded);
   });
 
-  describe.skip('@conformity-batch-3 Ethereum execution apis tests', async function () {
+  describe('@conformity-batch-3 Ethereum execution apis tests', async function () {
     this.timeout(240 * 1000);
 
     let txHash: any;
@@ -265,9 +282,6 @@ describe('@api-conformity', async function () {
     before(async () => {
       txHash = (await signAndSendRawTransaction(RELAY_URL, transaction1559)).transactionHash;
     });
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TEST_CASES_BATCH_3 = require('./data/conformity-tests-batch-3.json');
 
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
@@ -287,7 +301,7 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(TEST_CASES_BATCH_3['server'], updateParamIfNeeded);
+    synthesizeTestCases(testCasesBatch3['server'], updateParamIfNeeded);
 
     describe('ws related rpc methods', async function () {
       let webSocket: WebSocket;
@@ -368,17 +382,23 @@ describe('@api-conformity', async function () {
             });
             await new Promise((r) => setTimeout(r, 500));
 
-            const hasMissingKeys: boolean = hasResponseFormatIssues(response, JSON.parse(testCases[testName].response));
+            const hasMissingKeys =
+              getMissingKeys({
+                actual: response,
+                expected: JSON.parse(testCases[testName].response),
+                wildcards: [],
+              }).length > 0;
+
             expect(hasMissingKeys).to.be.false;
           });
         }
       };
 
-      synthesizeWsTestCases(TEST_CASES_BATCH_3['ws-server'], updateParamIfNeeded);
+      synthesizeWsTestCases(testCasesBatch3['ws-server'], updateParamIfNeeded);
     });
   });
 
-  describe.skip('@conformity-batch-4 Ethereum execution apis tests', async function () {
+  describe('@conformity-batch-4 Ethereum execution apis tests', async function () {
     this.timeout(240 * 1000);
 
     let existingCallerContractAddress: string | null;
@@ -424,9 +444,6 @@ describe('@api-conformity', async function () {
 
       fromBlockForLogs = String(log0ContractCall.blockNumber);
     });
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TEST_CASES_BATCH_4 = require('./data/conformity-tests-batch-4.json');
 
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
@@ -575,15 +592,13 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(TEST_CASES_BATCH_4, updateParamIfNeeded);
+    synthesizeTestCases(testCasesBatch4, updateParamIfNeeded);
   });
 
-  describe.skip('@conformity-batch-5 Ethereum execution apis tests', async function () {
+  describe('@conformity-batch-5 Ethereum execution apis tests', async function () {
     this.timeout(240 * 1000);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TEST_CASES_BATCH_5 = require('./data/conformity-tests-batch-5.json');
 
     const updateParamIfNeeded = (_testName: any, request: any) => request;
-    synthesizeTestCases(TEST_CASES_BATCH_5, updateParamIfNeeded);
-  });*/
+    synthesizeTestCases(testCasesBatch5, updateParamIfNeeded);
+  });
 });

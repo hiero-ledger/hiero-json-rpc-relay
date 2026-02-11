@@ -6,9 +6,11 @@ import { expect } from 'chai';
 import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 
 let execApisOpenRpcData: any = null;
-function getExecApisOpenRpcData() {
+async function getExecApisOpenRpcData() {
   if (!execApisOpenRpcData) {
-    execApisOpenRpcData = require('../../../../../../../openrpc_exec_apis.json');
+    // @ts-expect-error - This file is generated during CI workflow
+    const module = await import('../../../../../../../openrpc_exec_apis.json');
+    execApisOpenRpcData = module.default || module;
   }
   return execApisOpenRpcData;
 }
@@ -65,7 +67,7 @@ export function hasResponseFormatIssues(
   if (typeof expectedResponse === 'string') {
     try {
       parsedExpectedResponse = JSON.parse(expectedResponse);
-    } catch (e) {
+    } catch {
       console.log(`Expected response is not a valid JSON string: ${expectedResponse}`);
       return true;
     }
@@ -85,10 +87,11 @@ export function hasResponseFormatIssues(
     return true;
   }
 
-  const actualResponseKeys = extractKeys(actualResponse as Record<string, unknown>);
-  const expectedResponseKeys = extractKeys(parsedExpectedResponse as Record<string, unknown>);
-  const filteredExpectedKeys = expectedResponseKeys.filter((key) => !wildcards.includes(key));
-  const missingKeys = filteredExpectedKeys.filter((key) => !actualResponseKeys.includes(key));
+  const missingKeys = getMissingKeys({
+    actual: actualResponse as Record<string, unknown>,
+    expected: parsedExpectedResponse,
+    wildcards,
+  });
 
   if (missingKeys.length > 0) {
     console.log(`Missing keys in response: ${JSON.stringify(missingKeys)}`);
@@ -97,6 +100,32 @@ export function hasResponseFormatIssues(
 
   return hasValuesMismatch(actualResponse, parsedExpectedResponse, wildcards);
 }
+
+/**
+ * Gets the list of expected keys that are missing from the actual response,
+ * excluding any wildcard keys that should be ignored.
+ *
+ * @param response - The object containing:
+ *   - actual: the actual response object to check
+ *   - expected: the expected response object
+ *   - wildcards: a list of keys to ignore during comparison
+ * @returns {string[]} - An array of keys that are expected but missing in the actual response
+ */
+export function getMissingKeys(response: {
+  actual: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  wildcards: string[];
+}): string[] {
+  const skipKeys = new Set([...extractKeys(response.actual), ...response.wildcards]);
+  return extractKeys(response.expected).filter(notIn(skipKeys));
+}
+
+/**
+ * Predicate factory that checks whether a given key is not in a provided Set.
+ *
+ * @param set - A Set of keys to exclude
+ */
+const notIn = (set: ReadonlySet<string>) => (k: string) => !set.has(k);
 
 /**
  * Checks if the actual response is missing required error properties
@@ -244,8 +273,8 @@ function hasValuesMismatch(actual: unknown, expected: unknown, wildcards: string
   return arePrimitivesDifferent(actual, expected);
 }
 
-export const findSchema = function (file: string): Schema | undefined {
-  const data = getExecApisOpenRpcData();
+export const findSchema = async function (file: string): Promise<Schema | undefined> {
+  const data = await getExecApisOpenRpcData();
   return (data.methods as Method[]).find((method) => method.name === file)?.result?.schema;
 };
 
