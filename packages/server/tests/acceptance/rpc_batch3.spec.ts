@@ -596,6 +596,90 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     });
   });
 
+  describe('Get revert details via eth_call for', async () => {
+    async function sendAndRevertCall({ value = 0, data }) {
+      const signedTx = await accounts[0].wallet.signTransaction({
+        value,
+        gasLimit: '0x186a0', // 100_000
+        chainId: Number(CHAIN_ID),
+        to: reverterEvmAddress,
+        nonce: await relay.getAccountNonce(accounts[0].address),
+        maxFeePerGas: await relay.gasPrice(),
+        data,
+      });
+      const txHash = await relay.sendRawTransaction(signedTx);
+      const receipt = await relay.pollForValidTransactionReceipt(txHash);
+
+      try {
+        await relay.call('eth_call', [
+          {
+            from: receipt.from,
+            to: receipt.to,
+            data,
+          },
+          receipt.blockNumber,
+        ]);
+
+        Assertions.expectedError();
+      } catch (e) {
+        return e.info.error;
+      }
+    }
+
+    it('revert: payable function', async () => {
+      const err = await sendAndRevertCall({
+        value: ONE_TINYBAR,
+        data: '0xd0efd7ef', // revertPayable()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('RevertReasonPayable');
+      expect(err.data).to.include('08c379a0'); // Error(string) selector
+      expect(err.data).to.include('526576657274526561736f6e50617961626c65'); // "RevertReasonPayable" as hex
+    });
+
+    it('revert: empty revert()', async () => {
+      const err = await sendAndRevertCall({
+        data: '0xfe0a3dd7', // revertWithNothing()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.equal('0x');
+    });
+
+    it('revert: require(false, "Some revert message")', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x0323d234', // revertWithString()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('Some revert message');
+      expect(err.data).to.include('08c379a0'); // Error(string) selector
+      expect(err.data).to.include('536f6d6520726576657274206d657373616765'); // "Some revert message" as hex
+    });
+
+    it('revert: custom error', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x46fc4bb1', // revertWithCustomError()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.include('0bd3d39c'); // SomeCustomError() selector
+    });
+
+    it('revert: panic error', async () => {
+      const err = await sendAndRevertCall({
+        data: '0x33fe3fbd', // revertWithPanic()
+      });
+
+      expect(err.code).to.equal(3);
+      expect(err.message).to.include('CONTRACT_REVERT_EXECUTED');
+      expect(err.data).to.include('4e487b71'); // Panic(uint256) selector
+    });
+  });
+
   describe('Contract call reverts', async () => {
     it('Returns revert message for pure methods', async () => {
       const callData = {
@@ -811,8 +895,8 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
     let deployerContractTx: ethers.TransactionReceipt;
     let deployerContractAddress: string;
     let contractId: ContractId;
-    let primaryAccountNonce: Long | null;
-    let secondaryAccountNonce: Long | null;
+    let primaryAccountNonce: number | null;
+    let secondaryAccountNonce: number | null;
 
     const defaultGasPrice = numberTo0x(Assertions.defaultGasPrice);
     const defaultGasLimit = numberTo0x(3_000_000);
