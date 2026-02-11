@@ -168,6 +168,15 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getPendingCount', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return 0 if ENABLE_TX_POOL is set to false', async function () {
+        mockStorage.getList.resolves(5);
+        const result = await transactionPoolService.getPendingCount(testAddress);
+        expect(result).to.equal(0);
+        expect(mockStorage.getList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve pending transaction count', async () => {
       const pendingCount = 5;
       mockStorage.getList.resolves(pendingCount);
@@ -252,6 +261,17 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getTransactions', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return empty Set if ENABLE_TX_POOL is set to false', async function () {
+        const payloads = new Set([testRlpHex, '0xabcd']);
+        mockStorage.getTransactionPayloads.resolves(payloads);
+        const result = await transactionPoolService.getTransactions(testAddress);
+        expect(result).to.be.instanceOf(Set);
+        expect(result.size).to.equal(0);
+        expect(mockStorage.getTransactionPayloads.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve transactions for address', async () => {
       const payloads = new Set([testRlpHex, '0xabcd']);
       mockStorage.getTransactionPayloads.resolves(payloads);
@@ -278,6 +298,17 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getAllTransactions', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return empty Set if ENABLE_TX_POOL is set to false', async function () {
+        const payloads = new Set([testRlpHex, '0xabcd', '0x1234']);
+        mockStorage.getAllTransactionPayloads.resolves(payloads);
+        const result = await transactionPoolService.getAllTransactions();
+        expect(result).to.be.instanceOf(Set);
+        expect(result.size).to.equal(0);
+        expect(mockStorage.getAllTransactionPayloads.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve all transactions', async () => {
       const payloads = new Set([testRlpHex, '0xabcd', '0x1234']);
       mockStorage.getAllTransactionPayloads.resolves(payloads);

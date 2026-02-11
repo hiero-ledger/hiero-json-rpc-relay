@@ -185,8 +185,13 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address to query.
    * @returns A promise that resolves to the number of pending transactions.
+   *          Returns 0 if the transaction pool is disabled.
    */
   async getPendingCount(address: string): Promise<number> {
+    if (!TransactionPoolService.isEnabled()) {
+      return 0;
+    }
+
     const addressLowerCased = address.toLowerCase();
 
     try {
@@ -203,8 +208,13 @@ export class TransactionPoolService implements ITransactionPoolService {
    *
    * @param address - The account address to query.
    * @returns A promise that resolves to a Set of RLP hex strings.
+   *          Returns an empty set if the transaction pool is disabled.
    */
   async getTransactions(address: string): Promise<Set<string>> {
+    if (!TransactionPoolService.isEnabled()) {
+      return new Set();
+    }
+
     const addressLowerCased = address.toLowerCase();
 
     try {
@@ -222,8 +232,13 @@ export class TransactionPoolService implements ITransactionPoolService {
    * Retrieves all pending transaction RLP payloads across all addresses.
    *
    * @returns A promise that resolves to a Set of RLP hex strings.
+   *          Returns an empty set if the transaction pool is disabled.
    */
   async getAllTransactions(): Promise<Set<string>> {
+    if (!TransactionPoolService.isEnabled()) {
+      return new Set();
+    }
+
     try {
       return await this.storage.getAllTransactionPayloads();
     } catch (error) {
