@@ -1434,29 +1434,19 @@ describe('Debug API Test Suite', async function () {
       });
     });
 
-    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
-      it('should throw UNSUPPORTED_METHOD', async function () {
-        await RelayAssertions.assertRejection(
-          predefined.UNSUPPORTED_METHOD,
-          debugService.getBadBlocks,
-          true,
-          debugService,
-          [],
-        );
-      });
-    });
-
-    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
-      it('should throw UNSUPPORTED_METHOD', async function () {
-        await RelayAssertions.assertRejection(
-          predefined.UNSUPPORTED_METHOD,
-          debugService.getBadBlocks,
-          true,
-          debugService,
-          [],
-        );
-      });
-    });
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getBadBlocks,
+            true,
+            debugService,
+            [],
+          );
+        });
+      }),
+    );
   });
 
   describe('prestateTracer', async function () {
