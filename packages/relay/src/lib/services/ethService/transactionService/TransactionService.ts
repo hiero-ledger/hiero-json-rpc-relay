@@ -268,60 +268,74 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    let lockResult: LockAcquisitionResult | undefined;
 
-    // Acquire lock FIRST - before any side effects or async operations
-    // This ensures proper nonce ordering for transactions from the same sender
-    if (parsedTx.from) {
-      lockResult = await this.lockService.acquireLock(parsedTx.from);
+    // Validate and save the transaction to the transaction pool before submitting it to the network
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `Transaction undergoing basic properties (stateless) prechecks: transaction=%s`,
+        JSON.stringify(parsedTx),
+      );
     }
+    this.precheck.validateBasicPropertiesStateless(parsedTx);
+    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+
+    let lockResult: LockAcquisitionResult | undefined;
+    let networkGasPriceInWeiBars: number;
 
     try {
-      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+      // Acquire lock before async operations
+      // This ensures proper nonce ordering for transactions from the same sender
+      if (parsedTx.from) {
+        lockResult = await this.lockService.acquireLock(parsedTx.from);
+      }
+      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
         await this.common.getGasPriceInWeibars(requestDetails),
       );
-
-      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-      // Save the transaction to the transaction pool before submitting it to the network
-      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
-
-      /**
-       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-       * the transaction hash is calculated and returned immediately after passing all prechecks.
-       * All transaction processing logic is then handled asynchronously in the background.
-       */
-      const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-      if (useAsyncTxProcessing) {
-        // Fire and forget - lock will be released after consensus submission
-        this.sendRawTransactionProcessor(
-          transactionBuffer,
-          parsedTx,
-          networkGasPriceInWeiBars,
-          lockResult,
-          requestDetails,
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
+          JSON.stringify(parsedTx),
         );
-        return Utils.computeTransactionHash(transactionBuffer);
       }
+      await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    } catch (error) {
+      // Release lock on any error during validation or prechecks
+      if (lockResult) {
+        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
+      }
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
+      throw error;
+    }
 
-      /**
-       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-       * wait for all transaction processing logic to complete before returning the transaction hash.
-       */
-      return await this.sendRawTransactionProcessor(
+    /**
+     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
+     * the transaction hash is calculated and returned immediately after passing all prechecks.
+     * All transaction processing logic is then handled asynchronously in the background.
+     */
+    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+    if (useAsyncTxProcessing) {
+      // Fire and forget - lock will be released after consensus submission
+      this.sendRawTransactionProcessor(
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
         lockResult,
         requestDetails,
       );
-    } catch (error) {
-      // Release lock on any error during validation or prechecks
-      if (lockResult) {
-        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
-      }
-      throw error;
+      return Utils.computeTransactionHash(transactionBuffer);
     }
+
+    /**
+     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
+     * wait for all transaction processing logic to complete before returning the transaction hash.
+     */
+    return await this.sendRawTransactionProcessor(
+      transactionBuffer,
+      parsedTx,
+      networkGasPriceInWeiBars,
+      lockResult,
+      requestDetails,
+    );
   }
 
   /**
@@ -518,34 +532,10 @@ export class TransactionService implements ITransactionService {
     const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
     }
 
     return receipt;
-  }
-
-  /**
-   * Validates a parsed transaction by performing prechecks
-   * @param parsedTx The parsed Ethereum transaction to validate
-   * @param networkGasPriceInWeiBars The current network gas price in wei bars
-   * @param requestDetails The request details for logging and tracking
-   * @throws {JsonRpcError} If validation fails
-   */
-  private async validateRawTransaction(
-    parsedTx: EthersTransaction,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Transaction undergoing prechecks: transaction=${JSON.stringify(parsedTx)}`);
-      }
-
-      await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
-    } catch (e: any) {
-      this.logger.error(e, `Precheck failed: errorMessage=${e.message}`);
-      throw this.common.genericErrorHandler(e);
-    }
   }
 
   /**

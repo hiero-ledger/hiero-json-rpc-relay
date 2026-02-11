@@ -55,26 +55,51 @@ export class Precheck {
   }
 
   /**
-   * Sends a raw transaction after performing various prechecks.
+   * Performs basic, stateless prechecks (for example, to determine whether
+   * a transaction is eligible to be stored in the transaction pool).
+   *
+   * This method validates transaction properties that can be checked
+   * without fetching additional data asynchronously.
+   *
+   * It throws if any of the checks fail.
+   *
    * @param parsedTx - The parsed transaction.
-   * @param networkGasPriceInWeiBars - The predefined gas price of the network in weibar.
-   * @param requestDetails - The request details for logging and tracking.
+   * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  async sendRawTransactionCheck(
-    parsedTx: ethers.Transaction,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
+  validateBasicPropertiesStateless(parsedTx: ethers.Transaction) {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
     this.gasLimit(parsedTx);
     this.chainId(parsedTx);
     this.value(parsedTx);
+  }
+
+  /**
+   * Performs additional, stateful validation checks (required for example
+   * before sending a transaction that was retrieved from the transaction pool).
+   *
+   * This method MUST only be used for transactions that have already
+   * passed {@link validateBasicPropertiesStateless}.
+   *
+   * @param parsedTx - Parsed Ethereum transaction from the tx pool.
+   * @param networkGasPriceInWeiBars - Current network gas price in weiBars
+   * @param requestDetails - Request metadata used for logging and tracking.
+   * @throws If the transaction does not meet send-time requirements.
+   */
+  async validateAccountAndNetworkStateful(
+    parsedTx: ethers.Transaction,
+    networkGasPriceInWeiBars: number,
+    requestDetails: RequestDetails,
+  ): Promise<void> {
     this.gasPrice(parsedTx, networkGasPriceInWeiBars);
     const mirrorAccountInfo = await this.verifyAccount(parsedTx, requestDetails);
-    const signerNonce =
-      mirrorAccountInfo.ethereum_nonce + (await this.transactionPoolService.getPendingCount(parsedTx.from!));
+
+    // We expect this check to be executed against a transaction that is already
+    // in the TxPool, which is why we subtract 1 from the TxPool size, to avoid
+    // counting it twice.
+    const pendingTransactions = await this.transactionPoolService.getPendingCount(parsedTx.from!);
+    const signerNonce = mirrorAccountInfo.ethereum_nonce + pendingTransactions - 1;
     this.nonce(parsedTx, signerNonce);
     this.balance(parsedTx, mirrorAccountInfo.balance);
     this.accessList(parsedTx);
