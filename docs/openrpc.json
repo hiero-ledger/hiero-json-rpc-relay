@@ -1427,7 +1427,7 @@
     },
     {
       "name": "debug_getBadBlocks",
-      "summary": "Returns a list of the last 'bad blocks' that the client has seen on the network and returns them as a JSON list of block-hashes.",
+      "summary": "Returns an array of recent bad blocks that the client has seen on the network.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
