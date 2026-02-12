@@ -23,7 +23,7 @@
     "@types/koa__cors": "^5.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.9.1",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "axios": "^1.4.0",
     "axios-retry": "^4.5.0",
     "chai": "^6.0.1",
