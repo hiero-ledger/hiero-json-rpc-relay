@@ -97,11 +97,11 @@ export class Utils {
   }
 
   /**
-   * Check whether the transaction has reverted by a hedera-specific validation before the actual evm execution
+   * Check whether the transaction has been rejected by a hedera-specific validation before the actual evm execution
    * @param contractResult
    * @returns {boolean}
    */
-  public static isRevertedDueToHederaSpecificValidation(contractResult: {
+  public static isRejectedDueToHederaSpecificValidation(contractResult: {
     result: string;
     error_message: any;
   }): boolean {
