@@ -33,6 +33,7 @@ import {
   CONTRACT_TIMESTAMP_2,
   contractByEvmAddress,
   CONTRACTS_RESULTS_NEXT_URL,
+  DEFAULT_AUTHORIZATION_LIST,
   DEFAULT_BLOCK,
   DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
   DEFAULT_CONTRACT,
@@ -258,6 +259,20 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
       timestamp: BLOCK_TIMESTAMP_HEX,
       transactions: [],
     });
+  });
+
+  it('eth_getBlockByHash with block match and authorization list', async function () {
+    const resultWith7702Transaction = structuredClone(defaultContractResults);
+    resultWith7702Transaction.results[0].type = 4;
+    resultWith7702Transaction.results[0]['authorization_list'] = DEFAULT_AUTHORIZATION_LIST;
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(resultWith7702Transaction));
+    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+
+    const result = await ethImpl.getBlockByHash(BLOCK_HASH, true, requestDetails);
+    expect(result).to.not.be.null;
+    expect(result).to.have.property('transactions').not.empty;
+    expect(result!.transactions[0]).to.have.property('authorizationList').that.deep.equal(DEFAULT_AUTHORIZATION_LIST);
   });
 
   it('eth_getBlockByHash with no match', async function () {

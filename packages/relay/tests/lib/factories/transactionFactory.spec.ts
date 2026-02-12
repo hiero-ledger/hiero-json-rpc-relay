@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import { numberTo0x } from '../../../src/formatters';
 import constants from '../../../src/lib/constants';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../src/lib/factories/transactionFactory';
-import { Log, Transaction1559 } from '../../../src/lib/model';
+import { AuthorizationListEntry, Log, Transaction1559 } from '../../../src/lib/model';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -314,6 +314,159 @@ describe('TransactionFactory', () => {
     it('Should return null when contract result type is undefined', async function () {
       const formattedResult = createTransactionFromContractResult({ ...contractResult, type: undefined });
       expect(formattedResult).to.be.null;
+    });
+  });
+
+  describe('formatAuthorizationList', () => {
+    /**
+     * Test helper that exposes a private method's formatAuthorizationList logic.
+     *
+     * This function intentionally routes the provided `input` through
+     * `createTransactionFromContractResult` using a mocked EIP-7702
+     * transaction payload (type = 4), and then extracts the resulting
+     * `authorizationList`.
+     *
+     * It allows unit tests to validate the behavior of the private
+     * `formatAuthorizationList` implementation without exporting or
+     * directly accessing it.
+     *
+     * The surrounding transaction fields are static, deterministic values
+     * and are irrelevant to the assertions, only the transformation of
+     * `authorization_list` is under test.
+     *
+     * @param {any} input - Raw authorization list input (may contain nulls,
+     *                      malformed items, non-0x-prefixed values, oversized
+     *                      signatures, or extra properties).
+     *
+     * @returns {AuthorizationListEntry[]} The normalized and sanitized
+     * authorization list as produced by the internal formatter.
+     */
+    const formatAuthorizationList = (input: any): AuthorizationListEntry[] =>
+      createTransactionFromContractResult({
+        amount: 0,
+        from: '0x05fba803be258049a27b820088bab1cad2058871',
+        function_parameters: '0x08090033',
+        gas_used: 400000,
+        gas_limit: 500_000,
+        to: '0x0000000000000000000000000000000000000409',
+        hash: '0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd',
+        block_hash:
+          '0xb0f10139fa0bf9e66402c8c0e5ed364e07cf83b3726c8045fabf86a07f4887130e4650cb5cf48a9f6139a805b78f0312',
+        block_number: 528,
+        transaction_index: 9,
+        chain_id: '0x12a',
+        gas_price: '0x',
+        max_fee_per_gas: '0x59',
+        max_priority_fee_per_gas: '0x',
+        r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
+        s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',
+        type: 4,
+        v: 1,
+        authorization_list: input,
+        nonce: 2,
+      })!['authorizationList'];
+
+    it('filters out null items and non-object items', () => {
+      const input = [null, undefined, 123, 'abc', true, () => ({}), { chainId: '1' }, { nonce: '2' }];
+
+      const out = formatAuthorizationList(input);
+
+      expect(out).to.have.length(2);
+      expect(out[0]).to.have.property('chainId').equal('0x1');
+      expect(out[1]).to.have.property('nonce').equal('0x2');
+    });
+
+    it('items with missing/falsy fields fall back to zero constants', () => {
+      const input = [
+        {
+          chainId: '',
+          nonce: 0,
+          address: null,
+          yParity: undefined,
+          r: '',
+          s: undefined,
+        },
+      ];
+
+      const [out] = formatAuthorizationList(input);
+
+      expect(out.chainId).to.equal(constants.ZERO_HEX);
+      expect(out.nonce).to.equal(constants.ZERO_HEX);
+      expect(out.address).to.equal(constants.ZERO_ADDRESS_HEX);
+      expect(out.yParity).to.equal(constants.ZERO_HEX);
+      expect(out.r).to.equal(constants.ZERO_HEX);
+      expect(out.s).to.equal(constants.ZERO_HEX);
+    });
+
+    it('normalizes non-0x-prefixed values (chainId/nonce/yParity) using prepend0x and truncates yParity to 4 chars', () => {
+      const input = [
+        {
+          chainId: '1',
+          nonce: 'a',
+          yParity: '01',
+          address: 'abcd',
+          r: '0x1',
+          s: '0x2',
+        },
+      ];
+
+      const [out] = formatAuthorizationList(input);
+
+      expect(out.chainId).to.equal('0x1');
+      expect(out.nonce).to.equal('0xa');
+      expect(out.yParity).to.equal('0x01');
+    });
+
+    it('normalizes address: strips 0x, keeps last 40 hex chars, left-pads with zeros, re-adds 0x', () => {
+      const input = [
+        { address: '0x1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
+        { address: '1234', chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' },
+        { address: `0x${'a'.repeat(60)}`, chainId: '1', nonce: '1', yParity: '1', r: '0x1', s: '0x1' }, // 60 hex chars
+      ];
+
+      const out = formatAuthorizationList(input);
+      expect(out[0].address).to.equal('0x0000000000000000000000000000000000001234');
+      expect(out[1].address).to.equal('0x0000000000000000000000000000000000001234');
+      const oversizedNo0x = 'a'.repeat(60); // 60 chars
+      expect(out[2].address).to.equal(`0x${oversizedNo0x.slice(-40)}`);
+    });
+
+    it('truncates oversized r/s to 66 chars before stripLeadingZeroForSignatures', () => {
+      const oversizedR = `0x${'1'.repeat(80)}`;
+      const oversizedS = `0x${'2'.repeat(80)}`;
+
+      const input = [
+        {
+          chainId: '1',
+          nonce: '1',
+          address: '0x1',
+          yParity: '1',
+          r: oversizedR,
+          s: oversizedS,
+        },
+      ];
+
+      const [out] = formatAuthorizationList(input);
+      expect(out.r).to.have.length(66);
+      expect(out.s).to.have.length(66);
+    });
+
+    it('preserves extra properties on items', () => {
+      const item: any = {
+        chainId: '1',
+        nonce: '2',
+        address: '0x1234',
+        yParity: '1',
+        r: '0x' + '00'.repeat(32),
+        s: '0x' + '00'.repeat(32),
+        extraField: 'keep-me',
+      };
+
+      const input = [item];
+
+      const [out] = formatAuthorizationList(input);
+
+      expect(out).to.have.property('extraField').equal('keep-me');
     });
   });
 });

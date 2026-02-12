@@ -3,32 +3,87 @@
 // Used for fake implementation of block history
 import { Status, TransactionRecord } from '@hashgraph/sdk';
 
+/**
+ * Represents an Ethereum-compatible block model.
+ *
+ * This is primarily used for mock / fake block history implementations.
+ * Most numeric values are encoded as hex-prefixed strings.
+ */
 export class Block {
+  /** Block timestamp as hex-encoded milliseconds since epoch */
   public readonly timestamp: string = '0x' + new Date().valueOf().toString(16);
+
+  /** Block number (hex string) */
   public number!: string;
+
+  /** Block hash */
   public hash!: string;
 
+  /** Block difficulty (hex string) */
   public readonly difficulty: string = '0x1';
+
+  /** Extra data field */
   public readonly extraData: string = '';
+
+  /** Gas limit for the block (hex string) */
   public readonly gasLimit: string = '0xe4e1c0';
+
+  /** Base fee per gas (EIP-1559) */
   public readonly baseFeePerGas: string = '0xa54f4c3c00';
+
+  /** Total gas used in block (hex string) */
   public readonly gasUsed: string = '0x0';
+
+  /** Logs bloom filter */
   public readonly logsBloom: string = '0x0';
+
+  /** Miner / coinbase address */
   public readonly miner: string = '';
+
+  /** Mix hash */
   public readonly mixHash: string = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+  /** Block nonce */
   public readonly nonce: string = '0x0000000000000000';
+
+  /** Parent block hash */
   public parentHash!: string;
+
+  /** Receipts trie root */
   public readonly receiptsRoot: string = '0x0';
+
+  /** Uncle hash */
   public readonly sha3Uncles: string = '0x0';
+
+  /** Block size (hex string) */
   public readonly size: string = '0x0';
+
+  /** State trie root */
   public readonly stateRoot: string = '0x0';
+
+  /** Total accumulated difficulty */
   public readonly totalDifficulty: string = '0x1';
+
+  /** Block transactions (either tx hashes or full Transaction objects) */
   public readonly transactions: string[] | Transaction[] = [];
+
+  /** Transactions trie root */
   public readonly transactionsRoot: string = '0x0';
+
+  /** Uncle block hashes */
   public readonly uncles: string[] = [];
+
+  /** Withdrawals list */
   public readonly withdrawals: string[] = [];
+
+  /** Withdrawals trie root */
   public readonly withdrawalsRoot: string = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
+  /**
+   * Creates a new Block instance.
+   *
+   * @param args Optional block-like object to hydrate this model from.
+   */
   constructor(args?: any) {
     if (args) {
       this.timestamp = args.timestamp;
@@ -65,22 +120,62 @@ export class Block {
   }
 }
 
+/**
+ * Represents an Ethereum-compatible transaction receipt.
+ *
+ * Constructed from a Hedera TransactionRecord and mapped
+ * into Ethereum-like receipt structure.
+ */
 export class Receipt {
+  /** Transaction hash */
   public readonly transactionHash: string;
+
+  /** Transaction index within the block (hex string) */
   public readonly transactionIndex: string;
+
+  /** Block hash */
   public readonly blockHash: string;
+
+  /** Block number (hex string) */
   public readonly blockNumber: string;
+
+  /** Sender address */
   public readonly from: string;
+
+  /** Recipient address (if applicable) */
   public readonly to: undefined | string;
+
+  /** Cumulative gas used in the block up to this transaction */
   public readonly cumulativeGasUsed: string;
+
+  /** Gas used by this transaction */
   public readonly gasUsed: string;
+
+  /** Contract address (if contract creation) */
   public readonly contractAddress: undefined | string;
+
+  /** Transaction logs */
   public readonly logs: Log[];
+
+  /** Logs bloom filter */
   public readonly logsBloom: string;
+
+  /** Post-state root (pre-Byzantium) */
   public readonly root: undefined | string;
+
+  /** Execution status (0x1 success, 0x0 failure) */
   public readonly status: undefined | string;
+
+  /** Effective gas price (EIP-1559) */
   public readonly effectiveGasPrice: undefined | string;
 
+  /**
+   * Creates a Receipt from Hedera transaction record.
+   *
+   * @param txHash Transaction hash
+   * @param record Hedera TransactionRecord
+   * @param block Block containing this transaction
+   */
   constructor(txHash: string, record: TransactionRecord, block: Block) {
     const gasUsed = record.contractFunctionResult == null ? 0 : record.contractFunctionResult.gasUsed;
     const contractAddress =
@@ -103,6 +198,9 @@ export class Receipt {
   }
 }
 
+/**
+ * Base Ethereum transaction model.
+ */
 export class Transaction {
   public readonly blockHash!: string | null;
   public readonly blockNumber!: string | null;
@@ -121,6 +219,9 @@ export class Transaction {
   public readonly v: string | null;
   public readonly value!: string;
 
+  /**
+   * @param args Transaction-like object used to populate fields
+   */
   constructor(args: any) {
     this.blockHash = args.blockHash;
     this.blockNumber = args.blockNumber;
@@ -141,8 +242,14 @@ export class Transaction {
   }
 }
 
+/**
+ * EIP-2930 transaction (access list transaction).
+ */
 export class Transaction2930 extends Transaction {
-  public readonly accessList!: AccessListEntry[] | null | [];
+  /** Access list entries */
+  public readonly accessList!: AccessListEntry[] | null;
+
+  /** Y parity of signature */
   public readonly yParity!: string | null;
 
   constructor(args: any) {
@@ -152,8 +259,14 @@ export class Transaction2930 extends Transaction {
   }
 }
 
+/**
+ * EIP-1559 dynamic fee transaction.
+ */
 export class Transaction1559 extends Transaction2930 {
+  /** Max priority fee per gas */
   public readonly maxPriorityFeePerGas!: string;
+
+  /** Max fee per gas */
   public readonly maxFeePerGas!: string;
 
   constructor(args: any) {
@@ -163,11 +276,59 @@ export class Transaction1559 extends Transaction2930 {
   }
 }
 
+export class Transaction7702 extends Transaction {
+  /** Access list entries (retained for compatibility) */
+  public readonly accessList!: AccessListEntry[] | null;
+
+  /** Y parity of signature */
+  public readonly yParity!: string | null;
+
+  /** Max priority fee per gas (EIP-1559 field) */
+  public readonly maxPriorityFeePerGas!: string;
+
+  /** Max fee per gas (EIP-1559 field) */
+  public readonly maxFeePerGas!: string;
+
+  /** Authorization list entries (EIP-7702 specific field) */
+  public readonly authorizationList!: AuthorizationListEntry[] | null;
+
+  constructor(args: any) {
+    super(args);
+
+    this.yParity = args.v;
+    this.accessList = args.accessList;
+    this.maxPriorityFeePerGas = args.maxPriorityFeePerGas;
+    this.maxFeePerGas = args.maxFeePerGas;
+    this.authorizationList = args.authorizationList;
+  }
+}
+
+/**
+ * Access list entry (EIP-2930).
+ */
 export declare class AccessListEntry {
+  /** Contract address */
   readonly address: string;
+
+  /** Storage keys accessed */
   readonly storageKeys: string[];
 }
 
+/**
+ * Authorization list entry (EIP-7702).
+ */
+export declare class AuthorizationListEntry {
+  readonly chainId: string;
+  readonly nonce: string;
+  readonly address: string;
+  readonly yParity: string;
+  readonly r: string;
+  readonly s: string;
+}
+
+/**
+ * Ethereum log entry emitted by a transaction.
+ */
 export class Log {
   public readonly address: string;
   public readonly blockHash: string;
@@ -180,6 +341,9 @@ export class Log {
   public readonly transactionHash: string;
   public readonly transactionIndex: string;
 
+  /**
+   * @param args Log-like object used to populate fields
+   */
   constructor(args: any) {
     this.address = args.address;
     this.blockHash = args.blockHash;
