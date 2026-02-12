@@ -28,7 +28,6 @@ You must have installed
 
 - [node (version 22)](https://nodejs.org/en/about/)
 - [npm](https://www.npmjs.com/)
-- [pnpm](https://pnpm.io/)
 - [Docker (if you want to use `docker compose up` to run the server)](https://docs.docker.com/engine/reference/commandline/docker/)
 
 We also recommend installing the "prettier" plugin in IntelliJ.

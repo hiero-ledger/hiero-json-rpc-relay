@@ -38,9 +38,6 @@ jobs:
       - name: Create .env file
         run: cp ./packages/relay/tests/test.env .env
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
       - name: Build Typescript and Run tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
