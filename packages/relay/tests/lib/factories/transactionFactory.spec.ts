@@ -211,7 +211,7 @@ describe('TransactionFactory', () => {
       expect(formattedResult.hash).to.equal('0xfc4ab7133197016293d2e14e8cf9c5227b07357e6385184f1cd1cb40d783cfbd');
       expect(formattedResult.input).to.equal('0x08090033');
       expect(formattedResult.maxPriorityFeePerGas).to.equal(expectedValues.maxPriorityFeePerGas ?? '0x0');
-      expect(formattedResult.maxFeePerGas).to.equal(expectedValues.maxFeePerGas ?? '0x59');
+      expect(formattedResult.maxFeePerGas).to.equal(expectedValues.maxFeePerGas ?? '0xcf38224400');
       expect(formattedResult.nonce).to.equal(expectedValues.nonce ?? '0x2');
       expect(formattedResult.r).to.equal(
         expectedValues.r ?? '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
