@@ -262,12 +262,8 @@ export class DebugImpl implements Debug {
    */
   @rpcMethod
   async getBadBlocks(): Promise<[]> {
-    try {
-      DebugImpl.requireDebugAPIEnabled();
-      return [];
-    } catch (error) {
-      throw this.common.genericErrorHandler(error);
-    }
+    DebugImpl.requireDebugAPIEnabled();
+    return [];
   }
 
   /**
