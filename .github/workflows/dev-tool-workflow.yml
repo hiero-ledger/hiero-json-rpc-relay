@@ -49,9 +49,6 @@ jobs:
           cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
           cp ./packages/server/tests/localAcceptance.env .env
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
       - name: Build Typescript
         run: npx lerna run build
 
