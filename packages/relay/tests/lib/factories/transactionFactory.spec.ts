@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import { numberTo0x } from '../../../src/formatters';
 import constants from '../../../src/lib/constants';
 import { createTransactionFromContractResult, TransactionFactory } from '../../../src/lib/factories/transactionFactory';
-import { AuthorizationListEntry, Log, Transaction1559 } from '../../../src/lib/model';
+import { AuthorizationListEntry, Log, Transaction } from '../../../src/lib/model';
 
 describe('TransactionFactory', () => {
   describe('createTransactionByType', () => {
@@ -35,10 +35,10 @@ describe('TransactionFactory', () => {
       });
 
       expect(tx).to.not.equal(null);
-      expect(tx.type).to.equal('0x0');
-      expect(tx.from).to.equal(baseFields.from);
-      expect(tx.to).to.equal(baseFields.to);
-      expect(tx.accessList).to.be.undefined;
+      expect(tx!.type).to.equal('0x0');
+      expect(tx!.from).to.equal(baseFields.from);
+      expect(tx!.to).to.equal(baseFields.to);
+      expect(tx).to.not.have.property('accessList');
     });
 
     it('should create an access list (type 1) Transaction2930 with empty accessList', () => {
@@ -49,9 +49,9 @@ describe('TransactionFactory', () => {
       });
 
       expect(tx).to.not.equal(null);
-      expect(tx.type).to.equal('0x1');
-      expect(tx.accessList).to.deep.eq([]);
-      expect(tx.from).to.equal(baseFields.from);
+      expect(tx!.type).to.equal('0x1');
+      expect(tx).to.have.property('accessList').that.deep.eq([]);
+      expect(tx!.from).to.equal(baseFields.from);
     });
 
     it('should create an EIP-1559 (type 2) Transaction1559 with sanitized fees and empty accessList', () => {
@@ -64,10 +64,10 @@ describe('TransactionFactory', () => {
       });
 
       expect(tx).to.not.equal(null);
-      expect(tx.type).to.equal('0x2');
-      expect(tx.accessList).to.deep.eq([]);
-      expect(tx.maxPriorityFeePerGas).to.equal(constants.ZERO_HEX);
-      expect(tx.maxFeePerGas).to.equal('0x59');
+      expect(tx!.type).to.equal('0x2');
+      expect(tx).have.property('accessList').that.deep.eq([]);
+      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxFeePerGas').that.equals('0x59');
     });
 
     it('should replace EMPTY_HEX fees with ZERO_HEX for type 2', () => {
@@ -78,8 +78,8 @@ describe('TransactionFactory', () => {
         maxFeePerGas: constants.EMPTY_HEX,
       });
 
-      expect(tx.maxPriorityFeePerGas).to.equal(constants.ZERO_HEX);
-      expect(tx.maxFeePerGas).to.equal(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxFeePerGas').that.equals(constants.ZERO_HEX);
     });
 
     it('should handle null case by creating a legacy Transaction with provided fields', () => {
@@ -89,8 +89,8 @@ describe('TransactionFactory', () => {
       });
 
       expect(tx).to.not.equal(null);
-      expect(tx.type).to.equal('0x0');
-      expect(tx.accessList).to.be.undefined;
+      expect(tx!.type).to.equal('0x0');
+      expect(tx).to.not.have.property('accessList');
     });
 
     it('should return null for unsupported types', () => {
@@ -115,10 +115,10 @@ describe('TransactionFactory', () => {
       transactionIndex: '0x9',
     } as Log;
 
-    const expectTxFromLog = (tx: Transaction1559, inputLog: Log, expectedChainId: string) => {
+    const expectTxFromLog = (tx: Transaction, inputLog: Log, expectedChainId: string) => {
       expect(tx).to.exist;
       expect(tx.type).to.equal(constants.TWO_HEX);
-      expect(tx.accessList).to.deep.eq([]);
+      expect(tx).to.have.property('accessList').that.deep.eq([]);
 
       expect(tx.blockHash).to.equal(inputLog.blockHash);
       expect(tx.blockNumber).to.equal(inputLog.blockNumber);
@@ -134,8 +134,8 @@ describe('TransactionFactory', () => {
       expect(tx.gasPrice).to.equal(constants.INVALID_EVM_INSTRUCTION);
       expect(tx.input).to.equal(constants.ZERO_HEX_8_BYTE);
 
-      expect(tx.maxPriorityFeePerGas).to.equal(constants.ZERO_HEX);
-      expect(tx.maxFeePerGas).to.equal(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.have.property('maxFeePerGas').that.equals(constants.ZERO_HEX);
       expect(tx.nonce).to.equal(numberTo0x(0));
 
       expect(tx.r).to.equal(constants.EMPTY_HEX);
@@ -146,7 +146,7 @@ describe('TransactionFactory', () => {
 
     it('should create a valid EIP-1559 tx from a log with defaulted fields', () => {
       const tx = TransactionFactory.createTransactionFromLog(chainId, log);
-      expectTxFromLog(tx, log, chainId);
+      expectTxFromLog(tx!, log, chainId);
     });
 
     it('should mirror the log address to both from and to', () => {
@@ -155,14 +155,14 @@ describe('TransactionFactory', () => {
         address: '0x0000000000000000000000000000000000000409',
       };
       const tx = TransactionFactory.createTransactionFromLog(chainId, anotherLog);
-      expect(tx.from).to.equal(anotherLog.address);
-      expect(tx.to).to.equal(anotherLog.address);
+      expect(tx!.from).to.equal(anotherLog.address);
+      expect(tx!.to).to.equal(anotherLog.address);
     });
 
     it('should keep the provided chainId untouched', () => {
       const customChainId = '0x127';
       const tx = TransactionFactory.createTransactionFromLog(customChainId, log);
-      expect(tx.chainId).to.equal(customChainId);
+      expect(tx!.chainId).to.equal(customChainId);
     });
 
     it('should keep the block, hash and index values untouched', () => {
@@ -174,10 +174,10 @@ describe('TransactionFactory', () => {
         transactionIndex: '0x1',
       };
       const tx = TransactionFactory.createTransactionFromLog(chainId, modifiedLog);
-      expect(tx.blockHash).to.equal(modifiedLog.blockHash);
-      expect(tx.blockNumber).to.equal(modifiedLog.blockNumber);
-      expect(tx.hash).to.equal(modifiedLog.transactionHash);
-      expect(tx.transactionIndex).to.equal(modifiedLog.transactionIndex);
+      expect(tx!.blockHash).to.equal(modifiedLog.blockHash);
+      expect(tx!.blockNumber).to.equal(modifiedLog.blockNumber);
+      expect(tx!.hash).to.equal(modifiedLog.transactionHash);
+      expect(tx!.transactionIndex).to.equal(modifiedLog.transactionIndex);
     });
   });
 
