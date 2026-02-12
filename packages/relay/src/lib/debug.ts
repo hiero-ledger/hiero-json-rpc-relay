@@ -100,6 +100,18 @@ export class DebugImpl implements Debug {
     }
   }
 
+  /**
+   * Get a raw block for debugging purposes.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_traceTransaction RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNumOrTag - The block number, tag or hash. Possible values are 'earliest', 'pending', 'latest', hex block number or 32 bytes hash.
+   *
+   * @example
+   * const result = await getRawBlock('0x160c', requestDetails);
+   */
   @rpcMethod
   @rpcParamValidationRules({
     0: { type: ['blockNumber', 'blockHash'], required: true },
