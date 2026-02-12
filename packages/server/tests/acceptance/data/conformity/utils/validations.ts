@@ -6,11 +6,11 @@ import { expect } from 'chai';
 import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 
 let execApisOpenRpcData: any = null;
-async function getExecApisOpenRpcData() {
+function getExecApisOpenRpcData() {
   if (!execApisOpenRpcData) {
-    // @ts-expect-error - This file is generated during CI workflow
-    const module = await import('../../../../../../../openrpc_exec_apis.json');
-    execApisOpenRpcData = module.default || module;
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    execApisOpenRpcData = require('../../../../../../../openrpc_exec_apis.json');
+    /* eslint-enable @typescript-eslint/no-require-imports */
   }
   return execApisOpenRpcData;
 }
@@ -67,7 +67,7 @@ export function hasResponseFormatIssues(
   if (typeof expectedResponse === 'string') {
     try {
       parsedExpectedResponse = JSON.parse(expectedResponse);
-    } catch {
+    } catch (e) {
       console.log(`Expected response is not a valid JSON string: ${expectedResponse}`);
       return true;
     }
@@ -273,8 +273,8 @@ function hasValuesMismatch(actual: unknown, expected: unknown, wildcards: string
   return arePrimitivesDifferent(actual, expected);
 }
 
-export const findSchema = async function (file: string): Promise<Schema | undefined> {
-  const data = await getExecApisOpenRpcData();
+export const findSchema = function (file: string): Schema | undefined {
+  const data = getExecApisOpenRpcData();
   return (data.methods as Method[]).find((method) => method.name === file)?.result?.schema;
 };
 

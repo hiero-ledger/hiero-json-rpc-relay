@@ -38,10 +38,6 @@ import {
 } from './data/conformity/utils/transactions';
 import { getLatestBlockHash, sendRequestToRelay, signAndSendRawTransaction } from './data/conformity/utils/utils';
 import { getMissingKeys, isResponseValid } from './data/conformity/utils/validations';
-import testCasesBatch2 from './data/conformity-tests-batch-2.json';
-import testCasesBatch3 from './data/conformity-tests-batch-3.json';
-import testCasesBatch4 from './data/conformity-tests-batch-4.json';
-import testCasesBatch5 from './data/conformity-tests-batch-5.json';
 
 const directoryPath = path.resolve(__dirname, '../../../../node_modules/execution-apis/tests');
 const overwritesDirectoryPath = path.resolve(__dirname, 'data/conformity/overwrites');
@@ -258,6 +254,10 @@ describe('@api-conformity', async function () {
       ).result;
     });
 
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const TEST_CASES_BATCH_2 = require('./data/conformity-tests-batch-2.json');
+    /* eslint-enable @typescript-eslint/no-require-imports */
+
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
         case 'eth_getFilterChanges - existing filter':
@@ -271,7 +271,7 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(testCasesBatch2, updateParamIfNeeded);
+    synthesizeTestCases(TEST_CASES_BATCH_2, updateParamIfNeeded);
   });
 
   describe('@conformity-batch-3 Ethereum execution apis tests', async function () {
@@ -282,6 +282,10 @@ describe('@api-conformity', async function () {
     before(async () => {
       txHash = (await signAndSendRawTransaction(RELAY_URL, transaction1559)).transactionHash;
     });
+
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const TEST_CASES_BATCH_3 = require('./data/conformity-tests-batch-3.json');
+    /* eslint-enable @typescript-eslint/no-require-imports */
 
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
@@ -301,7 +305,7 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(testCasesBatch3['server'], updateParamIfNeeded);
+    synthesizeTestCases(TEST_CASES_BATCH_3['server'], updateParamIfNeeded);
 
     describe('ws related rpc methods', async function () {
       let webSocket: WebSocket;
@@ -394,7 +398,7 @@ describe('@api-conformity', async function () {
         }
       };
 
-      synthesizeWsTestCases(testCasesBatch3['ws-server'], updateParamIfNeeded);
+      synthesizeWsTestCases(TEST_CASES_BATCH_3['ws-server'], updateParamIfNeeded);
     });
   });
 
@@ -444,6 +448,10 @@ describe('@api-conformity', async function () {
 
       fromBlockForLogs = String(log0ContractCall.blockNumber);
     });
+
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const TEST_CASES_BATCH_4 = require('./data/conformity-tests-batch-4.json');
+    /* eslint-enable @typescript-eslint/no-require-imports */
 
     const updateParamIfNeeded = (testName: any, request: any) => {
       switch (testName) {
@@ -592,13 +600,16 @@ describe('@api-conformity', async function () {
       return request;
     };
 
-    synthesizeTestCases(testCasesBatch4, updateParamIfNeeded);
+    synthesizeTestCases(TEST_CASES_BATCH_4, updateParamIfNeeded);
   });
 
   describe('@conformity-batch-5 Ethereum execution apis tests', async function () {
     this.timeout(240 * 1000);
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const TEST_CASES_BATCH_5 = require('./data/conformity-tests-batch-5.json');
+    /* eslint-enable @typescript-eslint/no-require-imports */
 
     const updateParamIfNeeded = (_testName: any, request: any) => request;
-    synthesizeTestCases(testCasesBatch5, updateParamIfNeeded);
+    synthesizeTestCases(TEST_CASES_BATCH_5, updateParamIfNeeded);
   });
 });
