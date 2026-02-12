@@ -68,7 +68,7 @@ export class DebugImpl implements Debug {
   private readonly cacheService: ICacheClient;
 
   /**
-   * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
+   * The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    * @private
    */
   private readonly eth: Eth;
@@ -80,14 +80,14 @@ export class DebugImpl implements Debug {
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
    * @param {ICacheClient} cacheService - Service for managing cached data.
-   * @param eth - The chain identifier for the current blockchain environment.
+   * @param {EthImpl} eth - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    */
   constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, eth: Eth) {
-    this.eth = eth;
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
+    this.eth = eth;
   }
 
   /**
