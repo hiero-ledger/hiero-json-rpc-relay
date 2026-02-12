@@ -4,8 +4,9 @@
 import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
+import { BlockFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/blockFactory';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
-import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
+import constants, { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import { TransferTransaction } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
@@ -840,54 +841,51 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('debug_getRawBlock', async () => {
-      const QUANTITY_FIELDS: Set<string> = new Set([
-        'difficulty',
-        'number',
-        'gasLimit',
-        'gasUsed',
-        'baseFeePerGas',
-        'size',
-        'totalDifficulty',
-        'timestamp',
-      ]);
+      const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
 
-      const hexToData = (buf: Uint8Array): string => `0x${Buffer.from(buf).toString('hex')}`;
-
-      const hexToQuantity = (buf: Uint8Array): string => {
+      const hexToQuantity = (buf) => {
         if (buf.length === 0) return '0x0';
-
-        const hex = Buffer.from(buf).toString('hex').replace(/^0+/, '');
-
-        return `0x${hex || '0'}`;
-      };
-
-      const decodeField = (field: string, value: string[] | string): string[] | string => {
-        const formatter: any = QUANTITY_FIELDS.has(field) ? hexToQuantity : hexToData;
-
-        return Array.isArray(value) ? value.map(formatter) : formatter(value);
+        return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
       };
 
       let blockInfo;
       before(async () => {
-        blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), false]);
+        blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
       });
 
-      it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
-        const rawBlock = await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]);
+      const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock) => {
+        expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
+        expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
+        expect(hexToData(decodedRawBlock[2])).to.equal('0x0000000000000000000000000000000000000321');
+        expect(hexToData(decodedRawBlock[3])).to.equal(blockInfo.stateRoot);
+        expect(hexToData(decodedRawBlock[4])).to.equal(blockInfo.transactionsRoot);
+        expect(hexToData(decodedRawBlock[5])).to.equal(blockInfo.receiptsRoot);
+        expect(hexToData(decodedRawBlock[6])).to.equal(blockInfo.logsBloom);
+        expect(hexToQuantity(decodedRawBlock[7])).to.equal(blockInfo.difficulty);
+        expect(hexToQuantity(decodedRawBlock[8])).to.equal(blockInfo.number);
+        expect(hexToQuantity(decodedRawBlock[9])).to.equal(blockInfo.gasLimit);
+        expect(hexToQuantity(decodedRawBlock[10])).to.equal(blockInfo.gasUsed);
+        expect(hexToData(decodedRawBlock[11])).to.equal(blockInfo.timestamp);
+        expect(hexToData(decodedRawBlock[12])).to.equal(blockInfo.extraData);
+        expect(hexToQuantity(decodedRawBlock[13])).to.equal(blockInfo.totalDifficulty);
+        expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
+        expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
+        expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
+        expect(decodedRawBlock[17].map(hexToData)).to.deep.equal(blockInfo.transactions.map(BlockFactory.rlpEncodeTx));
+        expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
+        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_ARRAY_HEX);
+      };
 
-        const decodedRawBlock = RLP.decode(rawBlock);
-        Object.entries(blockInfo).forEach(([key, expected], index) => {
-          expect(expected).to.deep.equal(decodeField(key, decodedRawBlock[index]));
-        });
+      it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
+        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]));
+
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
       });
 
       it('should check whether the RLP block has correct info using block hash for debug_getRawBlock parameter ', async () => {
-        const rawBlock = await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]);
+        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]));
 
-        const decodedRawBlock = RLP.decode(rawBlock);
-        Object.entries(blockInfo).forEach(([key, expected], index) => {
-          expect(expected).to.deep.equal(decodeField(key, decodedRawBlock[index]));
-        });
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
       });
     });
 

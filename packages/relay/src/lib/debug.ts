@@ -113,8 +113,8 @@ export class DebugImpl implements Debug {
 
       const block: Block | null =
         blockNumOrTag.length === 66
-          ? await this.eth.getBlockByHash(blockNumOrTag, false, requestDetails)
-          : await this.eth.getBlockByNumber(blockNumOrTag, false, requestDetails);
+          ? await this.eth.getBlockByHash(blockNumOrTag, true, requestDetails)
+          : await this.eth.getBlockByNumber(blockNumOrTag, true, requestDetails);
 
       if (!block) {
         return constants.EMPTY_HEX;
