@@ -318,11 +318,40 @@ export declare class AccessListEntry {
  * Authorization list entry (EIP-7702).
  */
 export declare class AuthorizationListEntry {
+  /**
+   * Chain ID for which the authorization is valid.
+   * Hex-encoded string (0x-prefixed).
+   */
   readonly chainId: string;
+
+  /**
+   * Nonce associated with the authorizing account.
+   * Hex-encoded string (0x-prefixed).
+   */
   readonly nonce: string;
+
+  /**
+   * Authorized account address.
+   * 20-byte Ethereum address (0x-prefixed, 40 hex characters).
+   */
   readonly address: string;
+
+  /**
+   * Signature recovery identifier (y-parity).
+   * Hex-encoded string.
+   */
   readonly yParity: string;
+
+  /**
+   * ECDSA signature parameter `r`.
+   * 32-byte hex-encoded value (0x-prefixed).
+   */
   readonly r: string;
+
+  /**
+   * ECDSA signature parameter `s`.
+   * 32-byte hex-encoded value (0x-prefixed).
+   */
   readonly s: string;
 }
 

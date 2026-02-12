@@ -17,8 +17,6 @@ import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number, fields: any): Transaction7702;
-
   public static createTransactionByType(type: number, fields: any): Transaction | null {
     switch (type) {
       case 0:
@@ -56,7 +54,7 @@ export class TransactionFactory {
    * @param type Transaction type (2 by default)
    * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction1559 {
+  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2) {
     return TransactionFactory.createTransactionByType(type, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
@@ -77,7 +75,7 @@ export class TransactionFactory {
       type: numberTo0x(type), // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
-    });
+    }) as Transaction1559 | null;
   }
 }
 
