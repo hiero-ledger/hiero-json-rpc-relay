@@ -4,7 +4,6 @@
 import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
-import { BlockFactory } from '@hashgraph/json-rpc-relay/dist/lib/factories/blockFactory';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import constants, { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import { TransferTransaction } from '@hashgraph/sdk';
