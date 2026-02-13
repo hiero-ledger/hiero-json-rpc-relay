@@ -116,7 +116,7 @@ export class BlockFactory {
     // Hw - withdrawalsRoot
     // -- BT - block transactions (RLP encoded transactions array)
     // -- BU - ommers (empty array)
-    // -- BW - withdrawals (empty list)
+    // -- BW - withdrawals (empty array)
 
     // Regarding the yellow paper - B=(BH,BT,BU,BW)
     return RLP.encode([
@@ -139,7 +139,7 @@ export class BlockFactory {
       block.withdrawalsRoot,
       [...block.transactions.map((tx) => BlockFactory.rlpEncodeTx(tx as Transaction))],
       [],
-      constants.EMPTY_ARRAY_HEX, // keccak256(rlp(()))
+      [],
     ]);
   }
 }

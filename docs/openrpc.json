@@ -1312,8 +1312,7 @@
         "description": "The RLP-encoded block information, or 0x if the block is not found",
         "schema": {
           "title": "raw block",
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]*$"
+          "$ref": "#/components/schemas/bytes"
         }
       }
     },

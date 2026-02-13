@@ -5,8 +5,8 @@ import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
+import { Eth, JsonRpcError } from '../index';
 import { Utils } from '../utils';
-import { JsonRpcError, Eth } from '../index';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import { IOpcode } from './clients/models/IOpcode';
@@ -107,7 +107,8 @@ export class DebugImpl implements Debug {
    * @rpcMethod Exposed as debug_traceTransaction RPC endpoint
    * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
    *
-   * @param {string} blockNumOrTag - The block number, tag or hash. Possible values are 'earliest', 'pending', 'latest', hex block number or 32 bytes hash.
+   * @param {string} blockNrOrHash - The block number, tag or hash. Possible values are 'earliest', 'pending', 'latest', hex block number or 32 bytes hash.
+   * @param {RequestDetails} requestDetails - Request details for logging and tracking
    *
    * @example
    * const result = await getRawBlock('0x160c', requestDetails);
@@ -119,23 +120,19 @@ export class DebugImpl implements Debug {
   @cache({
     skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
   })
-  async getRawBlock(blockNumOrTag: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
-    try {
-      DebugImpl.requireDebugAPIEnabled();
+  async getRawBlock(blockNrOrHash: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    DebugImpl.requireDebugAPIEnabled();
 
-      const block: Block | null =
-        blockNumOrTag.length === 66
-          ? await this.eth.getBlockByHash(blockNumOrTag, true, requestDetails)
-          : await this.eth.getBlockByNumber(blockNumOrTag, true, requestDetails);
+    const block: Block | null =
+      blockNrOrHash.length === 66
+        ? await this.eth.getBlockByHash(blockNrOrHash, true, requestDetails)
+        : await this.eth.getBlockByNumber(blockNrOrHash, true, requestDetails);
 
-      if (!block) {
-        return constants.EMPTY_HEX;
-      }
-
-      return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block)).toString('hex');
-    } catch (e) {
-      throw this.common.genericErrorHandler(e);
+    if (!block) {
+      return constants.EMPTY_HEX;
     }
+
+    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block)).toString('hex');
   }
 
   /**

@@ -841,8 +841,8 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('debug_getRawBlock', async () => {
+      const toHex = (n) => '0x' + n.toString(16);
       const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
-
       const hexToQuantity = (buf) => {
         if (buf.length === 0) return '0x0';
         return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
@@ -871,9 +871,31 @@ describe('@debug API Acceptance Tests', function () {
         expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
         expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
         expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
-        expect(decodedRawBlock[17].map(hexToData)).to.deep.equal(blockInfo.transactions.map(BlockFactory.rlpEncodeTx));
         expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
-        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_ARRAY_HEX);
+        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
+
+        for (const [i, tx] of blockInfo.transactions.entries()) {
+          const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
+
+          expect(decodedTx.to?.toLowerCase()).to.equal(tx.to);
+          expect(decodedTx.data).to.equal(tx.input);
+          expect(toHex(decodedTx.nonce)).to.equal(tx.nonce);
+          expect(toHex(decodedTx.value)).to.equal(tx.value);
+
+          if (decodedTx.signature) {
+            // handle ethereum transaction
+            expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
+            expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
+            expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
+            expect(decodedTx.signature.r).to.equal(tx.r);
+            expect(decodedTx.signature.s).to.equal(tx.s);
+            expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
+          } else {
+            // handle synthetic transaction
+            expect(toHex(decodedTx.gasLimit)).to.equal(tx.gas);
+            expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
+          }
+        }
       };
 
       it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
