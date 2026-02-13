@@ -209,6 +209,39 @@ describe('@ethGetBlockByHash using MirrorNode', async function () {
     );
   });
 
+  it('eth_getBlockByHash with match and details and transactions with same hash but different fields', async function () {
+    // mirror node request mocks
+    restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+    restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(
+      200,
+      JSON.stringify({
+        results: [
+          ...defaultContractResults.results,
+          {
+            ...defaultContractResults.results[0],
+            transaction_index: defaultContractResults.results[0].transaction_index + 1,
+          },
+        ],
+      }),
+    );
+    restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify(DEFAULT_ETH_GET_BLOCK_BY_LOGS));
+
+    const result = await ethImpl.getBlockByHash(BLOCK_HASH, true, requestDetails);
+    RelayAssertions.assertBlock(
+      result,
+      {
+        hash: BLOCK_HASH_TRIMMED,
+        gasUsed: TOTAL_GAS_USED,
+        number: BLOCK_NUMBER_HEX,
+        timestamp: BLOCK_TIMESTAMP_HEX,
+        parentHash: BLOCK_HASH_PREV_TRIMMED,
+        transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
+        receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
+      },
+      true,
+    );
+  });
+
   it('eth_getBlockByHash with match and details paginated', async function () {
     // mirror node request mocks
     restMock.onGet(`blocks/${BLOCK_HASH}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
