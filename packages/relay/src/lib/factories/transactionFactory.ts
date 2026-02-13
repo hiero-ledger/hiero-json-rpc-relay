@@ -13,12 +13,10 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { Log, Transaction, Transaction1559, Transaction2930 } from '../model';
+import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
-  public static createTransactionByType(type: number, fields: any): Transaction1559;
-
   public static createTransactionByType(type: number, fields: any): Transaction | null {
     switch (type) {
       case 0:
@@ -32,15 +30,17 @@ export class TransactionFactory {
         return new Transaction1559({
           ...fields,
           accessList: [],
-          maxPriorityFeePerGas:
-            fields.maxPriorityFeePerGas === null || fields.maxPriorityFeePerGas === constants.EMPTY_HEX
-              ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxPriorityFeePerGas) ?? '0'),
-          maxFeePerGas:
-            fields.maxFeePerGas === null || fields.maxFeePerGas === constants.EMPTY_HEX
-              ? constants.ZERO_HEX
-              : prepend0x(trimPrecedingZeros(fields.maxFeePerGas) ?? '0'),
+          maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
+          maxFeePerGas: formatGasFee(fields.maxFeePerGas),
         }); // eip 1559 fields
+      case 4:
+        return new Transaction7702({
+          ...fields,
+          accessList: [],
+          maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
+          maxFeePerGas: formatGasFee(fields.maxFeePerGas),
+          authorizationList: formatAuthorizationList(fields.authorizationList),
+        }); // eip 7702 fields
       case null:
         return new Transaction(fields); //hapi
     }
@@ -52,9 +52,9 @@ export class TransactionFactory {
    * Creates a transaction object from a log entry
    * @param log The log entry containing transaction data
    * @param type Transaction type (2 by default)
-   * @returns {Transaction1559 | null} A Transaction1559 object or null if creation fails
+   * @returns {Transaction | null} A Transaction object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction1559 {
+  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
     return TransactionFactory.createTransactionByType(type, {
       accessList: undefined, // we don't support access lists for now
       blockHash: log.blockHash,
@@ -78,6 +78,50 @@ export class TransactionFactory {
     });
   }
 }
+
+/**
+ * Formats an authorization list by normalizing and sanitizing its fields.
+ *
+ * - Ensures the input is an array of objects.
+ * - Normalizes numeric fields to 0x-prefixed hex values.
+ * - Pads and sanitizes addresses to 40 hex characters.
+ * - Truncates signature fields (r, s) to valid length.
+ * - Falls back to zero-value constants when fields are missing.
+ *
+ * Additional unknown properties on each authorization item are preserved.
+ *
+ * @param {any} authorizationList - The raw authorization list.
+ * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
+ */
+const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry[] =>
+  authorizationList && Array.isArray(authorizationList)
+    ? authorizationList
+        .filter((item: any) => item !== null && typeof item === 'object')
+        .map((item: any) => ({
+          ...item, // additional properties remain allowed for authorization list items
+          chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
+          nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
+          address: !item.address
+            ? constants.ZERO_ADDRESS_HEX
+            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+          yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
+          r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
+          s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
+        }))
+    : [];
+
+/**
+ * Formats a gas fee value into a 0x-prefixed hex string.
+ *
+ * @TODO There is a known issue with this algorithm, track fix in:
+ *       https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4901
+ *       The value should be returned in weibars, not tinybars, as it is currently.
+ *
+ * @param {any} gasFee - The raw gas price value (hex or number).
+ * @returns {string} The formatted gas fee as a 0x-prefixed hex string.
+ */
+const formatGasFee = (gasFee: any): string =>
+  gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
 
 /**
  * Creates a Transaction object from a contract result
@@ -122,5 +166,6 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     ...commonFields,
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
+    authorizationList: cr.authorization_list,
   });
 };

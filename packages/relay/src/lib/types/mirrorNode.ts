@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AuthorizationListEntry } from '../model';
+
 export interface IAccountInfo {
   /**
    * Account ID string in the form `shard.realm.num`
@@ -278,6 +280,8 @@ export interface MirrorNodeContractResult {
   v: number;
   /** The account nonce for the transaction. */
   nonce: number;
+  /** Authorization list for EIP-7702 transactions. */
+  authorization_list?: AuthorizationListEntry[] | null;
 }
 
 /**
