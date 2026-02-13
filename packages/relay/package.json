@@ -15,7 +15,7 @@
     "@types/node": "^24.9.1",
     "chai": "^6.0.1",
     "mocha": "^11.7.1",
-    "redis-memory-server": "^0.14.0",
+    "redis-memory-server": "^0.16.0",
     "sinon": "^21.0.0",
     "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
