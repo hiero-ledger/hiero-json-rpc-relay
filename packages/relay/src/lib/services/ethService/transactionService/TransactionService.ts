@@ -237,6 +237,7 @@ export class TransactionService implements ITransactionService {
    * @param hash The transaction hash
    * @param requestDetails The request details for logging and tracking
    * @returns {Promise<ITransactionReceipt | null>} A promise that resolves to a transaction receipt or null if not found
+   * @throws {JsonRpcError} Throws TRANSACTION_REJECTED error if the feature flag is enabled and the transaction failed at consensus
    */
   async getTransactionReceipt(hash: string, requestDetails: RequestDetails): Promise<ITransactionReceipt | null> {
     const receiptResponse = await this.mirrorNodeClient.getContractResultWithRetry(
@@ -247,12 +248,21 @@ export class TransactionService implements ITransactionService {
     if (receiptResponse === null || receiptResponse.hash === undefined) {
       // handle synthetic transactions
       return await this.handleSyntheticTransactionReceipt(hash, requestDetails);
-    } else {
-      const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
-      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
-
-      return receipt;
     }
+
+    // Check for consensus-time failures when the feature flag is enabled
+    if (
+      ConfigService.get('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS') &&
+      Utils.isRevertedDueToHederaSpecificValidation(receiptResponse)
+    ) {
+      this.logger.debug(`Transaction %s failed at consensus with status: %s`, hash, receiptResponse.result);
+      throw predefined.TRANSACTION_REJECTED(receiptResponse.result, receiptResponse.error_message);
+    }
+
+    const receipt = await this.handleRegularTransactionReceipt(receiptResponse, requestDetails);
+    this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
+
+    return receipt;
   }
 
   /**

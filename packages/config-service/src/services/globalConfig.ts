@@ -705,6 +705,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   USE_MIRROR_NODE_MODULARIZED_SERVICES: {
     type: 'boolean',
     required: false,

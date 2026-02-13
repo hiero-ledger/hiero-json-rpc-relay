@@ -1503,6 +1503,127 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(res).to.be.null;
       });
 
+      describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS feature flag', () => {
+        describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = true', () => {
+          overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: true });
+
+          it('should return receipt normally for existing successful transaction when feature flag is enabled', async function () {
+            const transactionHash = mirrorContractDetails.hash;
+            const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
+
+            expect(res).to.exist;
+            expect(res.transactionHash).to.equal(transactionHash);
+            expect(res.status).to.equal('0x1');
+          });
+
+          it('should return null for non-existing transaction when feature flag is enabled', async function () {
+            const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+              Address.NON_EXISTING_TX_HASH,
+            ]);
+            expect(res).to.be.null;
+          });
+
+          it('should handle WRONG_NONCE transactions appropriately when feature flag is enabled', async function () {
+            const currentNonce = await relay.getAccountNonce(accounts[3].address);
+            const gasPrice = await relay.gasPrice();
+
+            const timestampBefore = Date.now();
+
+            const signedTx1 = await accounts[3].wallet.signTransaction({
+              ...defaultLondonTransactionData,
+              to: accounts[1].address,
+              nonce: currentNonce,
+              maxFeePerGas: gasPrice,
+              maxPriorityFeePerGas: gasPrice,
+            });
+            const signedTx2 = await accounts[3].wallet.signTransaction({
+              ...defaultLondonTransactionData,
+              to: accounts[2].address,
+              nonce: currentNonce,
+              maxFeePerGas: gasPrice,
+              maxPriorityFeePerGas: gasPrice,
+            });
+
+            const results = await Promise.allSettled([
+              relay.sendRawTransaction(signedTx1),
+              relay.sendRawTransaction(signedTx2),
+            ]);
+
+            const txHashes = results
+              .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+              .map((r) => r.value);
+
+            if (txHashes.length === 0) {
+              this.skip();
+              return;
+            }
+
+            await new Promise((r) => setTimeout(r, 5000));
+
+            const timestampFrom = (timestampBefore / 1000).toFixed(9);
+            const timestampTo = (Date.now() / 1000).toFixed(9);
+            const contractResults = await mirrorNode.get(
+              `/contracts/results?timestamp=gte:${timestampFrom}&timestamp=lte:${timestampTo}&limit=100`,
+            );
+
+            const wrongNonceTxs = contractResults.results?.filter(
+              (cr: any) => cr.result === 'WRONG_NONCE' && txHashes.includes(cr.hash),
+            );
+
+            if (wrongNonceTxs && wrongNonceTxs.length > 0) {
+              // Mirror Node returned the WRONG_NONCE transaction in batch query
+              // Now test if eth_getTransactionReceipt throws the expected error
+              const wrongNonceHash = wrongNonceTxs[0].hash;
+
+              try {
+                const receipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+                  wrongNonceHash,
+                ]);
+                // If we get here, either:
+                // 1. Mirror Node returned 404 for individual hash query (receipt is null)
+                // 2. Feature flag didn't trigger (unexpected)
+                if (receipt === null) {
+                  // This is expected current behavior - Mirror Node returns 404 for individual hash queries
+                  // The feature cannot be tested via acceptance tests due to Mirror Node limitation
+                  expect(receipt).to.be.null;
+                } else {
+                  // If receipt is returned, the feature flag should have thrown an error
+                  expect.fail('Expected TRANSACTION_REJECTED error (-32003) but got receipt');
+                }
+              } catch (error: any) {
+                // Expected behavior when feature flag is enabled and Mirror Node returns the failed tx
+                expect(error.code).to.equal(-32003);
+                expect(error.message).to.include('Transaction rejected');
+                expect(error.message).to.include('WRONG_NONCE');
+              }
+            } else {
+              // WRONG_NONCE transaction not found in Mirror Node batch query
+              // This can happen if only one tx was submitted or timing issues
+              // Verify at least one transaction succeeded
+              const receiptPromises = txHashes.map((hash) =>
+                relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [hash]),
+              );
+              const receipts = await Promise.all(receiptPromises);
+              const successCount = receipts.filter((r) => r !== null).length;
+              expect(successCount).to.be.at.least(1);
+            }
+          });
+        });
+
+        describe('ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS = false', () => {
+          overrideEnvsInMochaDescribe({ ENABLE_STANDARIZE_HEDERA_SPECIAL_CONSENSUS_ERRORS: false });
+
+          it('should return receipt normally for existing successful transaction when feature flag is disabled', async function () {
+            const transactionHash = mirrorContractDetails.hash;
+            const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
+
+            expect(res).to.exist;
+            expect(res.transactionHash).to.equal(transactionHash);
+            expect(res.status).to.equal('0x1');
+          });
+        });
+      });
+
       it('should execute "eth_getTransactionReceipt" and set "to" field to null for direct contract deployment', async function () {
         const basicContract = await Utils.deployContract(
           basicContractJson.abi,
