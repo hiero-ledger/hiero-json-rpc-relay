@@ -32,6 +32,8 @@ export interface Debug {
   ): Promise<any>;
 
   getBadBlocks(): Promise<[]>;
+
+  getRawReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<string[] | null>;
 }
 
 export interface Web3 {

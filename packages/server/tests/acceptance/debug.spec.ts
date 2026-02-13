@@ -61,6 +61,7 @@ describe('@debug API Acceptance Tests', function () {
 
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
+  const DEBUG_GET_RAW_RECEIPTS = 'debug_getRawReceipts';
 
   const TRACER_CONFIGS = {
     CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
@@ -1081,6 +1082,43 @@ describe('@debug API Acceptance Tests', function () {
           predefined.UNSUPPORTED_METHOD,
         );
       });
+    });
+  });
+
+  describe('debug_getRawReceipts', () => {
+    it('should return EIP-2718 binary-encoded receipts for a block with transactions', async function () {
+      // Reuse an existing EVM tx that was created in the global before()
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      const blockNumber = receipt.blockNumber;
+
+      const result = await relay.call(DEBUG_GET_RAW_RECEIPTS, [blockNumber]);
+
+      expect(result).to.be.an('array');
+      expect(result.length).to.be.at.least(1);
+
+      // Each element should be a hex-encoded receipt
+      result.forEach((raw: unknown, index: number) => {
+        expect(raw, `receipt at index ${index}`).to.be.a('string');
+        expect(raw as string, `receipt at index ${index} should be 0x-prefixed hex`).to.match(/^0x[0-9a-f]+$/i);
+      });
+    });
+
+    it('should fail with INVALID_PARAMETER when given an invalid block number', async function () {
+      await relay.callFailing(
+        DEBUG_GET_RAW_RECEIPTS,
+        ['invalidBlockNumber'],
+        predefined.INVALID_PARAMETER(
+          '0',
+          'Expected 0x prefixed hexadecimal block number, or the string "latest", "earliest" or "pending"',
+        ),
+      );
     });
   });
 });

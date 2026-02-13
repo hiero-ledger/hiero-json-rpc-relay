@@ -369,7 +369,7 @@ export class Relay {
     this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }));
 
     // Create Debug and Admin implementations
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService);
+    this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, this.ethImpl);
     this.adminImpl = new AdminImpl(this.cacheService);
 
     // Create HBAR spending plan config service
