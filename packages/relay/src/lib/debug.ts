@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
-import { type Debug } from '../index';
+import { type Debug, Eth } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -13,6 +13,7 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
+import { encodeReceiptToHex } from './receiptSerialization';
 import { CommonService } from './services';
 import {
   BlockTracerConfig,
@@ -65,18 +66,26 @@ export class DebugImpl implements Debug {
   private readonly cacheService: ICacheClient;
 
   /**
+   * The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
+   * @private
+   */
+  private readonly eth: Eth;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
    * @param {ICacheClient} cacheService - Service for managing cached data.
+   * @param {Eth} eth - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, eth: Eth) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
+    this.eth = eth;
   }
 
   /**
@@ -271,6 +280,36 @@ export class DebugImpl implements Debug {
   async getBadBlocks(): Promise<[]> {
     DebugImpl.requireDebugAPIEnabled();
     return [];
+  }
+
+  /**
+   * Returns an array of EIP-2718 binary-encoded receipts.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawReceipts RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNumber - The number of the block to retrieve.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs.
+   * @returns {Promise<string[] | null>} A Promise that resolves to an array of EIP-2718 binary-encoded receipts or null if block not found.
+   *
+   * @example
+   * const result = await getRawReceipts('0x1234', requestDetails);
+   * // result: ["0xe6808...", "0xe6809..."]
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: 'blockNumber', required: true },
+  })
+  @cache()
+  async getRawReceipts(blockNumber: string, requestDetails: RequestDetails): Promise<string[] | null> {
+    DebugImpl.requireDebugAPIEnabled();
+    const receipts = await this.eth.getBlockReceipts(blockNumber, requestDetails);
+    if (!receipts) {
+      return null;
+    }
+    return receipts.map((receipt) => encodeReceiptToHex(receipt));
   }
 
   /**
