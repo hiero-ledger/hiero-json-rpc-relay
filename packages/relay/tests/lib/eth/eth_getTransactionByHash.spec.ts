@@ -9,6 +9,7 @@ import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
 import { defaultDetailedContractResultByHash, defaultFromLongZeroAddress } from '../../helpers';
 import {
+  DEFAULT_AUTHORIZATION_LIST,
   DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH_REVERTED,
   DEFAULT_TRANSACTION,
   DEFAULT_TX_HASH,
@@ -351,5 +352,20 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     restMock.onGet(`contracts/results/${uniqueTxHash}`).reply(200, JSON.stringify(detailedResultsWithNullTo));
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
     expect(result?.to).to.eq(null);
+  });
+
+  it('handles EIP-7702 transactions with type 4', async function () {
+    const detailedResultsWithTransactionAuthorizationList = {
+      ...defaultDetailedContractResultByHash,
+      type: 4,
+      authorization_list: DEFAULT_AUTHORIZATION_LIST,
+    };
+    const uniqueTxHash = '0x8f3c9a7b2d4e6f1a9c0b7d3e5f8a1c2e4d6b9f0a3c7e2d1f8b6a4c9e0d2f7a1';
+
+    restMock
+      .onGet(`contracts/results/${uniqueTxHash}`)
+      .reply(200, JSON.stringify(detailedResultsWithTransactionAuthorizationList));
+    const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
+    expect(result).to.have.property('authorizationList').that.deep.equal(DEFAULT_AUTHORIZATION_LIST);
   });
 });

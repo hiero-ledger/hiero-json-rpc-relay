@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  ASCIIToHex,
-  isHex,
-  nanOrNumberTo0x,
-  nullableNumberTo0x,
-  numberTo0x,
-  prepend0x,
-  toHash32,
-} from '../../formatters';
+import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32 } from '../../formatters';
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
 import { Log } from '../model';

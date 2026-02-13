@@ -30,6 +30,8 @@ export interface Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<any>;
+
+  getBadBlocks(): Promise<[]>;
 }
 
 export interface Web3 {

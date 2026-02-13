@@ -637,6 +637,16 @@ export const DEFAULT_TRANSACTION = {
   v: 1,
   value: DEFAULT_TRANSACTION_VALUE,
 };
+export const DEFAULT_AUTHORIZATION_LIST = [
+  {
+    s: '0xd693b532a80fed6392b428604171fb32fdbf953728a3a7ecc7d4062b1652c042',
+    r: '0x24e9c602ac800b983b035700a14b23f78a253ab762deab5dc27e3555a750b354',
+    yParity: '0x1',
+    address: '0x5b98Ce3a4D1e1AC55F15Da174D5CeFcc5b8FB994',
+    chainId: '0x12a',
+    nonce: '0x0',
+  },
+];
 export const DEFAULT_DETAILED_CONTRACT_RESULT_BY_HASH = {
   address: '0xd8db0b1dbf8ba6721ef5256ad5fe07d72d1d04b9',
   amount: 2000000000,

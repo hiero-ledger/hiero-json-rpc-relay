@@ -1645,6 +1645,29 @@ describe('Debug API Test Suite', async function () {
     });
   });
 
+  describe('debug_getBadBlocks', async function () {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return an empty array', async function () {
+        const result = await debugService.getBadBlocks();
+        expect(result).to.deep.equal([]);
+      });
+    });
+
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getBadBlocks,
+            true,
+            debugService,
+            [],
+          );
+        });
+      }),
+    );
+  });
+
   describe('prestateTracer', async function () {
     const mockTimestamp = '1696438011.462526383';
     const contractId = '0.0.1033';

@@ -11,7 +11,7 @@ import { Eth } from '../../../src';
 import { SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
-import { Transaction, Transaction1559, Transaction2930 } from '../../../src/lib/model';
+import { Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../../../src/lib/model';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
 import RelayAssertions from '../../assertions';
@@ -23,6 +23,7 @@ import {
   CONTRACT_HASH_1,
   CONTRACT_RESULT_MOCK,
   CONTRACT_TIMESTAMP_1,
+  DEFAULT_AUTHORIZATION_LIST,
   DEFAULT_BLOCK,
   DEFAULT_NETWORK_FEES,
   EMPTY_LOGS_RESPONSE,
@@ -226,6 +227,32 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
       requestDetails,
     );
     expect(result).to.be.an.instanceOf(Transaction1559);
+  });
+
+  it('eth_getTransactionByBlockHashAndIndex returns 7702 transaction for type 4', async function () {
+    restMock.onGet(contractResultsByHashByIndexURL(DEFAULT_BLOCK.hash, DEFAULT_BLOCK.count)).reply(
+      200,
+      JSON.stringify({
+        results: [
+          {
+            ...CONTRACT_RESULT_MOCK,
+            type: 4,
+            access_list: [],
+            max_fee_per_gas: '0x47',
+            max_priority_fee_per_gas: '0x47',
+            authorization_list: DEFAULT_AUTHORIZATION_LIST,
+          },
+        ],
+      }),
+    );
+
+    const result = await ethImpl.getTransactionByBlockHashAndIndex(
+      DEFAULT_BLOCK.hash.toString(),
+      numberTo0x(DEFAULT_BLOCK.count),
+      requestDetails,
+    );
+    expect(result).to.be.an.instanceOf(Transaction7702);
+    expect(result).to.have.property('authorizationList').that.deep.equal(DEFAULT_AUTHORIZATION_LIST);
   });
 
   describe('synthetic transaction handling', function () {
