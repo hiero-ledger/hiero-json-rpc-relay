@@ -17,7 +17,6 @@ These properties are noted below and should be custom set per deployment.
 - `MIRROR_NODE_URL`
 - `OPERATOR_ID_MAIN`
 - `OPERATOR_KEY_MAIN`
-- `SERVER_PORT`
 
 **Note**: The default logging level in the TypeScript application is set to trace.
 
