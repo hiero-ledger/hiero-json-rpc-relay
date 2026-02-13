@@ -60,6 +60,7 @@ describe('@debug API Acceptance Tests', function () {
   const BASIC_CONTRACT_PING_CALL_DATA = '0x5c36b186';
 
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
+  const DEBUG_TRACE_BLOCK_BY_HASH = 'debug_traceBlockByHash';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
 
   const TRACER_CONFIGS = {
@@ -444,6 +445,155 @@ describe('@debug API Acceptance Tests', function () {
       // This test verifies that CREATE actions with to=null don't cause Mirror Node lookup errors
       // The main goal is that the debug_traceBlockByNumber call succeeds without throwing
       // "Invalid parameter: contractid" errors when processing CREATE transactions
+    });
+  });
+
+  describe('debug_traceBlockByHash', () => {
+    it('@release should trace a block by hash containing successful transactions using CallTracer', async function () {
+      // Create a transaction that will be included in the next block
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      // Get the block hash from the receipt
+      const blockHash = receipt.blockHash;
+
+      // Call debug_traceBlockByHash with CallTracer
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_HASH, [
+        blockHash,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+
+      expect(result).to.be.an('array');
+      expect(result.length).to.be.at.least(1);
+
+      // Find our transaction in the result
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      expect(txTrace).to.exist;
+      expect(txTrace.result).to.exist;
+      Assertions.validateCallTracerResult(
+        txTrace.result,
+        BASIC_CONTRACT_PING_CALL_DATA,
+        accounts[0].address,
+        basicContractAddress,
+      );
+    });
+
+    it('@release should trace a block by hash containing a failing transaction using CallTracer', async function () {
+      // Create a transaction that will revert
+      const transaction = await Utils.buildTransaction(
+        relay,
+        reverterContractAddress,
+        accounts[0].address,
+        PURE_METHOD_CALL_DATA,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      // Get the block hash from the receipt
+      const blockHash = receipt.blockHash;
+
+      // Call debug_traceBlockByHash with CallTracer
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_HASH, [
+        blockHash,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+
+      expect(result).to.be.an('array');
+      expect(result.length).to.be.at.least(1);
+
+      // Find our transaction in the result
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      Assertions.validateCallTracerResult(
+        txTrace.result,
+        PURE_METHOD_CALL_DATA,
+        accounts[0].address,
+        reverterContractAddress,
+      );
+      expect(txTrace.result.error).to.exist; // There should be an error field for the reverted transaction
+      expect(txTrace.result.revertReason).to.exist; // There should be a revert reason
+    });
+
+    it('@release should trace a block by hash using PrestateTracer', async function () {
+      // Create a transaction that will be included in the next block
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      // Get the block hash from the receipt
+      const blockHash = receipt.blockHash;
+
+      // Call debug_traceBlockByHash with PrestateTracer
+      const result = await relay.call(DEBUG_TRACE_BLOCK_BY_HASH, [blockHash, TRACER_CONFIGS.PRESTATE_TRACER]);
+
+      expect(result).to.be.an('array');
+      expect(result.length).to.be.at.least(1);
+
+      // Find our transaction in the result
+      const txTrace = result.find((trace) => trace.txHash === receipt.transactionHash);
+      expect(txTrace).to.exist;
+      expect(txTrace.result).to.exist;
+
+      // Check that the result contains prestate information for at least the contract and sender
+      const keys = Object.keys(txTrace.result);
+      expect(keys.length).to.be.at.least(2);
+
+      // For each address in the result, check it has the expected fields
+      for (const address of keys) {
+        const state = txTrace.result[address];
+        Assertions.validatePrestateTracerResult(state);
+      }
+    });
+
+    it('should return same results as debug_traceBlockByNumber for the same block', async function () {
+      // Create a transaction that will be included in the next block
+      const transaction = await Utils.buildTransaction(
+        relay,
+        basicContractAddress,
+        accounts[0].address,
+        BASIC_CONTRACT_PING_CALL_DATA,
+      );
+      const receipt = await Utils.getReceipt(relay, transaction, accounts[0].wallet);
+
+      const blockNumber = receipt.blockNumber;
+      const blockHash = receipt.blockHash;
+
+      // Call both methods with the same tracer config
+      const resultByNumber = await relay.call(DEBUG_TRACE_BLOCK_BY_NUMBER, [
+        blockNumber,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+      const resultByHash = await relay.call(DEBUG_TRACE_BLOCK_BY_HASH, [
+        blockHash,
+        TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+      ]);
+
+      // Both results should have the same structure and content
+      expect(resultByNumber).to.be.an('array');
+      expect(resultByHash).to.be.an('array');
+      expect(resultByNumber.length).to.equal(resultByHash.length);
+
+      // Compare the transaction hashes
+      const txHashesByNumber = resultByNumber.map((r) => r.txHash).sort();
+      const txHashesByHash = resultByHash.map((r) => r.txHash).sort();
+      expect(txHashesByNumber).to.deep.equal(txHashesByHash);
+    });
+
+    it('should return RESOURCE_NOT_FOUND for non-existent block hash', async function () {
+      const nonExistentBlockHash = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+      await relay.callFailing(
+        DEBUG_TRACE_BLOCK_BY_HASH,
+        [nonExistentBlockHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE],
+        predefined.RESOURCE_NOT_FOUND(`Block ${nonExistentBlockHash} not found`),
+      );
     });
   });
 

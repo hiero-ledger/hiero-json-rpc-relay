@@ -855,14 +855,14 @@
           }
         ],
         "preRequestScript": "",
-        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32601);\n    pm.expect(response.error.message.endsWith(\"Not yet implemented\")).to.be.true;\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
+        "testScript": "pm.test(\"Success\", () => {\n    var response = pm.response.json();\n    pm.expect(response.error.code).to.equal(-32001);\n    pm.expect(response.error.message.toLowerCase()).to.contain(\"not found\");\n    pm.expect(response.id).to.equal(\"test_id\");\n    pm.expect(response.jsonrpc).to.equal(\"2.0\");\n});\n",
         "auth": {
           "authType": "inherit",
           "authActive": true
         },
         "body": {
           "contentType": "application/json",
-          "body": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"debug_traceBlockByHash\",\n    \"params\": [\"latest\"]\n}"
+          "body": "{\n    \"id\": \"test_id\",\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"debug_traceBlockByHash\",\n    \"params\": [\"0x0000000000000000000000000000000000000000000000000000000000000000\"]\n}"
         },
         "requestVariables": [],
         "responses": {},
