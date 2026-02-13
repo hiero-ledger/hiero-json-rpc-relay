@@ -61,6 +61,13 @@ export interface PendingTransactionStorage {
   getList(addr: string): Promise<number>;
 
   /**
+   * Retrieves the number of unique addresses with pending transactions.
+   *
+   * @returns A promise that resolves to the number of unique addresses.
+   */
+  getUniqueAddressCount(): Promise<number>;
+
+  /**
    * Adds a pending transaction for the given address.
    * Implementations must atomically index the transaction (per-address + global) and persist its payload.
    *

@@ -238,7 +238,7 @@ async function prepareTransactionArray(
 ): Promise<Transaction[] | string[]> {
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
-    if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
+    if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
       logger.debug(
         `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
         contractResult.hash,
@@ -373,7 +373,7 @@ export async function getBlockReceipts(
     }
 
     const receiptPromises = contractResults.map(async (contractResult) => {
-      if (Utils.isRevertedDueToHederaSpecificValidation(contractResult)) {
+      if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
         logger.debug(
           `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
           contractResult.hash,

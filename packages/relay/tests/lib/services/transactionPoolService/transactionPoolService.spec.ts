@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { Transaction } from 'ethers';
 import { Logger, pino } from 'pino';
+import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { TransactionPoolService } from '../../../../src/lib/services/transactionPoolService/transactionPoolService';
@@ -17,6 +18,7 @@ describe('TransactionPoolService Test Suite', function () {
   this.timeout(10000);
 
   let logger: Logger;
+  let register: Registry;
   let mockStorage: sinon.SinonStubbedInstance<PendingTransactionStorage>;
   let transactionPoolService: TransactionPoolService;
 
@@ -37,6 +39,7 @@ describe('TransactionPoolService Test Suite', function () {
 
   beforeEach(() => {
     logger = pino({ level: 'silent' });
+    register = new Registry();
 
     // Create a mock storage with all required methods
     mockStorage = {
@@ -46,9 +49,10 @@ describe('TransactionPoolService Test Suite', function () {
       removeAll: sinon.stub(),
       getTransactionPayloads: sinon.stub(),
       getAllTransactionPayloads: sinon.stub(),
+      getUniqueAddressCount: sinon.stub(),
     };
 
-    transactionPoolService = new TransactionPoolService(mockStorage, logger);
+    transactionPoolService = new TransactionPoolService(mockStorage, logger, register);
   });
 
   afterEach(() => {
@@ -79,6 +83,32 @@ describe('TransactionPoolService Test Suite', function () {
 
       expect(mockStorage.addToList.calledOnce).to.be.true;
       expect(mockStorage.addToList.calledWith(testAddress.toLowerCase(), testRlpHex)).to.be.true;
+    });
+
+    it('should save transaction to pool and update counter', async () => {
+      mockStorage.addToList.resolves();
+
+      await transactionPoolService.saveTransaction(testAddress, testTransaction);
+
+      const metric = await register.getSingleMetric('rpc_relay_txpool_operations_total');
+      if (!metric) throw new Error('Expected metric to be registered');
+      const metricValues = await metric.get();
+      const addOperation = metricValues.values.find((v) => v.labels.operation === 'add');
+      expect(addOperation).to.not.be.undefined;
+      expect(addOperation?.value).to.equal(1);
+    });
+
+    it('should increment error count on save reject', async () => {
+      mockStorage.addToList.rejects(new Error('Storage error'));
+      await expect(transactionPoolService.saveTransaction(testAddress, testTransaction)).to.be.rejected;
+
+      const metric = await register.getSingleMetric('rpc_relay_txpool_storage_errors_total');
+      if (!metric) throw new Error('Expected metric to be registered');
+      const metricValues = await metric.get();
+      const addOperation = metricValues.values.find((v) => v.labels.operation === 'add');
+
+      expect(addOperation).to.not.be.undefined;
+      expect(addOperation?.value).to.equal(1);
     });
 
     it('should log error and rethrow when storage fails', async () => {
@@ -138,6 +168,15 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getPendingCount', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return 0 if ENABLE_TX_POOL is set to false', async function () {
+        mockStorage.getList.resolves(5);
+        const result = await transactionPoolService.getPendingCount(testAddress);
+        expect(result).to.equal(0);
+        expect(mockStorage.getList.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve pending transaction count', async () => {
       const pendingCount = 5;
       mockStorage.getList.resolves(pendingCount);
@@ -222,6 +261,17 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getTransactions', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return empty Set if ENABLE_TX_POOL is set to false', async function () {
+        const payloads = new Set([testRlpHex, '0xabcd']);
+        mockStorage.getTransactionPayloads.resolves(payloads);
+        const result = await transactionPoolService.getTransactions(testAddress);
+        expect(result).to.be.instanceOf(Set);
+        expect(result.size).to.equal(0);
+        expect(mockStorage.getTransactionPayloads.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve transactions for address', async () => {
       const payloads = new Set([testRlpHex, '0xabcd']);
       mockStorage.getTransactionPayloads.resolves(payloads);
@@ -248,6 +298,17 @@ describe('TransactionPoolService Test Suite', function () {
   });
 
   describe('getAllTransactions', () => {
+    withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: false }, () => {
+      it('should return empty Set if ENABLE_TX_POOL is set to false', async function () {
+        const payloads = new Set([testRlpHex, '0xabcd', '0x1234']);
+        mockStorage.getAllTransactionPayloads.resolves(payloads);
+        const result = await transactionPoolService.getAllTransactions();
+        expect(result).to.be.instanceOf(Set);
+        expect(result.size).to.equal(0);
+        expect(mockStorage.getAllTransactionPayloads.notCalled).to.be.true;
+      });
+    });
+
     it('should successfully retrieve all transactions', async () => {
       const payloads = new Set([testRlpHex, '0xabcd', '0x1234']);
       mockStorage.getAllTransactionPayloads.resolves(payloads);

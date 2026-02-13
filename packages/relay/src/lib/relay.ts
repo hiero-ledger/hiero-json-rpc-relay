@@ -22,7 +22,7 @@ import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
-import { LockService, LockStrategyFactory } from './services';
+import { LockService, LockStrategyFactory, TransactionPoolService } from './services';
 import HAPIService from './services/hapiService/hapiService';
 import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
@@ -316,7 +316,7 @@ export class Relay {
       duration,
     );
 
-    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger));
+    const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger, this.register));
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
     this.operatorAccountId = hapiService.getOperatorAccountId();
 
@@ -341,6 +341,11 @@ export class Relay {
     this.metricService = new MetricService(this.logger, metricsCollector, this.register, hbarLimitService);
 
     const storage = PendingTransactionStorageFactory.create(this.redisClient);
+    const transactionPoolService = new TransactionPoolService(
+      storage,
+      this.logger.child({ name: 'transaction-pool-service' }),
+      this.register,
+    );
 
     // Create Eth implementation with connected Redis client
     this.ethImpl = new EthImpl(
@@ -349,8 +354,9 @@ export class Relay {
       this.logger.child({ name: 'relay-eth' }),
       chainId,
       this.cacheService,
-      storage,
+      transactionPoolService,
       lockService,
+      this.register,
     );
 
     // Set up event listeners
@@ -366,7 +372,7 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    this.txpoolImpl = new TxPoolImpl(storage, this.logger.child({ name: 'relay-txpool' }));
+    this.txpoolImpl = new TxPoolImpl(transactionPoolService);
 
     // Create Debug and Admin implementations
     this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, this.ethImpl);

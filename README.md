@@ -26,9 +26,8 @@ the [JSON RPC Specification](https://playground.open-rpc.org/?schemaUrl=https://
 
 You must have installed
 
-- [node (version 20)](https://nodejs.org/en/about/)
+- [node (version 22)](https://nodejs.org/en/about/)
 - [npm](https://www.npmjs.com/)
-- [pnpm](https://pnpm.io/)
 - [Docker (if you want to use `docker compose up` to run the server)](https://docs.docker.com/engine/reference/commandline/docker/)
 
 We also recommend installing the "prettier" plugin in IntelliJ.

@@ -4,6 +4,7 @@ import { FileId } from '@hashgraph/sdk';
 import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
+import { Counter, Registry } from 'prom-client';
 
 import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
@@ -19,7 +20,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, RequestDetails, TypedEvents } from '../../../types';
+import { ITransactionReceipt, LockAcquisitionResult, RequestDetails, TypedEvents } from '../../../types';
 import HAPIService from '../../hapiService/hapiService';
 import { ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
@@ -68,11 +69,25 @@ export class TransactionService implements ITransactionService {
   private readonly mirrorNodeClient: MirrorNodeClient;
 
   /**
+   * Counter metric for tracking the total number of wrong nonce errors encountered.
+   *
+   * @private
+   * @readonly
+   */
+  private readonly wrongNonceMetric: Counter;
+
+  /**
    * The precheck class used for checking the fields like nonce before the tx execution.
    * @private
    */
   private readonly precheck: Precheck;
 
+  /**
+   * The service for handling the local transaction pool.
+   * Responsible for storing, retrieving, and managing transactions before submission to the network.
+   * @private
+   * @readonly
+   */
   private readonly transactionPoolService: TransactionPoolService;
 
   /**
@@ -94,6 +109,7 @@ export class TransactionService implements ITransactionService {
     mirrorNodeClient: MirrorNodeClient,
     transactionPoolService: TransactionPoolService,
     lockService: LockService,
+    registry: Registry,
   ) {
     this.cacheService = cacheService;
     this.chain = chain;
@@ -105,6 +121,15 @@ export class TransactionService implements ITransactionService {
     this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
     this.transactionPoolService = transactionPoolService;
     this.lockService = lockService;
+
+    const metricName = 'rpc_relay_wrong_nonce_errors_total';
+    registry.removeSingleMetric(metricName);
+    this.wrongNonceMetric = new Counter({
+      name: metricName,
+      help: 'Wrong nonce errors counter',
+      labelNames: ['strategy'],
+      registers: [registry],
+    });
   }
 
   /**
@@ -243,60 +268,74 @@ export class TransactionService implements ITransactionService {
 
     const transactionBuffer = Buffer.from(this.prune0x(transaction), 'hex');
     const parsedTx = Precheck.parseRawTransaction(transaction);
-    let lockSessionKey: string | undefined;
 
-    // Acquire lock FIRST - before any side effects or async operations
-    // This ensures proper nonce ordering for transactions from the same sender
-    if (parsedTx.from) {
-      lockSessionKey = await this.lockService.acquireLock(parsedTx.from);
+    // Validate and save the transaction to the transaction pool before submitting it to the network
+    if (this.logger.isLevelEnabled('debug')) {
+      this.logger.debug(
+        `Transaction undergoing basic properties (stateless) prechecks: transaction=%s`,
+        JSON.stringify(parsedTx),
+      );
     }
+    this.precheck.validateBasicPropertiesStateless(parsedTx);
+    await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
+
+    let lockResult: LockAcquisitionResult | undefined;
+    let networkGasPriceInWeiBars: number;
 
     try {
-      const networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
+      // Acquire lock before async operations
+      // This ensures proper nonce ordering for transactions from the same sender
+      if (parsedTx.from) {
+        lockResult = await this.lockService.acquireLock(parsedTx.from);
+      }
+      networkGasPriceInWeiBars = Utils.addPercentageBufferToGasPrice(
         await this.common.getGasPriceInWeibars(requestDetails),
       );
-
-      await this.validateRawTransaction(parsedTx, networkGasPriceInWeiBars, requestDetails);
-
-      // Save the transaction to the transaction pool before submitting it to the network
-      await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
-
-      /**
-       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
-       * the transaction hash is calculated and returned immediately after passing all prechecks.
-       * All transaction processing logic is then handled asynchronously in the background.
-       */
-      const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
-      if (useAsyncTxProcessing) {
-        // Fire and forget - lock will be released after consensus submission
-        this.sendRawTransactionProcessor(
-          transactionBuffer,
-          parsedTx,
-          networkGasPriceInWeiBars,
-          lockSessionKey,
-          requestDetails,
+      if (this.logger.isLevelEnabled('debug')) {
+        this.logger.debug(
+          `Transaction undergoing account and network (stateful) prechecks: transaction=%s`,
+          JSON.stringify(parsedTx),
         );
-        return Utils.computeTransactionHash(transactionBuffer);
       }
+      await this.precheck.validateAccountAndNetworkStateful(parsedTx, networkGasPriceInWeiBars, requestDetails);
+    } catch (error) {
+      // Release lock on any error during validation or prechecks
+      if (lockResult) {
+        await this.lockService.releaseLock(parsedTx.from!, lockResult.sessionKey, lockResult.acquiredAt);
+      }
+      await this.transactionPoolService.removeTransaction(`${parsedTx.from || ''}`, parsedTx.serialized);
+      throw error;
+    }
 
-      /**
-       * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
-       * wait for all transaction processing logic to complete before returning the transaction hash.
-       */
-      return await this.sendRawTransactionProcessor(
+    /**
+     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is enabled,
+     * the transaction hash is calculated and returned immediately after passing all prechecks.
+     * All transaction processing logic is then handled asynchronously in the background.
+     */
+    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+    if (useAsyncTxProcessing) {
+      // Fire and forget - lock will be released after consensus submission
+      this.sendRawTransactionProcessor(
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
-        lockSessionKey,
+        lockResult,
         requestDetails,
       );
-    } catch (error) {
-      // Release lock on any error during validation or prechecks
-      if (lockSessionKey) {
-        await this.lockService.releaseLock(parsedTx.from!, lockSessionKey);
-      }
-      throw error;
+      return Utils.computeTransactionHash(transactionBuffer);
     }
+
+    /**
+     * Note: If the USE_ASYNC_TX_PROCESSING feature flag is disabled,
+     * wait for all transaction processing logic to complete before returning the transaction hash.
+     */
+    return await this.sendRawTransactionProcessor(
+      transactionBuffer,
+      parsedTx,
+      networkGasPriceInWeiBars,
+      lockResult,
+      requestDetails,
+    );
   }
 
   /**
@@ -493,34 +532,10 @@ export class TransactionService implements ITransactionService {
     const receipt: ITransactionReceipt = TransactionReceiptFactory.createSyntheticReceipt(params);
 
     if (this.logger.isLevelEnabled('trace')) {
-      this.logger.trace(`receipt for ${hash} found in block ${receipt.blockNumber}`);
+      this.logger.trace(`receipt for %s found in block %s`, hash, receipt.blockNumber);
     }
 
     return receipt;
-  }
-
-  /**
-   * Validates a parsed transaction by performing prechecks
-   * @param parsedTx The parsed Ethereum transaction to validate
-   * @param networkGasPriceInWeiBars The current network gas price in wei bars
-   * @param requestDetails The request details for logging and tracking
-   * @throws {JsonRpcError} If validation fails
-   */
-  private async validateRawTransaction(
-    parsedTx: EthersTransaction,
-    networkGasPriceInWeiBars: number,
-    requestDetails: RequestDetails,
-  ): Promise<void> {
-    try {
-      if (this.logger.isLevelEnabled('debug')) {
-        this.logger.debug(`Transaction undergoing prechecks: transaction=${JSON.stringify(parsedTx)}`);
-      }
-
-      await this.precheck.sendRawTransactionCheck(parsedTx, networkGasPriceInWeiBars, requestDetails);
-    } catch (e: any) {
-      this.logger.error(e, `Precheck failed: errorMessage=${e.message}`);
-      throw this.common.genericErrorHandler(e);
-    }
   }
 
   /**
@@ -539,15 +554,15 @@ export class TransactionService implements ITransactionService {
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
    * @param {EthersTransaction} parsedTx - The parsed Ethereum transaction object.
    * @param {number} networkGasPriceInWeiBars - The current network gas price in wei bars.
+   * @param {LockAcquisitionResult | undefined} lockResult - The lock acquisition result containing session key and timestamp, undefined if no lock was acquired.
    * @param {RequestDetails} requestDetails - Details of the request for logging and tracking purposes.
-   * @param {string | null} lockSessionKey - The session key for the acquired lock, null if no lock was acquired.
    * @returns {Promise<string | JsonRpcError>} A promise that resolves to the transaction hash if successful, or a JsonRpcError if an error occurs.
    */
   async sendRawTransactionProcessor(
     transactionBuffer: Buffer,
     parsedTx: EthersTransaction,
     networkGasPriceInWeiBars: number,
-    lockSessionKey: string | undefined,
+    lockResult: LockAcquisitionResult | undefined,
     requestDetails: RequestDetails,
   ): Promise<string | JsonRpcError> {
     const originalCallerAddress = parsedTx.from?.toString() || '';
@@ -563,8 +578,8 @@ export class TransactionService implements ITransactionService {
       requestDetails,
     );
 
-    if (lockSessionKey) {
-      await this.lockService.releaseLock(originalCallerAddress, lockSessionKey);
+    if (lockResult) {
+      await this.lockService.releaseLock(originalCallerAddress, lockResult.sessionKey, lockResult.acquiredAt);
     }
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
@@ -630,6 +645,11 @@ export class TransactionService implements ITransactionService {
       // WRONG_NONCE requires special handling to determine if nonce is too high or too low
       // TODO: should be removed in https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4860
       if (error.status.toString() === constants.TRANSACTION_RESULT_STATUS.WRONG_NONCE) {
+        if (!ConfigService.get('ENABLE_NONCE_ORDERING')) {
+          this.wrongNonceMetric.labels('none').inc();
+        } else {
+          this.wrongNonceMetric.labels(this.lockService.getStrategyType()).inc();
+        }
         let accountNonce: number | null = null;
         try {
           accountNonce = (await this.mirrorNodeClient.getAccount(parsedTx.from!, requestDetails))?.ethereum_nonce;

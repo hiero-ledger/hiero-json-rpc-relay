@@ -53,14 +53,14 @@ describe('Utils', () => {
     });
   });
 
-  describe('isRevertedDueToHederaSpecificValidation', () => {
+  describe('isRejectedDueToHederaSpecificValidation', () => {
     it('should not exclude transaction with status SUCCESS', () => {
-      expect(Utils.isRevertedDueToHederaSpecificValidation({ result: 'SUCCESS', error_message: null })).to.be.false;
+      expect(Utils.isRejectedDueToHederaSpecificValidation({ result: 'SUCCESS', error_message: null })).to.be.false;
     });
 
     it('should not exclude evm reverted transaction', () => {
       expect(
-        Utils.isRevertedDueToHederaSpecificValidation({
+        Utils.isRejectedDueToHederaSpecificValidation({
           result: 'CONTRACT_REVERT_EXECUTED',
           error_message: 'Error',
         }),
@@ -69,11 +69,11 @@ describe('Utils', () => {
 
     ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES').forEach((status) => {
       it(`should exclude transaction with result ${status}`, () => {
-        expect(Utils.isRevertedDueToHederaSpecificValidation({ result: status, error_message: null })).to.be.true;
+        expect(Utils.isRejectedDueToHederaSpecificValidation({ result: status, error_message: null })).to.be.true;
       });
       it(`should exclude transaction with error_message ${status}`, () => {
         expect(
-          Utils.isRevertedDueToHederaSpecificValidation({
+          Utils.isRejectedDueToHederaSpecificValidation({
             result: '',
             error_message: prepend0x(ASCIIToHex(status)),
           }),

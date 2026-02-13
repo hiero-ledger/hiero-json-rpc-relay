@@ -64,9 +64,6 @@ jobs:
     
       - name: Create .env file
         run: cp ./packages/server/tests/testnetAcceptance.env .env    
-        
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Build Typescript
         run: npx lerna run build

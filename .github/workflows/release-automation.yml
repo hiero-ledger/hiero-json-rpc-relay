@@ -93,9 +93,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
       - name: Build Typescript
         run: npm run build
 
@@ -184,9 +181,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Build Typescript
         run: npm run build
