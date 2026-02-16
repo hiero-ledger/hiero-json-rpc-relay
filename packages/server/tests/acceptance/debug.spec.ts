@@ -866,7 +866,7 @@ describe('@debug API Acceptance Tests', function () {
         expect(hexToQuantity(decodedRawBlock[10])).to.equal(blockInfo.gasUsed);
         expect(hexToData(decodedRawBlock[11])).to.equal(blockInfo.timestamp);
         expect(hexToData(decodedRawBlock[12])).to.equal(blockInfo.extraData);
-        expect(hexToQuantity(decodedRawBlock[13])).to.equal(blockInfo.totalDifficulty);
+        expect(hexToQuantity(decodedRawBlock[13])).to.equal(blockInfo.mixHash);
         expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
         expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
         expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
