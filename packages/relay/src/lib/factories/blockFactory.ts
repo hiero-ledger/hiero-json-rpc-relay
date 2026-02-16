@@ -133,7 +133,7 @@ export class BlockFactory {
       block.gasUsed,
       block.timestamp,
       block.extraData,
-      block.mixHash,
+      constants.ZERO_HEX_32_BYTE,
       block.nonce,
       block.baseFeePerGas,
       block.withdrawalsRoot,
