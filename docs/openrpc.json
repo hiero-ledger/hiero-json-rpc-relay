@@ -3,7 +3,7 @@
   "info": {
     "title": "Hedera JSON-RPC Specification",
     "description": "A specification of the implemented Ethereum JSON RPC APIs interface for Hedera clients and adheres to the Ethereum execution APIs schema.",
-    "version": "0.75.0-SNAPSHOT"
+    "version": "0.76.0-SNAPSHOT"
   },
   "servers": [
     {
