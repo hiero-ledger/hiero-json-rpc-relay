@@ -94,8 +94,10 @@ export class BlockFactory {
    * RLP encode a block based on Ethereum Yellow Paper.
    *
    * @param { Block } block - The block object from eth_getBlockByNumber/Hash
+   * @param {boolean} headerOnly - A flag that determines whether to encode the entire block or only the block header
    */
-  static rlpEncode(block: Block): Uint8Array {
+  static rlpEncode(block: Block, headerOnly: boolean = false): Uint8Array {
+    // Regarding the yellow paper - B=(BH,BT,BU,BW)
     // -- BH - block header
     // Hp - parentHash
     // Ho - ommersHash
@@ -118,8 +120,7 @@ export class BlockFactory {
     // -- BU - ommers (empty array)
     // -- BW - withdrawals (empty array)
 
-    // Regarding the yellow paper - B=(BH,BT,BU,BW)
-    return RLP.encode([
+    const header = [
       block.parentHash,
       constants.EMPTY_ARRAY_HEX, // keccak256(rlp(()))
       '0x0000000000000000000000000000000000000321', // 0.0.801
@@ -137,6 +138,14 @@ export class BlockFactory {
       block.nonce,
       block.baseFeePerGas,
       block.withdrawalsRoot,
+    ];
+
+    if (headerOnly) {
+      return RLP.encode(header);
+    }
+
+    return RLP.encode([
+      ...header,
       [...block.transactions.map((tx) => BlockFactory.rlpEncodeTx(tx as Transaction))],
       [],
       [],

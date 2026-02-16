@@ -136,6 +136,41 @@ export class DebugImpl implements Debug {
   }
 
   /**
+   * Get a raw block header for debugging purposes.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawHeader RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNrOrHash - The block number, tag or hash. Possible values are 'earliest', 'pending', 'latest', hex block number or 32 bytes hash.
+   * @param {RequestDetails} requestDetails - Request details for logging and tracking
+   *
+   * @example
+   * const result = await getRawHeader('0x160c', requestDetails);
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ['blockNumber', 'blockHash'], required: true },
+  })
+  @cache({
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
+  async getRawHeader(blockNrOrHash: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    DebugImpl.requireDebugAPIEnabled();
+
+    const block: Block | null =
+      blockNrOrHash.length === 66
+        ? await this.eth.getBlockByHash(blockNrOrHash, false, requestDetails)
+        : await this.eth.getBlockByNumber(blockNrOrHash, false, requestDetails);
+
+    if (!block) {
+      return constants.EMPTY_HEX;
+    }
+
+    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block, true)).toString('hex');
+  }
+
+  /**
    * Trace a transaction for debugging purposes.
    *
    * @async
