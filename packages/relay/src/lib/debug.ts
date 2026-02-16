@@ -199,7 +199,7 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockTxResult[]> {
-    return this.traceBlock(blockNumber, tracerObject, requestDetails);
+    return this.traceBlock(blockNumber, tracerObject, requestDetails, false);
   }
 
   /**
@@ -230,7 +230,7 @@ export class DebugImpl implements Debug {
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
   ): Promise<TraceBlockTxResult[]> {
-    return this.traceBlock(blockHash, tracerObject, requestDetails);
+    return this.traceBlock(blockHash, tracerObject, requestDetails, true);
   }
 
   /**
@@ -869,12 +869,14 @@ export class DebugImpl implements Debug {
    * @param blockIdentifier - The block number (hex) or block hash to trace.
    * @param tracerObject - The configuration wrapper containing tracer type and config.
    * @param requestDetails - The request details for logging and tracking.
+   * @param filterPreExecutionFailures - When true, filters out transactions with pre-execution validation failures (WRONG_NONCE, etc.).
    * @returns A Promise that resolves to an array of trace results for each transaction in the block.
    */
   private async traceBlock(
     blockIdentifier: string,
     tracerObject: BlockTracerConfig,
     requestDetails: RequestDetails,
+    filterPreExecutionFailures: boolean = false,
   ): Promise<TraceBlockTxResult[]> {
     try {
       DebugImpl.requireDebugAPIEnabled();
@@ -892,13 +894,25 @@ export class DebugImpl implements Debug {
         return [];
       }
 
+      // Filter out pre-execution validation failures if requested (for traceBlockByHash)
+      const filteredTxHashes = filterPreExecutionFailures
+        ? transactionHashes.filter((txHash) => {
+            const contractResult = preFetchedData[txHash]?.contractResult;
+            return !contractResult || !Utils.isRejectedDueToHederaSpecificValidation(contractResult);
+          })
+        : transactionHashes;
+
+      if (filteredTxHashes.length === 0) {
+        return [];
+      }
+
       const tracer = tracerObject?.tracer ?? TracerType.CallTracer;
       const onlyTopCall = tracerObject?.tracerConfig?.onlyTopCall;
 
       // Trace all transactions using existing tracer methods with pre-fetched data
       if (tracer === TracerType.CallTracer) {
         return await Promise.all(
-          transactionHashes.map(async (txHash) => ({
+          filteredTxHashes.map(async (txHash) => ({
             txHash,
             result: await this.callTracer(
               txHash,
@@ -913,7 +927,7 @@ export class DebugImpl implements Debug {
 
       if (tracer === TracerType.PrestateTracer) {
         return await Promise.all(
-          transactionHashes.map(async (txHash) => ({
+          filteredTxHashes.map(async (txHash) => ({
             txHash,
             result: await this.prestateTracer(
               txHash,
