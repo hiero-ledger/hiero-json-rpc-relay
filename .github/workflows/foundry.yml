@@ -17,16 +17,16 @@ jobs:
     runs-on: hiero-smart-contracts-linux-medium
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
 
       - name: Install Foundry
-        uses: step-security/foundry-toolchain@b3c15ce3e2e69928bd4ea48ecd830fe3b9550fd5 # v1.5.0
+        uses: step-security/foundry-toolchain@f4782470186d3379e58bdf2a19aefb1f383e4a3f # v1.6.0
         with:
           version: nightly
 
