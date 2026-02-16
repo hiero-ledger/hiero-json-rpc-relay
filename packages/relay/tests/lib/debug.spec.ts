@@ -1478,13 +1478,7 @@ describe('Debug API Test Suite', async function () {
             .stub(debugService, 'callTracer')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(callTracerResult1)
-            .withArgs(
-              contractResultWrongNonce.hash,
-              sinon.match.any,
-              sinon.match.any,
-              sinon.match.any,
-              sinon.match.any,
-            )
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(emptyCallTracerResult)
             .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(syntheticCallTracerResult1);
@@ -1550,6 +1544,8 @@ describe('Debug API Test Suite', async function () {
         });
       }),
     );
+  });
+
   describe('debug_traceBlockByHash', async function () {
     const blockHash =
       '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b';
