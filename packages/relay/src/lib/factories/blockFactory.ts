@@ -55,7 +55,6 @@ export class BlockFactory {
    * @param {Transaction} tx - The transaction model object from eth_getTransactionByHash.
    * @returns {string} The RLP-encoded raw transaction as a hex string.
    */
-  // TODO: remove this method because it should be part of `debug_getRawTransaction` PR and here we should use it on-the-fly
   static rlpEncodeTx(tx: Transaction): string {
     const ethersTx = new ethers.Transaction();
 

@@ -32,6 +32,10 @@ export interface Debug {
   ): Promise<any>;
 
   getBadBlocks(): Promise<[]>;
+
+  getRawBlock(blockNrOrHash: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
+
+  traceBlockByHash(blockHash: string, tracerObject: BlockTracerConfig, requestDetails: RequestDetails): Promise<any>;
 }
 
 export interface Web3 {

@@ -36,4 +36,4 @@ name: hedera-json-rpc
 sources:
   - https://github.com/hiero-ledger/hiero-json-rpc-relay
 type: application
-version: 0.75.0-SNAPSHOT
+version: 0.76.0-SNAPSHOT

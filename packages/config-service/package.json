@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-config-service",
-  "version": "0.75.0-SNAPSHOT",
+  "version": "0.76.0-SNAPSHOT",
   "description": "Hedera Hashgraph singleton implementation of environment variables provider",
   "main": "dist/index.js",
   "keywords": [],
