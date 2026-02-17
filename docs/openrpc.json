@@ -1337,92 +1337,59 @@
         "schema": {
           "type": "array",
           "items": {
-            "oneOf": [
-              {
-                "type": "object",
-                "title": "Call Tracer Response",
-                "description": "callTracer response format",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["CALL", "CREATE"],
-                    "description": "The type of action (CALL for function calls or CREATE for contract creation)."
-                  },
-                  "from": {
-                    "$ref": "#/components/schemas/address",
-                    "description": "The address of the sender."
-                  },
-                  "to": {
-                    "$ref": "#/components/schemas/address",
-                    "description": "The address of the receiver. In the case of a contract creation, this might be null."
-                  },
-                  "value": {
-                    "$ref": "#/components/schemas/uint",
-                    "description": "The value transferred with the call, in hexadecimal."
-                  },
-                  "gas": {
-                    "$ref": "#/components/schemas/uint",
-                    "description": "The gas provided for the call, in hexadecimal."
-                  },
-                  "gasUsed": {
-                    "$ref": "#/components/schemas/uint",
-                    "description": "The gas used during the call, in hexadecimal."
-                  },
-                  "input": {
-                    "$ref": "#/components/schemas/bytes",
-                    "description": "The input data sent with the call."
-                  },
-                  "output": {
-                    "$ref": "#/components/schemas/bytes",
-                    "description": "The output data returned by the call."
-                  },
-                  "error": {
-                    "type": "string",
-                    "description": "Error encountered during the call, if any."
-                  },
-                  "revertReason": {
-                    "type": "string",
-                    "description": "Solidity revert reason, if applicable."
-                  },
-                  "calls": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/subcall"
-                    },
-                    "description": "Sub-calls made during this call frame."
-                  }
-                }
+            "$ref": "#/components/schemas/TraceBlockTxResult"
+          }
+        },
+        "description": "An array of trace result objects, each containing a transaction hash and its trace result. For callTracer, the result is a call frame with transaction details. For prestateTracer, the result is an object mapping addresses to their account state."
+      }
+    },
+    {
+      "name": "debug_traceBlockByHash",
+      "summary": "Returns the tracing result for all transactions in the block specified by hash with a tracer.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          },
+          "description": "The 32-byte block hash."
+        },
+        {
+          "name": "tracerOptions",
+          "required": false,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "tracer": {
+                "$ref": "#/components/schemas/BlockTracerType",
+                "description": "The type of tracer to use. Either 'callTracer' or 'prestateTracer'."
               },
-              {
+              "tracerConfig": {
                 "type": "object",
-                "title": "Prestate Tracer Response",
-                "description": "prestateTracer response format - an object where keys are ethereum addresses and values contain account state data",
+                "description": "Configuration options for the specified tracer",
                 "properties": {
-                  "balance": {
-                    "$ref": "#/components/schemas/uint",
-                    "description": "The balance of the account/contract, expressed in wei and encoded as a hexadecimal string"
-                  },
-                  "nonce": {
-                    "$ref": "#/components/schemas/uint",
-                    "description": "The latest nonce of the account, represented as an unsigned integer. Historical nonces are not supported by now."
-                  },
-                  "code": {
-                    "$ref": "#/components/schemas/bytes",
-                    "description": "The bytecode of the contract, encoded as a hexadecimal string. If the account is not a contract, this will be an empty hex string (0x)."
-                  },
-                  "storage": {
-                    "type": "object",
-                    "description": "A map of key-value pairs representing the storage slots of the contract. The keys and values are both encoded as hexadecimal strings. If the account is not a contract, this will be an empty object ({}).",
-                    "additionalProperties": {
-                      "$ref": "#/components/schemas/bytes32"
-                    }
+                  "onlyTopCall": {
+                    "type": "boolean",
+                    "description": "When set to true, this will only trace the primary (top-level) call and not any sub-calls."
                   }
                 }
               }
-            ]
+            }
+          },
+          "description": "Specifies the type of tracer and optional configuration. Supported tracers are 'callTracer' and 'prestateTracer'."
+        }
+      ],
+      "result": {
+        "name": "traces",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/TraceBlockTxResult"
           }
         },
-        "description": "An array of trace objects containing detailed information about all transactions in the block. For callTracer, each item is a call frame with transaction details. For prestateTracer, each item is an object mapping addresses to their account state."
+        "description": "An array of trace result objects, each containing a transaction hash and its trace result. For callTracer, the result is a call frame with transaction details. For prestateTracer, the result is an object mapping addresses to their account state."
       }
     },
     {
@@ -1940,6 +1907,54 @@
           "fullStorage": {
             "type": "boolean",
             "description": "Top-level opcodeLogger config property. Non-standard parameter for Remix compatibility - accepted but ignored. Only valid when no explicit 'tracer' is specified."
+          }
+        }
+      },
+      "TraceBlockTxResult": {
+        "title": "Block trace result for a single transaction",
+        "type": "object",
+        "required": ["txHash", "result"],
+        "properties": {
+          "txHash": {
+            "$ref": "#/components/schemas/hash32",
+            "description": "The hash of the traced transaction."
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/callframe",
+                "description": "Call tracer result containing the call frame."
+              },
+              {
+                "type": "object",
+                "title": "Prestate Tracer Response",
+                "description": "prestateTracer response format - an object where keys are ethereum addresses and values contain account state data",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "balance": {
+                      "$ref": "#/components/schemas/uint",
+                      "description": "The balance of the account/contract, expressed in wei and encoded as a hexadecimal string"
+                    },
+                    "nonce": {
+                      "$ref": "#/components/schemas/uint",
+                      "description": "The latest nonce of the account, represented as an unsigned integer."
+                    },
+                    "code": {
+                      "$ref": "#/components/schemas/bytes",
+                      "description": "The bytecode of the contract, encoded as a hexadecimal string. If the account is not a contract, this will be an empty hex string (0x)."
+                    },
+                    "storage": {
+                      "type": "object",
+                      "description": "A map of key-value pairs representing the storage slots of the contract.",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/bytes32"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },

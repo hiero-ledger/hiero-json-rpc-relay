@@ -32,6 +32,8 @@ export interface Debug {
   ): Promise<any>;
 
   getBadBlocks(): Promise<[]>;
+
+  traceBlockByHash(blockHash: string, tracerObject: BlockTracerConfig, requestDetails: RequestDetails): Promise<any>;
 }
 
 export interface Web3 {
