@@ -1478,13 +1478,7 @@ describe('Debug API Test Suite', async function () {
             .stub(debugService, 'callTracer')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(callTracerResult1)
-            .withArgs(
-              contractResultWrongNonce.hash,
-              sinon.match.any,
-              sinon.match.any,
-              sinon.match.any,
-              sinon.match.any,
-            )
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(emptyCallTracerResult)
             .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
             .resolves(syntheticCallTracerResult1);
@@ -1550,6 +1544,407 @@ describe('Debug API Test Suite', async function () {
         });
       }),
     );
+  });
+
+  describe('debug_traceBlockByHash', async function () {
+    const blockHash =
+      '0x3c08bbbee74d287b1dcd3f0ca6d1d2cb92c90883c4acf9747de9f3f3162ad25b999fc7e86699f60f2a3fb3ed9a646c6b';
+    const blockNumberInDecimal = 291;
+    const blockResponse = {
+      number: blockNumberInDecimal,
+      timestamp: {
+        from: '1696438000.000000000',
+        to: '1696438020.000000000',
+      },
+    };
+    const contractResult1 = {
+      hash: '0xabc123',
+      result: 'SUCCESS',
+    };
+    const contractResult2 = {
+      hash: '0xdef456',
+      result: 'SUCCESS',
+    };
+    const contractResultWrongNonce = {
+      hash: '0xghi789',
+      result: 'WRONG_NONCE',
+    };
+    const callTracerResult1 = {
+      type: 'CREATE',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x637a6a8e5a69c087c24983b05261f63f64ed7e9b',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x1',
+      output: '0x2',
+    };
+    const callTracerResult2 = {
+      type: 'CALL',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      to: '0x91b1c451777122afc9b83f9b96160d7e59847ad7',
+      value: '0x0',
+      gas: '0x493e0',
+      gasUsed: '0x3a980',
+      input: '0x3',
+      output: '0x4',
+    };
+    const prestateTracerResult1 = {
+      '0xc37f417fa09933335240fca72dd257bfbde9c275': {
+        balance: '0x100000000',
+        nonce: 2,
+        code: '0x',
+        storage: {},
+      },
+    };
+    const prestateTracerResult2 = {
+      '0x91b1c451777122afc9b83f9b96160d7e59847ad7': {
+        balance: '0x200000000',
+        nonce: 1,
+        code: '0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063',
+        storage: {
+          '0x0': '0x1',
+          '0x1': '0x2',
+        },
+      },
+    };
+
+    beforeEach(() => {
+      sinon.restore();
+      restMock.reset();
+      web3Mock.reset();
+      cacheService.clear();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByHash,
+          true,
+          debugService,
+          [blockHash, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
+      it('should throw UNSUPPORTED_METHOD', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.traceBlockByHash,
+          true,
+          debugService,
+          [blockHash, { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } }, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should throw RESOURCE_NOT_FOUND if block is not found', async function () {
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(null);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        try {
+          await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+          expect.fail('Expected the traceBlockByHash to throw an error but it did not');
+        } catch (error) {
+          expect(error.code).to.equal(predefined.RESOURCE_NOT_FOUND().code);
+          expect(error.message).to.include(`Block ${blockHash} not found`);
+        }
+      });
+
+      it('should return empty array if no contract results are found for the block', async function () {
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+        sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
+
+        const result = await debugService.traceBlockByHash(
+          blockHash,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.be.an('array').that.is.empty;
+      });
+
+      it('should return cached result if available', async function () {
+        const cachedResult = [{ txHash: '0xabc123', result: callTracerResult1 }];
+
+        const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        sinon.stub(cacheService, 'getAsync').resolves(cachedResult);
+
+        const result = await debugService.traceBlockByHash(
+          blockHash,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+          requestDetails,
+        );
+
+        expect(result).to.deep.equal(cachedResult);
+      });
+
+      describe('with CallTracer', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
+        });
+
+        it('should trace all transactions in a block using callTracer', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+
+          const callTracerStub = sinon.stub(debugService, 'callTracer');
+          callTracerStub.onFirstCall().resolves(callTracerResult1);
+          callTracerStub.onSecondCall().resolves(callTracerResult2);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.have.length(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
+        });
+
+        it('should filter out WRONG_NONCE transactions', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResultWrongNonce]);
+
+          const callTracerStub = sinon.stub(debugService, 'callTracer');
+          callTracerStub.resolves(callTracerResult1);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.have.length(1);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+
+          const wrongNonceCalls = callTracerStub
+            .getCalls()
+            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
+          expect(wrongNonceCalls).to.be.empty;
+        });
+      });
+
+      describe('with CallTracer - default', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
+        });
+
+        it('should use default CallTracer when no tracer is specified', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(debugService, 'callTracer').resolves(callTracerResult1);
+
+          const result = await debugService.traceBlockByHash(blockHash, undefined as any, requestDetails);
+
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+        });
+      });
+
+      describe('with PrestateTracer', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([]);
+        });
+
+        it('should trace all transactions in a block using prestateTracer', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+
+          const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
+          prestateTracerStub.onFirstCall().resolves(prestateTracerResult1);
+          prestateTracerStub.onSecondCall().resolves(prestateTracerResult2);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.have.length(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: prestateTracerResult2 });
+        });
+      });
+
+      describe('with synthetic transactions', async function () {
+        beforeEach(() => {
+          const getHistoricalBlockResponseStub = sinon.stub().resolves(blockResponse);
+          sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+          sinon.stub(cacheService, 'getAsync').resolves(null);
+          sinon.stub(cacheService, 'set').resolves();
+        });
+
+        it('should trace block with both EVM and synthetic transactions using CallTracer', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog, syntheticLog2]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
+            .resolves(syntheticCallTracerResult1)
+            .withArgs(syntheticTxHash2, sinon.match.any, sinon.match.any)
+            .resolves(syntheticCallTracerResult2);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(3);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
+          expect(result[2]).to.deep.equal({ txHash: syntheticTxHash2, result: syntheticCallTracerResult2 });
+        });
+
+        it('should trace block with only synthetic transactions using CallTracer', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
+            .resolves(syntheticCallTracerResult1);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
+        });
+
+        it('should trace block with both EVM and synthetic transactions using PrestateTracer', async function () {
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1]);
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+
+          sinon
+            .stub(debugService, 'prestateTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult1)
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
+            .resolves({});
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: true } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: syntheticTxHash, result: {} });
+        });
+
+        it('should deduplicate transaction hashes that appear in both contract results and logs', async function () {
+          const sharedTxHash = '0xshared123';
+          const sharedContractResult = {
+            hash: sharedTxHash,
+            result: 'SUCCESS',
+          };
+
+          const sharedLog = {
+            ...syntheticLog,
+            transaction_hash: sharedTxHash,
+          };
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([sharedContractResult]);
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([sharedLog]);
+
+          const callTracerStub = sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(sharedTxHash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0]).to.deep.equal({ txHash: sharedTxHash, result: callTracerResult1 });
+          expect(callTracerStub.callCount).to.equal(1);
+        });
+
+        it('should filter out WRONG_NONCE transactions and still trace synthetic transactions', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResultWrongNonce]);
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+
+          const callTracerStub = sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
+            .resolves(syntheticCallTracerResult1);
+
+          const result = await debugService.traceBlockByHash(
+            blockHash,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
+
+          const wrongNonceCalls = callTracerStub
+            .getCalls()
+            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
+          expect(wrongNonceCalls).to.be.empty;
+        });
+      });
+
+      it('should handle error scenarios', async function () {
+        const jsonRpcError = predefined.INTERNAL_ERROR('Test error');
+
+        const getHistoricalBlockResponseStub = sinon.stub().throws(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'getHistoricalBlockResponse').callsFake(getHistoricalBlockResponseStub);
+
+        const genericErrorHandlerStub = sinon.stub().returns(jsonRpcError);
+        sinon.stub(CommonService.prototype, 'genericErrorHandler').callsFake(genericErrorHandlerStub);
+
+        await RelayAssertions.assertRejection(jsonRpcError, debugService.traceBlockByHash, true, debugService, [
+          blockHash,
+          { tracer: TracerType.CallTracer },
+          requestDetails,
+        ]);
+      });
+    });
   });
 
   describe('prestateTracer', async function () {
