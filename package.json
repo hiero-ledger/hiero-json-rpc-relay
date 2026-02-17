@@ -1,6 +1,6 @@
 {
   "name": "root",
-  "version": "0.75.0-SNAPSHOT",
+  "version": "0.76.0-SNAPSHOT",
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@hashgraph/hedera-local": "^2.39.0",

@@ -1,6 +1,6 @@
 {
   "name": "@hashgraph/json-rpc-ws-server",
-  "version": "0.75.0-SNAPSHOT",
+  "version": "0.76.0-SNAPSHOT",
   "description": "Hedera Hashgraph Ethereum JSON RPC socket server. Accepts socket connections for the purpose of subscribing to real-time data.",
   "main": "dist/index.js",
   "keywords": [],
