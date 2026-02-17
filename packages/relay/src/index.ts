@@ -32,6 +32,8 @@ export interface Debug {
   ): Promise<any>;
 
   getBadBlocks(): Promise<[]>;
+
+  getRawBlock(blockNrOrHash: string, requestDetails: RequestDetails): Promise<string | JsonRpcError>;
 }
 
 export interface Web3 {
