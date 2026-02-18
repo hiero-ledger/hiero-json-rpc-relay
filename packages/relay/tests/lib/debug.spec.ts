@@ -8,7 +8,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { chainId } from '../../../server/tests/acceptance/data/conformity/utils/constants';
 import { Block } from '../../dist/lib/model';
 import { predefined } from '../../src';
 import { strip0x } from '../../src/formatters';
