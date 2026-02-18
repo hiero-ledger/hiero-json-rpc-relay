@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 
 import { numberTo0x, toHash32 } from '../../formatters';
 import constants from '../constants';
-import { Block, Transaction, Transaction1559, Transaction2930 } from '../model';
+import { Block, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
 import { MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
@@ -56,35 +56,60 @@ export class BlockFactory {
    * @returns {string} The RLP-encoded raw transaction as a hex string.
    */
   static rlpEncodeTx(tx: Transaction): string {
+    const txType = Number(tx.type);
+
+    // Set signature - pad empty/zero values for synthetic transactions
+    const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.r;
+    const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.s;
+
     const ethersTx = new ethers.Transaction();
 
-    const txType = parseInt(tx.type, 16);
+    // Common fields
     ethersTx.type = txType;
     ethersTx.to = tx.to;
-    ethersTx.nonce = parseInt(tx.nonce, 16);
+    ethersTx.nonce = Number(tx.nonce);
     ethersTx.gasLimit = BigInt(tx.gas);
     ethersTx.data = tx.input;
     ethersTx.value = BigInt(tx.value);
     ethersTx.chainId = tx.chainId ? BigInt(tx.chainId) : BigInt(0);
 
-    if (txType === 2) {
-      const tx1559 = tx as Transaction1559;
-      ethersTx.maxFeePerGas = BigInt(tx1559.maxFeePerGas);
-      ethersTx.maxPriorityFeePerGas = BigInt(tx1559.maxPriorityFeePerGas);
-    } else {
-      ethersTx.gasPrice = BigInt(tx.gasPrice);
+    // Type-specific handling
+    switch (txType) {
+      case 4: {
+        // EIP-7702
+        const t = tx as Transaction7702;
+        ethersTx.maxFeePerGas = BigInt(t.maxFeePerGas);
+        ethersTx.maxPriorityFeePerGas = BigInt(t.maxPriorityFeePerGas);
+        ethersTx.accessList = (tx as Transaction2930).accessList ?? [];
+        ethersTx.authorizationList = ((tx as Transaction7702).authorizationList as any) ?? [];
+        break;
+      }
+      case 2: {
+        // EIP-1559
+        const t = tx as Transaction1559;
+        ethersTx.maxFeePerGas = BigInt(t.maxFeePerGas);
+        ethersTx.maxPriorityFeePerGas = BigInt(t.maxPriorityFeePerGas);
+        ethersTx.accessList = (tx as Transaction2930).accessList ?? [];
+        break;
+      }
+      case 1: {
+        // EIP-2930
+        ethersTx.gasPrice = BigInt(tx.gasPrice);
+        ethersTx.accessList = (tx as Transaction2930).accessList ?? [];
+        break;
+      }
+      default: {
+        // Legacy (type 0)
+        ethersTx.gasPrice = BigInt(tx.gasPrice);
+      }
     }
 
-    if (txType === 1 || txType === 2) {
-      const tx2930 = tx as Transaction2930;
-      ethersTx.accessList = tx2930.accessList ?? [];
-    }
-
-    // Set signature - pad empty/zero values for synthetic transactions
-    const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.r;
-    const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.s;
-    const v = parseInt(tx.v ?? '0x0', 16);
-    ethersTx.signature = ethers.Signature.from({ r, s, v });
+    // Signature
+    ethersTx.signature = ethers.Signature.from({
+      r,
+      s,
+      v: Number(tx.v ?? '0x0'),
+    });
 
     return ethersTx.serialized;
   }
