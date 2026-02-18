@@ -4,7 +4,7 @@
 import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
+import { numberTo0x, prepend0x, strip0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import constants, { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import { TransferTransaction } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
@@ -1036,8 +1036,8 @@ describe('@debug API Acceptance Tests', function () {
             expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
             expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
             expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
-            expect(decodedTx.signature.r).to.equal(tx.r);
-            expect(decodedTx.signature.s).to.equal(tx.s);
+            expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
+            expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
             expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
           } else {
             // handle synthetic transaction
