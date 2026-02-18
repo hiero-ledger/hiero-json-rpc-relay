@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import { ethers } from 'ethers';
+import { AuthorizationLike, ethers } from 'ethers';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import constants from '../constants';
-import { Block, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
+import {
+  AuthorizationListEntry,
+  Block,
+  Transaction,
+  Transaction1559,
+  Transaction2930,
+  Transaction7702,
+} from '../model';
 import { MirrorNodeBlock } from '../types/mirrorNode';
 
 interface BlockFactoryParams {
@@ -80,8 +87,21 @@ export class BlockFactory {
         const t = tx as Transaction7702;
         ethersTx.maxFeePerGas = BigInt(t.maxFeePerGas);
         ethersTx.maxPriorityFeePerGas = BigInt(t.maxPriorityFeePerGas);
-        ethersTx.accessList = (tx as Transaction2930).accessList ?? [];
-        ethersTx.authorizationList = ((tx as Transaction7702).authorizationList as any) ?? [];
+        ethersTx.accessList = t.accessList ?? [];
+        ethersTx.authorizationList = t.authorizationList
+          ? t.authorizationList.map((entry: AuthorizationListEntry) => {
+              return {
+                chainId: entry.chainId,
+                nonce: entry.nonce,
+                address: entry.address,
+                signature: ethers.Signature.from({
+                  r: entry.r,
+                  s: entry.s,
+                  yParity: Number(entry.yParity) as 0 | 1,
+                }),
+              } as AuthorizationLike;
+            })
+          : [];
         break;
       }
       case 2: {
