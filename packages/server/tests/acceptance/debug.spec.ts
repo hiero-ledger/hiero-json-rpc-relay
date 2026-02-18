@@ -1047,6 +1047,24 @@ describe('@debug API Acceptance Tests', function () {
         }
       };
 
+      it('should return 0x for non-existent block', async () => {
+        const res = await relay.call(DEBUG_GET_RAW_BLOCK, ['0xffffffffffff']);
+        expect(res).to.equal('0x');
+      });
+
+      it('should be able to pass blockTags (earliest, latest, pending, finalized, safe)', async () => {
+        const earliestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['earliest']);
+        const latestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['latest']);
+        const pendingRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['pending']);
+        const finalizedRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['finalized']);
+        const safeRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['safe']);
+        expect(earliestRes).to.not.equal('0x');
+        expect(latestRes).to.not.equal('0x');
+        expect(pendingRes).to.not.equal('0x');
+        expect(finalizedRes).to.not.equal('0x');
+        expect(safeRes).to.not.equal('0x');
+      });
+
       it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
         const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]));
 
