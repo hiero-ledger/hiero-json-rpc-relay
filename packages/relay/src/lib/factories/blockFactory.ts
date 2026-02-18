@@ -3,7 +3,7 @@
 import { RLP } from '@ethereumjs/rlp';
 import { ethers } from 'ethers';
 
-import { numberTo0x, toHash32 } from '../../formatters';
+import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import constants from '../constants';
 import { Block, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
 import { MirrorNodeBlock } from '../types/mirrorNode';
@@ -59,8 +59,8 @@ export class BlockFactory {
     const txType = Number(tx.type);
 
     // Set signature - pad empty/zero values for synthetic transactions
-    const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.r;
-    const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : tx.s;
+    const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.r).padStart(64, '0'));
+    const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.s).padStart(64, '0'));
 
     const ethersTx = new ethers.Transaction();
 
@@ -154,7 +154,7 @@ export class BlockFactory {
       // Hx - extraData
       block.extraData,
       // Ha - prevRandao
-      constants.ZERO_HEX_32_BYTE,
+      block.mixHash,
       // Hn - nonce
       block.nonce,
       // Hf - baseFeePerGas
