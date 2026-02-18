@@ -69,12 +69,6 @@ export class DebugImpl implements Debug {
   private readonly cacheService: ICacheClient;
 
   /**
-   * The ID of the chain, as a hex string, as it would be returned in a JSON-RPC call.
-   * @private
-   */
-  private readonly chainId: string;
-
-  /**
    * The Block Service implementation that takes care of all block API operations.
    * @private
    */
@@ -94,7 +88,6 @@ export class DebugImpl implements Debug {
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
-    this.chainId = chainId;
     this.blockService = new BlockService(cacheService, chainId, this.common, mirrorNodeClient, logger);
   }
 
