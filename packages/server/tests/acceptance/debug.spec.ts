@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
+import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
-import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
+import { numberTo0x, prepend0x, strip0x } from '@hashgraph/json-rpc-relay/src/formatters';
+import constants, { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import { TransferTransaction } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
 import chaiExclude from 'chai-exclude';
@@ -54,6 +55,7 @@ describe('@debug API Acceptance Tests', function () {
   let htsTokenId: any;
   let htsTransferTxHash: string;
   let htsTransferBlockNumber: number;
+  let htsTransferBlockHash: string;
   let evmTxHash: string;
 
   const PURE_METHOD_CALL_DATA = '0xb2e0100c';
@@ -62,6 +64,7 @@ describe('@debug API Acceptance Tests', function () {
   const DEBUG_TRACE_BLOCK_BY_NUMBER = 'debug_traceBlockByNumber';
   const DEBUG_TRACE_BLOCK_BY_HASH = 'debug_traceBlockByHash';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
+  const DEBUG_GET_RAW_BLOCK = 'debug_getRawBlock';
 
   const TRACER_CONFIGS = {
     CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
@@ -151,6 +154,7 @@ describe('@debug API Acceptance Tests', function () {
     const evmReceipt = await Utils.getReceipt(relay, evmTransaction, accounts[0].wallet);
     evmTxHash = evmReceipt.transactionHash;
     htsTransferBlockNumber = parseInt(evmReceipt.blockNumber.toString());
+    htsTransferBlockHash = evmReceipt.blockHash;
 
     // Perform a native HTS transfer (synthetic transaction)
     const transferAmount = 100;
@@ -982,6 +986,95 @@ describe('@debug API Acceptance Tests', function () {
             "Cannot specify tracer config properties at top level when 'tracer' is explicitly set for TracerConfigWrapper",
           ),
         );
+      });
+    });
+
+    describe('debug_getRawBlock', async () => {
+      const toHex = (n) => '0x' + n.toString(16);
+      const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
+      const hexToQuantity = (buf) => {
+        if (buf.length === 0) return '0x0';
+        return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
+      };
+
+      let blockInfo;
+      before(async () => {
+        blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
+      });
+
+      const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock) => {
+        expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
+        expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
+        expect(hexToData(decodedRawBlock[2])).to.equal('0x0000000000000000000000000000000000000321');
+        expect(hexToData(decodedRawBlock[3])).to.equal(blockInfo.stateRoot);
+        expect(hexToData(decodedRawBlock[4])).to.equal(blockInfo.transactionsRoot);
+        expect(hexToData(decodedRawBlock[5])).to.equal(blockInfo.receiptsRoot);
+        expect(hexToData(decodedRawBlock[6])).to.equal(blockInfo.logsBloom);
+        expect(hexToQuantity(decodedRawBlock[7])).to.equal(blockInfo.difficulty);
+        expect(hexToQuantity(decodedRawBlock[8])).to.equal(blockInfo.number);
+        expect(hexToQuantity(decodedRawBlock[9])).to.equal(blockInfo.gasLimit);
+        expect(hexToQuantity(decodedRawBlock[10])).to.equal(blockInfo.gasUsed);
+        expect(hexToData(decodedRawBlock[11])).to.equal(blockInfo.timestamp);
+        expect(hexToData(decodedRawBlock[12])).to.equal(blockInfo.extraData);
+        expect(hexToData(decodedRawBlock[13])).to.equal(blockInfo.mixHash);
+        expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
+        expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
+        expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
+        expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
+        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
+
+        for (const [i, tx] of blockInfo.transactions.entries()) {
+          const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
+
+          expect(decodedTx.to?.toLowerCase()).to.equal(tx.to);
+          expect(decodedTx.data).to.equal(tx.input);
+          expect(toHex(decodedTx.nonce)).to.equal(tx.nonce);
+          expect(toHex(decodedTx.value)).to.equal(tx.value);
+
+          if (decodedTx.signature) {
+            // handle ethereum transaction
+            expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
+            expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
+            expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
+            expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
+            expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
+            expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
+          } else {
+            // handle synthetic transaction
+            expect(toHex(decodedTx.gasLimit)).to.equal(tx.gas);
+            expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
+          }
+        }
+      };
+
+      it('should return 0x for non-existent block', async () => {
+        const res = await relay.call(DEBUG_GET_RAW_BLOCK, ['0xffffffffffff']);
+        expect(res).to.equal('0x');
+      });
+
+      it('should be able to pass blockTags (earliest, latest, pending, finalized, safe)', async () => {
+        const earliestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['earliest']);
+        const latestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['latest']);
+        const pendingRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['pending']);
+        const finalizedRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['finalized']);
+        const safeRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['safe']);
+        expect(earliestRes).to.not.equal('0x');
+        expect(latestRes).to.not.equal('0x');
+        expect(pendingRes).to.not.equal('0x');
+        expect(finalizedRes).to.not.equal('0x');
+        expect(safeRes).to.not.equal('0x');
+      });
+
+      it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {
+        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [numberTo0x(htsTransferBlockNumber)]));
+
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
+      });
+
+      it('should check whether the RLP block has correct info using block hash for debug_getRawBlock parameter ', async () => {
+        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_BLOCK, [htsTransferBlockHash]));
+
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock);
       });
     });
 

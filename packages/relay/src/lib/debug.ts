@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
+import { JsonRpcError } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -13,7 +14,9 @@ import { IOpcodesResponse } from './clients/models/IOpcodesResponse';
 import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
-import { CommonService } from './services';
+import { BlockFactory } from './factories/blockFactory';
+import { Block } from './model';
+import { BlockService, CommonService, IBlockService } from './services';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -66,18 +69,26 @@ export class DebugImpl implements Debug {
   private readonly cacheService: ICacheClient;
 
   /**
+   * The Block Service implementation that takes care of all block API operations.
+   * @private
+   */
+  private readonly blockService: IBlockService;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
    * @param {ICacheClient} cacheService - Service for managing cached data.
+   * @param {string} chainId - The chain identifier for the current blockchain environment.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, chainId: string) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
+    this.blockService = new BlockService(cacheService, chainId, this.common, mirrorNodeClient, logger);
   }
 
   /**
@@ -88,6 +99,41 @@ export class DebugImpl implements Debug {
     if (!ConfigService.get('DEBUG_API_ENABLED')) {
       throw predefined.UNSUPPORTED_METHOD;
     }
+  }
+
+  /**
+   * Get a raw block for debugging purposes.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawBlock RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockNrOrHash - The block number, tag or hash. Possible values are 'earliest', 'pending', 'latest', hex block number or 32 bytes hash.
+   * @param {RequestDetails} requestDetails - Request details for logging and tracking
+   *
+   * @example
+   * const result = await getRawBlock('0x160c', requestDetails);
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ['blockNumber', 'blockHash'], required: true },
+  })
+  @cache({
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
+  async getRawBlock(blockNrOrHash: string, requestDetails: RequestDetails): Promise<string | JsonRpcError> {
+    DebugImpl.requireDebugAPIEnabled();
+
+    const block: Block | null =
+      blockNrOrHash.length === 66
+        ? await this.blockService.getBlockByHash(blockNrOrHash, true, requestDetails)
+        : await this.blockService.getBlockByNumber(blockNrOrHash, true, requestDetails);
+
+    if (!block) {
+      return constants.EMPTY_HEX;
+    }
+
+    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block)).toString('hex');
   }
 
   /**
