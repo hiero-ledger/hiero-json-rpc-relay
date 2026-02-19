@@ -1100,6 +1100,24 @@ describe('@debug API Acceptance Tests', function () {
         expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
       };
 
+      it('should return 0x for non-existent block', async () => {
+        const res = await relay.call(DEBUG_GET_RAW_HEADER, ['0xffffffffffff']);
+        expect(res).to.equal('0x');
+      });
+
+      it('should be able to pass blockTags (earliest, latest, pending, finalized, safe)', async () => {
+        const earliestRes = await relay.call(DEBUG_GET_RAW_HEADER, ['earliest']);
+        const latestRes = await relay.call(DEBUG_GET_RAW_HEADER, ['latest']);
+        const pendingRes = await relay.call(DEBUG_GET_RAW_HEADER, ['pending']);
+        const finalizedRes = await relay.call(DEBUG_GET_RAW_HEADER, ['finalized']);
+        const safeRes = await relay.call(DEBUG_GET_RAW_HEADER, ['safe']);
+        expect(earliestRes).to.not.equal('0x');
+        expect(latestRes).to.not.equal('0x');
+        expect(pendingRes).to.not.equal('0x');
+        expect(finalizedRes).to.not.equal('0x');
+        expect(safeRes).to.not.equal('0x');
+      });
+
       it('should check whether the RLP block header has correct info using block number for debug_getRawHeader parameter', async () => {
         const decodedRawBlock = RLP.decode(
           await relay.call(DEBUG_GET_RAW_HEADER, [numberTo0x(htsTransferBlockNumber)]),
