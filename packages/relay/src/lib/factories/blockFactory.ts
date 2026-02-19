@@ -143,7 +143,7 @@ export class BlockFactory {
    * @returns {Uint8Array} - RLP encoded block as Uint8 array
    */
   static rlpEncode(block: Block, headerOnly: boolean = false): Uint8Array {
-    if (typeof block.transactions[0] === 'string') {
+    if (!headerOnly && typeof block.transactions[0] === 'string') {
       throw new Error('Block transactions must include full transaction objects for RLP encoding');
     }
 
