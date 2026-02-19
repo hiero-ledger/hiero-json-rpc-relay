@@ -139,9 +139,8 @@ describe('BlockFactory', () => {
       const rField: Uint8Array = decoded[decoded.length - 3];
       const sField: Uint8Array = decoded[decoded.length - 2];
 
-      // Canonical RLP: zero integers are encoded as empty byte arrays
-      expect(rField.length).to.be.oneOf([0, 32]);
-      expect(sField.length).to.be.oneOf([0, 32]);
+      expect(rField.length).to.equal(0);
+      expect(sField.length).to.equal(0);
     });
 
     it('should encode legacy transaction with gasPrice', () => {
