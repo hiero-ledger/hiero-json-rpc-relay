@@ -59,7 +59,7 @@ describe('RPC Server Acceptance Tests', function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const INITIAL_BALANCE = ConfigService.get('INITIAL_BALANCE');
 
-  global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL;
+  global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL && ConfigService.get('USE_INTERNAL_RELAY');
   global.servicesNode = new ServicesClient(NETWORK, OPERATOR_ID, OPERATOR_KEY);
   global.mirrorNode = new MirrorClient(MIRROR_NODE_URL);
   global.metrics = new MetricsClient(RELAY_URL);
