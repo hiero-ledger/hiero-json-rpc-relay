@@ -4,7 +4,7 @@
 import { RLP } from '@ethereumjs/rlp';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { predefined } from '@hashgraph/json-rpc-relay';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
+import { numberTo0x, prepend0x, strip0x } from '@hashgraph/json-rpc-relay/src/formatters';
 import constants, { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
 import { TransferTransaction } from '@hashgraph/sdk';
 import chai, { expect } from 'chai';
@@ -1086,8 +1086,8 @@ describe('@debug API Acceptance Tests', function () {
             expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
             expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
             expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
-            expect(decodedTx.signature.r).to.equal(tx.r);
-            expect(decodedTx.signature.s).to.equal(tx.s);
+            expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
+            expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
             expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
           } else {
             // handle synthetic transaction
@@ -1120,6 +1120,24 @@ describe('@debug API Acceptance Tests', function () {
 
       before(async () => {
         blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
+      });
+
+      it('should return 0x for non-existent block', async () => {
+        const res = await relay.call(DEBUG_GET_RAW_BLOCK, ['0xffffffffffff']);
+        expect(res).to.equal('0x');
+      });
+
+      it('should be able to pass blockTags (earliest, latest, pending, finalized, safe)', async () => {
+        const earliestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['earliest']);
+        const latestRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['latest']);
+        const pendingRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['pending']);
+        const finalizedRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['finalized']);
+        const safeRes = await relay.call(DEBUG_GET_RAW_BLOCK, ['safe']);
+        expect(earliestRes).to.not.equal('0x');
+        expect(latestRes).to.not.equal('0x');
+        expect(pendingRes).to.not.equal('0x');
+        expect(finalizedRes).to.not.equal('0x');
+        expect(safeRes).to.not.equal('0x');
       });
 
       it('should check whether the RLP block has correct info using block number for debug_getRawBlock parameter', async () => {

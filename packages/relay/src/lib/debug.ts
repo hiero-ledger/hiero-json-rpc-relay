@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 
 import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
 import { type Debug } from '../index';
-import { Eth, JsonRpcError } from '../index';
+import { JsonRpcError } from '../index';
 import { Utils } from '../utils';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
@@ -16,7 +16,7 @@ import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators
 import { predefined } from './errors/JsonRpcError';
 import { BlockFactory } from './factories/blockFactory';
 import { Block } from './model';
-import { CommonService } from './services';
+import { BlockService, CommonService, IBlockService } from './services';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -69,10 +69,10 @@ export class DebugImpl implements Debug {
   private readonly cacheService: ICacheClient;
 
   /**
-   * The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
+   * The Block Service implementation that takes care of all block API operations.
    * @private
    */
-  private readonly eth: Eth;
+  private readonly blockService: IBlockService;
 
   /**
    * Creates an instance of DebugImpl.
@@ -81,14 +81,14 @@ export class DebugImpl implements Debug {
    * @param {MirrorNodeClient} mirrorNodeClient - The client for interacting with the mirror node.
    * @param {Logger} logger - The logger used for logging output from this class.
    * @param {ICacheClient} cacheService - Service for managing cached data.
-   * @param {EthImpl} eth - The Eth implementation used for handling Ethereum-specific JSON-RPC requests.
+   * @param {string} chainId - The chain identifier for the current blockchain environment.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, eth: Eth) {
+  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, chainId: string) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
-    this.eth = eth;
+    this.blockService = new BlockService(cacheService, chainId, this.common, mirrorNodeClient, logger);
   }
 
   /**
@@ -126,8 +126,8 @@ export class DebugImpl implements Debug {
 
     const block: Block | null =
       blockNrOrHash.length === 66
-        ? await this.eth.getBlockByHash(blockNrOrHash, true, requestDetails)
-        : await this.eth.getBlockByNumber(blockNrOrHash, true, requestDetails);
+        ? await this.blockService.getBlockByHash(blockNrOrHash, true, requestDetails)
+        : await this.blockService.getBlockByNumber(blockNrOrHash, true, requestDetails);
 
     if (!block) {
       return constants.EMPTY_HEX;
