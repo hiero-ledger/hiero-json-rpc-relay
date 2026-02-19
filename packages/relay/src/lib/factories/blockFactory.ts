@@ -145,7 +145,7 @@ export class BlockFactory {
       throw new Error('Block transactions must include full transaction objects for RLP encoding');
     }
 
-    // B=(BH,BT,BU,BW) regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf
+    // B=(BH,BT,BU,BW) regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf, Section 4.4.3 on Serialisation.
     // -- BH - block header (Hp, Ho, Hc, Hr, Ht, He, Hb, Hd, Hi, Hl, Hg, Hs, Hx, Ha, Hn, Hf, Hw)
     // -- BT - block transactions (RLP encoded transactions array)
     // -- BU - ommers (empty array)
