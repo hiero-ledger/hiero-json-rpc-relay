@@ -141,6 +141,10 @@ export class BlockFactory {
    * @returns {Uint8Array} - RLP encoded block as Uint8 array
    */
   static rlpEncode(block: Block): Uint8Array {
+    if (typeof block.transactions[0] === 'string') {
+      throw new Error('Block transactions must include full transaction objects for RLP encoding');
+    }
+
     // B=(BH,BT,BU,BW) regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf
     // -- BH - block header (Hp, Ho, Hc, Hr, Ht, He, Hb, Hd, Hi, Hl, Hg, Hs, Hx, Ha, Hn, Hf, Hw)
     // -- BT - block transactions (RLP encoded transactions array)
