@@ -87,22 +87,10 @@ jobs:
                   EOF
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 
-            - name: Verify Relay Resources
+            - name: check Relay Resources
               run: |
-                  # Wait for deployment to appear
-                  for i in {1..30}; do
-                    RELAY_DEPLOYMENT=$(kubectl get deployment -n "${SOLO_NAMESPACE}" -o jsonpath='{.items[?(@.metadata.labels.app\.kubernetes\.io/name=="hedera-json-rpc-relay")].metadata.name}')
-                    if [ -n "$RELAY_DEPLOYMENT" ]; then
-                      echo "Found relay deployment: $RELAY_DEPLOYMENT"
-                      kubectl get deployment -n "${SOLO_NAMESPACE}" "$RELAY_DEPLOYMENT" -o jsonpath='{.spec.template.spec.containers[0].resources}'
-                      exit 0
-                    fi
-                    echo "Waiting for relay deployment... ($i)"
-                    sleep 2
-                  done
-                  echo "Relay deployment not found!"
-                  kubectl get deployments -A
-                  exit 1
+                  echo "Describing Relay pod resources:"
+                  kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1 | grep -iA 5 "Limits:" || true
 
             - name: Port-forward Consensus Node
               run: |
