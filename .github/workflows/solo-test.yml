@@ -1,7 +1,6 @@
 name: Solo Test Sandbox
 
 on:
-    workflow_dispatch:
     push:
         branches:
             - 4900-solo-reduce-json-rpc-relay-memory-footprint
@@ -13,6 +12,10 @@ jobs:
     solo-test:
         runs-on: hiero-smart-contracts-linux-large
         timeout-minutes: 50
+        strategy:
+            fail-fast: false
+            matrix:
+                memory_limit: [1000Mi, 512Mi, 256Mi]
         permissions:
             contents: read
             checks: write
@@ -21,6 +24,7 @@ jobs:
             SOLO_NAMESPACE: solo
             SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
             SOLO_DEPLOYMENT: solo-deployment
+        name: Solo Test (${{ matrix.memory_limit }})
         steps:
             - name: Set env variables
               run: |
@@ -71,7 +75,21 @@ jobs:
 
             - name: Run Solo Relay
               run: |
-                  solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}"
+                  cat <<EOF > relay-resources.yaml
+                  rpcRelay:
+                    resources:
+                      requests:
+                        cpu: 0
+                        memory: 0
+                      limits:
+                        cpu: 1100m
+                        memory: ${{ matrix.memory_limit }}
+                  EOF
+                  solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
+
+            - name: Verify Relay Resources
+              run: |
+                  kubectl get deployment -n "${SOLO_NAMESPACE}" -l app.kubernetes.io/instance=node1 -o jsonpath='{.items[0].spec.template.spec.containers[0].resources}'
 
             - name: Port-forward Consensus Node
               run: |
