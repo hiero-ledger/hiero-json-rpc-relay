@@ -138,10 +138,11 @@ export class BlockFactory {
    * RLP encode a block based on Ethereum Yellow Paper.
    *
    * @param { Block } block - The block object from eth_getBlockByNumber/Hash
-   * @returns {Uint8Array} - RLP encoded block as Uint8 array
    * @param {boolean} headerOnly - A flag that determines whether to encode the entire block or only the block header
+   *
+   * @returns {Uint8Array} - RLP encoded block as Uint8 array
    */
-  static rlpEncode(block: Block): Uint8Array {
+  static rlpEncode(block: Block, headerOnly: boolean = false): Uint8Array {
     if (typeof block.transactions[0] === 'string') {
       throw new Error('Block transactions must include full transaction objects for RLP encoding');
     }
@@ -151,7 +152,8 @@ export class BlockFactory {
     // -- BT - block transactions (RLP encoded transactions array)
     // -- BU - ommers (empty array)
     // -- BW - withdrawals (empty array)
-    return RLP.encode([
+
+    const header = [
       // Hp - parentHash
       block.parentHash,
       // Ho - ommersHash
@@ -186,13 +188,7 @@ export class BlockFactory {
       block.baseFeePerGas,
       // Hw - withdrawalsRoot
       block.withdrawalsRoot,
-      // BT - block transactions (RLP encoded transactions array)
-      [...block.transactions.map((tx) => BlockFactory.rlpEncodeTx(tx as Transaction))],
-      // BU - ommers (empty array)
-      [],
-      // BW - withdrawals (empty array)
-      [],
-    ]);
+    ];
 
     if (headerOnly) {
       return RLP.encode(header);
@@ -200,8 +196,11 @@ export class BlockFactory {
 
     return RLP.encode([
       ...header,
+      // BT - block transactions (RLP encoded transactions array)
       [...block.transactions.map((tx) => BlockFactory.rlpEncodeTx(tx as Transaction))],
+      // BU - ommers (empty array)
       [],
+      // BW - withdrawals (empty array)
       [],
     ]);
   }

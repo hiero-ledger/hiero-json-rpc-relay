@@ -411,13 +411,13 @@ describe('Debug API Test Suite', async function () {
 
     withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('should return "0x" when block is not found using block number', async function () {
-        sinon.stub(debugService['eth'], 'getBlockByNumber').resolves(null);
+        sinon.stub(debugService['blockService'], 'getBlockByNumber').resolves(null);
         const result = await debugService.getRawHeader(blockNumber, requestDetails);
         expect(result).to.equal('0x');
       });
 
       it('should return "0x" when block is not found using block hash', async function () {
-        sinon.stub(debugService['eth'], 'getBlockByHash').resolves(null);
+        sinon.stub(debugService['blockService'], 'getBlockByHash').resolves(null);
         const result = await debugService.getRawHeader(blockHash, requestDetails);
         expect(result).to.equal('0x');
       });
@@ -425,25 +425,40 @@ describe('Debug API Test Suite', async function () {
       it('should return a RLP block for existing block', async () => {
         const expectedRlpHex =
           '0xf90223' +
-          'a0' + 'd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa' + // parent hash
-          'a0' + '1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347' + // ommersHash
-          '94' + '0000000000000000000000000000000000000321' + // beneficiary
-          'a0' + '56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421' + // stateRoot
-          'a0' + 'cf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506ce' + // transactionsRoot
-          'a0' + '26c9ecffe4aa9e2e19f814a570bd1e9093ff55e9e6c18f39f4192de6e36153db' + // receiptsRoot
-          'b9' + '01000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000' + // logsBloom
+          'a0' +
+          'd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa' + // parent hash
+          'a0' +
+          '1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347' + // ommersHash
+          '94' +
+          '0000000000000000000000000000000000000321' + // beneficiary
+          'a0' +
+          '56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421' + // stateRoot
+          'a0' +
+          'cf55eb0655b5d21c38413afe1919099a83140514cb6c531aebd77e3d2c5506ce' + // transactionsRoot
+          'a0' +
+          '26c9ecffe4aa9e2e19f814a570bd1e9093ff55e9e6c18f39f4192de6e36153db' + // receiptsRoot
+          'b9' +
+          '01000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000' + // logsBloom
           '00' + // difficulty
-          '84' + '01de1f54' + // number
-          '84' + '01c9c380' + // gasLimit
-          '83' + '0a32c1' + // gasUsed
-          '84' + '698afa66' + // timestamp
+          '84' +
+          '01de1f54' + // number
+          '84' +
+          '01c9c380' + // gasLimit
+          '83' +
+          '0a32c1' + // gasUsed
+          '84' +
+          '698afa66' + // timestamp
           '80' + // extraData
-          'a0' + '0000000000000000000000000000000000000000000000000000000000000000' + // prevrandao
-          '88' + '0000000000000000' + // nonce
-          '85' + 'd63445f000' + // baseFeePerGas
-          'a0' + '0000000000000000000000000000000000000000000000000000000000000000'; // withdrawalsRoot
+          'a0' +
+          '0000000000000000000000000000000000000000000000000000000000000000' + // prevrandao
+          '88' +
+          '0000000000000000' + // nonce
+          '85' +
+          'd63445f000' + // baseFeePerGas
+          'a0' +
+          '0000000000000000000000000000000000000000000000000000000000000000'; // withdrawalsRoot
 
-        sinon.stub(debugService['eth'], 'getBlockByHash').resolves(blockInfo as Block);
+        sinon.stub(debugService['blockService'], 'getBlockByHash').resolves(blockInfo as Block);
         const result = await debugService.getRawHeader(blockHash, requestDetails);
         expect(result).to.equal(expectedRlpHex);
       });

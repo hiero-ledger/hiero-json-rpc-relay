@@ -3,7 +3,15 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import type { Logger } from 'pino';
 
-import { decodeErrorMessage, mapKeysAndValues, numberTo0x, prepend0x, strip0x, tinybarsToWeibars } from '../formatters';
+import {
+  decodeErrorMessage,
+  mapKeysAndValues,
+  numberTo0x,
+  prepend0x,
+  strip0x,
+  tinybarsToWeibars,
+  toHexString,
+} from '../formatters';
 import { type Debug } from '../index';
 import { JsonRpcError } from '../index';
 import { Utils } from '../utils';
@@ -161,14 +169,14 @@ export class DebugImpl implements Debug {
 
     const block: Block | null =
       blockNrOrHash.length === 66
-        ? await this.eth.getBlockByHash(blockNrOrHash, false, requestDetails)
-        : await this.eth.getBlockByNumber(blockNrOrHash, false, requestDetails);
+        ? await this.blockService.getBlockByHash(blockNrOrHash, false, requestDetails)
+        : await this.blockService.getBlockByNumber(blockNrOrHash, false, requestDetails);
 
     if (!block) {
       return constants.EMPTY_HEX;
     }
 
-    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block, true)).toString('hex');
+    return prepend0x(toHexString(BlockFactory.rlpEncode(block, true)));
   }
 
   /**

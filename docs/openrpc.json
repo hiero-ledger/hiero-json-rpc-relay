@@ -1318,7 +1318,7 @@
     },
     {
       "name": "debug_getRawHeader",
-      "summary": "Returns an RLP-encoded block header.",
+      "summary": "Returns an RLP-encoded header.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
@@ -1330,7 +1330,7 @@
         }
       ],
       "result": {
-        "name": "debug_getRawHeader result",
+        "name": "Header RLP",
         "description": "The RLP-encoded block header, or 0x if the block is not found",
         "schema": {
           "title": "raw block",
