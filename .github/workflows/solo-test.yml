@@ -89,7 +89,20 @@ jobs:
 
             - name: Verify Relay Resources
               run: |
-                  kubectl get deployment -n "${SOLO_NAMESPACE}" -l app.kubernetes.io/instance=node1 -o jsonpath='{.items[0].spec.template.spec.containers[0].resources}'
+                  # Wait for deployment to appear
+                  for i in {1..30}; do
+                    RELAY_DEPLOYMENT=$(kubectl get deployment -n "${SOLO_NAMESPACE}" -o jsonpath='{.items[?(@.metadata.labels.app\.kubernetes\.io/name=="hedera-json-rpc-relay")].metadata.name}')
+                    if [ -n "$RELAY_DEPLOYMENT" ]; then
+                      echo "Found relay deployment: $RELAY_DEPLOYMENT"
+                      kubectl get deployment -n "${SOLO_NAMESPACE}" "$RELAY_DEPLOYMENT" -o jsonpath='{.spec.template.spec.containers[0].resources}'
+                      exit 0
+                    fi
+                    echo "Waiting for relay deployment... ($i)"
+                    sleep 2
+                  done
+                  echo "Relay deployment not found!"
+                  kubectl get deployments -A
+                  exit 1
 
             - name: Port-forward Consensus Node
               run: |
