@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Utils as relayUtils } from '@hashgraph/json-rpc-relay/dist/utils';
 import {
   AccountAllowanceApproveTransaction,
@@ -22,6 +23,8 @@ import {
   Hbar,
   Key,
   KeyList,
+  Logger as HederaLogger,
+  LogLevel,
   PrivateKey,
   Query,
   TokenAssociateTransaction,
@@ -86,6 +89,7 @@ export default class ServicesClient {
       this.client = Client.forNetwork(JSON.parse(network));
     }
     this.client.setOperator(AccountId.fromString(accountId), opPrivateKey.toString());
+    this.client.setLogger(new HederaLogger(LogLevel._fromString(ConfigService.get('SDK_LOG_LEVEL'))));
   }
 
   async createInitialAliasAccount(

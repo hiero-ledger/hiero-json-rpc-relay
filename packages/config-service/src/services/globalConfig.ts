@@ -685,6 +685,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  USE_INTERNAL_RELAY: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   LOCK_MAX_HOLD_MS: {
     type: 'number',
     required: false,
