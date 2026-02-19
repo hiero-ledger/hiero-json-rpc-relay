@@ -90,7 +90,7 @@ jobs:
             - name: check Relay Resources
               run: |
                   echo "Describing Relay pod resources:"
-                  kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1 | grep -iA 5 "Limits:" || true
+                  kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
 
             - name: Port-forward Consensus Node
               run: |
