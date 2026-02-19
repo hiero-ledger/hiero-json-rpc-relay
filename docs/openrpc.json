@@ -1295,6 +1295,28 @@
       }
     },
     {
+      "name": "debug_getRawBlock",
+      "summary": "Returns an RLP-encoded block.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "debug_getRawBlock result",
+        "description": "The RLP-encoded block information, or 0x if the block is not found",
+        "schema": {
+          "title": "raw block",
+          "$ref": "#/components/schemas/bytes"
+        }
+      }
+    },
+    {
       "name": "debug_traceBlockByNumber",
       "summary": "Returns the tracing result for all transactions in the block specified by number with a tracer.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
