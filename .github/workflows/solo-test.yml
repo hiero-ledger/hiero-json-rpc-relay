@@ -2,6 +2,9 @@ name: Solo Test Sandbox
 
 on:
     workflow_dispatch:
+    push:
+        branches:
+            - 4900-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
     contents: read
