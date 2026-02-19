@@ -51,6 +51,9 @@ jobs:
                   verbosity: 3
                   wait: 120s
 
+            - name: Install Solo
+              run: npm install -g @hashgraph/solo
+
             - name: Configure and run solo
               run: |
                   kind create cluster -n "${SOLO_CLUSTER_NAME}"
