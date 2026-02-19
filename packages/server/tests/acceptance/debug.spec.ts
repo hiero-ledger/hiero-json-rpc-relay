@@ -1000,7 +1000,7 @@ describe('@debug API Acceptance Tests', function () {
     const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock, headerOnly = false) => {
       expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
       expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
-      expect(hexToData(decodedRawBlock[2])).to.equal('0x0000000000000000000000000000000000000321');
+      expect(hexToData(decodedRawBlock[2])).to.equal(constants.HEDERA_NODE_REWARD_ACCOUNT_ADDRESS);
       expect(hexToData(decodedRawBlock[3])).to.equal(blockInfo.stateRoot);
       expect(hexToData(decodedRawBlock[4])).to.equal(blockInfo.transactionsRoot);
       expect(hexToData(decodedRawBlock[5])).to.equal(blockInfo.receiptsRoot);
