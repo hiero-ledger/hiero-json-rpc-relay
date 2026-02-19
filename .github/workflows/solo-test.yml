@@ -85,6 +85,7 @@ jobs:
                         cpu: 1100m
                         memory: ${{ matrix.memory_limit }}
                   EOF
+                  cat relay-resources.yaml
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 
             - name: check Relay Resources
