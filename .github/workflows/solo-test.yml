@@ -122,3 +122,81 @@ jobs:
                   SDK_LOG_LEVEL: trace
                   USE_INTERNAL_RELAY: false
               run: npm run acceptancetest:xts
+
+            - name: Generate DOD Report
+              if: always()
+              run: |
+                  MEMORY_LIMIT="${{ matrix.memory_limit }}"
+                  TEST_STATUS="${{ job.status }}"
+
+                  # --- Test Results from JUnit XML ---
+                  TOTAL=0; PASSED=0; FAILURES=0; SKIPPED=0; DURATION_S=0
+                  if ls test-*.xml &>/dev/null; then
+                    TOTAL=$(grep -h '<testsuite ' test-*.xml | grep -oP 'tests="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+                    FAILURES=$(grep -h '<testsuite ' test-*.xml | grep -oP 'failures="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+                    ERRORS=$(grep -h '<testsuite ' test-*.xml | grep -oP 'errors="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+                    SKIPPED=$(grep -h '<testsuite ' test-*.xml | grep -oP 'skipped="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+                    DURATION_S=$(grep -h '<testsuite ' test-*.xml | grep -oP 'time="\K[0-9.]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+                    FAILURES=$((FAILURES + ERRORS))
+                    PASSED=$((TOTAL - FAILURES - SKIPPED))
+                  fi
+
+                  # --- TPS estimation ---
+                  TPS="N/A"
+                  if [ "$DURATION_S" != "0" ] && [ "$TOTAL" != "0" ]; then
+                    TPS=$(echo "scale=2; $TOTAL / $DURATION_S" | bc 2>/dev/null || echo "N/A")
+                  fi
+
+                  # --- Pod resource usage (actual RSS vs limit) ---
+                  echo "==> Pod resource usage at end of test run:"
+                  kubectl top pods -n "${SOLO_NAMESPACE}" || echo "(kubectl top unavailable - metrics-server may not be installed)"
+
+                  # --- OOMKill detection ---
+                  OOM_STATUS="None detected"
+                  OOM_PODS=$(kubectl get pods -n "${SOLO_NAMESPACE}" -o json | \
+                    python3 -c "
+                  import sys, json
+                  pods = json.load(sys.stdin)
+                  oom = [
+                    c['name']
+                    for p in pods.get('items', [])
+                    for c in p.get('status', {}).get('containerStatuses', [])
+                    if c.get('lastState', {}).get('terminated', {}).get('reason') == 'OOMKilled'
+                       or c.get('state', {}).get('terminated', {}).get('reason') == 'OOMKilled'
+                  ]
+                  print(', '.join(oom) if oom else '')
+                  " 2>/dev/null || echo "")
+                  [ -n "$OOM_PODS" ] && OOM_STATUS="**OOMKilled:** $OOM_PODS"
+
+                  # --- Relay pod describe for resource config confirmation ---
+                  echo "==> Relay pod limits:"
+                  kubectl -n "${SOLO_NAMESPACE}" describe pods -l app.kubernetes.io/name=hedera-json-rpc-relay \
+                    | grep -A 5 "Limits:" || echo "(relay pod not found)"
+
+                  # --- Write GitHub Job Summary ---
+                  cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
+                  ## Solo Test Report — Memory Profile: \`${MEMORY_LIMIT}\`
+
+                  ### Environment
+                  | Key | Value |
+                  |---|---|
+                  | Memory Limit | \`${MEMORY_LIMIT}\` |
+                  | Runner | \`hiero-smart-contracts-linux-large\` |
+                  | Test Suite | \`acceptancetest:xts\` |
+                  | Overall Status | \`${TEST_STATUS}\` |
+
+                  ### Test Results
+                  | Total | Passed | Failed | Skipped | Duration (s) | Est. TPS |
+                  |---|---|---|---|---|---|
+                  | ${TOTAL} | ${PASSED} | ${FAILURES} | ${SKIPPED} | ${DURATION_S} | ${TPS} |
+
+                  ### Memory Health
+                  | Configured Limit | OOMKill Events |
+                  |---|---|
+                  | \`${MEMORY_LIMIT}\` | ${OOM_STATUS} |
+
+                  > **Note:** Actual peak RSS visible in the \`kubectl top pods\` output in the step logs above.
+                  > TPS is estimated as total test cases / total test duration — for Hedera tx TPS, refer to relay logs.
+                  SUMMARY
+
+                  echo "DOD Report written to GitHub Job Summary."
