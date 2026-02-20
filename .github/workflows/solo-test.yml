@@ -95,9 +95,13 @@ jobs:
                   # Capture absolute start time for relay startup duration KPI.
                   RELAY_START=$(date +%s)
 
-                  # Phase 1 baseline: resource limits only, no V8/config overrides.
-                  # NODE_OPTIONS and other tuning belong in phase 2, after reviewing
-                  # the startup-time and e2e-test-time data from these three profiles.
+                  # Compute a V8 old-space budget at 75% of the container memory limit.
+                  # The remaining ~25% covers V8's code cache, stack, and other off-heap
+                  # regions that sit outside the managed heap.
+                  MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
+                  OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
+                  echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
+
                   cat <<EOF > relay-resources.yaml
                   relay:
                     resources:
@@ -107,6 +111,8 @@ jobs:
                       limits:
                         cpu: 1100m
                         memory: ${{ matrix.memory_limit }}
+                    config:
+                      NODE_OPTIONS: "--max-old-space-size=${OLD_SPACE_MB}"
                   EOF
                   cat relay-resources.yaml
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
