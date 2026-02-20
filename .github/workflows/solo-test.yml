@@ -15,7 +15,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                memory_limit: [1000Mi, 512Mi, 256Mi]
+                memory_limit: [1000Mi, 512Mi, 256Mi, 200Mi]
         permissions:
             contents: read
             checks: write
