@@ -431,7 +431,7 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrTag"
           }
         }
       ],
@@ -2551,6 +2551,12 @@
           }
         },
         "required": ["from", "gas", "input"]
+      },
+      "ratio": {
+        "title": "normalized ratio",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
       }
     }
   }
