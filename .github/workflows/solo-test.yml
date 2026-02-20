@@ -15,7 +15,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                memory_limit: [1000Mi, 512Mi, 256Mi, 200Mi]
+                memory_limit: [1000Mi, 512Mi, 256Mi, 64Mi]
         permissions:
             contents: read
             checks: write
@@ -85,6 +85,13 @@ jobs:
 
             - name: Run Solo Relay
               run: |
+                  # Compute the V8 old-space budget as 75% of the container memory limit.
+                  # This leaves ~25% headroom for V8's code cache, stack, and other
+                  # off-heap regions that sit outside the managed heap.
+                  MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
+                  OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
+                  echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
+
                   cat <<EOF > relay-resources.yaml
                   relay:
                     resources:
@@ -94,6 +101,8 @@ jobs:
                       limits:
                         cpu: 1100m
                         memory: ${{ matrix.memory_limit }}
+                    config:
+                      NODE_OPTIONS: "--max-old-space-size=${OLD_SPACE_MB}"
                   EOF
                   cat relay-resources.yaml
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -102,6 +111,37 @@ jobs:
               run: |
                   echo "Describing Relay pod resources:"
                   kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
+
+            - name: Verify V8 Heap Settings
+              run: |
+                  # Confirm that NODE_OPTIONS was propagated to the relay container and
+                  # that V8 honoured the --max-old-space-size flag by inspecting the
+                  # actual heap_size_limit reported by the running process.
+                  RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+                    -o custom-columns=":metadata.name" 2>/dev/null \
+                    | grep -E '^relay-[0-9]+-[^w]' | head -1)
+
+                  if [ -z "${RELAY_POD}" ]; then
+                    echo "WARNING: Relay pod not found, skipping V8 heap verification."
+                    exit 0
+                  fi
+
+                  echo "Target pod: ${RELAY_POD}"
+
+                  echo "--- NODE_OPTIONS (from pod environment) ---"
+                  kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+                    sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null \
+                    || echo "(exec failed)"
+
+                  echo "--- V8 heap_size_limit (observed by running Node.js process) ---"
+                  kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+                    node -e "
+                      const v8 = require('v8');
+                      const s  = v8.getHeapStatistics();
+                      const mb = Math.round(s.heap_size_limit / 1024 / 1024);
+                      console.log('heap_size_limit: ' + s.heap_size_limit + ' bytes (' + mb + ' MB)');
+                    " 2>/dev/null \
+                    || echo "(node exec failed)"
 
             - name: Port-forward Consensus Node
               run: |
@@ -198,6 +238,21 @@ jobs:
                       2>/dev/null) || CONFIGURED_LIMITS="(query failed)"
                   fi
 
+                  # ── V8 heap configuration from the running relay process ──
+                  # Re-exec into the pod to read the live heap_size_limit; this
+                  # confirms whether NODE_OPTIONS was propagated and honoured by V8.
+                  NODE_OPTIONS_VAL="N/A"
+                  V8_HEAP_LIMIT_MB="N/A"
+                  if [ -n "$RELAY_POD" ]; then
+                    NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+                      sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
+                      || NODE_OPTIONS_VAL="(exec failed)"
+                    V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+                      node -e "const v8=require('v8');const s=v8.getHeapStatistics();console.log(Math.round(s.heap_size_limit/1024/1024))" \
+                      2>/dev/null) || V8_RAW=""
+                    [ -n "$V8_RAW" ] && V8_HEAP_LIMIT_MB="${V8_RAW}MB"
+                  fi
+
                   # ── Echo all KPIs to step log (always visible regardless of summary write) ──
                   echo "============================================"
                   echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
@@ -208,6 +263,8 @@ jobs:
                   echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
                   echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
                   echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
+                  echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
+                  echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
                   echo "  OOMKills         : ${OOM_STATUS}"
                   echo "  Restarts         : ${RELAY_RESTARTS}"
                   echo "============================================"
@@ -231,6 +288,11 @@ jobs:
                   printf '|---|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Relay (HTTP) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Relay (ws)   | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+
+                  printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
                   printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
