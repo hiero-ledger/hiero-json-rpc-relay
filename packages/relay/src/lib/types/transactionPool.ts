@@ -28,9 +28,10 @@ export interface TransactionPoolService {
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
+   * @param fallbackToZero - When true, returns 0 instead of throwing on storage errors.
    * @returns A promise that resolves to the number of pending transactions.
    */
-  getPendingCount(address: string): Promise<number>;
+  getPendingCount(address: string, fallbackToZero?: boolean): Promise<number>;
 
   /**
    * Retrieves all pending transaction RLP payloads for a given address.
