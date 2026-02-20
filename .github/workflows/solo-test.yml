@@ -152,26 +152,9 @@ jobs:
                   WALL_TIME="$(( WALL_SECS / 60 ))m $(( WALL_SECS % 60 ))s"
 
                   # ── Test results from JUnit XML (Mocha format) ───────────
-                  # Parse the root <testsuites> element which carries aggregated totals.
-                  # Uses awk with '"' delimiter — portable, no PCRE dependency.
-                  TOTAL=0; PASSED=0; FAILURES=0; DURATION_S="0.0"
-                  if compgen -G "test-results.*.xml" > /dev/null 2>&1; then
-                    TOTAL=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / tests=$/) s+=$(i+1) } END { print s+0 }' test-results.*.xml)
-                    FAILURES=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / failures=$/) s+=$(i+1) } END { print s+0 }' test-results.*.xml)
-                    DURATION_S=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / time=$/) s+=$(i+1) } END { printf "%.1f", s }' test-results.*.xml)
-                    PASSED=$(( TOTAL - FAILURES ))
-                  fi
-
-                  # ── TPS estimate (test-cases / wall-clock seconds) ───────
-                  TPS="N/A"
-                  if [ "$TOTAL" -gt 0 ] 2>/dev/null && [ "$WALL_SECS" -gt 0 ] 2>/dev/null; then
-                    TPS=$(awk "BEGIN { printf \"%.2f\", $TOTAL / $WALL_SECS }")
-                  fi
-
                   # ── Pod resource snapshot via metrics-server ─────────────
-                  # Capture both header and no-header forms before the heredoc.
-                  # Embedded $(...) inside a heredoc runs in a subshell that does not
-                  # inherit the runner environment reliably; pre-computing avoids that.
+                  # Capture both forms up-front. Embedded $(...) inside a heredoc runs
+                  # in a subshell that does not inherit the runner environment reliably.
                   TOP_FULL=$(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1) || TOP_FULL="(kubectl top unavailable)"
                   TOP_OUTPUT=$(echo "$TOP_FULL" | tail -n +2)   # strip header row for parsing
 
@@ -184,12 +167,6 @@ jobs:
                                          && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
                   [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') \
                                          && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
-
-                  # ── Consensus node metrics ───────────────────────────────
-                  NODE_CPU="N/A"; NODE_MEM="N/A"
-                  NODE_LINE=$(echo "$TOP_OUTPUT" | grep -E '^network-node' | head -1)
-                  [ -n "$NODE_LINE" ] && NODE_CPU=$(echo "$NODE_LINE" | awk '{print $2}') \
-                                     && NODE_MEM=$(echo "$NODE_LINE" | awk '{print $3}')
 
                   # ── OOMKill detection ────────────────────────────────────
                   OOM_STATUS="None detected"
@@ -225,20 +202,14 @@ jobs:
                   echo "============================================"
                   echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
                   echo "============================================"
-                  echo "  Job Status    : ${TEST_STATUS}"
-                  echo "  Wall-Clock    : ${WALL_TIME}"
-                  echo "  Tests Total   : ${TOTAL}"
-                  echo "  Tests Passed  : ${PASSED}"
-                  echo "  Tests Failed  : ${FAILURES}"
-                  echo "  Suite Time(s) : ${DURATION_S}"
-                  echo "  Est. TPS      : ${TPS}"
+                  echo "  Test Status      : ${TEST_STATUS}"
+                  echo "  Test Total Time  : ${WALL_TIME}"
                   echo "--------------------------------------------"
-                  echo "  Relay (rpc)   : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
-                  echo "  Relay (ws)    : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
-                  echo "  Consensus     : CPU=${NODE_CPU}  MEM=${NODE_MEM}"
-                  echo "  Relay Limits  : ${CONFIGURED_LIMITS}"
-                  echo "  OOMKills      : ${OOM_STATUS}"
-                  echo "  Restarts      : ${RELAY_RESTARTS}"
+                  echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
+                  echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
+                  echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
+                  echo "  OOMKills         : ${OOM_STATUS}"
+                  echo "  Restarts         : ${RELAY_RESTARTS}"
                   echo "============================================"
                   echo ""
                   echo "==> All pod resources:"
@@ -250,28 +221,16 @@ jobs:
                   # Use printf to append each section: avoids heredoc quoting/escaping
                   # pitfalls and makes each write independently verifiable.
                   printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Key | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Runner | `hiero-smart-contracts-linux-large` |\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Test Suite | `acceptancetest:xts` |\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Job Status | `%s` |\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Wall-Clock Duration | `%s` |\n\n' "${WALL_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Test Status | `%s` |\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Test Total Run Time | `%s` |\n\n' "${WALL_TIME}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  printf '### Test Results\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Total | Passed | Failed | Suite Duration (s) | Est. TPS |\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '|:---:|:---:|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| %s | %s | %s | %s | %s |\n\n' \
-                    "${TOTAL}" "${PASSED}" "${FAILURES}" "${DURATION_S}" "${TPS}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '### Relay Resource Consumption (snapshot at test end)\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '### Relay Resources\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Component | CPU | Memory (RSS) | Configured Limit |\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '|---|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| relay (rpc) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| relay (ws)  | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '### Consensus Node Resources\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Component | CPU | Memory |\n|---|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| network-node1 | %s | %s |\n\n' "${NODE_CPU}" "${NODE_MEM}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Relay (HTTP) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Relay (ws)   | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
 
                   printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
