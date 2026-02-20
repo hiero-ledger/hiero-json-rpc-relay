@@ -909,9 +909,9 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
-          "name": "Filter",
+          "name": "LogFilter",
           "schema": {
-            "$ref": "#/components/schemas/Filter"
+            "$ref": "#/components/schemas/LogFilter"
           }
         }
       ],
