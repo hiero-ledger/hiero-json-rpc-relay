@@ -169,24 +169,27 @@ jobs:
                   fi
 
                   # ── Pod resource snapshot via metrics-server ─────────────
-                  echo "==> Pod resource usage at end of test run:"
-                  TOP_OUTPUT=$(kubectl top pods -n "${SOLO_NAMESPACE}" --no-headers 2>&1) || true
-                  echo "$TOP_OUTPUT"
+                  # Capture both header and no-header forms before the heredoc.
+                  # Embedded $(...) inside a heredoc runs in a subshell that does not
+                  # inherit the runner environment reliably; pre-computing avoids that.
+                  TOP_FULL=$(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1) || TOP_FULL="(kubectl top unavailable)"
+                  TOP_OUTPUT=$(echo "$TOP_FULL" | tail -n +2)   # strip header row for parsing
 
                   # ── Relay-specific metrics from kubectl top ──────────────
                   RELAY_CPU="N/A"; RELAY_MEM="N/A"
                   RELAY_WS_CPU="N/A"; RELAY_WS_MEM="N/A"
-                  if [ -n "$TOP_OUTPUT" ]; then
-                    RELAY_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
-                    RELAY_WS_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-ws-' | head -1)
-                    [ -n "$RELAY_LINE" ]    && RELAY_CPU=$(echo "$RELAY_LINE" | awk '{print $2}') && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
-                    [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
-                  fi
+                  RELAY_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
+                  RELAY_WS_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-ws-' | head -1)
+                  [ -n "$RELAY_LINE" ]    && RELAY_CPU=$(echo "$RELAY_LINE" | awk '{print $2}') \
+                                         && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
+                  [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') \
+                                         && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
 
-                  # ── Consensus node metrics ──────────────────────────────
+                  # ── Consensus node metrics ───────────────────────────────
                   NODE_CPU="N/A"; NODE_MEM="N/A"
                   NODE_LINE=$(echo "$TOP_OUTPUT" | grep -E '^network-node' | head -1)
-                  [ -n "$NODE_LINE" ] && NODE_CPU=$(echo "$NODE_LINE" | awk '{print $2}') && NODE_MEM=$(echo "$NODE_LINE" | awk '{print $3}')
+                  [ -n "$NODE_LINE" ] && NODE_CPU=$(echo "$NODE_LINE" | awk '{print $2}') \
+                                     && NODE_MEM=$(echo "$NODE_LINE" | awk '{print $3}')
 
                   # ── OOMKill detection ────────────────────────────────────
                   OOM_STATUS="None detected"
@@ -200,80 +203,86 @@ jobs:
                               if c.get(sk, {}).get('terminated', {}).get('reason') == 'OOMKilled':
                                   oom.add(p['metadata']['name'])
                   print(', '.join(sorted(oom)) if oom else '')
-                  " 2>/dev/null) || true
-                  [ -n "$OOM_PODS" ] && OOM_STATUS="**OOMKilled:** $OOM_PODS"
+                  " 2>/dev/null) || OOM_PODS=""
+                  [ -n "$OOM_PODS" ] && OOM_STATUS="OOMKilled: $OOM_PODS"
 
                   # ── Relay restart count ──────────────────────────────────
                   RELAY_RESTARTS=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
                     | awk '/^relay-/ { sum += $4 } END { print sum+0 }') || RELAY_RESTARTS="N/A"
 
                   # ── Relay pod resource limits from spec ──────────────────
-                  echo "==> Relay pod resource configuration:"
                   RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
                     -o custom-columns=":metadata.name" 2>/dev/null \
-                    | grep -E '^relay-[0-9]+-[^w]' | head -1) || true
+                    | grep -E '^relay-[0-9]+-[^w]' | head -1) || RELAY_POD=""
                   CONFIGURED_LIMITS="(not found)"
                   if [ -n "$RELAY_POD" ]; then
                     CONFIGURED_LIMITS=$(kubectl get pod "$RELAY_POD" -n "${SOLO_NAMESPACE}" \
-                      -o jsonpath='{range .spec.containers[*]}{.name}: cpu={.resources.limits.cpu}, mem={.resources.limits.memory}{"\n"}{end}' 2>/dev/null) || true
-                    echo "$CONFIGURED_LIMITS"
+                      -o jsonpath='{range .spec.containers[*]}{.name}: cpu={.resources.limits.cpu}, mem={.resources.limits.memory}{"\n"}{end}' \
+                      2>/dev/null) || CONFIGURED_LIMITS="(query failed)"
                   fi
 
+                  # ── Echo all KPIs to step log (always visible regardless of summary write) ──
+                  echo "============================================"
+                  echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
+                  echo "============================================"
+                  echo "  Job Status    : ${TEST_STATUS}"
+                  echo "  Wall-Clock    : ${WALL_TIME}"
+                  echo "  Tests Total   : ${TOTAL}"
+                  echo "  Tests Passed  : ${PASSED}"
+                  echo "  Tests Failed  : ${FAILURES}"
+                  echo "  Suite Time(s) : ${DURATION_S}"
+                  echo "  Est. TPS      : ${TPS}"
+                  echo "--------------------------------------------"
+                  echo "  Relay (rpc)   : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
+                  echo "  Relay (ws)    : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
+                  echo "  Consensus     : CPU=${NODE_CPU}  MEM=${NODE_MEM}"
+                  echo "  Relay Limits  : ${CONFIGURED_LIMITS}"
+                  echo "  OOMKills      : ${OOM_STATUS}"
+                  echo "  Restarts      : ${RELAY_RESTARTS}"
+                  echo "============================================"
+                  echo ""
+                  echo "==> All pod resources:"
+                  echo "${TOP_FULL}"
+
                   # ── Write GitHub Job Summary ─────────────────────────────
-                  cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
-                  ## Solo Memory Benchmark — \`${MEMORY_LIMIT}\`
+                  # All variables are pre-computed; no command substitutions inside
+                  # the heredoc to avoid subshell environment inheritance issues.
+                  # Use printf to append each section: avoids heredoc quoting/escaping
+                  # pitfalls and makes each write independently verifiable.
+                  printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Key | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Runner | `hiero-smart-contracts-linux-large` |\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Test Suite | `acceptancetest:xts` |\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Job Status | `%s` |\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Wall-Clock Duration | `%s` |\n\n' "${WALL_TIME}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  | Key | Value |
-                  |---|---|
-                  | Memory Limit | \`${MEMORY_LIMIT}\` |
-                  | Runner | \`hiero-smart-contracts-linux-large\` |
-                  | Test Suite | \`acceptancetest:xts\` |
-                  | Job Status | \`${TEST_STATUS}\` |
-                  | Wall-Clock Duration | \`${WALL_TIME}\` |
+                  printf '### Test Results\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Total | Passed | Failed | Suite Duration (s) | Est. TPS |\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '|:---:|:---:|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| %s | %s | %s | %s | %s |\n\n' \
+                    "${TOTAL}" "${PASSED}" "${FAILURES}" "${DURATION_S}" "${TPS}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  ### Test Results
-                  | Total | Passed | Failed | Suite Duration (s) | Est. TPS (tests / wall-s) |
-                  |:---:|:---:|:---:|:---:|:---:|
-                  | ${TOTAL} | ${PASSED} | ${FAILURES} | ${DURATION_S} | ${TPS} |
+                  printf '### Relay Resource Consumption (snapshot at test end)\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Component | CPU | Memory (RSS) | Configured Limit |\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '|---|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| relay (rpc) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| relay (ws)  | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  ### Relay Resource Consumption (snapshot at test end)
-                  | Component | CPU | Memory (RSS) | Configured Limit |
-                  |---|:---:|:---:|:---:|
-                  | relay (rpc) | ${RELAY_CPU} | ${RELAY_MEM} | \`${MEMORY_LIMIT}\` |
-                  | relay (ws) | ${RELAY_WS_CPU} | ${RELAY_WS_MEM} | \`${MEMORY_LIMIT}\` |
+                  printf '### Consensus Node Resources\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Component | CPU | Memory |\n|---|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| network-node1 | %s | %s |\n\n' "${NODE_CPU}" "${NODE_MEM}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  ### Consensus Node Resources
-                  | Component | CPU | Memory |
-                  |---|:---:|:---:|
-                  | network-node1 | ${NODE_CPU} | ${NODE_MEM} |
+                  printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| OOMKill Events | %s |\n' "${OOM_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Relay Restart Count | %s |\n\n' "${RELAY_RESTARTS}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  ### Health & Stability
-                  | Metric | Value |
-                  |---|---|
-                  | OOMKill Events | ${OOM_STATUS} |
-                  | Relay Restart Count | ${RELAY_RESTARTS} |
+                  printf '<details><summary>All Pod Resources (<code>kubectl top</code>)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+                    "${TOP_FULL}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '<details><summary>Relay Container Limits (from pod spec)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+                    "${CONFIGURED_LIMITS}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '---\n> **Reading guide:**\n> - Relay Memory ≈ limit → under pressure; OOMKills likely at higher load.\n> - Relay Memory ≪ limit → room for further reduction.\n> - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.\n' \
+                    >> "${GITHUB_STEP_SUMMARY}"
 
-                  <details><summary>All Pod Resources (<code>kubectl top</code>)</summary>
-
-                  \`\`\`
-                  $(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1 || echo "(unavailable)")
-                  \`\`\`
-
-                  </details>
-
-                  <details><summary>Relay Container Limits (from pod spec)</summary>
-
-                  \`\`\`
-                  ${CONFIGURED_LIMITS}
-                  \`\`\`
-
-                  </details>
-
-                  ---
-                  > **Reading guide:**
-                  > - Relay Memory ≈ limit → under memory pressure; OOMKills likely at higher load.
-                  > - Relay Memory ≪ limit → room for further reduction.
-                  > - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.
-                  SUMMARY
-
-                  echo "DOD Report written to GitHub Job Summary."
+                  echo "Report written to GitHub Job Summary."
