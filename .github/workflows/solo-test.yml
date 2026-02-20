@@ -15,8 +15,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                # memory_limit: [1000Mi, 512Mi, 256Mi, 64Mi]
-                memory_limit: [64Mi]
+                memory_limit: [1000Mi, 512Mi, 256Mi, 128Mi, 64Mi]
         permissions:
             contents: read
             checks: write
@@ -86,20 +85,19 @@ jobs:
 
             - name: Run Solo Relay
               id: run-relay
-              # continue-on-error: the relay pod will be OOMKilled at initialisation
-              # for very small limits (e.g. 64Mi) because 64Mi is below the minimum
-              # resident set needed to start Node.js + the relay stack. Solo's internal
-              # readiness poll will exhaust its retries and exit non-zero. We treat
-              # this as a valid, reportable data-point rather than a hard job failure.
+              # continue-on-error: 128Mi may OOMKill before the relay passes its readiness
+              # probe; Solo's internal poll will exhaust its retries and exit non-zero.
+              # This is an expected, measured data-point for this phase — not an
+              # infrastructure failure. Execution continues so the report step can
+              # capture the OOMKill event and startup duration.
               continue-on-error: true
               run: |
-                  # Compute the V8 old-space budget as 75% of the container memory limit.
-                  # This leaves ~25% headroom for V8's code cache, stack, and other
-                  # off-heap regions that sit outside the managed heap.
-                  MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
-                  OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
-                  echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
+                  # Capture absolute start time for relay startup duration KPI.
+                  RELAY_START=$(date +%s)
 
+                  # Phase 1 baseline: resource limits only, no V8/config overrides.
+                  # NODE_OPTIONS and other tuning belong in phase 2, after reviewing
+                  # the startup-time and e2e-test-time data from these three profiles.
                   cat <<EOF > relay-resources.yaml
                   relay:
                     resources:
@@ -109,11 +107,16 @@ jobs:
                       limits:
                         cpu: 1100m
                         memory: ${{ matrix.memory_limit }}
-                    config:
-                      NODE_OPTIONS: "--max-old-space-size=${OLD_SPACE_MB}"
                   EOF
                   cat relay-resources.yaml
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
+
+                  # Record startup seconds regardless of outcome; an OOMKill still
+                  # produces a meaningful "time until failure" data-point.
+                  RELAY_END=$(date +%s)
+                  STARTUP_SECS=$(( RELAY_END - RELAY_START ))
+                  echo "Relay startup time: ${STARTUP_SECS}s"
+                  echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
 
             - name: check Relay Resources
               if: steps.run-relay.outcome == 'success'
@@ -189,25 +192,42 @@ jobs:
                   USE_INTERNAL_RELAY: false
               run: npm run acceptancetest:xts
 
+            - name: Record test end time
+              if: always()
+              id: test-end-time
+              run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
+
             - name: Generate Report
               if: always()
               env:
                   MEMORY_LIMIT: ${{ matrix.memory_limit }}
                   TEST_STATUS: ${{ job.status }}
                   TEST_START: ${{ steps.test-timing.outputs.start }}
+                  TEST_END: ${{ steps.test-end-time.outputs.end }}
+                  RELAY_STARTUP_SECS: ${{ steps.run-relay.outputs.startup_secs }}
                   RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
               run: |
                   set +e  # individual command failures must not abort the report
 
-                  # ── Wall-clock test duration ──────────────────────────────
-                  END_TIME=$(date +%s)
-                  WALL_SECS=$(( END_TIME - ${TEST_START:-$END_TIME} ))
-                  WALL_TIME="$(( WALL_SECS / 60 ))m $(( WALL_SECS % 60 ))s"
+                  # ── E2E test duration (XTS suite wall-clock time) ─────────
+                  # TEST_END is set by the dedicated "Record test end time" step
+                  # immediately after the acceptance test runner finishes, giving
+                  # a clean measurement of test execution time independent of the
+                  # report-generation overhead.
+                  E2E_SECS=$(( ${TEST_END:-0} - ${TEST_START:-${TEST_END:-0}} ))
+                  E2E_TIME="$(( E2E_SECS / 60 ))m $(( E2E_SECS % 60 ))s"
+                  [ "${E2E_SECS}" -le 0 ] && E2E_TIME="N/A"
+
+                  # ── Relay startup duration ────────────────────────────────
+                  # Measured from before `solo relay node add` to after it returns,
+                  # covering image pull, pod scheduling, and Solo's readiness poll.
+                  if [ -n "${RELAY_STARTUP_SECS}" ] && [ "${RELAY_STARTUP_SECS}" -gt 0 ]; then
+                    STARTUP_TIME="$(( RELAY_STARTUP_SECS / 60 ))m $(( RELAY_STARTUP_SECS % 60 ))s"
+                  else
+                    STARTUP_TIME="N/A"
+                  fi
 
                   # ── Relay startup status ──────────────────────────────────
-                  # Distinguish between "relay OOMKilled before it became ready"
-                  # (startup failure) and "relay ran but was OOMKilled under load"
-                  # (runtime failure). Both are valid data-points.
                   if [ "${RELAY_STARTUP_OUTCOME}" != "success" ]; then
                     STARTUP_NOTE="FAILED — Pod never became ready (OOMKilled at init)"
                   else
@@ -282,7 +302,8 @@ jobs:
                   echo "============================================"
                   echo "  Test Status      : ${TEST_STATUS}"
                   echo "  Relay Startup    : ${STARTUP_NOTE}"
-                  echo "  Test Total Time  : ${WALL_TIME}"
+                  echo "  Relay Start Time : ${STARTUP_TIME}"
+                  echo "  E2E Test Time    : ${E2E_TIME}"
                   echo "--------------------------------------------"
                   echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
                   echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
@@ -304,9 +325,10 @@ jobs:
                   printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Relay Startup | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Test Status | `%s` |\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Test Total Run Time | `%s` |\n\n' "${WALL_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| **Relay Startup Time** | **`%s`** |\n' "${STARTUP_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| **E2E Test Time (XTS)** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Test Status | `%s` |\n\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
 
                   printf '### Relay Resources\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Component | CPU | Memory (RSS) | Configured Limit |\n' >> "${GITHUB_STEP_SUMMARY}"
