@@ -61,6 +61,16 @@ jobs:
             - name: Configure and run solo
               run: |
                   kind create cluster -n "${SOLO_CLUSTER_NAME}"
+
+                  # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
+                  # because Kind kubelets use self-signed certificates.
+                  # See: https://github.com/kubernetes-sigs/metrics-server#requirements
+                  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+                  kubectl patch deployment metrics-server -n kube-system \
+                    --type=json \
+                    -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+                  kubectl rollout status deployment/metrics-server -n kube-system --timeout=120s
+
                   # initialize solo
                   solo init
                   solo cluster-ref config connect --cluster-ref kind-${SOLO_CLUSTER_NAME} --context kind-${SOLO_CLUSTER_NAME}
