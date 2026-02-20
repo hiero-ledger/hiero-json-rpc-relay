@@ -12,8 +12,8 @@ help:
 	@echo "  make run-relay-1000      - Add Relay with 1000Mi memory limit (baseline)"
 	@echo "  make run-relay-512       - Add Relay with 512Mi memory limit"
 	@echo "  make run-relay-256       - Add Relay with 256Mi memory limit"
+	@echo "  make run-relay-128       - Add Relay with 128Mi memory limit (Fer's strict profiling target: 80MB old, 16MB semi)"
 	@echo "  make run-relay-64        - Add Relay with 64Mi memory limit (P0 target: 48MB old-space)"
-	@echo "  make port-forward        - Port-forward consensus node (50211) to bypass HAProxy timeouts"
 	@echo "  make report              - Show relay resource usage, limits, OOMs, and restarts"
 	@echo "  make clean-solo          - Delete all Solo clusters and configurations"
 
@@ -47,26 +47,33 @@ setup-solo: clean-solo
 	solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
+	$(MAKE) port-forward
 
 .PHONY: run-relay-1000
-run-relay-1000: setup-solo
+run-relay-1000:
 	$(MAKE) run-relay MEMORY_LIMIT=1000Mi
-	$(MAKE) port-forward
 
 .PHONY: run-relay-512
-run-relay-512: setup-solo
+run-relay-512:
 	$(MAKE) run-relay MEMORY_LIMIT=512Mi
-	$(MAKE) port-forward
 
 .PHONY: run-relay-256
-run-relay-256: setup-solo
+run-relay-256:
 	$(MAKE) run-relay MEMORY_LIMIT=256Mi
-	$(MAKE) port-forward
+
+.PHONY: run-relay-128
+run-relay-128:
+	$(MAKE) run-relay MEMORY_LIMIT=128Mi OLD_SPACE=80 SEMI_SPACE=16
 
 .PHONY: run-relay-64
-run-relay-64: setup-solo
+run-relay-64:
 	$(MAKE) run-relay MEMORY_LIMIT=64Mi
-	$(MAKE) port-forward
+
+.PHONY: port-forward
+port-forward:
+	@echo "Port-forwarding consensus node port 50211..."
+	kill -9 $$(lsof -ti :50211) || true
+	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &	
 
 .PHONY: run-relay
 run-relay: 
@@ -85,11 +92,6 @@ run-relay:
 	rm relay-resources.yaml; \
 	echo "Relay setup complete with $(MEMORY_LIMIT) limit."
 
-.PHONY: port-forward
-port-forward:
-	@echo "Port-forwarding consensus node port 50211..."
-	-sudo kill -9 $$(sudo lsof -ti :50211) || true
-	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211
 
 .PHONY: report
 report:
