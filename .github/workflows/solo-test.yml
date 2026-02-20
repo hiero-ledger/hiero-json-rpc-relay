@@ -119,6 +119,10 @@ jobs:
             - name: Build Relay
               run: npm run build
 
+            - name: Record test start time
+              id: test-timing
+              run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+
             - name: Start json-rpc-relay-test-client
               env:
                   CHAIN_ID: "0x12a"
@@ -133,80 +137,143 @@ jobs:
                   USE_INTERNAL_RELAY: false
               run: npm run acceptancetest:xts
 
-            - name: Generate DOD Report
+            - name: Generate Report
               if: always()
+              env:
+                  MEMORY_LIMIT: ${{ matrix.memory_limit }}
+                  TEST_STATUS: ${{ job.status }}
+                  TEST_START: ${{ steps.test-timing.outputs.start }}
               run: |
-                  MEMORY_LIMIT="${{ matrix.memory_limit }}"
-                  TEST_STATUS="${{ job.status }}"
+                  set +e  # individual command failures must not abort the report
 
-                  # --- Test Results from JUnit XML ---
-                  TOTAL=0; PASSED=0; FAILURES=0; SKIPPED=0; DURATION_S=0
-                  if ls test-*.xml &>/dev/null; then
-                    TOTAL=$(grep -h '<testsuite ' test-*.xml | grep -oP 'tests="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
-                    FAILURES=$(grep -h '<testsuite ' test-*.xml | grep -oP 'failures="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
-                    ERRORS=$(grep -h '<testsuite ' test-*.xml | grep -oP 'errors="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
-                    SKIPPED=$(grep -h '<testsuite ' test-*.xml | grep -oP 'skipped="\K[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
-                    DURATION_S=$(grep -h '<testsuite ' test-*.xml | grep -oP 'time="\K[0-9.]+' | paste -sd+ | bc 2>/dev/null || echo 0)
-                    FAILURES=$((FAILURES + ERRORS))
-                    PASSED=$((TOTAL - FAILURES - SKIPPED))
+                  # ── Wall-clock test duration ──────────────────────────────
+                  END_TIME=$(date +%s)
+                  WALL_SECS=$(( END_TIME - ${TEST_START:-$END_TIME} ))
+                  WALL_TIME="$(( WALL_SECS / 60 ))m $(( WALL_SECS % 60 ))s"
+
+                  # ── Test results from JUnit XML (Mocha format) ───────────
+                  # Parse the root <testsuites> element which carries aggregated totals.
+                  # Uses awk with '"' delimiter — portable, no PCRE dependency.
+                  TOTAL=0; PASSED=0; FAILURES=0; DURATION_S="0.0"
+                  if compgen -G "test-results.*.xml" > /dev/null 2>&1; then
+                    TOTAL=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / tests=$/) s+=$(i+1) } END { print s+0 }' test-results.*.xml)
+                    FAILURES=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / failures=$/) s+=$(i+1) } END { print s+0 }' test-results.*.xml)
+                    DURATION_S=$(awk -F'"' '/<testsuites / { for(i=1;i<=NF;i++) if($(i) ~ / time=$/) s+=$(i+1) } END { printf "%.1f", s }' test-results.*.xml)
+                    PASSED=$(( TOTAL - FAILURES ))
                   fi
 
-                  # --- TPS estimation ---
+                  # ── TPS estimate (test-cases / wall-clock seconds) ───────
                   TPS="N/A"
-                  if [ "$DURATION_S" != "0" ] && [ "$TOTAL" != "0" ]; then
-                    TPS=$(echo "scale=2; $TOTAL / $DURATION_S" | bc 2>/dev/null || echo "N/A")
+                  if [ "$TOTAL" -gt 0 ] 2>/dev/null && [ "$WALL_SECS" -gt 0 ] 2>/dev/null; then
+                    TPS=$(awk "BEGIN { printf \"%.2f\", $TOTAL / $WALL_SECS }")
                   fi
 
-                  # --- Pod resource usage (actual RSS vs limit) ---
+                  # ── Pod resource snapshot via metrics-server ─────────────
                   echo "==> Pod resource usage at end of test run:"
-                  kubectl top pods -n "${SOLO_NAMESPACE}" || echo "(kubectl top unavailable - metrics-server may not be installed)"
+                  TOP_OUTPUT=$(kubectl top pods -n "${SOLO_NAMESPACE}" --no-headers 2>&1) || true
+                  echo "$TOP_OUTPUT"
 
-                  # --- OOMKill detection ---
+                  # ── Relay-specific metrics from kubectl top ──────────────
+                  RELAY_CPU="N/A"; RELAY_MEM="N/A"
+                  RELAY_WS_CPU="N/A"; RELAY_WS_MEM="N/A"
+                  if [ -n "$TOP_OUTPUT" ]; then
+                    RELAY_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
+                    RELAY_WS_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-ws-' | head -1)
+                    [ -n "$RELAY_LINE" ]    && RELAY_CPU=$(echo "$RELAY_LINE" | awk '{print $2}') && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
+                    [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
+                  fi
+
+                  # ── Consensus node metrics ──────────────────────────────
+                  NODE_CPU="N/A"; NODE_MEM="N/A"
+                  NODE_LINE=$(echo "$TOP_OUTPUT" | grep -E '^network-node' | head -1)
+                  [ -n "$NODE_LINE" ] && NODE_CPU=$(echo "$NODE_LINE" | awk '{print $2}') && NODE_MEM=$(echo "$NODE_LINE" | awk '{print $3}')
+
+                  # ── OOMKill detection ────────────────────────────────────
                   OOM_STATUS="None detected"
-                  OOM_PODS=$(kubectl get pods -n "${SOLO_NAMESPACE}" -o json | \
-                    python3 -c "
+                  OOM_PODS=$(kubectl get pods -n "${SOLO_NAMESPACE}" -o json 2>/dev/null | python3 -c "
                   import sys, json
-                  pods = json.load(sys.stdin)
-                  oom = [
-                    c['name']
-                    for p in pods.get('items', [])
-                    for c in p.get('status', {}).get('containerStatuses', [])
-                    if c.get('lastState', {}).get('terminated', {}).get('reason') == 'OOMKilled'
-                       or c.get('state', {}).get('terminated', {}).get('reason') == 'OOMKilled'
-                  ]
-                  print(', '.join(oom) if oom else '')
-                  " 2>/dev/null || echo "")
+                  data = json.load(sys.stdin)
+                  oom = set()
+                  for p in data.get('items', []):
+                      for c in p.get('status', {}).get('containerStatuses', []):
+                          for sk in ('state', 'lastState'):
+                              if c.get(sk, {}).get('terminated', {}).get('reason') == 'OOMKilled':
+                                  oom.add(p['metadata']['name'])
+                  print(', '.join(sorted(oom)) if oom else '')
+                  " 2>/dev/null) || true
                   [ -n "$OOM_PODS" ] && OOM_STATUS="**OOMKilled:** $OOM_PODS"
 
-                  # --- Relay pod describe for resource config confirmation ---
-                  echo "==> Relay pod limits:"
-                  kubectl -n "${SOLO_NAMESPACE}" describe pods -l app.kubernetes.io/name=hedera-json-rpc-relay \
-                    | grep -A 5 "Limits:" || echo "(relay pod not found)"
+                  # ── Relay restart count ──────────────────────────────────
+                  RELAY_RESTARTS=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
+                    | awk '/^relay-/ { sum += $4 } END { print sum+0 }') || RELAY_RESTARTS="N/A"
 
-                  # --- Write GitHub Job Summary ---
+                  # ── Relay pod resource limits from spec ──────────────────
+                  echo "==> Relay pod resource configuration:"
+                  RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+                    -o custom-columns=":metadata.name" 2>/dev/null \
+                    | grep -E '^relay-[0-9]+-[^w]' | head -1) || true
+                  CONFIGURED_LIMITS="(not found)"
+                  if [ -n "$RELAY_POD" ]; then
+                    CONFIGURED_LIMITS=$(kubectl get pod "$RELAY_POD" -n "${SOLO_NAMESPACE}" \
+                      -o jsonpath='{range .spec.containers[*]}{.name}: cpu={.resources.limits.cpu}, mem={.resources.limits.memory}{"\n"}{end}' 2>/dev/null) || true
+                    echo "$CONFIGURED_LIMITS"
+                  fi
+
+                  # ── Write GitHub Job Summary ─────────────────────────────
                   cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
-                  ## Solo Test Report — Memory Profile: \`${MEMORY_LIMIT}\`
+                  ## Solo Memory Benchmark — \`${MEMORY_LIMIT}\`
 
-                  ### Environment
                   | Key | Value |
                   |---|---|
                   | Memory Limit | \`${MEMORY_LIMIT}\` |
                   | Runner | \`hiero-smart-contracts-linux-large\` |
                   | Test Suite | \`acceptancetest:xts\` |
-                  | Overall Status | \`${TEST_STATUS}\` |
+                  | Job Status | \`${TEST_STATUS}\` |
+                  | Wall-Clock Duration | \`${WALL_TIME}\` |
 
                   ### Test Results
-                  | Total | Passed | Failed | Skipped | Duration (s) | Est. TPS |
-                  |---|---|---|---|---|---|
-                  | ${TOTAL} | ${PASSED} | ${FAILURES} | ${SKIPPED} | ${DURATION_S} | ${TPS} |
+                  | Total | Passed | Failed | Suite Duration (s) | Est. TPS (tests / wall-s) |
+                  |:---:|:---:|:---:|:---:|:---:|
+                  | ${TOTAL} | ${PASSED} | ${FAILURES} | ${DURATION_S} | ${TPS} |
 
-                  ### Memory Health
-                  | Configured Limit | OOMKill Events |
+                  ### Relay Resource Consumption (snapshot at test end)
+                  | Component | CPU | Memory (RSS) | Configured Limit |
+                  |---|:---:|:---:|:---:|
+                  | relay (rpc) | ${RELAY_CPU} | ${RELAY_MEM} | \`${MEMORY_LIMIT}\` |
+                  | relay (ws) | ${RELAY_WS_CPU} | ${RELAY_WS_MEM} | \`${MEMORY_LIMIT}\` |
+
+                  ### Consensus Node Resources
+                  | Component | CPU | Memory |
+                  |---|:---:|:---:|
+                  | network-node1 | ${NODE_CPU} | ${NODE_MEM} |
+
+                  ### Health & Stability
+                  | Metric | Value |
                   |---|---|
-                  | \`${MEMORY_LIMIT}\` | ${OOM_STATUS} |
+                  | OOMKill Events | ${OOM_STATUS} |
+                  | Relay Restart Count | ${RELAY_RESTARTS} |
 
-                  > **Note:** Actual peak RSS visible in the \`kubectl top pods\` output in the step logs above.
-                  > TPS is estimated as total test cases / total test duration — for Hedera tx TPS, refer to relay logs.
+                  <details><summary>All Pod Resources (<code>kubectl top</code>)</summary>
+
+                  \`\`\`
+                  $(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1 || echo "(unavailable)")
+                  \`\`\`
+
+                  </details>
+
+                  <details><summary>Relay Container Limits (from pod spec)</summary>
+
+                  \`\`\`
+                  ${CONFIGURED_LIMITS}
+                  \`\`\`
+
+                  </details>
+
+                  ---
+                  > **Reading guide:**
+                  > - Relay Memory ≈ limit → under memory pressure; OOMKills likely at higher load.
+                  > - Relay Memory ≪ limit → room for further reduction.
+                  > - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.
                   SUMMARY
 
                   echo "DOD Report written to GitHub Job Summary."
