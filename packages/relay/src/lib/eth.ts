@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
@@ -1039,7 +1038,6 @@ export class EthImpl implements Eth {
     ],
   })
   public async getLogs(params: IGetLogsParams, requestDetails: RequestDetails): Promise<Log[]> {
-    new ethers.Signature.from();
     return this.contractService.getLogs(params, requestDetails);
   }
 

@@ -1983,7 +1983,7 @@
         "type": "string",
         "enum": ["callTracer", "prestateTracer"]
       },
-      "TransactionWithSender": {
+      "GenericTransaction": {
         "title": "Transaction object with sender",
         "type": "object",
         "allOf": [
@@ -2061,7 +2061,7 @@
           },
           "accessList": {
             "title": "accessList",
-            "description": "EIP-2930 access list",
+            "description": "EIP-2930 access list - not supported, always empty",
             "$ref": "#/components/schemas/AccessList"
           },
           "chainId": {
@@ -2157,10 +2157,10 @@
       "TransactionUnsigned": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/Transaction4844Unsigned"
+            "$ref": "#/components/schemas/Transaction1559Unsigned"
           },
           {
-            "$ref": "#/components/schemas/Transaction1559Unsigned"
+            "$ref": "#/components/schemas/TransactionLegacyUnsigned"
           }
         ]
       },
@@ -2438,8 +2438,8 @@
                 "$ref": "#/components/schemas/address"
               },
               {
-                "title": "Address",
-                "$ref": "#/components/schemas/address"
+                "title": "Addresses",
+                "$ref": "#/components/schemas/addresses"
               }
             ]
           },
@@ -2460,8 +2460,8 @@
         "title": "Filter Topic List Entry",
         "oneOf": [
           {
-            "title": "Single Topic Match",
-            "$ref": "#/components/schemas/bytes32"
+            "title": "Any Topic Match",
+            "type": "null"
           },
           {
             "title": "Single Topic Match",
@@ -2586,6 +2586,31 @@
             "type": "boolean"
           }
         ]
+      },
+      "AccessList": {
+        "title": "accessList",
+        "type": "array",
+        "description": "EIP-2930 access list - not supported, always empty",
+        "items": {
+          "title": "Access list entry",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "title": "hex encoded address",
+              "type": "string",
+              "pattern": "^0x[0-9,a-f,A-F]{40}$"
+            },
+            "storageKeys": {
+              "type": "array",
+              "items": {
+                "title": "32 byte hex value",
+                "type": "string",
+                "pattern": "^0x[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
       }
     }
   }
