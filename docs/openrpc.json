@@ -2557,6 +2557,35 @@
         "type": "number",
         "minimum": 0,
         "maximum": 1
+      },
+      "SyncingStatus": {
+        "title": "Syncing status",
+        "oneOf": [
+          {
+            "title": "Syncing process",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "startingBlock": {
+                "title": "Starting block",
+                "$ref": "#/components/schemas/uint"
+              },
+              "currentBlock": {
+                "title": "Current block",
+                "$ref": "#/components/schemas/uint"
+              },
+              "highestBlock": {
+                "title": "Highest block",
+                "$ref": "#/components/schemas/uint"
+              }
+            }
+          },
+          {
+            "title": "Not syncing",
+            "description": "Should always return false if not syncing.",
+            "type": "boolean"
+          }
+        ]
       }
     }
   }
