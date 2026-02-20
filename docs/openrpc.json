@@ -57,12 +57,13 @@
         "name": "Accounts",
         "description": "Always returns an empty array",
         "schema": {
-          "title": "Accounts - always empty",
+          "title": "Accounts",
           "type": "array",
           "pattern": "^\\[\\s*\\]$",
           "items": {
             "$ref": "#/components/schemas/address"
-          }
+          },
+          "maxItems": 0
         }
       }
     },
@@ -2061,7 +2062,7 @@
           },
           "accessList": {
             "title": "accessList",
-            "description": "EIP-2930 access list - not supported, always empty",
+            "description": "EIP-2930 access list",
             "$ref": "#/components/schemas/AccessList"
           },
           "chainId": {
@@ -2590,7 +2591,7 @@
       "AccessList": {
         "title": "accessList",
         "type": "array",
-        "description": "EIP-2930 access list - not supported, always empty",
+        "description": "EIP-2930 access list",
         "items": {
           "title": "Access list entry",
           "type": "object",
@@ -2610,7 +2611,8 @@
               }
             }
           }
-        }
+        },
+        "maxItems": 0
       }
     }
   }
