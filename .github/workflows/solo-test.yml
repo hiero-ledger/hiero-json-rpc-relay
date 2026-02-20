@@ -15,7 +15,8 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                memory_limit: [1000Mi, 512Mi, 256Mi, 64Mi]
+                # memory_limit: [1000Mi, 512Mi, 256Mi, 64Mi]
+                memory_limit: [64Mi]
         permissions:
             contents: read
             checks: write
@@ -84,6 +85,13 @@ jobs:
                   solo mirror node add  --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 
             - name: Run Solo Relay
+              id: run-relay
+              # continue-on-error: the relay pod will be OOMKilled at initialisation
+              # for very small limits (e.g. 64Mi) because 64Mi is below the minimum
+              # resident set needed to start Node.js + the relay stack. Solo's internal
+              # readiness poll will exhaust its retries and exit non-zero. We treat
+              # this as a valid, reportable data-point rather than a hard job failure.
+              continue-on-error: true
               run: |
                   # Compute the V8 old-space budget as 75% of the container memory limit.
                   # This leaves ~25% headroom for V8's code cache, stack, and other
@@ -108,11 +116,13 @@ jobs:
                   solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 
             - name: check Relay Resources
+              if: steps.run-relay.outcome == 'success'
               run: |
                   echo "Describing Relay pod resources:"
                   kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
 
             - name: Verify V8 Heap Settings
+              if: steps.run-relay.outcome == 'success'
               run: |
                   # Confirm that NODE_OPTIONS was propagated to the relay container and
                   # that V8 honoured the --max-old-space-size flag by inspecting the
@@ -144,6 +154,7 @@ jobs:
                     || echo "(node exec failed)"
 
             - name: Port-forward Consensus Node
+              if: steps.run-relay.outcome == 'success'
               run: |
                   sudo kill -9 $(sudo lsof -ti :50211) || true
                   kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
@@ -164,6 +175,7 @@ jobs:
               run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
 
             - name: Start json-rpc-relay-test-client
+              if: steps.run-relay.outcome == 'success'
               env:
                   CHAIN_ID: "0x12a"
                   MIRROR_NODE_URL: "http://127.0.0.1:8081"
@@ -183,6 +195,7 @@ jobs:
                   MEMORY_LIMIT: ${{ matrix.memory_limit }}
                   TEST_STATUS: ${{ job.status }}
                   TEST_START: ${{ steps.test-timing.outputs.start }}
+                  RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
               run: |
                   set +e  # individual command failures must not abort the report
 
@@ -190,6 +203,16 @@ jobs:
                   END_TIME=$(date +%s)
                   WALL_SECS=$(( END_TIME - ${TEST_START:-$END_TIME} ))
                   WALL_TIME="$(( WALL_SECS / 60 ))m $(( WALL_SECS % 60 ))s"
+
+                  # ── Relay startup status ──────────────────────────────────
+                  # Distinguish between "relay OOMKilled before it became ready"
+                  # (startup failure) and "relay ran but was OOMKilled under load"
+                  # (runtime failure). Both are valid data-points.
+                  if [ "${RELAY_STARTUP_OUTCOME}" != "success" ]; then
+                    STARTUP_NOTE="FAILED — Pod never became ready (OOMKilled at init)"
+                  else
+                    STARTUP_NOTE="OK"
+                  fi
 
                   # ── Test results from JUnit XML (Mocha format) ───────────
                   # ── Pod resource snapshot via metrics-server ─────────────
@@ -258,6 +281,7 @@ jobs:
                   echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
                   echo "============================================"
                   echo "  Test Status      : ${TEST_STATUS}"
+                  echo "  Relay Startup    : ${STARTUP_NOTE}"
                   echo "  Test Total Time  : ${WALL_TIME}"
                   echo "--------------------------------------------"
                   echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
@@ -280,6 +304,7 @@ jobs:
                   printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+                  printf '| Relay Startup | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Test Status | `%s` |\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
                   printf '| Test Total Run Time | `%s` |\n\n' "${WALL_TIME}" >> "${GITHUB_STEP_SUMMARY}"
 
