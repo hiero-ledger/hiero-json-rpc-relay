@@ -203,7 +203,7 @@ describe('BlockFactory', () => {
     });
 
     it('should RLP encode header with exactly 17 fields', () => {
-      const encoded = BlockFactory.rlpEncode(block, true);
+      const encoded = BlockFactory.rlpEncodeBlockHeader(block);
       const decoded = RLP.decode(encoded) as Uint8Array[];
 
       expect(decoded).to.have.length(17);
@@ -228,7 +228,7 @@ describe('BlockFactory', () => {
     });
 
     it('should RLP encode full block including transactions array', () => {
-      const encoded = BlockFactory.rlpEncode(block, false);
+      const encoded = BlockFactory.rlpEncodeBlock(block);
       const decoded = RLP.decode(encoded) as any[];
 
       // header (17) + txs + ommers + withdrawals
@@ -245,7 +245,7 @@ describe('BlockFactory', () => {
         transactions: ['0xabc'],
       };
 
-      expect(() => BlockFactory.rlpEncode(invalidBlock)).to.throw(
+      expect(() => BlockFactory.rlpEncodeBlock(invalidBlock)).to.throw(
         'Block transactions must include full transaction objects for RLP encoding',
       );
     });

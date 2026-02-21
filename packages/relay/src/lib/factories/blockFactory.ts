@@ -135,25 +135,37 @@ export class BlockFactory {
   }
 
   /**
-   * RLP encode a block based on Ethereum Yellow Paper.
+   * Constructs the canonical block header field array in the order expected by
+   * EVM-compatible RLP encoding, adapted for Hedera-specific semantics.
    *
-   * @param { Block } block - The block object from eth_getBlockByNumber/Hash
-   * @param {boolean} headerOnly - A flag that determines whether to encode the entire block or only the block header
+   * The returned array maps directly to the Ethereum block header structure,
+   * with certain fields overridden to reflect Hedera network behavior
+   * (e.g., fixed beneficiary and empty ommers list).
    *
-   * @returns {Uint8Array} - RLP encoded block as Uint8 array
+   * Field mapping (Ethereum notation → value source):
+   * - Hp (parentHash)         - block.parentHash
+   * - Ho (ommersHash)         - constants.EMPTY_ARRAY_HEX
+   * - Hc (beneficiary)        - constants.HEDERA_NODE_REWARD_ACCOUNT_ADDRESS
+   * - Hr (stateRoot)          - block.stateRoot
+   * - Ht (transactionsRoot)   - block.transactionsRoot
+   * - He (receiptsRoot)       - block.receiptsRoot
+   * - Hb (logsBloom)          - block.logsBloom
+   * - Hd (difficulty)         - block.difficulty
+   * - Hi (number)             - block.number
+   * - Hl (gasLimit)           - block.gasLimit
+   * - Hg (gasUsed)            - block.gasUsed
+   * - Hs (timestamp)          - block.timestamp
+   * - Hx (extraData)          - block.extraData
+   * - Ha (prevRandao/mixHash) - block.mixHash
+   * - Hn (nonce)              - block.nonce
+   * - Hf (baseFeePerGas)      - block.baseFeePerGas
+   * - Hw (withdrawalsRoot)    - block.withdrawalsRoot
+   *
+   * @param block - The block object containing all header-relevant fields.
+   * @returns An ordered array of hex-encoded header fields suitable for RLP encoding.
    */
-  static rlpEncode(block: Block, headerOnly: boolean = false): Uint8Array {
-    if (!headerOnly && typeof block.transactions[0] === 'string') {
-      throw new Error('Block transactions must include full transaction objects for RLP encoding');
-    }
-
-    // B=(BH,BT,BU,BW) regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf, Section 4.4.3 on Serialisation.
-    // -- BH - block header (Hp, Ho, Hc, Hr, Ht, He, Hb, Hd, Hi, Hl, Hg, Hs, Hx, Ha, Hn, Hf, Hw)
-    // -- BT - block transactions (RLP encoded transactions array)
-    // -- BU - ommers (empty array)
-    // -- BW - withdrawals (empty array)
-
-    const header = [
+  private static getBlockHeader(block: Block): Array<string> {
+    return [
       // Hp - parentHash
       block.parentHash,
       // Ho - ommersHash
@@ -189,13 +201,27 @@ export class BlockFactory {
       // Hw - withdrawalsRoot
       block.withdrawalsRoot,
     ];
+  }
 
-    if (headerOnly) {
-      return RLP.encode(header);
+  /**
+   * RLP encode a block based on Ethereum Yellow Paper.
+   *
+   * @param { Block } block - The block object from eth_getBlockByNumber/Hash
+   *
+   * @returns {Uint8Array} - RLP encoded block as Uint8 array
+   */
+  static rlpEncodeBlock(block: Block): Uint8Array {
+    if (typeof block.transactions[0] === 'string') {
+      throw new Error('Block transactions must include full transaction objects for RLP encoding');
     }
 
+    // B=(BH,BT,BU,BW) regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf, Section 4.4.3 on Serialisation.
+    // -- BH - block header (Hp, Ho, Hc, Hr, Ht, He, Hb, Hd, Hi, Hl, Hg, Hs, Hx, Ha, Hn, Hf, Hw)
+    // -- BT - block transactions (RLP encoded transactions array)
+    // -- BU - ommers (empty array)
+    // -- BW - withdrawals (empty array)
     return RLP.encode([
-      ...header,
+      ...BlockFactory.getBlockHeader(block),
       // BT - block transactions (RLP encoded transactions array)
       [...block.transactions.map((tx) => BlockFactory.rlpEncodeTx(tx as Transaction))],
       // BU - ommers (empty array)
@@ -203,5 +229,18 @@ export class BlockFactory {
       // BW - withdrawals (empty array)
       [],
     ]);
+  }
+
+  /**
+   * RLP encode a block header based on Ethereum Yellow Paper.
+   *
+   * @param { Block } block - The block object from eth_getBlockByNumber/Hash
+   *
+   * @returns {Uint8Array} - RLP encoded block header as Uint8 array
+   */
+  static rlpEncodeBlockHeader(block: Block): Uint8Array {
+    // Regarding the yellow paper https://ethereum.github.io/yellowpaper/paper.pdf, Section 4.4.3 on Serialisation.
+    // -- BH - block header (Hp, Ho, Hc, Hr, Ht, He, Hb, Hd, Hi, Hl, Hg, Hs, Hx, Ha, Hn, Hf, Hw)
+    return RLP.encode(BlockFactory.getBlockHeader(block));
   }
 }

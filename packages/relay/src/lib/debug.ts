@@ -141,7 +141,7 @@ export class DebugImpl implements Debug {
       return constants.EMPTY_HEX;
     }
 
-    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncode(block)).toString('hex');
+    return constants.EMPTY_HEX + Buffer.from(BlockFactory.rlpEncodeBlock(block)).toString('hex');
   }
 
   /**
@@ -176,7 +176,7 @@ export class DebugImpl implements Debug {
       return constants.EMPTY_HEX;
     }
 
-    return prepend0x(toHexString(BlockFactory.rlpEncode(block, true)));
+    return prepend0x(toHexString(BlockFactory.rlpEncodeBlockHeader(block)));
   }
 
   /**
