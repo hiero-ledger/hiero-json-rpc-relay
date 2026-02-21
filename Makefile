@@ -83,9 +83,21 @@ run-relay:
 	# V8 old-space is capped at 75% of the container limit to leave headroom
 	# for V8's code cache, stack, and other off-heap memory regions.
 	@MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
-	OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
-	echo "  V8 old-space: $${OLD_SPACE_MB}MB (75% of $(MEMORY_LIMIT))"; \
-	printf 'relay:\n  resources:\n    requests:\n      cpu: 0\n      memory: 0\n    limits:\n      cpu: 1100m\n      memory: $(MEMORY_LIMIT)\n  config:\n    NODE_OPTIONS: "--max-old-space-size=%s"\n' "$$OLD_SPACE_MB" > relay-resources.yaml; \
+	if [ -n "$(OLD_SPACE)" ]; then \
+		OLD_SPACE_MB="$(OLD_SPACE)"; \
+		echo "  V8 old-space: $${OLD_SPACE_MB}MB (explicitly requested)"; \
+	else \
+		OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
+		echo "  V8 old-space: $${OLD_SPACE_MB}MB (75% of $(MEMORY_LIMIT))"; \
+	fi; \
+	if [ -n "$(SEMI_SPACE)" ]; then \
+		SEMI_SPACE_OPT=" --max-semi-space-size=$(SEMI_SPACE)"; \
+		echo "  V8 semi-space: $(SEMI_SPACE)MB (explicitly requested)"; \
+	else \
+		SEMI_SPACE_OPT=""; \
+	fi; \
+	NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB$$SEMI_SPACE_OPT"; \
+	printf 'relay:\n  resources:\n    requests:\n      cpu: 0\n      memory: 0\n    limits:\n      cpu: 1100m\n      memory: $(MEMORY_LIMIT)\n  config:\n    NODE_OPTIONS: "%s"\n' "$$NODE_OPTS" > relay-resources.yaml; \
 	echo "--- relay-resources.yaml ---"; \
 	cat relay-resources.yaml; \
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml; \
@@ -117,19 +129,20 @@ report:
 		echo "(relay pod not found)"; \
 	fi
 	@echo ""
-	@echo "--- V8 Heap Configuration (from running relay process) ---"
+	@echo "--- Actual V8 & Process Memory (via /metrics endpoint) ---"
 	@RELAY_POD=$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
 		-o custom-columns=":metadata.name" 2>/dev/null \
 		| grep -E '^relay-[0-9]+-[^w]' | head -1); \
 	if [ -n "$$RELAY_POD" ]; then \
 		echo "Pod: $$RELAY_POD"; \
-		echo "NODE_OPTIONS (configured env var):"; \
+		echo "NODE_OPTIONS (env var):"; \
 		kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- \
 			sh -c 'echo "$${NODE_OPTIONS:-<not set>}"' 2>/dev/null || echo "(exec failed)"; \
-		echo "V8 heap_size_limit (observed by running process):"; \
+		echo "Live Memory Stats (/metrics):"; \
 		kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- \
-			node -e "const v8=require('v8');const s=v8.getHeapStatistics();console.log(Math.round(s.heap_size_limit/1024/1024)+'MB')" \
-			2>/dev/null || echo "(node exec failed)"; \
+			node -e "const http = require('http'); http.get('http://localhost:7546/metrics', r => r.pipe(process.stdout)).on('error', () => process.exit(1));" 2>/dev/null \
+			| grep -E '^rpc_relay_(nodejs_heap_size_total|nodejs_heap_size_used|nodejs_external_memory|process_resident_memory)_bytes' \
+			| awk '{printf "%-50s %d MB\n", $$1, $$2/1048576}' || echo "(failed to fetch metrics)"; \
 	else \
 		echo "(relay pod not found)"; \
 	fi
