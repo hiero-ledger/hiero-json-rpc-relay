@@ -32,15 +32,31 @@ jobs:
           - scenario: "Baseline-256"
             memory_limit: 256Mi
             v8_flags: ""
-          - scenario: "Optimize-Size-256"
-            memory_limit: 256Mi
-            v8_flags: "--optimize-for-size"
-          - scenario: "Memory-Reducer-256"
-            memory_limit: 256Mi
-            v8_flags: "--memory-reducer"
-          - scenario: "Experimental-Max-256"
+            cpu_limit: "1100m"
+          - scenario: "Exp-Max-256-1100m"
             memory_limit: 256Mi
             v8_flags: "--optimize-for-size --memory-reducer"
+            cpu_limit: "1100m"
+
+          # --- Phase 1.6: High CPU Stress Test (2000m) ---
+          - scenario: "Exp-Max-128-2000m"
+            memory_limit: 128Mi
+            v8_flags: "--optimize-for-size --memory-reducer"
+            cpu_limit: "2000m"
+          - scenario: "Exp-Max-256-2000m"
+            memory_limit: 256Mi
+            v8_flags: "--optimize-for-size --memory-reducer"
+            cpu_limit: "2000m"
+
+          # --- Phase 1.6: High CPU Stress Test (4000m) ---
+          - scenario: "Exp-Max-128-4000m"
+            memory_limit: 128Mi
+            v8_flags: "--optimize-for-size --memory-reducer"
+            cpu_limit: "4000m"
+          - scenario: "Exp-Max-256-4000m"
+            memory_limit: 256Mi
+            v8_flags: "--optimize-for-size --memory-reducer"
+            cpu_limit: "4000m"
     permissions:
       contents: read
       checks: write
@@ -49,7 +65,7 @@ jobs:
       SOLO_NAMESPACE: solo
       SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
       SOLO_DEPLOYMENT: solo-deployment
-    name: Solo Test 128Mi (${{ matrix.scenario }})
+    name: Solo Test (${{ matrix.scenario }})
     steps:
       - name: Set env variables
         run: |
@@ -139,7 +155,7 @@ jobs:
                 cpu: 0
                 memory: 0
               limits:
-                cpu: 1100m
+                cpu: ${{ matrix.cpu_limit }}
                 memory: ${{ matrix.memory_limit }}
             config:
               NODE_OPTIONS: "${NODE_OPTS}"
