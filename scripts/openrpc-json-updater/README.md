@@ -38,9 +38,6 @@ requirements:
 
 **Not Implemented Methods:**
 
-- `debug_getBadBlocks`
-- `debug_getRawBlock`
-- `debug_getRawHeader`
 - `debug_getRawReceipts`
 - `debug_getRawTransaction`
 

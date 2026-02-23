@@ -1333,7 +1333,7 @@
         "name": "Header RLP",
         "description": "The RLP-encoded block header, or 0x if the block is not found",
         "schema": {
-          "title": "raw block",
+          "title": "raw header",
           "$ref": "#/components/schemas/bytes"
         }
       }

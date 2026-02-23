@@ -190,7 +190,7 @@ describe('BlockFactory', () => {
     });
   });
 
-  describe('rlpEncode', () => {
+  describe('rlpEncodeBlockHeader and rlpEncodeBlock', () => {
     let block: Block;
 
     beforeEach(async () => {
@@ -237,6 +237,21 @@ describe('BlockFactory', () => {
       const txArray = decoded[17];
       expect(txArray).to.be.an('array');
       expect(txArray).to.have.length(1);
+    });
+
+    it('should RLP encode full block including empty transactions array', () => {
+      const encoded = BlockFactory.rlpEncodeBlock({
+        ...block,
+        transactions: [],
+      });
+      const decoded = RLP.decode(encoded) as any[];
+
+      // header (17) + txs + ommers + withdrawals
+      expect(decoded.length).to.equal(20);
+
+      const txArray = decoded[17];
+      expect(txArray).to.be.an('array');
+      expect(txArray).to.have.length(0);
     });
 
     it('should throw when transactions are only hashes', () => {
