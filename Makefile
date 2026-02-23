@@ -96,13 +96,38 @@ run-relay:
 	else \
 		SEMI_SPACE_OPT=""; \
 	fi; \
-	NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB$$SEMI_SPACE_OPT"; \
+	if [ -n "$(EXTRA_NODE_OPTS)" ]; then \
+		NODE_OPTS="$$NODE_OPTS $(EXTRA_NODE_OPTS)"; \
+		echo "  V8 extra flags: $(EXTRA_NODE_OPTS)"; \
+	fi; \
 	printf 'relay:\n  resources:\n    requests:\n      cpu: 0\n      memory: 0\n    limits:\n      cpu: 1100m\n      memory: $(MEMORY_LIMIT)\n  config:\n    NODE_OPTIONS: "%s"\n' "$$NODE_OPTS" > relay-resources.yaml; \
 	echo "--- relay-resources.yaml ---"; \
 	cat relay-resources.yaml; \
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml; \
 	rm relay-resources.yaml; \
 	echo "Relay setup complete with $(MEMORY_LIMIT) limit."
+
+.PHONY: run-relay-256-profile-with-heapdump
+run-relay-256-profile-with-heapdump:
+	$(MAKE) run-relay MEMORY_LIMIT=256Mi EXTRA_NODE_OPTS="--heapsnapshot-signal=SIGUSR2"
+
+.PHONY: capture-heap-snapshot
+capture-heap-snapshot:
+	@if [ -z "$(NODE_PID)" ]; then echo "Error: NODE_PID is required. (e.g., make capture-heap-snapshot NODE_PID=1)"; exit 1; fi
+	@RELAY_POD=$$(kubectl get pods -n solo --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+-[^w]' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Sending SIGUSR2 to POD: $$RELAY_POD, PID: $(NODE_PID)"; \
+	kubectl exec -n solo "$$RELAY_POD" -- kill -USR2 $(NODE_PID)
+
+.PHONY: extract-heap-snapshots
+extract-heap-snapshots:
+	@RELAY_POD=$$(kubectl get pods -n solo --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+-[^w]' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Extracting snapshot files from $$RELAY_POD..."; \
+	for file in $$(kubectl exec -n solo "$$RELAY_POD" -- ls -1 *.heapsnapshot 2>/dev/null); do \
+		echo "Copying $$file to host..."; \
+		kubectl cp solo/$$RELAY_POD:/home/node/app/$$file ./$$file; \
+	done
 
 
 .PHONY: report
