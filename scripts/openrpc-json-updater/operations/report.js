@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { FORK_NOT_YET_SUPPORTED_SKIP_LIST,getSkippedMethodCategory, NOT_YET_SUPPORTED_SKIP_LIST } from '../config.js';
+import { FORK_NOT_YET_SUPPORTED_SKIP_LIST, getSkippedMethodCategory, NOT_YET_SUPPORTED_SKIP_LIST, SKIP_CATEGORIES } from '../config.js';
 import { getDifferingKeysByCategory, getMethodMap, groupPaths } from '../utils/openrpc.utils.js';
 
 export async function generateReport(originalJson, modifiedJson) {
@@ -13,13 +13,13 @@ export async function generateReport(originalJson, modifiedJson) {
   for (const method of NOT_YET_SUPPORTED_SKIP_LIST) {
     missingMethods.push({
       missingMethod: method,
-      status: 'not yet supported',
+      status: SKIP_CATEGORIES.NOT_YET_SUPPORTED,
     });
   }
   for (const method of FORK_NOT_YET_SUPPORTED_SKIP_LIST) {
     missingMethods.push({
       missingMethod: method,
-      status: 'fork not yet supported',
+      status: SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED,
     });
   }
   for (const name of originalMethods.keys()) {
@@ -40,9 +40,9 @@ export async function generateReport(originalJson, modifiedJson) {
     if (!modifiedMethods.has(name)) continue;
     const category = getSkippedMethodCategory(name);
     if (
-      category === 'non supported' ||
-      category === 'not yet supported' ||
-      category === 'fork not yet supported'
+      category === SKIP_CATEGORIES.NON_SUPPORTED ||
+      category === SKIP_CATEGORIES.NOT_YET_SUPPORTED ||
+      category === SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED
     ) {
       continue;
     }
@@ -66,10 +66,10 @@ export async function generateReport(originalJson, modifiedJson) {
     console.log('\nMethods present in the original document but missing from the modified document:\n');
     console.table(missingMethods);
     console.log('\nStatus explanation:');
-    console.log('- (non supported): Methods that we will not support');
-    console.log('- (not yet supported): Methods planned but not yet implemented due to prioritization');
-    console.log('- (fork not yet supported): Methods planned but pending fork support');
-    console.log('- (overwritten): Methods supported with hardcoded/adjusted behavior');
+    console.log(`- (${SKIP_CATEGORIES.NON_SUPPORTED}): Methods that we will not support`);
+    console.log(`- (${SKIP_CATEGORIES.NOT_YET_SUPPORTED}): Methods planned but not yet implemented due to prioritization`);
+    console.log(`- (${SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED}): Methods planned but pending fork support`);
+    console.log(`- (${SKIP_CATEGORIES.OVERWRITTEN}): Methods supported with hardcoded/adjusted behavior`);
   }
 
   if (changedMethods.length > 0) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { getSkippedMethodCategory,shouldSkipKey } from '../config.js';
+import { getSkippedMethodCategory, shouldSkipKey, SKIP_CATEGORIES } from '../config.js';
 
 /**
  * Sets a nested value in an object using a dot-notation path
@@ -425,9 +425,9 @@ export function filterSkippedMethods(methods) {
 
     const category = getSkippedMethodCategory(methodName);
     return !(
-      category === 'non supported' ||
-      category === 'not yet supported' ||
-      category === 'fork not yet supported'
+      category === SKIP_CATEGORIES.NON_SUPPORTED ||
+      category === SKIP_CATEGORIES.NOT_YET_SUPPORTED ||
+      category === SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED
     );
   });
 }

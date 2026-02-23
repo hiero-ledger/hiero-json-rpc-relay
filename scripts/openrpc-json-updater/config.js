@@ -2,6 +2,14 @@
 
 export const SKIPPED_KEYS = ['examples', 'baseFeePerBlobGas', 'blobGasUsedRatio'];
 
+// Centralized categories for skipped methods
+export const SKIP_CATEGORIES = {
+  NON_SUPPORTED: 'non supported',
+  NOT_YET_SUPPORTED: 'not yet supported',
+  FORK_NOT_YET_SUPPORTED: 'fork not yet supported',
+  OVERWRITTEN: 'overwritten',
+};
+
 export const OVERWRITTEN_SKIP_FIELDS = [
   'eth_feeHistory.summary',
   'eth_feeHistory.description',
@@ -100,19 +108,19 @@ export function getSkippedMethodCategory(methodName) {
   };
 
   if (NON_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'non supported';
+    return SKIP_CATEGORIES.NON_SUPPORTED;
   }
 
   if (NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'not yet supported';
+    return SKIP_CATEGORIES.NOT_YET_SUPPORTED;
   }
 
   if (FORK_NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'fork not yet supported';
+    return SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED;
   }
 
   if (OVERWRITTEN_SKIP_FIELDS.map((field) => field.split('.')[0]).some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'overwritten';
+    return SKIP_CATEGORIES.OVERWRITTEN;
   }
 
   return null;
