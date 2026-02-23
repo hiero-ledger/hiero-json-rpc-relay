@@ -8,8 +8,8 @@
     "local-node": "npx @hashgraph/hedera-local restart -d"
   },
   "dependencies": {
-    "@hashgraph/hedera-local": "^2.39.0",
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
+    "@hashgraph/hedera-local": "^2.39.4",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.2",
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
