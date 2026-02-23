@@ -2,7 +2,7 @@
 
 export const SKIPPED_KEYS = ['examples', 'baseFeePerBlobGas', 'blobGasUsedRatio'];
 
-export const CUSTOM_FIELDS = [
+export const OVERWRITTEN_SKIP_FIELDS = [
   'eth_feeHistory.summary',
   'eth_feeHistory.description',
   'eth_feeHistory.params.2.description',
@@ -15,7 +15,8 @@ export const CUSTOM_FIELDS = [
   'eth_sendRawTransaction.summary',
 ];
 
-export const UNSUPPORTED_METHODS = [
+// Methods that we will not support. Skip always.
+export const NON_SUPPORTED_SKIP_LIST = [
   'engine_*',
   'eth_coinbase',
   'eth_blobBaseFee',
@@ -27,20 +28,29 @@ export const UNSUPPORTED_METHODS = [
   'eth_signTransaction',
 ];
 
-export const NOT_IMPLEMENTED_METHODS = [
+// Methods that we will support, but we do not yet, due to prioritization. Skip always.
+export const NOT_YET_SUPPORTED_SKIP_LIST = [
   'debug_getRawHeader',
   'debug_getRawReceipts',
   'debug_getRawTransaction',
 ];
 
-export const SKIPPED_METHODS = [...UNSUPPORTED_METHODS, ...NOT_IMPLEMENTED_METHODS];
+// Methods that we will support, but we do not yet, because the fork is not yet supported. Skip always.
+export const FORK_NOT_YET_SUPPORTED_SKIP_LIST = [
+];
+
+export const SKIPPED_METHODS = [
+  ...NON_SUPPORTED_SKIP_LIST,
+  ...NOT_YET_SUPPORTED_SKIP_LIST,
+  ...FORK_NOT_YET_SUPPORTED_SKIP_LIST,
+];
 
 export function shouldSkipMethod(methodName, path) {
   if (!methodName) return false;
 
   if (path) {
     const fullPath = `${methodName}.${path}`;
-    if (CUSTOM_FIELDS.includes(fullPath)) return true;
+    if (OVERWRITTEN_SKIP_FIELDS.includes(fullPath)) return true;
   }
 
   for (const pattern of SKIPPED_METHODS) {
@@ -81,7 +91,7 @@ export function getSkippedMethodCategory(methodName) {
   const matchesPattern = (pattern, method) => {
     if (pattern === method) return true;
 
-    if (pattern.endsWith('*')) {
+    if (typeof pattern === 'string' && pattern.endsWith('*')) {
       const prefix = pattern.slice(0, -1);
       return method.startsWith(prefix);
     }
@@ -89,12 +99,20 @@ export function getSkippedMethodCategory(methodName) {
     return false;
   };
 
-  if (UNSUPPORTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'unsupported';
+  if (NON_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return 'non supported';
   }
 
-  if (NOT_IMPLEMENTED_METHODS.some((pattern) => matchesPattern(pattern, methodName))) {
-    return 'not implemented';
+  if (NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return 'not yet supported';
+  }
+
+  if (FORK_NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return 'fork not yet supported';
+  }
+
+  if (OVERWRITTEN_SKIP_FIELDS.map((field) => field.split('.')[0]).some((pattern) => matchesPattern(pattern, methodName))) {
+    return 'overwritten';
   }
 
   return null;

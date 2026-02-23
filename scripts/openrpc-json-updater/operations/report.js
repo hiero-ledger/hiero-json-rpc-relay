@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { getSkippedMethodCategory, NOT_IMPLEMENTED_METHODS } from '../config.js';
+import { FORK_NOT_YET_SUPPORTED_SKIP_LIST,getSkippedMethodCategory, NOT_YET_SUPPORTED_SKIP_LIST } from '../config.js';
 import { getDifferingKeysByCategory, getMethodMap, groupPaths } from '../utils/openrpc.utils.js';
 
 export async function generateReport(originalJson, modifiedJson) {
@@ -9,10 +9,17 @@ export async function generateReport(originalJson, modifiedJson) {
 
   const missingMethods = [];
 
-  for (const method of NOT_IMPLEMENTED_METHODS) {
+  // Pre-listed missing methods by policy
+  for (const method of NOT_YET_SUPPORTED_SKIP_LIST) {
     missingMethods.push({
       missingMethod: method,
-      status: 'not implemented',
+      status: 'not yet supported',
+    });
+  }
+  for (const method of FORK_NOT_YET_SUPPORTED_SKIP_LIST) {
+    missingMethods.push({
+      missingMethod: method,
+      status: 'fork not yet supported',
     });
   }
   for (const name of originalMethods.keys()) {
@@ -32,7 +39,11 @@ export async function generateReport(originalJson, modifiedJson) {
   for (const [name, origMethod] of originalMethods) {
     if (!modifiedMethods.has(name)) continue;
     const category = getSkippedMethodCategory(name);
-    if (category === 'discarded' || category === 'not implemented') {
+    if (
+      category === 'non supported' ||
+      category === 'not yet supported' ||
+      category === 'fork not yet supported'
+    ) {
       continue;
     }
     const modMethod = modifiedMethods.get(name);
@@ -55,8 +66,10 @@ export async function generateReport(originalJson, modifiedJson) {
     console.log('\nMethods present in the original document but missing from the modified document:\n');
     console.table(missingMethods);
     console.log('\nStatus explanation:');
-    console.log('- (discarded): Methods that have been intentionally removed');
-    console.log('- (not implemented): Methods that have not been implemented yet');
+    console.log('- (non supported): Methods that we will not support');
+    console.log('- (not yet supported): Methods planned but not yet implemented due to prioritization');
+    console.log('- (fork not yet supported): Methods planned but pending fork support');
+    console.log('- (overwritten): Methods supported with hardcoded/adjusted behavior');
   }
 
   if (changedMethods.length > 0) {

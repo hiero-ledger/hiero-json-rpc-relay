@@ -424,6 +424,10 @@ export function filterSkippedMethods(methods) {
     if (!methodName) return true;
 
     const category = getSkippedMethodCategory(methodName);
-    return category !== 'discarded';
+    return !(
+      category === 'non supported' ||
+      category === 'not yet supported' ||
+      category === 'fork not yet supported'
+    );
   });
 }
