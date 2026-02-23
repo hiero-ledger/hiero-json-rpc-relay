@@ -16,47 +16,63 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - scenario: "Baseline-128"
+          # # --- 128Mi Scenarios (Standard CPU) ---
+          # - scenario: "Baseline-128-1100m"
           #   memory_limit: 128Mi
           #   v8_flags: ""
-          # - scenario: "Optimize-Size-128"
-          #   memory_limit: 128Mi
-          #   v8_flags: "--optimize-for-size"
-          # - scenario: "Memory-Reducer-128"
-          #   memory_limit: 128Mi
-          #   v8_flags: "--memory-reducer"
-          # - scenario: "Experimental-Max-128"
+          #   cpu_limit: "1100m"
+          # - scenario: "Exp-Max-128-1100m"
           #   memory_limit: 128Mi
           #   v8_flags: "--optimize-for-size --memory-reducer"
-          # 256Mi Profiling (requested by Fer to observe impact on stable deployment)
-          - scenario: "Baseline-256"
-            memory_limit: 256Mi
-            v8_flags: ""
-            cpu_limit: "1100m"
-          - scenario: "Exp-Max-256-1100m"
-            memory_limit: 256Mi
-            v8_flags: "--optimize-for-size --memory-reducer"
-            cpu_limit: "1100m"
+          #   cpu_limit: "1100m"
 
-          # --- Phase 1.6: High CPU Stress Test (2000m) ---
-          - scenario: "Exp-Max-128-2000m"
-            memory_limit: 128Mi
-            v8_flags: "--optimize-for-size --memory-reducer"
-            cpu_limit: "2000m"
-          - scenario: "Exp-Max-256-2000m"
-            memory_limit: 256Mi
-            v8_flags: "--optimize-for-size --memory-reducer"
-            cpu_limit: "2000m"
+          # # --- 256Mi Scenarios (Standard CPU) ---
+          # - scenario: "Baseline-256-1100m"
+          #   memory_limit: 256Mi
+          #   v8_flags: ""
+          #   cpu_limit: "1100m"
+          # - scenario: "Exp-Max-256-1100m"
+          #   memory_limit: 256Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          #   cpu_limit: "1100m"
 
-          # --- Phase 1.6: High CPU Stress Test (4000m) ---
-          - scenario: "Exp-Max-128-4000m"
-            memory_limit: 128Mi
-            v8_flags: "--optimize-for-size --memory-reducer"
-            cpu_limit: "4000m"
-          - scenario: "Exp-Max-256-4000m"
+          # # --- High CPU Stress Test (2000m) ---
+          # - scenario: "Exp-Max-128-2000m"
+          #   memory_limit: 128Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          #   cpu_limit: "2000m"
+          # - scenario: "Exp-Max-256-2000m"
+          #   memory_limit: 256Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          #   cpu_limit: "2000m"
+
+          # # --- High CPU Stress Test (4000m) ---
+          # - scenario: "Exp-Max-128-4000m"
+          #   memory_limit: 128Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          #   cpu_limit: "4000m"
+          # - scenario: "Exp-Max-256-4000m"
+          #   memory_limit: 256Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          #   cpu_limit: "4000m"
+
+          # --- 256Mi Pod with 128Mi V8 Limits ---
+          - scenario: "old-80-semi-16-pod-256-normal"
             memory_limit: 256Mi
-            v8_flags: "--optimize-for-size --memory-reducer"
-            cpu_limit: "4000m"
+            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16"
+            cpu_limit: "1100m"
+          - scenario: "old-80-semi-16-pod-256-opt-size"
+            memory_limit: 256Mi
+            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --optimize-for-size"
+            cpu_limit: "1100m"
+          - scenario: "old-80-semi-16-pod-256-mem-reducer"
+            memory_limit: 256Mi
+            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --memory-reducer"
+            cpu_limit: "1100m"
+          - scenario: "old-80-semi-16-pod-256-opt-size-mem-reducer"
+            memory_limit: 256Mi
+            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --optimize-for-size --memory-reducer"
+            cpu_limit: "1100m"
     permissions:
       contents: read
       checks: write
@@ -141,12 +157,18 @@ jobs:
           # regions that sit outside the managed heap.
           MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
 
-          OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
-          NODE_OPTS="--max-old-space-size=${OLD_SPACE_MB}"
-          if [ -n "${{ matrix.v8_flags }}" ]; then
-            NODE_OPTS="${NODE_OPTS} ${{ matrix.v8_flags }}"
+          # Check if v8_flags already contains an explicit old-space override
+          if [[ "${{ matrix.v8_flags }}" == *"--max-old-space-size="* ]]; then
+            NODE_OPTS="${{ matrix.v8_flags }}"
+          else
+            OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
+            NODE_OPTS="--max-old-space-size=${OLD_SPACE_MB}"
+            if [ -n "${{ matrix.v8_flags }}" ]; then
+              NODE_OPTS="${NODE_OPTS} ${{ matrix.v8_flags }}"
+            fi
+            echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
           fi
-          echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB, V8 flags: ${{ matrix.v8_flags }}"
+          echo "Running with V8 flags: ${NODE_OPTS}"
 
           cat <<EOF > relay-resources.yaml
           relay:
@@ -169,6 +191,20 @@ jobs:
           STARTUP_SECS=$(( RELAY_END - RELAY_START ))
           echo "Relay startup time: ${STARTUP_SECS}s"
           echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
+
+      - name: Dump Relay Logs
+        if: always()
+        run: |
+          echo "Fetching logs for relay pod:"
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" 2>/dev/null | grep -E '^relay-[0-9]+-[^w]' | head -1)
+          if [ -n "$RELAY_POD" ]; then
+            echo "--- POD LOGS ---"
+            kubectl logs -n "${SOLO_NAMESPACE}" "$RELAY_POD" || true
+            echo "--- POD DESCRIBE ---"
+            kubectl describe pod -n "${SOLO_NAMESPACE}" "$RELAY_POD" || true
+          else
+            echo "Relay pod not found."
+          fi
 
       - name: check Relay Resources
         if: steps.run-relay.outcome == 'success'
@@ -333,7 +369,7 @@ jobs:
           # Re-exec into the pod to read the live heap_size_limit; this
           # confirms whether NODE_OPTIONS was propagated and honoured by V8.
           NODE_OPTIONS_VAL="N/A"
-          V8_HEAP_LIMIT_MB="N/A"
+          V8_HEAP_SIZE="N/A"
           if [ -n "$RELAY_POD" ]; then
             NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
@@ -341,7 +377,7 @@ jobs:
             V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>console.log(d.match(/rpc_relay_nodejs_heap_size_total_bytes (\d+)/)[1]))}).on('error',()=>process.exit(1));" \
               2>/dev/null) || V8_RAW=""
-            [ -n "$V8_RAW" ] && V8_HEAP_LIMIT_MB="$(( V8_RAW / 1048576 ))MB"
+            [ -n "$V8_RAW" ] && V8_HEAP_SIZE="$(( V8_RAW / 1048576 ))MB"
           fi
 
           # ── Echo all KPIs to step log (always visible regardless of summary write) ──
@@ -357,7 +393,7 @@ jobs:
           echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
           echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
           echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
-          echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
+          echo "  V8 Heap Size     : ${V8_HEAP_SIZE}"
           echo "  OOMKills         : ${OOM_STATUS}"
           echo "  Restarts         : ${RELAY_RESTARTS}"
           echo "============================================"
@@ -387,7 +423,7 @@ jobs:
           printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_SIZE}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
