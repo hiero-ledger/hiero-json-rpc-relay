@@ -63,7 +63,7 @@ run-relay-256:
 
 .PHONY: run-relay-128
 run-relay-128:
-	$(MAKE) run-relay MEMORY_LIMIT=128Mi OLD_SPACE=80 SEMI_SPACE=16
+	$(MAKE) run-relay MEMORY_LIMIT=128Mi
 
 .PHONY: run-relay-64
 run-relay-64:

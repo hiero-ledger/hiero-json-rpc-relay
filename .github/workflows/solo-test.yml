@@ -1,362 +1,359 @@
 name: Solo Test Sandbox
 
 on:
-    push:
-        branches:
-            - 4900-solo-reduce-json-rpc-relay-memory-footprint
+  push:
+    branches:
+      - 4900-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    solo-test:
-        runs-on: hiero-smart-contracts-linux-large
-        timeout-minutes: 50
-        strategy:
-            fail-fast: false
-            matrix:
-                memory_limit: [1000Mi, 512Mi, 256Mi, 128Mi, 64Mi]
-        permissions:
-            contents: read
-            checks: write
+  solo-test:
+    runs-on: hiero-smart-contracts-linux-large
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        memory_limit: [1000Mi, 512Mi, 256Mi, 128Mi, 64Mi]
+    permissions:
+      contents: read
+      checks: write
+    env:
+      SOLO_CLUSTER_NAME: solo
+      SOLO_NAMESPACE: solo
+      SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
+      SOLO_DEPLOYMENT: solo-deployment
+    name: Solo Test (${{ matrix.memory_limit }})
+    steps:
+      - name: Set env variables
+        run: |
+          if [ -n "${{ inputs.operator_id }}" ]; then
+            echo "OPERATOR_ID_MAIN=${{ inputs.operator_id }}" >> $GITHUB_ENV
+          fi
+      - name: Harden Runner
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+
+      # Set up kind; needed for configuring the solo environment
+      - name: Setup Kind
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.31.4@sha256:2cb39f7295fe7eafee0842b1052a599a4fb0f8bcf3f83d96c7f4864c357c6c30
+          version: v0.26.0
+          kubectl_version: v1.31.4
+          verbosity: 3
+          wait: 120s
+
+      - name: Install Solo
+        run: npm install -g @hashgraph/solo
+
+      - name: Configure and run solo
+        run: |
+          kind create cluster -n "${SOLO_CLUSTER_NAME}"
+
+          # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
+          # because Kind kubelets use self-signed certificates.
+          # See: https://github.com/kubernetes-sigs/metrics-server#requirements
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          kubectl patch deployment metrics-server -n kube-system \
+            --type=json \
+            -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=120s
+
+          # initialize solo
+          solo init
+          solo cluster-ref config connect --cluster-ref kind-${SOLO_CLUSTER_NAME} --context kind-${SOLO_CLUSTER_NAME}
+          solo deployment config create -n "${SOLO_NAMESPACE}" --deployment "${SOLO_DEPLOYMENT}"
+          solo deployment cluster attach --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --num-consensus-nodes 1
+          solo keys consensus generate --gossip-keys --tls-keys --deployment "${SOLO_DEPLOYMENT}"
+          solo cluster-ref config setup -s "${SOLO_CLUSTER_SETUP_NAMESPACE}"
+          solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
+          solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
+          solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
+          solo mirror node add  --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
+
+      - name: Run Solo Relay
+        id: run-relay
+        # continue-on-error: 128Mi may OOMKill before the relay passes its readiness
+        # probe; Solo's internal poll will exhaust its retries and exit non-zero.
+        # This is an expected, measured data-point for this phase — not an
+        # infrastructure failure. Execution continues so the report step can
+        # capture the OOMKill event and startup duration.
+        continue-on-error: true
+        run: |
+          # Capture absolute start time for relay startup duration KPI.
+          RELAY_START=$(date +%s)
+
+          # Compute a V8 old-space budget at 75% of the container memory limit.
+          # The remaining ~25% covers V8's code cache, stack, and other off-heap
+          # regions that sit outside the managed heap.
+          MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
+
+          OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
+          echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
+
+          cat <<EOF > relay-resources.yaml
+          relay:
+            resources:
+              requests:
+                cpu: 0
+                memory: 0
+              limits:
+                cpu: 1100m
+                memory: ${{ matrix.memory_limit }}
+            config:
+              NODE_OPTIONS: "--max-old-space-size=${OLD_SPACE_MB}"
+          EOF
+          cat relay-resources.yaml
+          solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
+
+          # Record startup seconds regardless of outcome; an OOMKill still
+          # produces a meaningful "time until failure" data-point.
+          RELAY_END=$(date +%s)
+          STARTUP_SECS=$(( RELAY_END - RELAY_START ))
+          echo "Relay startup time: ${STARTUP_SECS}s"
+          echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
+
+      - name: check Relay Resources
+        if: steps.run-relay.outcome == 'success'
+        run: |
+          echo "Describing Relay pod resources:"
+          kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
+
+      - name: Verify Live Memory Metrics
+        if: steps.run-relay.outcome == 'success'
+        run: |
+          # Confirm that NODE_OPTIONS was propagated to the relay container and
+          # fetch real-time memory stats from the /metrics endpoint.
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+-[^w]' | head -1)
+
+          if [ -z "${RELAY_POD}" ]; then
+            echo "WARNING: Relay pod not found, skipping memory metrics verification."
+            exit 0
+          fi
+
+          echo "Target pod: ${RELAY_POD}"
+
+          echo "--- NODE_OPTIONS (from pod environment) ---"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null \
+            || echo "(exec failed)"
+
+          echo "--- Live Memory Stats (/metrics) ---"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            node -e "const http = require('http'); http.get('http://localhost:7546/metrics', r => r.pipe(process.stdout)).on('error', () => process.exit(1));" 2>/dev/null \
+            | grep -E '^rpc_relay_(nodejs_heap_size_total|nodejs_heap_size_used|nodejs_external_memory|process_resident_memory)_bytes' \
+            | awk '{printf "%-50s %d MB\n", $1, $2/1048576}' \
+            || echo "(failed to fetch metrics)"
+
+      - name: Port-forward Consensus Node
+        if: steps.run-relay.outcome == 'success'
+        run: |
+          sudo kill -9 $(sudo lsof -ti :50211) || true
+          kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
+
+      - name: Checkout Relay repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: 4900-solo-reduce-json-rpc-relay-memory-footprint
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Build Relay
+        run: npm run build
+
+      - name: Record test start time
+        id: test-timing
+        run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Start json-rpc-relay-test-client
+        if: steps.run-relay.outcome == 'success'
         env:
-            SOLO_CLUSTER_NAME: solo
-            SOLO_NAMESPACE: solo
-            SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
-            SOLO_DEPLOYMENT: solo-deployment
-        name: Solo Test (${{ matrix.memory_limit }})
-        steps:
-            - name: Set env variables
-              run: |
-                  if [ -n "${{ inputs.operator_id }}" ]; then
-                    echo "OPERATOR_ID_MAIN=${{ inputs.operator_id }}" >> $GITHUB_ENV
-                  fi
-            - name: Harden Runner
-              uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
-              with:
-                  egress-policy: audit
+          CHAIN_ID: '0x12a'
+          MIRROR_NODE_URL: 'http://127.0.0.1:8081'
+          HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
+          OPERATOR_ID_MAIN: 0.0.2
+          OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
+          REDIS_ENABLED: false
+          USE_ASYNC_TX_PROCESSING: false
+          E2E_RELAY_HOST: http://localhost:7546
+          SDK_LOG_LEVEL: trace
+          USE_INTERNAL_RELAY: false
+        run: npm run acceptancetest:xts
 
-            - name: Checkout Code
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Record test end time
+        if: always()
+        id: test-end-time
+        run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-            - name: Setup node
-              uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-              with:
-                  node-version: 22
+      - name: Generate Report
+        if: always()
+        env:
+          MEMORY_LIMIT: ${{ matrix.memory_limit }}
+          TEST_STATUS: ${{ job.status }}
+          TEST_START: ${{ steps.test-timing.outputs.start }}
+          TEST_END: ${{ steps.test-end-time.outputs.end }}
+          RELAY_STARTUP_SECS: ${{ steps.run-relay.outputs.startup_secs }}
+          RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
+        run: |
+          set +e  # individual command failures must not abort the report
 
-            # Set up kind; needed for configuring the solo environment
-            - name: Setup Kind
-              uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-              with:
-                  install_only: true
-                  node_image: kindest/node:v1.31.4@sha256:2cb39f7295fe7eafee0842b1052a599a4fb0f8bcf3f83d96c7f4864c357c6c30
-                  version: v0.26.0
-                  kubectl_version: v1.31.4
-                  verbosity: 3
-                  wait: 120s
+          # ── E2E test duration (XTS suite wall-clock time) ─────────
+          # TEST_END is set by the dedicated "Record test end time" step
+          # immediately after the acceptance test runner finishes, giving
+          # a clean measurement of test execution time independent of the
+          # report-generation overhead.
+          E2E_SECS=$(( ${TEST_END:-0} - ${TEST_START:-${TEST_END:-0}} ))
+          E2E_TIME="$(( E2E_SECS / 60 ))m $(( E2E_SECS % 60 ))s"
+          [ "${E2E_SECS}" -le 0 ] && E2E_TIME="N/A"
 
-            - name: Install Solo
-              run: npm install -g @hashgraph/solo
+          # ── Relay startup duration ────────────────────────────────
+          # Measured from before `solo relay node add` to after it returns,
+          # covering image pull, pod scheduling, and Solo's readiness poll.
+          if [ -n "${RELAY_STARTUP_SECS}" ] && [ "${RELAY_STARTUP_SECS}" -gt 0 ]; then
+            STARTUP_TIME="$(( RELAY_STARTUP_SECS / 60 ))m $(( RELAY_STARTUP_SECS % 60 ))s"
+          else
+            STARTUP_TIME="N/A"
+          fi
 
-            - name: Configure and run solo
-              run: |
-                  kind create cluster -n "${SOLO_CLUSTER_NAME}"
+          # ── Relay startup status ──────────────────────────────────
+          if [ "${RELAY_STARTUP_OUTCOME}" != "success" ]; then
+            STARTUP_NOTE="FAILED — Pod never became ready (OOMKilled at init)"
+          else
+            STARTUP_NOTE="OK"
+          fi
 
-                  # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
-                  # because Kind kubelets use self-signed certificates.
-                  # See: https://github.com/kubernetes-sigs/metrics-server#requirements
-                  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-                  kubectl patch deployment metrics-server -n kube-system \
-                    --type=json \
-                    -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-                  kubectl rollout status deployment/metrics-server -n kube-system --timeout=120s
+          # ── Test results from JUnit XML (Mocha format) ───────────
+          # ── Pod resource snapshot via metrics-server ─────────────
+          # Capture both forms up-front. Embedded $(...) inside a heredoc runs
+          # in a subshell that does not inherit the runner environment reliably.
+          TOP_FULL=$(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1) || TOP_FULL="(kubectl top unavailable)"
+          TOP_OUTPUT=$(echo "$TOP_FULL" | tail -n +2)   # strip header row for parsing
 
-                  # initialize solo
-                  solo init
-                  solo cluster-ref config connect --cluster-ref kind-${SOLO_CLUSTER_NAME} --context kind-${SOLO_CLUSTER_NAME}
-                  solo deployment config create -n "${SOLO_NAMESPACE}" --deployment "${SOLO_DEPLOYMENT}"
-                  solo deployment cluster attach --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --num-consensus-nodes 1
-                  solo keys consensus generate --gossip-keys --tls-keys --deployment "${SOLO_DEPLOYMENT}"
-                  solo cluster-ref config setup -s "${SOLO_CLUSTER_SETUP_NAMESPACE}"
-                  solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
-                  solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
-                  solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
-                  solo mirror node add  --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
+          # ── Relay-specific metrics from kubectl top ──────────────
+          RELAY_CPU="N/A"; RELAY_MEM="N/A"
+          RELAY_WS_CPU="N/A"; RELAY_WS_MEM="N/A"
+          RELAY_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
+          RELAY_WS_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-ws-' | head -1)
+          [ -n "$RELAY_LINE" ]    && RELAY_CPU=$(echo "$RELAY_LINE" | awk '{print $2}') \
+                                 && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
+          [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') \
+                                 && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
 
-            - name: Run Solo Relay
-              id: run-relay
-              # continue-on-error: 128Mi may OOMKill before the relay passes its readiness
-              # probe; Solo's internal poll will exhaust its retries and exit non-zero.
-              # This is an expected, measured data-point for this phase — not an
-              # infrastructure failure. Execution continues so the report step can
-              # capture the OOMKill event and startup duration.
-              continue-on-error: true
-              run: |
-                  # Capture absolute start time for relay startup duration KPI.
-                  RELAY_START=$(date +%s)
+          # ── OOMKill detection ────────────────────────────────────
+          OOM_STATUS="None detected"
+          OOM_PODS=$(kubectl get pods -n "${SOLO_NAMESPACE}" -o json 2>/dev/null | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          oom = set()
+          for p in data.get('items', []):
+              for c in p.get('status', {}).get('containerStatuses', []):
+                  for sk in ('state', 'lastState'):
+                      if c.get(sk, {}).get('terminated', {}).get('reason') == 'OOMKilled':
+                          oom.add(p['metadata']['name'])
+          print(', '.join(sorted(oom)) if oom else '')
+          " 2>/dev/null) || OOM_PODS=""
+          [ -n "$OOM_PODS" ] && OOM_STATUS="OOMKilled: $OOM_PODS"
 
-                  # Compute a V8 old-space budget at 75% of the container memory limit.
-                  # The remaining ~25% covers V8's code cache, stack, and other off-heap
-                  # regions that sit outside the managed heap.
-                  MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
-                  OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
-                  echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
+          # ── Relay restart count ──────────────────────────────────
+          RELAY_RESTARTS=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
+            | awk '/^relay-/ { sum += $4 } END { print sum+0 }') || RELAY_RESTARTS="N/A"
 
-                  cat <<EOF > relay-resources.yaml
-                  relay:
-                    resources:
-                      requests:
-                        cpu: 0
-                        memory: 0
-                      limits:
-                        cpu: 1100m
-                        memory: ${{ matrix.memory_limit }}
-                    config:
-                      NODE_OPTIONS: "--max-old-space-size=${OLD_SPACE_MB}"
-                  EOF
-                  cat relay-resources.yaml
-                  solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
+          # ── Relay pod resource limits from spec ──────────────────
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+-[^w]' | head -1) || RELAY_POD=""
+          CONFIGURED_LIMITS="(not found)"
+          if [ -n "$RELAY_POD" ]; then
+            CONFIGURED_LIMITS=$(kubectl get pod "$RELAY_POD" -n "${SOLO_NAMESPACE}" \
+              -o jsonpath='{range .spec.containers[*]}{.name}: cpu={.resources.limits.cpu}, mem={.resources.limits.memory}{"\n"}{end}' \
+              2>/dev/null) || CONFIGURED_LIMITS="(query failed)"
+          fi
 
-                  # Record startup seconds regardless of outcome; an OOMKill still
-                  # produces a meaningful "time until failure" data-point.
-                  RELAY_END=$(date +%s)
-                  STARTUP_SECS=$(( RELAY_END - RELAY_START ))
-                  echo "Relay startup time: ${STARTUP_SECS}s"
-                  echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
+          # ── V8 heap configuration from the running relay process ──
+          # Re-exec into the pod to read the live heap_size_limit; this
+          # confirms whether NODE_OPTIONS was propagated and honoured by V8.
+          NODE_OPTIONS_VAL="N/A"
+          V8_HEAP_LIMIT_MB="N/A"
+          if [ -n "$RELAY_POD" ]; then
+            NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
+              || NODE_OPTIONS_VAL="(exec failed)"
+            V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>console.log(d.match(/rpc_relay_nodejs_heap_size_total_bytes (\d+)/)[1]))}).on('error',()=>process.exit(1));" \
+              2>/dev/null) || V8_RAW=""
+            [ -n "$V8_RAW" ] && V8_HEAP_LIMIT_MB="$(( V8_RAW / 1048576 ))MB"
+          fi
 
-            - name: check Relay Resources
-              if: steps.run-relay.outcome == 'success'
-              run: |
-                  echo "Describing Relay pod resources:"
-                  kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
+          # ── Echo all KPIs to step log (always visible regardless of summary write) ──
+          echo "============================================"
+          echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
+          echo "============================================"
+          echo "  Test Status      : ${TEST_STATUS}"
+          echo "  Relay Startup    : ${STARTUP_NOTE}"
+          echo "  Relay Start Time : ${STARTUP_TIME}"
+          echo "  E2E Test Time    : ${E2E_TIME}"
+          echo "--------------------------------------------"
+          echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
+          echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
+          echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
+          echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
+          echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
+          echo "  OOMKills         : ${OOM_STATUS}"
+          echo "  Restarts         : ${RELAY_RESTARTS}"
+          echo "============================================"
+          echo ""
+          echo "==> All pod resources:"
+          echo "${TOP_FULL}"
 
-            - name: Verify V8 Heap Settings
-              if: steps.run-relay.outcome == 'success'
-              run: |
-                  # Confirm that NODE_OPTIONS was propagated to the relay container and
-                  # that V8 honoured the --max-old-space-size flag by inspecting the
-                  # actual heap_size_limit reported by the running process.
-                  RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
-                    -o custom-columns=":metadata.name" 2>/dev/null \
-                    | grep -E '^relay-[0-9]+-[^w]' | head -1)
+          # ── Write GitHub Job Summary ─────────────────────────────
+          # All variables are pre-computed; no command substitutions inside
+          # the heredoc to avoid subshell environment inheritance issues.
+          # Use printf to append each section: avoids heredoc quoting/escaping
+          # pitfalls and makes each write independently verifiable.
+          printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| **Relay Startup Time** | **`%s`** |\n' "${STARTUP_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| **E2E Test Time (XTS)** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Test Status | `%s` |\n\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  if [ -z "${RELAY_POD}" ]; then
-                    echo "WARNING: Relay pod not found, skipping V8 heap verification."
-                    exit 0
-                  fi
+          printf '### Relay Resources\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Component | CPU | Memory (RSS) | Configured Limit |\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '|---|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Relay (HTTP) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Relay (ws)   | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  echo "Target pod: ${RELAY_POD}"
+          printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  echo "--- NODE_OPTIONS (from pod environment) ---"
-                  kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
-                    sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null \
-                    || echo "(exec failed)"
+          printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| OOMKill Events | %s |\n' "${OOM_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Relay Restart Count | %s |\n\n' "${RELAY_RESTARTS}" >> "${GITHUB_STEP_SUMMARY}"
 
-                  echo "--- V8 heap_size_limit (observed by running Node.js process) ---"
-                  kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
-                    node -e "
-                      const v8 = require('v8');
-                      const s  = v8.getHeapStatistics();
-                      const mb = Math.round(s.heap_size_limit / 1024 / 1024);
-                      console.log('heap_size_limit: ' + s.heap_size_limit + ' bytes (' + mb + ' MB)');
-                    " 2>/dev/null \
-                    || echo "(node exec failed)"
+          printf '<details><summary>All Pod Resources (<code>kubectl top</code>)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${TOP_FULL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '<details><summary>Relay Container Limits (from pod spec)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${CONFIGURED_LIMITS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '---\n> **Reading guide:**\n> - Relay Memory ≈ limit → under pressure; OOMKills likely at higher load.\n> - Relay Memory ≪ limit → room for further reduction.\n> - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.\n' \
+            >> "${GITHUB_STEP_SUMMARY}"
 
-            - name: Port-forward Consensus Node
-              if: steps.run-relay.outcome == 'success'
-              run: |
-                  sudo kill -9 $(sudo lsof -ti :50211) || true
-                  kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
-
-            - name: Checkout Relay repo
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  ref: 4900-solo-reduce-json-rpc-relay-memory-footprint
-
-            - name: Install packages
-              run: npm ci
-
-            - name: Build Relay
-              run: npm run build
-
-            - name: Record test start time
-              id: test-timing
-              run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
-
-            - name: Start json-rpc-relay-test-client
-              if: steps.run-relay.outcome == 'success'
-              env:
-                  CHAIN_ID: "0x12a"
-                  MIRROR_NODE_URL: "http://127.0.0.1:8081"
-                  HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
-                  OPERATOR_ID_MAIN: 0.0.2
-                  OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
-                  REDIS_ENABLED: false
-                  USE_ASYNC_TX_PROCESSING: false
-                  E2E_RELAY_HOST: http://localhost:7546
-                  SDK_LOG_LEVEL: trace
-                  USE_INTERNAL_RELAY: false
-              run: npm run acceptancetest:xts
-
-            - name: Record test end time
-              if: always()
-              id: test-end-time
-              run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
-
-            - name: Generate Report
-              if: always()
-              env:
-                  MEMORY_LIMIT: ${{ matrix.memory_limit }}
-                  TEST_STATUS: ${{ job.status }}
-                  TEST_START: ${{ steps.test-timing.outputs.start }}
-                  TEST_END: ${{ steps.test-end-time.outputs.end }}
-                  RELAY_STARTUP_SECS: ${{ steps.run-relay.outputs.startup_secs }}
-                  RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
-              run: |
-                  set +e  # individual command failures must not abort the report
-
-                  # ── E2E test duration (XTS suite wall-clock time) ─────────
-                  # TEST_END is set by the dedicated "Record test end time" step
-                  # immediately after the acceptance test runner finishes, giving
-                  # a clean measurement of test execution time independent of the
-                  # report-generation overhead.
-                  E2E_SECS=$(( ${TEST_END:-0} - ${TEST_START:-${TEST_END:-0}} ))
-                  E2E_TIME="$(( E2E_SECS / 60 ))m $(( E2E_SECS % 60 ))s"
-                  [ "${E2E_SECS}" -le 0 ] && E2E_TIME="N/A"
-
-                  # ── Relay startup duration ────────────────────────────────
-                  # Measured from before `solo relay node add` to after it returns,
-                  # covering image pull, pod scheduling, and Solo's readiness poll.
-                  if [ -n "${RELAY_STARTUP_SECS}" ] && [ "${RELAY_STARTUP_SECS}" -gt 0 ]; then
-                    STARTUP_TIME="$(( RELAY_STARTUP_SECS / 60 ))m $(( RELAY_STARTUP_SECS % 60 ))s"
-                  else
-                    STARTUP_TIME="N/A"
-                  fi
-
-                  # ── Relay startup status ──────────────────────────────────
-                  if [ "${RELAY_STARTUP_OUTCOME}" != "success" ]; then
-                    STARTUP_NOTE="FAILED — Pod never became ready (OOMKilled at init)"
-                  else
-                    STARTUP_NOTE="OK"
-                  fi
-
-                  # ── Test results from JUnit XML (Mocha format) ───────────
-                  # ── Pod resource snapshot via metrics-server ─────────────
-                  # Capture both forms up-front. Embedded $(...) inside a heredoc runs
-                  # in a subshell that does not inherit the runner environment reliably.
-                  TOP_FULL=$(kubectl top pods -n "${SOLO_NAMESPACE}" 2>&1) || TOP_FULL="(kubectl top unavailable)"
-                  TOP_OUTPUT=$(echo "$TOP_FULL" | tail -n +2)   # strip header row for parsing
-
-                  # ── Relay-specific metrics from kubectl top ──────────────
-                  RELAY_CPU="N/A"; RELAY_MEM="N/A"
-                  RELAY_WS_CPU="N/A"; RELAY_WS_MEM="N/A"
-                  RELAY_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
-                  RELAY_WS_LINE=$(echo "$TOP_OUTPUT" | grep -E '^relay-[0-9]+-ws-' | head -1)
-                  [ -n "$RELAY_LINE" ]    && RELAY_CPU=$(echo "$RELAY_LINE" | awk '{print $2}') \
-                                         && RELAY_MEM=$(echo "$RELAY_LINE" | awk '{print $3}')
-                  [ -n "$RELAY_WS_LINE" ] && RELAY_WS_CPU=$(echo "$RELAY_WS_LINE" | awk '{print $2}') \
-                                         && RELAY_WS_MEM=$(echo "$RELAY_WS_LINE" | awk '{print $3}')
-
-                  # ── OOMKill detection ────────────────────────────────────
-                  OOM_STATUS="None detected"
-                  OOM_PODS=$(kubectl get pods -n "${SOLO_NAMESPACE}" -o json 2>/dev/null | python3 -c "
-                  import sys, json
-                  data = json.load(sys.stdin)
-                  oom = set()
-                  for p in data.get('items', []):
-                      for c in p.get('status', {}).get('containerStatuses', []):
-                          for sk in ('state', 'lastState'):
-                              if c.get(sk, {}).get('terminated', {}).get('reason') == 'OOMKilled':
-                                  oom.add(p['metadata']['name'])
-                  print(', '.join(sorted(oom)) if oom else '')
-                  " 2>/dev/null) || OOM_PODS=""
-                  [ -n "$OOM_PODS" ] && OOM_STATUS="OOMKilled: $OOM_PODS"
-
-                  # ── Relay restart count ──────────────────────────────────
-                  RELAY_RESTARTS=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
-                    | awk '/^relay-/ { sum += $4 } END { print sum+0 }') || RELAY_RESTARTS="N/A"
-
-                  # ── Relay pod resource limits from spec ──────────────────
-                  RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
-                    -o custom-columns=":metadata.name" 2>/dev/null \
-                    | grep -E '^relay-[0-9]+-[^w]' | head -1) || RELAY_POD=""
-                  CONFIGURED_LIMITS="(not found)"
-                  if [ -n "$RELAY_POD" ]; then
-                    CONFIGURED_LIMITS=$(kubectl get pod "$RELAY_POD" -n "${SOLO_NAMESPACE}" \
-                      -o jsonpath='{range .spec.containers[*]}{.name}: cpu={.resources.limits.cpu}, mem={.resources.limits.memory}{"\n"}{end}' \
-                      2>/dev/null) || CONFIGURED_LIMITS="(query failed)"
-                  fi
-
-                  # ── V8 heap configuration from the running relay process ──
-                  # Re-exec into the pod to read the live heap_size_limit; this
-                  # confirms whether NODE_OPTIONS was propagated and honoured by V8.
-                  NODE_OPTIONS_VAL="N/A"
-                  V8_HEAP_LIMIT_MB="N/A"
-                  if [ -n "$RELAY_POD" ]; then
-                    NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
-                      sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
-                      || NODE_OPTIONS_VAL="(exec failed)"
-                    V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
-                      node -e "const v8=require('v8');const s=v8.getHeapStatistics();console.log(Math.round(s.heap_size_limit/1024/1024))" \
-                      2>/dev/null) || V8_RAW=""
-                    [ -n "$V8_RAW" ] && V8_HEAP_LIMIT_MB="${V8_RAW}MB"
-                  fi
-
-                  # ── Echo all KPIs to step log (always visible regardless of summary write) ──
-                  echo "============================================"
-                  echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
-                  echo "============================================"
-                  echo "  Test Status      : ${TEST_STATUS}"
-                  echo "  Relay Startup    : ${STARTUP_NOTE}"
-                  echo "  Relay Start Time : ${STARTUP_TIME}"
-                  echo "  E2E Test Time    : ${E2E_TIME}"
-                  echo "--------------------------------------------"
-                  echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
-                  echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
-                  echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
-                  echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
-                  echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
-                  echo "  OOMKills         : ${OOM_STATUS}"
-                  echo "  Restarts         : ${RELAY_RESTARTS}"
-                  echo "============================================"
-                  echo ""
-                  echo "==> All pod resources:"
-                  echo "${TOP_FULL}"
-
-                  # ── Write GitHub Job Summary ─────────────────────────────
-                  # All variables are pre-computed; no command substitutions inside
-                  # the heredoc to avoid subshell environment inheritance issues.
-                  # Use printf to append each section: avoids heredoc quoting/escaping
-                  # pitfalls and makes each write independently verifiable.
-                  printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| **Relay Startup Time** | **`%s`** |\n' "${STARTUP_TIME}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| **E2E Test Time (XTS)** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Test Status | `%s` |\n\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '### Relay Resources\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Component | CPU | Memory (RSS) | Configured Limit |\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '|---|:---:|:---:|:---:|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Relay (HTTP) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Relay (ws)   | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| OOMKill Events | %s |\n' "${OOM_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '| Relay Restart Count | %s |\n\n' "${RELAY_RESTARTS}" >> "${GITHUB_STEP_SUMMARY}"
-
-                  printf '<details><summary>All Pod Resources (<code>kubectl top</code>)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
-                    "${TOP_FULL}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '<details><summary>Relay Container Limits (from pod spec)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
-                    "${CONFIGURED_LIMITS}" >> "${GITHUB_STEP_SUMMARY}"
-                  printf '---\n> **Reading guide:**\n> - Relay Memory ≈ limit → under pressure; OOMKills likely at higher load.\n> - Relay Memory ≪ limit → room for further reduction.\n> - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.\n' \
-                    >> "${GITHUB_STEP_SUMMARY}"
-
-                  echo "Report written to GitHub Job Summary."
+          echo "Report written to GitHub Job Summary."
