@@ -16,17 +16,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - scenario: "Baseline"
-            memory_limit: 128Mi
+          # - scenario: "Baseline-128"
+          #   memory_limit: 128Mi
+          #   v8_flags: ""
+          # - scenario: "Optimize-Size-128"
+          #   memory_limit: 128Mi
+          #   v8_flags: "--optimize-for-size"
+          # - scenario: "Memory-Reducer-128"
+          #   memory_limit: 128Mi
+          #   v8_flags: "--memory-reducer"
+          # - scenario: "Experimental-Max-128"
+          #   memory_limit: 128Mi
+          #   v8_flags: "--optimize-for-size --memory-reducer"
+          # 256Mi Profiling (requested by Fer to observe impact on stable deployment)
+          - scenario: "Baseline-256"
+            memory_limit: 256Mi
             v8_flags: ""
-          - scenario: "Optimize-Size"
-            memory_limit: 128Mi
+          - scenario: "Optimize-Size-256"
+            memory_limit: 256Mi
             v8_flags: "--optimize-for-size"
-          - scenario: "Memory-Reducer"
-            memory_limit: 128Mi
+          - scenario: "Memory-Reducer-256"
+            memory_limit: 256Mi
             v8_flags: "--memory-reducer"
-          - scenario: "Experimental-Max"
-            memory_limit: 128Mi
+          - scenario: "Experimental-Max-256"
+            memory_limit: 256Mi
             v8_flags: "--optimize-for-size --memory-reducer"
     permissions:
       contents: read
@@ -199,8 +212,8 @@ jobs:
       - name: Start json-rpc-relay-test-client
         if: steps.run-relay.outcome == 'success'
         env:
-          CHAIN_ID: '0x12a'
-          MIRROR_NODE_URL: 'http://127.0.0.1:8081'
+          CHAIN_ID: "0x12a"
+          MIRROR_NODE_URL: "http://127.0.0.1:8081"
           HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
           OPERATOR_ID_MAIN: 0.0.2
           OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
