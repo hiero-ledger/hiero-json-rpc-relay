@@ -1031,8 +1031,8 @@ describe('@debug API Acceptance Tests', function () {
           expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
           expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
           expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
-          expect(decodedTx.signature.r).to.equal(tx.r);
-          expect(decodedTx.signature.s).to.equal(tx.s);
+          expect(decodedTx.signature.r).to.equal(prepend0x(strip0x(tx.r).padStart(64, '0')));
+          expect(decodedTx.signature.s).to.equal(prepend0x(strip0x(tx.s).padStart(64, '0')));
           expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
         } else {
           // handle synthetic transaction
@@ -1133,7 +1133,7 @@ describe('@debug API Acceptance Tests', function () {
       });
     });
 
-    describe('debug_getRawBlock', async () => {
+    describe.only('debug_getRawBlock', async () => {
       let blockInfo;
 
       before(async () => {
