@@ -27,7 +27,7 @@ jobs:
             const { owner, repo } = context.repo;
             const prs = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
             const exists = prs.data.some(pr =>
-              (pr.title && pr.title.includes('docs: Update OpenRPC JSON')) ||
+              (pr.title && pr.title.includes('docs: update OpenRPC JSON')) ||
               (pr.head && pr.head.ref && pr.head.ref.startsWith('update-openrpc-'))
             );
             core.info(`Existing OpenRPC update PR detected: ${exists}`);
@@ -150,13 +150,27 @@ jobs:
           echo "UNIQUE_BRANCH=${UNIQUE_BRANCH}" >> $GITHUB_ENV
           echo "Generated unique branch name: ${UNIQUE_BRANCH}"
 
+      - name: Import GPG Key
+        if: ${{ env.SKIP_PR != 'true' }}
+        id: gpg_importer
+        uses: step-security/ghaction-import-gpg@c86c374c0659a6c2d1284bccf8af889e73ce8fe0 # v6.3.0
+        with:
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_user_signingkey: true
+          gpg_private_key: ${{ secrets.GPG_KEY_CONTENTS }}
+          passphrase: ${{ secrets.GPG_KEY_PASSPHRASE }}
+
       - name: Create Pull Request
         if: ${{ env.SKIP_PR != 'true' }}
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-          commit-message: Update OpenRPC JSON
-          title: 'docs: Update OpenRPC JSON'
+          commit-message: "docs: update OpenRPC JSON"
+          committer: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          author: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          signoff: true
+          title: 'docs: update OpenRPC JSON'
           body: |
             # OpenRPC JSON Update
 
@@ -170,3 +184,5 @@ jobs:
           base: 'main'
           add-paths: docs/openrpc.json
           delete-branch: true
+          labels: 'internal'
+          assignees: 'swirlds-automation'
