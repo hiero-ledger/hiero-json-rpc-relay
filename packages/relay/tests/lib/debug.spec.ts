@@ -2402,6 +2402,63 @@ describe('Debug API Test Suite', async function () {
         );
       });
 
+      it('should return only touched contract slots', async function () {
+        const txTimestamp = '1656449903.930356440';
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractsResultsActions')
+          .withArgs(transactionHash, sinon.match.any)
+          .resolves(actionsResponseMock);
+
+        sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves({
+          result: 'SUCCESS',
+          timestamp: txTimestamp,
+        });
+
+        sinon.stub(mirrorNodeInstance, 'resolveEntityType').callsFake(async (address) => {
+          if (address === contractAddress) {
+            return contractEntityMock;
+          } else if (address === accountAddress) {
+            return accountEntityMock;
+          }
+          return null;
+        });
+
+        sinon
+          .stub(mirrorNodeInstance, 'getBalanceAtTimestamp')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves(contractBalanceMock);
+
+        sinon
+          .stub(mirrorNodeInstance, 'getContractState')
+          .withArgs(contractId, sinon.match.any, sinon.match.any)
+          .resolves([
+            {
+              address: contractEvmAddress,
+              slot: '0x0',
+              value: '0x0',
+              timestamp: txTimestamp,
+            },
+            {
+              address: contractEvmAddress,
+              slot: '0x1',
+              value: '0x1',
+              timestamp: '1650000000.930000000',
+            },
+            {
+              address: contractEvmAddress,
+              slot: '0x2',
+              value: '0x2',
+              timestamp: txTimestamp,
+            },
+          ]);
+
+        const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+        expect(result[contractEvmAddress].storage).to.have.property('0x0');
+        expect(result[contractEvmAddress].storage).to.not.have.property('0x1');
+        expect(result[contractEvmAddress].storage).to.have.property('0x2');
+      });
+
       it('should return empty array when the transaction hash is not found', async function () {
         // Create a separate DebugImpl instance just for this test
         const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
