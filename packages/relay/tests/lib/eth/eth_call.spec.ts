@@ -631,9 +631,12 @@ describe('@ethCall Eth Call spec', async function () {
       };
 
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.failInvalid, requestDetails);
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.be.not.null;
-      expect(result).to.equal('0x');
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError)
+        .and.to.eventually.include({
+          code: 3,
+          message: 'execution reverted: FAIL_INVALID',
+        });
     });
 
     it('eth_call to simulate deploying a smart contract with `to` field being null', async function () {

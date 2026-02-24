@@ -15,7 +15,7 @@ import { MirrorNodeClientError } from '../../../src/lib/errors/MirrorNodeClientE
 import { EthImpl } from '../../../src/lib/eth';
 import { LocalPendingTransactionStorage, LockService, TransactionPoolService } from '../../../src/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../src/lib/types';
-import { overrideEnvsInMochaDescribe } from '../../helpers';
+import { mockData, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -106,6 +106,23 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   describe('eth_estimateGas with contract call', async function () {});
+
+  it('should map FAIL_INVALID to JSON-RPC error code 3 for eth_estimateGas', async function () {
+    const callData: IContractCallRequest = {
+      from: '0x81cb089c285e5ee3a7353704fb114955037443af',
+      to: RECEIVER_ADDRESS,
+      data: '0x01',
+    };
+
+    await mockContractCall(callData, true, 400, mockData.failInvalid, requestDetails);
+
+    await expect(ethImpl.estimateGas(callData, null, requestDetails))
+      .to.be.rejectedWith(JsonRpcError)
+      .and.to.eventually.include({
+        code: 3,
+        message: 'execution reverted: FAIL_INVALID',
+      });
+  });
 
   it('should eth_estimateGas with transaction.data null throws COULD_NOT_SIMULATE_TRANSACTION error on 400', async function () {
     const callData: IContractCallRequest = {

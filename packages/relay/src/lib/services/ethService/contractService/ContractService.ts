@@ -168,17 +168,7 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e: any) {
-      if (e instanceof MirrorNodeClientError) {
-        if (e.isContractRevert()) {
-          throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
-        } else if (e.statusCode === 400) {
-          throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
-        }
-      }
-
-      // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
-      // preserve the original error and re-throw to the upper layer for further handling logic
-      throw e;
+      return await this.handleMirrorNodeError(e);
     }
   }
 
@@ -501,9 +491,8 @@ export class ContractService implements IContractService {
    * @private
    */
   private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<string | JsonRpcError> {
-    if (e.isFailInvalid() || e.isInvalidTransaction()) {
-      return constants.EMPTY_HEX;
-    }
+    if (e.isInvalidTransaction()) return constants.EMPTY_HEX;
+    if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
     if (e.isContractRevert()) {
       throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
