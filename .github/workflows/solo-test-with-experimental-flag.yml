@@ -57,6 +57,10 @@ jobs:
           #   cpu_limit: "4000m"
 
           # --- 256Mi Pod with 128Mi V8 Limits ---
+          - scenario: "old-192-pod-256-normal"
+            memory_limit: 256Mi
+            v8_flags: "--max-old-space-size=192"
+            cpu_limit: "1100m"
           - scenario: "old-80-semi-16-pod-256-normal"
             memory_limit: 256Mi
             v8_flags: "--max-old-space-size=80 --max-semi-space-size=16"
