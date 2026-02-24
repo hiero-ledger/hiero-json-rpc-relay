@@ -46,7 +46,10 @@ jobs:
 
       - name: Build Local Relay Image
         run: |
+          # Solo defaults to --relay-release 0.73.0. We tag our local image
+          # to match this exactly so Solo's auto-generated Helm commands succeed.
           docker build -t relay-local:latest .
+          docker tag relay-local:latest library/relay-local:0.73.0
 
       # Set up kind; needed for configuring the solo environment
       - name: Setup Kind
@@ -67,7 +70,7 @@ jobs:
           kind create cluster -n "${SOLO_CLUSTER_NAME}"
           
           echo "Loading local relay image into Kind..."
-          kind load docker-image relay-local:latest -n "${SOLO_CLUSTER_NAME}"
+          kind load docker-image library/relay-local:0.73.0 -n "${SOLO_CLUSTER_NAME}"
 
           # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
           # because Kind kubelets use self-signed certificates.
@@ -108,7 +111,7 @@ jobs:
             image:
               registry: "library"
               repository: relay-local
-              tag: latest
+              tag: "0.73.0"
               pullPolicy: Never
             resources:
               requests:
