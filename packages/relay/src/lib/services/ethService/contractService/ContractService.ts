@@ -168,7 +168,9 @@ export class ContractService implements IContractService {
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e: any) {
-      return await this.handleMirrorNodeError(e);
+      const mirrorNodeError = await this.handleMirrorNodeError(e);
+      if (mirrorNodeError instanceof JsonRpcError) return mirrorNodeError;
+      throw e;
     }
   }
 
