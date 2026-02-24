@@ -26,5 +26,5 @@ USER node
 # Build
 RUN npm run build
 # Run
-ENTRYPOINT ["npm", "run"]
-CMD ["start"]
+ENTRYPOINT ["node"]
+CMD ["packages/server/dist/index.js"]
