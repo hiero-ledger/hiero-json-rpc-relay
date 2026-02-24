@@ -739,7 +739,7 @@ export class DebugImpl implements Debug {
 
             // Build storage map from state items
             const storageMap = stateResponse.reduce((map, stateItem) => {
-              if (stateItem.timestamp == transactionsResponse?.timestamp) {
+              if (stateItem.timestamp === transactionsResponse?.timestamp) {
                 map[stateItem.slot] = stateItem.value;
               }
               return map;
