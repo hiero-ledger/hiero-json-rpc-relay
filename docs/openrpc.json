@@ -2613,6 +2613,26 @@
           }
         },
         "maxItems": 0
+      },
+      "BadBlock": {
+        "title": "Bad block",
+        "type": "object",
+        "required": ["block", "hash", "rlp"],
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "title": "block",
+            "$ref": "#/components/schemas/Block"
+          },
+          "hash": {
+            "title": "hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "rlp": {
+            "title": "RLP",
+            "$ref": "#/components/schemas/bytes"
+          }
+        }
       }
     }
   }
