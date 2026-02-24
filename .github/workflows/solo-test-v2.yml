@@ -48,8 +48,7 @@ jobs:
         run: |
           # Solo defaults to --relay-release 0.73.0. We tag our local image
           # to match this exactly so Solo's auto-generated Helm commands succeed.
-          docker build -t relay-local:latest .
-          docker tag relay-local:latest library/relay-local:0.73.0
+          docker build -t library/relay-local:0.73.0 .
 
       # Set up kind; needed for configuring the solo environment
       - name: Setup Kind

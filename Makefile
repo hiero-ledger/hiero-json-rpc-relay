@@ -5,35 +5,56 @@ SOLO_NAMESPACE ?= solo
 SOLO_CLUSTER_SETUP_NAMESPACE ?= solo-cluster
 SOLO_DEPLOYMENT ?= solo-deployment
 
+PACKAGE_VERSION := $(shell node -p "require('./package.json').version" 2>/dev/null || echo "0.76.0-SNAPSHOT")
+
+# Modifiers (detected as flags from the command line)
+LOCAL_FLAG ?= $(filter local,$(MAKECMDGOALS))
+PURE_FLAG  ?= $(filter pure,$(MAKECMDGOALS))
+export LOCAL_FLAG PURE_FLAG
+
+# Dummy targets for flags to prevent "No rule to make target" errors
+local pure:
+	@:
+
 .PHONY: help
 help:
+	@echo "Usage: make run-relay-<limit> [local] [pure]"
+	@echo ""
 	@echo "Available commands:"
-	@echo "  make setup-solo          - Delete existing clusters and setup fresh Solo network (Consensus + Mirror)"
-	@echo "  make run-relay-1000      - Add Relay with 1000Mi memory limit (baseline)"
-	@echo "  make run-relay-512       - Add Relay with 512Mi memory limit"
-	@echo "  make run-relay-256       - Add Relay with 256Mi memory limit"
-	@echo "  make run-relay-128       - Add Relay with 128Mi memory limit (Fer's strict profiling target: 80MB old, 16MB semi)"
-	@echo "  make run-relay-64        - Add Relay with 64Mi memory limit (P0 target: 48MB old-space)"
-	@echo "  make report              - Show relay resource usage, limits, OOMs, and restarts"
-	@echo "  make clean-solo          - Delete all Solo clusters and configurations"
+	@echo "  make setup-solo          - Setup fresh Solo network"
+	@echo "  make build-local-relay   - Build and load local image"
+	@echo "  make run-relay-1000      - Baseline (1000Mi)"
+	@echo "  make run-relay-512       - 512Mi profile"
+	@echo "  make run-relay-256       - 256Mi profile"
+	@echo "  make run-relay-128       - 128Mi profile"
+	@echo "  make run-relay-64        - 64Mi profile"
+	@echo "  make report              - Resource usage report"
+	@echo "  make clean-solo          - Delete clusters"
+	@echo ""
+	@echo "Flags:"
+	@echo "  local                    - Use optimized PID 1 local image"
+	@echo "  pure                     - Skip auto V8 tuning (standard Node GC)"
+	@echo ""
+	@echo "Example: make run-relay-128 local pure"
 
 .PHONY: clean-solo
 clean-solo:
-	@echo "Cleaning up previous Solo deployment..."
+	@echo "Cleaning up..."
 	-kind get clusters | grep "^${SOLO_CLUSTER_NAME}" | xargs -I {} kind delete cluster -n {} || true
 	-rm -rf ~/.solo
 
+.PHONY: build-local-relay
+build-local-relay:
+	@echo "Building library/relay-local:0.73.0..."
+	docker build -t library/relay-local:0.73.0 .
+	kind load docker-image library/relay-local:0.73.0 --name $(SOLO_CLUSTER_NAME)
+
 .PHONY: setup-solo
 setup-solo: clean-solo
-	@echo "Setting up Solo network infrastructure..."
+	@echo "Setting up Solo network..."
 	kind create cluster -n "${SOLO_CLUSTER_NAME}"
-	# metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
-	# because Kind kubelets use self-signed certificates.
-	# See: https://github.com/kubernetes-sigs/metrics-server#requirements
 	kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-	kubectl patch deployment metrics-server -n kube-system \
-		--type=json \
-		-p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+	kubectl patch deployment metrics-server -n kube-system --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 	kubectl rollout status deployment/metrics-server -n kube-system --timeout=120s
 	solo init
 	solo cluster-ref config connect --cluster-ref kind-${SOLO_CLUSTER_NAME} --context kind-${SOLO_CLUSTER_NAME}
@@ -41,71 +62,66 @@ setup-solo: clean-solo
 	solo deployment cluster attach --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --num-consensus-nodes 1
 	solo keys consensus generate --gossip-keys --tls-keys --deployment "${SOLO_DEPLOYMENT}"
 	solo cluster-ref config setup -s "${SOLO_CLUSTER_SETUP_NAMESPACE}"
-	# No --profile flag: keeps behaviour identical to CI (solo-test.yml) to avoid
-	# silent topology mismatches that break relay connectivity.
 	solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 	$(MAKE) port-forward
 
-.PHONY: run-relay-1000
+.PHONY: run-relay-1000 run-relay-512 run-relay-256 run-relay-128 run-relay-64
 run-relay-1000:
 	$(MAKE) run-relay MEMORY_LIMIT=1000Mi
-
-.PHONY: run-relay-512
 run-relay-512:
 	$(MAKE) run-relay MEMORY_LIMIT=512Mi
-
-.PHONY: run-relay-256
 run-relay-256:
 	$(MAKE) run-relay MEMORY_LIMIT=256Mi
-
-.PHONY: run-relay-128
 run-relay-128:
 	$(MAKE) run-relay MEMORY_LIMIT=128Mi
-
-.PHONY: run-relay-64
 run-relay-64:
 	$(MAKE) run-relay MEMORY_LIMIT=64Mi
 
 .PHONY: port-forward
 port-forward:
-	@echo "Port-forwarding consensus node port 50211..."
 	kill -9 $$(lsof -ti :50211) || true
 	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &	
 
 .PHONY: run-relay
 run-relay: 
 	@echo "Adding Relay node with memory limit: $(MEMORY_LIMIT)"
-	# Root key must be "relay" — this is the Helm chart value path that Solo's
-	# relay chart exposes. Using the wrong key silently ignores the block.
-	# V8 old-space is capped at 75% of the container limit to leave headroom
-	# for V8's code cache, stack, and other off-heap memory regions.
 	@MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
-	if [ -n "$(OLD_SPACE)" ]; then \
-		OLD_SPACE_MB="$(OLD_SPACE)"; \
-		echo "  V8 old-space: $${OLD_SPACE_MB}MB (explicitly requested)"; \
-	else \
-		OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
-		echo "  V8 old-space: $${OLD_SPACE_MB}MB (75% of $(MEMORY_LIMIT))"; \
+	OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
+	if [ -n "$(LOCAL_FLAG)" ]; then echo "  -> Using Local Image"; fi; \
+	if [ -z "$(PURE_FLAG)" ]; then \
+		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $(EXTRA_NODE_OPTS)"; \
+		echo "  -> V8 tuning: $$NODE_OPTS"; \
 	fi; \
-	if [ -n "$(SEMI_SPACE)" ]; then \
-		SEMI_SPACE_OPT=" --max-semi-space-size=$(SEMI_SPACE)"; \
-		echo "  V8 semi-space: $(SEMI_SPACE)MB (explicitly requested)"; \
-	else \
-		SEMI_SPACE_OPT=""; \
-	fi; \
-	if [ -n "$(EXTRA_NODE_OPTS)" ]; then \
-		NODE_OPTS="$$NODE_OPTS $(EXTRA_NODE_OPTS)"; \
-		echo "  V8 extra flags: $(EXTRA_NODE_OPTS)"; \
-	fi; \
-	printf 'relay:\n  resources:\n    requests:\n      cpu: 0\n      memory: 0\n    limits:\n      cpu: 1100m\n      memory: $(MEMORY_LIMIT)\n  config:\n    NODE_OPTIONS: "%s"\n' "$$NODE_OPTS" > relay-resources.yaml; \
-	echo "--- relay-resources.yaml ---"; \
-	cat relay-resources.yaml; \
-	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml; \
-	rm relay-resources.yaml; \
-	echo "Relay setup complete with $(MEMORY_LIMIT) limit."
+	( \
+		echo "relay:"; \
+		if [ -n "$(LOCAL_FLAG)" ]; then \
+			echo "  image:"; \
+			echo "    registry: \"library\""; \
+			echo "    repository: relay-local"; \
+			echo "    tag: \"0.73.0\""; \
+			echo "    pullPolicy: Never"; \
+		fi; \
+		echo "  resources:"; \
+		echo "    requests:"; \
+		echo "      cpu: 0"; \
+		echo "      memory: 0"; \
+		echo "    limits:"; \
+		echo "      cpu: 1100m"; \
+		echo "      memory: $(MEMORY_LIMIT)"; \
+		echo "  config:"; \
+		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
+		if [ -z "$(PURE_FLAG)" ]; then \
+			echo "    NODE_OPTIONS: \"--max-old-space-size=$$OLD_SPACE_MB $(EXTRA_NODE_OPTS)\""; \
+		fi; \
+	) > relay-resources.yaml; \
+	cat relay-resources.yaml
+	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
+	rm relay-resources.yaml
+	@echo "Relay setup complete with $(MEMORY_LIMIT) limit."
+
 
 .PHONY: run-relay-256-profile-with-heapdump
 run-relay-256-profile-with-heapdump:
@@ -189,3 +205,23 @@ report:
 	@kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
 		| awk '/^relay-/ { sum += $$4 } END { print sum+0 }' || echo "N/A"
 	@echo ""
+
+# Catch-all target to allow positional arguments without "No rule to make target" errors
+%:
+	@:
+
+.PHONY: exec-relay
+exec-relay:
+	@ARG1=$(filter-out $@,$(MAKECMDGOALS)); \
+	RELAY_POD=$${ARG1:-$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | head -1)}; \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Entering shell for pod: $$RELAY_POD"; \
+	kubectl exec -it -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- /bin/bash
+
+.PHONY: print-relay-procs
+print-relay-procs:
+	@ARG1=$(filter-out $@,$(MAKECMDGOALS)); \
+	RELAY_POD=$${ARG1:-$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | head -1)}; \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Reading /proc/ cmdlines for pod: $$RELAY_POD"; \
+	kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- sh -c 'for p in /proc/[0-9]*; do if [ -f "$$p/cmdline" ]; then pid=$$(basename $$p); cmd=$$(cat $$p/cmdline | tr "\0" " "); [ -n "$$cmd" ] && printf "PID %-6s: %s\n" "$$pid" "$$cmd"; fi; done'
