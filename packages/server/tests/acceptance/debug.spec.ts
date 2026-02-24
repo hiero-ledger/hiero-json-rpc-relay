@@ -65,6 +65,7 @@ describe('@debug API Acceptance Tests', function () {
   const DEBUG_TRACE_BLOCK_BY_HASH = 'debug_traceBlockByHash';
   const DEBUG_TRACE_TRANSACTION = 'debug_traceTransaction';
   const DEBUG_GET_RAW_BLOCK = 'debug_getRawBlock';
+  const DEBUG_GET_RAW_HEADER = 'debug_getRawHeader';
 
   const TRACER_CONFIGS = {
     CALL_TRACER_TOP_ONLY_FALSE: { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
@@ -989,20 +990,69 @@ describe('@debug API Acceptance Tests', function () {
       });
     });
 
-    describe('debug_getRawBlock', async () => {
-      const toHex = (n) => '0x' + n.toString(16);
-      const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
-      const hexToQuantity = (buf) => {
-        if (buf.length === 0) return '0x0';
-        return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
-      };
+    const toHex = (n) => '0x' + n.toString(16);
+    const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;
+    const hexToQuantity = (buf) => {
+      if (buf.length === 0) return '0x0';
+      return `0x${Buffer.from(buf).toString('hex').replace(/^0+/, '') || '0'}`;
+    };
 
+    const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock, headerOnly = false) => {
+      expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
+      expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
+      expect(hexToData(decodedRawBlock[2])).to.equal(constants.HEDERA_NODE_REWARD_ACCOUNT_ADDRESS);
+      expect(hexToData(decodedRawBlock[3])).to.equal(blockInfo.stateRoot);
+      expect(hexToData(decodedRawBlock[4])).to.equal(blockInfo.transactionsRoot);
+      expect(hexToData(decodedRawBlock[5])).to.equal(blockInfo.receiptsRoot);
+      expect(hexToData(decodedRawBlock[6])).to.equal(blockInfo.logsBloom);
+      expect(hexToQuantity(decodedRawBlock[7])).to.equal(blockInfo.difficulty);
+      expect(hexToQuantity(decodedRawBlock[8])).to.equal(blockInfo.number);
+      expect(hexToQuantity(decodedRawBlock[9])).to.equal(blockInfo.gasLimit);
+      expect(hexToQuantity(decodedRawBlock[10])).to.equal(blockInfo.gasUsed);
+      expect(hexToData(decodedRawBlock[11])).to.equal(blockInfo.timestamp);
+      expect(hexToData(decodedRawBlock[12])).to.equal(blockInfo.extraData);
+      expect(hexToData(decodedRawBlock[13])).to.equal(blockInfo.mixHash);
+      expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
+      expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
+      expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
+
+      if (headerOnly) return;
+
+      for (const [i, tx] of blockInfo.transactions.entries()) {
+        const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
+
+        expect(decodedTx.to?.toLowerCase()).to.equal(tx.to);
+        expect(decodedTx.data).to.equal(tx.input);
+        expect(toHex(decodedTx.nonce)).to.equal(tx.nonce);
+        expect(toHex(decodedTx.value)).to.equal(tx.value);
+
+        if (decodedTx.signature) {
+          // handle ethereum transaction
+          expect(toHex(decodedTx.maxPriorityFeePerGas)).to.equal(tx.maxPriorityFeePerGas);
+          expect(toHex(decodedTx.maxFeePerGas)).to.equal(tx.maxFeePerGas);
+          expect(toHex(decodedTx.chainId)).to.equal(tx.chainId);
+          expect(decodedTx.signature.r).to.equal(tx.r);
+          expect(decodedTx.signature.s).to.equal(tx.s);
+          expect(toHex(decodedTx.signature.v - 27)).to.equal(tx.v);
+        } else {
+          // handle synthetic transaction
+          expect(toHex(decodedTx.gasLimit)).to.equal(tx.gas);
+          expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
+        }
+      }
+
+      expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
+      expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
+    };
+
+    describe('debug_getRawHeader', async () => {
       let blockInfo;
+
       before(async () => {
         blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
       });
 
-      const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock) => {
+      const assertBlockInfoMatchesGetRawBlockInfo = (blockInfo, decodedRawBlock, headerOnly = false) => {
         expect(hexToData(decodedRawBlock[0])).to.equal(blockInfo.parentHash);
         expect(hexToData(decodedRawBlock[1])).to.equal(constants.EMPTY_ARRAY_HEX);
         expect(hexToData(decodedRawBlock[2])).to.equal('0x0000000000000000000000000000000000000321');
@@ -1020,8 +1070,8 @@ describe('@debug API Acceptance Tests', function () {
         expect(hexToData(decodedRawBlock[14])).to.equal(blockInfo.nonce);
         expect(hexToData(decodedRawBlock[15])).to.equal(blockInfo.baseFeePerGas);
         expect(hexToData(decodedRawBlock[16])).to.equal(blockInfo.withdrawalsRoot);
-        expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
-        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
+
+        if (headerOnly) return;
 
         for (const [i, tx] of blockInfo.transactions.entries()) {
           const decodedTx = ethers.Transaction.from(hexToData(decodedRawBlock[17][i]));
@@ -1045,7 +1095,50 @@ describe('@debug API Acceptance Tests', function () {
             expect(toHex(decodedTx.gasPrice)).to.equal(tx.gasPrice);
           }
         }
+
+        expect(hexToData(decodedRawBlock[18])).to.equal(constants.EMPTY_HEX);
+        expect(hexToData(decodedRawBlock[19])).to.equal(constants.EMPTY_HEX);
       };
+
+      it('should return 0x for non-existent block', async () => {
+        const res = await relay.call(DEBUG_GET_RAW_HEADER, ['0xffffffffffff']);
+        expect(res).to.equal('0x');
+      });
+
+      it('should be able to pass blockTags (earliest, latest, pending, finalized, safe)', async () => {
+        const earliestRes = await relay.call(DEBUG_GET_RAW_HEADER, ['earliest']);
+        const latestRes = await relay.call(DEBUG_GET_RAW_HEADER, ['latest']);
+        const pendingRes = await relay.call(DEBUG_GET_RAW_HEADER, ['pending']);
+        const finalizedRes = await relay.call(DEBUG_GET_RAW_HEADER, ['finalized']);
+        const safeRes = await relay.call(DEBUG_GET_RAW_HEADER, ['safe']);
+        expect(earliestRes).to.not.equal('0x');
+        expect(latestRes).to.not.equal('0x');
+        expect(pendingRes).to.not.equal('0x');
+        expect(finalizedRes).to.not.equal('0x');
+        expect(safeRes).to.not.equal('0x');
+      });
+
+      it('should check whether the RLP block header has correct info using block number for debug_getRawHeader parameter', async () => {
+        const decodedRawBlock = RLP.decode(
+          await relay.call(DEBUG_GET_RAW_HEADER, [numberTo0x(htsTransferBlockNumber)]),
+        );
+
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock, true);
+      });
+
+      it('should check whether the RLP block header has correct info using block hash for debug_getRawHeader parameter ', async () => {
+        const decodedRawBlock = RLP.decode(await relay.call(DEBUG_GET_RAW_HEADER, [htsTransferBlockHash]));
+
+        assertBlockInfoMatchesGetRawBlockInfo(blockInfo, decodedRawBlock, true);
+      });
+    });
+
+    describe('debug_getRawBlock', async () => {
+      let blockInfo;
+
+      before(async () => {
+        blockInfo = await relay.call('eth_getBlockByNumber', [numberTo0x(htsTransferBlockNumber), true]);
+      });
 
       it('should return 0x for non-existent block', async () => {
         const res = await relay.call(DEBUG_GET_RAW_BLOCK, ['0xffffffffffff']);
