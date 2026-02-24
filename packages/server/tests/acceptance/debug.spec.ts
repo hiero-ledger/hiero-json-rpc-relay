@@ -1133,7 +1133,7 @@ describe('@debug API Acceptance Tests', function () {
       });
     });
 
-    describe.only('debug_getRawBlock', async () => {
+    describe('debug_getRawBlock', async () => {
       let blockInfo;
 
       before(async () => {
