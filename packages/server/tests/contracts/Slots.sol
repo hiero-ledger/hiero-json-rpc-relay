@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 contract Slots {
-    uint256 public SLOT_0 = 1;
-    uint256 public SLOT_1 = 2;
-    uint256 public SLOT_2 = 2;
-    uint256 public SLOT_3 = 2;
+    uint256 public SLOT_0 = 1559;
+    uint256 public SLOT_1 = 2930;
+    uint256 public SLOT_2 = 4337;
+    uint256 public SLOT_3 = 7702;
 
     function setSlot0(uint256 x) external {
         SLOT_0 = x;
