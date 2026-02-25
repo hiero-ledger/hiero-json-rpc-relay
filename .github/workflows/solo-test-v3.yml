@@ -1,10 +1,9 @@
-name: Solo Test Sandbox 128Mi
+name: Solo Test Sandbox
 
 on:
   push:
     branches:
-      # - 4900-solo-reduce-json-rpc-relay-memory-footprint
-      - main
+      - 4900-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
   contents: read
@@ -17,67 +16,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # # --- 128Mi Scenarios (Standard CPU) ---
-          # - scenario: "Baseline-128-1100m"
-          #   memory_limit: 128Mi
-          #   v8_flags: ""
-          #   cpu_limit: "1100m"
-          # - scenario: "Exp-Max-128-1100m"
-          #   memory_limit: 128Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "1100m"
-
-          # # --- 256Mi Scenarios (Standard CPU) ---
-          # - scenario: "Baseline-256-1100m"
-          #   memory_limit: 256Mi
-          #   v8_flags: ""
-          #   cpu_limit: "1100m"
-          # - scenario: "Exp-Max-256-1100m"
-          #   memory_limit: 256Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "1100m"
-
-          # # --- High CPU Stress Test (2000m) ---
-          # - scenario: "Exp-Max-128-2000m"
-          #   memory_limit: 128Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "2000m"
-          # - scenario: "Exp-Max-256-2000m"
-          #   memory_limit: 256Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "2000m"
-
-          # # --- High CPU Stress Test (4000m) ---
-          # - scenario: "Exp-Max-128-4000m"
-          #   memory_limit: 128Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "4000m"
-          # - scenario: "Exp-Max-256-4000m"
-          #   memory_limit: 256Mi
-          #   v8_flags: "--optimize-for-size --memory-reducer"
-          #   cpu_limit: "4000m"
-
-          # --- 256Mi Pod with 128Mi V8 Limits ---
-          - scenario: "old-192-pod-256-normal"
-            memory_limit: 256Mi
-            v8_flags: "--max-old-space-size=192"
-            cpu_limit: "1100m"
-          - scenario: "old-80-semi-16-pod-256-normal"
-            memory_limit: 256Mi
-            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16"
-            cpu_limit: "1100m"
-          - scenario: "old-80-semi-16-pod-256-opt-size"
-            memory_limit: 256Mi
-            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --optimize-for-size"
-            cpu_limit: "1100m"
-          - scenario: "old-80-semi-16-pod-256-mem-reducer"
-            memory_limit: 256Mi
-            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --memory-reducer"
-            cpu_limit: "1100m"
-          - scenario: "old-80-semi-16-pod-256-opt-size-mem-reducer"
-            memory_limit: 256Mi
-            v8_flags: "--max-old-space-size=80 --max-semi-space-size=16 --optimize-for-size --memory-reducer"
-            cpu_limit: "1100m"
+          # Current milestone: squeezing heap to find the floor for 128Mi
+          - name: "128-32-old"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=32"
+          - name: "128-32-old-8-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=8"
+          - name: "128-32-old-6-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=6"
+          - name: "128-32-old-4-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=4"
+          - name: "128-24-old-4-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=24 --max-semi-space-size=4"
+          - name: "128-16-old-4-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=16 --max-semi-space-size=4"
+          # Next milestone: 64Mi container limit
+          - name: "64-16-old-4-semi"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=16 --max-semi-space-size=4"
     permissions:
       contents: read
       checks: write
@@ -86,7 +47,7 @@ jobs:
       SOLO_NAMESPACE: solo
       SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
       SOLO_DEPLOYMENT: solo-deployment
-    name: Solo Test (${{ matrix.scenario }})
+    name: ${{ matrix.name }}
     steps:
       - name: Set env variables
         run: |
@@ -106,6 +67,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Build Local Relay Image
+        run: |
+          # Solo defaults to --relay-release 0.73.0. We tag our local image
+          # to match this exactly so Solo's auto-generated Helm commands succeed.
+          docker build -t library/relay-local:0.73.0 .
+
       # Set up kind; needed for configuring the solo environment
       - name: Setup Kind
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
@@ -123,6 +90,9 @@ jobs:
       - name: Configure and run solo
         run: |
           kind create cluster -n "${SOLO_CLUSTER_NAME}"
+          
+          echo "Loading local relay image into Kind..."
+          kind load docker-image library/relay-local:0.73.0 -n "${SOLO_CLUSTER_NAME}"
 
           # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
           # because Kind kubelets use self-signed certificates.
@@ -147,69 +117,43 @@ jobs:
 
       - name: Run Solo Relay
         id: run-relay
-        # continue-on-error: 128Mi may OOMKill before the relay passes its readiness
-        # probe; Solo's internal poll will exhaust its retries and exit non-zero.
-        # This is an expected, measured data-point for this phase — not an
-        # infrastructure failure. Execution continues so the report step can
-        # capture the OOMKill event and startup duration.
+        # continue-on-error: 128Mi/64Mi may OOMKill before passing readiness; 
+        # we still want the report to capture these failures.
         continue-on-error: true
         run: |
           # Capture absolute start time for relay startup duration KPI.
           RELAY_START=$(date +%s)
 
-          # Compute a V8 old-space budget at 75% of the container memory limit.
-          # The remaining ~25% covers V8's code cache, stack, and other off-heap
-          # regions that sit outside the managed heap.
-          MEM_MB=$(echo "${{ matrix.memory_limit }}" | tr -d 'Mi')
-
-          # Check if v8_flags already contains an explicit old-space override
-          if [[ "${{ matrix.v8_flags }}" == *"--max-old-space-size="* ]]; then
-            NODE_OPTS="${{ matrix.v8_flags }}"
-          else
-            OLD_SPACE_MB=$(( MEM_MB * 3 / 4 ))
-            NODE_OPTS="--max-old-space-size=${OLD_SPACE_MB}"
-            if [ -n "${{ matrix.v8_flags }}" ]; then
-              NODE_OPTS="${NODE_OPTS} ${{ matrix.v8_flags }}"
-            fi
-            echo "Memory limit: ${{ matrix.memory_limit }} → V8 old-space: ${OLD_SPACE_MB}MB"
-          fi
-          echo "Running with V8 flags: ${NODE_OPTS}"
+          # Get version from package.json; required because direct node execution
+          # does not inherit npm/lerna environment variables.
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
           cat <<EOF > relay-resources.yaml
           relay:
+            image:
+              registry: "library"
+              repository: relay-local
+              tag: "0.73.0"
+              pullPolicy: Never
             resources:
               requests:
                 cpu: 0
                 memory: 0
               limits:
-                cpu: ${{ matrix.cpu_limit }}
+                cpu: 1100m
                 memory: ${{ matrix.memory_limit }}
             config:
-              NODE_OPTIONS: "${NODE_OPTS}"
+              npm_package_version: "${PACKAGE_VERSION}"
+              NODE_OPTIONS: "${{ matrix.node_opts }}"
+              WORKERS_POOL_ENABLED: "false"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 
-          # Record startup seconds regardless of outcome; an OOMKill still
-          # produces a meaningful "time until failure" data-point.
           RELAY_END=$(date +%s)
           STARTUP_SECS=$(( RELAY_END - RELAY_START ))
           echo "Relay startup time: ${STARTUP_SECS}s"
           echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
-
-      - name: Dump Relay Logs
-        if: always()
-        run: |
-          echo "Fetching logs for relay pod:"
-          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" 2>/dev/null | grep -E '^relay-[0-9]+-[^w]' | head -1)
-          if [ -n "$RELAY_POD" ]; then
-            echo "--- POD LOGS ---"
-            kubectl logs -n "${SOLO_NAMESPACE}" "$RELAY_POD" || true
-            echo "--- POD DESCRIBE ---"
-            kubectl describe pod -n "${SOLO_NAMESPACE}" "$RELAY_POD" || true
-          else
-            echo "Relay pod not found."
-          fi
 
       - name: check Relay Resources
         if: steps.run-relay.outcome == 'success'
@@ -238,6 +182,11 @@ jobs:
             sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null \
             || echo "(exec failed)"
 
+          echo "--- Workers Pool Enabled ---"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'echo "${WORKERS_POOL_ENABLED:-<not set>}" (Expected: false)' 2>/dev/null \
+            || echo "(exec failed)"
+
           echo "--- Live Memory Stats (/metrics) ---"
           kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
             node -e "const http = require('http'); http.get('http://localhost:7546/metrics', r => r.pipe(process.stdout)).on('error', () => process.exit(1));" 2>/dev/null \
@@ -252,25 +201,29 @@ jobs:
           kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
 
       - name: Checkout Relay repo
+        if: steps.run-relay.outcome == 'success'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: 4900-solo-reduce-json-rpc-relay-memory-footprint
 
       - name: Install packages
+        if: steps.run-relay.outcome == 'success'
         run: npm ci
 
       - name: Build Relay
+        if: steps.run-relay.outcome == 'success'
         run: npm run build
 
       - name: Record test start time
+        if: steps.run-relay.outcome == 'success'
         id: test-timing
         run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Start json-rpc-relay-test-client
         if: steps.run-relay.outcome == 'success'
         env:
-          CHAIN_ID: "0x12a"
-          MIRROR_NODE_URL: "http://127.0.0.1:8081"
+          CHAIN_ID: '0x12a'
+          MIRROR_NODE_URL: 'http://127.0.0.1:8081'
           HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
           OPERATOR_ID_MAIN: 0.0.2
           OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
@@ -282,7 +235,7 @@ jobs:
         run: npm run acceptancetest:xts
 
       - name: Record test end time
-        if: always()
+        if: steps.run-relay.outcome == 'success'
         id: test-end-time
         run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
 
@@ -374,7 +327,7 @@ jobs:
           # Re-exec into the pod to read the live heap_size_limit; this
           # confirms whether NODE_OPTIONS was propagated and honoured by V8.
           NODE_OPTIONS_VAL="N/A"
-          V8_HEAP_SIZE="N/A"
+          V8_HEAP_LIMIT_MB="N/A"
           if [ -n "$RELAY_POD" ]; then
             NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
@@ -382,12 +335,12 @@ jobs:
             V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>console.log(d.match(/rpc_relay_nodejs_heap_size_total_bytes (\d+)/)[1]))}).on('error',()=>process.exit(1));" \
               2>/dev/null) || V8_RAW=""
-            [ -n "$V8_RAW" ] && V8_HEAP_SIZE="$(( V8_RAW / 1048576 ))MB"
+            [ -n "$V8_RAW" ] && V8_HEAP_LIMIT_MB="$(( V8_RAW / 1048576 ))MB"
           fi
 
           # ── Echo all KPIs to step log (always visible regardless of summary write) ──
           echo "============================================"
-          echo "  Solo Memory Benchmark — ${MEMORY_LIMIT} (${{ matrix.scenario }})"
+          echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
           echo "============================================"
           echo "  Test Status      : ${TEST_STATUS}"
           echo "  Relay Startup    : ${STARTUP_NOTE}"
@@ -398,7 +351,8 @@ jobs:
           echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
           echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
           echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
-          echo "  V8 Heap Size     : ${V8_HEAP_SIZE}"
+          echo "  Workers Enabled  : false (default)"
+          echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
           echo "  OOMKills         : ${OOM_STATUS}"
           echo "  Restarts         : ${RELAY_RESTARTS}"
           echo "============================================"
@@ -411,7 +365,7 @@ jobs:
           # the heredoc to avoid subshell environment inheritance issues.
           # Use printf to append each section: avoids heredoc quoting/escaping
           # pitfalls and makes each write independently verifiable.
-          printf '## Solo Memory Benchmark — `%s` (`%s`)\n\n' "${MEMORY_LIMIT}" "${{ matrix.scenario }}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
@@ -428,7 +382,8 @@ jobs:
           printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_SIZE}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `WORKERS_POOL_ENABLED` | `false (default)` |\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"

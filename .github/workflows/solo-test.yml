@@ -2,8 +2,9 @@ name: Solo Test Sandbox
 
 on:
   push:
-  #   branches:
-  #     - 4900-solo-reduce-json-rpc-relay-memory-footprint
+    branches:
+      # - 4900-solo-reduce-json-rpc-relay-memory-footprint
+      - main
 
 permissions:
   contents: read
@@ -232,7 +233,7 @@ jobs:
 
           # ── Relay startup status ──────────────────────────────────
           if [ "${RELAY_STARTUP_OUTCOME}" != "success" ]; then
-            STARTUP_NOTE="FAILED — Pod never became ready (OOMKilled at init)"
+            STARTUP_NOTE="FAILED — Pod never became ready"
           else
             STARTUP_NOTE="OK"
           fi
