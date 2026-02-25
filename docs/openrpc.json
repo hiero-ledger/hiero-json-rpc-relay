@@ -254,7 +254,7 @@
     },
     {
       "name": "eth_gasPrice",
-      "summary": "Returns the current price per gas in wei.",
+      "summary": "Returns the current price per gas in weibars.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
