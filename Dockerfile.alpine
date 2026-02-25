@@ -1,0 +1,60 @@
+# --- Stage 1: Build & Bundle ---
+FROM node:22-alpine AS builder
+
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git
+
+WORKDIR /home/node/app
+
+COPY package*.json ./
+COPY lerna.json ./
+COPY ./packages ./packages
+COPY ./scripts ./scripts
+
+# Install all dependencies (including dev) to build/bundle
+RUN npm install
+
+# Build the project (lerna run build)
+RUN npm run build
+
+# Bundle with esbuild
+RUN npm run build:bundle
+
+# --- Stage 2: Production ---
+FROM node:22-alpine
+
+# Use jemalloc for better memory management and less fragmentation
+RUN apk add --no-cache \
+    jemalloc \
+    libstdc++ \
+    libgcc
+
+ENV NODE_ENV=production
+ENV HEALTHCHECK_PORT=7546
+ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
+# Aggressive jemalloc purging
+ENV MALLOC_CONF="background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000"
+
+EXPOSE 7546
+EXPOSE 8546
+EXPOSE 8547
+
+WORKDIR /home/node/app
+
+# Copy ONLY the bundled server
+COPY --from=builder /home/node/app/dist-bundle/server.js ./index.js
+# Copy any assets if needed (e.g. openrpc.json)
+COPY --chown=node:node ./docs/openrpc.json ./docs/openrpc.json
+
+# If we have any native modules as external, we'd need to npm install them here.
+# But for now, we try to go fully bundled.
+
+USER node
+
+HEALTHCHECK --interval=10s --retries=3 --start-period=20s --timeout=2s CMD wget -q -O- http://localhost:${HEALTHCHECK_PORT}/health/liveness
+
+ENTRYPOINT ["node"]
+CMD ["index.js"]

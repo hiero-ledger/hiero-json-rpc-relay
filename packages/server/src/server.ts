@@ -33,19 +33,6 @@ const mainLogger = pino({
     const store = context.getStore();
     return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
   },
-  // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
-  ...(prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-        messageFormat: '{requestId}{msg}',
-        // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-        ignore: 'requestId',
-      },
-    },
-  }),
 });
 
 const ethereumRPCConformityService = new EthereumRPCConformityService();

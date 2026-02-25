@@ -39,9 +39,9 @@ jobs:
             memory_limit: "128Mi"
             node_opts: "--max-old-space-size=16 --max-semi-space-size=4"
           # Next milestone: 64Mi container limit
-          - name: "64-16-old-4-semi"
+          - name: "64-32-old-2-semi-slim"
             memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=16 --max-semi-space-size=4"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=2"
     permissions:
       contents: read
       checks: write
@@ -72,9 +72,13 @@ jobs:
 
       - name: Build Local Relay Image
         run: |
-          # Solo defaults to --relay-release 0.73.0. We tag our local image
-          # to match this exactly so Solo's auto-generated Helm commands succeed.
-          docker build -t library/relay-local:0.73.0 .
+          DOCKERFILE="Dockerfile"
+          TAG="0.73.0"
+          if [[ "${{ matrix.name }}" == *"slim"* ]]; then
+            DOCKERFILE="Dockerfile.alpine"
+            TAG="0.73.0-slim"
+          fi
+          docker build -f $DOCKERFILE -t library/relay-local:$TAG .
 
       # Set up kind; needed for configuring the solo environment
       - name: Setup Kind
@@ -95,7 +99,11 @@ jobs:
           kind create cluster -n "${SOLO_CLUSTER_NAME}"
           
           echo "Loading local relay image into Kind..."
-          kind load docker-image library/relay-local:0.73.0 -n "${SOLO_CLUSTER_NAME}"
+          TAG="0.73.0"
+          if [[ "${{ matrix.name }}" == *"slim"* ]]; then
+            TAG="0.73.0-slim"
+          fi
+          kind load docker-image library/relay-local:$TAG -n "${SOLO_CLUSTER_NAME}"
 
           # metrics-server is not bundled with Kind; --kubelet-insecure-tls is required
           # because Kind kubelets use self-signed certificates.
@@ -136,7 +144,7 @@ jobs:
             image:
               registry: "library"
               repository: relay-local
-              tag: "0.73.0"
+              tag: ${{ (contains(matrix.name, 'slim') && '0.73.0-slim') || '0.73.0' }}
               pullPolicy: Never
             resources:
               requests:
@@ -148,6 +156,7 @@ jobs:
             config:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
+              ${{ (contains(matrix.name, 'slim') && 'MALLOC_ARENA_MAX: \"1\"') || '' }}
               WORKERS_POOL_ENABLED: "false"
           EOF
           cat relay-resources.yaml

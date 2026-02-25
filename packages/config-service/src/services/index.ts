@@ -11,13 +11,6 @@ import { ValidationService } from './validationService';
 
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: true,
-    },
-  },
 });
 const logger = mainLogger.child({ name: 'config-service' });
 
