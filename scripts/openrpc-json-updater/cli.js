@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import fs from 'fs';
+
 import { mergeDocuments } from './operations/merge.js';
 import { compareIgnoringFormatting, prepareDocuments } from './operations/prepare.js';
-import { generateReport } from './operations/report.js';
+import { generateReportMarkdown } from './operations/report.js';
 import { readJson, writeJson } from './utils/file.utils.js';
 
 const DEFAULT_ORIGINAL_FILE_PATH = './original-openrpc.json';
@@ -14,6 +16,7 @@ function parseArgs() {
     mergeFlag: false,
     originalFilePath: DEFAULT_ORIGINAL_FILE_PATH,
     modifiedFilePath: DEFAULT_MODIFIED_FILE_PATH,
+    reportMdPath: null,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -34,12 +37,22 @@ function parseArgs() {
           result.modifiedFilePath = argv[++i];
         }
         break;
+      case '--report-md': {
+        const next = argv[i + 1];
+        if (next && !next.startsWith('-')) {
+          result.reportMdPath = next;
+          i++;
+        } else {
+          result.reportMdPath = './openrpc-report.md';
+        }
+        break;
+      }
     }
   }
   return result;
 }
 
-const { mergeFlag, originalFilePath, modifiedFilePath } = parseArgs();
+const { mergeFlag, originalFilePath, modifiedFilePath, reportMdPath } = parseArgs();
 
 const { data: originalJson } = readJson(originalFilePath);
 const { data: modifiedJson, originalContent: modifiedContent } = readJson(modifiedFilePath);
@@ -65,8 +78,18 @@ function hasDifferences(original, merged) {
     return;
   }
 
-  await generateReport(normalizedOriginal, normalizedModified).catch((err) => {
-    console.error('Unexpected error while generating report:', err);
-    process.exit(1);
-  });
+  if (reportMdPath) {
+    try {
+      const markdown = await generateReportMarkdown(normalizedOriginal, normalizedModified);
+      if (reportMdPath === '-' ) {
+        process.stdout.write(markdown + '\n');
+      } else {
+        fs.writeFileSync(reportMdPath, markdown, 'utf-8');
+        console.log(`Markdown report written to: ${reportMdPath}`);
+      }
+    } catch (err) {
+      console.error('Unexpected error while generating markdown report:', err);
+      process.exit(1);
+    }
+  }
 })();

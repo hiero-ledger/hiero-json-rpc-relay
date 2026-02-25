@@ -383,7 +383,10 @@ class RefFieldHandler {
     if (this.isComponent) {
       return this.cloneObject(obj);
     }
-    return this.createRefOnlyObject(obj['$ref']);
+    const result = {};
+    if (obj.title) result.title = obj.title;
+    if (obj.description) result.description = obj.description;
+    return { ...result, ...this.createRefOnlyObject(obj['$ref']) };
   }
 
   /**
@@ -425,9 +428,8 @@ export function filterSkippedMethods(methods) {
 
     const category = getSkippedMethodCategory(methodName);
     return !(
-      category === SKIP_CATEGORIES.NON_SUPPORTED ||
-      category === SKIP_CATEGORIES.NOT_YET_SUPPORTED ||
-      category === SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED
+      category === SKIP_CATEGORIES.NOT_YET_IMPLEMENTED ||
+      category === SKIP_CATEGORIES.FORK_NOT_YET_IMPLEMENTED
     );
   });
 }

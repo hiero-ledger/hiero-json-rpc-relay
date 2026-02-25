@@ -104,14 +104,11 @@ jobs:
         working-directory: scripts/openrpc-json-updater
         run: npm ci
 
-      - name: Generate comparison report
+      - name: Generate Markdown comparison report
         id: generate-report
         working-directory: scripts/openrpc-json-updater
         run: |
-          REPORT_OUTPUT=$(node cli.js --original ./original-openrpc.json --modified ../../docs/openrpc.json)
-          echo "REPORT_OUTPUT<<EOF" >> $GITHUB_ENV
-          echo "$REPORT_OUTPUT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          node cli.js --original ./original-openrpc.json --modified ../../docs/openrpc.json --report-md ./openrpc-report.md
 
       # This workflow automatically creates PRs when the OpenRPC JSON file differs from the upstream source.
       # PRs are only created when actual changes are detected (SKIP_PR=false), ensuring that
@@ -171,15 +168,7 @@ jobs:
           author: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
           signoff: true
           title: 'docs: update OpenRPC JSON'
-          body: |
-            # OpenRPC JSON Update
-
-            This PR updates the OpenRPC JSON specification with the latest changes from Ethereum JSON-RPC specification.
-
-            ## Comparison Report
-            ```
-            ${{ env.REPORT_OUTPUT }}
-            ```
+          body-path: scripts/openrpc-json-updater/openrpc-report.md
           branch: ${{ env.UNIQUE_BRANCH }}
           base: 'main'
           add-paths: docs/openrpc.json

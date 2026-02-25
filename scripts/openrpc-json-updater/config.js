@@ -4,13 +4,23 @@ export const SKIPPED_KEYS = ['examples', 'baseFeePerBlobGas', 'blobGasUsedRatio'
 
 // Centralized categories for skipped methods
 export const SKIP_CATEGORIES = {
-  NON_SUPPORTED: 'non supported',
-  NOT_YET_SUPPORTED: 'not yet supported',
-  FORK_NOT_YET_SUPPORTED: 'fork not yet supported',
+  NOT_SUPPORTED: 'not supported',
+  NOT_YET_IMPLEMENTED: 'not yet implemented',
+  FORK_NOT_YET_IMPLEMENTED: 'fork or api not yet implemented',
   OVERWRITTEN: 'overwritten',
 };
 
 export const OVERWRITTEN_SKIP_FIELDS = [
+  'eth_getBalance.params.1.required', // optional in Hedera, required in JSON-RPC
+  'eth_getCode.params.1.required', // optional in Hedera, required in JSON-RPC
+  'eth_gasPrice.summary', // wei was renamed to weibar in Hedera
+  'eth_getLogs.summary', // even though the response interface is the same in Hedera and JSON-RPC the Hedera description is more accurate...
+  'eth_newBlockFilter.summary', // even though the response interface is the same in Hedera and JSON-RPC the Hedera description is more accurate...
+  'eth_getStorageAt.summary',
+  'eth_getStorageAt.params.2.required', // optional in Hedera, required in JSON-RPC
+  'eth_getTransactionCount.params.1.required', // optional in Hedera, required in JSON-RPC
+  'eth_maxPriorityFeePerGas.summary', // we give more context
+  'eth_getFilterChanges.summary',
   'eth_feeHistory.summary',
   'eth_feeHistory.description',
   'eth_feeHistory.params.2.description',
@@ -21,11 +31,11 @@ export const OVERWRITTEN_SKIP_FIELDS = [
   'eth_getTransactionCount.summary',
   'eth_maxPriorityFeePerGas.result.schema.description',
   'eth_sendRawTransaction.summary',
+  'debug_getBadBlocks.summary', // included information that bad blocks are always empty in Hedera
 ];
 
-// Methods that we will not support. Skip always.
-export const NON_SUPPORTED_SKIP_LIST = [
-  'engine_*',
+// Methods that we will not support. Skip always. We already have a documentation for them stating that they are unimplemented.
+export const NOT_SUPPORTED_SKIP_LIST = [
   'eth_coinbase',
   'eth_blobBaseFee',
   'eth_syncing',
@@ -34,23 +44,25 @@ export const NON_SUPPORTED_SKIP_LIST = [
   'eth_sendTransaction',
   'eth_sign',
   'eth_signTransaction',
+  'eth_newPendingTransactionFilter',
 ];
 
 // Methods that we will support, but we do not yet, due to prioritization. Skip always.
-export const NOT_YET_SUPPORTED_SKIP_LIST = [
+export const NOT_YET_IMPLEMENTED_SKIP_LIST = [
   'debug_getRawHeader',
   'debug_getRawReceipts',
   'debug_getRawTransaction',
 ];
 
-// Methods that we will support, but we do not yet, because the fork is not yet supported. Skip always.
-export const FORK_NOT_YET_SUPPORTED_SKIP_LIST = [
+// Methods that we will support, but we do not yet, because the fork or API is not yet supported. Skip always.
+export const FORK_NOT_YET_IMPLEMENTED_SKIP_LIST = [
+  'engine_*',
 ];
 
 export const SKIPPED_METHODS = [
-  ...NON_SUPPORTED_SKIP_LIST,
-  ...NOT_YET_SUPPORTED_SKIP_LIST,
-  ...FORK_NOT_YET_SUPPORTED_SKIP_LIST,
+  ...NOT_SUPPORTED_SKIP_LIST,
+  ...NOT_YET_IMPLEMENTED_SKIP_LIST,
+  ...FORK_NOT_YET_IMPLEMENTED_SKIP_LIST,
 ];
 
 export function shouldSkipMethod(methodName, path) {
@@ -107,16 +119,16 @@ export function getSkippedMethodCategory(methodName) {
     return false;
   };
 
-  if (NON_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return SKIP_CATEGORIES.NON_SUPPORTED;
+  if (NOT_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return SKIP_CATEGORIES.NOT_SUPPORTED;
   }
 
-  if (NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return SKIP_CATEGORIES.NOT_YET_SUPPORTED;
+  if (NOT_YET_IMPLEMENTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return SKIP_CATEGORIES.NOT_YET_IMPLEMENTED;
   }
 
-  if (FORK_NOT_YET_SUPPORTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
-    return SKIP_CATEGORIES.FORK_NOT_YET_SUPPORTED;
+  if (FORK_NOT_YET_IMPLEMENTED_SKIP_LIST.some((pattern) => matchesPattern(pattern, methodName))) {
+    return SKIP_CATEGORIES.FORK_NOT_YET_IMPLEMENTED;
   }
 
   if (OVERWRITTEN_SKIP_FIELDS.map((field) => field.split('.')[0]).some((pattern) => matchesPattern(pattern, methodName))) {

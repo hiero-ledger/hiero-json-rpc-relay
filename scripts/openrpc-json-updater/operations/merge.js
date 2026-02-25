@@ -27,16 +27,16 @@ class MergeDocuments {
 
     // Step 1: Filter methods that should be skipped
     const filteredOriginal = this.filterDocument(originalJson);
-    const filteredModified = this.filterDocument(modifiedJson);
+    const modified = this.cloneDocument(modifiedJson);
 
     // Step 2: Merge methods from original to hedera's modified file
-    this.mergeMethods(filteredOriginal, filteredModified);
+    this.mergeMethods(filteredOriginal, modified);
 
     // Step 3: Merge components from original to hedera's modified file
-    this.mergeComponents(filteredOriginal, filteredModified);
+    this.mergeComponents(filteredOriginal, modified);
 
     // Step 4: Process the final document
-    return this.processDocument(filteredModified, filteredOriginal);
+    return this.processDocument(modified, filteredOriginal);
   }
 
   /**
@@ -61,7 +61,6 @@ class MergeDocuments {
     for (const origMethod of filteredOriginal.methods) {
       const name = origMethod.name;
       if (!name) continue;
-
       if (!modifiedMap.has(name)) {
         filteredModified.methods.push(origMethod);
         continue;

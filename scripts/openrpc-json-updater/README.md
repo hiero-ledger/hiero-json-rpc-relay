@@ -75,6 +75,7 @@ Options:
   -g, --merge               merge original -> modified (writes a new dated file)
   -o, --original <path>     path to the original OpenRPC JSON file (default: ./original-openrpc.json)
   -m, --modified <path>     path to the modified OpenRPC JSON file (default: ../../docs/openrpc.json)
+  --report-md <path>        path to the report markdown file (default: ./openrpc-report.md)>
 ```
 
 ### Examples
@@ -82,13 +83,13 @@ Options:
 Full diff report using default file paths:
 
 ```shell script
-node cli.js
+node cli.js --report-md
 ```
 
 Full diff report with custom file paths:
 
 ```shell script
-node cli.js --original /path/to/original.json --modified /path/to/modified.json
+node cli.js --original /path/to/original.json --modified /path/to/modified.json --report-md
 ```
 
 Merge changes using default file paths:
