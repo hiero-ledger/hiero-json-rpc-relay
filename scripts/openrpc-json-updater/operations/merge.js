@@ -61,6 +61,7 @@ class MergeDocuments {
     for (const origMethod of filteredOriginal.methods) {
       const name = origMethod.name;
       if (!name) continue;
+
       if (!modifiedMap.has(name)) {
         filteredModified.methods.push(origMethod);
         continue;

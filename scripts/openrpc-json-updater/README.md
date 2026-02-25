@@ -75,7 +75,7 @@ Options:
   -g, --merge               merge original -> modified (writes a new dated file)
   -o, --original <path>     path to the original OpenRPC JSON file (default: ./original-openrpc.json)
   -m, --modified <path>     path to the modified OpenRPC JSON file (default: ../../docs/openrpc.json)
-  --report-md <path>        path to the report markdown file (default: ./openrpc-report.md)>
+  --report-md <path>        path to the report markdown file (default: ./openrpc-report.md)
 ```
 
 ### Examples

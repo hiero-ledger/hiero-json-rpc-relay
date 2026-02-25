@@ -11,9 +11,7 @@ import { getDifferingKeysByCategory, getMethodMap, groupPaths } from '../utils/o
 import { mergeDocuments } from './merge.js';
 
 export async function generateReportMarkdown(originalJson, modifiedJson) {
-  const changesJson = mergeDocuments(originalJson, modifiedJson);
-  const { changedMethods } = await computeDifferences(changesJson, modifiedJson);
-  const { missingMethods } = await computeDifferences(originalJson, modifiedJson);
+  const { changedMethods, missingMethods } = await computeDifferences(originalJson, modifiedJson);
   const lines = [];
   lines.push('# OpenRPC JSON Update');
   lines.push('');
@@ -123,8 +121,10 @@ async function computeDifferences(originalJson, modifiedJson) {
     }
   }
 
+  const changes = getMethodMap(mergeDocuments(originalJson, modifiedJson));
+
   const changedMethods = [];
-  for (const [name, origMethod] of originalMethods) {
+  for (const [name, origMethod] of changes) {
     if (!modifiedMethods.has(name)) continue;
     const category = getSkippedMethodCategory(name);
     if (

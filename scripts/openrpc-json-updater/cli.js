@@ -81,7 +81,7 @@ function hasDifferences(original, merged) {
   if (reportMdPath) {
     try {
       const markdown = await generateReportMarkdown(normalizedOriginal, normalizedModified);
-      if (reportMdPath === '-' ) {
+      if (reportMdPath === '-') {
         process.stdout.write(markdown + '\n');
       } else {
         fs.writeFileSync(reportMdPath, markdown, 'utf-8');
@@ -91,5 +91,8 @@ function hasDifferences(original, merged) {
       console.error('Unexpected error while generating markdown report:', err);
       process.exit(1);
     }
+  } else if (!mergeFlag) {
+    console.warn('No operation specified. Use --merge to merge documents or --report-md to generate a report.');
+    process.exit(1);
   }
 })();
