@@ -25,6 +25,7 @@ help:
 	@echo "  make build-local-relay   - Build and load local image"
 	@echo "  make run-relay           - Run relay (default: mem_limit=1000Mi)"
 	@echo "  make report              - Resource usage report"
+	@echo "  make live-relay-resource - monitor relay resource usage live (1s interval)"
 	@echo "  make clean-solo          - Delete clusters"
 	@echo ""
 	@echo "Parameters:"
@@ -224,6 +225,23 @@ report:
 	@kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null \
 		| awk '/^relay-/ { sum += $$4 } END { print sum+0 }' || echo "N/A"
 	@echo ""
+
+.PHONY: live-relay-resource
+live-relay-resource:
+	@RELAY_POD=$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Monitoring memory for $$RELAY_POD (1s interval)..."; \
+	while true; do \
+		DATA=$$(kubectl top pod $$RELAY_POD -n "${SOLO_NAMESPACE}" --no-headers 2>/dev/null | awk '{print $$3}' || echo "N/A"); \
+		kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- node -e "const http = require('http'); http.get('http://localhost:7546/metrics', r => r.pipe(process.stdout)).on('error', () => process.exit(1));" 2>/dev/null \
+		| awk -v pr="$$DATA" -v d="$$(date +%H:%M:%S)" ' \
+			/rpc_relay_process_resident_memory_bytes/ {rss=$$2/1048576} \
+			/rpc_relay_nodejs_heap_size_total_bytes/ {tot=$$2/1048576} \
+			/rpc_relay_nodejs_heap_size_used_bytes/ {use=$$2/1048576} \
+			/rpc_relay_nodejs_external_memory_bytes/ {ext=$$2/1048576} \
+			END { if(rss) printf "[%s] PodRSS: %s | P_RSS: %.1fM | H_TOT: %.1fM | H_USE: %.1fM | H_EXT: %.1fM\n", d, pr, rss, tot, use, ext }'; \
+		sleep 1; \
+	done
 
 # Catch-all target to allow positional arguments without "No rule to make target" errors
 %:
