@@ -18,24 +18,30 @@ local pure:
 
 .PHONY: help
 help:
-	@echo "Usage: make run-relay-<limit> [local] [pure]"
+	@echo "Usage: make run-relay [mem_limit=<limit>] [old=<mb>] [semi=<mb>] [local] [pure]"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make setup-solo          - Setup fresh Solo network"
 	@echo "  make build-local-relay   - Build and load local image"
-	@echo "  make run-relay-1000      - Baseline (1000Mi)"
-	@echo "  make run-relay-512       - 512Mi profile"
-	@echo "  make run-relay-256       - 256Mi profile"
-	@echo "  make run-relay-128       - 128Mi profile"
-	@echo "  make run-relay-64        - 64Mi profile"
+	@echo "  make run-relay           - Run relay (default: mem_limit=1000Mi)"
 	@echo "  make report              - Resource usage report"
 	@echo "  make clean-solo          - Delete clusters"
 	@echo ""
+	@echo "Parameters:"
+	@echo "  mem_limit                - Container memory limit (e.g., 128Mi, 256Mi)"
+	@echo "  old                      - V8 max-old-space-size in MB"
+	@echo "  semi                     - V8 max-semi-space-size in MB"
+	@echo ""
 	@echo "Flags:"
-	@echo "  local                    - Use optimized PID 1 local image"
+	@echo "  local                    - Use optimized local image"
 	@echo "  pure                     - Skip auto V8 tuning (standard Node GC)"
 	@echo ""
-	@echo "Example: make run-relay-128 local pure"
+	@echo "Example: make run-relay mem_limit=128 old=32 semi=4 local"
+
+.PHONY: port-forward
+port-forward:
+	kill -9 $$(lsof -ti :50211) || true
+	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
 
 .PHONY: clean-solo
 clean-solo:
@@ -68,38 +74,43 @@ setup-solo: clean-solo
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 	$(MAKE) port-forward
 
-.PHONY: run-relay-1000 run-relay-512 run-relay-256 run-relay-128 run-relay-64
-run-relay-1000:
-	$(MAKE) run-relay MEMORY_LIMIT=1000Mi
-run-relay-512:
-	$(MAKE) run-relay MEMORY_LIMIT=512Mi
-run-relay-256:
-	$(MAKE) run-relay MEMORY_LIMIT=256Mi
-run-relay-128:
-	$(MAKE) run-relay MEMORY_LIMIT=128Mi
-run-relay-64:
-	$(MAKE) run-relay MEMORY_LIMIT=64Mi
-
-.PHONY: port-forward
-port-forward:
-	kill -9 $$(lsof -ti :50211) || true
-	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &	
+# Default values
+mem_limit ?= 1000Mi
+old ?=
+semi ?=
+EXTRA_NODE_OPTS ?=
 
 .PHONY: run-relay
 run-relay: 
-	@echo "Adding Relay node with memory limit: $(MEMORY_LIMIT)"
-	@MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
-	if [ "$$MEM_MB" -le 128 ]; then \
-		OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
-		V8_AGGRESSIVE="--max-semi-space-size=2"; \
-		echo "  -> Applying Aggressive 128MB Tuning"; \
+	@echo "Adding Relay node with memory limit: $(mem_limit)"
+	@# Ensure we have a consistent unit for calculation and the limit field
+	@MEM_RAW=$$(echo "$(mem_limit)" | tr -d '[:alpha:]'); \
+	UNIT=$$(echo "$(mem_limit)" | tr -d '0-9' | tr '[:upper:]' '[:lower:]' | sed 's/i//g'); \
+	if [ -z "$$UNIT" ]; then \
+		FINAL_MEM="$${MEM_RAW}Mi"; \
+		MEM_MB=$$MEM_RAW; \
 	else \
-		OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
-		V8_AGGRESSIVE=""; \
+		FINAL_MEM="$${MEM_RAW}Mi"; \
+		MEM_MB=$$MEM_RAW; \
 	fi; \
+	if [ -n "$(old)" ]; then \
+		NODE_OPTS="--max-old-space-size=$(old)"; \
+		if [ -n "$(semi)" ]; then \
+			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi)"; \
+		fi; \
+	else \
+		if [ "$$MEM_MB" -le 128 ]; then \
+			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
+			V8_EXTRA="--max-semi-space-size=2"; \
+		else \
+			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
+			V8_EXTRA=""; \
+		fi; \
+		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $$V8_EXTRA"; \
+	fi; \
+	NODE_OPTS="$$NODE_OPTS $(EXTRA_NODE_OPTS)"; \
 	if [ -n "$(LOCAL_FLAG)" ]; then echo "  -> Using Local Image"; fi; \
 	if [ -z "$(PURE_FLAG)" ]; then \
-		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $$V8_AGGRESSIVE $(EXTRA_NODE_OPTS)"; \
 		echo "  -> V8 tuning: $$NODE_OPTS"; \
 	fi; \
 	( \
@@ -117,13 +128,10 @@ run-relay:
 		echo "      memory: 0"; \
 		echo "    limits:"; \
 		echo "      cpu: 1100m"; \
-		echo "      memory: $(MEMORY_LIMIT)"; \
+		echo "      memory: $$FINAL_MEM"; \
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
-		MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
-		if [ "$$MEM_MB" -le 128 ]; then \
-			echo "    WORKERS_POOL_ENABLED: \"false\""; \
-		fi; \
+		echo "    WORKERS_POOL_ENABLED: \"false\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
@@ -131,7 +139,7 @@ run-relay:
 	cat relay-resources.yaml
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 	rm relay-resources.yaml
-	@echo "Relay setup complete with $(MEMORY_LIMIT) limit."
+	@echo "Relay setup complete with $$FINAL_MEM limit."
 
 
 .PHONY: run-relay-256-profile-with-heapdump
