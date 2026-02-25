@@ -120,6 +120,10 @@ run-relay:
 		echo "      memory: $(MEMORY_LIMIT)"; \
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
+		MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
+		if [ "$$MEM_MB" -le 128 ]; then \
+			echo "    WORKERS_POOL_ENABLED: \"false\""; \
+		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \

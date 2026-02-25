@@ -770,6 +770,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  WORKERS_POOL_ENABLED: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   WORKERS_POOL_MAX_THREADS: {
     type: 'number',
     required: false,

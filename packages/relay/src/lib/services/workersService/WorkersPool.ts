@@ -7,27 +7,16 @@ import { parentPort } from 'worker_threads';
 
 import { MeasurableCache, MirrorNodeClient } from '../../clients';
 import { ICacheClient } from '../../clients/cache/ICacheClient';
-import { JsonRpcError, predefined } from '../../errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../errors/MirrorNodeClientError';
 import { RegistryFactory } from '../../factories/registryFactory';
+import { WorkersErrorUtils } from './WorkersErrorUtils';
 
 /**
- * Plain JSON representation of a serialized error that can be safely transferred across worker or process boundaries.
- */
-interface ErrorEnvelope {
-  name: string;
-  message: string;
-  code?: number;
-  statusCode?: number;
-  data?: string;
-  detail?: string;
-}
-
-/**
- * A wrapper around a shared Piscina worker thread pool.
+ * A wrapper around a shared Piscina worker thread pool with support for a local bypass mode.
  *
- * This class provides a globally accessible, lazily-initialized instance of a Piscina global worker pool.
- * It uses configuration values to determine the minimum and maximum thread counts.
+ * This class provides a globally accessible, lazily-initialized instance of a Piscina worker pool.
+ * It also supports a "local" execution mode where tasks are executed directly on the main event loop,
+ * which is critical for low-memory environments (e.g., 128MB limits) where V8 isolate overhead
+ * would cause OOM kills.
  */
 export class WorkersPool {
   /**
@@ -83,11 +72,6 @@ export class WorkersPool {
   /**
    * Updates a metric either by delegating the update to a worker thread
    * or by executing the update locally when no worker context is present.
-   *
-   * If running inside a worker (i.e., `parentPort` is available), this method
-   * sends a message to the parent thread containing the provided message type
-   * and parameters. Otherwise, it falls back to executing the provided
-   * metric update function synchronously in the current thread.
    *
    * @param messageType - The message type identifier sent to the parent thread.
    * @param params - Additional parameters to include in the message payload.
@@ -219,102 +203,85 @@ export class WorkersPool {
   }
 
   /**
-   * Executes a worker task using the shared Piscina pool.
+   * Executes a worker task either using the Piscina pool or locally on the main thread,
+   * depending on the WORKERS_POOL_ENABLED configuration setting.
    *
-   * @param options - The data passed to the worker.
+   * @param options - The task configuration and data.
    * @param mirrorNodeClient - The mirror node client instance.
    * @param cacheService - The cache service instance.
-   * @returns A promise resolving to the worker's result.
+   * @returns A promise resolving to the task's result.
    */
-  static async run(options: unknown, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
+  static async run(options: any, mirrorNodeClient: MirrorNodeClient, cacheService: ICacheClient): Promise<any> {
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService as MeasurableCache;
 
-    const taskType = (options as { type: string }).type;
-    this.workerQueueWaitTimeHistogram?.observe(this.instance.histogram.waitTime.average);
-    this.workerPoolUtilizationGauge?.set(this.instance.utilization);
-    this.workerPoolActiveThreadsGauge?.set(this.instance.threads.length);
-    this.workerPoolQueueSizeGauge?.set(this.instance.queueSize);
-
+    const taskType = options.type;
     const startTime = process.hrtime.bigint();
-    const result = await this.getInstance()
-      .run(options)
-      .catch((error: unknown) => {
-        const unwrappedErr = WorkersPool.unwrapError(error);
 
-        this.workerTaskDurationSecondsHistogram
-          ?.labels(taskType)
-          .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
-        this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
-
-        throw unwrappedErr;
-      });
-
-    // division in floating-point math is slightly slower and may introduce rounding errors (especially when the
-    // elapsed nanoseconds exceed 2^53) so using BigInt first and then multiplying by 1e-9 is safer than dividing by 1e9
-    this.workerTaskDurationSecondsHistogram
-      ?.labels(taskType)
-      .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
-    this.workerTasksCompletedTotalCounter?.labels(taskType).inc();
-
-    return result;
-  }
-
-  /**
-   * Wraps an error into a standard `Error` instance by serializing its plain JSON representation into
-   * the error message. Intended for transporting rich error information (including custom error types) across
-   * boundaries such as Piscina worker threads.
-   *
-   * @param err - An error-like object that implements `toJSON()`.
-   * @returns A new `Error` whose `message` contains a JSON-encoded
-   */
-  static wrapError(err: any): Error {
-    return new Error(JSON.stringify(err));
-  }
-
-  /**
-   * Unwraps an error previously wrapped with {@link wrapError} and attempts to reconstruct the original error
-   * instance. If parsing fails or the error type is unsupported, a predefined internal error is returned instead.
-   *
-   * Supported error types:
-   * - {@link JsonRpcError}
-   * - {@link MirrorNodeClientError}
-   *
-   * @param err - An error whose `message` is expected to contain a JSON-encoded {@link ErrorEnvelope}.
-   * @returns The reconstructed error instance, or an internal error if unwrapping fails.
-   */
-  static unwrapError(err: unknown): Error {
-    if (!(err instanceof Error)) {
-      return predefined.INTERNAL_ERROR(`Failed unwrapping piscina error: value is not an Error instance.`);
-    }
-
-    let parsedErr: ErrorEnvelope;
     try {
-      parsedErr = JSON.parse(err.message) as ErrorEnvelope;
-    } catch {
-      return predefined.INTERNAL_ERROR(`Failed parsing wrapped piscina error while unwrapping.`);
-    }
+      let result: any;
 
-    switch (parsedErr?.name) {
-      case JsonRpcError.name: {
-        return new JsonRpcError({
-          code: parsedErr.code!,
-          data: parsedErr.data!,
-          message: parsedErr.message,
-        });
+      if (ConfigService.get('WORKERS_POOL_ENABLED')) {
+        const pool = this.getInstance();
+        this.workerQueueWaitTimeHistogram?.observe(pool.histogram.waitTime.average);
+        this.workerPoolUtilizationGauge?.set(pool.utilization);
+        this.workerPoolActiveThreadsGauge?.set(pool.threads.length);
+        this.workerPoolQueueSizeGauge?.set(pool.queueSize);
+
+        result = await pool.run(options);
+      } else {
+        // In local mode, we bypass Piscina and execute the handler directly.
+        // We use a dynamic import to prevent a circular dependency between WorkersPool and Workers entry points.
+        const { default: handleTask } = await import('./workers');
+        result = await handleTask(options);
       }
 
-      case MirrorNodeClientError.name: {
-        return MirrorNodeClientError.fromJSON(
-          parsedErr.statusCode!,
-          parsedErr.message,
-          parsedErr.data,
-          parsedErr.detail,
-        );
-      }
-
-      default:
-        return predefined.INTERNAL_ERROR('Failed unwrapping piscina error.');
+      this.recordTaskSuccess(taskType, startTime);
+      return result;
+    } catch (error: unknown) {
+      this.recordTaskFailure(taskType, startTime, error);
+      throw error;
     }
+  }
+
+  /**
+   * Records metrics for a successfully completed task.
+   * @private
+   */
+  private static recordTaskSuccess(taskType: string, startTime: bigint): void {
+    const elapsedSeconds = Number(process.hrtime.bigint() - startTime) * 1e-9;
+    this.workerTaskDurationSecondsHistogram?.labels(taskType).observe(elapsedSeconds);
+    this.workerTasksCompletedTotalCounter?.labels(taskType).inc();
+  }
+
+  /**
+   * Records metrics for a failed task and ensures the error is correctly unwrapped if it came from a worker.
+   * @private
+   */
+  private static recordTaskFailure(taskType: string, startTime: bigint, error: any): void {
+    const elapsedSeconds = Number(process.hrtime.bigint() - startTime) * 1e-9;
+    const unwrappedErr =
+      error instanceof Error && error.message.startsWith('{') ? WorkersErrorUtils.unwrapError(error) : error;
+
+    this.workerTaskDurationSecondsHistogram?.labels(taskType).observe(elapsedSeconds);
+    this.workerTaskFailuresCounter
+      ?.labels(taskType, `${unwrappedErr.name || 'Error'} - ${unwrappedErr.message || 'unknown'}`)
+      .inc();
+  }
+
+  /**
+   * Static utility for wrapping errors to be sent across worker boundaries.
+   * Delegated to WorkersErrorUtils.
+   */
+  public static wrapError(err: any): Error {
+    return WorkersErrorUtils.wrapError(err);
+  }
+
+  /**
+   * Static utility for unwrapping errors received from worker boundaries.
+   * Delegated to WorkersErrorUtils.
+   */
+  public static unwrapError(err: unknown): Error {
+    return WorkersErrorUtils.unwrapError(err);
   }
 }

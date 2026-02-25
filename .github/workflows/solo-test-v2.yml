@@ -15,7 +15,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        memory_limit: [256Mi, 128Mi, 64Mi]
+        include:
+          - name: "128-96-old-with-workers"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=96"
+            workers_enabled: "true"
+          - name: "128-96-old-no-workers"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=96"
+            workers_enabled: "false"
+          - name: "128-64-old-with-workers"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=64"
+            workers_enabled: "true"
+          - name: "128-64-old-no-workers"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=64"
+            workers_enabled: "false"
+          - name: "128-no-opts-no-workers"
+            memory_limit: "128Mi"
+            node_opts: ""
+            workers_enabled: "false"
+          - name: "64-48-old-no-workers"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=48"
+            workers_enabled: "false"
+          - name: "64-32-old-no-workers"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=32"
+            workers_enabled: "false"
     permissions:
       contents: read
       checks: write
@@ -24,7 +52,7 @@ jobs:
       SOLO_NAMESPACE: solo
       SOLO_CLUSTER_SETUP_NAMESPACE: solo-cluster
       SOLO_DEPLOYMENT: solo-deployment
-    name: Solo Test (${{ matrix.memory_limit }})
+    name: ${{ matrix.name }}
     steps:
       - name: Set env variables
         run: |
@@ -121,6 +149,8 @@ jobs:
                 memory: ${{ matrix.memory_limit }}
             config:
               npm_package_version: "${PACKAGE_VERSION}"
+              NODE_OPTIONS: "${{ matrix.node_opts }}"
+              WORKERS_POOL_ENABLED: "${{ matrix.workers_enabled }}"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -155,6 +185,11 @@ jobs:
           echo "--- NODE_OPTIONS (from pod environment) ---"
           kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
             sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null \
+            || echo "(exec failed)"
+
+          echo "--- Workers Pool Enabled ---"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'echo "${WORKERS_POOL_ENABLED:-<not set>}"' 2>/dev/null \
             || echo "(exec failed)"
 
           echo "--- Live Memory Stats (/metrics) ---"
@@ -317,6 +352,7 @@ jobs:
           echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
           echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
           echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
+          echo "  Workers Enabled  : ${{ matrix.workers_enabled }}"
           echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
           echo "  OOMKills         : ${OOM_STATUS}"
           echo "  Restarts         : ${RELAY_RESTARTS}"
@@ -347,6 +383,7 @@ jobs:
           printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `WORKERS_POOL_ENABLED` | `%s` |\n' "${{ matrix.workers_enabled }}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"

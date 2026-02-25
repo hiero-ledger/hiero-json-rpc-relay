@@ -22,7 +22,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
-import { WorkersPool } from '../../workersService/WorkersPool';
+import { WorkersErrorUtils } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
 
 /**
@@ -327,7 +327,7 @@ export async function getBlock(
       receiptsRoot,
     });
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw WorkersErrorUtils.wrapError(e);
   }
 }
 
@@ -416,7 +416,7 @@ export async function getBlockReceipts(
 
     return receipts;
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw WorkersErrorUtils.wrapError(e);
   }
 }
 
