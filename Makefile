@@ -89,10 +89,17 @@ port-forward:
 run-relay: 
 	@echo "Adding Relay node with memory limit: $(MEMORY_LIMIT)"
 	@MEM_MB=$$(echo "$(MEMORY_LIMIT)" | tr -d 'Mi'); \
-	OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
+	if [ "$$MEM_MB" -le 128 ]; then \
+		OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
+		V8_AGGRESSIVE="--max-semi-space-size=2"; \
+		echo "  -> Applying Aggressive 128MB Tuning"; \
+	else \
+		OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
+		V8_AGGRESSIVE=""; \
+	fi; \
 	if [ -n "$(LOCAL_FLAG)" ]; then echo "  -> Using Local Image"; fi; \
 	if [ -z "$(PURE_FLAG)" ]; then \
-		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $(EXTRA_NODE_OPTS)"; \
+		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $$V8_AGGRESSIVE $(EXTRA_NODE_OPTS)"; \
 		echo "  -> V8 tuning: $$NODE_OPTS"; \
 	fi; \
 	( \
@@ -114,7 +121,7 @@ run-relay:
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
-			echo "    NODE_OPTIONS: \"--max-old-space-size=$$OLD_SPACE_MB $(EXTRA_NODE_OPTS)\""; \
+			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
 	) > relay-resources.yaml; \
 	cat relay-resources.yaml
