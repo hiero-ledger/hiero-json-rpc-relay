@@ -52,17 +52,9 @@ clean-solo:
 
 .PHONY: build-local-relay
 build-local-relay:
-	@echo "Building library/relay-local:0.73.0 (Full)..."
+	@echo "Building library/relay-local:0.73.0..."
 	docker build -t library/relay-local:0.73.0 .
 	kind load docker-image library/relay-local:0.73.0 --name $(SOLO_CLUSTER_NAME)
-
-.PHONY: build-local-relay-slim
-build-local-relay-slim:
-	@echo "Building docker.io/library/relay-local:0.73.0-slim (Bundle + Alpine)..."
-	docker build -f Dockerfile.alpine -t docker.io/library/relay-local:0.73.0-slim .
-	docker tag docker.io/library/relay-local:0.73.0-slim docker.io/library/relay-local:0.73.0
-	kind load docker-image docker.io/library/relay-local:0.73.0-slim --name $(SOLO_CLUSTER_NAME)
-	kind load docker-image docker.io/library/relay-local:0.73.0 --name $(SOLO_CLUSTER_NAME)
 
 .PHONY: setup-solo
 setup-solo: clean-solo
@@ -124,30 +116,26 @@ run-relay:
 	fi; \
 	( \
 		echo "relay:"; \
-	if [ -n "$(LOCAL_FLAG)" ]; then \
-		echo "  image:"; \
-		echo "    registry: \"docker.io\""; \
-		echo "    repository: \"library/relay-local\""; \
-		echo "    tag: \"0.73.0\""; \
-		echo "    pullPolicy: Never"; \
-	fi; \
-	echo "  resources:"; \
-	echo "    requests:"; \
-	echo "      cpu: 0"; \
-	echo "      memory: 0"; \
-	echo "    limits:"; \
-	echo "      cpu: 1100m"; \
-	echo "      memory: $$FINAL_MEM"; \
-	echo "  config:"; \
-	echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
-	echo "    WORKERS_POOL_ENABLED: \"false\""; \
-	echo "    PRETTY_LOGS_ENABLED: \"false\""; \
-	if echo "$(mem_limit)" | grep -Eq "64Mi|67MB"; then \
-		echo "    MALLOC_ARENA_MAX: \"1\""; \
-	fi; \
-	if [ -z "$(PURE_FLAG)" ]; then \
-		echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
-	fi; \
+		if [ -n "$(LOCAL_FLAG)" ]; then \
+			echo "  image:"; \
+			echo "    registry: \"library\""; \
+			echo "    repository: relay-local"; \
+			echo "    tag: \"0.73.0\""; \
+			echo "    pullPolicy: Never"; \
+		fi; \
+		echo "  resources:"; \
+		echo "    requests:"; \
+		echo "      cpu: 0"; \
+		echo "      memory: 0"; \
+		echo "    limits:"; \
+		echo "      cpu: 1100m"; \
+		echo "      memory: $$FINAL_MEM"; \
+		echo "  config:"; \
+		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
+		echo "    WORKERS_POOL_ENABLED: \"false\""; \
+		if [ -z "$(PURE_FLAG)" ]; then \
+			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
+		fi; \
 	) > relay-resources.yaml; \
 	cat relay-resources.yaml
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
