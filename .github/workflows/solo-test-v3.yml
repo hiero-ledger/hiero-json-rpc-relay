@@ -17,6 +17,9 @@ jobs:
       matrix:
         include:
           # Current milestone: squeezing heap to find the floor for 128Mi
+          - name: "128-64-old-2-semi"
+            memory_limit: "128Mi"
+            node_opts: "--max-old-space-size=64 --max-semi-space-size=2"
           - name: "128-32-old"
             memory_limit: "128Mi"
             node_opts: "--max-old-space-size=32"
