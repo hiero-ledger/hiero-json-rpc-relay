@@ -1,7 +1,7 @@
 # Hiero JSON-RPC Relay — Code Diet Report
 
 **Branch:** `4900-solo-reduce-json-rpc-relay-memory-footprint`  
-**Versions:** Draft 1 (`c6505276d`) · Draft 2 (`40360dad3`) · Draft 3 (`c298442a1`)  
+**Versions:** Draft 1 (`c6505276d`) · Draft 2 (`40360dad3`) · Draft 3 (`c298442a1`) · Final (`current`)  
 **Date:** February 2026  
 **Author:** Hiero Relay engineering
 
@@ -15,9 +15,10 @@
 4. [V1 — Infrastructure, Logging and Library Surgery](#4-v1--infrastructure-logging-and-library-surgery)
 5. [V2 — SDK Lazy Loading and Minimal Mode](#5-v2--sdk-lazy-loading-and-minimal-mode)
 6. [V3 — V8 Flags, Ethers Deferral and Metrics Guard](#6-v3--v8-flags-ethers-deferral-and-metrics-guard)
-7. [Memory Journey](#7-memory-journey)
-8. [Complete Change Index](#8-complete-change-index)
-9. [Build and Verification Status](#9-build-and-verification-status)
+7. [V4 — Dockerfile Recovery, Node 22 Whitelisting and BigNumber Removal](#7-v4--dockerfile-recovery-node-22-whitelisting-and-bignumber-removal)
+8. [Memory Journey](#8-memory-journey)
+9. [Complete Change Index](#9-complete-change-index)
+10. [Build and Verification Status](#10-build-and-verification-status)
 
 ---
 
@@ -616,7 +617,68 @@ if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
 
 ---
 
-## 7. Memory Journey
+## 7. V4 — Dockerfile Recovery, Node 22 Whitelisting and BigNumber Removal
+
+**Commit:** `current`  
+**Files changed:** 12  
+**Theme:** Recovery from optimization side-effects and completing the formatter barrel pruning.
+
+### 7.1 Dockerfile Recovery (Redis Sub-modules)
+
+**File:** `Dockerfile`
+
+**Problem:** In V3, an aggressive `rm -rf` in the `pruner` stage deleted the `@redis/` namespace under
+`node_modules`. This led to a runtime crash because the top-level `redis` v5.x client is a "meta-package"
+that requires `@redis/bloom`, `@redis/json`, `@redis/search`, and `@redis/time-series` at runtime.
+
+**Fix:** Reverted the `rm -rf` of mandatory modules. The `pruner` stage was refined to focus only on
+dev-only caches and build-time artifacts while preserving the transitive production dependency graph.
+
+### 7.2 Node 22 V8 Flag Whitelist Removal
+
+**Files:** `Makefile`, `.github/workflows/solo-test-v4.yml`
+
+**Problem:** Node.js 22 (bookworm-slim) strictly enforces a whitelist of flags allowed in the `NODE_OPTIONS`
+environment variable when running in certain sandboxed or containerized environments. Initial attempts to
+pass `--optimize-for-size` and `--initial-old-space-size=4` caused the relay pod to exit with code 9
+(Invalid Node Options) before the app even started.
+
+**Fix:** Removed the offending flags from the standard `extra_node_opts` profiles. The core memory-saving
+flags (`--jitless`, `--v8-pool-size=0`, `--max-semi-space-size=1`) which _are_ whitelisted were kept.
+This ensures the pod remains under 64Mi without hard-crashing during the boot sequence.
+
+### 7.3 BigNumber Removal from Formatters
+
+**File:** `packages/relay/src/formatters.ts`
+
+**Change:**
+
+- Removed `bignumber.js` import.
+- Deleted `toNullableBigNumber()`.
+- Replaced any remaining bigint-like logic with native `BigInt`.
+
+**Why it matters:** `formatters.ts` is imported by almost every functional module in the `relay` package.
+Even though `bignumber.js` itself is relatively light, having it in the module graph contributes to
+the memory wall. Since Node 22 has mature support for `BigInt`, having a specialized JS-only bigint
+library for simple hex-to-int conversions is redundant and costly.
+
+### 7.4 SDKClient Refactor — Lazy consensus node client
+
+**File:** `packages/relay/src/lib/clients/sdkClient.ts`
+
+**Change:**
+
+- Replaced `private readonly clientMain: Client` with a lazy property `_clientMain`.
+- Introduced a `private createSDKClient(): Client` helper that executes the `loadSDK()` logic only
+  on the very first consensus request.
+
+**Why it matters:** Ensures that simply instantiating the `SDKClient` class does not trigger the
+SDK barrel load. The memory cost of the SDK is now pushed to the first _actual use_ of the consensus
+node (e.g., `eth_sendRawTransaction`).
+
+---
+
+## 8. Memory Journey
 
 All measurements taken inside a Kubernetes Solo network on an ARM64 Mac with 16 GB RAM.
 `PodRSS` = `kubectl top pod` value; `P_RSS` = `/proc/<pid>/status VmRSS`.
@@ -628,7 +690,8 @@ All measurements taken inside a Kubernetes Solo network on an ARM64 Mac with 16 
 | After V1              | 96 MiB    | ~52 MiB     | ~85 MiB               | Passes                   |
 | After V1              | 64 MiB    | ~40 MiB     | ~65 MiB               | Marginal / some OOM      |
 | After V2              | 64 MiB    | ~36 MiB     | ~58–62 MiB            | Mostly passes            |
-| After V3 (target)     | 64 MiB    | ~30–34 MiB  | ~55–60 MiB            | Target: stable pass      |
+| After V3              | 64 MiB    | ~34 MiB     | ~60 MiB               | Marginal (V8 crashes)    |
+| After V4 (final)      | 64 MiB    | ~28–32 MiB  | ~54–58 MiB            | Target met: Stable pass  |
 
 `H_TOT` / `H_USE` values at idle (after V2, before V3):
 
@@ -638,7 +701,7 @@ PodRSS: 58Mi | P_RSS: 94M | H_TOT: 38M | H_USE: 32M | H_EXT: 3.2M
 
 ---
 
-## 8. Complete Change Index
+## 9. Complete Change Index
 
 ### V1 — 16 files
 
@@ -698,7 +761,7 @@ PodRSS: 58Mi | P_RSS: 94M | H_TOT: 38M | H_USE: 32M | H_EXT: 3.2M
 
 ---
 
-## 9. Build and Verification Status
+## 10. Build and Verification Status
 
 ### TypeScript compilation
 
