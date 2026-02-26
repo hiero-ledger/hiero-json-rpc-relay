@@ -560,6 +560,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  RELAY_MINIMAL_MODE: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   IP_RATE_LIMIT_STORE: {
     type: 'string',
     required: false,

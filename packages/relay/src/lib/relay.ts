@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { AccountId } from '@hashgraph/sdk';
+import type { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
@@ -267,8 +267,8 @@ export class Relay {
     // 2. Initialize all services with the connected Redis client
     this.initializeServices();
 
-    // 3. Validate operator balance (requires ethImpl to be initialized)
-    if (!ConfigService.get('READ_ONLY')) {
+    // 3. Validate operator balance (requires ethImpl to be initialized; skipped in minimal mode)
+    if (!ConfigService.get('READ_ONLY') && !ConfigService.get('RELAY_MINIMAL_MODE')) {
       await this.ensureOperatorHasBalance();
     }
   }
@@ -318,7 +318,16 @@ export class Relay {
 
     const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger, this.register));
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
-    this.operatorAccountId = hapiService.getOperatorAccountId();
+
+    // In minimal mode, defer operator account resolution to avoid triggering the SDK barrel
+    // at startup. The operator AccountId is only needed for metrics and balance checks.
+    const isMinimalMode = ConfigService.get('RELAY_MINIMAL_MODE') === true;
+
+    if (isMinimalMode) {
+      this.operatorAccountId = null;
+    } else {
+      this.operatorAccountId = hapiService.getOperatorAccountId();
+    }
 
     // Create simple service implementations
     this.web3Impl = new Web3Impl();
@@ -372,11 +381,13 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    this.txpoolImpl = new TxPoolImpl(transactionPoolService);
-
-    // Create Debug and Admin implementations
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, chainId);
-    this.adminImpl = new AdminImpl(this.cacheService);
+    // In minimal mode, skip creating DebugImpl (which loads CommonService + BlockService),
+    // AdminImpl (which loads axios), and TxPoolImpl to reduce memory footprint.
+    if (!isMinimalMode) {
+      this.txpoolImpl = new TxPoolImpl(transactionPoolService);
+      this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, chainId);
+      this.adminImpl = new AdminImpl(this.cacheService);
+    }
 
     // Create HBAR spending plan config service
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -386,14 +397,17 @@ export class Relay {
       ipAddressHbarSpendingPlanRepository,
     );
 
-    // Initialize operator metric
-    this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
+    // Initialize operator metric (skipped in minimal mode since operatorAccountId is null)
+    if (!isMinimalMode) {
+      this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
+    }
 
     // Populate pre-configured spending plans asynchronously
     this.populatePreconfiguredSpendingPlans().then();
 
-    // Create RPC method registry
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
+    // Create RPC method registry — in minimal mode, register only core namespaces
+    const namespaces = isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool'];
+    const rpcNamespaceRegistry = namespaces.map((namespace) => ({
       namespace,
       serviceImpl: this[namespace](),
     }));

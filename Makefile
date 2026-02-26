@@ -98,7 +98,7 @@ run-relay:
 	if [ -n "$(old)" ]; then \
 		NODE_OPTS="--max-old-space-size=$(old)"; \
 		if [ -n "$(semi)" ]; then \
-			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi)"; \
+			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi) --v8-pool-size=0"; \
 		fi; \
 	else \
 		if [ "$$MEM_MB" -le 64 ]; then \
@@ -141,6 +141,7 @@ run-relay:
 		echo "    LOG_LEVEL: \"info\""; \
 		if [ "$$MEM_MB" -le 128 ]; then \
 			echo "    CACHE_MAX: \"250\""; \
+			echo "    RELAY_MINIMAL_MODE: \"true\""; \
 		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
@@ -275,6 +276,7 @@ print-relay-procs:
 .PHONY: prune-docker
 prune-docker:
 	-docker rm -f $$(docker ps -aq)
+	-docker rmi -f $$(docker images -aq)
 	docker system prune -f
 	docker volume prune -f
 

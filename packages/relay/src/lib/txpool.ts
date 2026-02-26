@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { ethers } from 'ethers';
+import { Transaction as EthersTransaction } from 'ethers';
 
 import { numberTo0x } from '../formatters';
 import { predefined, TxPool } from '../index';
@@ -93,7 +93,7 @@ export class TxPoolImpl implements TxPool {
     const txs: TxPoolTransaction[] = [];
 
     rlpTxs.forEach((rlpTx: string) => {
-      const tx: ethers.Transaction = ethers.Transaction.from(rlpTx);
+      const tx: EthersTransaction = EthersTransaction.from(rlpTx);
 
       const txPoolTransaction: TxPoolTransaction = {
         blockHash: constants.ZERO_HEX_32_BYTE,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import { AuthorizationLike, ethers } from 'ethers';
+import { type AuthorizationLike, Signature, Transaction as EthersTransaction } from 'ethers';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import constants from '../constants';
@@ -69,7 +69,7 @@ export class BlockFactory {
     const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.r).padStart(64, '0'));
     const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.s).padStart(64, '0'));
 
-    const ethersTx = new ethers.Transaction();
+    const ethersTx = new EthersTransaction();
 
     // Common fields
     ethersTx.type = txType;
@@ -94,7 +94,7 @@ export class BlockFactory {
                 chainId: entry.chainId,
                 nonce: entry.nonce,
                 address: entry.address,
-                signature: ethers.Signature.from({
+                signature: Signature.from({
                   r: entry.r,
                   s: entry.s,
                   yParity: Number(entry.yParity) as 0 | 1,
@@ -125,7 +125,7 @@ export class BlockFactory {
     }
 
     // Signature
-    ethersTx.signature = ethers.Signature.from({
+    ethersTx.signature = Signature.from({
       r,
       s,
       v: Number(tx.v ?? '0x0'),

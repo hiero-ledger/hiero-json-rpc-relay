@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import {
+import type {
   AccountId,
   Client,
   EthereumTransaction,
@@ -35,6 +35,22 @@ import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types'
 import constants from './../constants';
 import { JsonRpcError, predefined } from './../errors/JsonRpcError';
 import { SDKClientError } from './../errors/SDKClientError';
+
+/**
+ * Cached reference to the @hashgraph/sdk module, loaded on demand.
+ * Using lazy loading prevents the heavy SDK barrel (509 files, gRPC, protobuf)
+ * from being loaded at module evaluation time, deferring ~20MB of RSS
+ * until the first consensus node operation.
+ */
+let _sdk: typeof import('@hashgraph/sdk') | null = null;
+
+/** Loads and caches the @hashgraph/sdk module on first invocation. */
+function loadSDK(): typeof import('@hashgraph/sdk') {
+  if (!_sdk) {
+    _sdk = require('@hashgraph/sdk');
+  }
+  return _sdk!;
+}
 
 export class SDKClient {
   /**
@@ -83,17 +99,18 @@ export class SDKClient {
     const sdkLogLevel = ConfigService.get('SDK_LOG_LEVEL');
     const sdkDeadline = this.determineSdkDeadline(logger);
 
+    const sdk = loadSDK();
     const client =
       hederaNetwork in constants.CHAIN_IDS
-        ? Client.forName(hederaNetwork)
-        : Client.forNetwork(JSON.parse(hederaNetwork));
+        ? sdk.Client.forName(hederaNetwork)
+        : sdk.Client.forNetwork(JSON.parse(hederaNetwork));
 
     const operator = Utils.getOperator(logger);
     if (operator) {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel)).setLogger(
+    const sdkLogger = new sdk.Logger(sdk.LogLevel._fromString(sdkLogLevel)).setLogger(
       // @ts-ignore
       logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );
@@ -155,8 +172,9 @@ export class SDKClient {
     currentNetworkExchangeRateInCents: number,
   ): Promise<{ txResponse: TransactionResponse; fileId: FileId | null }> {
     const jumboTxEnabled = ConfigService.get('JUMBO_TX_ENABLED');
-    const ethereumTransactionData: EthereumTransactionData = EthereumTransactionData.fromBytes(transactionBuffer);
-    const ethereumTransaction = new EthereumTransaction();
+    const sdk = loadSDK();
+    const ethereumTransactionData: EthereumTransactionData = sdk.EthereumTransactionData.fromBytes(transactionBuffer);
+    const ethereumTransaction = new sdk.EthereumTransaction();
     const interactingEntity = ethereumTransactionData.toJSON()['to'].toString();
 
     let fileId: FileId | null = null;
@@ -180,7 +198,7 @@ export class SDKClient {
     }
 
     ethereumTransaction.setMaxTransactionFee(
-      Hbar.fromTinybars(
+      loadSDK().Hbar.fromTinybars(
         Math.floor(weibarHexToTinyBarInt(networkGasPriceInWeiBars) * constants.MAX_TRANSACTION_FEE_THRESHOLD),
       ),
     );
@@ -228,7 +246,7 @@ export class SDKClient {
     try {
       queryResponse = await query.execute(this.clientMain);
       queryCost = query._queryPayment?.toTinybars().toNumber();
-      status = Status.Success.toString();
+      status = loadSDK().Status.Success.toString();
       this.logger.info(
         `Successfully execute %s query: callerName=%s, cost=%s tinybars`,
         queryConstructorName,
@@ -409,8 +427,8 @@ export class SDKClient {
         transactionResponses.length,
         txConstructorName,
         callerName,
-        Status.Success,
-        Status.Success._code,
+        loadSDK().Status.Success,
+        loadSDK().Status.Success._code,
       );
     } catch (e: any) {
       const sdkClientError = new SDKClientError(e, e.message, undefined, e.nodeAccountId);
@@ -479,7 +497,8 @@ export class SDKClient {
       throw predefined.HBAR_RATE_LIMIT_EXCEEDED;
     }
 
-    const fileCreateTx = new FileCreateTransaction()
+    const sdk = loadSDK();
+    const fileCreateTx = new sdk.FileCreateTransaction()
       .setContents(hexedCallData.substring(0, this.fileAppendChunkSize))
       .setKeys(this.clientMain.operatorPublicKey ? [this.clientMain.operatorPublicKey] : []);
 
@@ -494,7 +513,7 @@ export class SDKClient {
     const { fileId } = await fileCreateTxResponse.getReceipt(this.clientMain);
 
     if (fileId && callData.length > this.fileAppendChunkSize) {
-      const fileAppendTx = new FileAppendTransaction()
+      const fileAppendTx = new sdk.FileAppendTransaction()
         .setFileId(fileId)
         .setContents(hexedCallData.substring(this.fileAppendChunkSize, hexedCallData.length))
         .setChunkSize(this.fileAppendChunkSize)
@@ -505,7 +524,7 @@ export class SDKClient {
 
     if (fileId) {
       const fileInfo = await this.executeQuery(
-        new FileInfoQuery().setFileId(fileId),
+        new sdk.FileInfoQuery().setFileId(fileId),
         callerName,
         requestDetails,
         originalCallerAddress,
@@ -538,15 +557,16 @@ export class SDKClient {
     originalCallerAddress: string,
   ): Promise<void> {
     try {
-      const fileDeleteTx = new FileDeleteTransaction()
+      const sdk = loadSDK();
+      const fileDeleteTx = new sdk.FileDeleteTransaction()
         .setFileId(fileId)
-        .setMaxTransactionFee(new Hbar(2))
+        .setMaxTransactionFee(new sdk.Hbar(2))
         .freezeWith(this.clientMain);
 
       await this.executeTransaction(fileDeleteTx, callerName, requestDetails, false, originalCallerAddress);
 
       const fileInfo = await this.executeQuery(
-        new FileInfoQuery().setFileId(fileId),
+        new sdk.FileInfoQuery().setFileId(fileId),
         callerName,
         requestDetails,
         originalCallerAddress,
@@ -586,7 +606,7 @@ export class SDKClient {
         txConstructorName,
       );
 
-      const transactionRecord = await new TransactionRecordQuery()
+      const transactionRecord = await new (loadSDK().TransactionRecordQuery)()
         .setTransactionId(transactionId)
         .setValidateReceiptStatus(false)
         .execute(this.clientMain);
@@ -640,8 +660,9 @@ export class SDKClient {
    * @returns {number} - The transaction record query cost in tinybars.
    */
   private calculateTxRecordChargeAmount(exchangeRate: ExchangeRate): number {
+    const sdk = loadSDK();
     const exchangeRateInCents = exchangeRate.exchangeRateInCents;
-    const hbarToTinybar = Hbar.from(1, HbarUnit.Hbar).toTinybars().toNumber();
+    const hbarToTinybar = sdk.Hbar.from(1, sdk.HbarUnit.Hbar).toTinybars().toNumber();
     return Math.round((constants.NETWORK_FEES_IN_CENTS.TRANSACTION_GET_RECORD / exchangeRateInCents) * hbarToTinybar);
   }
 

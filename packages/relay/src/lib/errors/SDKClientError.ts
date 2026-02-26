@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+/**
+ * Well-known Hedera SDK status codes used for error classification.
+ * These values match the protobuf ResponseCodeEnum defined in the Hedera SDK.
+ * Using numeric literals avoids loading the full SDK barrel (~20MB RSS) at module evaluation time.
+ */
+const HederaStatusCode = {
+  UNKNOWN: 21,
+  SUCCESS: 22,
+  CONTRACT_REVERT_EXECUTED: 33,
+  INVALID_TRANSACTION_ID: 17,
+} as const;
 
 export class SDKClientError extends Error {
-  public status: Status = Status.Unknown;
+  /**
+   * The raw status object from the SDK error response.
+   * Contains `_code` (numeric) and `toString()` for the status name.
+   */
+  public status: { _code: number; toString(): string };
   public nodeAccountId: string | undefined;
   private failedTransactionId: string | undefined;
 
@@ -12,6 +26,8 @@ export class SDKClientError extends Error {
 
     if (e?.status?._code) {
       this.status = e.status;
+    } else {
+      this.status = { _code: HederaStatusCode.UNKNOWN, toString: () => 'UNKNOWN' };
     }
     this.failedTransactionId = transactionId || '';
     this.nodeAccountId = nodeId;
@@ -27,19 +43,19 @@ export class SDKClientError extends Error {
   }
 
   public isContractRevertExecuted(): boolean {
-    return this.statusCode == Status.ContractRevertExecuted._code;
+    return this.statusCode === HederaStatusCode.CONTRACT_REVERT_EXECUTED;
   }
 
   public isTimeoutExceeded(): boolean {
-    return this.statusCode === Status.Unknown._code && this.message?.includes('timeout exceeded');
+    return this.statusCode === HederaStatusCode.UNKNOWN && this.message?.includes('timeout exceeded');
   }
 
   public isConnectionDropped(): boolean {
-    return this.statusCode === Status.Unknown._code && this.message?.includes('Connection dropped');
+    return this.statusCode === HederaStatusCode.UNKNOWN && this.message?.includes('Connection dropped');
   }
 
   public isGrpcTimeout(): boolean {
     // The SDK uses the same code for Grpc Timeout as INVALID_TRANSACTION_ID
-    return this.statusCode === Status.InvalidTransactionId._code;
+    return this.statusCode === HederaStatusCode.INVALID_TRANSACTION_ID;
   }
 }
