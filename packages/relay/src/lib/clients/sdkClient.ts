@@ -54,10 +54,19 @@ function loadSDK(): typeof import('@hashgraph/sdk') {
 
 export class SDKClient {
   /**
-   * The client to use for connecting to the main consensus network. The account
-   * associated with this client will pay for all operations on the main network.
+   * The client used for connecting to the main consensus network, lazily initialized.
    */
-  private readonly clientMain: Client;
+  private _clientMain: Client | null = null;
+
+  /**
+   * Getter for the consensus network client. Lazily loads @hashgraph/sdk on first access.
+   */
+  private get clientMain(): Client {
+    if (!this._clientMain) {
+      this._clientMain = this.createSDKClient();
+    }
+    return this._clientMain;
+  }
 
   /**
    * The logger used for logging all output from this class.
@@ -88,43 +97,10 @@ export class SDKClient {
    * @param hbarLimitService - The HbarLimitService that tracks hbar expenses and limits.
    */
   constructor(
-    hederaNetwork: string,
     logger: Logger,
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
   ) {
-    const clientTransportSecurity = ConfigService.get('CLIENT_TRANSPORT_SECURITY');
-    const sdkRequestTimeout = ConfigService.get('SDK_REQUEST_TIMEOUT');
-    const sdkMaxAttempts = ConfigService.get('SDK_MAX_ATTEMPTS');
-    const sdkLogLevel = ConfigService.get('SDK_LOG_LEVEL');
-    const sdkDeadline = this.determineSdkDeadline(logger);
-
-    const sdk = loadSDK();
-    const client =
-      hederaNetwork in constants.CHAIN_IDS
-        ? sdk.Client.forName(hederaNetwork)
-        : sdk.Client.forNetwork(JSON.parse(hederaNetwork));
-
-    const operator = Utils.getOperator(logger);
-    if (operator) {
-      client.setOperator(operator.accountId, operator.privateKey);
-    }
-
-    const sdkLogger = new sdk.Logger(sdk.LogLevel._fromString(sdkLogLevel)).setLogger(
-      // @ts-ignore
-      logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
-    );
-
-    logger.info(
-      `SDK client successfully configured: network=${JSON.stringify(hederaNetwork)}, transportSecurity=${clientTransportSecurity}, requestTimeout=${sdkRequestTimeout}ms, maxAttempts=${sdkMaxAttempts}, logLevel=${sdkLogLevel}, deadline=${sdkDeadline}ms.`,
-    );
-
-    this.clientMain = client
-      .setTransportSecurity(clientTransportSecurity)
-      .setRequestTimeout(sdkRequestTimeout)
-      .setMaxAttempts(sdkMaxAttempts)
-      .setMaxExecutionTime(sdkDeadline)
-      .setLogger(sdkLogger);
     this.logger = logger;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
@@ -132,8 +108,50 @@ export class SDKClient {
   }
 
   /**
+   * Helper to lazily create and configure the @hashgraph/sdk Client.
+   * This is called on the first consensus network operation, preventing
+   * module evaluation overhead at server startup.
+   */
+  private createSDKClient(): Client {
+    const hederaNetwork = ConfigService.get('HEDERA_NETWORK');
+    const sdkLogLevel = ConfigService.get('SDK_LOG_LEVEL');
+    const clientTransportSecurity = ConfigService.get('CLIENT_TRANSPORT_SECURITY');
+    const sdkRequestTimeout = ConfigService.get('SDK_REQUEST_TIMEOUT');
+    const sdkMaxAttempts = ConfigService.get('SDK_MAX_ATTEMPTS');
+    const sdkDeadline = this.determineSdkDeadline(this.logger);
+
+    const sdk = loadSDK();
+    const client =
+      hederaNetwork in constants.CHAIN_IDS
+        ? sdk.Client.forName(hederaNetwork)
+        : sdk.Client.forNetwork(JSON.parse(hederaNetwork));
+
+    const operator = Utils.getOperator(this.logger);
+    if (operator) {
+      client.setOperator(operator.accountId, operator.privateKey);
+    }
+
+    const sdkLogger = new sdk.Logger(sdk.LogLevel._fromString(sdkLogLevel)).setLogger(
+      // @ts-ignore
+      this.logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
+    );
+
+    this.logger.info(
+      `SDK client successfully configured: network=${JSON.stringify(hederaNetwork)}, transportSecurity=${clientTransportSecurity}, requestTimeout=${sdkRequestTimeout}ms, maxAttempts=${sdkMaxAttempts}, logLevel=${sdkLogLevel}, deadline=${sdkDeadline}ms.`,
+    );
+
+    return client
+      .setTransportSecurity(clientTransportSecurity)
+      .setRequestTimeout(sdkRequestTimeout)
+      .setMaxAttempts(sdkMaxAttempts)
+      .setMaxExecutionTime(sdkDeadline)
+      .setLogger(sdkLogger);
+  }
+
+  /**
    * Returns the operator account ID.
    *
+```,oldString:
    * @returns The operator account ID or `null` if not set.
    */
   public getOperatorAccountId(): AccountId | null {

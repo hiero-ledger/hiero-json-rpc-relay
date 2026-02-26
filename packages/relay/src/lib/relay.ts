@@ -411,7 +411,9 @@ export class Relay {
     this.populatePreconfiguredSpendingPlans().then();
 
     // Create RPC method registry — in minimal mode, register only core namespaces
-    const namespaces = (isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool']) as (keyof Relay)[];
+    const namespaces = (
+      isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool']
+    ) as (keyof Relay)[];
     const rpcNamespaceRegistry = namespaces.map((namespace) => ({
       namespace,
       serviceImpl: (this[namespace] as Function)(),

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
@@ -221,14 +220,6 @@ const toHash32 = (value: string): string => {
   return value.substring(0, 66);
 };
 
-const toNullableBigNumber = (value: string | null): string | null => {
-  if (typeof value === 'string') {
-    return new BN(value).toString();
-  }
-
-  return null;
-};
-
 const toNullIfEmptyHex = (value: string): string | null => {
   return value === EMPTY_HEX ? null : value;
 };
@@ -281,7 +272,6 @@ export {
   nanOrNumberTo0x,
   nanOrNumberInt64To0x,
   toHash32,
-  toNullableBigNumber,
   toNullIfEmptyHex,
   generateRandomHex,
   trimPrecedingZeros,

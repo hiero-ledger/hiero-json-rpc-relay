@@ -199,12 +199,7 @@ export default class HAPIService {
    * @returns SDK Client
    */
   private initSDKClient(): SDKClient {
-    return new SDKClient(
-      this.hederaNetwork,
-      this.logger.child({ name: `consensus-node` }),
-      this.eventEmitter,
-      this.hbarLimitService,
-    );
+    return new SDKClient(this.logger.child({ name: `consensus-node` }), this.eventEmitter, this.hbarLimitService);
   }
 
   /**

@@ -113,7 +113,7 @@ run-relay:
 		fi; \
 		NODE_OPTS="--max-old-space-size=$$OLD_SPACE_MB $$V8_EXTRA"; \
 	fi; \
-	NODE_OPTS="$$NODE_OPTS $(EXTRA_NODE_OPTS)"; \
+	NODE_OPTS="$$NODE_OPTS $(EXTRA_NODE_OPTS) --jitless --stack-trace-limit=5"; \
 	if [ -n "$(LOCAL_FLAG)" ]; then echo "  -> Using Local Image"; fi; \
 	if [ -z "$(PURE_FLAG)" ]; then \
 		echo "  -> V8 tuning: $$NODE_OPTS"; \
