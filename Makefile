@@ -27,6 +27,7 @@ help:
 	@echo "  make report              - Resource usage report"
 	@echo "  make live-relay-resource - monitor relay resource usage live (1s interval)"
 	@echo "  make clean-solo          - Delete clusters"
+	@echo "  make prune-docker        - Force remove all containers and prune system/volumes"
 	@echo ""
 	@echo "Parameters:"
 	@echo "  mem_limit                - Container memory limit (e.g., 128Mi, 256Mi)"
@@ -100,9 +101,12 @@ run-relay:
 			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi)"; \
 		fi; \
 	else \
-		if [ "$$MEM_MB" -le 128 ]; then \
+		if [ "$$MEM_MB" -le 64 ]; then \
+			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 8 )); \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0"; \
+		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
-			V8_EXTRA="--max-semi-space-size=2"; \
+			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0"; \
 		else \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
 			V8_EXTRA=""; \
@@ -133,6 +137,11 @@ run-relay:
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		echo "    WORKERS_POOL_ENABLED: \"false\""; \
+		echo "    PRETTY_LOGS_ENABLED: \"false\""; \
+		echo "    LOG_LEVEL: \"info\""; \
+		if [ "$$MEM_MB" -le 128 ]; then \
+			echo "    CACHE_MAX: \"250\""; \
+		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
@@ -262,3 +271,10 @@ print-relay-procs:
 	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
 	echo "Reading /proc/ cmdlines for pod: $$RELAY_POD"; \
 	kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- sh -c 'for p in /proc/[0-9]*; do if [ -f "$$p/cmdline" ]; then pid=$$(basename $$p); cmd=$$(cat $$p/cmdline | tr "\0" " "); [ -n "$$cmd" ] && printf "PID %-6s: %s\n" "$$pid" "$$cmd"; fi; done'
+
+.PHONY: prune-docker
+prune-docker:
+	-docker rm -f $$(docker ps -aq)
+	docker system prune -f
+	docker volume prune -f
+

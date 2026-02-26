@@ -106,7 +106,7 @@ const _CONFIG = {
   CACHE_MAX: {
     type: 'number',
     required: false,
-    defaultValue: 1000,
+    defaultValue: 250,
   },
   CACHE_TTL: {
     type: 'number',
@@ -377,12 +377,12 @@ const _CONFIG = {
   LOG_LEVEL: {
     type: 'string',
     required: false,
-    defaultValue: 'trace',
+    defaultValue: 'info',
   },
   PRETTY_LOGS_ENABLED: {
     type: 'boolean',
     required: false,
-    defaultValue: true,
+    defaultValue: false,
   },
   MAX_BLOCK_RANGE: {
     type: 'number',

@@ -38,6 +38,10 @@ jobs:
           - name: "128-16-old-4-semi"
             memory_limit: "128Mi"
             node_opts: "--max-old-space-size=16 --max-semi-space-size=4"
+          # Lower: 96Mi container limit
+          - name: "96-48-old-2-semi-0-pool-size"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
           # Next milestone: 64Mi container limit
           - name: "64-16-old-4-semi"
             memory_limit: "64Mi"
@@ -93,7 +97,7 @@ jobs:
       - name: Configure and run solo
         run: |
           kind create cluster -n "${SOLO_CLUSTER_NAME}"
-          
+
           echo "Loading local relay image into Kind..."
           kind load docker-image library/relay-local:0.73.0 -n "${SOLO_CLUSTER_NAME}"
 
@@ -120,7 +124,7 @@ jobs:
 
       - name: Run Solo Relay
         id: run-relay
-        # continue-on-error: 128Mi/64Mi may OOMKill before passing readiness; 
+        # continue-on-error: 128Mi/64Mi may OOMKill before passing readiness;
         # we still want the report to capture these failures.
         continue-on-error: true
         run: |
@@ -225,8 +229,8 @@ jobs:
       - name: Start json-rpc-relay-test-client
         if: steps.run-relay.outcome == 'success'
         env:
-          CHAIN_ID: '0x12a'
-          MIRROR_NODE_URL: 'http://127.0.0.1:8081'
+          CHAIN_ID: "0x12a"
+          MIRROR_NODE_URL: "http://127.0.0.1:8081"
           HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
           OPERATOR_ID_MAIN: 0.0.2
           OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
