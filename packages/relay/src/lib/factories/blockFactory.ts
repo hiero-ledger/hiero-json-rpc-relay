@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import { type AuthorizationLike, Signature, Transaction as EthersTransaction } from 'ethers';
+import type { AuthorizationLike, Signature, Transaction as EthersTransaction } from 'ethers';
+
+/**
+ * Lazily loads and caches the ethers module to defer its ~3-5 MB barrel import
+ * from module evaluation time to first method invocation.
+ */
+let _ethers: typeof import('ethers') | null = null;
+function loadEthers(): typeof import('ethers') {
+  if (!_ethers) {
+    _ethers = require('ethers') as typeof import('ethers');
+  }
+  return _ethers;
+}
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import constants from '../constants';
@@ -69,7 +81,8 @@ export class BlockFactory {
     const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.r).padStart(64, '0'));
     const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.s).padStart(64, '0'));
 
-    const ethersTx = new EthersTransaction();
+    const { Transaction: EthersTransactionCtor, Signature: SignatureCtor } = loadEthers();
+    const ethersTx = new EthersTransactionCtor();
 
     // Common fields
     ethersTx.type = txType;
@@ -94,7 +107,7 @@ export class BlockFactory {
                 chainId: entry.chainId,
                 nonce: entry.nonce,
                 address: entry.address,
-                signature: Signature.from({
+                signature: SignatureCtor.from({
                   r: entry.r,
                   s: entry.s,
                   yParity: Number(entry.yParity) as 0 | 1,
@@ -125,7 +138,7 @@ export class BlockFactory {
     }
 
     // Signature
-    ethersTx.signature = Signature.from({
+    ethersTx.signature = SignatureCtor.from({
       r,
       s,
       v: Number(tx.v ?? '0x0'),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Transaction } from 'ethers';
+import type { Transaction } from 'ethers';
 
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
@@ -38,7 +38,8 @@ export class Precheck {
    */
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
     try {
-      return typeof transaction === 'string' ? Transaction.from(transaction) : transaction;
+      const { Transaction: EthersTx } = require('ethers') as typeof import('ethers');
+      return typeof transaction === 'string' ? EthersTx.from(transaction) : transaction;
     } catch (e: any) {
       throw predefined.INVALID_ARGUMENTS(e.message.toString());
     }

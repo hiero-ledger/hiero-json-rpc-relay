@@ -267,7 +267,11 @@ export async function initializeWsServer() {
 
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
-  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
+
+  // Skip default process metrics in minimal mode to reduce RSS by ~1-2 MB.
+  if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
+    collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
+  }
 
   httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
     // prometheus metrics exposure

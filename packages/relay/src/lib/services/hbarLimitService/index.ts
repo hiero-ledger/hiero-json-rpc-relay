@@ -99,10 +99,30 @@ export class HbarLimitService implements IHbarLimitService {
   private reset: Date;
 
   /**
-   * The operator address for the rate limiter.
+   * Lazily-resolved operator Solidity address for spending plan lookups.
+   * Deferred to avoid triggering the SDK barrel import (~20 MB RSS) during construction.
+   * Resolved on first access via {@link operatorAddress}.
    * @private
    */
-  private readonly operatorAddress: string;
+  private _operatorAddress?: string;
+
+  /**
+   * Returns the operator's Solidity address, resolving it lazily on first access.
+   * This defers the {@link loadSDK} call (and the heavy `@hashgraph/sdk` barrel) until
+   * the first spending-plan lookup, keeping startup RSS minimal.
+   */
+  private get operatorAddress(): string {
+    if (this._operatorAddress === undefined) {
+      const operator = Utils.getOperator(this.logger);
+      if (operator) {
+        const { AccountId } = loadSDK();
+        this._operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
+      } else {
+        this._operatorAddress = zeroAddress();
+      }
+    }
+    return this._operatorAddress;
+  }
 
   constructor(
     private readonly hbarSpendingPlanRepository: HbarSpendingPlanRepository,
@@ -113,14 +133,6 @@ export class HbarLimitService implements IHbarLimitService {
     private readonly limitDuration: number,
   ) {
     this.reset = this.getResetTimestamp();
-
-    const operator = Utils.getOperator(logger);
-    if (operator) {
-      const { AccountId } = loadSDK();
-      this.operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
-    } else {
-      this.operatorAddress = zeroAddress();
-    }
 
     // Use raw constant to avoid triggering TIER_LIMITS lazy getter (and SDK load) at startup.
     // In minimal mode this keeps the SDK unloaded until the first consensus operation.

@@ -103,7 +103,7 @@ run-relay:
 	else \
 		if [ "$$MEM_MB" -le 64 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 8 )); \
-			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0"; \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --jitless --optimize-for-size --initial-old-space-size=4"; \
 		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
 			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0"; \
