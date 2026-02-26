@@ -28,15 +28,18 @@ jobs:
           - name: "72-54-old-2-semi-0-pool-size"
             memory_limit: "72Mi"
             node_opts: "--max-old-space-size=54 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "72-54-old-2-semi-0-pool-size-jitless-optimizesize-4-initoldspace"
+          - name: "72-54-old-2-semi-0-pool-size-jitless"
             memory_limit: "72Mi"
-            node_opts: "--max-old-space-size=54 --max-semi-space-size=2 --v8-pool-size=0 --jitless --optimize-for-size --initial-old-space-size=4"
-          - name: "72-36-old-1-semi-0-pool-size-jitless-optimizesize-4-initoldspace"
+            node_opts: "--max-old-space-size=54 --max-semi-space-size=2 --v8-pool-size=0 --jitless"
+          - name: "72-36-old-1-semi-0-pool-size-jitless"
             memory_limit: "72Mi"
-            node_opts: "--max-old-space-size=36 --max-semi-space-size=1 --v8-pool-size=0 --jitless --optimize-for-size --initial-old-space-size=4"
-          - name: "64-48-old-1-semi-0-pool-size-jitless-optimizesize-4-initoldspace"
+            node_opts: "--max-old-space-size=36 --max-semi-space-size=1 --v8-pool-size=0 --jitless"
+          - name: "64-48-old-1-semi-0-pool-size-jitless-5-stacktrace"
             memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=1 --v8-pool-size=0 --jitless --optimize-for-size --initial-old-space-size=4"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"
+          - name: "64-32-old-1-semi-0-pool-size-jitless-5-stacktrace"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"
     permissions:
       contents: read
       checks: write
@@ -146,7 +149,8 @@ jobs:
               WORKERS_POOL_ENABLED: "false"
               PRETTY_LOGS_ENABLED: "false"
               LOG_LEVEL: "info"
-              CACHE_MAX: "250"
+              CACHE_MAX: "100"
+              UV_THREADPOOL_SIZE: "2"
               RELAY_MINIMAL_MODE: "true"
           EOF
           cat relay-resources.yaml
