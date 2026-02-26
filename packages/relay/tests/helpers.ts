@@ -1155,6 +1155,8 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
           return await blockWorker.getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
         case 'getBlockReceipts':
           return await blockWorker.getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+        case 'getRawReceipts':
+          return await blockWorker.getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
         case 'getLogs':
           return await commonWorker.getLogs(
             task.blockHash,

@@ -2149,6 +2149,88 @@ describe('Debug API Test Suite', async function () {
     });
   });
 
+  describe('debug_getBadBlocks', async function () {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return an empty array', async function () {
+        const result = await debugService.getBadBlocks();
+        expect(result).to.deep.equal([]);
+      });
+    });
+
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getBadBlocks,
+            true,
+            debugService,
+            [],
+          );
+        });
+      }),
+    );
+  });
+
+  describe('debug_getRawReceipts', async function () {
+    beforeEach(() => {
+      sinon.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return an empty array if block not found', async function () {
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves([]);
+        const result = await debugService.getRawReceipts('0x1234', requestDetails);
+        expect(result).to.be.an('array').with.lengthOf(0);
+      });
+
+      it('should return an empty array if no receipts are found', async function () {
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves([]);
+        const result = await debugService.getRawReceipts('0x32026E', requestDetails);
+        expect(result).to.be.an('array').with.lengthOf(0);
+      });
+
+      it('should return raw receipts that match pre-captured debug_getRawReceipts payload for block 0x23592c0 from Monad Quicknode RPC', async function () {
+        const expectedRawReceipts = [
+          '0xf901c50180b9010000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000200000000000000000000000000000000000000000002000000000008000000000000000000000000020000000000000000000000000000000000000010000000000000000000000000000000000004000000000000000000400000000000000000000000000000000000000000000000000004000000010000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f8bef8bc940000000000000000000000000000000000001000f863a03a420a01486b6b28d6ae89c51f5c3bde3e0e74eecbb646a0c481ccba3aae3754a00000000000000000000000000000000000000000000000000000000000000056a00000000000000000000000006f49a8f621353f12378d0046e7d7e4b9b249dc9eb840000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002e6',
+          '0x02f90241018303a980b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000042000000000000000000f90136f89994368ee51e47a594fe1e9908b48228748a30bc7ca4e1a0f36866d965ee70c8632ff558f5cf8d41ee9ca1d0d0bc7700786e57be60747390b8600000000000000000000000000000000000000000000000000000003fb482bae245544800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000069208301f89994368ee51e47a594fe1e9908b48228748a30bc7ca4e1a0f36866d965ee70c8632ff558f5cf8d41ee9ca1d0d0bc7700786e57be60747390b860000000000000000000000000000000000000000000000000000007a4dfeb5fe242544300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000069208301',
+        ];
+
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves(expectedRawReceipts);
+        const result = await debugService.getRawReceipts('0x23592c0', requestDetails);
+
+        expect(result).to.not.be.null;
+        expect(result).to.have.lengthOf(2);
+        expect(result).to.deep.equal(expectedRawReceipts);
+      });
+
+      ['earliest', 'latest', 'pending', 'finalized', 'safe'].forEach((blockTag) => {
+        const expectedRawReceipts = ['0x1234', '0x5678'];
+
+        it(`should return receipts if block tag ${blockTag} is passed`, async function () {
+          sinon.stub(debugService['blockService'], 'getRawReceipts').resolves(expectedRawReceipts);
+          const result = await debugService.getRawReceipts(blockTag, requestDetails);
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.deep.equal(expectedRawReceipts);
+        });
+      });
+    });
+
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getRawReceipts,
+            true,
+            debugService,
+            ['0x1234'],
+          );
+        });
+      }),
+    );
+  });
+
   describe('prestateTracer', async function () {
     const mockTimestamp = '1696438011.462526383';
     const contractId = '0.0.1033';

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32 } from '../../formatters';
+import { RLP } from '@ethereumjs/rlp';
+import { bytesToInt, concatBytes, hexToBytes, intToBytes } from '@ethereumjs/util';
+
+import { ASCIIToHex, isHex, nanOrNumberTo0x, numberTo0x, prepend0x, toHash32, toHexString } from '../../formatters';
 import { LogsBloomUtils } from '../../logsBloomUtils';
 import constants from '../constants';
 import { Log } from '../model';
 import { ITransactionReceipt } from '../types';
+import { IReceiptRlpInput } from '../types/IReceiptRlpInput';
 
 /**
  * Parameters specific to creating a synthetic transaction receipt from logs
@@ -146,6 +150,57 @@ class TransactionReceiptFactory {
     // reason for substring is described in the design doc in this repo: docs/design/hts_address_tx_receipt.md
     const tokenAddress = receiptResponse.call_result.substring(receiptResponse.call_result.length - 40);
     return prepend0x(tokenAddress);
+  }
+
+  /**
+   * Encodes a single transaction receipt to EIP-2718 binary form.
+   *
+   * Produces the RLP-encoded 4-tuple (receipt_root_or_status, cumulative_gas_used,
+   * logs_bloom, logs) per the Ethereum Yellow Paper. For typed transactions (type !== 0),
+   * the output is the single-byte type prefix followed by that RLP payload (EIP-2718).
+   *
+   * Based on section 4.4.1 (Transaction Receipt) from the Ethereum Yellow Paper: https://ethereum.github.io/yellowpaper/paper.pdf
+   *
+   * @param receipt - The transaction receipt to encode (see {@link ITransactionReceipt}).
+   * @returns Hex string (0x-prefixed) of the encoded receipt, suitable for receipts root hashing.
+   */
+  public static encodeReceiptToHex(receipt: IReceiptRlpInput): string {
+    const txType = receipt.type !== null ? bytesToInt(hexToBytes(receipt.type)) : 0;
+
+    // First field: receipt root or status (post-Byzantium)
+    let receiptRootOrStatus: Uint8Array;
+    if (receipt.root && receipt.root.length > 2) {
+      receiptRootOrStatus = hexToBytes(receipt.root);
+    } else if (receipt.status && bytesToInt(hexToBytes(receipt.status)) === 0) {
+      receiptRootOrStatus = new Uint8Array(0);
+    } else {
+      receiptRootOrStatus = hexToBytes(constants.ONE_HEX);
+    }
+
+    const cumulativeGasUsed = receipt.cumulativeGasUsed;
+    const cumulativeGasUsedBytes =
+      BigInt(cumulativeGasUsed) === BigInt(0)
+        ? new Uint8Array(0)
+        : hexToBytes(prepend0x(BigInt(cumulativeGasUsed).toString(16))); // canonical RLP encoding (no leading zeros)
+
+    const receiptLogsParam = receipt.logs.map((log) => [
+      hexToBytes(log.address),
+      log.topics.map((t) => hexToBytes(t)),
+      hexToBytes(log.data),
+    ]);
+
+    const encodedList = RLP.encode([
+      receiptRootOrStatus,
+      cumulativeGasUsedBytes,
+      hexToBytes(receipt.logsBloom),
+      receiptLogsParam,
+    ]);
+
+    if (txType === 0) {
+      return prepend0x(toHexString(encodedList));
+    }
+    const withPrefix = concatBytes(intToBytes(txType), encodedList);
+    return prepend0x(toHexString(withPrefix));
   }
 }
 

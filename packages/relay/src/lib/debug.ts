@@ -342,6 +342,34 @@ export class DebugImpl implements Debug {
   }
 
   /**
+   * Returns an array of EIP-2718 binary-encoded receipts.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawReceipts RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockHashOrNumber - The block hash or block number.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs.
+   * @returns {Promise<string[]>} A Promise that resolves to an array of EIP-2718 binary-encoded receipts or empty array if block not found.
+   *
+   * @example
+   * const result = await getRawReceipts('0x1234', requestDetails);
+   * // result: ["0xe6808...", "0xe6809..."]
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ['blockNumber', 'blockHash'], required: true },
+  })
+  @cache({
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
+  async getRawReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<string[]> {
+    DebugImpl.requireDebugAPIEnabled();
+    return await this.blockService.getRawReceipts(blockHashOrNumber, requestDetails);
+  }
+
+  /**
    * Formats the result from the actions endpoint to the expected response
    *
    * @async
