@@ -894,7 +894,7 @@
       "result": {
         "name": "Filter Identifier",
         "schema": {
-          "$ref": "#/components/schemas/uint"
+          "$ref": "#/components/schemas/hash16"
         }
       },
       "tags": [
@@ -918,7 +918,7 @@
       "result": {
         "name": "Filter Identifier",
         "schema": {
-          "$ref": "#/components/schemas/uint"
+          "$ref": "#/components/schemas/hash16"
         }
       },
       "tags": [
@@ -935,7 +935,7 @@
         {
           "name": "Filter Identifier",
           "schema": {
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/hash16"
           }
         }
       ],
@@ -974,7 +974,7 @@
         {
           "name": "Filter Identifier",
           "schema": {
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/hash16"
           }
         }
       ],
