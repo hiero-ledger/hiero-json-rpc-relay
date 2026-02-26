@@ -38,7 +38,8 @@ export class Precheck {
    */
   public static parseRawTransaction(transaction: string | Transaction): Transaction {
     try {
-      const { Transaction: EthersTx } = require('ethers') as typeof import('ethers');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { Transaction: EthersTx } = require('ethers/transaction') as typeof import('ethers');
       return typeof transaction === 'string' ? EthersTx.from(transaction) : transaction;
     } catch (e: any) {
       throw predefined.INVALID_ARGUMENTS(e.message.toString());

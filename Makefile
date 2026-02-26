@@ -103,7 +103,7 @@ run-relay:
 	else \
 		if [ "$$MEM_MB" -le 64 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 8 )); \
-			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"; \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0"; \
 		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
 			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0"; \
@@ -146,6 +146,7 @@ run-relay:
 			echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"5\""; \
 			echo "    MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: \"10\""; \
 			echo "    MIRROR_NODE_HTTP_KEEP_ALIVE: \"false\""; \
+			echo "    LOCAL_LOCK_MAX_ENTRIES: \"50\""; \
 		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \

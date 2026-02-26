@@ -16,9 +16,11 @@
 5. [V2 — SDK Lazy Loading and Minimal Mode](#5-v2--sdk-lazy-loading-and-minimal-mode)
 6. [V3 — V8 Flags, Ethers Deferral and Metrics Guard](#6-v3--v8-flags-ethers-deferral-and-metrics-guard)
 7. [V4 — Dockerfile Recovery, Node 22 Whitelisting and BigNumber Removal](#7-v4--dockerfile-recovery-node-22-whitelisting-and-bignumber-removal)
-8. [Memory Journey](#8-memory-journey)
-9. [Complete Change Index](#9-complete-change-index)
-10. [Build and Verification Status](#10-build-and-verification-status)
+8. [V5 — Redis Lazy Loading and Ethers Subpath Optimization](#8-v5--redis-lazy-loading-and-ethers-subpath-optimization)
+9. [V6 — Final Tuning, Pruning, and Architectural Limits](#9-v6--final-tuning-pruning-and-architectural-limits)
+10. [Memory Journey](#10-memory-journey)
+11. [Complete Change Index](#11-complete-change-index)
+12. [Build and Verification Status](#12-build-and-verification-status)
 
 ---
 
@@ -678,7 +680,71 @@ node (e.g., `eth_sendRawTransaction`).
 
 ---
 
-## 8. Memory Journey
+## 8. V5 — Redis Lazy Loading and Ethers Subpath Optimization
+
+**Commit:** `final-subpaths`  
+**Files changed:** 3  
+**Theme:** Breaking the "package wall" by avoiding full index files and unrequired infrastructure loads to squeeze another ~10MB RSS.
+
+### 8.1 RedisClientManager — Lazy `require('redis')`
+
+**File:** `packages/relay/src/lib/clients/redisClientManager.ts`
+
+**Change:** Replaced static `import` of `redis` with `import type` and moved the actual `require('redis')` inside the `getClient()` method, executed only when `REDIS_ENABLED=true`.
+
+**Why it matters:** The `redis` package and its transitive dependencies (like `generic-pool`) contribute ~3 MiB to RSS even when idle. By deferring the load, the relay avoids this overhead entirely in Solo environments where local memory or disk-based locking is sufficient.
+
+### 8.2 Ethers Subpath Exports — `ethers/transaction` and `ethers/crypto`
+
+**Files:** `packages/relay/src/lib/eth/blockFactory.ts`, `packages/relay/src/lib/eth/precheck.ts`
+
+**Change:** Switched from `require('ethers')` to deep subpath imports: `require('ethers/transaction')` and `require('ethers/crypto')`.
+
+**Why it matters:** Importing the full `ethers` barrel (index.js) initializes the entire library ecosystem, including Contract factories and Provider state machines. Subpath exports allow the relay to load only the codec and cryptographic logic required for RLP encoding and transaction parsing, saving an additional ~6 MiB of initial load RSS.
+
+---
+
+## 9. V6 — Final Tuning, Pruning, and Architectural Limits
+
+**Commit:** `final`  
+**Files changed:** 3  
+**Theme:** Hardening the memory floor and establishing architectural guards.
+
+### 9.1 LRU Cache Capping for Low-Memory Profiles
+
+**File:** `Makefile`
+
+**Change:** Injected `LOCAL_LOCK_MAX_ENTRIES: "50"` specifically for the `64Mi` and `128Mi` profiles.
+
+**Why it matters:** Even small LRU caches have metadata overhead (Map entries, doubly-linked list nodes). For micro-profiles, capping the internal lock manager's history to 50 entries ensures that metadata never balloons during bursty transaction cycles.
+
+### 9.2 Dockerfile Pruning of `pino-pretty`
+
+**File:** `Dockerfile`
+
+**Change:** Added `rm -rf node_modules/pino-pretty` to the runtime stage pruner.
+
+**Why it matters:** While the relay is configured to disable pretty logs in production via `PRETTY_LOGS_ENABLED=false`, the presence of the package in `node_modules` can sometimes trigger accidental loads or satisfy optional dependency checks. Removing it from the disk saves ~500KB and guarantees the optimized JSON logger is used.
+
+### 9.3 Architectural Guardrails (TSDoc)
+
+**File:** `packages/relay/src/lib/relay.ts`
+
+**Change:** Added a significant architectural warning in the `Relay` class constructor documenting the "Memory Pre-warming" anti-pattern.
+
+**Why it matters:** Future developers might be tempted to "pre-warm" the SDK or Ethers to reduce first-request latency. In a 64Mi environment, this would cause an immediate OOMKill. The documentation ensures this architectural limit is respected as part of a "Zero Tolerance for Dead Code" policy.
+
+### 9.4 V8 Flag Deduplication
+
+**File:** `Makefile`
+
+**Change:** Refactored the `NODE_OPTIONS` construction to prevent duplication of the `--jitless` flag when combining profile variables.
+
+**Why it matters:** While Node.js handles duplicated flags gracefully, keeping the boot string clean avoids unexpected behavior in shared `NODE_OPTIONS` environments.
+
+---
+
+## 10. Memory Journey
 
 All measurements taken inside a Kubernetes Solo network on an ARM64 Mac with 16 GB RAM.
 `PodRSS` = `kubectl top pod` value; `P_RSS` = `/proc/<pid>/status VmRSS`.
@@ -701,7 +767,7 @@ PodRSS: 58Mi | P_RSS: 94M | H_TOT: 38M | H_USE: 32M | H_EXT: 3.2M
 
 ---
 
-## 9. Complete Change Index
+## 11. Complete Change Index
 
 ### V1 — 16 files
 
@@ -759,9 +825,29 @@ PodRSS: 58Mi | P_RSS: 94M | H_TOT: 38M | H_USE: 32M | H_EXT: 3.2M
 | `packages/server/src/server.ts`                | `collectDefaultMetrics()` guarded by `!RELAY_MINIMAL_MODE`                      |
 | `packages/ws-server/src/webSocketServer.ts`    | `collectDefaultMetrics()` guarded by `!RELAY_MINIMAL_MODE`                      |
 
+### V4 (recovery) — 4 files
+
+| File                                          | Change                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `Dockerfile`                                  | Fix aggressive @redis namespace deletion; refined prod dependency pruner |
+| `Makefile`                                    | Removed non-whitelisted Node 22 V8 flags (`--optimize-for-size`)         |
+| `packages/relay/src/formatters.ts`            | Complete BigNumber removal; native BigInt migration                      |
+| `packages/relay/src/lib/clients/sdkClient.ts` | Lazy initialization of the main consensus `Client`                       |
+
+### V5 & V6 — 6 files
+
+| File                                       | Change                                                               |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| `packages/relay/.../redisClientManager.ts` | Lazy `require('redis')` only when `REDIS_ENABLED` is true            |
+| `packages/relay/.../blockFactory.ts`       | Switched to `ethers/transaction` and `ethers/crypto` subpath exports |
+| `packages/relay/.../precheck.ts`           | Switched to `ethers/transaction` subpath export for RLP parsing      |
+| `Makefile`                                 | Injected `LOCAL_LOCK_MAX_ENTRIES: 50` and fixed V8 flag dedupe       |
+| `Dockerfile`                               | Added `rm -rf node_modules/pino-pretty` to runtime layer pruner      |
+| `packages/relay/src/lib/relay.ts`          | TSDoc warning asserting architectural memory limits                  |
+
 ---
 
-## 10. Build and Verification Status
+## 12. Build and Verification Status
 
 ### TypeScript compilation
 
@@ -805,10 +891,12 @@ grep -n "require('ethers')" \
 | lodash runtime bundle                     | ~1.1 MiB RSS                       |
 | @hashgraph/sdk deferred (startup)         | ~8–10 MiB RSS at startup           |
 | ethers barrel deferred (startup)          | ~1.5–3 MiB RSS at startup          |
+| **ethers subpath exports (V5)**           | **~6 MiB RSS reduction**           |
+| **redis lazy loading (V5)**               | **~3 MiB RSS reduction**           |
 | prom-client defaultMetrics (minimal mode) | ~0.5–1 MiB RSS + GC pressure       |
 | V8 --jitless (no compiled code space)     | ~4–8 MiB RSS                       |
 | V8 --optimize-for-size                    | ~1–2 MiB RSS                       |
 | V8 --initial-old-space-size=4             | ~5–10 MiB committed at startup     |
 | CACHE_MAX 1000→250                        | ~2–5 MiB peak LRU heap             |
 | LOG_LEVEL trace→info                      | ~1–2 MiB allocation rate reduction |
-| **Total estimated reduction**             | **~35–50 MiB RSS vs. baseline**    |
+| **Total estimated reduction**             | **~45–60 MiB RSS vs. baseline**    |

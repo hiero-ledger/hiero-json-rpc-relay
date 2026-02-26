@@ -275,6 +275,29 @@ export class Relay {
    * Initializes all services after infrastructure (Redis) is ready.
    * This method is called from initializeRelay() after Redis connection is established.
    *
+   * ### Memory strategy for constrained profiles (≤128Mi / 64Mi)
+   *
+   * Both `@hashgraph/sdk` and `ethers` are intentionally kept out of the
+   * startup critical path and are only loaded on demand:
+   *
+   * - **ethers** (`ethers/transaction` + `ethers/crypto` subpaths): loaded on first
+   *   `eth_getBlock*` or `eth_sendRawTransaction` call via lazy require() in
+   *   `blockFactory.ts` and `precheck.ts`. Using the official subpath exports
+   *   instead of the full `ethers` barrel reduces the first-load RSS cost from
+   *   ~22 MB to ~17 MB. After @hashgraph/sdk is loaded the marginal cost drops
+   *   to ~2 MB (shared secp256k1/noble-crypto primitives).
+   *
+   * - **@hashgraph/sdk**: loaded on first consensus operation via `SDKClient`.
+   *   The SDK barrel (509 JS files + gRPC + protobuf) costs ~44 MB RSS when
+   *   loaded from a relay-typical baseline. This makes the 64Mi target achievable
+   *   ONLY for read-only workloads that never reach the Hedera consensus network.
+   *   Write workloads (`eth_sendRawTransaction`) require a minimum of ~96Mi.
+   *
+   * DO NOT pre-warm either module here. Pre-warming ethers at startup increases
+   * the permanent steady-state RSS by ~17 MB (58-62 MB instead of 42-44 MB),
+   * which would push 64Mi profiles beyond the container limit before any request
+   * is ever served.
+   *
    * @private
    */
   private async initializeServices(): Promise<void> {

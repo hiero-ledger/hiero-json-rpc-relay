@@ -33,7 +33,11 @@ RUN find packages -type f \( \
     \) -delete && \
     find packages -type d -name tests -exec rm -rf {} + 2>/dev/null; \
     find packages -type d -name __tests__ -exec rm -rf {} + 2>/dev/null; \
-    rm -rf node_modules/.cache
+    rm -rf node_modules/.cache && \
+    # pino-pretty is a devDependency used only when PRETTY_LOGS_ENABLED=true.
+    # All ≤128Mi profiles set PRETTY_LOGS_ENABLED=false, so remove the package to
+    # avoid it being accidentally required and to reduce image size by ~496 KB.
+    rm -rf node_modules/pino-pretty
 
 ############################
 # Stage 3 — Runtime
