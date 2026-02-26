@@ -152,6 +152,10 @@ jobs:
               CACHE_MAX: "100"
               UV_THREADPOOL_SIZE: "2"
               RELAY_MINIMAL_MODE: "true"
+              # P0: Constrain HTTP socket pool so keep-alive buffers cannot exhaust 64Mi
+              MIRROR_NODE_HTTP_MAX_SOCKETS: "5"
+              MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "10"
+              MIRROR_NODE_HTTP_KEEP_ALIVE: "false"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -346,6 +350,12 @@ jobs:
             CACHE_MAX_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               sh -c 'echo "${CACHE_MAX:-1000}"' 2>/dev/null) \
               || CACHE_MAX_VAL="(exec failed)"
+            MN_MAX_SOCKETS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${MIRROR_NODE_HTTP_MAX_SOCKETS:-300}"' 2>/dev/null) \
+              || MN_MAX_SOCKETS_VAL="(exec failed)"
+            MN_KEEP_ALIVE_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${MIRROR_NODE_HTTP_KEEP_ALIVE:-true}"' 2>/dev/null) \
+              || MN_KEEP_ALIVE_VAL="(exec failed)"
             V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>console.log(d.match(/rpc_relay_nodejs_heap_size_total_bytes (\d+)/)[1]))}).on('error',()=>process.exit(1));" \
               2>/dev/null) || V8_RAW=""
@@ -368,6 +378,8 @@ jobs:
           echo "  Minimal Mode     : ${MINIMAL_MODE_VAL}"
           echo "  Cache Max        : ${CACHE_MAX_VAL}"
           echo "  Workers Enabled  : false (default)"
+          echo "  MN Max Sockets   : ${MN_MAX_SOCKETS_VAL}"
+          echo "  MN Keep-Alive    : ${MN_KEEP_ALIVE_VAL}"
           echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
           echo "  OOMKills         : ${OOM_STATUS}"
           echo "  Restarts         : ${RELAY_RESTARTS}"
@@ -401,6 +413,8 @@ jobs:
           printf '| `RELAY_MINIMAL_MODE` | `%s` |\n' "${MINIMAL_MODE_VAL}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| `CACHE_MAX` | `%s` |\n' "${CACHE_MAX_VAL}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| `WORKERS_POOL_ENABLED` | `false (default)` |\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `MIRROR_NODE_HTTP_MAX_SOCKETS` | `%s` |\n' "${MN_MAX_SOCKETS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `MIRROR_NODE_HTTP_KEEP_ALIVE` | `%s` |\n' "${MN_KEEP_ALIVE_VAL}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"

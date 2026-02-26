@@ -143,6 +143,9 @@ run-relay:
 			echo "    CACHE_MAX: \"100\""; \
 			echo "    UV_THREADPOOL_SIZE: \"2\"";\
 			echo "    RELAY_MINIMAL_MODE: \"true\""; \
+			echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"5\""; \
+			echo "    MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: \"10\""; \
+			echo "    MIRROR_NODE_HTTP_KEEP_ALIVE: \"false\""; \
 		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
