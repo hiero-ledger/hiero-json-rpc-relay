@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../ICacheClient';

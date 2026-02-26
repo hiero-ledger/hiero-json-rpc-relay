@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { zeroAddress } from '@ethereumjs/util';
 import type { Hbar } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
@@ -118,7 +117,7 @@ export class HbarLimitService implements IHbarLimitService {
         const { AccountId } = loadSDK();
         this._operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
       } else {
-        this._operatorAddress = zeroAddress();
+        this._operatorAddress = constants.ZERO_ADDRESS_HEX;
       }
     }
     return this._operatorAddress;
@@ -137,7 +136,7 @@ export class HbarLimitService implements IHbarLimitService {
     // Use raw constant to avoid triggering TIER_LIMITS lazy getter (and SDK load) at startup.
     // In minimal mode this keeps the SDK unloaded until the first consensus operation.
     const totalBudgetTinybars = constants.HBAR_RATE_LIMIT_TOTAL;
-    if (totalBudgetTinybars.lte(0)) {
+    if (totalBudgetTinybars <= 0) {
       this.isHBarRateLimiterEnabled = false;
     }
 
@@ -158,7 +157,7 @@ export class HbarLimitService implements IHbarLimitService {
       help: 'Relay Hbar rate limit remaining budget',
       registers: [register],
     });
-    this.hbarLimitRemainingGauge.set(totalBudgetTinybars.toNumber());
+    this.hbarLimitRemainingGauge.set(totalBudgetTinybars);
 
     const totalHbarLimitGaugeName = 'rpc_relay_hbar_rate_total_limit';
     this.register.removeSingleMetric(totalHbarLimitGaugeName);
@@ -167,7 +166,7 @@ export class HbarLimitService implements IHbarLimitService {
       help: 'Total configured HBAR rate limit',
       registers: [register],
     });
-    this.totalHbarLimitGauge.set(totalBudgetTinybars.toNumber());
+    this.totalHbarLimitGauge.set(totalBudgetTinybars);
 
     this.uniqueSpendingPlansCounter = Object.values(SubscriptionTier).reduce(
       (acc, tier) => {

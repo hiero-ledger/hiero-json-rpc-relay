@@ -4,11 +4,10 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import type { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
-import { Admin, Eth, Net, TxPool, Web3 } from '../index';
+import { Admin, Debug, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
-import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import { RedisClientManager } from './clients/redisClientManager';
@@ -17,7 +16,6 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
@@ -28,7 +26,6 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
-import { TxPoolImpl } from './txpool';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
@@ -110,8 +107,9 @@ export class Relay {
 
   /**
    * The Debug Service implementation that takes care of all filter API operations.
+   * Lazily loaded in non-minimal mode via dynamic `import('./debug')`.
    */
-  private debugImpl!: DebugImpl;
+  private debugImpl!: Debug;
 
   /**
    * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
@@ -229,7 +227,7 @@ export class Relay {
     });
   }
 
-  debug(): DebugImpl {
+  debug(): Debug {
     return this.debugImpl;
   }
 
@@ -265,7 +263,7 @@ export class Relay {
     await this.connectRedisClient();
 
     // 2. Initialize all services with the connected Redis client
-    this.initializeServices();
+    await this.initializeServices();
 
     // 3. Validate operator balance (requires ethImpl to be initialized; skipped in minimal mode)
     if (!ConfigService.get('READ_ONLY') && !ConfigService.get('RELAY_MINIMAL_MODE')) {
@@ -279,7 +277,7 @@ export class Relay {
    *
    * @private
    */
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);
@@ -383,7 +381,14 @@ export class Relay {
 
     // In minimal mode, skip creating DebugImpl (which loads CommonService + BlockService),
     // AdminImpl (which loads axios), and TxPoolImpl to reduce memory footprint.
+    // Dynamic imports prevent these modules from entering the module graph at startup,
+    // saving ~0.5-1 MiB RSS when RELAY_MINIMAL_MODE=true.
     if (!isMinimalMode) {
+      const [{ AdminImpl }, { DebugImpl }, { TxPoolImpl }] = await Promise.all([
+        import('./admin'),
+        import('./debug'),
+        import('./txpool'),
+      ]);
       this.txpoolImpl = new TxPoolImpl(transactionPoolService);
       this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, chainId);
       this.adminImpl = new AdminImpl(this.cacheService);
@@ -406,10 +411,10 @@ export class Relay {
     this.populatePreconfiguredSpendingPlans().then();
 
     // Create RPC method registry — in minimal mode, register only core namespaces
-    const namespaces = isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool'];
+    const namespaces = (isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool']) as (keyof Relay)[];
     const rpcNamespaceRegistry = namespaces.map((namespace) => ({
       namespace,
-      serviceImpl: this[namespace](),
+      serviceImpl: (this[namespace] as Function)(),
     }));
 
     this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);

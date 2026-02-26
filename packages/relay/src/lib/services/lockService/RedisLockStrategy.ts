@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { randomUUID } from 'crypto';
 import { Logger } from 'pino';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { LockAcquisitionResult, LockStrategy, LockStrategyLabel } from '../../types/lock';
 import { LockMetricsService } from './LockMetricsService';

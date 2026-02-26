@@ -103,7 +103,7 @@ run-relay:
 	else \
 		if [ "$$MEM_MB" -le 64 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 8 )); \
-			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --jitless --optimize-for-size --initial-old-space-size=4"; \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"; \
 		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
 			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0"; \
@@ -140,7 +140,8 @@ run-relay:
 		echo "    PRETTY_LOGS_ENABLED: \"false\""; \
 		echo "    LOG_LEVEL: \"info\""; \
 		if [ "$$MEM_MB" -le 128 ]; then \
-			echo "    CACHE_MAX: \"250\""; \
+			echo "    CACHE_MAX: \"100\""; \
+			echo "    UV_THREADPOOL_SIZE: \"2\"";\
 			echo "    RELAY_MINIMAL_MODE: \"true\""; \
 		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \

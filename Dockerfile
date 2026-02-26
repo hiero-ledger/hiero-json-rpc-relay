@@ -33,8 +33,6 @@ RUN find packages -type f \( \
     \) -delete && \
     find packages -type d -name tests -exec rm -rf {} + 2>/dev/null; \
     find packages -type d -name __tests__ -exec rm -rf {} + 2>/dev/null; \
-    rm -rf node_modules/pino-pretty packages/*/node_modules/pino-pretty && \
-    rm -rf node_modules/lodash packages/*/node_modules/lodash && \
     rm -rf node_modules/.cache
 
 ############################
