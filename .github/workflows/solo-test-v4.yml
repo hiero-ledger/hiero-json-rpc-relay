@@ -14,34 +14,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "128-96-old-with-workers"
-            memory_limit: "128Mi"
-            node_opts: "--max-old-space-size=96"
-            workers_enabled: "true"
-          - name: "128-96-old-no-workers"
-            memory_limit: "128Mi"
-            node_opts: "--max-old-space-size=96"
-            workers_enabled: "false"
-          - name: "128-64-old-with-workers"
-            memory_limit: "128Mi"
-            node_opts: "--max-old-space-size=64"
-            workers_enabled: "true"
-          - name: "128-64-old-no-workers"
-            memory_limit: "128Mi"
-            node_opts: "--max-old-space-size=64"
-            workers_enabled: "false"
-          - name: "128-no-opts-no-workers"
-            memory_limit: "128Mi"
+          - name: "64-pure-no-V8-tuning"
+            memory_limit: "64Mi"
             node_opts: ""
-            workers_enabled: "false"
-          - name: "64-48-old-no-workers"
+          - name: "64-42-old-1-semi-0-pool-jitless"
             memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=48"
-            workers_enabled: "false"
-          - name: "64-32-old-no-workers"
+            node_opts: "--max-old-space-size=42 --max-semi-space-size=1 --v8-pool-size=0 --jitless"
+          - name: "64-45-old-1-semi-0-pool-jitless"
             memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32"
-            workers_enabled: "false"
+            node_opts: "--max-old-space-size=45 --max-semi-space-size=1 --v8-pool-size=0 --jitless"
+          - name: "64-45-old-2-semi-0-pool-jitless"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=45 --max-semi-space-size=2 --v8-pool-size=0 --jitless"
     permissions:
       contents: read
       checks: write
@@ -148,7 +132,11 @@ jobs:
             config:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
-              WORKERS_POOL_ENABLED: "${{ matrix.workers_enabled }}"
+              WORKERS_POOL_ENABLED: "false"
+              PRETTY_LOGS_ENABLED: "false"
+              LOG_LEVEL: "error"
+              CACHE_MAX: "50"
+              RELAY_MINIMAL_MODE: "true"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -187,7 +175,7 @@ jobs:
 
           echo "--- Workers Pool Enabled ---"
           kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
-            sh -c 'echo "${WORKERS_POOL_ENABLED:-<not set>}"' 2>/dev/null \
+            sh -c 'echo "${WORKERS_POOL_ENABLED:-<not set>}" (Expected: false)' 2>/dev/null \
             || echo "(exec failed)"
 
           echo "--- Live Memory Stats (/metrics) ---"
@@ -204,17 +192,21 @@ jobs:
           kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
 
       - name: Checkout Relay repo
+        if: steps.run-relay.outcome == 'success'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: 4900-solo-reduce-json-rpc-relay-memory-footprint
 
       - name: Install packages
+        if: steps.run-relay.outcome == 'success'
         run: npm ci
 
       - name: Build Relay
+        if: steps.run-relay.outcome == 'success'
         run: npm run build
 
       - name: Record test start time
+        if: steps.run-relay.outcome == 'success'
         id: test-timing
         run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
 
@@ -234,7 +226,7 @@ jobs:
         run: npm run acceptancetest:xts
 
       - name: Record test end time
-        if: always()
+        if: steps.run-relay.outcome == 'success'
         id: test-end-time
         run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
 
@@ -326,11 +318,25 @@ jobs:
           # Re-exec into the pod to read the live heap_size_limit; this
           # confirms whether NODE_OPTIONS was propagated and honoured by V8.
           NODE_OPTIONS_VAL="N/A"
+          MINIMAL_MODE_VAL="N/A"
+          CACHE_MAX_VAL="N/A"
           V8_HEAP_LIMIT_MB="N/A"
           if [ -n "$RELAY_POD" ]; then
             NODE_OPTIONS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               sh -c 'echo "${NODE_OPTIONS:-<not set>}"' 2>/dev/null) \
               || NODE_OPTIONS_VAL="(exec failed)"
+            MINIMAL_MODE_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${RELAY_MINIMAL_MODE:-false}"' 2>/dev/null) \
+              || MINIMAL_MODE_VAL="(exec failed)"
+            CACHE_MAX_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${CACHE_MAX:-1000}"' 2>/dev/null) \
+              || CACHE_MAX_VAL="(exec failed)"
+            MN_MAX_SOCKETS_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${MIRROR_NODE_HTTP_MAX_SOCKETS:-300}"' 2>/dev/null) \
+              || MN_MAX_SOCKETS_VAL="(exec failed)"
+            MN_KEEP_ALIVE_VAL=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
+              sh -c 'echo "${MIRROR_NODE_HTTP_KEEP_ALIVE:-true}"' 2>/dev/null) \
+              || MN_KEEP_ALIVE_VAL="(exec failed)"
             V8_RAW=$(kubectl exec -n "${SOLO_NAMESPACE}" "$RELAY_POD" -- \
               node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>console.log(d.match(/rpc_relay_nodejs_heap_size_total_bytes (\d+)/)[1]))}).on('error',()=>process.exit(1));" \
               2>/dev/null) || V8_RAW=""
@@ -350,7 +356,11 @@ jobs:
           echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
           echo "  Relay Limits     : ${CONFIGURED_LIMITS}"
           echo "  NODE_OPTIONS     : ${NODE_OPTIONS_VAL}"
-          echo "  Workers Enabled  : ${{ matrix.workers_enabled }}"
+          echo "  Minimal Mode     : ${MINIMAL_MODE_VAL}"
+          echo "  Cache Max        : ${CACHE_MAX_VAL}"
+          echo "  Workers Enabled  : false (default)"
+          echo "  MN Max Sockets   : ${MN_MAX_SOCKETS_VAL}"
+          echo "  MN Keep-Alive    : ${MN_KEEP_ALIVE_VAL}"
           echo "  V8 Heap Limit    : ${V8_HEAP_LIMIT_MB}"
           echo "  OOMKills         : ${OOM_STATUS}"
           echo "  Restarts         : ${RELAY_RESTARTS}"
@@ -378,10 +388,14 @@ jobs:
           printf '| Relay (HTTP) | %s | %s | `%s` |\n' "${RELAY_CPU}" "${RELAY_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Relay (ws)   | %s | %s | `%s` |\n\n' "${RELAY_WS_CPU}" "${RELAY_WS_MEM}" "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
 
-          printf '### V8 Runtime Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '### Diet Configuration & V8 Runtime\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| `NODE_OPTIONS` (configured) | `%s` |\n' "${NODE_OPTIONS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '| `WORKERS_POOL_ENABLED` | `%s` |\n' "${{ matrix.workers_enabled }}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `RELAY_MINIMAL_MODE` | `%s` |\n' "${MINIMAL_MODE_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `CACHE_MAX` | `%s` |\n' "${CACHE_MAX_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `WORKERS_POOL_ENABLED` | `false (default)` |\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `MIRROR_NODE_HTTP_MAX_SOCKETS` | `%s` |\n' "${MN_MAX_SOCKETS_VAL}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| `MIRROR_NODE_HTTP_KEEP_ALIVE` | `%s` |\n' "${MN_KEEP_ALIVE_VAL}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| V8 `heap_size_limit` (observed) | `%s` |\n\n' "${V8_HEAP_LIMIT_MB}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Health & Stability\n' >> "${GITHUB_STEP_SUMMARY}"

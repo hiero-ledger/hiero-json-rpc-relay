@@ -26,7 +26,9 @@ help:
 	@echo "  make run-relay           - Run relay (default: mem_limit=1000Mi)"
 	@echo "  make report              - Resource usage report"
 	@echo "  make live-relay-resource - monitor relay resource usage live (1s interval)"
+	@echo "  make destroy-relay       - Destroy relay node (for starting fresh)"
 	@echo "  make clean-solo          - Delete clusters"
+	@echo "  make prune-docker        - Force remove all containers and prune system/volumes"
 	@echo ""
 	@echo "Parameters:"
 	@echo "  mem_limit                - Container memory limit (e.g., 128Mi, 256Mi)"
@@ -97,12 +99,15 @@ run-relay:
 	if [ -n "$(old)" ]; then \
 		NODE_OPTS="--max-old-space-size=$(old)"; \
 		if [ -n "$(semi)" ]; then \
-			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi)"; \
+			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi) --v8-pool-size=0 --jitless"; \
 		fi; \
 	else \
-		if [ "$$MEM_MB" -le 128 ]; then \
+		if [ "$$MEM_MB" -le 64 ]; then \
+			OLD_SPACE_MB=16; \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --gc-interval=50 --expose-gc"; \
+		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
-			V8_EXTRA="--max-semi-space-size=2"; \
+			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0 --expose-gc"; \
 		else \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
 			V8_EXTRA=""; \
@@ -133,14 +138,55 @@ run-relay:
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		echo "    WORKERS_POOL_ENABLED: \"false\""; \
+		echo "    PRETTY_LOGS_ENABLED: \"false\""; \
+		if [ "$$MEM_MB" -le 64 ]; then \
+			echo "    LOG_LEVEL: \"error\""; \
+			echo "    CACHE_MAX: \"50\""; \
+			echo "    RELAY_MINIMAL_MODE: \"true\""; \
+		elif [ "$$MEM_MB" -le 128 ]; then \
+			echo "    LOG_LEVEL: \"warn\""; \
+			echo "    CACHE_MAX: \"100\""; \
+			echo "    UV_THREADPOOL_SIZE: \"2\"";\
+			echo "    RELAY_MINIMAL_MODE: \"true\""; \
+			echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"5\""; \
+			echo "    MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: \"10\""; \
+			echo "    MIRROR_NODE_HTTP_KEEP_ALIVE: \"false\""; \
+			echo "    LOCAL_LOCK_MAX_ENTRIES: \"50\""; \
+		else \
+			echo "    LOG_LEVEL: \"info\""; \
+		fi; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
 	) > relay-resources.yaml; \
 	cat relay-resources.yaml
+	@echo "Ensuring clean state for node1..."
+	@# Workaround for Solo bug: scale up if it was manually scaled to 0, otherwise 'destroy' fails in Initialize
+	-@if kubectl get deployment relay-1 -n "${SOLO_NAMESPACE}" >/dev/null 2>&1; then \
+		REPS=$$(kubectl get deployment relay-1 -n "${SOLO_NAMESPACE}" -o jsonpath='{.spec.replicas}'); \
+		if [ "$$REPS" -eq 0 ]; then \
+			echo "  -> Scaling up relay-1 to 1 to satisfy Solo initialization..."; \
+			kubectl scale deployment relay-1 -n "${SOLO_NAMESPACE}" --replicas=1; \
+			kubectl rollout status deployment/relay-1 -n "${SOLO_NAMESPACE}" --timeout=30s || true; \
+		fi; \
+	fi
+	-solo relay node destroy -i node1 --deployment "${SOLO_DEPLOYMENT}" --quiet-mode 2>/dev/null || true
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
-	rm relay-resources.yaml
+	rm -f relay-resources.yaml
 	@echo "Relay setup complete with $$FINAL_MEM limit."
+
+.PHONY: destroy-relay clean-relay
+destroy-relay clean-relay:
+	@echo "Destroying relay node node1..."
+	@# Workaround for Solo bug: scale up if it was manually scaled to 0, otherwise 'destroy' fails in Initialize
+	-@if kubectl get deployment relay-1 -n "${SOLO_NAMESPACE}" >/dev/null 2>&1; then \
+		REPS=$$(kubectl get deployment relay-1 -n "${SOLO_NAMESPACE}" -o jsonpath='{.spec.replicas}'); \
+		if [ "$$REPS" -eq 0 ]; then \
+			echo "  -> Scaling up relay-1 to 1 to satisfy Solo initialization..."; \
+			kubectl scale deployment relay-1 -n "${SOLO_NAMESPACE}" --replicas=1; \
+		fi; \
+	fi
+	-solo relay node destroy -i node1 --deployment "${SOLO_DEPLOYMENT}" --quiet-mode
 
 
 .PHONY: run-relay-256-profile-with-heapdump
@@ -262,3 +308,11 @@ print-relay-procs:
 	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
 	echo "Reading /proc/ cmdlines for pod: $$RELAY_POD"; \
 	kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- sh -c 'for p in /proc/[0-9]*; do if [ -f "$$p/cmdline" ]; then pid=$$(basename $$p); cmd=$$(cat $$p/cmdline | tr "\0" " "); [ -n "$$cmd" ] && printf "PID %-6s: %s\n" "$$pid" "$$cmd"; fi; done'
+
+.PHONY: prune-docker
+prune-docker:
+	-docker rm -f $$(docker ps -aq)
+	-docker rmi -f $$(docker images -aq)
+	docker system prune -f
+	docker volume prune -f
+
