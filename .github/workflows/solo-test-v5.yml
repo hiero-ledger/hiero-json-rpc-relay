@@ -217,10 +217,10 @@ jobs:
       - name: check Relay Resources
         run: |
           echo "Describing Relay pod resources:"
-          kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
+          kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1 || true
 
           echo "Show previous logs if pod restarted (may indicate OOMKill during startup):"
-          kubectl -n "${SOLO_NAMESPACE}" logs --previous relay-1
+          kubectl -n "${SOLO_NAMESPACE}" logs --previous relay-1 || true
 
       - name: Verify Live Memory Metrics
         if: steps.run-relay.outcome == 'success'
