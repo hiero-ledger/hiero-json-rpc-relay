@@ -99,15 +99,15 @@ run-relay:
 	if [ -n "$(old)" ]; then \
 		NODE_OPTS="--max-old-space-size=$(old)"; \
 		if [ -n "$(semi)" ]; then \
-			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi) --v8-pool-size=0 --jitless"; \
+			NODE_OPTS="$$NODE_OPTS --max-semi-space-size=$(semi) --v8-pool-size=0"; \
 		fi; \
 	else \
 		if [ "$$MEM_MB" -le 64 ]; then \
 			OLD_SPACE_MB=16; \
-			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0 --gc-interval=50 --expose-gc"; \
+			V8_EXTRA="--max-semi-space-size=1 --v8-pool-size=0"; \
 		elif [ "$$MEM_MB" -le 128 ]; then \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 1 / 2 )); \
-			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0 --expose-gc"; \
+			V8_EXTRA="--max-semi-space-size=2 --v8-pool-size=0"; \
 		else \
 			OLD_SPACE_MB=$$(( $$MEM_MB * 3 / 4 )); \
 			V8_EXTRA=""; \
@@ -139,22 +139,26 @@ run-relay:
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		echo "    WORKERS_POOL_ENABLED: \"false\""; \
 		echo "    PRETTY_LOGS_ENABLED: \"false\""; \
-		if [ "$$MEM_MB" -le 64 ]; then \
-			echo "    LOG_LEVEL: \"error\""; \
-			echo "    CACHE_MAX: \"50\""; \
-			echo "    RELAY_MINIMAL_MODE: \"true\""; \
-		elif [ "$$MEM_MB" -le 128 ]; then \
-			echo "    LOG_LEVEL: \"warn\""; \
-			echo "    CACHE_MAX: \"100\""; \
-			echo "    UV_THREADPOOL_SIZE: \"2\"";\
-			echo "    RELAY_MINIMAL_MODE: \"true\""; \
-			echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"5\""; \
-			echo "    MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: \"10\""; \
-			echo "    MIRROR_NODE_HTTP_KEEP_ALIVE: \"false\""; \
-			echo "    LOCAL_LOCK_MAX_ENTRIES: \"50\""; \
-		else \
-			echo "    LOG_LEVEL: \"info\""; \
-		fi; \
+		echo "    REDIS_ENABLED: \"false\""; \
+		echo "    ENABLE_NONCE_ORDERING: \"false\""; \
+		echo "    DEBUG_API_ENABLED: \"false\""; \
+		echo "    TXPOOL_API_ENABLED: \"false\""; \
+		echo "    FILTER_API_ENABLED: \"false\""; \
+		echo "    DISABLE_ADMIN_NAMESPACE: \"true\""; \
+		echo "    SUBSCRIPTIONS_ENABLED: \"false\""; \
+		echo "    OPCODELOGGER_ENABLED: \"false\""; \
+		echo "    LOG_LEVEL: \"error\""; \
+		echo "    CACHE_MAX: \"50\""; \
+		echo "    RELAY_MINIMAL_MODE: \"true\""; \
+		echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"10\""; \
+		echo "    MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: \"10\""; \
+		echo "    MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: \"5\""; \
+		echo "    BATCH_REQUESTS_MAX_SIZE: \"10\""; \
+		echo "    LOCAL_LOCK_MAX_ENTRIES: \"50\""; \
+		echo "    CACHE_TTL: \"60000\""; \
+		echo "    ETH_GET_GAS_PRICE_CACHE_TTL_MS: \"60000\""; \
+		echo "    FILTER_TTL: \"60000\""; \
+		echo "    MIRROR_NODE_LIMIT_PARAM: \"25\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
@@ -293,6 +297,7 @@ live-relay-resource:
 %:
 	@:
 
+
 .PHONY: exec-relay
 exec-relay:
 	@ARG1=$(filter-out $@,$(MAKECMDGOALS)); \
@@ -316,3 +321,19 @@ prune-docker:
 	docker system prune -f
 	docker volume prune -f
 
+
+.PHONY: previous-logs
+previous-logs:
+	@ARG1=$(filter-out $@,$(MAKECMDGOALS)); \
+	RELAY_POD=$${ARG1:-$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | head -1)}; \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Showing previous logs for pod: $$RELAY_POD"; \
+	kubectl logs -n "${SOLO_NAMESPACE}" --previous "$$RELAY_POD"
+
+.PHONY: describe-pod
+describe-pod:
+	@ARG1=$(filter-out $@,$(MAKECMDGOALS)); \
+	RELAY_POD=$${ARG1:-$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | head -1)}; \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Describing pod: $$RELAY_POD"; \
+	kubectl describe pod -n "${SOLO_NAMESPACE}" "$$RELAY_POD"

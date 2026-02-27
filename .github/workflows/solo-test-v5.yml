@@ -22,23 +22,31 @@ jobs:
             node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
 
           # --- 90Mi ---
+          - name: "90-48-2-0-pool"
+            memory_limit: "90Mi"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
           - name: "90-44-2-0-pool"
             memory_limit: "90Mi"
             node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
+
+          - name: "90-50-2-0-pool"
+            memory_limit: "89Mi"
+            node_opts: "--max-old-space-size=50 --max-semi-space-size=2 --v8-pool-size=0"
+
+          - name: "89-50-1-0-pool"
+            memory_limit: "89Mi"
+            node_opts: "--max-old-space-size=50 --max-semi-space-size=1 --v8-pool-size=0"
+          - name: "89-50-2-0-pool"
+            memory_limit: "89Mi"
+            node_opts: "--max-old-space-size=50 --max-semi-space-size=2 --v8-pool-size=0"
 
           # --- 88Mi (Expanded Variants) ---
           - name: "88-48-2-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-44-2-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
           - name: "88-40-2-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-40-4-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=40 --max-semi-space-size=4 --v8-pool-size=0"
 
           # --- 80Mi (Expanded Variants) ---
           - name: "80-40-2-0-pool"
@@ -52,9 +60,9 @@ jobs:
             node_opts: "--max-old-space-size=32 --max-semi-space-size=2 --v8-pool-size=0"
 
           # --- 72Mi ---
-          - name: "72-36-2-0-pool"
+          - name: "72-48-2-0-pool"
             memory_limit: "72Mi"
-            node_opts: "--max-old-space-size=36 --max-semi-space-size=2 --v8-pool-size=0"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
     permissions:
       contents: read
       checks: write
