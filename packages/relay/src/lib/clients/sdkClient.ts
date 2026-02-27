@@ -64,7 +64,8 @@ export class SDKClient {
   private readonly hbarLimitService: HbarLimitService;
 
   /**
-   * Map of accountId - Client for each paymaster defined in PAYMASTER_ACCOUNTS.
+   * Map of accountId - Client for each paymaster defined in PAYMASTER_ACCOUNTS,
+   * and the default operator client if the default paymaster functionality is enabled
    */
   private readonly paymasterClients: Map<string, Client>;
 
