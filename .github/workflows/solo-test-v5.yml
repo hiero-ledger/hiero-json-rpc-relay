@@ -16,41 +16,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- 96Mi/92Mi (Baseline) ---
+          # --- 96Mi (Control) ---
           - name: "96-48-2-0-pool"
             memory_limit: "96Mi"
             node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "92-48-2-0-pool"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "92-46-2-0-pool"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=2 --v8-pool-size=0"
 
-          # --- 90Mi TUNING ---
-          - name: "90-48-2-0-pool"
-            memory_limit: "90Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "90-46-2-0-pool"
-            memory_limit: "90Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=2 --v8-pool-size=0"
+          # --- 90Mi ---
           - name: "90-44-2-0-pool"
             memory_limit: "90Mi"
             node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
 
-          # --- 88Mi TUNING ---
+          # --- 88Mi (Expanded Variants) ---
           - name: "88-48-2-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-46-2-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=2 --v8-pool-size=0"
           - name: "88-44-2-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-42-2-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=42 --max-semi-space-size=2 --v8-pool-size=0"
           - name: "88-40-2-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
@@ -58,33 +40,21 @@ jobs:
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=40 --max-semi-space-size=4 --v8-pool-size=0"
 
-          # --- 86Mi TUNING ---
-          - name: "86-48-2-0-pool"
-            memory_limit: "86Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "86-46-2-0-pool"
-            memory_limit: "86Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "86-44-2-0-pool"
-            memory_limit: "86Mi"
-            node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "86-42-2-0-pool"
-            memory_limit: "86Mi"
-            node_opts: "--max-old-space-size=42 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "86-40-2-0-pool"
-            memory_limit: "86Mi"
+          # --- 80Mi (Expanded Variants) ---
+          - name: "80-40-2-0-pool"
+            memory_limit: "80Mi"
             node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "86-40-4-0-pool"
-            memory_limit: "86Mi"
-            node_opts: "--max-old-space-size=40 --max-semi-space-size=4 --v8-pool-size=0"
+          - name: "80-36-2-0-pool"
+            memory_limit: "80Mi"
+            node_opts: "--max-old-space-size=36 --max-semi-space-size=2 --v8-pool-size=0"
+          - name: "80-32-2-0-pool"
+            memory_limit: "80Mi"
+            node_opts: "--max-old-space-size=32 --max-semi-space-size=2 --v8-pool-size=0"
 
-          # --- 84Mi TUNING ---
-          - name: "84-44-2-0-pool"
-            memory_limit: "84Mi"
-            node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "84-42-2-0-pool"
-            memory_limit: "84Mi"
-            node_opts: "--max-old-space-size=42 --max-semi-space-size=2 --v8-pool-size=0"
+          # --- 72Mi ---
+          - name: "72-36-2-0-pool"
+            memory_limit: "72Mi"
+            node_opts: "--max-old-space-size=36 --max-semi-space-size=2 --v8-pool-size=0"
     permissions:
       contents: read
       checks: write
@@ -206,6 +176,7 @@ jobs:
               ETH_GET_GAS_PRICE_CACHE_TTL_MS: "60000"
               FILTER_TTL: "60000"
               MIRROR_NODE_LIMIT_PARAM: "25"
+              ENABLE_NONCE_ORDERING: "false"
               # --- Namespace Disabling (Strict eth, net, web3 mode) ---
               DEBUG_API_ENABLED: "false"
               TXPOOL_API_ENABLED: "false"
