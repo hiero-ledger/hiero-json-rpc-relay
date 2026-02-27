@@ -216,11 +216,24 @@ jobs:
 
       - name: check Relay Resources
         run: |
+          # Dynamically find the relay pod name (avoiding the websocket '-ws-' pod)
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+
+          if [ -z "${RELAY_POD}" ]; then
+            echo "WARNING: Relay pod not found. Listing all pods in namespace '${SOLO_NAMESPACE}':"
+            kubectl get pods -n "${SOLO_NAMESPACE}"
+            exit 0
+          fi
+
+          echo "Target pod: ${RELAY_POD}"
+
           echo "Describing Relay pod resources:"
-          kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1 || true
+          kubectl -n "${SOLO_NAMESPACE}" describe pod "${RELAY_POD}" || true
 
           echo "Show previous logs if pod restarted (may indicate OOMKill during startup):"
-          kubectl -n "${SOLO_NAMESPACE}" logs --previous relay-1 || true
+          kubectl -n "${SOLO_NAMESPACE}" logs --previous "${RELAY_POD}" || true
 
       - name: Verify Live Memory Metrics
         if: steps.run-relay.outcome == 'success'
