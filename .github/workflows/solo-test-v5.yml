@@ -215,10 +215,12 @@ jobs:
           echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
 
       - name: check Relay Resources
-        if: steps.run-relay.outcome == 'success'
         run: |
           echo "Describing Relay pod resources:"
           kubectl -n "${SOLO_NAMESPACE}" describe pod relay-1
+
+          echo "Show previous logs if pod restarted (may indicate OOMKill during startup):"
+          kubectl -n "${SOLO_NAMESPACE}" logs --previous relay-1
 
       - name: Verify Live Memory Metrics
         if: steps.run-relay.outcome == 'success'
@@ -302,11 +304,12 @@ jobs:
         if: always()
         env:
           MEMORY_LIMIT: ${{ matrix.memory_limit }}
-          TEST_STATUS: ${{ job.status }}
+          TEST_STATUS: ${{ (steps.run-relay.outcome == 'success' && steps.acceptance-test.outcome == 'success') && 'success' || 'failure' }}
           TEST_START: ${{ steps.test-timing.outputs.start }}
           TEST_END: ${{ steps.test-end-time.outputs.end }}
           RELAY_STARTUP_SECS: ${{ steps.run-relay.outputs.startup_secs }}
           RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
+          ACCEPTANCE_TEST_OUTCOME: ${{ steps.acceptance-test.outcome }}
         run: |
           set +e  # individual command failures must not abort the report
 
@@ -479,3 +482,11 @@ jobs:
             >> "${GITHUB_STEP_SUMMARY}"
 
           echo "Report written to GitHub Job Summary."
+
+      - name: Fail if any test failed
+        if: always()
+        run: |
+          if [ "${{ steps.run-relay.outcome }}" == "failure" ] || [ "${{ steps.acceptance-test.outcome }}" == "failure" ]; then
+            echo "Relay or acceptance tests failed. Failing job."
+            exit 1
+          fi
