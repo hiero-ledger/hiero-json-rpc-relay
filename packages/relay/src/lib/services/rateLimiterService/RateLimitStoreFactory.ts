@@ -2,7 +2,7 @@
 
 import { Logger } from 'pino';
 import { Counter } from 'prom-client';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { RateLimitStore } from '../../types';
 import { LruRateLimitStore } from './LruRateLimitStore';

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import Piscina from 'piscina';
+import type Piscina from 'piscina';
 import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
@@ -96,12 +96,15 @@ export class WorkersPool {
    * Returns the shared Piscina worker pool instance.
    *
    * If the pool has not yet been created, it initializes a new one using configuration-based thread settings.
+   * Piscina is loaded via dynamic `import()` to avoid pulling the module into memory when
+   * `WORKERS_POOL_ENABLED` is `false` (the default for Solo / low-memory deployments).
    *
-   * @returns The globally shared `Piscina` instance.
+   * @returns A promise that resolves to the globally shared `Piscina` instance.
    */
-  static getInstance(): Piscina {
+  static async getInstance(): Promise<Piscina> {
     if (!this.instance) {
-      this.instance = new Piscina({
+      const { default: PiscinaPool } = await import('piscina');
+      this.instance = new PiscinaPool({
         filename: `${__dirname}/workers.js`,
         atomics: 'disabled',
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),
@@ -222,7 +225,7 @@ export class WorkersPool {
       let result: any;
 
       if (ConfigService.get('WORKERS_POOL_ENABLED')) {
-        const pool = this.getInstance();
+        const pool = await this.getInstance();
         this.workerQueueWaitTimeHistogram?.observe(pool.histogram.waitTime.average);
         this.workerPoolUtilizationGauge?.set(pool.utilization);
         this.workerPoolActiveThreadsGauge?.set(pool.threads.length);

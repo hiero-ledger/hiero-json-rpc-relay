@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { AccountId } from '@hashgraph/sdk';
+import type { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
-import { Admin, Eth, Net, TxPool, Web3 } from '../index';
+import { Admin, Debug, Eth, Net, TxPool, Web3 } from '../index';
 import { Utils } from '../utils';
-import { AdminImpl } from './admin';
 import { MirrorNodeClient } from './clients';
 import type { ICacheClient } from './clients/cache/ICacheClient';
 import { RedisClientManager } from './clients/redisClientManager';
@@ -17,7 +16,6 @@ import constants from './constants';
 import { EvmAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/evmAddressHbarSpendingPlanRepository';
 import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSpendingPlanRepository';
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
-import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
@@ -28,7 +26,6 @@ import { HbarLimitService } from './services/hbarLimitService';
 import MetricService from './services/metricService/metricService';
 import { registerRpcMethods } from './services/registryService/rpcMethodRegistryService';
 import { PendingTransactionStorageFactory } from './services/transactionPoolService/PendingTransactionStorageFactory';
-import { TxPoolImpl } from './txpool';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,
@@ -110,8 +107,9 @@ export class Relay {
 
   /**
    * The Debug Service implementation that takes care of all filter API operations.
+   * Lazily loaded in non-minimal mode via dynamic `import('./debug')`.
    */
-  private debugImpl!: DebugImpl;
+  private debugImpl!: Debug;
 
   /**
    * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
@@ -229,7 +227,7 @@ export class Relay {
     });
   }
 
-  debug(): DebugImpl {
+  debug(): Debug {
     return this.debugImpl;
   }
 
@@ -265,10 +263,10 @@ export class Relay {
     await this.connectRedisClient();
 
     // 2. Initialize all services with the connected Redis client
-    this.initializeServices();
+    await this.initializeServices();
 
-    // 3. Validate operator balance (requires ethImpl to be initialized)
-    if (!ConfigService.get('READ_ONLY')) {
+    // 3. Validate operator balance (requires ethImpl to be initialized; skipped in minimal mode)
+    if (!ConfigService.get('READ_ONLY') && !ConfigService.get('RELAY_MINIMAL_MODE')) {
       await this.ensureOperatorHasBalance();
     }
   }
@@ -277,9 +275,32 @@ export class Relay {
    * Initializes all services after infrastructure (Redis) is ready.
    * This method is called from initializeRelay() after Redis connection is established.
    *
+   * ### Memory strategy for constrained profiles (≤128Mi / 64Mi)
+   *
+   * Both `@hashgraph/sdk` and `ethers` are intentionally kept out of the
+   * startup critical path and are only loaded on demand:
+   *
+   * - **ethers** (`ethers/transaction` + `ethers/crypto` subpaths): loaded on first
+   *   `eth_getBlock*` or `eth_sendRawTransaction` call via lazy require() in
+   *   `blockFactory.ts` and `precheck.ts`. Using the official subpath exports
+   *   instead of the full `ethers` barrel reduces the first-load RSS cost from
+   *   ~22 MB to ~17 MB. After @hashgraph/sdk is loaded the marginal cost drops
+   *   to ~2 MB (shared secp256k1/noble-crypto primitives).
+   *
+   * - **@hashgraph/sdk**: loaded on first consensus operation via `SDKClient`.
+   *   The SDK barrel (509 JS files + gRPC + protobuf) costs ~44 MB RSS when
+   *   loaded from a relay-typical baseline. This makes the 64Mi target achievable
+   *   ONLY for read-only workloads that never reach the Hedera consensus network.
+   *   Write workloads (`eth_sendRawTransaction`) require a minimum of ~96Mi.
+   *
+   * DO NOT pre-warm either module here. Pre-warming ethers at startup increases
+   * the permanent steady-state RSS by ~17 MB (58-62 MB instead of 42-44 MB),
+   * which would push 64Mi profiles beyond the container limit before any request
+   * is ever served.
+   *
    * @private
    */
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     const chainId = ConfigService.get('CHAIN_ID');
     const duration = constants.HBAR_RATE_LIMIT_DURATION;
     const reservedKeys = HbarSpendingPlanConfigService.getPreconfiguredSpendingPlanKeys(this.logger);
@@ -318,7 +339,16 @@ export class Relay {
 
     const lockService = new LockService(LockStrategyFactory.create(this.redisClient, this.logger, this.register));
     const hapiService = new HAPIService(this.logger, this.register, hbarLimitService);
-    this.operatorAccountId = hapiService.getOperatorAccountId();
+
+    // In minimal mode, defer operator account resolution to avoid triggering the SDK barrel
+    // at startup. The operator AccountId is only needed for metrics and balance checks.
+    const isMinimalMode = ConfigService.get('RELAY_MINIMAL_MODE') === true;
+
+    if (isMinimalMode) {
+      this.operatorAccountId = null;
+    } else {
+      this.operatorAccountId = hapiService.getOperatorAccountId();
+    }
 
     // Create simple service implementations
     this.web3Impl = new Web3Impl();
@@ -372,11 +402,20 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    this.txpoolImpl = new TxPoolImpl(transactionPoolService);
-
-    // Create Debug and Admin implementations
-    this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, chainId);
-    this.adminImpl = new AdminImpl(this.cacheService);
+    // In minimal mode, skip creating DebugImpl (which loads CommonService + BlockService),
+    // AdminImpl (which loads axios), and TxPoolImpl to reduce memory footprint.
+    // Dynamic imports prevent these modules from entering the module graph at startup,
+    // saving ~0.5-1 MiB RSS when RELAY_MINIMAL_MODE=true.
+    if (!isMinimalMode) {
+      const [{ AdminImpl }, { DebugImpl }, { TxPoolImpl }] = await Promise.all([
+        import('./admin'),
+        import('./debug'),
+        import('./txpool'),
+      ]);
+      this.txpoolImpl = new TxPoolImpl(transactionPoolService);
+      this.debugImpl = new DebugImpl(this.mirrorNodeClient, this.logger, this.cacheService, chainId);
+      this.adminImpl = new AdminImpl(this.cacheService);
+    }
 
     // Create HBAR spending plan config service
     this.hbarSpendingPlanConfigService = new HbarSpendingPlanConfigService(
@@ -386,16 +425,21 @@ export class Relay {
       ipAddressHbarSpendingPlanRepository,
     );
 
-    // Initialize operator metric
-    this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
+    // Initialize operator metric (skipped in minimal mode since operatorAccountId is null)
+    if (!isMinimalMode) {
+      this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
+    }
 
     // Populate pre-configured spending plans asynchronously
     this.populatePreconfiguredSpendingPlans().then();
 
-    // Create RPC method registry
-    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
+    // Create RPC method registry — in minimal mode, register only core namespaces
+    const namespaces = (
+      isMinimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool']
+    ) as (keyof Relay)[];
+    const rpcNamespaceRegistry = namespaces.map((namespace) => ({
       namespace,
-      serviceImpl: this[namespace](),
+      serviceImpl: (this[namespace] as Function)(),
     }));
 
     this.rpcMethodRegistry = registerRpcMethods(rpcNamespaceRegistry as RpcNamespaceRegistry[]);

@@ -6,16 +6,30 @@ import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
 
+/**
+ * Pre-compiled regular expressions for common hex value validation patterns.
+ *
+ * Compiled once at module load time to avoid repeated `new RegExp(...)` construction on
+ * every validator call, reducing allocation pressure and GC pause frequency at
+ * high RPC throughput. Each pattern is derived from {@link Constants.BASE_HEX_REGEX}.
+ */
+/** Matches a 20-byte (40 hex char) Ethereum address: `0x` + 40 hex chars. */
+const RE_HEX_40 = new RegExp(Constants.BASE_HEX_REGEX + '{40}$');
+/** Matches a 32-byte (64 hex char) hash: `0x` + 64 hex chars. */
+const RE_HEX_64 = new RegExp(Constants.BASE_HEX_REGEX + '{64}$');
+/** Matches any valid hex string: `0x` + zero or more hex chars. */
+const RE_HEX_ANY = new RegExp(Constants.BASE_HEX_REGEX + '*$');
+/** Matches a hex string with 1–64 hex chars: `0x` + 1–64 hex chars. */
+const RE_HEX_1_64 = new RegExp(Constants.BASE_HEX_REGEX + '{1,64}$');
+
 export const TYPES = {
   address: {
-    test: (param) => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param),
+    test: (param) => RE_HEX_40.test(param),
     error: Constants.ADDRESS_ERROR,
   },
   addressFilter: {
     test: (param: string | string[]) => {
-      return Array.isArray(param)
-        ? validateArray(param.flat(), 'address')
-        : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param);
+      return Array.isArray(param) ? validateArray(param.flat(), 'address') : RE_HEX_40.test(param);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
@@ -26,7 +40,7 @@ export const TYPES = {
     error: 'Expected Array',
   },
   blockHash: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param),
+    test: (param: string) => RE_HEX_64.test(param),
     error: Constants.BLOCK_HASH_ERROR,
   },
   blockNumber: {
@@ -68,19 +82,19 @@ export const TYPES = {
     error: `Expected FilterObject`,
   },
   hex: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param),
+    test: (param: string) => RE_HEX_ANY.test(param),
     error: Constants.DEFAULT_HEX_ERROR,
   },
   hexEvenLength: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '*$').test(param) && !(param.length % 2),
+    test: (param: string) => RE_HEX_ANY.test(param) && !(param.length % 2),
     error: Constants.EVEN_HEX_ERROR,
   },
   hex64: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{1,64}$').test(param),
+    test: (param: string) => RE_HEX_1_64.test(param),
     error: Constants.HASH_ERROR,
   },
   topicHash: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param) || param === null,
+    test: (param: string) => RE_HEX_64.test(param) || param === null,
     error: Constants.TOPIC_HASH_ERROR,
   },
   topics: {
@@ -100,7 +114,7 @@ export const TYPES = {
     error: 'Expected TransactionObject',
   },
   transactionHash: {
-    test: (param: string) => new RegExp(Constants.BASE_HEX_REGEX + '{64}$').test(param),
+    test: (param: string) => RE_HEX_64.test(param),
     error: Constants.TRANSACTION_HASH_ERROR,
   },
   tracerType: {

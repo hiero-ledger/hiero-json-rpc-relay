@@ -2,7 +2,12 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
-import { createClient, RedisClientType } from 'redis';
+// `import type` keeps the redis package out of the module graph at startup.
+// The actual `createClient` value is required lazily inside `getClient()` so
+// that the ~10 MB redis + @redis/* bundle is loaded once (on first connection
+// attempt) rather than on every process start — saving ~2-3 MB RSS when
+// REDIS_ENABLED=false, which is the case for all Solo ≤128Mi profiles.
+import type { RedisClientType } from 'redis';
 
 import { RedisCacheError } from '../errors/RedisCacheError';
 
@@ -37,6 +42,11 @@ export class RedisClientManager {
   public static async getClient(logger: Logger, doConnect: boolean = true): Promise<RedisClientType> {
     if (!this.client) {
       const url = ConfigService.get('REDIS_URL');
+
+      // Load the redis module lazily on first connection so the ~10 MB bundle
+      // is never paid when REDIS_ENABLED=false (saves ~2-3 MB RSS at startup).
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createClient } = require('redis') as typeof import('redis');
 
       this.client = createClient({
         url,

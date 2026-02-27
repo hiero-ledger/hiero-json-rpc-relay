@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { zeroAddress } from '@ethereumjs/util';
-import { AccountId, Hbar } from '@hashgraph/sdk';
+import type { Hbar } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
@@ -16,13 +15,40 @@ import { SubscriptionTier } from '../../db/types/hbarLimiter/subscriptionTier';
 import { RequestDetails } from '../../types';
 import { IHbarLimitService } from './IHbarLimitService';
 
+/**
+ * Cached reference to the @hashgraph/sdk module, loaded on demand.
+ * Avoids loading the SDK barrel (~20MB RSS) at module evaluation time.
+ */
+let _sdk: typeof import('@hashgraph/sdk') | null = null;
+
+/** Loads and caches the @hashgraph/sdk module on first invocation. */
+function loadSDK(): typeof import('@hashgraph/sdk') {
+  if (!_sdk) {
+    _sdk = require('@hashgraph/sdk');
+  }
+  return _sdk!;
+}
+
 export class HbarLimitService implements IHbarLimitService {
-  static readonly TIER_LIMITS: Record<SubscriptionTier, Hbar> = {
-    BASIC: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_BASIC),
-    EXTENDED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_EXTENDED),
-    PRIVILEGED: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_PRIVILEGED),
-    OPERATOR: Hbar.fromTinybars(constants.HBAR_RATE_LIMIT_TOTAL),
-  };
+  /**
+   * Lazily-initialized tier limits backed by Hbar values from the SDK.
+   * Deferred to avoid triggering the heavy SDK barrel import at class definition time.
+   */
+  private static _tierLimits: Record<SubscriptionTier, Hbar> | null = null;
+
+  /** Lazily computes TIER_LIMITS on first access to defer SDK barrel loading. */
+  static get TIER_LIMITS(): Record<SubscriptionTier, Hbar> {
+    if (!HbarLimitService._tierLimits) {
+      const { Hbar: HbarClass } = loadSDK();
+      HbarLimitService._tierLimits = {
+        BASIC: HbarClass.fromTinybars(constants.HBAR_RATE_LIMIT_BASIC),
+        EXTENDED: HbarClass.fromTinybars(constants.HBAR_RATE_LIMIT_EXTENDED),
+        PRIVILEGED: HbarClass.fromTinybars(constants.HBAR_RATE_LIMIT_PRIVILEGED),
+        OPERATOR: HbarClass.fromTinybars(constants.HBAR_RATE_LIMIT_TOTAL),
+      };
+    }
+    return HbarLimitService._tierLimits;
+  }
 
   /**
    * Flag to turn off the HBarRateLimitService.
@@ -72,10 +98,30 @@ export class HbarLimitService implements IHbarLimitService {
   private reset: Date;
 
   /**
-   * The operator address for the rate limiter.
+   * Lazily-resolved operator Solidity address for spending plan lookups.
+   * Deferred to avoid triggering the SDK barrel import (~20 MB RSS) during construction.
+   * Resolved on first access via {@link operatorAddress}.
    * @private
    */
-  private readonly operatorAddress: string;
+  private _operatorAddress?: string;
+
+  /**
+   * Returns the operator's Solidity address, resolving it lazily on first access.
+   * This defers the {@link loadSDK} call (and the heavy `@hashgraph/sdk` barrel) until
+   * the first spending-plan lookup, keeping startup RSS minimal.
+   */
+  private get operatorAddress(): string {
+    if (this._operatorAddress === undefined) {
+      const operator = Utils.getOperator(this.logger);
+      if (operator) {
+        const { AccountId } = loadSDK();
+        this._operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
+      } else {
+        this._operatorAddress = constants.ZERO_ADDRESS_HEX;
+      }
+    }
+    return this._operatorAddress;
+  }
 
   constructor(
     private readonly hbarSpendingPlanRepository: HbarSpendingPlanRepository,
@@ -87,15 +133,10 @@ export class HbarLimitService implements IHbarLimitService {
   ) {
     this.reset = this.getResetTimestamp();
 
-    const operator = Utils.getOperator(logger);
-    if (operator) {
-      this.operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
-    } else {
-      this.operatorAddress = zeroAddress();
-    }
-
-    const totalBudget = HbarLimitService.TIER_LIMITS[SubscriptionTier.OPERATOR];
-    if (totalBudget.toTinybars().lte(0)) {
+    // Use raw constant to avoid triggering TIER_LIMITS lazy getter (and SDK load) at startup.
+    // In minimal mode this keeps the SDK unloaded until the first consensus operation.
+    const totalBudgetTinybars = constants.HBAR_RATE_LIMIT_TOTAL;
+    if (totalBudgetTinybars <= 0) {
       this.isHBarRateLimiterEnabled = false;
     }
 
@@ -116,7 +157,7 @@ export class HbarLimitService implements IHbarLimitService {
       help: 'Relay Hbar rate limit remaining budget',
       registers: [register],
     });
-    this.hbarLimitRemainingGauge.set(totalBudget.toTinybars().toNumber());
+    this.hbarLimitRemainingGauge.set(totalBudgetTinybars);
 
     const totalHbarLimitGaugeName = 'rpc_relay_hbar_rate_total_limit';
     this.register.removeSingleMetric(totalHbarLimitGaugeName);
@@ -125,7 +166,7 @@ export class HbarLimitService implements IHbarLimitService {
       help: 'Total configured HBAR rate limit',
       registers: [register],
     });
-    this.totalHbarLimitGauge.set(totalBudget.toTinybars().toNumber());
+    this.totalHbarLimitGauge.set(totalBudgetTinybars);
 
     this.uniqueSpendingPlansCounter = Object.values(SubscriptionTier).reduce(
       (acc, tier) => {
@@ -156,7 +197,7 @@ export class HbarLimitService implements IHbarLimitService {
     );
 
     logger.info(
-      `HBAR Limiter successfully configured: totalBudget=${totalBudget}, maxLimitForBasicTier=${HbarLimitService.TIER_LIMITS.BASIC}, maxLimitForExtendedTier=${HbarLimitService.TIER_LIMITS.EXTENDED}, maxLimitForprivilegedTier=${HbarLimitService.TIER_LIMITS.PRIVILEGED}, limitDuration=${limitDuration}, resetTimeStamp=${this.reset}.`,
+      `HBAR Limiter successfully configured: totalBudget=${totalBudgetTinybars} tinybars, maxLimitForBasicTier=${constants.HBAR_RATE_LIMIT_BASIC}, maxLimitForExtendedTier=${constants.HBAR_RATE_LIMIT_EXTENDED}, maxLimitForprivilegedTier=${constants.HBAR_RATE_LIMIT_PRIVILEGED}, limitDuration=${limitDuration}, resetTimeStamp=${this.reset}.`,
     );
   }
 
@@ -239,9 +280,9 @@ export class HbarLimitService implements IHbarLimitService {
     this.logger.info(
       `Signer account ${
         exceedsLimit ? 'has' : 'has NOT'
-      } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${Hbar.fromTinybars(
+      } exceeded HBAR rate limit threshold: ${signer}, amountSpent=${loadSDK().Hbar.fromTinybars(
         spendingPlan.amountSpent,
-      )}, estimatedTxFee=${Hbar.fromTinybars(estimatedTxFee)}, spendingLimit=${spendingLimit}, spandingPlanId=${
+      )}, estimatedTxFee=${loadSDK().Hbar.fromTinybars(estimatedTxFee)}, spendingLimit=${spendingLimit}, spandingPlanId=${
         spendingPlan.id
       }, subscriptionTier=${
         spendingPlan.subscriptionTier
@@ -286,9 +327,9 @@ export class HbarLimitService implements IHbarLimitService {
       this.logger.trace(
         `Spending plan expense update: planID=${spendingPlan.id}, subscriptionTier=${
           spendingPlan.subscriptionTier
-        }, cost=${Hbar.fromTinybars(cost)}, originalAmountSpent=${Hbar.fromTinybars(
+        }, cost=${loadSDK().Hbar.fromTinybars(cost)}, originalAmountSpent=${loadSDK().Hbar.fromTinybars(
           spendingPlan.amountSpent,
-        )}, updatedAmountSpent=${Hbar.fromTinybars(spendingPlan.amountSpent + cost)}`,
+        )}, updatedAmountSpent=${loadSDK().Hbar.fromTinybars(spendingPlan.amountSpent + cost)}`,
       );
     }
 
@@ -303,7 +344,7 @@ export class HbarLimitService implements IHbarLimitService {
     this.updateAverageAmountSpentPerSubscriptionTier(spendingPlan.subscriptionTier).then();
 
     this.logger.info(
-      `HBAR rate limit expense update: cost=${Hbar.fromTinybars(
+      `HBAR rate limit expense update: cost=${loadSDK().Hbar.fromTinybars(
         cost,
       )}, remainingBudget=${remainingBudget}, spendingPlanId=${
         spendingPlan.id
@@ -339,7 +380,7 @@ export class HbarLimitService implements IHbarLimitService {
     if (remainingBudget.toTinybars().lte(0) || remainingBudget.toTinybars().sub(estimatedTxFee).lt(0)) {
       this.hbarLimitCounter.labels(mode, methodName).inc(1);
       this.logger.warn(
-        `Total HBAR rate limit reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${Hbar.fromTinybars(
+        `Total HBAR rate limit reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${loadSDK().Hbar.fromTinybars(
           estimatedTxFee,
         )}, resetTimestamp=${this.reset.getMilliseconds()}, txConstructorName=${txConstructorName} mode=${mode}, methodName=${methodName}`,
       );
@@ -347,7 +388,7 @@ export class HbarLimitService implements IHbarLimitService {
     } else {
       if (this.logger.isLevelEnabled('debug')) {
         this.logger.debug(
-          `Total HBAR rate limit NOT reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${Hbar.fromTinybars(
+          `Total HBAR rate limit NOT reached: remainingBudget=${remainingBudget}, totalBudget=${totalBudget}, estimatedTxFee=${loadSDK().Hbar.fromTinybars(
             estimatedTxFee,
           )}, resetTimestamp=${this.reset.getMilliseconds()}, txConstructorName=${txConstructorName} mode=${mode}, methodName=${methodName}`,
         );
@@ -369,7 +410,7 @@ export class HbarLimitService implements IHbarLimitService {
 
     if (this.logger.isLevelEnabled('debug')) {
       this.logger.debug(
-        `Updated average amount spent: subsriptionTier=${subscriptionTier}, newAverageUsage=${Hbar.fromTinybars(
+        `Updated average amount spent: subsriptionTier=${subscriptionTier}, newAverageUsage=${loadSDK().Hbar.fromTinybars(
           averageUsage,
         )}`,
       );
@@ -530,7 +571,7 @@ export class HbarLimitService implements IHbarLimitService {
     const totalBudget = HbarLimitService.TIER_LIMITS[SubscriptionTier.OPERATOR];
     try {
       const operatorPlan = await this.getOperatorSpendingPlan(requestDetails);
-      return Hbar.fromTinybars(totalBudget.toTinybars().sub(operatorPlan.amountSpent));
+      return loadSDK().Hbar.fromTinybars(totalBudget.toTinybars().sub(operatorPlan.amountSpent));
     } catch (error) {
       this.logger.error(error);
       // If we get to here, then something went wrong with the operator spending plan.

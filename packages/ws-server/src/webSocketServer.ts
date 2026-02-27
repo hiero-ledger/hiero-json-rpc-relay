@@ -42,16 +42,24 @@ const mainLogger = pino({
         }
       : {};
   },
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: true,
-      messageFormat: '{connectionId}{requestId}{msg}',
-      // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-      ignore: 'connectionId,requestId',
-    },
-  },
+  // P1: Only spawn the pino-pretty worker thread when PRETTY_LOGS_ENABLED is
+  // explicitly enabled. Each pino transport target runs in a dedicated worker
+  // thread (~10-15 MB RSS). In memory-constrained profiles (≤64 Mi) the thread
+  // overhead is unaffordable; JSON output is handled by log aggregators anyway.
+  ...(ConfigService.get('PRETTY_LOGS_ENABLED')
+    ? {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: true,
+            messageFormat: '{connectionId}{requestId}{msg}',
+            // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
+            ignore: 'connectionId,requestId',
+          },
+        },
+      }
+    : {}),
 });
 
 export const logger = mainLogger.child({ name: 'rpc-ws-server' });
@@ -121,6 +129,14 @@ export async function initializeWsServer() {
     ctx.websocket.on(
       'close',
       AsyncResource.bind(async (code, message) => {
+        // P2: Cancel the ping interval immediately to prevent sending to a dead
+        // socket and to release the closure reference. Without this, every
+        // connection leaks a live setInterval + Koa context for the process
+        // lifetime regardless of PRETTY_LOGS_ENABLED or pingInterval value.
+        if (ctx.websocket.pingHandle !== undefined) {
+          clearInterval(ctx.websocket.pingHandle);
+          ctx.websocket.pingHandle = undefined;
+        }
         logger.info(`Closing connection ${ctx.websocket.id} | code: ${code}, message: ${message}`);
         await handleConnectionClose(ctx, subscriptionService, limiter, wsMetricRegistry, startTime);
       }),
@@ -259,7 +275,11 @@ export async function initializeWsServer() {
     });
 
     if (pingInterval > 0) {
-      setInterval(async () => {
+      // P2: Store the handle on the websocket so the close handler (registered
+      // above) can cancel this interval on connection teardown. A missing
+      // clearInterval leaks a closure + KoaContext reference for each
+      // connection established over the process lifetime.
+      ctx.websocket.pingHandle = setInterval(async () => {
         ctx.websocket.send(JSON.stringify(jsonRespResult(null, null)));
       }, pingInterval);
     }
@@ -267,7 +287,11 @@ export async function initializeWsServer() {
 
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
-  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
+
+  // Skip default process metrics in minimal mode to reduce RSS by ~1-2 MB.
+  if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
+    collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
+  }
 
   httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
     // prometheus metrics exposure

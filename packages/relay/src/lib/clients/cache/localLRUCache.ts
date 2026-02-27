@@ -28,8 +28,10 @@ export class LocalLRUCache implements ICacheClient {
     max: ConfigService.get('CACHE_MAX'),
     // Max time to live in ms, for items before they are considered stale.
     ttl: ConfigService.get('CACHE_TTL'),
-    // Disable the preemptively removing stale items from the cache
-    ttlAutopurge: false,
+    // Proactively remove stale items via a background interval so freed heap is
+    // returned to V8 promptly rather than waiting for LRU eviction or the next
+    // /metrics scrape.  The overhead is negligible for CACHE_MAX ≤ 100.
+    ttlAutopurge: true,
   };
 
   /**
