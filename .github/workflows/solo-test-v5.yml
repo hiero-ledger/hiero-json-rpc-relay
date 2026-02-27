@@ -196,6 +196,23 @@ jobs:
               LOG_LEVEL: "error"
               CACHE_MAX: "50"
               RELAY_MINIMAL_MODE: "true"
+              REDIS_ENABLED: "false"
+              MIRROR_NODE_HTTP_MAX_SOCKETS: "10"
+              MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "10"
+              MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: "5"
+              BATCH_REQUESTS_MAX_SIZE: "10"
+              LOCAL_LOCK_MAX_ENTRIES: "50"
+              CACHE_TTL: "60000"
+              ETH_GET_GAS_PRICE_CACHE_TTL_MS: "60000"
+              FILTER_TTL: "60000"
+              MIRROR_NODE_LIMIT_PARAM: "25"
+              # --- Namespace Disabling (Strict eth, net, web3 mode) ---
+              DEBUG_API_ENABLED: "false"
+              TXPOOL_API_ENABLED: "false"
+              FILTER_API_ENABLED: "false"
+              DISABLE_ADMIN_NAMESPACE: "true"
+              SUBSCRIPTIONS_ENABLED: "false"
+              OPCODELOGGER_ENABLED: "false"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
