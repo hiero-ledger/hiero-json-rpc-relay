@@ -64,6 +64,11 @@ export class SDKClient {
   private readonly hbarLimitService: HbarLimitService;
 
   /**
+   * Map of accountId - Client for each paymaster defined in PAYMASTER_ACCOUNTS.
+   */
+  private readonly paymasterClients: Map<string, Client>;
+
+  /**
    * Constructs an instance of the SDKClient and initializes various services and settings.
    *
    * @param hederaNetwork - The network name for Hedera services.
@@ -77,6 +82,36 @@ export class SDKClient {
     private readonly eventEmitter: EventEmitter<TypedEvents>,
     hbarLimitService: HbarLimitService,
   ) {
+    this.clientMain = this.createNewOperatorClient(logger, hederaNetwork);
+    this.logger = logger;
+    this.hbarLimitService = hbarLimitService;
+    this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
+    this.fileAppendChunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
+
+    this.paymasterClients = new Map(
+      (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+        (acc) =>
+          [
+            acc[0],
+            this.createNewOperatorClient(logger, hederaNetwork).setOperator(
+              acc[0],
+              Utils.createPrivateKeyBasedOnFormat(acc[2], acc[1]),
+            ),
+          ] as [string, Client],
+      ),
+    );
+    if (this.clientMain.operatorAccountId) {
+      this.paymasterClients.set(this.clientMain.operatorAccountId.toString(), this.clientMain);
+    }
+  }
+
+  /**
+   *
+   * @param logger
+   * @param hederaNetwork
+   * @private
+   */
+  private createNewOperatorClient(logger: Logger, hederaNetwork: string): Client {
     const clientTransportSecurity = ConfigService.get('CLIENT_TRANSPORT_SECURITY');
     const sdkRequestTimeout = ConfigService.get('SDK_REQUEST_TIMEOUT');
     const sdkMaxAttempts = ConfigService.get('SDK_MAX_ATTEMPTS');
@@ -102,16 +137,12 @@ export class SDKClient {
       `SDK client successfully configured: network=${JSON.stringify(hederaNetwork)}, transportSecurity=${clientTransportSecurity}, requestTimeout=${sdkRequestTimeout}ms, maxAttempts=${sdkMaxAttempts}, logLevel=${sdkLogLevel}, deadline=${sdkDeadline}ms.`,
     );
 
-    this.clientMain = client
+    return client
       .setTransportSecurity(clientTransportSecurity)
       .setRequestTimeout(sdkRequestTimeout)
       .setMaxAttempts(sdkMaxAttempts)
       .setMaxExecutionTime(sdkDeadline)
       .setLogger(sdkLogger);
-    this.logger = logger;
-    this.hbarLimitService = hbarLimitService;
-    this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
-    this.fileAppendChunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
   }
 
   /**
@@ -185,19 +216,18 @@ export class SDKClient {
       ),
     );
 
-    if (CommonService.isSubsidizedTransaction(interactingEntity)) {
-      // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
-      ethereumTransaction.setMaxGasAllowanceHbar(ConfigService.get('MAX_GAS_ALLOWANCE_HBAR'));
-    }
-
+    const paymasterInfo = CommonService.getPaymasterIfTxCanBeSubsidized(interactingEntity);
     return {
       fileId,
       txResponse: await this.executeTransaction(
-        ethereumTransaction,
+        // see "Max Allowance" in the docs for more details https://docs.hedera.com/hedera/sdks-and-apis/sdks/smart-contracts/ethereum-transaction
+        paymasterInfo ? ethereumTransaction.setMaxGasAllowanceHbar(paymasterInfo.gasAllowance) : ethereumTransaction,
         callerName,
         requestDetails,
         true,
         originalCallerAddress,
+        undefined,
+        paymasterInfo ? this.paymasterClients.get(paymasterInfo.accountId!) : this.clientMain,
       ),
     };
   }
@@ -281,6 +311,7 @@ export class SDKClient {
    * @param shouldThrowHbarLimit - Flag to indicate whether to check HBAR limits.
    * @param originalCallerAddress - The address of the original caller making the request.
    * @param estimatedTxFee - The optional total estimated transaction fee.
+   * @param paymasterClient - The optional paymaster client.
    * @returns - A promise that resolves to the transaction response.
    * @throws {SDKClientError} - Throws if an error occurs during transaction execution.
    */
@@ -291,7 +322,9 @@ export class SDKClient {
     shouldThrowHbarLimit: boolean,
     originalCallerAddress: string,
     estimatedTxFee?: number,
+    paymasterClient?: Client,
   ): Promise<TransactionResponse> {
+    const executableClient = paymasterClient ?? this.clientMain;
     const txConstructorName = transaction.constructor.name;
     let transactionId: string = '';
     let transactionResponse: TransactionResponse | null = null;
@@ -313,12 +346,12 @@ export class SDKClient {
 
     try {
       this.logger.info(`Execute %s transaction`, txConstructorName);
-      transactionResponse = await transaction.execute(this.clientMain);
+      transactionResponse = await transaction.execute(executableClient);
 
       transactionId = transactionResponse.transactionId.toString();
 
       // .getReceipt() will throw an error if, in any case, the status !== 22 (SUCCESS).
-      const transactionReceipt = await transactionResponse.getReceipt(this.clientMain);
+      const transactionReceipt = await transactionResponse.getReceipt(executableClient);
 
       this.logger.info(
         `Successfully execute %s transaction: transactionId=%s, callerName=%s, status=%s(%s)`,
@@ -354,7 +387,7 @@ export class SDKClient {
           transactionId,
           transactionHash,
           txConstructorName,
-          operatorAccountId: this.clientMain.operatorAccountId!.toString(),
+          operatorAccountId: executableClient.operatorAccountId!.toString(),
           requestDetails,
           originalCallerAddress,
         });
