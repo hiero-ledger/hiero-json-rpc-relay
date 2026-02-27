@@ -384,9 +384,9 @@ class RefFieldHandler {
       return this.cloneObject(obj);
     }
     const result = {};
-    if (obj.title) result.title = obj.title;
     if (obj.description) result.description = obj.description;
-    return { ...result, ...this.createRefOnlyObject(obj['$ref']) };
+    if (obj.title) result.title = obj.title;
+    return { ...this.createRefOnlyObject(obj['$ref']), ...result };
   }
 
   /**
