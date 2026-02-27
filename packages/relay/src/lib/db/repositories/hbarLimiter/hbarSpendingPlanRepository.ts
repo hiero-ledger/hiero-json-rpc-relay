@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { randomUUID } from 'crypto';
+import { randomBytes, uuidV4 } from 'ethers';
 import { Logger } from 'pino';
 
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -72,7 +72,7 @@ export class HbarSpendingPlanRepository {
    */
   async create(subscriptionTier: SubscriptionTier, ttl: number, planId?: string): Promise<IDetailedHbarSpendingPlan> {
     const plan: IDetailedHbarSpendingPlan = {
-      id: planId ?? randomUUID(),
+      id: planId ?? uuidV4(randomBytes(16)),
       subscriptionTier: subscriptionTier,
       createdAt: new Date(),
       active: true,

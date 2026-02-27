@@ -1,134 +1,162 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { LRUCache } from 'lru-cache';
-
 import { RateLimitKey, RateLimitStore } from '../../types';
 
-/**
- * Per-method request counter held within a single IP rate-limit entry.
- * @internal
- */
-interface MethodEntry {
-  /** Allowed requests remaining in the current time window. */
+interface DatabaseEntry {
+  reset: number;
+  methodInfo: any;
+}
+
+interface MethodDatabase {
+  methodName: string;
   remaining: number;
-  /**
-   * Maximum allowed requests per window; updated when the `limit` argument
-   * changes at window-reset time to honour dynamic limit adjustments.
-   */
   total: number;
 }
 
 /**
- * Per-IP rate-limit record stored in the bounded LRU cache.
- * @internal
- */
-interface IpEntry {
-  /** Epoch (ms) at which the current rate-limit window resets. */
-  reset: number;
-  /** Per-method counters, keyed by RPC method name. */
-  methods: Record<string, MethodEntry>;
-}
-
-/**
- * Upper bound on the number of distinct IP addresses held in memory at any
- * one time.  Oldest-accessed IPs are evicted silently once this ceiling is
- * reached, giving them a fresh (fully-allowed) budget on their next request —
- * an acceptable trade-off that prevents unbounded memory growth under
- * high-cardinality IP sets.
- */
-const MAX_IP_ENTRIES = 500;
-
-/**
- * A bounded, TTL-aware in-memory rate-limit store backed by an LRU cache.
- *
- * Each IP address occupies one cache slot containing per-method request
- * counters.  Entries are reclaimed in two independent ways:
- *
- * 1. **TTL eviction** — an entry is removed after `duration` ms of inactivity,
- *    freeing memory for IPs that have stopped sending requests.
- * 2. **LRU eviction** — when {@link MAX_IP_ENTRIES} is reached, the
- *    least-recently-used IP is silently dropped; on its next request it simply
- *    receives a fresh, fully-allowed budget.
- *
- * This replaces the previous `Object.create(null)` map that accumulated
- * one entry per unique IP for the entire process lifetime (unbounded leak).
- *
- * @implements {RateLimitStore}
+ * LRU-based in-memory rate limit store.
+ * Tracks request counts per IP and method within a time window.
  */
 export class LruRateLimitStore implements RateLimitStore {
-  /** Duration of each rate-limit window in milliseconds. */
-  private readonly duration: number;
-
-  /** Bounded LRU cache mapping IP address → per-window rate-limit entry. */
-  private readonly cache: LRUCache<string, IpEntry>;
+  private database: any;
+  private duration: number;
 
   /**
-   * Creates a new `LruRateLimitStore`.
-   *
-   * @param duration - Length of each rate-limit window in milliseconds.
+   * Initializes the store with the specified duration window.
+   * @param duration - Time window in milliseconds for rate limiting.
    */
   constructor(duration: number) {
+    this.database = Object.create(null);
     this.duration = duration;
-    this.cache = new LRUCache<string, IpEntry>({
-      max: MAX_IP_ENTRIES,
-      // Evict IP entries that have been idle for a full duration window so memory
-      // is reclaimed promptly for IPs that stop sending requests.  Each call to
-      // cache.get() automatically refreshes the TTL, keeping active IPs alive.
-      ttl: duration,
-      ttlAutopurge: true,
-    });
   }
 
   /**
-   * Atomically increments the request count for the given IP + method pair
-   * and reports whether the rate limit has been exceeded.
-   *
-   * Time complexity: O(1) amortised (LRU get/set with hash-map backing).
-   *
-   * @param key - Composite key containing the caller's IP address and RPC
-   *   method name.
-   * @param limit - Maximum number of requests allowed within a single window.
-   * @returns `true` if the limit is exceeded (request should be rejected);
-   *   `false` if the request is within budget.
+   * Increments the request count for a given IP and method, checking if the limit is exceeded.
+   * @param key - The rate limit key containing IP and method information.
+   * @param limit - Maximum allowed requests in the current window.
+   * @returns True if rate limit exceeded, false otherwise.
    */
   async incrementAndCheck(key: RateLimitKey, limit: number): Promise<boolean> {
     const { ip, method } = key;
-    const now = Date.now();
 
-    // Retrieve existing entry; cache.get also refreshes LRU position + TTL so
-    // active IPs are never prematurely evicted.
-    let entry = this.cache.get(ip);
-
-    if (!entry) {
-      // First request ever seen from this IP: open a fresh window.
-      entry = { reset: now + this.duration, methods: {} };
-    } else if (now >= entry.reset) {
-      // The current window has expired: advance the window start and restore
-      // all per-method budgets to their recorded totals.
-      entry.reset = now + this.duration;
-      for (const m of Object.values(entry.methods)) {
-        m.remaining = m.total;
+    this.precheck(ip, method, limit);
+    if (!this.shouldReset(ip)) {
+      if (this.checkRemaining(ip, method)) {
+        this.decreaseRemaining(ip, method);
+        return false;
       }
-      // Honour any limit change for the current method at window-reset time.
-      if (entry.methods[method]) {
-        entry.methods[method].remaining = limit;
-        entry.methods[method].total = limit;
-      }
-    }
-
-    // Initialise the method slot on first use within this IP scope.
-    if (!entry.methods[method]) {
-      entry.methods[method] = { remaining: limit, total: limit };
-    }
-
-    // Write back to cache — creates or refreshes the LRU position and TTL.
-    this.cache.set(ip, entry);
-
-    // Consume one request token; deny if the budget is exhausted.
-    if (entry.methods[method].remaining > 0) {
-      entry.methods[method].remaining--;
+      return true;
+    } else {
+      this.reset(ip, method, limit);
+      this.decreaseRemaining(ip, method);
       return false;
     }
-    return true;
+  }
+
+  /**
+   * Ensures the IP and method are initialized in the database.
+   * @param ip - The IP address to check.
+   * @param methodName - The method name to check.
+   * @param total - The total number of allowed requests.
+   */
+  private precheck(ip: string, methodName: string, total: number): void {
+    if (!this.checkIpExist(ip)) {
+      this.setNewIp(ip);
+    }
+
+    if (!this.checkMethodExist(ip, methodName)) {
+      this.setNewMethod(ip, methodName, total);
+    }
+  }
+
+  /**
+   * Initializes a new IP entry in the database.
+   * @param ip - The IP address to initialize.
+   */
+  private setNewIp(ip: string): void {
+    const entry: DatabaseEntry = {
+      reset: Date.now() + this.duration,
+      methodInfo: {},
+    };
+    this.database[ip] = entry;
+  }
+
+  /**
+   * Initializes a new method entry for a given IP in the database.
+   * @param ip - The IP address associated with the method.
+   * @param methodName - The method name to initialize.
+   * @param total - The total number of allowed requests.
+   */
+  private setNewMethod(ip: string, methodName: string, total: number): void {
+    const entry: MethodDatabase = {
+      methodName: methodName,
+      remaining: total,
+      total: total,
+    };
+    this.database[ip].methodInfo[methodName] = entry;
+  }
+
+  /**
+   * Checks if an IP exists in the database.
+   * @param ip - The IP address to check.
+   * @returns True if the IP exists, false otherwise.
+   */
+  private checkIpExist(ip: string): boolean {
+    return this.database[ip] !== undefined;
+  }
+
+  /**
+   * Checks if a method exists for a given IP in the database.
+   * @param ip - The IP address associated with the method.
+   * @param method - The method name to check.
+   * @returns True if the method exists, false otherwise.
+   */
+  private checkMethodExist(ip: string, method: string): boolean {
+    return this.database[ip].methodInfo[method] !== undefined;
+  }
+
+  /**
+   * Checks if there are remaining requests for a given IP and method.
+   * @param ip - The IP address associated with the method.
+   * @param methodName - The method name to check.
+   * @returns True if there are remaining requests, false otherwise.
+   */
+  private checkRemaining(ip: string, methodName: string): boolean {
+    return this.database[ip].methodInfo[methodName].remaining > 0;
+  }
+
+  /**
+   * Determines if the rate limit should be reset for a given IP.
+   * @param ip - The IP address to check.
+   * @returns True if the rate limit should be reset, false otherwise.
+   */
+  private shouldReset(ip: string): boolean {
+    return this.database[ip].reset < Date.now();
+  }
+
+  /**
+   * Resets the rate limit for a given IP and method.
+   * @param ip - The IP address associated with the method.
+   * @param methodName - The method name to reset.
+   * @param total - The total number of allowed requests.
+   */
+  private reset(ip: string, methodName: string, total: number): void {
+    this.database[ip].reset = Date.now() + this.duration;
+    for (const [keyMethod] of Object.entries(this.database[ip].methodInfo)) {
+      this.database[ip].methodInfo[keyMethod].remaining = this.database[ip].methodInfo[keyMethod].total;
+    }
+    // Ensure the current method being checked is reset with the potentially new total (limit)
+    this.database[ip].methodInfo[methodName].remaining = total;
+    this.database[ip].methodInfo[methodName].total = total; // also update total if it changed
+  }
+
+  /**
+   * Decreases the remaining request count for a given IP and method.
+   * @param ip - The IP address associated with the method.
+   * @param methodName - The method name to decrease the count for.
+   */
+  private decreaseRemaining(ip: string, methodName: string): void {
+    const currentRemaining = this.database[ip].methodInfo[methodName].remaining;
+    this.database[ip].methodInfo[methodName].remaining = currentRemaining > 0 ? currentRemaining - 1 : 0;
   }
 }

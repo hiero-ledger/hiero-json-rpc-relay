@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import * as _ from 'lodash';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
@@ -339,7 +340,7 @@ export class CommonService implements ICommonService {
   public addTopicsToParams(params: any, topics: any[] | null) {
     if (topics) {
       for (let i = 0; i < topics.length; i++) {
-        if (topics[i] != null) {
+        if (!_.isNil(topics[i])) {
           if (Array.isArray(topics[i])) {
             if (topics[i].length > 100) {
               throw predefined.INVALID_PARAMETER(i, `Topic ${i} exceeds maximum nested length of 100`);

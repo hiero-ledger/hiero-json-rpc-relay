@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
+import { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
@@ -64,11 +64,8 @@ export default class HAPIService {
   /**
    * The SDK Client used for connecting to both the consensus nodes and mirror node. The account
    * associated with this client will pay for all operations on the main network.
-   *
-   * Lazily initialized on first consensus-node operation to defer the heavy @hashgraph/sdk
-   * barrel import (~20 MB RSS) until it is actually needed.
    */
-  private client: SDKClient | null = null;
+  private client: SDKClient;
 
   /**
    * The logger used for logging all output from this class.
@@ -92,8 +89,6 @@ export default class HAPIService {
 
   /**
    * Constructs an instance of the class, initializes configuration settings, and sets up various services.
-   * The SDK client creation is deferred to reduce startup memory footprint; it will be created on
-   * the first call to {@link getSDKClient}.
    *
    * @param logger - The logger instance used for logging.
    * @param register - The registry instance for metrics and other services.
@@ -104,6 +99,8 @@ export default class HAPIService {
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
+
+    this.client = this.initSDKClient();
 
     const currentDateNow = Date.now();
     this.initialTransactionCount = ConfigService.get('HAPI_CLIENT_TRANSACTION_RESET');
@@ -130,17 +127,6 @@ export default class HAPIService {
       registers: [register],
       labelNames: ['transactions', 'errors'],
     });
-  }
-
-  /**
-   * Ensures the SDK client is initialized, creating it on first call.
-   * @returns The active SDKClient instance.
-   */
-  private ensureClient(): SDKClient {
-    if (!this.client) {
-      this.client = this.initSDKClient();
-    }
-    return this.client;
   }
 
   /**
@@ -199,37 +185,39 @@ export default class HAPIService {
    * @returns SDK Client
    */
   private initSDKClient(): SDKClient {
-    return new SDKClient(this.logger.child({ name: `consensus-node` }), this.eventEmitter, this.hbarLimitService);
+    return new SDKClient(
+      this.hederaNetwork,
+      this.logger.child({ name: `consensus-node` }),
+      this.eventEmitter,
+      this.hbarLimitService,
+    );
   }
 
   /**
    * Returns the operator account ID.
-   * Triggers lazy SDK client initialization if not yet created.
    *
    * @returns The operator account ID or `null` if not set.
    */
   public getOperatorAccountId(): AccountId | null {
-    return this.ensureClient().getOperatorAccountId();
+    return this.client.getOperatorAccountId();
   }
 
   /**
    * Returns the public key of the operator account.
-   * Triggers lazy SDK client initialization if not yet created.
    *
    * @returns The operator's public key or `null` if not set.
    */
   public getOperatorPublicKey(): PublicKey | null {
-    return this.ensureClient().getOperatorPublicKey();
+    return this.client.getOperatorPublicKey();
   }
 
   /**
-   * Return configured sdk client and reinitialize it before returning, if needed.
-   * Creates the SDK client on first call (deferred initialization).
+   * Return configured sdk client and reinitialize it before retuning, if needed.
    * @returns SDK Client
    */
   private getSDKClient(): SDKClient {
     if (!this.isReinitEnabled) {
-      return this.ensureClient();
+      return this.client;
     }
 
     if (this.shouldReset) {
@@ -239,7 +227,7 @@ export default class HAPIService {
     this.decrementTransactionCounter();
     this.checkResetDuration();
 
-    return this.ensureClient();
+    return this.client;
   }
 
   /**

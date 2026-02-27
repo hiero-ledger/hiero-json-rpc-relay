@@ -170,11 +170,7 @@ export async function initializeServer() {
 
   const app = koaJsonRpc.getKoaApp();
 
-  // Skip default process metrics (CPU, GC, event loop, etc.) in minimal mode
-  // to reduce RSS by ~1-2 MB. These metrics are non-essential for Solo/dev deployments.
-  if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
-    collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
-  }
+  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 
   // clear and create metric in registry
   const metricHistogramName = 'rpc_relay_method_response';

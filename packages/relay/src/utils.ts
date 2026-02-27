@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { keccak_256 } from '@noble/hashes/sha3';
-import { bytesToHex } from '@noble/hashes/utils';
+import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { AccountId, PrivateKey } from '@hashgraph/sdk';
-import type { Operator } from '@hashgraph/sdk/lib/client/Client';
+import { AccountId, PrivateKey } from '@hashgraph/sdk';
+import { Operator } from '@hashgraph/sdk/lib/client/Client';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 
@@ -32,23 +31,19 @@ export class Utils {
   };
 
   /**
-   * Creates a PrivateKey instance from the configured operator key format.
-   * Uses lazy SDK loading to defer the heavy @hashgraph/sdk barrel import.
-   *
-   * @param operatorMainKey - The operator private key string.
-   * @returns The parsed PrivateKey instance.
+   * @param operatorMainKey
+   * @returns PrivateKey
    */
   public static createPrivateKeyBasedOnFormat(operatorMainKey: string): PrivateKey {
-    const { PrivateKey: PK } = require('@hashgraph/sdk') as typeof import('@hashgraph/sdk');
     switch (ConfigService.get('OPERATOR_KEY_FORMAT')) {
       case 'DER':
       case undefined:
       case null:
-        return PK.fromStringDer(operatorMainKey);
+        return PrivateKey.fromStringDer(operatorMainKey);
       case 'HEX_ED25519':
-        return PK.fromStringED25519(operatorMainKey);
+        return PrivateKey.fromStringED25519(operatorMainKey);
       case 'HEX_ECDSA':
-        return PK.fromStringECDSA(operatorMainKey);
+        return PrivateKey.fromStringECDSA(operatorMainKey);
       default:
         throw new Error(`Invalid OPERATOR_KEY_FORMAT provided: ${ConfigService.get('OPERATOR_KEY_FORMAT')}`);
     }
@@ -123,15 +118,13 @@ export class Utils {
    * @returns The computed transaction hash with '0x' prefix
    */
   public static computeTransactionHash(transactionBuffer: Buffer): string {
-    return '0x' + bytesToHex(keccak_256(new Uint8Array(transactionBuffer)));
+    return keccak256(transactionBuffer);
   }
 
   /**
    * Gets operator credentials based on the provided type.
-   * Uses lazy SDK loading for AccountId parsing.
-   *
-   * @param {Logger} logger - The logger instance.
-   * @returns {Operator | null} The operator credentials or null if not found.
+   * @param {Logger} logger - The logger instance
+   * @returns {Operator | null} The operator credentials or null if not found
    */
   public static getOperator(logger: Logger): Operator | null {
     const operatorId = ConfigService.get('OPERATOR_ID_MAIN');
@@ -142,10 +135,9 @@ export class Utils {
       return null;
     }
 
-    const { AccountId: AID } = require('@hashgraph/sdk') as typeof import('@hashgraph/sdk');
     return {
       privateKey: Utils.createPrivateKeyBasedOnFormat(operatorKey),
-      accountId: AID.fromString(operatorId.trim()),
+      accountId: AccountId.fromString(operatorId.trim()),
     };
   }
 

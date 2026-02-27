@@ -2,7 +2,7 @@
 
 import { Logger } from 'pino';
 import { Registry } from 'prom-client';
-import type { RedisClientType } from 'redis';
+import { RedisClientType } from 'redis';
 
 import { LockStrategy } from '../../types';
 import { LocalLockStrategy } from './LocalLockStrategy';

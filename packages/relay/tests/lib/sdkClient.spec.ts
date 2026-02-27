@@ -100,7 +100,7 @@ describe('SdkClient', async function () {
     );
 
     const eventEmitter = new EventEmitter<TypedEvents>();
-    sdkClient = new SDKClient(logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
+    sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
       baseURL: 'https://localhost:5551/api/v1',
@@ -238,7 +238,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient(mockLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
 
         expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'debug' })).to.be.true;
       } finally {
@@ -258,7 +258,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient(mockLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
 
         // Verify SDK logger uses SDK_LOG_LEVEL ('info'), not global LOG_LEVEL ('error')
         expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level: 'info' })).to.be.true;
@@ -288,7 +288,7 @@ describe('SdkClient', async function () {
 
       try {
         const eventEmitter = new EventEmitter<TypedEvents>();
-        new SDKClient(mockGlobalLogger as any, eventEmitter, hbarLimitService);
+        new SDKClient('testnet', mockGlobalLogger as any, eventEmitter, hbarLimitService);
 
         // Verify child() was called correctly
         expect(mockGlobalLogger.child.calledWith({ name: 'sdk-client' }, { level: 'warn' })).to.be.true;
@@ -317,7 +317,7 @@ describe('SdkClient', async function () {
 
         try {
           const eventEmitter = new EventEmitter<TypedEvents>();
-          new SDKClient(mockLogger as any, eventEmitter, hbarLimitService);
+          new SDKClient('testnet', mockLogger as any, eventEmitter, hbarLimitService);
 
           // Verify child logger is always created with 'sdk-client' name
           expect(mockLogger.child.calledWith({ name: 'sdk-client' }, { level })).to.be.true;
@@ -436,7 +436,7 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient(mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
 
             expect(mockLogger.warn.calledOnce, 'should log warning about both env vars being set').to.be.true;
             expect(mockLogger.warn.firstCall.args[0]).to.include(
@@ -459,7 +459,7 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient(mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
 
             expect(mockLogger.warn.calledOnce, 'should log deprecation warning').to.be.true;
             expect(mockLogger.warn.firstCall.args[0]).to.include(
@@ -482,7 +482,7 @@ describe('SdkClient', async function () {
         () => {
           setupMocks();
           try {
-            new SDKClient(mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+            new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
 
             expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
             expect(
@@ -500,7 +500,7 @@ describe('SdkClient', async function () {
       withDeadlineEnvOverrides({ SDK_GRPC_DEADLINE: undefined, CONSENSUS_MAX_EXECUTION_TIME: undefined }, () => {
         setupMocks();
         try {
-          new SDKClient(mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
+          new SDKClient('testnet', mockLogger as any, new EventEmitter<TypedEvents>(), hbarLimitService);
 
           expect(mockLogger.warn.called, 'should not log any warnings').to.be.false;
           expect(

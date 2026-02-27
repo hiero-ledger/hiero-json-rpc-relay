@@ -4,7 +4,7 @@ import { RLP } from '@ethereumjs/rlp';
 import { Trie } from '@ethereumjs/trie';
 import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethereumjs/util';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import pino, { Logger } from 'pino';
+import pino from 'pino';
 
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
@@ -29,36 +29,13 @@ import { CommonService } from '../ethCommonService/CommonService';
  * Worker threads run in separate V8 Isolates with isolated memory heaps.
  * Complex objects (like network clients with sockets) cannot be shared by reference.
  * Therefore, we must instantiate separate clients for the worker.
- *
- * When running in local bypass mode (`WORKERS_POOL_ENABLED=false`), these singletons
- * are lazily initialised on first use to avoid duplicating the main-thread instances
- * at module-load time.
- *
  * Ref: https://nodejs.org/api/worker_threads.html#worker-threads
  */
-let _logger: Logger;
-let _register: ReturnType<typeof RegistryFactory.getInstance>;
-let _cacheService: ReturnType<typeof CacheClientFactory.create>;
-let _mirrorNodeClient: MirrorNodeClient;
-let _commonService: CommonService;
-
-/** Lazy-initialise worker-scoped service singletons. */
-function ctx() {
-  if (!_logger) {
-    _logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' }) as Logger;
-    _register = RegistryFactory.getInstance();
-    _cacheService = CacheClientFactory.create(_logger, _register);
-    _mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), _logger, _register, _cacheService);
-    _commonService = new CommonService(_mirrorNodeClient, _logger, _cacheService);
-  }
-  return {
-    logger: _logger,
-    register: _register,
-    cacheService: _cacheService,
-    mirrorNodeClient: _mirrorNodeClient,
-    commonService: _commonService,
-  };
-}
+const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
+const register = RegistryFactory.getInstance();
+const cacheService = CacheClientFactory.create(logger, register);
+const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
+const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 
 interface IReceiptRootHashLog {
   address: string;
@@ -257,12 +234,12 @@ async function prepareTransactionArray(
   showDetails: boolean,
   requestDetails: RequestDetails,
   chain: string,
-  svc: ReturnType<typeof ctx>,
+  commonService: CommonService,
 ): Promise<Transaction[] | string[]> {
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
     if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-      svc.logger.debug(
+      logger.debug(
         `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
         contractResult.hash,
         contractResult.result,
@@ -271,8 +248,8 @@ async function prepareTransactionArray(
     }
 
     [contractResult.from, contractResult.to] = await Promise.all([
-      svc.commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
-      svc.commonService.resolveEvmAddress(contractResult.to, requestDetails),
+      commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
+      commonService.resolveEvmAddress(contractResult.to, requestDetails),
     ]);
 
     contractResult.chain_id = contractResult.chain_id || chain;
@@ -289,8 +266,7 @@ export async function getBlock(
   chain: string,
 ): Promise<Block | null> {
   try {
-    const svc = ctx();
-    const blockResponse: MirrorNodeBlock = await svc.commonService.getHistoricalBlockResponse(
+    const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
       requestDetails,
       blockHashOrNumber,
       true,
@@ -307,12 +283,12 @@ export async function getBlock(
     );
 
     const [contractResults, logs] = await Promise.all([
-      svc.mirrorNodeClient.getContractResultWithRetry(svc.mirrorNodeClient.getContractResults.name, [
+      mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
         requestDetails,
         params,
         undefined,
       ]),
-      svc.commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
+      commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
     if (contractResults == null && logs.length == 0) {
@@ -329,7 +305,7 @@ export async function getBlock(
       showDetails,
       requestDetails,
       chain,
-      svc,
+      commonService,
     );
 
     txArray = populateSyntheticTransactions(showDetails, logs, txArray, chain);
@@ -342,7 +318,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await svc.commonService.gasPrice(requestDetails);
+    const gasPrice = await commonService.gasPrice(requestDetails);
 
     return await BlockFactory.createBlock({
       blockResponse,
@@ -360,8 +336,7 @@ export async function getBlockReceipts(
   requestDetails: RequestDetails,
 ): Promise<ITransactionReceipt[] | null> {
   try {
-    const svc = ctx();
-    const block = await svc.commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+    const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
 
     if (block == null) {
       return null;
@@ -377,8 +352,8 @@ export async function getBlockReceipts(
     );
 
     const [contractResults, logs] = await Promise.all([
-      svc.mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-      svc.commonService.getLogsWithParams(null, paramTimestamp, requestDetails, calculatedSliceCount),
+      mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
+      commonService.getLogsWithParams(null, paramTimestamp, requestDetails, calculatedSliceCount),
     ]);
 
     if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
@@ -387,7 +362,7 @@ export async function getBlockReceipts(
 
     const receipts: ITransactionReceipt[] = [];
     const effectiveGas = numberTo0x(
-      await svc.commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
+      await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
     const logsByHash = new Map<string, Log[]>();
@@ -399,7 +374,7 @@ export async function getBlockReceipts(
 
     const receiptPromises = contractResults.map(async (contractResult) => {
       if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-        svc.logger.debug(
+        logger.debug(
           `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
           contractResult.hash,
           contractResult.result,
@@ -409,8 +384,8 @@ export async function getBlockReceipts(
 
       contractResult.logs = logsByHash.get(contractResult.hash) || [];
       const [from, to] = await Promise.all([
-        svc.commonService.resolveEvmAddress(contractResult.from, requestDetails),
-        contractResult.to === null ? null : svc.commonService.resolveEvmAddress(contractResult.to, requestDetails),
+        commonService.resolveEvmAddress(contractResult.from, requestDetails),
+        contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
       ]);
 
       const transactionReceiptParams: IRegularTransactionReceiptParams = {

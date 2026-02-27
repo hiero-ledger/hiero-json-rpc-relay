@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { keccak_256 } from '@noble/hashes/sha3';
+import { keccak256 } from 'ethers';
 
 import { prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
@@ -9,9 +9,8 @@ export class LogsBloomUtils {
 
   /**
    * Generate logs bloom for synthetic transaction
-   * @param address - The contract address
-   * @param topics - The log topics
-   * @returns The 256-byte bloom filter as a hex string
+   * @param address
+   * @param topics
    */
   public static buildLogsBloom(address: string, topics: string[]): string {
     if (!address?.length) {
@@ -24,10 +23,9 @@ export class LogsBloomUtils {
     const items = [address, ...topics];
     const bitvector = new Uint8Array(this.BYTE_SIZE);
     for (let k = 0; k < items.length; k++) {
-      const hash = keccak_256(Buffer.from(strip0x(items[k]), 'hex'));
-      const item = Buffer.from(hash);
+      const item = Buffer.alloc(32, strip0x(keccak256(items[k])), 'hex');
       for (let i = 0; i < 3; i++) {
-        const first2bytes = new DataView(item.buffer, item.byteOffset, item.byteLength).getUint16(i * 2);
+        const first2bytes = new DataView(item.buffer).getUint16(i * 2);
         const loc = this.MASK & first2bytes;
         const byteLoc = loc >> 3;
         const bitLoc = 1 << loc % 8;

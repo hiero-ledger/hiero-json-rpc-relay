@@ -161,7 +161,7 @@ describe('Metric Service', function () {
     );
 
     const network = ConfigService.get('HEDERA_NETWORK')!;
-    const sdkClient = new SDKClient(logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
+    const sdkClient = new SDKClient(network, logger.child({ name: `consensus-node` }), eventEmitter, hbarLimitService);
     // Init new MetricService instance
     const metricsCollector = ConfigService.get('GET_RECORD_DEFAULT_TO_CONSENSUS_NODE') ? sdkClient : mirrorNodeClient;
     metricService = new MetricService(logger, metricsCollector, registry, hbarLimitService);

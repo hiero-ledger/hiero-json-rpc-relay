@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
+import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
@@ -170,19 +172,19 @@ function stripLeadingZeroForSignatures(signature: string) {
   return '0x' + [remove0x, remove0].reduce((acc, fn) => fn(acc), signature);
 }
 
-const numberTo0x = (input: number | bigint): string => {
+const numberTo0x = (input: number | BigNumber | bigint): string => {
   return EMPTY_HEX + input.toString(16);
 };
 
-const nullableNumberTo0x = (input: number | bigint | null): string | null => {
+const nullableNumberTo0x = (input: number | BigNumber | bigint | null): string | null => {
   return input == null ? null : numberTo0x(input);
 };
 
-const nanOrNumberTo0x = (input: number | bigint | null): string => {
+const nanOrNumberTo0x = (input: number | BigNumber | bigint | null): string => {
   return input == null || Number.isNaN(input) ? numberTo0x(0) : numberTo0x(input);
 };
 
-const nanOrNumberInt64To0x = (input: number | bigint | null): string => {
+const nanOrNumberInt64To0x = (input: number | BigNumber | bigint | null): string => {
   // converting to string and then back to int is fixing a typescript warning
   if (input && Number(input) < 0) {
     // the hex of a negative number can be obtained from the binary value of that number positive value
@@ -218,6 +220,14 @@ const nanOrNumberInt64To0x = (input: number | bigint | null): string => {
 
 const toHash32 = (value: string): string => {
   return value.substring(0, 66);
+};
+
+const toNullableBigNumber = (value: string | null): string | null => {
+  if (typeof value === 'string') {
+    return new BN(value).toString();
+  }
+
+  return null;
 };
 
 const toNullIfEmptyHex = (value: string): string | null => {
@@ -272,6 +282,7 @@ export {
   nanOrNumberTo0x,
   nanOrNumberInt64To0x,
   toHash32,
+  toNullableBigNumber,
   toNullIfEmptyHex,
   generateRandomHex,
   trimPrecedingZeros,

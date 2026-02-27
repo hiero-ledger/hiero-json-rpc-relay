@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { RedisClientType } from 'redis';
+import { RedisClientType } from 'redis';
 
 import { PendingTransactionStorage } from '../../types/transactionPool';
 
