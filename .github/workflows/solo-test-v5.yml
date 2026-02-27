@@ -28,9 +28,15 @@ jobs:
           - name: "88-46-old-2-semi-0-pool"
             memory_limit: "88Mi"
             node_opts: "--max-old-space-size=46 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-44-old-4-semi-0-pool"
+          - name: "88-44-old-2-semi-0-pool"
             memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=44 --max-semi-space-size=4 --v8-pool-size=0"
+            node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
+          - name: "88-40-old-4-semi-0-pool"
+            memory_limit: "88Mi"
+            node_opts: "--max-old-space-size=40 --max-semi-space-size=4 --v8-pool-size=0"
+          - name: "88-40-old-2-semi-0-pool"
+            memory_limit: "88Mi"
+            node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
 
           # --- 80Mi TUNING (Finding the sweet spot) ---
           - name: "80-48-old-2-semi-0-pool"
