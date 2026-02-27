@@ -16,30 +16,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "96-48-old-2-semi-0-pool-size"
-            memory_limit: "96Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "64-48-old-1-semi-0-pool-size-jitless-5-stacktrace"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"
-          - name: "64-32-old-1-semi-0-pool-size-jitless-5-stacktrace"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32 --max-semi-space-size=1 --v8-pool-size=0 --jitless --stack-trace-limit=5"
-          - name: "64-32-old-1-semi-0-pool-size-5-stacktrace"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32 --max-semi-space-size=1 --v8-pool-size=0 --stack-trace-limit=5"
-          - name: "64-32-old-1-semi-0-pool-size"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32 --max-semi-space-size=1 --v8-pool-size=0"
-          - name: "64-32-old-1-semi"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32 --max-semi-space-size=1"
-          - name: "64-32-old"
-            memory_limit: "64Mi"
-            node_opts: "--max-old-space-size=32"
           - name: "64-pure-no-V8-tuning"
             memory_limit: "64Mi"
             node_opts: ""
+          - name: "64-42-old-1-semi-0-pool-jitless"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=42 --max-semi-space-size=1 --v8-pool-size=0 --jitless"
+          - name: "64-45-old-1-semi-0-pool-jitless"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=45 --max-semi-space-size=1 --v8-pool-size=0 --jitless"
+          - name: "64-45-old-2-semi-0-pool-jitless"
+            memory_limit: "64Mi"
+            node_opts: "--max-old-space-size=45 --max-semi-space-size=2 --v8-pool-size=0 --jitless"
     permissions:
       contents: read
       checks: write
@@ -148,14 +136,9 @@ jobs:
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
               PRETTY_LOGS_ENABLED: "false"
-              LOG_LEVEL: "info"
-              CACHE_MAX: "100"
-              UV_THREADPOOL_SIZE: "2"
+              LOG_LEVEL: "error"
+              CACHE_MAX: "50"
               RELAY_MINIMAL_MODE: "true"
-              # P0: Constrain HTTP socket pool so keep-alive buffers cannot exhaust 64Mi
-              MIRROR_NODE_HTTP_MAX_SOCKETS: "5"
-              MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "10"
-              MIRROR_NODE_HTTP_KEEP_ALIVE: "false"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
