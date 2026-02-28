@@ -261,18 +261,21 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
       paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
       maxGasAllowanceHbarBefore = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
+      Utils.reloadPaymasterConfigs();
     });
 
     after(() => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', paymasterEnabledBefore);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', paymasterWhitelistBefore);
       ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', maxGasAllowanceHbarBefore);
+      Utils.reloadPaymasterConfigs();
     });
 
     const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
       ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
       ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
+      Utils.reloadPaymasterConfigs();
     };
 
     const createAndSignTransaction = async (senderAccount: AliasAccount, recipientAddress?: string) => {

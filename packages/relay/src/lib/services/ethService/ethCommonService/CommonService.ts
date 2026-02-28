@@ -17,7 +17,7 @@ import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../ty
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
-type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: string];
+export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: string];
 
 /**
  * Create a new Common Service implementation.
@@ -62,16 +62,47 @@ export class CommonService implements ICommonService {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
+  /**
+   * A map of paymaster accounts keyed by their unique account identifier.
+   *
+   * The map is built from the `PAYMASTER_ACCOUNTS` configuration entry, which is expected to be an array of tuples
+   * in the form: `[accountId: string, account: PaymasterAccount]`.
+   *
+   * This structure is introduced for efficient lookup.
+   */
+  public static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
+    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
+  );
+
+  /**
+   * A reverse lookup map that associates whitelisted wallet addresses with their corresponding paymaster account IDs.
+   *
+   * The map is derived from the `PAYMASTER_ACCOUNTS_WHITELISTS` configuration, which is expected to be an array
+   * of tuples: `[accountId: string, whitelist: string[]]`.
+   *
+   * Each address is normalized to lowercase to ensure case-insensitive matching.
+   *
+   * This structure is introduced for efficient lookup.
+   */
   public static readonly PAYMASTER_ACCOUNTS_WHITELISTS_MAP: Map<string, string> = new Map(
     (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
       whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
     ),
   );
 
-  public static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
-  );
+  /**
+   * Global feature flag indicating whether the paymaster functionality is enabled.
+   */
+  public static readonly PAYMASTER_ENABLED = ConfigService.get('PAYMASTER_ENABLED');
 
+  /**
+   * A global whitelist of addresses for the main operator if PAYMASTER_ENABLED is set to true.
+   *
+   * The list is sourced from the `PAYMASTER_WHITELIST` configuration entry and normalized to lowercase to support
+   * case-insensitive address comparisons.
+   *
+   * This structure is introduced for efficient lookup.
+   */
   public static readonly PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
 
   constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
@@ -665,7 +696,7 @@ export class CommonService implements ICommonService {
   ): { accountId: string; gasAllowance: number } | null {
     // handle default paymaster functionality
     if (
-      ConfigService.get('PAYMASTER_ENABLED') &&
+      CommonService.PAYMASTER_ENABLED &&
       (CommonService.PAYMASTER_WHITELIST.includes('*') ||
         (toAddress && CommonService.PAYMASTER_WHITELIST.includes(prepend0x(toAddress.toLowerCase()))))
     ) {

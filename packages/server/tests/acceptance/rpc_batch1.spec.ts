@@ -2178,6 +2178,10 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       describe('Check subsidizing gas fees', async function () {
+        beforeEach(async () => {
+          Utils.reloadPaymasterConfigs();
+        });
+
         withOverriddenEnvsInMochaTest(
           {
             PAYMASTER_ENABLED: true,
