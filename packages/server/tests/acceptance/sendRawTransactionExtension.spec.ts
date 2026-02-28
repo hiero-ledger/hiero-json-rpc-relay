@@ -4,7 +4,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { ConfigServiceTestHelper } from '@hashgraph/json-rpc-config-service/tests/configServiceTestHelper';
 // Other imports
-import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import { numberTo0x, prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '@hashgraph/json-rpc-relay/dist/lib/errors/JsonRpcError';
@@ -364,6 +364,154 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       const info = await mirrorNode.get(`/contracts/results/${txHash}`);
       expect(info).to.exist;
       expect(info.result).to.equal('INSUFFICIENT_TX_FEE');
+    });
+  });
+
+  describe('Multiple paymasters', function () {
+    let newPaymasters = [];
+
+    const createAndSignTransaction = async (senderAccount: AliasAccount, to: string, gasPrice: string = '0x0') => {
+      return senderAccount.wallet.signTransaction({
+        to,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        type: 2,
+        chainId: Number(CHAIN_ID),
+        nonce: await relay.getAccountNonce(senderAccount.address),
+        gasLimit: 30_000,
+        value: ONE_TINYBAR,
+      });
+    };
+
+    let paymasterAccounts, paymasterAccountsWhitelists;
+    before(async () => {
+      newPaymasters = await Utils.createMultipleAliasAccounts(mirrorNode, accounts[0], 2, '1500000000');
+      await new Promise((r) => setTimeout(r, 2500));
+
+      paymasterAccounts = ConfigService.get('PAYMASTER_ACCOUNTS');
+      paymasterAccountsWhitelists = ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS');
+    });
+
+    after(() => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', paymasterAccounts);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', paymasterAccountsWhitelists);
+      Utils.reloadPaymasterConfigs();
+    });
+
+    const configurePaymaster = (paymasterAccounts: any, paymasterAccountsWhitelists: any) => {
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS', paymasterAccounts);
+      ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ACCOUNTS_WHITELISTS', paymasterAccountsWhitelists);
+      Utils.reloadPaymasterConfigs();
+    };
+
+    it('should cover the tx fees if PAYMASTER_ACCOUNTS and PAYMASTER_ACCOUNTS_WHITELISTS are set', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [[newPaymasters[0].accountId.toString(), [accounts[2].address.toLowerCase()]]],
+      );
+
+      const senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const paymasterBalanceBefore = await relay.getBalance(newPaymasters[0].address, 'latest');
+
+      const signedTx = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+      const senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      const paymasterBalanceAfter = await relay.getBalance(newPaymasters[0].address, 'latest');
+
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+      expect(paymasterBalanceBefore).to.be.greaterThan(paymasterBalanceAfter);
+    });
+
+    it('should cover tx fees only if they are whitelisted by paymasters', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+          [
+            newPaymasters[1].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[1].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [
+          [newPaymasters[0].accountId.toString(), [accounts[1].address.toLowerCase()]],
+          [newPaymasters[1].accountId.toString(), [accounts[2].address.toLowerCase()]],
+        ],
+      );
+      let senderBalanceBefore, receiverBalanceBefore, senderBalanceAfter, receiverBalanceAfter;
+
+      const paymaster0BalanceStart = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceStart = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must be covered by paymaster[1]
+      senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx1 = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash1 = await relay.sendRawTransaction(signedTx1);
+      await relay.pollForValidTransactionReceipt(txHash1);
+      senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter1 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter1 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must be covered by paymaster[0]
+      senderBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const signedTx2 = await createAndSignTransaction(accounts[2], accounts[1].address);
+      const txHash2 = await relay.sendRawTransaction(signedTx2);
+      await relay.pollForValidTransactionReceipt(txHash2);
+      senderBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter2 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter2 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // the tx must not be covered by any paymaster
+      senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceBefore = await relay.getBalance(accounts[0].address, 'latest');
+      const signedTx3 = await createAndSignTransaction(accounts[1], accounts[0].address, await relay.gasPrice());
+      const txHash3 = await relay.sendRawTransaction(signedTx3);
+      await relay.pollForValidTransactionReceipt(txHash3);
+      senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      receiverBalanceAfter = await relay.getBalance(accounts[0].address, 'latest');
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.be.greaterThan(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+
+      const paymaster0BalanceAfter3 = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter3 = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      // first tx must be covered by paymaster[1]
+      expect(paymaster0BalanceStart).to.equal(paymaster0BalanceAfter1);
+      expect(paymaster1BalanceStart).to.be.greaterThan(paymaster1BalanceAfter1);
+
+      // second tx must be covered by paymaster[0]
+      expect(paymaster0BalanceAfter1).to.be.greaterThan(paymaster0BalanceAfter2);
+      expect(paymaster1BalanceAfter1).to.equal(paymaster1BalanceAfter2);
+
+      // third tx must not be covered by any paymaster
+      expect(paymaster0BalanceAfter3).to.equal(paymaster0BalanceAfter2);
+      expect(paymaster1BalanceAfter3).to.equal(paymaster1BalanceAfter2);
     });
   });
 

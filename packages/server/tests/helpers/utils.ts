@@ -666,6 +666,8 @@ export class Utils {
    * restarting the application.
    */
   public static reloadPaymasterConfigs() {
+    const { relayImpl } = global;
+
     // @ts-ignore
     CommonService.PAYMASTER_ACCOUNTS_MAP = new Map(
       (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
@@ -680,5 +682,7 @@ export class Utils {
     CommonService.PAYMASTER_ENABLED = ConfigService.get('PAYMASTER_ENABLED');
     // @ts-ignore
     CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+    // @ts-ignore
+    relayImpl.ethImpl.transactionService.hapiService.client.initPaymastersClients();
   }
 }

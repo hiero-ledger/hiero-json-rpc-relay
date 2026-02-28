@@ -67,7 +67,12 @@ export class SDKClient {
    * Map of accountId - Client for each paymaster defined in PAYMASTER_ACCOUNTS,
    * and the default operator client if the default paymaster functionality is enabled
    */
-  private readonly paymasterClients: Map<string, Client>;
+  private paymasterClients: Map<string, Client>;
+
+  /**
+   * The network name for Hedera services.
+   */
+  private readonly hederaNetwork: string;
 
   /**
    * Constructs an instance of the SDKClient and initializes various services and settings.
@@ -85,16 +90,26 @@ export class SDKClient {
   ) {
     this.clientMain = this.createNewOperatorClient(logger, hederaNetwork);
     this.logger = logger;
+    this.hederaNetwork = hederaNetwork;
     this.hbarLimitService = hbarLimitService;
     this.maxChunks = ConfigService.get('FILE_APPEND_MAX_CHUNKS');
     this.fileAppendChunkSize = ConfigService.get('FILE_APPEND_CHUNK_SIZE');
 
+    this.initPaymastersClients();
+  }
+
+  /**
+   * Init paymaster clients
+   *
+   * @private
+   */
+  private initPaymastersClients(): void {
     this.paymasterClients = new Map(
       (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
         (acc) =>
           [
             acc[0],
-            this.createNewOperatorClient(logger, hederaNetwork).setOperator(
+            this.createNewOperatorClient(this.logger, this.hederaNetwork).setOperator(
               acc[0],
               Utils.createPrivateKeyBasedOnFormat(acc[2], acc[1]),
             ),
