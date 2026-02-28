@@ -107,7 +107,6 @@ export class SDKClient {
   }
 
   /**
-   *
    * @param logger
    * @param hederaNetwork
    * @private

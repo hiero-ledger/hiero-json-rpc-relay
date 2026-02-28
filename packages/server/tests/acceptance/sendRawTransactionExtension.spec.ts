@@ -261,7 +261,6 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
       paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
       maxGasAllowanceHbarBefore = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
-      Utils.reloadPaymasterConfigs();
     });
 
     after(() => {
