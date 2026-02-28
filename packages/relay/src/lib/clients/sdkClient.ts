@@ -67,7 +67,7 @@ export class SDKClient {
    * Map of accountId - Client for each paymaster defined in PAYMASTER_ACCOUNTS,
    * and the default operator client if the default paymaster functionality is enabled
    */
-  private paymasterClients: Map<string, Client>;
+  private paymasterClients!: Map<string, Client>;
 
   /**
    * The network name for Hedera services.

@@ -90,21 +90,6 @@ export class CommonService implements ICommonService {
     ),
   );
 
-  /**
-   * Global feature flag indicating whether the paymaster functionality is enabled.
-   */
-  public static readonly PAYMASTER_ENABLED = ConfigService.get('PAYMASTER_ENABLED');
-
-  /**
-   * A global whitelist of addresses for the main operator if PAYMASTER_ENABLED is set to true.
-   *
-   * The list is sourced from the `PAYMASTER_WHITELIST` configuration entry and normalized to lowercase to support
-   * case-insensitive address comparisons.
-   *
-   * This structure is introduced for efficient lookup.
-   */
-  public static readonly PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
-
   constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.logger = logger;
@@ -695,10 +680,11 @@ export class CommonService implements ICommonService {
     toAddress: string | null,
   ): { accountId: string; gasAllowance: number } | null {
     // handle default paymaster functionality
+    const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
     if (
-      CommonService.PAYMASTER_ENABLED &&
-      (CommonService.PAYMASTER_WHITELIST.includes('*') ||
-        (toAddress && CommonService.PAYMASTER_WHITELIST.includes(prepend0x(toAddress.toLowerCase()))))
+      ConfigService.get('PAYMASTER_ENABLED') &&
+      (paymasterWhitelist.includes('*') ||
+        (toAddress && paymasterWhitelist.includes(prepend0x(toAddress.toLowerCase()))))
     ) {
       return {
         accountId: ConfigService.get('OPERATOR_ID_MAIN')!,

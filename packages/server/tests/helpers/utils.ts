@@ -679,10 +679,6 @@ export class Utils {
       ),
     );
     // @ts-ignore
-    CommonService.PAYMASTER_ENABLED = ConfigService.get('PAYMASTER_ENABLED');
-    // @ts-ignore
-    CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
-    // @ts-ignore
     relayImpl.ethImpl.transactionService.hapiService.client.initPaymastersClients();
   }
 }
