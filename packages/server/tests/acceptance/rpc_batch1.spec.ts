@@ -23,7 +23,7 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
-import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
+import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
 import basicContract from '../../tests/contracts/Basic.json';
 import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
