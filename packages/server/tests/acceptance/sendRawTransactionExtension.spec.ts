@@ -385,7 +385,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
     let paymasterAccounts, paymasterAccountsWhitelists;
     before(async () => {
-      newPaymasters = await Utils.createMultipleAliasAccounts(mirrorNode, accounts[0], 2, '1500000000');
+      newPaymasters = await Utils.createMultipleAliasAccounts(mirrorNode, accounts[4], 2, '1500000000');
       await new Promise((r) => setTimeout(r, 2500));
 
       paymasterAccounts = ConfigService.get('PAYMASTER_ACCOUNTS');
