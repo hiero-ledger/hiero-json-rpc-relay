@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { expect } from 'chai';
+import { Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
 import { DebugImpl } from '../../../src/lib/debug';
@@ -11,8 +12,17 @@ import { generateEthTestEnv } from '../eth/eth-helpers';
 
 describe('debug_getRawReceipts', function () {
   this.timeout(10000);
+  const registry = new Registry();
 
-  const { cacheService, mirrorNodeInstance, commonService, logger } = generateEthTestEnv(true);
+  const {
+    cacheService,
+    mirrorNodeInstance,
+    commonService,
+    logger,
+    hapiServiceInstance,
+    transactionPoolService,
+    lockService,
+  } = generateEthTestEnv(true);
 
   const requestDetails = new RequestDetails({ requestId: 'debug_getRawReceipts', ipAddress: '0.0.0.0' });
 
@@ -110,7 +120,16 @@ describe('debug_getRawReceipts', function () {
   before(async function () {
     await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
 
-    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, ConfigService.get('CHAIN_ID'));
+    debugService = new DebugImpl(
+      mirrorNodeInstance,
+      logger,
+      cacheService,
+      ConfigService.get('CHAIN_ID'),
+      hapiServiceInstance,
+      transactionPoolService,
+      lockService,
+      registry,
+    );
   });
 
   beforeEach(function () {

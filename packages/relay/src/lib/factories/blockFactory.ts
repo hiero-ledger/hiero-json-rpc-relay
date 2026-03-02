@@ -124,7 +124,11 @@ export class BlockFactory {
       }
     }
 
-    // Signature
+    // Custom handling for synthetic legacy transactions to avoid EIP-155 encoding of chainId
+    if (ethersTx.isLegacy() && tx.r === constants.EMPTY_HEX && tx.s === constants.EMPTY_HEX) {
+      return ethersTx.unsignedSerialized;
+    }
+
     ethersTx.signature = ethers.Signature.from({
       r,
       s,
