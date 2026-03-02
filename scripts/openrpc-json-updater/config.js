@@ -28,7 +28,6 @@ export const UNSUPPORTED_METHODS = [
 ];
 
 export const NOT_IMPLEMENTED_METHODS = [
-  'debug_getRawTransaction',
 ];
 
 export const SKIPPED_METHODS = [...UNSUPPORTED_METHODS, ...NOT_IMPLEMENTED_METHODS];
