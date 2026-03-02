@@ -545,6 +545,16 @@ const _CONFIG = {
     required: false,
     defaultValue: [],
   },
+  PAYMASTER_ACCOUNTS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
+  PAYMASTER_ACCOUNTS_WHITELISTS: {
+    type: 'strArray',
+    required: false,
+    defaultValue: [],
+  },
   RATE_LIMIT_DISABLED: {
     type: 'boolean',
     required: false,

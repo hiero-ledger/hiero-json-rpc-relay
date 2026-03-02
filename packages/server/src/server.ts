@@ -350,5 +350,5 @@ export async function initializeServer() {
     logger.error(err, 'Uncaught Exception!');
   });
 
-  return { app };
+  return { app, relay };
 }

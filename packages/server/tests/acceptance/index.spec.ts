@@ -184,9 +184,10 @@ describe('RPC Server Acceptance Tests', function () {
 
     logger.info(`Start relay on port ${constants.RELAY_PORT}`);
     logger.info(`Start relay on host ${constants.RELAY_HOST}`);
-    const { app } = await initializeServer();
+    const { app, relay } = await initializeServer();
     const relayServer = app.listen({ port: constants.RELAY_PORT });
     global.relayServer = relayServer;
+    global.relayImpl = relay;
     setServerTimeout(relayServer);
 
     if (ConfigService.get('TEST_WS_SERVER')) {
