@@ -498,13 +498,9 @@ export class ContractService implements IContractService {
 
     if (e.isContractRevert()) {
       throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
-    } else if (e.statusCode === 400) {
-      throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
     }
 
-    // for any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
-    // preserve the original error and re-throw to the upper layer for further handling logic
-    throw e;
+    throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
   }
 
   /**
