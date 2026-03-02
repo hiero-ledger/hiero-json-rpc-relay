@@ -513,6 +513,49 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(paymaster0BalanceAfter3).to.equal(paymaster0BalanceAfter2);
       expect(paymaster1BalanceAfter3).to.equal(paymaster1BalanceAfter2);
     });
+
+    it('should apply only the last paymaster if there are repeated addresses', async () => {
+      configurePaymaster(
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[0].privateKey.toStringRaw()),
+            '14',
+          ],
+          [
+            newPaymasters[1].accountId.toString(),
+            'HEX_ECDSA',
+            prepend0x(newPaymasters[1].privateKey.toStringRaw()),
+            '14',
+          ],
+        ],
+        [
+          [
+            newPaymasters[0].accountId.toString(),
+            [accounts[1].address.toLowerCase(), accounts[2].address.toLowerCase()],
+          ],
+          [newPaymasters[1].accountId.toString(), [accounts[2].address.toLowerCase()]],
+        ],
+      );
+
+      const paymaster0BalanceBefore = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceBefore = await relay.getBalance(newPaymasters[1].address, 'latest');
+      const senderBalanceBefore = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceBefore = await relay.getBalance(accounts[2].address, 'latest');
+      const signedTx = await createAndSignTransaction(accounts[1], accounts[2].address);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+      const senderBalanceAfter = await relay.getBalance(accounts[1].address, 'latest');
+      const receiverBalanceAfter = await relay.getBalance(accounts[2].address, 'latest');
+      const paymaster0BalanceAfter = await relay.getBalance(newPaymasters[0].address, 'latest');
+      const paymaster1BalanceAfter = await relay.getBalance(newPaymasters[1].address, 'latest');
+
+      expect(senderBalanceBefore - BigInt(ONE_TINYBAR)).to.equal(senderBalanceAfter);
+      expect(receiverBalanceBefore + BigInt(ONE_TINYBAR)).to.equal(receiverBalanceAfter);
+      expect(paymaster0BalanceBefore).to.equal(paymaster0BalanceAfter);
+      expect(paymaster1BalanceBefore).to.be.greaterThan(paymaster1BalanceAfter);
+    });
   });
 
   describe('@nonce-ordering Lock Service Tests', function () {
