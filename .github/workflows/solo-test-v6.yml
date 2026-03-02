@@ -1,7 +1,9 @@
 name: Solo Test Sandbox
 
 on:
-  workflow_call:
+  push:
+    branches:
+      - 4900-v2-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
   contents: read
@@ -14,53 +16,48 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- 96Mi (Control) ---
-          - name: "96-48-2-0-pool"
+          - name: "96-pure"
             memory_limit: "96Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
+          - name: "96-72-old"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=72"
+          - name: "96-72-old-4-semi"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=72 --max-semi-space-size=4"
+          - name: "96-72-old-4-semi-0-pool"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=72 --max-semi-space-size=4 --v8-pool-size=0"
+          - name: "96-48-old"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=48"
+          - name: "96-48-old-4-semi"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=4"
+          - name: "96-48-old-4-semi-0-pool"
+            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=48 --max-semi-space-size=4 --v8-pool-size=0"
 
-          # --- 90Mi ---
-          - name: "90-48-2-0-pool"
-            memory_limit: "90Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "90-44-2-0-pool"
-            memory_limit: "90Mi"
-            node_opts: "--max-old-space-size=44 --max-semi-space-size=2 --v8-pool-size=0"
+          - name: "92-pure"
+            memory_limit: "92Mi"
+          - name: "92-69-old"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=69"
+          - name: "92-69-old-4-semi"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=69 --max-semi-space-size=4"
+          - name: "92-69-old-4-semi-0-pool"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=69 --max-semi-space-size=4 --v8-pool-size=0"
+          - name: "92-46-old"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=46"
+          - name: "92-46-old-4-semi"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=46 --max-semi-space-size=4"
+          - name: "92-46-old-4-semi-0-pool"
+            memory_limit: "92Mi"
+            node_opts: "--max-old-space-size=46 --max-semi-space-size=4 --v8-pool-size=0"
 
-          - name: "90-50-2-0-pool"
-            memory_limit: "89Mi"
-            node_opts: "--max-old-space-size=50 --max-semi-space-size=2 --v8-pool-size=0"
-
-          - name: "89-50-1-0-pool"
-            memory_limit: "89Mi"
-            node_opts: "--max-old-space-size=50 --max-semi-space-size=1 --v8-pool-size=0"
-          - name: "89-50-2-0-pool"
-            memory_limit: "89Mi"
-            node_opts: "--max-old-space-size=50 --max-semi-space-size=2 --v8-pool-size=0"
-
-          # --- 88Mi (Expanded Variants) ---
-          - name: "88-48-2-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "88-40-2-0-pool"
-            memory_limit: "88Mi"
-            node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
-
-          # --- 80Mi (Expanded Variants) ---
-          - name: "80-40-2-0-pool"
-            memory_limit: "80Mi"
-            node_opts: "--max-old-space-size=40 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "80-36-2-0-pool"
-            memory_limit: "80Mi"
-            node_opts: "--max-old-space-size=36 --max-semi-space-size=2 --v8-pool-size=0"
-          - name: "80-32-2-0-pool"
-            memory_limit: "80Mi"
-            node_opts: "--max-old-space-size=32 --max-semi-space-size=2 --v8-pool-size=0"
-
-          # --- 72Mi ---
-          - name: "72-48-2-0-pool"
-            memory_limit: "72Mi"
-            node_opts: "--max-old-space-size=48 --max-semi-space-size=2 --v8-pool-size=0"
     permissions:
       contents: read
       checks: write
