@@ -31,21 +31,24 @@ export class Utils {
   };
 
   /**
-   * @param operatorMainKey
+   * @param key
+   * @param format
    * @returns PrivateKey
    */
-  public static createPrivateKeyBasedOnFormat(operatorMainKey: string): PrivateKey {
-    switch (ConfigService.get('OPERATOR_KEY_FORMAT')) {
+  public static createPrivateKeyBasedOnFormat(key: string, format: string | null = null): PrivateKey {
+    const keyFormat = format ?? ConfigService.get('OPERATOR_KEY_FORMAT');
+
+    switch (keyFormat) {
       case 'DER':
       case undefined:
       case null:
-        return PrivateKey.fromStringDer(operatorMainKey);
+        return PrivateKey.fromStringDer(key);
       case 'HEX_ED25519':
-        return PrivateKey.fromStringED25519(operatorMainKey);
+        return PrivateKey.fromStringED25519(key);
       case 'HEX_ECDSA':
-        return PrivateKey.fromStringECDSA(operatorMainKey);
+        return PrivateKey.fromStringECDSA(key);
       default:
-        throw new Error(`Invalid OPERATOR_KEY_FORMAT provided: ${ConfigService.get('OPERATOR_KEY_FORMAT')}`);
+        throw new Error(`Invalid OPERATOR_KEY_FORMAT provided: ${keyFormat}`);
     }
   }
 
@@ -162,6 +165,7 @@ export class Utils {
    * @param requestDetails - Request context information
    * @returns Array of parameters arranged for the method
    */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
     const layout = method[RPC_PARAM_LAYOUT_KEY];
 
