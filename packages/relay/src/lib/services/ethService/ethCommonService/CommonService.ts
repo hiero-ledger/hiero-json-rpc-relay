@@ -17,7 +17,7 @@ import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../ty
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
-export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: string];
+export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
 
 /**
  * Create a new Common Service implementation.
@@ -71,7 +71,9 @@ export class CommonService implements ICommonService {
    * This structure is introduced for efficient lookup.
    */
   public static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
+    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+      (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
+    ),
   );
 
   /**
@@ -661,12 +663,11 @@ export class CommonService implements ICommonService {
    * and returns the corresponding paymaster information if eligible.
    *
    * The method performs the following checks in order:
-   * 1. If the default paymaster feature is enabled and the provided `toAddress` is whitelisted (or a wildcard `*`
+   * 1. If a specific paymaster is mapped to the given `toAddress` in the `PAYMASTER_ACCOUNTS_WHITELISTS_MAP`,
+   *    the corresponding account details are retrieved from `PAYMASTER_ACCOUNTS_MAP` and returned. A specific paymaster
+   *    can NOT be used for contract deployment.
+   * 2. If the default paymaster feature is enabled and the provided `toAddress` is whitelisted (or a wildcard `*`
    *    is present), it returns the main operator paymaster configuration.
-   * 2. If `toAddress` is `null`, it is treated as a contract deployment and no dedicated paymaster is applied,
-   *    returning `null`.
-   * 3. If a specific paymaster is mapped to the given `toAddress` in the `PAYMASTER_ACCOUNTS_WHITELISTS_MAP`,
-   *    the corresponding account details are retrieved from `PAYMASTER_ACCOUNTS_MAP` and returned.
    *
    * @param toAddress - The destination address of the transaction. If `null`, it is assumed to be a contract deployment.
    *
@@ -679,6 +680,23 @@ export class CommonService implements ICommonService {
   public static getPaymasterIfTxCanBeSubsidized(
     toAddress: string | null,
   ): { accountId: string; gasAllowance: number } | null {
+    // handle paymaster accounts
+    if (toAddress) {
+      const paymasterAccountId = CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.get(
+        prepend0x(toAddress.toLowerCase()),
+      );
+      if (paymasterAccountId) {
+        const paymasterAccount = CommonService.PAYMASTER_ACCOUNTS_MAP.get(paymasterAccountId);
+        if (paymasterAccount) {
+          const [accountId, , , gasAllowance] = paymasterAccount;
+          return {
+            accountId,
+            gasAllowance,
+          };
+        }
+      }
+    }
+
     // handle default paymaster functionality
     if (ConfigService.get('PAYMASTER_ENABLED')) {
       const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
@@ -693,25 +711,6 @@ export class CommonService implements ICommonService {
       }
     }
 
-    // handle contract deployment
-    if (!toAddress) {
-      return null;
-    }
-
-    // handle paymaster accounts
-    const paymasterAccountId = CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.get(prepend0x(toAddress.toLowerCase()));
-    if (!paymasterAccountId) {
-      return null;
-    }
-    const paymasterAccount = CommonService.PAYMASTER_ACCOUNTS_MAP.get(paymasterAccountId);
-    if (!paymasterAccount) {
-      return null;
-    }
-    const [accountId, , , gasAllowance] = paymasterAccount;
-
-    return {
-      accountId,
-      gasAllowance: Number(gasAllowance),
-    };
+    return null;
   }
 }
