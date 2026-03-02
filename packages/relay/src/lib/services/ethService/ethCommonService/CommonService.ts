@@ -680,16 +680,17 @@ export class CommonService implements ICommonService {
     toAddress: string | null,
   ): { accountId: string; gasAllowance: number } | null {
     // handle default paymaster functionality
-    const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
-    if (
-      ConfigService.get('PAYMASTER_ENABLED') &&
-      (paymasterWhitelist.includes('*') ||
-        (toAddress && paymasterWhitelist.includes(prepend0x(toAddress.toLowerCase()))))
-    ) {
-      return {
-        accountId: ConfigService.get('OPERATOR_ID_MAIN')!,
-        gasAllowance: ConfigService.get('MAX_GAS_ALLOWANCE_HBAR')!,
-      };
+    if (ConfigService.get('PAYMASTER_ENABLED')) {
+      const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+      if (
+        paymasterWhitelist.includes('*') ||
+        (toAddress && paymasterWhitelist.includes(prepend0x(toAddress.toLowerCase())))
+      ) {
+        return {
+          accountId: ConfigService.get('OPERATOR_ID_MAIN')!,
+          gasAllowance: ConfigService.get('MAX_GAS_ALLOWANCE_HBAR')!,
+        };
+      }
     }
 
     // handle contract deployment
