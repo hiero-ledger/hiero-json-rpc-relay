@@ -210,35 +210,31 @@ describe('TransactionPoolService Test Suite', function () {
       expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
     });
 
-    it('should rethrow storage errors when fallbackToZero is false', async () => {
-      const storageError = new Error('Storage lookup failed');
-      mockStorage.getList.rejects(storageError);
-
-      try {
-        await transactionPoolService.getPendingCount(testAddress, false);
-        expect.fail('Expected error to be thrown');
-      } catch (error) {
-        expect(error).to.equal(storageError);
-      }
-
-      expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
-    });
-
-    it('should return 0 on storage error when fallbackToZero is true', async () => {
+    it('should return fallback value on storage error when fallbackValue is provided', async () => {
       const storageError = new Error('Redis connection refused');
       mockStorage.getList.rejects(storageError);
 
-      const result = await transactionPoolService.getPendingCount(testAddress, true);
+      const result = await transactionPoolService.getPendingCount(testAddress, 1);
+
+      expect(result).to.equal(1);
+      expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
+    });
+
+    it('should return 0 as fallback when fallbackValue is 0', async () => {
+      const storageError = new Error('Redis connection refused');
+      mockStorage.getList.rejects(storageError);
+
+      const result = await transactionPoolService.getPendingCount(testAddress, 0);
 
       expect(result).to.equal(0);
       expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
     });
 
-    it('should return normal count when fallbackToZero is true and storage succeeds', async () => {
+    it('should return normal count when fallbackValue is provided and storage succeeds', async () => {
       const pendingCount = 3;
       mockStorage.getList.resolves(pendingCount);
 
-      const result = await transactionPoolService.getPendingCount(testAddress, true);
+      const result = await transactionPoolService.getPendingCount(testAddress, 1);
 
       expect(result).to.equal(pendingCount);
       expect(mockStorage.getList.calledOnceWith(testAddress.toLowerCase())).to.be.true;
