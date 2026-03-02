@@ -29,7 +29,7 @@ import { Logger } from 'pino';
 
 import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
 import { Utils } from '../../utils';
-import { CommonService } from '../services';
+import { CommonService, PaymasterAccount } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';
 import constants from './../constants';
@@ -105,7 +105,7 @@ export class SDKClient {
    */
   private initPaymastersClients(): void {
     this.paymasterClients = new Map(
-      (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+      (ConfigService.get('PAYMASTER_ACCOUNTS') as PaymasterAccount).map(
         (acc) =>
           [
             acc[0],
