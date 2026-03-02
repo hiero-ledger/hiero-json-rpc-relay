@@ -17,6 +17,8 @@ import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../ty
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
+export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
+
 /**
  * Create a new Common Service implementation.
  * @param mirrorNodeClient
@@ -59,6 +61,36 @@ export class CommonService implements ICommonService {
   private static getLogsBlockRangeLimit() {
     return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
+
+  /**
+   * A map of paymaster accounts keyed by their unique account identifier.
+   *
+   * The map is built from the `PAYMASTER_ACCOUNTS` configuration entry, which is expected to be an array of tuples
+   * in the form: `[accountId: string, account: PaymasterAccount]`.
+   *
+   * This structure is introduced for efficient lookup.
+   */
+  public static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
+    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+      (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
+    ),
+  );
+
+  /**
+   * A reverse lookup map that associates whitelisted wallet addresses with their corresponding paymaster account IDs.
+   *
+   * The map is derived from the `PAYMASTER_ACCOUNTS_WHITELISTS` configuration, which is expected to be an array
+   * of tuples: `[accountId: string, whitelist: string[]]`.
+   *
+   * Each address is normalized to lowercase to ensure case-insensitive matching.
+   *
+   * This structure is introduced for efficient lookup.
+   */
+  public static readonly PAYMASTER_ACCOUNTS_WHITELISTS_MAP: Map<string, string> = new Map(
+    (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
+      whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
+    ),
+  );
 
   constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
     this.mirrorNodeClient = mirrorNodeClient;
@@ -627,20 +659,58 @@ export class CommonService implements ICommonService {
   }
 
   /**
-   * Determines whether a given transaction qualifies as a subsidized transaction. The method checks if the paymaster
-   * FF is enabled and whether the provided `toAddress` is included in the paymaster whitelist. A wildcard `'*'`in
-   * the whitelist indicates all addresses are eligible.
+   * Determines whether a transaction can be subsidized by a dedicated paymaster
+   * and returns the corresponding paymaster information if eligible.
    *
-   * @param toAddress string | null
-   * @returns boolean
+   * The method performs the following checks in order:
+   * 1. If a specific paymaster is mapped to the given `toAddress` in the `PAYMASTER_ACCOUNTS_WHITELISTS_MAP`,
+   *    the corresponding account details are retrieved from `PAYMASTER_ACCOUNTS_MAP` and returned. A specific paymaster
+   *    can NOT be used for contract deployment.
+   * 2. If the default paymaster feature is enabled and the provided `toAddress` is whitelisted (or a wildcard `*`
+   *    is present), it returns the main operator paymaster configuration.
+   *
+   * @param toAddress - The destination address of the transaction. If `null`, it is assumed to be a contract deployment.
+   *
+   * @returns An object containing:
+   * - `accountId`: The paymaster account ID to be used for subsidizing gas.
+   * - `gasAllowance`: The maximum gas allowance (in HBAR) provided by the paymaster.
+   *
+   * Returns `null` if the transaction is not eligible for paymaster subsidization.
    */
-  public static isSubsidizedTransaction(toAddress: string | null): boolean {
-    const payMasterWhiteList = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+  public static getPaymasterIfTxCanBeSubsidized(
+    toAddress: string | null,
+  ): { accountId: string; gasAllowance: number } | null {
+    // handle paymaster accounts
+    if (toAddress) {
+      const paymasterAccountId = CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.get(
+        prepend0x(toAddress.toLowerCase()),
+      );
+      if (paymasterAccountId) {
+        const paymasterAccount = CommonService.PAYMASTER_ACCOUNTS_MAP.get(paymasterAccountId);
+        if (paymasterAccount) {
+          const [accountId, , , gasAllowance] = paymasterAccount;
+          return {
+            accountId,
+            gasAllowance,
+          };
+        }
+      }
+    }
 
-    return !!(
-      ConfigService.get('PAYMASTER_ENABLED') &&
-      (payMasterWhiteList.includes('*') ||
-        (toAddress && payMasterWhiteList.includes(prepend0x(toAddress.toLowerCase()))))
-    );
+    // handle default paymaster functionality
+    if (ConfigService.get('PAYMASTER_ENABLED')) {
+      const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+      if (
+        paymasterWhitelist.includes('*') ||
+        (toAddress && paymasterWhitelist.includes(prepend0x(toAddress.toLowerCase())))
+      ) {
+        return {
+          accountId: ConfigService.get('OPERATOR_ID_MAIN')!,
+          gasAllowance: ConfigService.get('MAX_GAS_ALLOWANCE_HBAR')!,
+        };
+      }
+    }
+
+    return null;
   }
 }

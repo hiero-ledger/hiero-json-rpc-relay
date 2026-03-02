@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import { CommonService, PaymasterAccount } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '@hashgraph/sdk';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
@@ -650,5 +651,34 @@ export class Utils {
     power = Math.min(power, units.length - 1);
     const size = Math.abs(bytes) / Math.pow(1000, power);
     return `${prefix} ${size.toFixed(2)} ${units[power]}`;
+  }
+
+  /**
+   * Reloads all paymaster-related static configuration maps from `ConfigService`.
+   *
+   * In production, these static maps (`PAYMASTER_ACCOUNTS_WHITELISTS_MAP`, `PAYMASTER_ACCOUNTS_MAP`,
+   * `PAYMASTER_WHITELIST`, `PAYMASTER_ENABLED`) are treated as immutable after initial application bootstrap and
+   * mutating them at runtime via changing env is impossible because they are initialized immediately when the module
+   * is loaded.
+   *
+   * During testing, we need to override configuration values dynamically. This helper reconstructs the static maps
+   * and arrays from the current `ConfigService` state, allowing tests to inject custom configurations without
+   * restarting the application.
+   */
+  public static reloadPaymasterConfigs() {
+    const { relayImpl } = global;
+
+    // @ts-ignore
+    CommonService.PAYMASTER_ACCOUNTS_MAP = new Map(
+      (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
+    );
+    // @ts-ignore
+    CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP = new Map(
+      (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
+        whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
+      ),
+    );
+    // @ts-ignore
+    relayImpl.ethImpl.transactionService.hapiService.client.initPaymastersClients();
   }
 }

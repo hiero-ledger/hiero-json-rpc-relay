@@ -23,7 +23,7 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigServiceTestHelper } from '../../../config-service/tests/configServiceTestHelper';
-import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../../relay/tests/helpers';
+import { overrideEnvsInMochaDescribe } from '../../../relay/tests/helpers';
 import basicContract from '../../tests/contracts/Basic.json';
 import RelayCalls from '../../tests/helpers/constants';
 import MirrorClient from '../clients/mirrorClient';
@@ -2178,61 +2178,75 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       describe('Check subsidizing gas fees', async function () {
-        withOverriddenEnvsInMochaTest(
-          {
-            PAYMASTER_ENABLED: true,
-            PAYMASTER_WHITELIST: ['*'],
-            MAX_GAS_ALLOWANCE_HBAR: 100,
-          },
-          () => {
-            it('should execute a pre EIP-1559 transaction with "eth_sendRawTransaction" and pays the total amount of the fees on behalf of the sender', async function () {
-              const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
+        let paymasterEnabledBefore, paymasterWhitelistBefore, maxGasAllowanceHbarBefore;
+        before(async () => {
+          paymasterEnabledBefore = ConfigService.get('PAYMASTER_ENABLED');
+          paymasterWhitelistBefore = ConfigService.get('PAYMASTER_WHITELIST');
+          maxGasAllowanceHbarBefore = ConfigService.get('MAX_GAS_ALLOWANCE_HBAR');
+        });
 
-              const transaction = {
-                type: 1,
-                chainId: Number(CHAIN_ID),
-                nonce: await relay.getAccountNonce(accounts[2].wallet.address),
-                gasPrice: 0,
-                gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-                data: '0x00',
-              };
-              const signedTx = await accounts[2].wallet.signTransaction(transaction);
-              const transactionHash = await relay.sendRawTransaction(signedTx);
-              const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-              expect(info).to.have.property('contract_id');
-              expect(info.contract_id).to.not.be.null;
-              expect(info).to.have.property('created_contract_ids');
-              expect(info.created_contract_ids.length).to.be.equal(1);
+        after(() => {
+          ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', paymasterEnabledBefore);
+          ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', paymasterWhitelistBefore);
+          ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', maxGasAllowanceHbarBefore);
+          Utils.reloadPaymasterConfigs();
+        });
 
-              const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
-              expect(balanceAfter).to.be.equal(balanceBefore);
-            });
+        const configurePaymaster = (enabled: boolean, whitelist: string[], allowance: number) => {
+          ConfigServiceTestHelper.dynamicOverride('PAYMASTER_ENABLED', enabled);
+          ConfigServiceTestHelper.dynamicOverride('PAYMASTER_WHITELIST', whitelist);
+          ConfigServiceTestHelper.dynamicOverride('MAX_GAS_ALLOWANCE_HBAR', allowance);
+          Utils.reloadPaymasterConfigs();
+        };
 
-            it('should execute a post EIP-1559 transaction with "eth_sendRawTransaction" and pays the total amount of the fees on behalf of the sender', async function () {
-              const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
+        it('should execute a pre EIP-1559 transaction with "eth_sendRawTransaction" and pays the total amount of the fees on behalf of the sender', async function () {
+          configurePaymaster(true, ['*'], 100);
+          const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
 
-              const transaction = {
-                type: 2,
-                chainId: Number(CHAIN_ID),
-                nonce: await relay.getAccountNonce(accounts[2].wallet.address),
-                maxPriorityFeePerGas: 0,
-                maxFeePerGas: 0,
-                gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
-                data: '0x00',
-              };
-              const signedTx = await accounts[2].wallet.signTransaction(transaction);
-              const transactionHash = await relay.sendRawTransaction(signedTx);
-              const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
-              expect(info).to.have.property('contract_id');
-              expect(info.contract_id).to.not.be.null;
-              expect(info).to.have.property('created_contract_ids');
-              expect(info.created_contract_ids.length).to.be.equal(1);
+          const transaction = {
+            type: 1,
+            chainId: Number(CHAIN_ID),
+            nonce: await relay.getAccountNonce(accounts[2].wallet.address),
+            gasPrice: 0,
+            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            data: '0x00',
+          };
+          const signedTx = await accounts[2].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.have.property('contract_id');
+          expect(info.contract_id).to.not.be.null;
+          expect(info).to.have.property('created_contract_ids');
+          expect(info.created_contract_ids.length).to.be.equal(1);
 
-              const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
-              expect(balanceAfter).to.be.equal(balanceBefore);
-            });
-          },
-        );
+          const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
+          expect(balanceAfter).to.be.equal(balanceBefore);
+        });
+
+        it('should execute a post EIP-1559 transaction with "eth_sendRawTransaction" and pays the total amount of the fees on behalf of the sender', async function () {
+          configurePaymaster(true, ['*'], 100);
+          const balanceBefore = await relay.getBalance(accounts[2].wallet.address, 'latest');
+
+          const transaction = {
+            type: 2,
+            chainId: Number(CHAIN_ID),
+            nonce: await relay.getAccountNonce(accounts[2].wallet.address),
+            maxPriorityFeePerGas: 0,
+            maxFeePerGas: 0,
+            gasLimit: Constants.MAX_TRANSACTION_FEE_THRESHOLD,
+            data: '0x00',
+          };
+          const signedTx = await accounts[2].wallet.signTransaction(transaction);
+          const transactionHash = await relay.sendRawTransaction(signedTx);
+          const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+          expect(info).to.have.property('contract_id');
+          expect(info.contract_id).to.not.be.null;
+          expect(info).to.have.property('created_contract_ids');
+          expect(info.created_contract_ids.length).to.be.equal(1);
+
+          const balanceAfter = await relay.getBalance(accounts[2].wallet.address, 'latest');
+          expect(balanceAfter).to.be.equal(balanceBefore);
+        });
       });
 
       describe('Prechecks', async function () {

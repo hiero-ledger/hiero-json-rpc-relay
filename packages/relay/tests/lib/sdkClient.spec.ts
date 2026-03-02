@@ -650,6 +650,8 @@ describe('SdkClient', async function () {
             requestDetails,
             true,
             randomAccountAddress,
+            undefined,
+            sdkClient.clientMain,
           ),
         ).to.be.true;
 
