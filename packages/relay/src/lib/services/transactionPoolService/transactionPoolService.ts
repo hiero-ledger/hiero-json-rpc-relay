@@ -184,11 +184,12 @@ export class TransactionPoolService implements ITransactionPoolService {
    * Retrieves the number of pending transactions for a given address.
    *
    * @param address - The account address to query.
-   * @param fallbackToZero - When true, returns 0 instead of throwing on storage errors.
+   * @param fallbackValue - When provided, returns this value instead of throwing on storage errors.
+   *                        When undefined (default), errors propagate to the caller.
    * @returns A promise that resolves to the number of pending transactions.
    *          Returns 0 if the transaction pool is disabled.
    */
-  async getPendingCount(address: string, fallbackToZero = false): Promise<number> {
+  async getPendingCount(address: string, fallbackValue?: number): Promise<number> {
     if (!TransactionPoolService.isEnabled()) {
       return 0;
     }
@@ -198,9 +199,9 @@ export class TransactionPoolService implements ITransactionPoolService {
     try {
       return await this.storage.getList(addressLowerCased);
     } catch (error) {
-      if (fallbackToZero) {
-        this.logger.warn(error, 'Redis unavailable for getPendingCount, falling back to 0');
-        return 0;
+      if (fallbackValue !== undefined) {
+        this.logger.warn(error, `Redis unavailable for getPendingCount, falling back to ${fallbackValue}`);
+        return fallbackValue;
       }
       this.logger.error({ address, error: (error as Error).message }, 'Failed to get pending count');
       this.storageErrorsCounter.labels('get', this.storageType).inc();

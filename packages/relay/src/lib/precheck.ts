@@ -98,7 +98,7 @@ export class Precheck {
     // We expect this check to be executed against a transaction that is already
     // in the TxPool, which is why we subtract 1 from the TxPool size, to avoid
     // counting it twice.
-    const pendingTransactions = await this.transactionPoolService.getPendingCount(parsedTx.from!, true);
+    const pendingTransactions = await this.transactionPoolService.getPendingCount(parsedTx.from!, 1);
     const signerNonce = mirrorAccountInfo.ethereum_nonce + pendingTransactions - 1;
     this.nonce(parsedTx, signerNonce);
     this.balance(parsedTx, mirrorAccountInfo.balance);
