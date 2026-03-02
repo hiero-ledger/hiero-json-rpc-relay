@@ -47,11 +47,7 @@ export const NOT_SUPPORTED_SKIP_LIST = [
   'eth_newPendingTransactionFilter',
 ];
 
-// Methods that we will support, but we do not yet, due to prioritization. Skip always.
 export const NOT_YET_IMPLEMENTED_SKIP_LIST = [
-  'debug_getRawHeader',
-  'debug_getRawReceipts',
-  'debug_getRawTransaction',
 ];
 
 // Methods that we will support, but we do not yet, because the fork or API is not yet supported. Skip always.

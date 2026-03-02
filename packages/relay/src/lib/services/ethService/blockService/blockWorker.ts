@@ -22,6 +22,7 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
+import { IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { CommonService } from '../ethCommonService/CommonService';
 
@@ -336,27 +337,10 @@ export async function getBlockReceipts(
   requestDetails: RequestDetails,
 ): Promise<ITransactionReceipt[] | null> {
   try {
-    const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+    const { block, contractResults, logsByHash } = await loadBlockExecutionData(blockHashOrBlockNumber, requestDetails);
+    if (!block) return null;
 
-    if (block == null) {
-      return null;
-    }
-
-    const paramTimestamp: IContractResultsParams = {
-      timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
-    };
-
-    // Calculate slice count based on actual transaction count for optimized parallel log retrieval
-    const calculatedSliceCount = Math.ceil(
-      block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'),
-    );
-
-    const [contractResults, logs] = await Promise.all([
-      mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-      commonService.getLogsWithParams(null, paramTimestamp, requestDetails, calculatedSliceCount),
-    ]);
-
-    if ((!contractResults || contractResults.length === 0) && logs.length == 0) {
+    if ((!contractResults || contractResults.length === 0) && logsByHash.size === 0) {
       return [];
     }
 
@@ -364,13 +348,6 @@ export async function getBlockReceipts(
     const effectiveGas = numberTo0x(
       await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
-
-    const logsByHash = new Map<string, Log[]>();
-    for (const log of logs) {
-      const existingLogs = logsByHash.get(log.transactionHash) || [];
-      existingLogs.push(log);
-      logsByHash.set(log.transactionHash, existingLogs);
-    }
 
     const receiptPromises = contractResults.map(async (contractResult) => {
       if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
@@ -399,7 +376,7 @@ export async function getBlockReceipts(
     });
 
     const resolvedReceipts = await Promise.all(receiptPromises);
-    receipts.push(...resolvedReceipts.filter(Boolean));
+    receipts.push(...resolvedReceipts.filter((r): r is ITransactionReceipt => r !== null));
 
     const regularTxHashes = new Set(contractResults.map((result) => result.hash));
 
@@ -418,6 +395,164 @@ export async function getBlockReceipts(
   } catch (e: unknown) {
     throw WorkersPool.wrapError(e);
   }
+}
+
+/**
+ * Returns RLP-encoded transaction receipts for a block as hex strings.
+ *
+ * Loads block execution data (contract results and logs), then for each contract result
+ * builds a receipt (with logs and cumulative gas), encodes it to RLP hex, and skips
+ * results that fail Hedera-specific validation. Also appends synthetic receipts for
+ * log groups that have no matching contract result.
+ *
+ * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
+ * @param requestDetails - The request details for logging and tracking
+ * @returns Promise of an array of hex-encoded receipt strings (RLP), or empty array if
+ *   the block has no contract results and no logs. Re-throws errors wrapped with
+ *   {@link WorkersPool.wrapError}.
+ */
+export async function getRawReceipts(
+  blockHashOrBlockNumber: string,
+  requestDetails: RequestDetails,
+): Promise<string[]> {
+  try {
+    const { block, contractResults, logsByHash } = await loadBlockExecutionData(blockHashOrBlockNumber, requestDetails);
+    if (!block || ((!contractResults || contractResults.length === 0) && logsByHash.size === 0)) {
+      return [];
+    }
+
+    let blockGasUsedBeforeTransaction = 0;
+    const encodedReceipts = contractResults
+      .map((contractResult) => {
+        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
+          logger.debug(
+            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+            contractResult.hash,
+            contractResult.result,
+          );
+          return null;
+        }
+
+        const logs = logsByHash.get(contractResult.hash) || [];
+
+        const receiptRlpInput = createReceiptRlpInput(logs, contractResult, blockGasUsedBeforeTransaction);
+        blockGasUsedBeforeTransaction += contractResult.gas_used;
+        return TransactionReceiptFactory.encodeReceiptToHex(receiptRlpInput);
+      })
+      .filter((encodedReceipt): encodedReceipt is string => encodedReceipt !== null);
+
+    const regularTxHashes = new Set(contractResults.map((result) => result.hash));
+
+    // filtering out the synthetic tx hashes and creating the synthetic receipt
+    for (const [txHash, logGroup] of logsByHash.entries()) {
+      if (!regularTxHashes.has(txHash)) {
+        const syntheticReceiptRlpInput = createSyntheticReceiptRlpInput(logGroup);
+        encodedReceipts.push(TransactionReceiptFactory.encodeReceiptToHex(syntheticReceiptRlpInput));
+      }
+    }
+
+    return encodedReceipts;
+  } catch (e: unknown) {
+    throw WorkersPool.wrapError(e);
+  }
+}
+
+/**
+ * Loads block metadata plus execution data (contract results and logs) for a given block.
+ *
+ * Fetches the block by hash or number, then in parallel loads contract results and logs
+ * for the block's timestamp range. Logs are grouped by transaction hash for quick lookup.
+ *
+ * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
+ * @param requestDetails - The request details for logging and tracking
+ * @returns Promise resolving to `{ block, contractResults, logsByHash }`. If the block is
+ *   not found, returns `{ block: null, contractResults: [], logsByHash: new Map() }`.
+ *   - `block`: The mirror node block or null
+ *   - `contractResults`: Contract results in the block's time range
+ *   - `logsByHash`: Map of transaction hash → log entries for that tx
+ */
+async function loadBlockExecutionData(
+  blockHashOrBlockNumber: string,
+  requestDetails: RequestDetails,
+): Promise<{
+  block: MirrorNodeBlock | null;
+  contractResults: any[];
+  logsByHash: Map<string, Log[]>;
+}> {
+  const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+  if (!block) return { block: null, contractResults: [], logsByHash: new Map() };
+
+  const paramTimestamp: IContractResultsParams = {
+    timestamp: [`lte:${block.timestamp.to}`, `gte:${block.timestamp.from}`],
+  };
+
+  const sliceCount = Math.ceil(block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'));
+
+  const [contractResults, logs] = await Promise.all([
+    mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
+    commonService.getLogsWithParams(null, paramTimestamp, requestDetails, sliceCount),
+  ]);
+
+  const logsByHash = new Map<string, Log[]>();
+  for (const log of logs) {
+    const existingLogs = logsByHash.get(log.transactionHash) || [];
+    existingLogs.push(log);
+    logsByHash.set(log.transactionHash, existingLogs);
+  }
+  return { block, contractResults, logsByHash };
+}
+
+/**
+ * Creates a minimal receipt payload for RLP-encoding of a regular transaction.
+ *
+ * Builds an `IReceiptRlpInput` from mirror node contract result data and the
+ * running cumulative gas used before this transaction. The returned shape
+ * contains only the fields required for Yellow Paper receipt encoding, including the updated cumulative gas used,
+ * logs and bloom, root and status, transaction index, and normalized type.
+ * @param params - Parameters required to build the RLP input, including
+ *   contract result data, associated logs, and the cumulative gas used prior
+ *   to this transaction.
+ * @returns Minimal receipt data suitable for RLP encoding.
+ */
+function createReceiptRlpInput(
+  logs: Log[],
+  receiptResponse: any,
+  blockGasUsedBeforeTransaction: number,
+): IReceiptRlpInput {
+  return {
+    cumulativeGasUsed: numberTo0x(blockGasUsedBeforeTransaction + receiptResponse.gas_used),
+    logs: logs,
+    logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
+    root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,
+    status: receiptResponse.status,
+    transactionIndex: numberTo0x(receiptResponse.transaction_index),
+    type: nanOrNumberTo0x(receiptResponse.type),
+  };
+}
+
+/**
+ * Creates a minimal receipt payload for RLP-encoding of a synthetic transaction.
+ *
+ * Builds an `IReceiptRlpInput` from synthetic logs only, without resolving any
+ * addresses or constructing a full `ITransactionReceipt`. The returned shape
+ * contains the fields required for Yellow Paper receipt encoding, including a zero
+ * cumulative gas used, zero gas used, a logs bloom computed from the first
+ * synthetic log, default root and status values, the transaction index from
+ * the first log, and a fallback type of `0x0`.
+ *
+ * @param syntheticLogs - Logs belonging to the synthetic transaction.
+ * @returns Minimal receipt data suitable for RLP encoding.
+ */
+function createSyntheticReceiptRlpInput(syntheticLogs: Log[]): IReceiptRlpInput {
+  return {
+    cumulativeGasUsed: constants.ZERO_HEX,
+    logs: syntheticLogs,
+    logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
+    root: constants.DEFAULT_ROOT_HASH,
+    status: constants.ONE_HEX,
+    transactionIndex: syntheticLogs[0].transactionIndex,
+    type: constants.ZERO_HEX, // fallback to 0x0 from HAPI transactions
+  };
 }
 
 // export private methods under __test__ "namespace" but using const

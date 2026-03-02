@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import EventEmitter from 'events';
 import type { Logger } from 'pino';
+import { Registry } from 'prom-client';
 
 import {
   decodeErrorMessage,
@@ -24,7 +26,16 @@ import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators
 import { predefined } from './errors/JsonRpcError';
 import { BlockFactory } from './factories/blockFactory';
 import { Block } from './model';
-import { BlockService, CommonService, IBlockService } from './services';
+import {
+  BlockService,
+  CommonService,
+  IBlockService,
+  LockService,
+  TransactionPoolService,
+  TransactionService,
+} from './services';
+import { ITransactionService } from './services/ethService/transactionService/ITransactionService';
+import HAPIService from './services/hapiService/hapiService';
 import {
   BlockTracerConfig,
   CallTracerResult,
@@ -36,6 +47,7 @@ import {
   TraceBlockTxResult,
   TransactionTracerConfig,
   TxHashToContractResultOrActionsMap,
+  TypedEvents,
 } from './types';
 import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
@@ -83,6 +95,12 @@ export class DebugImpl implements Debug {
   private readonly blockService: IBlockService;
 
   /**
+   * The Transaction Service implementation that handles all transaction-related operations.
+   * @private
+   */
+  private readonly transactionService: ITransactionService;
+
+  /**
    * Creates an instance of DebugImpl.
    *
    * @constructor
@@ -91,12 +109,33 @@ export class DebugImpl implements Debug {
    * @param {ICacheClient} cacheService - Service for managing cached data.
    * @param {string} chainId - The chain identifier for the current blockchain environment.
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient, chainId: string) {
+  constructor(
+    mirrorNodeClient: MirrorNodeClient,
+    logger: Logger,
+    cacheService: ICacheClient,
+    chainId: string,
+    hapiService: HAPIService,
+    transactionPoolService: TransactionPoolService,
+    lockService: LockService,
+    registry: Registry,
+  ) {
     this.logger = logger;
     this.common = new CommonService(mirrorNodeClient, logger, cacheService);
     this.mirrorNodeClient = mirrorNodeClient;
     this.cacheService = cacheService;
     this.blockService = new BlockService(cacheService, chainId, this.common, mirrorNodeClient, logger);
+    this.transactionService = new TransactionService(
+      cacheService,
+      chainId,
+      this.common,
+      new EventEmitter<TypedEvents>(),
+      hapiService,
+      logger,
+      mirrorNodeClient,
+      transactionPoolService,
+      lockService,
+      registry,
+    );
   }
 
   /**
@@ -339,6 +378,68 @@ export class DebugImpl implements Debug {
   async getBadBlocks(): Promise<[]> {
     DebugImpl.requireDebugAPIEnabled();
     return [];
+  }
+
+  /**
+   * Returns an array of EIP-2718 binary-encoded receipts.
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawReceipts RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} blockHashOrNumber - The block hash or block number.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs.
+   * @returns {Promise<string[]>} A Promise that resolves to an array of EIP-2718 binary-encoded receipts or empty array if block not found.
+   *
+   * @example
+   * const result = await getRawReceipts('0x1234', requestDetails);
+   * // result: ["0xe6808...", "0xe6809..."]
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: ['blockNumber', 'blockHash'], required: true },
+  })
+  @cache({
+    skipParams: [{ index: '0', value: constants.NON_CACHABLE_BLOCK_PARAMS }],
+  })
+  async getRawReceipts(blockHashOrNumber: string, requestDetails: RequestDetails): Promise<string[]> {
+    DebugImpl.requireDebugAPIEnabled();
+    return await this.blockService.getRawReceipts(blockHashOrNumber, requestDetails);
+  }
+
+  /**
+   * Returns the RLP-encoded transaction for the given transaction hash.
+   * Reuses the same data-fetching and synthetic transaction handling approach as
+   * {@link TransactionService.getTransactionByHash}, but instead of returning a
+   * Transaction model, reconstructs the signed transaction and returns its RLP-encoded form.
+   * For transactions not found, returns "0x".
+   *
+   * @async
+   * @rpcMethod Exposed as debug_getRawTransaction RPC endpoint
+   * @rpcParamValidationRules Applies JSON-RPC parameter validation according to the API specification
+   *
+   * @param {string} transactionHash - The hash of the transaction to retrieve.
+   * @param {RequestDetails} requestDetails - The request details for logging and tracking.
+   * @throws {Error} Throws an error if the debug API is not enabled or if an exception occurs.
+   * @returns {Promise<string>} A Promise that resolves to the RLP-encoded transaction, or "0x" if not found.
+   *
+   * @example
+   * const result = await getRawTransaction('0x4c4ef2a33ac952fab10bd9b1433486ee1258c5cb56700f98a9a6f45751db5d19', requestDetails);
+   * // result: "0xe6808..."
+   */
+  @rpcMethod
+  @rpcParamValidationRules({
+    0: { type: 'transactionHash', required: true },
+  })
+  @cache()
+  async getRawTransaction(transactionHash: string, requestDetails: RequestDetails): Promise<string> {
+    DebugImpl.requireDebugAPIEnabled();
+    const tx = await this.transactionService.getTransactionByHash(transactionHash, requestDetails);
+    if (!tx) {
+      return '0x';
+    }
+    return BlockFactory.rlpEncodeTx(tx);
   }
 
   /**

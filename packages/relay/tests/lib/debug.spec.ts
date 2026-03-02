@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import MockAdapter from 'axios-mock-adapter';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { ethers } from 'ethers';
 import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import sinon from 'sinon';
@@ -38,7 +39,7 @@ let debugService: DebugImpl;
 
 describe('Debug API Test Suite', async function () {
   this.timeout(10000);
-  const { cacheService } = generateEthTestEnv(true);
+  const { cacheService, hapiServiceInstance, transactionPoolService, lockService } = generateEthTestEnv(true);
   const requestDetails = new RequestDetails({ requestId: 'debugTest', ipAddress: '0.0.0.0' });
   const transactionHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
   const nonExistentTransactionHash = '0xb8a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
@@ -397,7 +398,16 @@ describe('Debug API Test Suite', async function () {
     web3Mock = new MockAdapter(mirrorNodeInstance.getMirrorNodeWeb3Instance(), { onNoMatch: 'throwException' });
 
     // Create the debug service
-    debugService = new DebugImpl(mirrorNodeInstance, logger, cacheService, ConfigService.get('CHAIN_ID'));
+    debugService = new DebugImpl(
+      mirrorNodeInstance,
+      logger,
+      cacheService,
+      ConfigService.get('CHAIN_ID'),
+      hapiServiceInstance,
+      transactionPoolService,
+      lockService,
+      registry,
+    );
   });
 
   this.beforeEach(() => {
@@ -2149,6 +2159,237 @@ describe('Debug API Test Suite', async function () {
     });
   });
 
+  describe('debug_getBadBlocks', async function () {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return an empty array', async function () {
+        const result = await debugService.getBadBlocks();
+        expect(result).to.deep.equal([]);
+      });
+    });
+
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getBadBlocks,
+            true,
+            debugService,
+            [],
+          );
+        });
+      }),
+    );
+  });
+
+  describe('debug_getRawReceipts', async function () {
+    beforeEach(() => {
+      sinon.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return an empty array if block not found', async function () {
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves([]);
+        const result = await debugService.getRawReceipts('0x1234', requestDetails);
+        expect(result).to.be.an('array').with.lengthOf(0);
+      });
+
+      it('should return an empty array if no receipts are found', async function () {
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves([]);
+        const result = await debugService.getRawReceipts('0x32026E', requestDetails);
+        expect(result).to.be.an('array').with.lengthOf(0);
+      });
+
+      it('should return raw receipts that match pre-captured debug_getRawReceipts payload for block 0x23592c0 from Monad Quicknode RPC', async function () {
+        const expectedRawReceipts = [
+          '0xf901c50180b9010000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000200000000000000000000000000000000000000000002000000000008000000000000000000000000020000000000000000000000000000000000000010000000000000000000000000000000000004000000000000000000400000000000000000000000000000000000000000000000000004000000010000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f8bef8bc940000000000000000000000000000000000001000f863a03a420a01486b6b28d6ae89c51f5c3bde3e0e74eecbb646a0c481ccba3aae3754a00000000000000000000000000000000000000000000000000000000000000056a00000000000000000000000006f49a8f621353f12378d0046e7d7e4b9b249dc9eb840000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002e6',
+          '0x02f90241018303a980b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000042000000000000000000f90136f89994368ee51e47a594fe1e9908b48228748a30bc7ca4e1a0f36866d965ee70c8632ff558f5cf8d41ee9ca1d0d0bc7700786e57be60747390b8600000000000000000000000000000000000000000000000000000003fb482bae245544800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000069208301f89994368ee51e47a594fe1e9908b48228748a30bc7ca4e1a0f36866d965ee70c8632ff558f5cf8d41ee9ca1d0d0bc7700786e57be60747390b860000000000000000000000000000000000000000000000000000007a4dfeb5fe242544300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000069208301',
+        ];
+
+        sinon.stub(debugService['blockService'], 'getRawReceipts').resolves(expectedRawReceipts);
+        const result = await debugService.getRawReceipts('0x23592c0', requestDetails);
+
+        expect(result).to.not.be.null;
+        expect(result).to.have.lengthOf(2);
+        expect(result).to.deep.equal(expectedRawReceipts);
+      });
+
+      ['earliest', 'latest', 'pending', 'finalized', 'safe'].forEach((blockTag) => {
+        const expectedRawReceipts = ['0x1234', '0x5678'];
+
+        it(`should return receipts if block tag ${blockTag} is passed`, async function () {
+          sinon.stub(debugService['blockService'], 'getRawReceipts').resolves(expectedRawReceipts);
+          const result = await debugService.getRawReceipts(blockTag, requestDetails);
+          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.deep.equal(expectedRawReceipts);
+        });
+      });
+    });
+
+    [undefined, false].forEach((debugApiEnabled) =>
+      withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: debugApiEnabled }, () => {
+        it('should throw UNSUPPORTED_METHOD', async function () {
+          await RelayAssertions.assertRejection(
+            predefined.UNSUPPORTED_METHOD,
+            debugService.getRawReceipts,
+            true,
+            debugService,
+            ['0x1234'],
+          );
+        });
+      }),
+    );
+  });
+
+  describe('debug_getRawTransaction', async function () {
+    const txHash = '0xb7a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca82';
+
+    // A type 2 (EIP-1559) transaction as returned by eth_getTransactionByHash
+    const mockTransaction1559 = {
+      blockHash: '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb06',
+      blockNumber: '0x29c',
+      chainId: '0x12a',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      gas: '0x493e0',
+      gasPrice: '0x47',
+      hash: txHash,
+      input: '0x01',
+      nonce: '0x0',
+      r: '0x617a994b794b634a59c000341b656be0fce142647de35c64d719b9a06b92506a',
+      s: '0x5033c9fe6227db7545e5bdc7133e36df4b49171b9c00cd3cc4e6f984c850d3e1',
+      to: '0x0000000000000000000000000000000000000409',
+      transactionIndex: '0x0',
+      type: '0x2',
+      v: '0x1',
+      value: '0x0',
+      maxFeePerGas: '0x47',
+      maxPriorityFeePerGas: '0x47',
+      accessList: [],
+      yParity: '0x1',
+    };
+
+    // A type 0 (legacy) transaction
+    const mockTransactionLegacy = {
+      blockHash: '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb06',
+      blockNumber: '0x29c',
+      chainId: '0x12a',
+      from: '0xc37f417fa09933335240fca72dd257bfbde9c275',
+      gas: '0x493e0',
+      gasPrice: '0x47',
+      hash: txHash,
+      input: '0x01',
+      nonce: '0x0',
+      r: '0x617a994b794b634a59c000341b656be0fce142647de35c64d719b9a06b92506a',
+      s: '0x5033c9fe6227db7545e5bdc7133e36df4b49171b9c00cd3cc4e6f984c850d3e1',
+      to: '0x0000000000000000000000000000000000000409',
+      transactionIndex: '0x0',
+      type: '0x0',
+      v: '0x277',
+      value: '0x0',
+    };
+
+    // Synthetic transaction (from createTransactionFromLog — has empty r/s)
+    const mockSyntheticTransaction = {
+      blockHash: '0xa4c97b684587a2f1fc42e14ae743c336b97c58f752790482d12e44919f2ccb06',
+      blockNumber: '0x29c',
+      chainId: '0x12a',
+      from: '0x0000000000000000000000000000000000000409',
+      gas: '0x3d090',
+      gasPrice: '0xfe',
+      hash: txHash,
+      input: '0x0000000000000000',
+      nonce: '0x0',
+      r: '0x',
+      s: '0x',
+      to: '0x0000000000000000000000000000000000000409',
+      transactionIndex: '0x0',
+      type: '0x0',
+      v: '0x0',
+      value: '0x0',
+      maxFeePerGas: '0x0',
+      maxPriorityFeePerGas: '0x0',
+      accessList: [],
+      yParity: '0x0',
+    };
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: undefined }, () => {
+      it('should throw UNSUPPORTED_METHOD when DEBUG_API_ENABLED is undefined', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.getRawTransaction,
+          true,
+          debugService,
+          [txHash, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: false }, () => {
+      it('should throw UNSUPPORTED_METHOD when DEBUG_API_ENABLED is false', async function () {
+        await RelayAssertions.assertRejection(
+          predefined.UNSUPPORTED_METHOD,
+          debugService.getRawTransaction,
+          true,
+          debugService,
+          [txHash, requestDetails],
+        );
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('should return "0x" when transaction is not found', async function () {
+        sinon.stub(debugService['transactionService'], 'getTransactionByHash').resolves(null);
+        const result = await debugService.getRawTransaction(txHash, requestDetails);
+        expect(result).to.equal('0x');
+      });
+
+      it('should return a value that can be decoded back to the original transaction fields', async function () {
+        sinon.stub(debugService['transactionService'], 'getTransactionByHash').resolves(mockTransaction1559);
+        const result = await debugService.getRawTransaction(txHash, requestDetails);
+
+        // Decode the RLP back using ethers to verify round-trip
+        const decoded = ethers.Transaction.from(result);
+        expect(decoded.to?.toLowerCase()).to.equal(mockTransaction1559.to.toLowerCase());
+        expect(decoded.nonce).to.equal(parseInt(mockTransaction1559.nonce, 16));
+        expect(decoded.type).to.equal(parseInt(mockTransaction1559.type, 16));
+        expect(decoded.data).to.equal(mockTransaction1559.input);
+        expect(decoded.value).to.equal(BigInt(mockTransaction1559.value));
+        expect(decoded.chainId).to.equal(BigInt(mockTransaction1559.chainId));
+      });
+
+      it('should return a value that can be decoded back for a legacy transaction', async function () {
+        sinon.stub(debugService['transactionService'], 'getTransactionByHash').resolves(mockTransactionLegacy);
+        const result = await debugService.getRawTransaction(txHash, requestDetails);
+
+        const decoded = ethers.Transaction.from(result);
+        expect(decoded.to?.toLowerCase()).to.equal(mockTransactionLegacy.to.toLowerCase());
+        expect(decoded.nonce).to.equal(parseInt(mockTransactionLegacy.nonce, 16));
+        expect(decoded.type).to.equal(0);
+        expect(decoded.gasPrice).to.equal(BigInt(mockTransactionLegacy.gasPrice));
+      });
+
+      it('should return a value that can be decoded back for a synthetic transaction', async function () {
+        sinon.stub(debugService['transactionService'], 'getTransactionByHash').resolves(mockSyntheticTransaction);
+        const result = await debugService.getRawTransaction(txHash, requestDetails);
+
+        const decoded = ethers.Transaction.from(result);
+        expect(decoded.to?.toLowerCase()).to.equal(mockSyntheticTransaction.to.toLowerCase());
+        expect(decoded.nonce).to.equal(parseInt(mockSyntheticTransaction.nonce, 16));
+        expect(decoded.type).to.equal(0);
+        expect(decoded.data).to.equal(mockSyntheticTransaction.input);
+        expect(decoded.value).to.equal(BigInt(mockSyntheticTransaction.value));
+        expect(decoded.chainId).to.equal(BigInt(mockSyntheticTransaction.chainId));
+        expect(decoded.maxFeePerGas).to.be.null;
+        expect(decoded.maxPriorityFeePerGas).to.be.null;
+        expect(decoded.signature).to.be.null;
+      });
+    });
+  });
+
   describe('prestateTracer', async function () {
     const mockTimestamp = '1696438011.462526383';
     const contractId = '0.0.1033';
@@ -2404,7 +2645,16 @@ describe('Debug API Test Suite', async function () {
 
       it('should return empty array when the transaction hash is not found', async function () {
         // Create a separate DebugImpl instance just for this test
-        const isolatedDebugService = new DebugImpl(mirrorNodeInstance, logger, cacheService);
+        const isolatedDebugService = new DebugImpl(
+          mirrorNodeInstance,
+          logger,
+          cacheService,
+          ConfigService.get('CHAIN_ID'),
+          hapiServiceInstance,
+          transactionPoolService,
+          lockService,
+          registry,
+        );
 
         // Mock the API calls for actions and contract result to return 404
         restMock.onGet(`contracts/results/${nonExistentTransactionHash}/actions`).reply(
