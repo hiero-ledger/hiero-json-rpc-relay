@@ -88,6 +88,8 @@ export function generateEthTestEnv(fixedFeeHistory = false) {
     restMock,
     web3Mock,
     hapiServiceInstance,
+    transactionPoolService,
+    lockService,
     ethImpl,
     logger,
     registry,
