@@ -3,13 +3,13 @@
 import { Logger } from 'pino';
 
 import { numberTo0x } from '../../../../formatters';
+import { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { Block } from '../../../model';
 import { ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { IBlockService, ICommonService } from '../../index';
 import { WorkersPool } from '../../workersService/WorkersPool';
-import { ICacheClient } from '../../../clients/cache/ICacheClient';
 
 export class BlockService implements IBlockService {
   /**
@@ -107,6 +107,25 @@ export class BlockService implements IBlockService {
     return WorkersPool.run(
       {
         type: 'getBlockReceipts',
+        blockHashOrBlockNumber,
+        requestDetails,
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
+  }
+
+  /**
+   * Gets the raw transaction receipts for a block by block hash or block number.
+   *
+   * @param {string} blockHashOrBlockNumber The block hash or block number
+   * @param {RequestDetails} requestDetails The request details for logging and tracking
+   * @returns {Promise<string[]>} Array of raw block receipts for the block
+   */
+  public async getRawReceipts(blockHashOrBlockNumber: string, requestDetails: RequestDetails): Promise<string[]> {
+    return WorkersPool.run(
+      {
+        type: 'getRawReceipts',
         blockHashOrBlockNumber,
         requestDetails,
       },

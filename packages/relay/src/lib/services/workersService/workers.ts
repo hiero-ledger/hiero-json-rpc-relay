@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RequestDetails } from '../../types';
-import { getBlock, getBlockReceipts } from '../ethService/blockService/blockWorker';
+import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';
 
 interface GetBlockTask {
@@ -28,7 +28,13 @@ interface GetLogsTask {
   requestDetails: RequestDetails;
 }
 
-type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask;
+interface GetRawReceiptsTask {
+  type: 'getRawReceipts';
+  blockHashOrBlockNumber: string;
+  requestDetails: RequestDetails;
+}
+
+type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | GetRawReceiptsTask;
 
 /**
  * Main worker export - handles different task types.
@@ -40,6 +46,8 @@ export default async function handleTask(task: WorkerTask): Promise<any> {
       return await getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
     case 'getBlockReceipts':
       return await getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+    case 'getRawReceipts':
+      return await getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
     case 'getLogs':
       return await getLogs(
         task.blockHash,
