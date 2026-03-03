@@ -24,6 +24,7 @@ import deployerContractJson from '../contracts/Deployer.json';
 import mockContractJson from '../contracts/MockContract.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
+import slotsContractJson from '../contracts/Slots.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -609,6 +610,14 @@ describe('@debug API Acceptance Tests', function () {
   describe('debug_traceTransaction', () => {
     const PARENT_CONTRACT_CREATE_CHILD_CALL_DATA =
       '0x0419eca50000000000000000000000000000000000000000000000000000000000000001';
+
+    let slotsContract;
+
+    const makeSlot = (n) => prepend0x('0'.repeat(63)) + n;
+    const SLOT_0 = makeSlot(0);
+    const SLOT_1 = makeSlot(1);
+    const SLOT_2 = makeSlot(2);
+
     before(async () => {
       // Deploy the Parent contract for testing transactions with internal calls
       parentContract = await Utils.deployContract(
@@ -617,6 +626,8 @@ describe('@debug API Acceptance Tests', function () {
         accounts[0].wallet,
       );
       parentContractAddress = parentContract.target as string;
+
+      slotsContract = await Utils.deployContract(slotsContractJson.abi, slotsContractJson.bytecode, accounts[0].wallet);
 
       // Send some ether to the parent contract
       const response = await accounts[0].wallet.sendTransaction({
@@ -634,6 +645,50 @@ describe('@debug API Acceptance Tests', function () {
       // Get contract result details from mirror node
       mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
       mirrorContractDetails.from = accounts[0].address;
+    });
+
+    it('should return the touched contract slots during execution (1 slot)', async () => {
+      const updatedValue = 9303;
+      const { hash } = await (await slotsContract.setSlot0(updatedValue)).wait();
+
+      const trace = await relay.call(DEBUG_TRACE_TRANSACTION, [hash, TRACER_CONFIGS.PRESTATE_TRACER]);
+
+      const storage = trace[slotsContract.target.toLowerCase()].storage ?? {};
+      expect(storage).to.have.property(SLOT_0);
+      expect(storage).to.not.have.property(SLOT_1);
+      expect(storage).to.not.have.property(SLOT_2);
+
+      const slot0Value = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        slotsContract.target,
+        SLOT_0,
+        'latest',
+      ]);
+      expect(Number(slot0Value)).to.be.equal(updatedValue);
+    });
+
+    it('should return the touched contract slots during execution (2 slots)', async () => {
+      const updatedValue = 5644;
+      const { hash } = await (await slotsContract.setSlot1And2(updatedValue)).wait();
+
+      const trace = await relay.call(DEBUG_TRACE_TRANSACTION, [hash, TRACER_CONFIGS.PRESTATE_TRACER]);
+
+      const storage = trace[slotsContract.target.toLowerCase()].storage ?? {};
+      expect(storage).to.not.have.property(SLOT_0);
+      expect(storage).to.have.property(SLOT_1);
+      expect(storage).to.have.property(SLOT_2);
+
+      const slot1Value = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        slotsContract.target,
+        SLOT_1,
+        'latest',
+      ]);
+      const slot2Value = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_GET_STORAGE_AT, [
+        slotsContract.target,
+        SLOT_2,
+        'latest',
+      ]);
+      expect(Number(slot1Value)).to.be.equal(updatedValue);
+      expect(Number(slot2Value)).to.be.equal(updatedValue);
     });
 
     describe('Call Tracer', () => {

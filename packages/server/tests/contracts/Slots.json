@@ -1,0 +1,89 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Slots",
+  "sourceName": "contracts/Slots.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "SLOT_0",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SLOT_1",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SLOT_2",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SLOT_3",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "setSlot0",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "setSlot1And2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60806040526106175f55610b726001556110f1600255611e16600355348015610026575f80fd5b5061010d806100345f395ff3fe6080604052348015600e575f80fd5b50600436106066575f3560e01c8063ab7db421116047578063ab7db421146093578063be4f19f014609b578063c8c772dc1460ac575f80fd5b80633a3bd2a714606a5780633c23a1ef1460845780639e61327014608c575b5f80fd5b607260025481565b60405190815260200160405180910390f35b607260035481565b60725f5481565b607260015481565b60aa60a636600460c1565b5f55565b005b60aa60b736600460c1565b6001819055600255565b5f6020828403121560d0575f80fd5b503591905056fea2646970667358221220deb6a12c260e484ba0b273d77c99423a622e0ef0933c461ec60bdba8e8786c9564736f6c63430008180033",
+  "deployedBytecode": "0x6080604052348015600e575f80fd5b50600436106066575f3560e01c8063ab7db421116047578063ab7db421146093578063be4f19f014609b578063c8c772dc1460ac575f80fd5b80633a3bd2a714606a5780633c23a1ef1460845780639e61327014608c575b5f80fd5b607260025481565b60405190815260200160405180910390f35b607260035481565b60725f5481565b607260015481565b60aa60a636600460c1565b5f55565b005b60aa60b736600460c1565b6001819055600255565b5f6020828403121560d0575f80fd5b503591905056fea2646970667358221220deb6a12c260e484ba0b273d77c99423a622e0ef0933c461ec60bdba8e8786c9564736f6c63430008180033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
