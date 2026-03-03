@@ -132,31 +132,78 @@ function populateSyntheticTransactions(
   return [...deduplicatedInput, ...syntheticTransactions.values()] as Transaction[] | string[];
 }
 
+/**
+ * Builds Ethereum-style receipt objects.
+ *
+ * Groups mirror node logs and contract results by transaction hash, derives a numeric
+ * transaction index for each transaction, orders them by that index, and then produces
+ * `IReceiptRootHash` entries with cumulative gas, status, bloom, and logs.
+ *
+ * @param txHashes - Transaction hashes for the block.
+ * @param contractResults - Contract results returned by the mirror node for the block.
+ * @param logs - Log entries returned by the mirror node for the block.
+ * @returns An array of receipt objects, sorted by transaction index.
+ */
 function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs: Log[]): IReceiptRootHash[] {
-  const receipts: IReceiptRootHash[] = [];
+  const items: {
+    transactionIndex: number;
+    logsPerTx: Log[];
+    crPerTx: any;
+  }[] = [];
 
-  for (const i in txHashes) {
-    const txHash: string = txHashes[i];
-    const logsPerTx: Log[] = logs.filter((log) => log.transactionHash == txHash);
-    const crPerTx: any[] = contractResults.filter((cr) => cr.hash == txHash);
+  //build lookup maps for logs and contract results by transaction hash to avoid O(n^2) complexity
+  const logsByTxHash = new Map<string, Log[]>();
+  for (const log of logs) {
+    const list = logsByTxHash.get(log.transactionHash) ?? [];
+    list.push(log);
+    logsByTxHash.set(log.transactionHash, list);
+  }
 
-    let transactionIndex: any = null;
-    if (crPerTx.length && crPerTx[0].transaction_index != null) {
-      transactionIndex = intToHex(crPerTx[0].transaction_index);
+  const contractResultByHash = new Map<string, any>(contractResults.map((cr) => [cr.hash, cr]));
+
+  for (const txHash of txHashes) {
+    const logsPerTx = logsByTxHash.get(txHash) ?? [];
+    const crPerTx = contractResultByHash.get(txHash);
+
+    // Derive numeric transaction index (for ordering)
+    let txIndexNum: number = 0;
+    if (crPerTx && crPerTx.transaction_index != null) {
+      txIndexNum = crPerTx.transaction_index;
     } else if (logsPerTx.length) {
-      transactionIndex = logsPerTx[0].transactionIndex;
+      txIndexNum = parseInt(logsPerTx[0].transactionIndex, 16);
     }
 
+    items.push({
+      transactionIndex: txIndexNum,
+      logsPerTx,
+      crPerTx,
+    });
+  }
+
+  // Sort by transaction index = block order
+  items.sort((a, b) => a.transactionIndex - b.transactionIndex);
+
+  const receipts: IReceiptRootHash[] = [];
+  let cumulativeGas = 0;
+
+  for (const item of items) {
+    const { transactionIndex, logsPerTx, crPerTx } = item;
+
+    const gasUsed = crPerTx?.gas_used ?? 0;
+    cumulativeGas += gasUsed;
+    const transactionIndexHex = intToHex(transactionIndex);
+
     receipts.push({
-      transactionIndex,
-      type: crPerTx.length && crPerTx[0].type ? intToHex(crPerTx[0].type) : null,
-      root: crPerTx.length ? crPerTx[0].root : constants.ZERO_HEX_32_BYTE,
-      status: crPerTx.length ? crPerTx[0].status : constants.ONE_HEX,
-      cumulativeGasUsed:
-        crPerTx.length && crPerTx[0].block_gas_used ? intToHex(crPerTx[0].block_gas_used) : constants.ZERO_HEX,
-      logsBloom: crPerTx.length
-        ? crPerTx[0].bloom
-        : LogsBloomUtils.buildLogsBloom(logs[0].address, logsPerTx[0].topics),
+      transactionIndex: transactionIndexHex,
+      type: crPerTx && crPerTx.type != undefined ? intToHex(crPerTx.type) : null,
+      root: crPerTx ? crPerTx.root : constants.ZERO_HEX_32_BYTE,
+      status: crPerTx ? crPerTx.status : constants.ONE_HEX,
+      cumulativeGasUsed: intToHex(cumulativeGas),
+      logsBloom: crPerTx
+        ? crPerTx.bloom
+        : logsPerTx.length > 0
+          ? LogsBloomUtils.buildLogsBloom(logsPerTx[0].address, logsPerTx[0].topics)
+          : constants.EMPTY_BLOOM,
       logs: logsPerTx.map((log: IReceiptRootHashLog) => {
         return {
           address: log.address,
@@ -344,39 +391,53 @@ export async function getBlockReceipts(
       return [];
     }
 
-    const receipts: ITransactionReceipt[] = [];
     const effectiveGas = numberTo0x(
       await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
-    const receiptPromises = contractResults.map(async (contractResult) => {
-      if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-        logger.debug(
-          `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-          contractResult.hash,
-          contractResult.result,
-        );
-        return null;
-      }
+    const resolved = await Promise.all(
+      contractResults.map(async (contractResult) => {
+        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
+          logger.debug(
+            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
+            contractResult.hash,
+            contractResult.result,
+          );
+          return null;
+        }
 
-      contractResult.logs = logsByHash.get(contractResult.hash) || [];
-      const [from, to] = await Promise.all([
-        commonService.resolveEvmAddress(contractResult.from, requestDetails),
-        contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
-      ]);
+        const logs = logsByHash.get(contractResult.hash) || [];
+        const [from, to] = await Promise.all([
+          commonService.resolveEvmAddress(contractResult.from, requestDetails),
+          contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
+        ]);
 
+        return { contractResult, logs, from, to };
+      }),
+    );
+
+    const receipts: ITransactionReceipt[] = [];
+    let cumulativeGasUsed = 0;
+
+    for (const item of resolved) {
+      if (!item) continue;
+
+      const { contractResult, logs, from, to } = item;
+
+      cumulativeGasUsed += contractResult.gas_used;
       const transactionReceiptParams: IRegularTransactionReceiptParams = {
         effectiveGas,
         from,
-        logs: contractResult.logs,
+        logs,
         receiptResponse: contractResult,
         to,
+        cumulativeGasUsed,
       };
-      return TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
-    });
 
-    const resolvedReceipts = await Promise.all(receiptPromises);
-    receipts.push(...resolvedReceipts.filter((r): r is ITransactionReceipt => r !== null));
+      const receipt = TransactionReceiptFactory.createRegularReceipt(transactionReceiptParams) as ITransactionReceipt;
+
+      receipts.push(receipt);
+    }
 
     const regularTxHashes = new Set(contractResults.map((result) => result.hash));
 
@@ -391,7 +452,20 @@ export async function getBlockReceipts(
       }
     }
 
-    return receipts;
+    // after all the receipts are created, we need to sort them by transaction index and calculate the cumulative gas used for synthetic receipts
+    const sortedReceipts = receipts.sort(
+      (a, b) => parseInt(a.transactionIndex ?? '0', 16) - parseInt(b.transactionIndex ?? '0', 16),
+    );
+
+    sortedReceipts.forEach((receipt, index) => {
+      const isSynthetic = receipt.cumulativeGasUsed === constants.ZERO_HEX; // assuming that synthetic receipts have 0 gas used and regular receipts have non-zero gas used
+      if (index > 0 && isSynthetic) {
+        // if the index is 0, we don't need to set the cumulative gas used for the synthetic receipt, as it's already set to 0
+        receipt.cumulativeGasUsed = sortedReceipts[index - 1].cumulativeGasUsed; // assign the cumulative gas of previous transaction, as the synthetic transaction uses 0 gas
+      }
+    });
+
+    return sortedReceipts as ITransactionReceipt[];
   } catch (e: unknown) {
     throw WorkersPool.wrapError(e);
   }
@@ -421,7 +495,7 @@ export async function getRawReceipts(
       return [];
     }
 
-    let blockGasUsedBeforeTransaction = 0;
+    let cumulativeGasUsed = 0;
     const encodedReceipts = contractResults
       .map((contractResult) => {
         if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
@@ -435,8 +509,8 @@ export async function getRawReceipts(
 
         const logs = logsByHash.get(contractResult.hash) || [];
 
-        const receiptRlpInput = createReceiptRlpInput(logs, contractResult, blockGasUsedBeforeTransaction);
-        blockGasUsedBeforeTransaction += contractResult.gas_used;
+        cumulativeGasUsed += contractResult.gas_used;
+        const receiptRlpInput = createReceiptRlpInput(logs, contractResult, cumulativeGasUsed);
         return TransactionReceiptFactory.encodeReceiptToHex(receiptRlpInput);
       })
       .filter((encodedReceipt): encodedReceipt is string => encodedReceipt !== null);
@@ -510,17 +584,12 @@ async function loadBlockExecutionData(
  * contains only the fields required for Yellow Paper receipt encoding, including the updated cumulative gas used,
  * logs and bloom, root and status, transaction index, and normalized type.
  * @param params - Parameters required to build the RLP input, including
- *   contract result data, associated logs, and the cumulative gas used prior
- *   to this transaction.
+ *   contract result data, associated logs, and the cumulative gas used.
  * @returns Minimal receipt data suitable for RLP encoding.
  */
-function createReceiptRlpInput(
-  logs: Log[],
-  receiptResponse: any,
-  blockGasUsedBeforeTransaction: number,
-): IReceiptRlpInput {
+function createReceiptRlpInput(logs: Log[], receiptResponse: any, cumulativeGasUsed: number): IReceiptRlpInput {
   return {
-    cumulativeGasUsed: numberTo0x(blockGasUsedBeforeTransaction + receiptResponse.gas_used),
+    cumulativeGasUsed: numberTo0x(cumulativeGasUsed),
     logs: logs,
     logsBloom: receiptResponse.bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : receiptResponse.bloom,
     root: receiptResponse.root || constants.DEFAULT_ROOT_HASH,

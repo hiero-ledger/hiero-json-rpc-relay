@@ -11,7 +11,7 @@ import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { EthImpl } from '../../../src/lib/eth';
 import HAPIService from '../../../src/lib/services/hapiService/hapiService';
-import { RequestDetails } from '../../../src/lib/types';
+import { ITransactionReceipt, RequestDetails } from '../../../src/lib/types';
 import { defaultContractResults, defaultContractResultsOnlyHash2, defaultLogs1, mockWorkersPool } from '../../helpers';
 import {
   BLOCK_HASH,
@@ -91,11 +91,16 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
   }
 
-  function expectValidReceipt(receipt, contractResult) {
+  function expectValidReceipt(receipt, contractResult, cumulativeGasUsed: number) {
     expect(receipt.blockHash).to.equal(BLOCK_HASH_TRIMMED);
     expect(receipt.blockNumber).to.equal(BLOCK_NUMBER_HEX);
     expect(receipt.transactionHash).to.equal(contractResult.hash);
     expect(receipt.gasUsed).to.equal(numberTo0x(contractResult.gas_used));
+    expect(receipt.cumulativeGasUsed).to.equal(numberTo0x(cumulativeGasUsed));
+  }
+
+  function sortReceiptsByTransactionIndex(receipts: ITransactionReceipt[]): ITransactionReceipt[] {
+    return receipts?.sort((a, b) => Number(a.transactionIndex) - Number(b.transactionIndex));
   }
 
   describe('Success cases', () => {
@@ -106,9 +111,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(2);
 
-      receipts.forEach((receipt, index) => {
+      let cumulativeGasUsed = 0;
+      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
         const contractResult = results[index];
-        expectValidReceipt(receipt, contractResult);
+        cumulativeGasUsed += contractResult.gas_used;
+        expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
       });
     });
 
@@ -119,9 +126,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(2);
 
-      receipts.forEach((receipt, index) => {
+      let cumulativeGasUsed = 0;
+      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
         const contractResult = results[index];
-        expectValidReceipt(receipt, contractResult);
+        cumulativeGasUsed += contractResult.gas_used;
+        expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
       });
     });
 
@@ -132,9 +141,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(2);
 
-      receipts.forEach((receipt, index) => {
+      let cumulativeGasUsed = 0;
+      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
         const contractResult = results[index];
-        expectValidReceipt(receipt, contractResult);
+        cumulativeGasUsed += contractResult.gas_used;
+        expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
       });
     });
 
@@ -147,9 +158,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       expect(receipts).to.exist;
       expect(receipts.length).to.equal(2);
 
-      receipts.forEach((receipt, index) => {
+      let cumulativeGasUsed = 0;
+      sortReceiptsByTransactionIndex(receipts!).forEach((receipt, index) => {
         const contractResult = results[index];
-        expectValidReceipt(receipt, contractResult);
+        cumulativeGasUsed += contractResult.gas_used;
+        expectValidReceipt(receipt, contractResult, cumulativeGasUsed);
       });
     });
 
@@ -174,7 +187,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
         expect(receipts.length).to.equal(1);
         expect(receipts[0].transactionHash).to.equal(results[0].hash);
 
-        expectValidReceipt(receipts[0], results[0]);
+        expectValidReceipt(receipts[0], results[0], results[0].gas_used);
       });
     });
 

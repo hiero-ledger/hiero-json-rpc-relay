@@ -277,7 +277,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
         // verify expected constants
         RelayAssertions.verifyBlockConstants(result);
-        expect(result.receiptsRoot).to.equal(DEFAULT_BLOCK_RECEIPTS_ROOT_HASH);
+        expect(result.receiptsRoot).to.equal('0x7b55577cb1c1e4851c621ba93668ee7ba08c9e19aeb2a81af8261c335ba4e929');
       }
     });
 

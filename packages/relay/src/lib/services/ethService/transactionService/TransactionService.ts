@@ -20,7 +20,13 @@ import {
 } from '../../../factories/transactionReceiptFactory';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
-import { ITransactionReceipt, LockAcquisitionResult, RequestDetails, TypedEvents } from '../../../types';
+import {
+  IContractResultsParams,
+  ITransactionReceipt,
+  LockAcquisitionResult,
+  RequestDetails,
+  TypedEvents,
+} from '../../../types';
 import HAPIService from '../../hapiService/hapiService';
 import { ICommonService, LockService, TransactionPoolService } from '../../index';
 import { ITransactionService } from './ITransactionService';
@@ -487,12 +493,41 @@ export class TransactionService implements ITransactionService {
       this.common.resolveEvmAddress(receiptResponse.to, requestDetails),
     ]);
 
+    let cumulativeGasUsed = 0;
+    if (receiptResponse.transaction_index > 0) {
+      const params: IContractResultsParams = {
+        blockNumber: receiptResponse.block_number,
+      };
+
+      const blockContractResults = await this.mirrorNodeClient.getContractResults(requestDetails, params);
+
+      if (Array.isArray(blockContractResults)) {
+        for (const cr of blockContractResults) {
+          if (Utils.isRejectedDueToHederaSpecificValidation(cr)) {
+            continue;
+          }
+
+          if (cr.transaction_index == null || cr.gas_used == null) {
+            continue;
+          }
+
+          // Only sum gas for transactions that come up to this one in the block (inclusive)
+          if (cr.transaction_index <= receiptResponse.transaction_index) {
+            cumulativeGasUsed += cr.gas_used;
+          }
+        }
+      }
+    } else {
+      cumulativeGasUsed = receiptResponse.gas_used;
+    }
+
     return TransactionReceiptFactory.createRegularReceipt({
       effectiveGas,
       from,
       logs,
       receiptResponse,
       to,
+      cumulativeGasUsed,
     });
   }
 

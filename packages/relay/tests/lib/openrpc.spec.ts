@@ -460,6 +460,15 @@ describe('Open RPC Specification', function () {
 
   it('should execute "eth_getTransactionReceipt"', async function () {
     mock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
+    mock
+      .onGet(`contracts/results?block.number=${defaultDetailedContractResultByHash.block_number}&limit=100&order=asc`)
+      .reply(
+        200,
+        JSON.stringify({
+          results: [defaultDetailedContractResultByHash],
+          links: { next: null },
+        }),
+      );
 
     // @ts-expect-error: Property 'common' is private and only accessible within class 'EthImpl'.
     const common = ethImpl.common;
