@@ -134,7 +134,7 @@ jobs:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
-              PRETTY_LOGS_ENABLED: "false"
+              PRETTY_LOGS_ENABLED: "true"
               LOG_LEVEL: "debug"
               CACHE_MAX: "50"
               RELAY_MINIMAL_MODE: "true"
@@ -152,9 +152,9 @@ jobs:
               # --- Namespace Disabling (Strict eth, net, web3 mode) ---
               DEBUG_API_ENABLED: "true"
               TXPOOL_API_ENABLED: "false"
-              FILTER_API_ENABLED: "false"
+              FILTER_API_ENABLED: "true"
               DISABLE_ADMIN_NAMESPACE: "true"
-              SUBSCRIPTIONS_ENABLED: "false"
+              SUBSCRIPTIONS_ENABLED: "true"
               OPCODELOGGER_ENABLED: "true"
           EOF
           cat relay-resources.yaml
