@@ -640,6 +640,30 @@ describe('Debug API Test Suite', async function () {
         expect(traceTransaction).to.exist;
       });
 
+      it('should return empty opcode trace when contract result exists but opcodes are missing', async function () {
+        const defaultOpcodeParams = getQueryParams({ memory: false, stack: true, storage: true });
+
+        web3Mock.onGet(`${CONTRACTS_RESULTS_OPCODES}${defaultOpcodeParams}`).reply(404);
+
+        // Non-synthetic contract result (status not in HEDERA_SPECIFIC_REVERT_STATUSES)
+        const rejectedContractResult = {
+          ...contractsResultsByHashResult,
+          result: 'SOME_NON_EXECUTED_STATUS',
+          error_message: null,
+        };
+        restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(rejectedContractResult));
+
+        const tracerObject = { tracer: opcodeLogger, tracerConfig: {} };
+        const result = await debugService.traceTransaction(transactionHash, tracerObject, requestDetails);
+
+        expect(result).to.deep.equal({
+          gas: 0,
+          failed: false,
+          returnValue: '',
+          structLogs: [],
+        });
+      });
+
       describe('callTracer', async function () {
         it('Test call tracer with onlyTopCall false', async function () {
           const expectedResult = {
@@ -719,6 +743,33 @@ describe('Debug API Test Suite', async function () {
           };
 
           expect(result).to.deep.equal(expectedResult);
+        });
+
+        it('should return empty call trace when contract result exists but actions are missing', async function () {
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+
+          // Non-synthetic contract result with a non-success status
+          const rejectedContractResult = {
+            ...contractsResultsByHashResult,
+            result: 'SOME_NON_EXECUTED_STATUS',
+            error_message: '0x',
+          };
+          restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(rejectedContractResult));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
+
+          // Should not go through synthetic/logs; should return an "empty" call trace
+          expect(result.calls).to.deep.equal([]);
+          expect(result.gasUsed).to.equal('0x0');
+          expect(result.value).to.equal('0x0');
+          expect(result.input).to.equal('0x');
+          expect(result.output).to.equal('0x');
+          expect(result).to.have.property('error', 'SOME_NON_EXECUTED_STATUS');
+          expect(result.revertReason).to.equal('SOME_NON_EXECUTED_STATUS');
         });
 
         describe('synthetic transaction handling', async function () {
@@ -1024,6 +1075,25 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.deep.equal(emptyResult);
           expect(result).to.be.an('object');
           expect(Object.keys(result)).to.have.lengthOf(0);
+        });
+
+        describe('non-synthetic missing actions handling', async function () {
+          // Use real prestateTracer implementation instead of the stub from the parent beforeEach
+          beforeEach(() => {
+            sinon.restore();
+          });
+
+          it('should return empty prestate when contract result exists but actions are missing', async function () {
+            // No actions for this transaction
+            restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify({ actions: [] }));
+            // Non-synthetic contract result present
+            restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(contractsResultsByHashResult));
+
+            const result = await debugService.prestateTracer(transactionHash, false, requestDetails);
+
+            expect(result).to.deep.equal({});
+            expect(result).to.be.an('object');
+          });
         });
 
         it('should propagate errors from prestateTracer', async function () {
@@ -2638,9 +2708,7 @@ describe('Debug API Test Suite', async function () {
           .onGet(`contracts/results/logs?transaction.hash=${transactionHash}&limit=100&order=asc`)
           .reply(200, JSON.stringify({ logs: [] }));
 
-        await expect(debugService.prestateTracer(transactionHash, false, requestDetails)).to.be.rejectedWith(
-          'Failed to retrieve transaction information',
-        );
+        await expect(await debugService.prestateTracer(transactionHash, false, requestDetails)).to.deep.equal({});
       });
 
       it('should return empty array when the transaction hash is not found', async function () {
