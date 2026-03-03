@@ -17,7 +17,7 @@ export interface IContractService {
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
-  ) => Promise<string | JsonRpcError>;
+  ) => Promise<string>;
 
   /**
    * Returns the compiled smart contract code at a given address.
@@ -46,5 +46,5 @@ export interface IContractService {
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
-  ) => Promise<string | JsonRpcError>;
+  ) => Promise<string>;
 }

@@ -108,7 +108,7 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} call - The transaction object with call data
    * @param {string | object | null} blockParam - Block number, tag, or object with blockHash/blockNumber
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | JsonRpcError>} The return value of the executed contract call or error
+   * @returns {Promise<string>} The return value of the executed contract call
    */
   public async call(
     call: IContractCallRequest,
@@ -483,9 +483,10 @@ export class ContractService implements IContractService {
    * Handles specific mirror node client errors.
    *
    * @param {MirrorNodeClientError} e - The mirror node client error
+   * @returns {Promise<never>}
    * @private
    */
-  private async handleMirrorNodeClientError(e: MirrorNodeClientError) {
+  private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<never> {
     if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
