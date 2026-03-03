@@ -134,6 +134,7 @@ jobs:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
+              USE_ASYNC_TX_PROCESSING: "false"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
