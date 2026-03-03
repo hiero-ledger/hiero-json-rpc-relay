@@ -114,7 +114,7 @@ export class ContractService implements IContractService {
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
+  ): Promise<string> {
     try {
       if (call.to && !isValidEthereumAddress(call.to)) {
         throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
@@ -131,15 +131,11 @@ export class ContractService implements IContractService {
 
       return result;
     } catch (e: any) {
-      this.logger.error(e, `Failed to successfully submit eth_call`);
-      if (e instanceof JsonRpcError) {
-        throw e;
-      }
-      // Preserve and re-throw MirrorNodeClientError to the upper layer
-      if (e instanceof MirrorNodeClientError) {
-        throw e;
-      }
-      return predefined.INTERNAL_ERROR(e.message.toString());
+      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+
+      this.logger.error(e, 'Failed to successfully submit eth_call');
+      throw predefined.INTERNAL_ERROR(e.message.toString());
     }
   }
 
@@ -149,13 +145,13 @@ export class ContractService implements IContractService {
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
-   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
+   * @returns {Promise<string>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
    */
   public async estimateGas(
     transaction: IContractCallRequest,
     blockParam: string | null,
     requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
+  ): Promise<string> {
     try {
       const response = await this.estimateGasFromMirrorNode(transaction, requestDetails);
 
@@ -163,14 +159,16 @@ export class ContractService implements IContractService {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`No gas estimate returned from mirror-node: ${JSON.stringify(response)}`);
         }
-        return predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
+        throw predefined.INTERNAL_ERROR('Fail to retrieve gas estimate');
       }
 
       return prepend0x(trimPrecedingZeros(response.result) ?? '0');
     } catch (e: any) {
-      const mirrorNodeError = await this.handleMirrorNodeError(e);
-      if (mirrorNodeError instanceof JsonRpcError) return mirrorNodeError;
-      throw e;
+      if (e instanceof JsonRpcError) throw e;
+      if (e instanceof MirrorNodeClientError) await this.handleMirrorNodeClientError(e);
+
+      this.logger.error(e, 'Failed to successfully estimate gas');
+      throw predefined.INTERNAL_ERROR(e.message.toString());
     }
   }
 
@@ -299,7 +297,7 @@ export class ContractService implements IContractService {
    * @param {number | string | null | undefined} value - The value to send
    * @param {string | null} block - The block number or tag
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string | JsonRpcError>} The call result or error
+   * @returns {Promise<string>} The call result (may throw an exception)
    */
   private async callMirrorNode(
     call: IContractCallRequest,
@@ -307,21 +305,17 @@ export class ContractService implements IContractService {
     value: number | string | null | undefined,
     block: string | null,
     requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
-    try {
-      this.logger.debug(
-        `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
-        call.to,
-        gas,
-        call.data,
-        call.from,
-        block,
-      );
-      const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
-      return await this.executeMirrorNodeCall(callData, requestDetails);
-    } catch (e: any) {
-      return this.handleMirrorNodeError(e);
-    }
+  ): Promise<string> {
+    this.logger.debug(
+      `Making eth_call on contract %s with gas %s and call data "%s" from "%s" at blockBlockNumberOrTag: "%s" using mirror-node.`,
+      call.to,
+      gas,
+      call.data,
+      call.from,
+      block,
+    );
+    const callData = this.prepareMirrorNodeCallData(call, gas, value, block);
+    return await this.executeMirrorNodeCall(callData, requestDetails);
   }
 
   /**
@@ -489,38 +483,17 @@ export class ContractService implements IContractService {
    * Handles specific mirror node client errors.
    *
    * @param {MirrorNodeClientError} e - The mirror node client error
-   * @returns {Promise<string | JsonRpcError>} The appropriate error response or consensus node fallback result
    * @private
    */
-  private async handleMirrorNodeClientError(e: MirrorNodeClientError): Promise<string | JsonRpcError> {
-    if (e.isInvalidTransaction()) return constants.EMPTY_HEX;
+  private async handleMirrorNodeClientError(e: MirrorNodeClientError) {
+    if (e.isContractRevert()) throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
     if (e.isFailInvalid()) throw predefined.CONTRACT_REVERT(e.message, e.data);
 
-    if (e.isContractRevert()) {
-      throw predefined.CONTRACT_REVERT(e.revertReason, e.data);
-    }
-
+    // For 400, treat it as an expected "could not simulate transaction" case and do not store additional logs.
+    // For any other error or Mirror Node upstream server errors (429, 500, 502, 503, 504, etc.),
+    // log the original error and throw COULD_NOT_SIMULATE_TRANSACTION to the upper layer for further handling logic
+    if (e.statusCode !== 400) this.logger.error(e, 'Could not simulate transaction in the MirrorNode.');
     throw predefined.COULD_NOT_SIMULATE_TRANSACTION(e.detail || e.message);
-  }
-
-  /**
-   * Handles various error cases from mirror node calls.
-   *
-   * @param {any} e - The error to handle
-   * @returns {Promise<string | JsonRpcError>} The error response or consensus node fallback result
-   * @private
-   */
-  private async handleMirrorNodeError(e: any): Promise<string | JsonRpcError> {
-    if (e instanceof JsonRpcError) {
-      return e;
-    }
-
-    if (e instanceof MirrorNodeClientError) {
-      return await this.handleMirrorNodeClientError(e);
-    }
-
-    this.logger.error(e, 'Failed to successfully submit eth_call');
-    return predefined.INTERNAL_ERROR(e.message.toString());
   }
 
   /**

@@ -309,7 +309,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it('eth_call with all fields but mirrorNode throws 429 hence rejected with MirrorNodeClientError', async function () {
+    it('eth_call with all fields but mirrorNode throws 429 hence rejected with COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -318,14 +318,13 @@ describe('@ethCall Eth Call spec', async function () {
         gas: MAX_GAS_LIMIT,
       };
       await mockContractCall({ ...callData, block: 'latest' }, false, 429, mockData.tooManyRequests, requestDetails);
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.statusCode).to.equal(429);
-          expect(error.message).to.equal('Too Many Requests');
-          expect(error.isRateLimit()).to.be.true;
-          return true;
-        });
+
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+        mockData.tooManyRequests._status.messages[0].message,
+      );
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
     it('eth_call with all fields but mirrorNode throws 400', async function () {
@@ -360,13 +359,10 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 501, mockData.notSuported, requestDetails);
 
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.isNotSupported()).to.be.true;
-          expect(error.message).to.equal(mockData.notSuported._status.messages[0].message);
-          return true;
-        });
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(mockData.notSuported._status.messages[0].message);
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
     it('eth_call with all fields, but mirror node throws CONTRACT_REVERTED', async function () {
@@ -413,7 +409,7 @@ describe('@ethCall Eth Call spec', async function () {
         });
     });
 
-    it('eth_call with mirrorNode throws 500 Internal Server Error re-throws MirrorNodeClientError', async function () {
+    it('eth_call with mirrorNode throws 500 Internal Server Error is mapped to COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -431,16 +427,15 @@ describe('@ethCall Eth Call spec', async function () {
         requestDetails,
       );
 
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.statusCode).to.equal(500);
-          expect(error.message).to.equal(mockData.internalServerError._status.messages[0].message);
-          return true;
-        });
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+        mockData.internalServerError._status.messages[0].message,
+      );
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
-    it('eth_call with mirrorNode throws 502 Bad Gateway re-throws MirrorNodeClientError', async function () {
+    it('eth_call with mirrorNode throws 502 Bad Gateway is mapped to COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -452,16 +447,13 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 502, mockData.badGateway, requestDetails);
 
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.statusCode).to.equal(502);
-          expect(error.message).to.equal(mockData.badGateway._status.messages[0].message);
-          return true;
-        });
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(mockData.badGateway._status.messages[0].message);
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
-    it('eth_call with mirrorNode throws 503 Service Unavailable re-throws MirrorNodeClientError', async function () {
+    it('eth_call with mirrorNode throws 503 Service Unavailable is mapped to COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -473,16 +465,15 @@ describe('@ethCall Eth Call spec', async function () {
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 503, mockData.serviceUnavailable, requestDetails);
 
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.statusCode).to.equal(503);
-          expect(error.message).to.equal(mockData.serviceUnavailable._status.messages[0].message);
-          return true;
-        });
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+        mockData.serviceUnavailable._status.messages[0].message,
+      );
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
-    it('eth_call with mirrorNode throws 504 Gateway Timeout re-throws MirrorNodeClientError', async function () {
+    it('eth_call with mirrorNode throws 504 Gateway Timeout is mapped to COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -493,14 +484,12 @@ describe('@ethCall Eth Call spec', async function () {
 
       restMock.onGet(`contracts/${CONTRACT_ADDRESS_2}`).reply(200, JSON.stringify(DEFAULT_CONTRACT_2));
       await mockContractCall({ ...callData, block: 'latest' }, false, 504, mockData.gatewayTimeout, requestDetails);
-
-      await expect(ethImpl.call(callData, 'latest', requestDetails))
-        .to.be.rejectedWith(MirrorNodeClientError)
-        .and.eventually.satisfy((error: MirrorNodeClientError) => {
-          expect(error.statusCode).to.equal(504);
-          expect(error.message).to.equal(mockData.gatewayTimeout._status.messages[0].message);
-          return true;
-        });
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+        mockData.gatewayTimeout._status.messages[0].message,
+      );
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
     it('Mirror Node returns 400 contract revert error', async function () {
@@ -616,9 +605,13 @@ describe('@ethCall Eth Call spec', async function () {
       };
 
       await mockContractCall({ ...callData, block: 'latest' }, false, 400, mockData.invalidTransaction, requestDetails);
-      const result = await contractService.call(callData, 'latest', requestDetails);
-      expect(result).to.be.not.null;
-      expect(result).to.equal('0x');
+
+      const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+        mockData.invalidTransaction._status.messages[0].message,
+      );
+      await expect(contractService.call(callData, 'latest', requestDetails))
+        .to.be.rejectedWith(JsonRpcError, expectedError.message)
+        .and.to.eventually.have.property('code', expectedError.code);
     });
 
     it('eth_call with all fields but mirrorNode throws 400 due to non-existent `to` address (FAIL_INVALID)', async function () {

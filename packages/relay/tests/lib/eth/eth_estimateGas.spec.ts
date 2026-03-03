@@ -669,7 +669,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const serverErrorStatusCodes = [429, 500, 501, 502, 503, 504];
 
     serverErrorStatusCodes.forEach((statusCode) => {
-      it(`should throw MirrorNodeClientError when mirror node returns ${statusCode} status code`, async function () {
+      it(`should throw COULD_NOT_SIMULATE_TRANSACTION when mirror node returns ${statusCode} status code`, async function () {
         const callData: IContractCallRequest = {
           from: '0x05fba803be258049a27b820088bab1cad2058871',
           to: RECEIVER_ADDRESS,
@@ -683,12 +683,12 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
           requestDetails,
         );
 
+        const expectedError = predefined.COULD_NOT_SIMULATE_TRANSACTION(
+          `Request failed with status code ${statusCode}`,
+        );
         await expect(ethImpl.estimateGas(callData, null, requestDetails))
-          .to.be.rejectedWith(MirrorNodeClientError)
-          .and.eventually.satisfy((error: MirrorNodeClientError) => {
-            expect(error.statusCode).to.equal(statusCode);
-            return true;
-          });
+          .to.be.rejectedWith(JsonRpcError, expectedError.message)
+          .and.eventually.have.property('code', expectedError.code);
       });
     });
   });
