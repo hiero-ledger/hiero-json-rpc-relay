@@ -1,7 +1,9 @@
 name: Solo Test Sandbox
 
 on:
-  workflow_call:
+  push:
+    branches:
+      - 4900-v2-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
   contents: read
@@ -14,6 +16,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: "104-pure"
+            memory_limit: "104Mi"
+          - name: "104-78-old"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=78"
+          - name: "104-78-old-4-semi"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=78 --max-semi-space-size=4"
+          - name: "104-78-old-4-semi-0-pool"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=78 --max-semi-space-size=4 --v8-pool-size=0"
+          - name: "104-46-old"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=46"
+          - name: "104-46-old-4-semi"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=46 --max-semi-space-size=4"
+          - name: "104-46-old-4-semi-0-pool"
+            memory_limit: "104Mi"
+            node_opts: "--max-old-space-size=46 --max-semi-space-size=4 --v8-pool-size=0"
+
           - name: "96-pure"
             memory_limit: "96Mi"
           - name: "96-72-old"
@@ -34,27 +57,6 @@ jobs:
           - name: "96-48-old-4-semi-0-pool"
             memory_limit: "96Mi"
             node_opts: "--max-old-space-size=48 --max-semi-space-size=4 --v8-pool-size=0"
-
-          - name: "92-pure"
-            memory_limit: "92Mi"
-          - name: "92-69-old"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=69"
-          - name: "92-69-old-4-semi"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=69 --max-semi-space-size=4"
-          - name: "92-69-old-4-semi-0-pool"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=69 --max-semi-space-size=4 --v8-pool-size=0"
-          - name: "92-46-old"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=46"
-          - name: "92-46-old-4-semi"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=4"
-          - name: "92-46-old-4-semi-0-pool"
-            memory_limit: "92Mi"
-            node_opts: "--max-old-space-size=46 --max-semi-space-size=4 --v8-pool-size=0"
 
     permissions:
       contents: read
@@ -164,27 +166,22 @@ jobs:
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
               PRETTY_LOGS_ENABLED: "false"
-              LOG_LEVEL: "error"
-              CACHE_MAX: "50"
+              LOG_LEVEL: "debug"
               RELAY_MINIMAL_MODE: "true"
               REDIS_ENABLED: "false"
               MIRROR_NODE_HTTP_MAX_SOCKETS: "10"
               MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "10"
               MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY: "5"
               BATCH_REQUESTS_MAX_SIZE: "10"
-              LOCAL_LOCK_MAX_ENTRIES: "50"
-              CACHE_TTL: "60000"
               ETH_GET_GAS_PRICE_CACHE_TTL_MS: "60000"
-              FILTER_TTL: "60000"
-              MIRROR_NODE_LIMIT_PARAM: "25"
-              ENABLE_NONCE_ORDERING: "false"
+              ENABLE_NONCE_ORDERING: "true"
               # --- Namespace Disabling (Strict eth, net, web3 mode) ---
-              DEBUG_API_ENABLED: "false"
+              DEBUG_API_ENABLED: "true"
               TXPOOL_API_ENABLED: "false"
               FILTER_API_ENABLED: "false"
               DISABLE_ADMIN_NAMESPACE: "true"
               SUBSCRIPTIONS_ENABLED: "false"
-              OPCODELOGGER_ENABLED: "false"
+              OPCODELOGGER_ENABLED: "true"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
