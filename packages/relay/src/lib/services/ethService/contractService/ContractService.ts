@@ -297,7 +297,7 @@ export class ContractService implements IContractService {
    * @param {number | string | null | undefined} value - The value to send
    * @param {string | null} block - The block number or tag
    * @param {RequestDetails} requestDetails - The request details for logging and tracking
-   * @returns {Promise<string>} The call result (may throw an exception)
+   * @returns {Promise<string>} The call result
    */
   private async callMirrorNode(
     call: IContractCallRequest,
