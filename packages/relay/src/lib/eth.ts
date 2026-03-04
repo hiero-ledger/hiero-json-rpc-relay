@@ -252,7 +252,7 @@ export class EthImpl implements Eth {
    * @param {IContractCallRequest} transaction - The transaction data for the contract call.
    * @param {string | null} _blockParam - Optional block parameter to specify the block to estimate gas for.
    * @param {RequestDetails} requestDetails - The details of the request for logging and tracking.
-   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the estimated gas in hexadecimal format or a JsonRpcError.
+   * @returns {Promise<string>} A promise that resolves to the estimated gas in hexadecimal format.
    */
   @rpcMethod
   @rpcParamValidationRules({
@@ -264,7 +264,7 @@ export class EthImpl implements Eth {
     transaction: IContractCallRequest,
     _blockParam: string | null,
     requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
+  ): Promise<string> {
     // Removing empty '0x' data parameter sent by Metamask
     if (transaction.data === '0x') {
       delete transaction.data;
@@ -923,7 +923,7 @@ export class EthImpl implements Eth {
    * @param {IContractCallRequest} call - The contract call request data.
    * @param {string | object | null} blockParam - Either a string (blockNumber or blockTag) or an object (blockHash or blockNumber).
    * @param {RequestDetails} requestDetails - The request details for logging and tracking.
-   * @returns {Promise<string | JsonRpcError>} A promise that resolves to the result of the contract call or a JsonRpcError if an error occurs.
+   * @returns {Promise<string>} A promise that resolves to the result of the contract call.
    */
   @rpcMethod
   @rpcParamValidationRules({
@@ -938,7 +938,7 @@ export class EthImpl implements Eth {
     call: IContractCallRequest,
     blockParam: string | object | null,
     requestDetails: RequestDetails,
-  ): Promise<string | JsonRpcError> {
+  ): Promise<string> {
     const callData = call.data ? call.data : call.input;
     // log request
     this.logger.info(
