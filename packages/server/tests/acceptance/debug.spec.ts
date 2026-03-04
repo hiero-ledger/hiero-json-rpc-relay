@@ -609,6 +609,7 @@ describe('@debug API Acceptance Tests', function () {
   describe('debug_traceTransaction', () => {
     const PARENT_CONTRACT_CREATE_CHILD_CALL_DATA =
       '0x0419eca50000000000000000000000000000000000000000000000000000000000000001';
+    let noOpcodesTxHash: string;
     before(async () => {
       // Deploy the Parent contract for testing transactions with internal calls
       parentContract = await Utils.deployContract(
@@ -634,6 +635,9 @@ describe('@debug API Acceptance Tests', function () {
       // Get contract result details from mirror node
       mirrorContractDetails = await mirrorNode.get(`/contracts/results/${createChildTx.hash}`);
       mirrorContractDetails.from = accounts[0].address;
+
+      // Remember the transaction hash of the transaction with no opcodes
+      noOpcodesTxHash = response.hash;
     });
 
     describe('Call Tracer', () => {
@@ -668,6 +672,24 @@ describe('@debug API Acceptance Tests', function () {
         );
         expect(result).to.have.property('calls');
         expect(result.calls).to.be.an('array').that.is.empty;
+      });
+
+      it('@release should return empty trace for tx with correct contract actions but without any opcodes', async function () {
+        // Has actions.
+        const actionResults = await mirrorNode.get(`/contracts/results/${noOpcodesTxHash}/actions`);
+        expect(actionResults).to.have.property('actions').that.is.an('array').and.is.not.empty;
+
+        // Has no opcodes.
+        await expect(mirrorNode.get(`/contracts/results/${noOpcodesTxHash}/opcodes`)).to.eventually.be.rejectedWith(
+          /404/,
+        );
+
+        // Returns empty trace.
+        const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
+          noOpcodesTxHash,
+          TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
+        ]);
+        expect(result).to.have.property('calls').that.is.an('array').and.is.empty;
       });
     });
 
