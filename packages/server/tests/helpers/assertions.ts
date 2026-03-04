@@ -55,22 +55,13 @@ export default class Assertions {
    * @param mirrorTransactions
    * @param hydratedTransactions - aka showDetails flag
    */
-  public static block(
-    relayResponse,
-    mirrorNodeResponse,
-    mirrorTransactions,
-    expectedGasPrice,
-    hydratedTransactions = false,
-  ) {
+  public static block(relayResponse, mirrorNodeResponse, mirrorTransactions, hydratedTransactions = false) {
     // Assert static values
     expect(relayResponse.baseFeePerGas).to.exist;
 
-    if (ConfigService.get('LOCAL_NODE')) {
-      expect(relayResponse.baseFeePerGas).to.be.equal(expectedGasPrice);
-    } else {
-      expect(Number(relayResponse.baseFeePerGas)).to.be.gt(0);
-    }
-
+    expect(relayResponse.baseFeePerGas, "Assert block: 'baseFeePerGas' should be equal to zero").to.be.equal(
+      constants.ZERO_HEX,
+    );
     expect(relayResponse.difficulty, "Assert block: 'difficulty' should equal zero in hex").to.be.equal(
       ethers.toQuantity(0),
     );

@@ -1225,10 +1225,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
           oldestBlock: oldestBlockNumberHex,
           checkReward: true,
         });
-        // We expect all values in the array to be from the mirror node. If there is discrepancy in the blocks, the first value is from the consensus node and it's different from expected.
-        expect(res.baseFeePerGas[1]).to.equal(defaultGasPriceHex); // should return defaultGasPriceHex
-        expect(res.baseFeePerGas[res.baseFeePerGas.length - 2]).to.equal(defaultGasPriceHex);
-        expect(res.baseFeePerGas[res.baseFeePerGas.length - 1]).to.equal(defaultGasPriceHex);
+        expect(res.baseFeePerGas[1]).to.equal(constants.ZERO_HEX);
+        expect(res.baseFeePerGas[res.baseFeePerGas.length - 2]).to.equal(constants.ZERO_HEX);
+        expect(res.baseFeePerGas[res.baseFeePerGas.length - 1]).to.equal(constants.ZERO_HEX);
       });
 
       it('should call eth_feeHistory with newest block > latest', async function () {

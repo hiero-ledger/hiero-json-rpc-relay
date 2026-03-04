@@ -18,20 +18,19 @@ import { MirrorNodeBlock } from '../types/mirrorNode';
 interface BlockFactoryParams {
   blockResponse: MirrorNodeBlock;
   txArray: any[];
-  gasPrice: string;
   receiptsRoot: string;
 }
 
 export class BlockFactory {
   static async createBlock(params: BlockFactoryParams): Promise<Block> {
-    const { blockResponse, txArray, gasPrice, receiptsRoot } = params;
+    const { blockResponse, txArray, receiptsRoot } = params;
 
     const blockHash = toHash32(blockResponse.hash);
     const timestampRange = blockResponse.timestamp;
     const timestamp = timestampRange.from.substring(0, timestampRange.from.indexOf('.'));
 
     return new Block({
-      baseFeePerGas: gasPrice,
+      baseFeePerGas: constants.ZERO_HEX,
       difficulty: constants.ZERO_HEX,
       extraData: constants.EMPTY_HEX,
       gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
