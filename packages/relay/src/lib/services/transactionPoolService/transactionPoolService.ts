@@ -200,7 +200,7 @@ export class TransactionPoolService implements ITransactionPoolService {
       return await this.storage.getList(addressLowerCased);
     } catch (error) {
       if (fallbackValue !== undefined) {
-        this.logger.warn(error, `Redis unavailable for getPendingCount, falling back to ${fallbackValue}`);
+        this.logger.warn(error, `getPendingCount storage error, falling back to ${fallbackValue}`);
         return fallbackValue;
       }
       this.logger.error({ address, error: (error as Error).message }, 'Failed to get pending count');
