@@ -256,6 +256,27 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt.logsBloom).to.eq(emptyBloom);
   });
 
+  it('handles bloom for transaction with multiple synthetic transaction logs', async function () {
+    const receiptWith0xBloom = {
+      ...defaultDetailedContractResultByHash,
+      logs: [
+        ...defaultDetailedContractResultByHash.logs,
+        {
+          ...defaultDetailedContractResultByHash.logs[0],
+          address: '0x0000000000000000000000000000000000001390',
+          topics: ['0x97c1fc0a6ed5551bc831571325e9bdb365d06803100dc20648640ba24ce69750'],
+        },
+      ],
+    };
+
+    restMock.onGet(`contracts/results/${defaultTxHash}`).reply(200, JSON.stringify(receiptWith0xBloom));
+    restMock.onGet(`contracts/${defaultDetailedContractResultByHash.created_contract_ids[0]}`).reply(404);
+    stubBlockAndFeesFunc(sandbox);
+    const receipt = await ethImpl.getTransactionReceipt(defaultTxHash, requestDetails);
+
+    expect(receipt).to.have.property('logs').that.is.an('array').with.lengthOf(receiptWith0xBloom.logs.length);
+  });
+
   it('Adds a revertReason field for receipts with errorMessage', async function () {
     const receiptWithErrorMessage = {
       ...defaultDetailedContractResultByHash,
