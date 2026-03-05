@@ -25,7 +25,7 @@ describe('LoggerService tests', async function () {
     expect(LoggerService.maskUpEnv(envName, res)).to.equal(`${envName} = ${res}`);
   });
 
-  it('should mast private keys in PAYMASTER_ACCOUNTS', async () => {
+  it('should mask private keys in PAYMASTER_ACCOUNTS', async () => {
     const paymaster0 = [
       '0.0.801',
       'HEX_ECDSA',

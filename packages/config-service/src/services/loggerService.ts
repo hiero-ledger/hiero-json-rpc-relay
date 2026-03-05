@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { PaymasterAccount } from '@hashgraph/json-rpc-relay/dist/lib/services';
-
 import { ConfigKey, GlobalConfig } from './globalConfig';
 
 export class LoggerService {
@@ -28,7 +26,7 @@ export class LoggerService {
     }
 
     if (envName === 'PAYMASTER_ACCOUNTS') {
-      return `${envName} = [${(envValue as PaymasterAccount[]).map((a) => `[${a[0]},${a[1]},**********,${a[3]}]`)}]`;
+      return `${envName} = [${(envValue as string[][]).map((a) => `[${a[0]},${a[1]},**********,${a[3]}]`)}]`;
     }
 
     return `${envName} = ${envValue}`;
