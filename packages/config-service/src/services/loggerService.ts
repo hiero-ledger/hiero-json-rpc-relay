@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { PaymasterAccount } from '@hashgraph/json-rpc-relay/dist/lib/services';
+
 import { ConfigKey, GlobalConfig } from './globalConfig';
 
 export class LoggerService {
@@ -14,13 +16,19 @@ export class LoggerService {
    * @param envName
    * @param envValue
    */
-  static maskUpEnv(envName: string, envValue: string | undefined): string {
+  static maskUpEnv(envName: string, envValue: string | undefined | string[][]): string {
     const isSensitiveField: boolean = (this.SENSITIVE_FIELDS as string[]).indexOf(envName) > -1;
     const isKnownSecret: boolean =
-      GlobalConfig.ENTRIES[envName].type === 'string' && !!this.GITHUB_SECRET_PATTERN.exec(envValue ?? '');
+      GlobalConfig.ENTRIES[envName].type === 'string' &&
+      typeof envValue === 'string' &&
+      !!this.GITHUB_SECRET_PATTERN.exec(envValue ?? '');
 
     if (isSensitiveField || isKnownSecret) {
       return `${envName} = **********`;
+    }
+
+    if (envName === 'PAYMASTER_ACCOUNTS') {
+      return `${envName} = [${(envValue as PaymasterAccount[]).map((a) => `[${a[0]},${a[1]},**********,${a[3]}]`)}]`;
     }
 
     return `${envName} = ${envValue}`;
