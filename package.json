@@ -4,6 +4,7 @@
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@hashgraph/hedera-local": "^2.39.0",
+    "@hoppscotch/cli": "0.30.0",
     "@open-rpc/schema-utils-js": "^2.1.2",
     "@types/chai-as-promised": "^8.0.2",
     "@types/co-body": "6.1.3",
@@ -24,6 +25,7 @@
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.4.0",
     "husky": "^9.1.7",
+    "lerna": "^9.0.0",
     "lint-staged": "^16.1.6",
     "mocha": "^11.7.1",
     "mocha-junit-reporter": "^2.2.1",
@@ -87,18 +89,6 @@
     "bump-version": "SEM_VER=${npm_config_semver} SNAPSHOT=${npm_config_snapshot} node scripts/.bump-version.js",
     "prepare": "husky",
     "print-env": "npx lerna exec --scope @hashgraph/json-rpc-config-service -- npm run print-env"
-  },
-  "dependencies": {
-    "@ethereumjs/rlp": "^10.0.0",
-    "@ethereumjs/trie": "^6.2.1",
-    "@ethereumjs/util": "^9.1.0",
-    "@hoppscotch/cli": "0.30.0",
-    "koa-websocket": "^7.0.0",
-    "lerna": "^9.0.0",
-    "pino": "^10.1.0",
-    "pino-pretty": "^13.1.2",
-    "prom-client": "^15.1.3",
-    "redis": "^5.8.0"
   },
   "overrides": {
     "protobufjs": "^7.2.4",

@@ -22,13 +22,13 @@ RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY packages/ packages/
 
-# Compile monorepo packages.
+# Compile packages.
 RUN npm run build
 
 # Write build-time env to .env.release — a path that is never overridden by
 # user volume mounts. Stores npm_package_version required by ConfigService.
 RUN printf 'npm_package_version=%s\n' \
-        "$(node -p "require('./packages/server/package.json').version")" > .env.release
+        "$(node -p "require('package.json').version")" > .env.release
 
 # Prune development dependencies and runtime artifacts.
 RUN npm prune --omit=dev --ignore-scripts
@@ -40,9 +40,17 @@ RUN find packages -mindepth 2 -maxdepth 2 -type d \
     find packages -name '*.js.map' -delete ; \
     find packages -name '*.d.ts'   -delete
 
+# Strip non-runtime artefacts from production node_modules.
+# *.map       — source maps consumed by debuggers, never by Node.js
+# *.ts        — TypeScript source already compiled to dist/ (*.d.ts kept: negligible, safe)
+# lib.esm/    — ESM variants of CJS packages; this monorepo targets CommonJS exclusively
+# *.md        — documentation, not parsed at runtime
+RUN find node_modules -name '*.map'    -delete && \
+    find node_modules -name '*.ts' -not -name '*.d.ts' -delete && \
+    find node_modules -type d -name 'lib.esm' -prune -exec rm -rf {} + && \
+    find node_modules -name '*.md'     -delete
+
 # Runtime Stage
-# Minimal Alpine-based image containing only production artifacts.
-# Node.js runs directly as PID 1 via --env-file, with no shell intermediary.
 FROM node:22-alpine AS runtime
 
 ENV NODE_ENV=production
@@ -62,10 +70,6 @@ COPY --chown=node:node docs/openrpc.json ./docs/openrpc.json
 # Deploy the build-time version env — isolated from user volume mounts.
 COPY --from=build --chown=node:node /home/node/app/.env.release ./.env.release
 
-# Create an empty user env placeholder so Node does not error when no
-# .env is volume-mounted at runtime (-v ./.env:/home/node/app/.env).
-RUN touch /home/node/app/.env && chown node:node /home/node/app/.env
-
 EXPOSE 7546
 EXPOSE 8546
 EXPOSE 8547
@@ -79,5 +83,5 @@ USER node
 # Run Node.js directly as PID 1. Loads .env.release first (build-time vars,
 # including npm_package_version), then .env (user runtime config). Variables
 # in .env take precedence for any duplicate keys.
-ENTRYPOINT ["node", "--env-file=/home/node/app/.env.release", "--env-file=/home/node/app/.env"]
+ENTRYPOINT ["node", "--env-file=/home/node/app/.env.release"]
 CMD ["packages/server/dist/index.js"]
