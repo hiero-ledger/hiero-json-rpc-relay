@@ -17,8 +17,13 @@ import {
   FileInfoQuery,
   Hbar,
   PrivateKey,
+  TokenAssociateTransaction,
+  TokenCreateTransaction,
+  TokenSupplyType,
+  TokenType,
   TransferTransaction,
 } from '@hashgraph/sdk';
+import TokenTransfer from '@hashgraph/sdk/lib/token/TokenTransfer';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -1430,6 +1435,64 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const currentPrice = await relay.gasPrice();
 
         Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+      });
+
+      it.only('ZZZZZ should execute "eth_getTransactionReceipt" for transaction with multiple logs', async function () {
+        const operatorId = servicesNode.client.getOperator()!.accountId!;
+        const recipientKey = PrivateKey.generateED25519();
+        const recipientCreateTx = await new AccountCreateTransaction()
+          .setKeyWithoutAlias(recipientKey.publicKey)
+          .setInitialBalance(new Hbar(1))
+          .execute(servicesNode.client);
+
+        const recipientReceipt = await recipientCreateTx.getReceipt(servicesNode.client);
+        const recipientId = recipientReceipt.accountId!;
+
+        const tokenCreateTx = await new TokenCreateTransaction()
+          .setTokenName('MultiLog Testing Token')
+          .setTokenSymbol('MLTT')
+          .setTokenType(TokenType.FungibleCommon)
+          .setDecimals(6)
+          .setInitialSupply(1_000_000_000)
+          .setTreasuryAccountId(operatorId)
+          .setSupplyType(TokenSupplyType.Infinite)
+          .execute(servicesNode.client);
+        const tokenCreateReceipt = await tokenCreateTx.getReceipt(servicesNode.client);
+        const tokenId = tokenCreateReceipt.tokenId!;
+
+        const assocTx = await new TokenAssociateTransaction()
+          .setAccountId(recipientId!)
+          .setTokenIds([tokenId!])
+          .freezeWith(servicesNode.client)
+          .sign(recipientKey);
+
+        const assocSubmit = await assocTx.execute(servicesNode.client);
+        await assocSubmit.getReceipt(servicesNode.client);
+        console.log('Recipient associated to token.');
+
+        const hbarAmount = new Hbar(1);
+        const tokenAmount = 5_000_000;
+
+        const xferTx = await new TransferTransaction()
+          // HBAR legs must sum to 0
+          .addHbarTransfer(operatorId, hbarAmount.negated())
+          .addHbarTransfer(recipientId!, hbarAmount)
+
+          // Token legs must sum to 0
+          .addTokenTransfer(tokenId, operatorId, -tokenAmount)
+          .addTokenTransfer(tokenId, recipientId, tokenAmount)
+          .execute(servicesNode.client);
+
+        const xferReceipt = await xferTx.getReceipt(servicesNode.client);
+
+        const record = await xferTx.getRecord(servicesNode.client);
+
+        const blockNumber = record;
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, ['0x83']);
+        expect(result).to.be.an('array').with.lengthOf.at.least(1);
+        expect(result[0]).to.have.property('logs').with.lengthOf(2);
+
+        expect(JSON.stringify(result)).to.equal('XYZ');
       });
 
       it('@release should fail to execute "eth_getTransactionReceipt" for hash of London transaction', async function () {
