@@ -7,7 +7,7 @@ import { Log } from './lib/model';
 
 export class LogsBloomUtils {
   public static readonly BYTE_SIZE = 256;
-  public static readonly MASK = 0x7ff; // 2047
+  public static readonly MASK = 0x7ff;
 
   /**
    * Adds bloom filter bits for a log's address and topics.
