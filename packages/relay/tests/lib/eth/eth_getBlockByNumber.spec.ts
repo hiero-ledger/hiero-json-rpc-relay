@@ -441,7 +441,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   describe('eth_getBlockByNumber with tag', async function () {
-    const TOTAL_GET_CALLS_EXECUTED = 12;
+    const TOTAL_GET_CALLS_EXECUTED = 11;
     function confirmResult(result: Block | null) {
       expect(result).to.exist;
       expect(result).to.not.be.null;
@@ -472,7 +472,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.some(({ url }) => url === 'network/fees')).to.be.false;
       confirmResult(result);
     });
 
@@ -507,7 +507,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.some(({ url }) => url === 'network/fees')).to.be.false;
       confirmResult(result);
     });
 
@@ -522,7 +522,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
+      expect(restMock.history.some(({ url }) => url === 'network/fees')).to.be.false;
       confirmResult(result);
     });
 

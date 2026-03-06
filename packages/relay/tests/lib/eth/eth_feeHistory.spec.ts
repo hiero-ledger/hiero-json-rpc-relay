@@ -9,7 +9,6 @@ import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
-  BASE_FEE_PER_GAS_HEX,
   BLOCK_NUMBER_2,
   BLOCK_NUMBER_3,
   BLOCKS_LIMIT_ORDER_URL,
@@ -70,7 +69,6 @@ describe('@ethFeeHistory using MirrorNode', async function () {
         .onGet(`network/fees?timestamp=lte:${previousBlock.timestamp.to}`)
         .reply(200, JSON.stringify(updatedFees));
       const feeHistory = await ethImpl.feeHistory(2, 'latest', [25, 75], requestDetails);
-
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'].length).to.equal(3);
       expect(feeHistory['gasUsedRatio'].length).to.equal(2);
@@ -156,7 +154,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     const secondFeeHistory = await ethImpl.feeHistory(1, hexBlockNumber, null, requestDetails);
 
     expect(firstFeeHistory).to.exist;
-    expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+    expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
     expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
     expect(firstFeeHistory['oldestBlock']).to.equal(hexBlockNumber);
 
@@ -199,9 +197,9 @@ describe('@ethFeeHistory using MirrorNode', async function () {
   describe('eth_feeHistory using fixed fees', function () {
     function checkCommonFeeHistoryFields(feeHistory: any) {
       expect(feeHistory).to.exist;
-      expect(feeHistory['baseFeePerGas'][0]).to.eq(BASE_FEE_PER_GAS_HEX);
-      expect(feeHistory['baseFeePerGas'][1]).to.eq(BASE_FEE_PER_GAS_HEX);
-      expect(feeHistory['baseFeePerGas'][2]).to.eq(BASE_FEE_PER_GAS_HEX);
+      expect(feeHistory['baseFeePerGas'][0]).to.eq(constants.ZERO_HEX);
+      expect(feeHistory['baseFeePerGas'][1]).to.eq(constants.ZERO_HEX);
+      expect(feeHistory['baseFeePerGas'][2]).to.eq(constants.ZERO_HEX);
     }
 
     function defineLatestBlockRestMock(latestBlockNumber: number) {
@@ -273,7 +271,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(latestBlockNumber - countBlocks + 1));
       expect(feeHistory['baseFeePerGas'].length).to.eq(countBlocks + 1);
-      expect(feeHistory['baseFeePerGas'][0]).to.eq(BASE_FEE_PER_GAS_HEX);
+      expect(feeHistory['baseFeePerGas'][0]).to.eq(constants.ZERO_HEX);
     });
 
     it('eth_feeHistory with earliest param', async function () {
@@ -287,7 +285,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory).to.exist;
       expect(feeHistory['oldestBlock']).to.eq(numberTo0x(1));
       expect(feeHistory['baseFeePerGas'].length).to.eq(2);
-      expect(feeHistory['baseFeePerGas'][0]).to.eq(BASE_FEE_PER_GAS_HEX);
+      expect(feeHistory['baseFeePerGas'][0]).to.eq(constants.ZERO_HEX);
     });
 
     it('eth_feeHistory with fixed fees using cache', async function () {

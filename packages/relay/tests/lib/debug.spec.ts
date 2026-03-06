@@ -434,7 +434,7 @@ describe('Debug API Test Suite', async function () {
 
       it('should return a RLP block for existing block', async () => {
         const expectedRlpHex =
-          '0xf90223' +
+          '0xf9021e' +
           'a0' +
           'd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa' + // parent hash
           'a0' +
@@ -463,7 +463,6 @@ describe('Debug API Test Suite', async function () {
           '0000000000000000000000000000000000000000000000000000000000000000' + // prevrandao
           '88' +
           '0000000000000000' + // nonce
-          '85' +
           '00' + // baseFeePerGas
           'a0' +
           '0000000000000000000000000000000000000000000000000000000000000000'; // withdrawalsRoot
@@ -495,7 +494,7 @@ describe('Debug API Test Suite', async function () {
 
       it('should return a RLP block for existing block', async () => {
         const expectedRlpHex =
-          '0xf905fc' +
+          '0xf905f7' +
           'a0' +
           'd7dbe6b1379e3e1d71729a92e167af28d6b79aa9e40b0f6d845fe7b85c500bfa' + // parent hash
           'a0' +
@@ -524,7 +523,6 @@ describe('Debug API Test Suite', async function () {
           '0000000000000000000000000000000000000000000000000000000000000000' + // prevrandao
           '88' +
           '0000000000000000' + // nonce
-          '85' +
           '00' + // baseFeePerGas
           'a0' +
           '0000000000000000000000000000000000000000000000000000000000000000' + // withdrawalsRoot

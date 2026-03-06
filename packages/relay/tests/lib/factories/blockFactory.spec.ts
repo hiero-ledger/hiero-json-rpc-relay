@@ -220,7 +220,7 @@ describe('BlockFactory', () => {
       expect(hexToData(decoded[12])).to.equal(blockInfo.extraData);
       expect(hexToData(decoded[13])).to.equal(blockInfo.mixHash);
       expect(hexToData(decoded[14])).to.equal(blockInfo.nonce);
-      expect(hexToData(decoded[15])).to.equal(blockInfo.baseFeePerGas);
+      expect(hexToQuantity(decoded[15])).to.equal(blockInfo.baseFeePerGas);
       expect(hexToData(decoded[16])).to.equal(blockInfo.withdrawalsRoot);
     });
 
