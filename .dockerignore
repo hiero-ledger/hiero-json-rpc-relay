@@ -34,6 +34,7 @@ tools/
 k6/
 dapp-example/
 charts/
+scripts/
 
 # ── Documentation ─────────────────────────────────────────────────────────────
 # Only docs/openrpc.json is required at runtime and is COPY'd explicitly by the
