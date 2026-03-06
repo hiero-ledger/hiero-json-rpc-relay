@@ -31,19 +31,59 @@ RUN printf 'npm_package_version=%s\n' \
         "$(node -p "require('package.json').version")" > .env.release
 
 # Prune development dependencies and runtime artifacts.
-RUN npm prune --omit=dev --ignore-scripts
+# --omit=optional ensures any optional package that arrived via --include or
+# reinstall is also removed, making the prune consistent with the install step.
+RUN npm prune --omit=dev --omit=optional --ignore-scripts
 
-# Remove the react-native transitive dependency tree (~122 MB).
+# Remove the react-native transitive dependency tree (~130 MB).
+#
 # @hiero-ledger/cryptography declares react-native-get-random-values as a hard
 # dependency; however, that package is only imported via the React Native
 # entry-point (polyfills.native.cjs → index.native.cjs).  The Node.js CJS
 # entry-point (lib/index.cjs) never loads it, so this entire subtree is dead
 # weight in a server-side container.
-RUN rm -rf node_modules/react-native \
-           node_modules/hermes-compiler \
-           node_modules/@react-native \
-           node_modules/react-devtools-core \
-           node_modules/fb-dotslash
+#
+# The metro bundler tree (~6.3 MB) is hoisted to the top-level node_modules by
+# npm (it is a direct dependency of react-native itself).  Deleting
+# node_modules/react-native does not remove hoisted entries, so each package
+# must be listed explicitly.
+RUN rm -rf \
+    node_modules/react-native \
+    node_modules/react-native-get-random-values \
+    node_modules/hermes-compiler \
+    node_modules/@react-native \
+    node_modules/react-devtools-core \
+    node_modules/fb-dotslash \
+    node_modules/metro \
+    node_modules/metro-babel-transformer \
+    node_modules/metro-cache \
+    node_modules/metro-cache-key \
+    node_modules/metro-config \
+    node_modules/metro-core \
+    node_modules/metro-file-map \
+    node_modules/metro-minify-terser \
+    node_modules/metro-resolver \
+    node_modules/metro-runtime \
+    node_modules/metro-source-map \
+    node_modules/metro-symbolicate \
+    node_modules/metro-transform-plugins \
+    node_modules/metro-transform-worker \
+    node_modules/ob1 \
+    node_modules/fast-base64-decode \
+    node_modules/jsc-safe-url
+
+# Remove npm-internal artefacts that are never read by Node.js at runtime.
+# .bin/               — CLI symlinks for 89 production-dep binaries; we invoke
+#                       node directly so none of these are ever executed.
+# .package-lock.json  — npm v7 internal dependency-tree snapshot (710 KB); not
+#                       loaded by the runtime, only used by npm CLI tooling.
+# @napi-rs/           — safety-net: with --omit=optional this dir is not
+#                       installed; the rm is a no-op but guards against any
+#                       future lock-file drift that pulls in platform binaries.
+RUN rm -rf \
+    node_modules/.bin \
+    node_modules/.package-lock.json \
+    node_modules/@napi-rs
 
 # Remove source code, maps, and type definitions to reduce image footprint.
 RUN find packages -mindepth 2 -maxdepth 2 -type d \
@@ -53,12 +93,16 @@ RUN find packages -mindepth 2 -maxdepth 2 -type d \
     find packages -name '*.d.ts'   -delete
 
 # Strip non-runtime artefacts from production node_modules.
-# *.map             — source maps (debugger-only; never loaded by Node.js)
-# *.ts              — TypeScript source (compiled to *.js; *.d.ts excluded — safe)
-# lib.esm/          — ESM tree-shaking variants; this monorepo targets CommonJS only
-# Documentation     — *.md, LICENSE*, CHANGELOG*, HISTORY*, AUTHORS*, NOTICE*
-# Package metadata  — .npmignore, .gitattributes, .travis.yml, .DS_Store, Makefile
-# Test/example dirs — __tests__/, test/, tests/, spec/, benchmark(s)/, example(s)/, docs/
+# *.map               — source maps (debugger-only; never loaded by Node.js)
+# *.ts                — TypeScript source (compiled to *.js; *.d.ts excluded)
+# lib.esm/            — ESM tree-shaking variants; monorepo targets CommonJS only
+# Documentation       — *.md, LICENSE*, CHANGELOG*, HISTORY*, AUTHORS*, NOTICE*
+# Package metadata    — .npmignore, .gitattributes, .travis.yml, .DS_Store, Makefile
+# Build config files  — tsconfig*.json, binding.gyp, .eslintrc*, .prettierrc*,
+#                       .babelrc*, babel.config.js, jest.config.*, .editorconfig
+#                       These are never read by Node.js but are shipped by many
+#                       packages alongside their compiled output.
+# Test/example dirs   — __tests__/, test/, tests/, spec/, benchmark(s)/, example(s)/, docs/
 RUN find node_modules \( \
          -name '*.map' \
          -o -name '*.md' \
@@ -73,6 +117,13 @@ RUN find node_modules \( \
          -o -name '.npmignore' -o -name '.gitattributes' \
          -o -name '.travis.yml' -o -name '.DS_Store' \
          -o -name 'Makefile' \
+         -o -name 'tsconfig.json' -o -name 'tsconfig.*.json' \
+         -o -name 'binding.gyp' \
+         -o -name '.eslintrc' -o -name '.eslintrc.*' \
+         -o -name '.prettierrc' -o -name '.prettierrc.*' \
+         -o -name '.babelrc' -o -name '.babelrc.*' -o -name 'babel.config.js' \
+         -o -name 'jest.config.js' -o -name 'jest.config.ts' -o -name '.jestrc' \
+         -o -name '.editorconfig' \
     \) -delete && \
     find node_modules -name '*.ts' -not -name '*.d.ts' -delete && \
     find node_modules -type d -name 'lib.esm' -prune -exec rm -rf {} + && \
