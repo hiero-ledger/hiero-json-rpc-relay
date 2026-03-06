@@ -35,3 +35,19 @@ k6/
 dapp-example/
 charts/
 scripts/
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+# Only docs/openrpc.json is required at runtime and is COPY'd explicitly by the
+# runtime stage.  All other content under docs/ (diagrams, images, design docs)
+# serves no build or runtime purpose.
+docs/
+!docs/openrpc.json
+
+# ── Root-level non-build files ────────────────────────────────────────────────
+# Markdown, example configuration templates, and local environment overrides are
+# not consumed by any Dockerfile instruction and must not enter the build context.
+# .env* is excluded specifically to prevent accidental inclusion of secrets.
+**/*.md
+.env*
+spendingPlansConfig.example.json
+eslint.config.mjs

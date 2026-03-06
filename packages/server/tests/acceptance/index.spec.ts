@@ -72,7 +72,7 @@ describe('RPC Server Acceptance Tests', function () {
       stopRelay();
       await new Promise((r) => setTimeout(r, 5000)); // wait for server to shutdown
 
-      await runLocalRelay();
+      // await runLocalRelay();
     }
   };
 
@@ -94,7 +94,7 @@ describe('RPC Server Acceptance Tests', function () {
     logger.info(`E2E_RELAY_HOST: ${ConfigService.get('E2E_RELAY_HOST')}`);
 
     if (global.relayIsLocal) {
-      await runLocalRelay();
+      // await runLocalRelay();
     }
 
     // cache start balance
