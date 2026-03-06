@@ -38,6 +38,7 @@ import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
+import { MultiLogReceiptFixture } from './fixtures/multiLogReceiptFixture';
 
 const Address = RelayCalls;
 
@@ -1523,6 +1524,27 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(contractDeploymentReceipt).to.exist;
         expect(contractDeploymentReceipt.contractAddress).to.not.be.null;
         expect(contractDeploymentReceipt.to).to.be.null;
+      });
+
+      it('should return all the synthetic tx logs when querying for its receipt', async function () {
+        const fixture = new MultiLogReceiptFixture(servicesNode.client, mirrorNode);
+        const blockNumber = await fixture.createBlockWithMultiLogSyntheticTransaction();
+
+        // Block receipt contains a transaction with multiple logs
+        const result = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [blockNumber]);
+        expect(result).to.be.an('array').with.lengthOf(1);
+        expect(result[0]).to.have.property('logs').with.lengthOf.greaterThan(1);
+
+        const { transactionHash } = result[0];
+
+        // Make sure that this transaction is synthetic
+        expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
+
+        // When querying for the synthetic transaction receipt directly, logs are also preserved
+        const transactionReceipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
+          transactionHash,
+        ]);
+        expect(transactionReceipt).to.have.property('logs').with.lengthOf.greaterThan(1);
       });
 
       it('should fail "eth_sendRawTransaction" for transaction with incorrect chain_id', async function () {
