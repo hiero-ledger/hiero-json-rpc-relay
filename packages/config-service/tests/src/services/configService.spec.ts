@@ -150,10 +150,10 @@ describe('ConfigService tests', async function () {
     const envs = ConfigService.getAllMasked();
     expect(envs).to.not.be.empty;
 
-    for (const sensitiveField of LoggerService.SENSITIVE_FIELDS) {
-      if (envs[sensitiveField]) {
-        expect(envs[sensitiveField]).to.equal('**********');
+    LoggerService.SENSITIVE_FIELDS_MAP.forEach((value, key) => {
+      if (envs[key]) {
+        expect(envs[key]).to.contains(`**********`);
       }
-    }
+    });
   });
 });

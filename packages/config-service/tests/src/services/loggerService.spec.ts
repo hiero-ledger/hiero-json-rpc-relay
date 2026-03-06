@@ -11,11 +11,12 @@ chai.use(chaiAsPromised);
 
 describe('LoggerService tests', async function () {
   it('should be able to mask sensitive information', async () => {
-    for (const sensitiveField of LoggerService.SENSITIVE_FIELDS) {
-      const hex = crypto.randomBytes(32).toString('hex');
-      const res = LoggerService.maskUpEnv(sensitiveField, hex);
-      expect(res).to.equal(`${sensitiveField} = **********`);
-    }
+    LoggerService.SENSITIVE_FIELDS_MAP.forEach((value, key) => {
+      if (value === true) {
+        const res = LoggerService.maskUpEnv(key, crypto.randomBytes(32).toString('hex'));
+        expect(res).to.equal(`${key} = **********`);
+      }
+    });
   });
 
   it('should be able to return plain information', async () => {

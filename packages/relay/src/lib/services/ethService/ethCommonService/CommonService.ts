@@ -18,6 +18,7 @@ import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
 export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
+export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]];
 
 /**
  * Create a new Common Service implementation.
@@ -83,7 +84,7 @@ export class CommonService implements ICommonService {
    * This structure is introduced for efficient lookup.
    */
   private static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+    ConfigService.get('PAYMASTER_ACCOUNTS').map(
       (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
     ),
   );
@@ -99,8 +100,8 @@ export class CommonService implements ICommonService {
    * This structure is introduced for efficient lookup.
    */
   public static readonly PAYMASTER_ACCOUNTS_WHITELISTS_MAP: Map<string, string> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
-      whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
+    (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as unknown as PaymasterAccountWhitelist[]).flatMap(
+      ([accountId, whitelist]) => whitelist.map((addr) => [addr.toLowerCase(), accountId]),
     ),
   );
 
