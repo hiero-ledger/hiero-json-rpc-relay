@@ -1,0 +1,216 @@
+name: Dockerfile Acceptance Test
+
+# Validates the optimised multi-stage Dockerfile by building a local image,
+# measuring its compressed size, and running the full release acceptance suite
+# (HTTP then WebSocket) against a Hedera local node.
+
+on:
+  push:
+    branches: [main, release/**]
+    paths:
+      - Dockerfile
+      - scripts/build-standalone.js
+      - package.json
+      - package-lock.json
+  pull_request:
+    branches: [main, release/**]
+    paths:
+      - Dockerfile
+      - scripts/build-standalone.js
+  workflow_dispatch:
+
+concurrency:
+  group: dockerfile-acceptance-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build image & run release acceptance tests
+    runs-on: hiero-smart-contracts-linux-large
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # ── Docker image ────────────────────────────────────────────────────────
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          version: v0.22.0
+          driver-opts: network=host
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["https://hub.mirror.docker.lat.ope.eng.hashgraph.io"]
+
+      - name: Build Docker image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: hiero-relay:local
+
+      - name: Print Docker image size
+        run: |
+          docker images
+
+      # ── Test-runner dependencies ────────────────────────────────────────────
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build TypeScript packages
+        run: npx lerna run build
+
+      - name: Install Hedera Local
+        run: npm install @hashgraph/hedera-local -g
+
+      # ── Hedera local network ────────────────────────────────────────────────
+
+      - name: Start Hedera local node
+        run: npx hedera restart -d --verbose=trace
+
+      - name: Stop built-in relay containers
+        # hedera-local ships with its own JSON-RPC relay containers; stop them
+        # so the locally-built image can bind the same ports and Redis remains
+        # available at 127.0.0.1:6379 for the relay under test.
+        run: docker stop json-rpc-relay json-rpc-relay-ws
+
+      # ── Shared environment ──────────────────────────────────────────────────
+
+      - name: Configure relay environment
+        run: cp packages/server/tests/localAcceptance.env .env
+
+      # ── HTTP relay ──────────────────────────────────────────────────────────
+
+      - name: Start HTTP relay
+        # --network host is required: hedera-local services (consensus node,
+        # mirror node, Redis) are bound to the host loopback (127.0.0.1) and
+        # are unreachable from the default bridge network inside a container.
+        run: |
+          docker run -d --rm \
+            --name hedera-relay \
+            --network host \
+            -v "$(pwd)/.env:/home/node/app/.env" \
+            hiero-relay:local
+
+      - name: Wait for HTTP relay to be healthy
+        run: |
+          echo "Waiting for HTTP relay on port 7546..."
+          for i in $(seq 1 30); do
+            if wget -q -O- http://localhost:7546/health/liveness 2>/dev/null | grep -q OK; then
+              echo "HTTP relay is healthy (attempt ${i}/30)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "HTTP relay did not become healthy within 60 seconds." >&2
+          exit 1
+
+      - name: Run HTTP release acceptance tests
+        run: npm run acceptancetest:release_http
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── WebSocket relay ─────────────────────────────────────────────────────
+      # The HTTP relay remains running: the WS acceptance harness makes ordinary
+      # RPC calls through the HTTP relay in addition to WebSocket subscriptions.
+
+      - name: Start WebSocket relay
+        run: |
+          docker run -d --rm \
+            --name hedera-relay-ws \
+            --network host \
+            -e HEALTHCHECK_PORT=8547 \
+            -e SUBSCRIPTIONS_ENABLED=true \
+            -v "$(pwd)/.env:/home/node/app/.env" \
+            hiero-relay:local \
+            packages/ws-server/dist/index.js
+
+      - name: Wait for WebSocket relay to be healthy
+        run: |
+          echo "Waiting for WebSocket relay on port 8547..."
+          for i in $(seq 1 30); do
+            if wget -q -O- http://localhost:8547/health/liveness 2>/dev/null | grep -q OK; then
+              echo "WebSocket relay is healthy (attempt ${i}/30)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "WebSocket relay did not become healthy within 60 seconds." >&2
+          exit 1
+
+      - name: Run WebSocket release acceptance tests
+        # E2E_RELAY_HOST must differ from the hard-coded LOCAL_RELAY_URL string
+        # ('http://localhost:7546') so that relayIsLocal evaluates to false in the
+        # ws-server acceptance harness.  When relayIsLocal is false, runLocalRelay()
+        # is not invoked, preventing the harness from trying to bind ports 7546 and
+        # 8546 that are already held by the running Docker containers.
+        run: npm run acceptancetest:release_ws
+        env:
+          E2E_RELAY_HOST: http://127.0.0.1:7546
+          SUBSCRIPTIONS_ENABLED: "true"
+          TEST_WS_SERVER: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture WebSocket relay logs
+        if: always()
+        run: docker logs hedera-relay-ws 2>&1 || true
+
+      - name: Stop WebSocket relay
+        if: always()
+        run: docker stop hedera-relay-ws 2>/dev/null || true
+
+      # ── Cleanup HTTP relay ──────────────────────────────────────────────────────
+
+      - name: Capture HTTP relay logs
+        # Capture before stopping — with --rm the container is removed on stop.
+        if: always()
+        run: docker logs hedera-relay 2>&1 || true
+
+      - name: Stop HTTP relay
+        if: always()
+        run: docker stop hedera-relay 2>/dev/null || true
+
+      # ── Artifacts ───────────────────────────────────────────────────────────────
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: Test Results
+          path: test-*.xml
+
+      - name: Publish test report
+        uses: step-security/publish-unit-test-result-action@7dff603bf17ef13dee847147bef8d7cd1728b566 # v2.22.0
+        if: ${{ !cancelled() }}
+        with:
+          check_name: ""
+          comment_mode: off
+          json_thousands_separator: ","
+          files: "test-*.xml"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
