@@ -1096,19 +1096,18 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       it('@release should be able to create a log filter', async function () {
         const currentBlock = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_BLOCK_NUMBER, []);
         expect(
-          RelayAssertions.validateHash(
+          RelayAssertions.validateUint(
             await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
               {
                 fromBlock: currentBlock,
                 toBlock: 'latest',
               },
             ]),
-            32,
           ),
         ).to.eq(true, 'from current block to latest');
 
         expect(
-          RelayAssertions.validateHash(
+          RelayAssertions.validateUint(
             await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
               {
                 fromBlock: currentBlock,
@@ -1116,12 +1115,11 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
                 address: reverterEvmAddress,
               },
             ]),
-            32,
           ),
         ).to.eq(true, 'from current block to latest and specified address');
 
         expect(
-          RelayAssertions.validateHash(
+          RelayAssertions.validateUint(
             await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [
               {
                 fromBlock: currentBlock,
@@ -1130,15 +1128,14 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
                 topics: TOPICS,
               },
             ]),
-            32,
           ),
         ).to.eq(true, 'with all params');
       });
 
       it('@release should be able to create a newBlock filter', async function () {
-        expect(
-          RelayAssertions.validateHash(await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_BLOCK_FILTER, []), 32),
-        ).to.eq(true);
+        expect(RelayAssertions.validateUint(await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_BLOCK_FILTER, []))).to.eq(
+          true,
+        );
       });
 
       it('should be able to uninstall existing log filter', async function () {
