@@ -3,7 +3,7 @@ name: Solo Test Sandbox
 on:
   push:
     branches:
-      - 4900-v2-solo-reduce-json-rpc-relay-memory-footprint
+      - 4900-v3-solo-reduce-json-rpc-relay-memory-footprint
 
 permissions:
   contents: read
