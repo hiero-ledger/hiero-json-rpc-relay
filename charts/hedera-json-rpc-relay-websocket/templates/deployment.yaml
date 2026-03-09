@@ -29,7 +29,8 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}
-        args: ["start:ws"]
+        command: ["node", "--env-file=/home/node/app/.env.release"]
+        args: ["packages/ws-server/dist/index.js"]
         image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         envFrom:

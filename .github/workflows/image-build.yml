@@ -42,32 +42,62 @@ jobs:
           load: true
           tags: relay:latest
 
-      - name: Start server
+      - name: Prepare .env file
         run: |
-          docker run \
-            -e CHAIN_ID='0x12a' \
-            -e HEDERA_NETWORK='{"127.0.0.1:50211":"0.0.3"}' \
-            -e MIRROR_NODE_URL='http://127.0.0.1:5551' \
-            -e OPERATOR_ID_MAIN='0.0.1002' \
-            -e OPERATOR_KEY_MAIN='302e020100300506032b65700422042077d69b53642d0000000000000000000000000000000000000000000000000000' \
-            -e READ_ONLY='true' \
-            -e REDIS_ENABLED='false' \
-            -d -p 7546:7546 --name relay relay:latest
+          cat <<EOF > .env
+          CHAIN_ID=0x12a
+          HEDERA_NETWORK={"127.0.0.1:50211":"0.0.3"}
+          MIRROR_NODE_URL=http://127.0.0.1:5551
+          OPERATOR_ID_MAIN=0.0.1002
+          OPERATOR_KEY_MAIN=302e020100300506032b65700422042077d69b53642d0000000000000000000000000000000000000000000000000000
+          READ_ONLY=true
+          REDIS_ENABLED=false
+          EOF
 
-      - name: Test server
+      - name: Start HTTP relay server
         run: |
-          sleep 15  # Wait for the server to start
-          response=$(curl -s http://localhost:7546/health/liveness)
-          if [ "$response" = "OK" ]; then
-            echo "Server responded with 'OK'. Test passed!"
-            exit 0
-          else
-            echo "Server responded with '$response'. Test failed!"
-            exit 1
-          fi
+          docker run --env-file .env -d -p 7546:7546 --name relay relay:latest
 
-      - name: Stop server
+      - name: Test HTTP relay liveness
+        run: |
+          echo "Waiting for HTTP relay..."
+          for i in {1..10}; do
+            response=$(curl -s http://localhost:7546/health/liveness || true)
+            if [ "$response" = "OK" ]; then
+              echo "HTTP relay is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "HTTP relay failed liveness check: $response"
+          docker logs relay
+          exit 1
+
+      - name: Stop HTTP relay
         if: always()
+        run: docker rm -f relay
+
+      - name: Start WebSocket relay server
         run: |
-          docker stop relay
-          docker rm relay
+          docker run --env-file .env \
+            -d -p 8546:8546 -p 8547:8547 --name relay-ws relay:latest \
+            packages/ws-server/dist/index.js
+
+      - name: Test WebSocket relay liveness
+        run: |
+          echo "Waiting for WebSocket relay..."
+          for i in {1..10}; do
+            response=$(curl -s http://localhost:8547/health/liveness || true)
+            if [ "$response" = "OK" ]; then
+              echo "WebSocket relay is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "WebSocket relay failed liveness check: $response"
+          docker logs relay-ws
+          exit 1
+
+      - name: Stop WebSocket relay
+        if: always()
+        run: docker rm -f relay-ws

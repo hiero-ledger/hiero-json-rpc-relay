@@ -1,7 +1,54 @@
+# ── Container manifest ────────────────────────────────────────────────────────
+# Excluded to prevent the file from invalidating build-context cache layers.
 Dockerfile
-packages/relay/node_modules/
-packages/relay/tests/
-packages/server/node_modules/
-packages/server/tests/
-node_modules/
+
+# ── Source control metadata ───────────────────────────────────────────────────
+.git/
+.github/
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+# Compiled JavaScript and incremental build info are always regenerated inside
+# the build stage.  Pre-existing local outputs must not shadow the fresh build.
+**/dist/
+dist-bundle/
+**/*.tsbuildinfo
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+# node_modules are installed fresh by npm ci inside the build stage.
+# Including them in the build context adds hundreds of MB of transfer overhead
+# with no benefit.
+**/node_modules/
+
+# ── Test and development artefacts ────────────────────────────────────────────
+**/tests/
+**/test/
+
+# ── CI and coverage outputs ───────────────────────────────────────────────────
+coverage/
+test-results*.xml
+codecov.yml
+
+# ── Tooling and examples ──────────────────────────────────────────────────────
+# These directories are not required for building or running the relay.
 tools/
+k6/
+dapp-example/
+charts/
+scripts/
+!scripts/build-standalone.js
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+# Only docs/openrpc.json is required at runtime and is COPY'd explicitly by the
+# runtime stage.  All other content under docs/ (diagrams, images, design docs)
+# serves no build or runtime purpose.
+docs/
+!docs/openrpc.json
+
+# ── Root-level non-build files ────────────────────────────────────────────────
+# Markdown, example configuration templates, and local environment overrides are
+# not consumed by any Dockerfile instruction and must not enter the build context.
+# .env* is excluded specifically to prevent accidental inclusion of secrets.
+**/*.md
+.env*
+spendingPlansConfig.example.json
+eslint.config.mjs
