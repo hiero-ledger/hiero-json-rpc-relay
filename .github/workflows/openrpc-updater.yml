@@ -2,7 +2,7 @@ name: OpenRPC JSON Updater
 
 on:
   schedule:
-    - cron: '0 14 * * 1' # Runs every Monday at 14:00 UTC
+    - cron: '0 14 * * 5' # Runs every Friday at 14:00 UTC
   workflow_dispatch:
 
 permissions:

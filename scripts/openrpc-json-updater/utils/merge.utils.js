@@ -123,7 +123,7 @@ export function setObjectByPath(obj, path, value) {
   const lastPart = parts[parts.length - 1];
 
   ['description', 'title'].forEach((key) => {
-    if (current[lastPart][key] && !value[key]) {
+    if (current[lastPart]?.[key] && !value[key]) {
       value[key] = current[lastPart][key];
     }
   });
