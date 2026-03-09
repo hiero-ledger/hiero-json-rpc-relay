@@ -1538,7 +1538,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const { transactionHash } = result[0];
 
         // Make sure that this transaction is synthetic
-        expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
+        await expect(mirrorNode.get(`/contracts/results/${transactionHash}`)).to.eventually.be.rejectedWith(/404/);
 
         // When querying for the synthetic transaction receipt directly, logs are also preserved
         const transactionReceipt = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [
