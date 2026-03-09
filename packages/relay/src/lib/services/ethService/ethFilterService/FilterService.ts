@@ -3,7 +3,7 @@
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
-import { generateRandomHex, toHash32 } from '../../../../formatters';
+import { generateRandomHex, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import constants from '../../../constants';
@@ -106,7 +106,7 @@ export class FilterService implements IFilterService {
    * @param params
    */
   async createFilter(type: string, params: any): Promise<string> {
-    const filterId = generateRandomHex();
+    const filterId = prepend0x(trimPrecedingZeros(generateRandomHex()) ?? '0');
     await this.updateFilterCache(filterId, type, params, null, this.ethNewFilter);
 
     if (this.logger.isLevelEnabled('trace')) {
