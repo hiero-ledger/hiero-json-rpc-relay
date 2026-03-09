@@ -7,7 +7,6 @@ import { JsonRpcError } from '../src';
 import { numberTo0x } from '../src/formatters';
 import constants from '../src/lib/constants';
 import { Block, Transaction } from '../src/lib/model';
-import { BASE_FEE_PER_GAS_DEFAULT } from './lib/eth/eth-config';
 
 chai.use(chaiAsPromised);
 
