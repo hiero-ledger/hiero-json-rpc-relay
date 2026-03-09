@@ -156,4 +156,72 @@ describe('ConfigService tests', async function () {
       }
     });
   });
+
+  describe('validatePaymasterAccounts', () => {
+    let initialPaymasterAccounts;
+
+    before(() => {
+      initialPaymasterAccounts = ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'];
+    });
+
+    after(() => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = initialPaymasterAccounts;
+    });
+
+    it('should validate a correct config', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
+    });
+
+    it('should throw on invalid account id format', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0: invalid account id format, required format is realm.shard.num',
+      );
+    });
+
+    it('should throw on invalid key type', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'RSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0: key type must be HEX_ECDSA or HEX_ED25519',
+      );
+    });
+
+    it('should throw on invalid private key', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'HEX_ECDSA', '0x1234', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0: invalid 0x prefixed private key',
+      );
+    });
+
+    it('should throw on invalid allowanceInHBAR', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '0'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0: allowanceInHBAR must be an integer >= 1',
+      );
+    });
+
+    it('should throw if payment account array length is incorrect', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [['0.0.8031491', 'HEX_ECDSA']] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0 must be an array of 4 element',
+      );
+    });
+  });
 });
