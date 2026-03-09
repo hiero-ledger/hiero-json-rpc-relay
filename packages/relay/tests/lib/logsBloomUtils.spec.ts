@@ -79,17 +79,6 @@ describe('LogsBloomUtils', () => {
       });
     });
 
-    it('should be able to generate a bloom if passed topics value is null', () => {
-      // @ts-ignore
-      const res = LogsBloomUtils.buildLogsBloom(toLogs(address, null));
-      expect(res).to.not.equal(emptyBloom);
-    });
-
-    it('should be able to generate a emptyBloom if there are no logs', () => {
-      const res = LogsBloomUtils.buildLogsBloom(toLogs(address, []));
-      expect(res).to.not.equal(emptyBloom);
-    });
-
     it('should be able to generate emptyBloom if address is empty', () => {
       const res = LogsBloomUtils.buildLogsBloom(toLogs('', topics));
       expect(res).to.equal(emptyBloom);

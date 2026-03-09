@@ -1526,7 +1526,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(contractDeploymentReceipt.to).to.be.null;
       });
 
-      it('should return all the synthetic tx logs when querying for its receipt', async function () {
+      it('@release should return all the synthetic tx logs when querying for its receipt', async function () {
         const fixture = new MultiLogReceiptFixture(servicesNode.client, mirrorNode);
         const blockNumber = await fixture.createBlockWithMultiLogSyntheticTransaction();
 
