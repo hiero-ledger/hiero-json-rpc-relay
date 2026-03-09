@@ -22,7 +22,7 @@ const AssociateHTSTokensForm = ({ signer, isConnected, chain, address }) => {
       setIsLoading(true);
       setHtsTokenAssocaiteMsg('Loading...');
 
-      const txAssociate = await hrcToken.associate({ gasLimit: 1_000_0000 });
+      const txAssociate = await hrcToken.associate({ gasLimit: 1_000_0000, gasPrice: 710_000_000_000 });
       const receiptAssociate = await txAssociate.wait();
 
       setHtsTokenAssocaiteMsg(receiptAssociate.status === 1 ? 'Done' : 'There was an error.');
