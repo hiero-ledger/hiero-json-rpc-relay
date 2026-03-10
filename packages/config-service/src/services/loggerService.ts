@@ -3,7 +3,12 @@
 import { ConfigKey, GlobalConfig } from './globalConfig';
 
 export class LoggerService {
-  public static readonly SENSITIVE_FIELDS: ConfigKey[] = ['OPERATOR_KEY_MAIN', 'GITHUB_TOKEN', 'GH_ACCESS_TOKEN'];
+  public static readonly SENSITIVE_FIELDS: ConfigKey[] = [
+    'OPERATOR_KEY_MAIN',
+    'GITHUB_TOKEN',
+    'GH_ACCESS_TOKEN',
+    'MIRROR_NODE_AUTH_HEADER',
+  ];
 
   public static readonly GITHUB_SECRET_PATTERN: RegExp =
     /^(gh[pousr]_[a-zA-Z0-9]{36,251}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})$/;

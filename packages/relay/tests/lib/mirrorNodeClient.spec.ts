@@ -286,6 +286,21 @@ describe('MirrorNodeClient', async function () {
     });
   });
 
+  withOverriddenEnvsInMochaTest({ MIRROR_NODE_AUTH_HEADER: 'Basic YWRtaW46cGFzc3dvcmQxMjM=' }, () => {
+    it('Can provide Authorization header', async () => {
+      const mirrorNodeInstanceOverridden = new MirrorNodeClient(
+        ConfigService.get('MIRROR_NODE_URL'),
+        logger.child({ name: `mirror-node` }),
+        registry,
+        cacheService,
+      );
+
+      const axiosHeaders = mirrorNodeInstanceOverridden.getMirrorNodeRestInstance().defaults.headers.common;
+      expect(axiosHeaders).has.property('Authorization');
+      expect(axiosHeaders['Authorization']).to.eq(ConfigService.get('MIRROR_NODE_AUTH_HEADER'));
+    });
+  });
+
   describe('Is-Modularized', () => {
     it('should NOT include Is-Modularized header when not set', async () => {
       const mirrorNodeInstanceOverridden = new MirrorNodeClient(

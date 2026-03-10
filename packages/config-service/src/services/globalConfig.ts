@@ -410,6 +410,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  MIRROR_NODE_AUTH_HEADER: {
+    type: 'string',
+    required: false,
+    defaultValue: null,
+  },
   MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX: {
     type: 'number',
     required: false,
