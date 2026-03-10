@@ -1527,6 +1527,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
       });
 
       it('@release should return all the synthetic tx logs when querying for its receipt', async function () {
+        // Wait for all the previously queued transactions to be already mained (reducing flakiness)
+        await new Promise((r) => setTimeout(r, 3000));
+
         const fixture = new MultiLogReceiptFixture(servicesNode.client, mirrorNode);
         const blockNumber = await fixture.createBlockWithMultiLogSyntheticTransaction();
 
