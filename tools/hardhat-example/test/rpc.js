@@ -2,7 +2,6 @@
 
 const hre = require('hardhat');
 const { expect } = require('chai');
-const { ethers } = require('hardhat');
 
 describe('RPC', function () {
   let contractAddress;
@@ -28,6 +27,7 @@ describe('RPC', function () {
   });
 
   it('should allow HBAR transfer with Hardhat signer, but reject it with a plain ethers Wallet when not providing gasPrice directly', async function () {
+    const { ethers } = hre;
     const submitTransactionUsingWallet = async (wallet) => await (
       await wallet.sendTransaction({ to: signers[1].address, value: 100_000_000_000n })
     ).wait();
