@@ -13,7 +13,8 @@ COPY packages/ws-server/package.json       packages/ws-server/
 
 # Install dependencies using npm ci for deterministic builds.
 # --ignore-scripts blocks third-party lifecycle hooks (preinstall/postinstall),
-# reducing any unintended side effects during installation.
+# --omit=dev/optional/--production flags are intentionally skipped here 
+# as production pruning is handled by the build-standalone script.
 RUN npm ci --ignore-scripts
 
 # Copy source code and configurations for compilation.

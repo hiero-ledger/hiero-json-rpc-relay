@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const { nodeFileTrace } = require('@vercel/nft');
 const fs = require('fs');
 const path = require('path');
@@ -45,7 +47,7 @@ async function buildStandalone() {
       fs.writeFileSync(target, JSON.stringify(min, null, 2));
     }
   }
-  console.log(`Build complete: ${fileList.size} files isolates in .standalone.`);
+  console.log(`Build complete: ${fileList.size} files isolated in .standalone.`);
 }
 
 buildStandalone().catch((e) => (console.error(e), process.exit(1)));
