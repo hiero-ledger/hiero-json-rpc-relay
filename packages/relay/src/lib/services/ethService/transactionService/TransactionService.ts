@@ -282,7 +282,6 @@ export class TransactionService implements ITransactionService {
         JSON.stringify(parsedTx),
       );
     }
-
     this.precheck.validateBasicPropertiesStateless(parsedTx);
     await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
