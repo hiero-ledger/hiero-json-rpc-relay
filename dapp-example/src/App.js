@@ -130,7 +130,6 @@ function App() {
       to: hbarsToAddress,
       value: hbarsAmount,
       gasLimit: 1_000_000,
-      gasPrice: 710_000_000_000,
     });
     await tx.wait();
 

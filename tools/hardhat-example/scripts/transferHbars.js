@@ -10,7 +10,7 @@ module.exports = async (amount = 100_000_000_000) => {
   // Keep in mind that TINYBAR to WEIBAR coefficient is 10_000_000_000
   await wallet.sendTransaction({
     to: walletReceiver.address,
-    value: amount, // 10 tinybars,
+    value: amount, // 10 tinybars
   });
   //delay of 3 sec before fetching the new balance, because often it's too fast when querying and the balance is the same like before transfer transaciton
   await new Promise((r) => setTimeout(r, 3000));

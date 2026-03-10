@@ -85,20 +85,21 @@ export class FeeService implements IFeeService {
         return feeHistoryZeroBlockCountResponse;
       }
       let feeHistory: IFeeHistory;
-
+      const gasPriceFee = await this.common.gasPrice(requestDetails);
       if (ConfigService.get('ETH_FEE_HISTORY_FIXED')) {
         let oldestBlock = newestBlockNumber - blockCount + 1;
         if (oldestBlock <= 0) {
           blockCount = 1;
           oldestBlock = 1;
         }
-        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles);
+        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       } else {
         feeHistory = await this.getFeeHistory(
           blockCount,
           newestBlockNumber,
           latestBlockNumber,
           rewardPercentiles,
+          gasPriceFee,
           requestDetails,
         );
       }
@@ -129,12 +130,14 @@ export class FeeService implements IFeeService {
    * @param blockCount
    * @param oldestBlockNumber
    * @param rewardPercentiles
+   * @param fee
    * @private
    */
   private static getRepeatedFeeHistory(
     blockCount: number,
     oldestBlockNumber: number,
     rewardPercentiles: Array<number> | null,
+    fee: string,
   ): IFeeHistory {
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
 
@@ -147,7 +150,7 @@ export class FeeService implements IFeeService {
     };
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
     }
 
     return feeHistory;
@@ -158,6 +161,7 @@ export class FeeService implements IFeeService {
    * @param newestBlockNumber
    * @param latestBlockNumber
    * @param rewardPercentiles
+   * @param fee
    * @param requestDetails
    * @private
    */
@@ -166,6 +170,7 @@ export class FeeService implements IFeeService {
     newestBlockNumber: number,
     latestBlockNumber: number,
     rewardPercentiles: Array<number> | null,
+    fee: string,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory> {
     // include the newest block number in the total block count
@@ -197,7 +202,7 @@ export class FeeService implements IFeeService {
     }
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
     }
 
     return feeHistory;

@@ -9,6 +9,7 @@ import constants from '../../../src/lib/constants';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
+  BASE_FEE_PER_GAS_HEX,
   BLOCK_NUMBER_2,
   BLOCK_NUMBER_3,
   BLOCKS_LIMIT_ORDER_URL,
@@ -184,8 +185,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
       feeHistoryOnErrorExpect(feeHistory);
       const rewards = feeHistory['reward'][0];
-      expect(rewards[0]).to.equal('0x0');
-      expect(rewards[1]).to.equal('0x0');
+      expect(rewards[0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      expect(rewards[1]).to.equal(BASE_FEE_PER_GAS_HEX);
     });
 
     it('eth_feeHistory on mirror 500', async function () {
