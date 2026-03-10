@@ -47,6 +47,10 @@ export class MultiLogReceiptFixture {
       this.createToken('MultiLog2 Testing Token', 'MLTT2'),
     ]);
     await this.associate(tokenIds, recipientId, recipientKey);
+
+    // Wait for all the previously queued transactions to be already mined (removing flakiness)
+    await new Promise((r) => setTimeout(r, 3000));
+
     const record = await this.executeCryptoTransfer(tokenIds, recipientId);
     const blockId = await this.fetchBlockNumberWithRetries(record.consensusTimestamp.toString());
     return `0x${Number(blockId).toString(16)}`;
