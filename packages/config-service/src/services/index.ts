@@ -153,7 +153,11 @@ export class ConfigService {
     // regex for realm.shard.num
     const accountIdRegex: RegExp = /^\d+\.\d+\.\d+$/;
     // regex for 32 bytes 0x prefixed private key
-    const privateKeyRegex: RegExp = /^0x[a-fA-F0-9]{64}$/;
+    const hexKeyRegex: RegExp = /^0x[a-fA-F0-9]{64}$/;
+    // regex for DER encoded private keys handling both:
+    // - ECDSA (50 bytes) - curve OID + ec private key structure + optional public key
+    // - Ed25519 (48 bytes) - simpler ASN.1, no curve parameters
+    const derKeyRegex = /^(?:[a-fA-F0-9]{96}|[a-fA-F0-9]{100})$/;
     paymasterAccounts.forEach((entry, i) => {
       if (!Array.isArray(entry) || entry.length !== 4) {
         throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i} must be an array of 4 elements`);
@@ -172,9 +176,11 @@ export class ConfigService {
         throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i}: key type must be HEX_ECDSA or HEX_ED25519`);
       }
 
-      // 0x prefixed private key
-      if (!privateKeyRegex.test(privateKey)) {
-        throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i}: invalid 0x prefixed private key`);
+      // 0x prefixed hex or der private key
+      if (!hexKeyRegex.test(privateKey) && !derKeyRegex.test(privateKey)) {
+        throw new Error(
+          `PAYMASTER_ACCOUNTS: Entry ${i}: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)`,
+        );
       }
 
       // allowanceInHBAR as integer

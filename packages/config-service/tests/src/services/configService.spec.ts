@@ -196,14 +196,58 @@ describe('ConfigService tests', async function () {
       );
     });
 
-    it('should throw on invalid private key', () => {
+    it('should throw on invalid hex private key', () => {
       ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
         ['0.0.8031491', 'HEX_ECDSA', '0x1234', '80'],
       ] as any;
 
       expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
-        'PAYMASTER_ACCOUNTS: Entry 0: invalid 0x prefixed private key',
+        'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
       );
+    });
+
+    it('should throw on invalid der private key', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'HEX_ECDSA', '30300201003', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.throw(
+        'PAYMASTER_ACCOUNTS: Entry 0: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)',
+      );
+    });
+
+    it('should pass on valid hex private key', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        ['0.0.8031491', 'HEX_ECDSA', '0x0000000000000000000000000000000000000000000000000000000000000000', '80'],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
+    });
+
+    it('should pass on valid der ecdsa private key', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        [
+          '0.0.8031491',
+          'HEX_ECDSA',
+          '3030020100300706052b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
+          '80',
+        ],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
+    });
+
+    it('should pass on valid der ed25519 private key', () => {
+      ConfigService['getInstance']()['envs']['PAYMASTER_ACCOUNTS'] = [
+        [
+          '0.0.8031491',
+          'HEX_ECDSA',
+          '303002010030072b8104000a0000000000000caeb6079ce700000a695000000e438f8e51a40000000000000000000000',
+          '80',
+        ],
+      ] as any;
+
+      expect(() => ConfigService['getInstance']()['validatePaymasterAccounts']()).to.not.throw();
     });
 
     it('should throw on invalid allowanceInHBAR', () => {
