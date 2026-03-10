@@ -28,9 +28,8 @@ describe('RPC', function () {
   });
 
   it('should allow HBAR transfer with Hardhat signer, but reject it with a plain ethers Wallet when not providing gasPrice directly', async function () {
-    const tx = { to: signers[1].address, value: 100_000_000_000 };
     const submitTransactionUsingWallet = async (wallet) => await (
-      await wallet.sendTransaction(tx)
+      await wallet.sendTransaction({ to: signers[1].address, value: 100_000_000_000n })
     ).wait();
 
     // HBAR transfer works with Hardhat's ethers signer (HardhatEthersSigner),
