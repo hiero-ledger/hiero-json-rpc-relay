@@ -5,7 +5,16 @@ import { keccak256, ZeroAddress } from 'ethers';
 
 import { strip0x } from '../../src/formatters';
 import constants from '../../src/lib/constants';
+import { Log } from '../../src/lib/model';
 import { LogsBloomUtils } from '../../src/logsBloomUtils';
+import { txWithLogWithNoTopics, txWithMultipleLogs } from './fixtures/txReceiptLogsBloomFixtures';
+
+/**
+ * Helper function to create the Logs array
+ * @param address
+ * @param topics
+ */
+const toLogs = (address: string, topics?: string[] | null) => [{ address, topics }] as Log[];
 
 describe('LogsBloomUtils', () => {
   describe('buildLogsBloom', () => {
@@ -23,7 +32,7 @@ describe('LogsBloomUtils', () => {
         const first2bytes = new DataView(itemBuf.buffer).getUint16(i * 2);
         const loc = LogsBloomUtils.MASK & first2bytes;
         const byteLoc = loc >> 3;
-        const bitLoc = 1 << loc % 8;
+        const bitLoc = 1 << (loc % 8);
         match = (bitvectorUint8Arr[LogsBloomUtils.BYTE_SIZE - byteLoc - 1] & bitLoc) !== 0;
       }
 
@@ -47,40 +56,36 @@ describe('LogsBloomUtils', () => {
 
     it('should be able to generate emptyBloom if passed address is undefined', () => {
       // @ts-ignore
-      const res = LogsBloomUtils.buildLogsBloom(undefined, topics);
+      const res = LogsBloomUtils.buildLogsBloom(toLogs(undefined, topics));
       expect(emptyBloom).to.equal(res);
     });
 
     it('should be able to generate emptyBloom if passed address is null', () => {
       // @ts-ignore
-      const res = LogsBloomUtils.buildLogsBloom(null, topics);
+      const res = LogsBloomUtils.buildLogsBloom(toLogs(null, topics));
       expect(emptyBloom).to.equal(res);
     });
 
-    it('should be able to generate emptyBloom if passed topics value is undefined', () => {
-      // @ts-ignore
-      const res = LogsBloomUtils.buildLogsBloom(address, undefined);
-      expect(emptyBloom).to.equal(res);
-    });
-
-    it('should be able to generate emptyBloom if passed topics value is null', () => {
-      // @ts-ignore
-      const res = LogsBloomUtils.buildLogsBloom(address, null);
-      expect(emptyBloom).to.equal(res);
+    [
+      { label: 'undefined', value: undefined },
+      { label: 'null', value: null },
+      { label: 'empty array', value: [] },
+    ].forEach(({ label, value }) => {
+      it(`should be able to generate a bloom if passed topics value is ${label}`, () => {
+        const res = LogsBloomUtils.buildLogsBloom(toLogs(address, value));
+        expect(res).to.not.equal(emptyBloom);
+        const bytes = res.slice(2).match(/.{2}/g)!;
+        expect([bytes[132], bytes[159], bytes[195]]).to.deep.equal(['04', '01', '01']);
+      });
     });
 
     it('should be able to generate emptyBloom if address is empty', () => {
-      const res = LogsBloomUtils.buildLogsBloom('', topics);
-      expect(emptyBloom).to.equal(res);
-    });
-
-    it('should be able to generate emptyBloom if there are no logs', () => {
-      const res = LogsBloomUtils.buildLogsBloom(address, []);
-      expect(emptyBloom).to.equal(res);
+      const res = LogsBloomUtils.buildLogsBloom(toLogs('', topics));
+      expect(res).to.equal(emptyBloom);
     });
 
     it('should be able to generate logsBloom of transfer event', () => {
-      const res = LogsBloomUtils.buildLogsBloom(address, topics);
+      const res = LogsBloomUtils.buildLogsBloom(toLogs(address, topics));
       expect(expectedLogsBloom).to.equal(res);
     });
 
@@ -97,6 +102,16 @@ describe('LogsBloomUtils', () => {
       expect(
         checkInLogsBloom('0x0000000000000000000000C70c3C06A4db619B7879d060B9215d528F584FcC', expectedLogsBloom),
       ).to.equal(false);
+    });
+
+    it('should be able to generate a bloom for multiple logs', () => {
+      const res = LogsBloomUtils.buildLogsBloom(txWithLogWithNoTopics.logs as Log[]);
+      expect(res).to.equal(txWithLogWithNoTopics.logsBloom);
+    });
+
+    it('should be able to generate a bloom for a transaction that has logs without any topics', () => {
+      const res = LogsBloomUtils.buildLogsBloom(txWithMultipleLogs.logs as Log[]);
+      expect(res).to.equal(txWithMultipleLogs.logsBloom);
     });
   });
 });
