@@ -2,6 +2,7 @@
 
 const hre = require('hardhat');
 const { expect } = require('chai');
+const { ethers } = require('hardhat');
 
 describe('RPC', function () {
   let contractAddress;
@@ -24,6 +25,38 @@ describe('RPC', function () {
     await hre.run('transfer-hbars');
     const hbarsAfter = (await walletReceiver.provider.getBalance(walletReceiver.address)).toString();
     expect(hbarsBefore).to.not.be.equal(hbarsAfter);
+  });
+
+  it('should allow HBAR transfer with Hardhat signer, but reject it with a plain ethers Wallet when not providing gasPrice directly', async function () {
+    const tx = { to: signers[1].address, value: 100_000_000_000 };
+    const submitTransactionUsingWallet = async (wallet) => await (
+      await wallet.sendTransaction(tx)
+    ).wait();
+
+    // HBAR transfer works with Hardhat's ethers signer (HardhatEthersSigner),
+    // because Hardhat populates fee fields using its gas estimation logic,
+    // including fee history handling when preparing the transaction.
+    // Reference:
+    // https://github.com/NomicFoundation/hardhat/blob/9bfaca98ffde2800abe995f5460e69a79257d4d3/v-next/hardhat/src/internal/builtin-plugins/network-manager/request-handlers/handlers/gas/automatic-gas-price-handler.ts#L189
+    const hardhatWallet = (await ethers.getSigners())[0];
+    await expect(submitTransactionUsingWallet(hardhatWallet))
+      .to.eventually
+      .have.property('status').equal(1);
+
+    // The same transfer fails with a plain ethers.Wallet connected to the provider.
+    // In this case, ethers relies on provider.getFeeData() when populating the transaction:
+    // https://github.com/ethers-io/ethers.js/blob/main/src.ts/providers/abstract-signer.ts#L96
+    //
+    // Some providers (with Hardhat's provider as an example) returns fee data where gas-related values are present,
+    // but the effective per-transaction base fee in our case is 0, because rewards are not checked:
+    // https://github.com/NomicFoundation/hardhat/blob/9bfaca98ffde2800abe995f5460e69a79257d4d3/v-next/hardhat-ethers/src/internal/hardhat-ethers-provider/hardhat-ethers-provider.ts#L184
+    //
+    // As a result, the transaction is submitted with gas price 0, which is rejected
+    // because it is below Hedera's configured minimum gas price.
+    const ethersWallet = await new ethers.Wallet(process.env.OPERATOR_PRIVATE_KEY, ethers.provider);
+    await expect(submitTransactionUsingWallet(ethersWallet))
+      .to.eventually
+      .be.rejectedWith('Gas price \'0\' is below configured minimum gas price \'710000000000\'');
   });
 
   it('should be able to deploy a contract', async function () {
