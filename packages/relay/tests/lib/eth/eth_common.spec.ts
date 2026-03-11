@@ -9,6 +9,7 @@ import sinon from 'sinon';
 
 import { Relay } from '../../../src';
 import { RequestDetails } from '../../../src/lib/types';
+import { BASE_FEE_PER_GAS_HEX } from './eth-config';
 
 use(chaiAsPromised);
 
@@ -111,7 +112,7 @@ describe('@ethCommon', async function () {
 
     it('should execute "eth_maxPriorityFeePerGas"', async function () {
       const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
-      expect(result).to.eq('0x0');
+      expect(result).to.eq(BASE_FEE_PER_GAS_HEX);
     });
   });
 });

@@ -42,20 +42,18 @@ describe('RPC', function () {
       .to.eventually
       .have.property('status').equal(1);
 
-    // The same transfer fails with a plain ethers.Wallet connected to the provider.
+    // The same transfer will succeed with a plain ethers.Wallet connected to the provider.
     // In this case, ethers relies on provider.getFeeData() when populating the transaction:
     // https://github.com/ethers-io/ethers.js/blob/main/src.ts/providers/abstract-signer.ts#L96
     //
     // Some providers (with Hardhat's provider as an example) returns fee data where gas-related values are present,
-    // but the effective per-transaction base fee in our case is 0, because rewards are not checked:
     // https://github.com/NomicFoundation/hardhat/blob/9bfaca98ffde2800abe995f5460e69a79257d4d3/v-next/hardhat-ethers/src/internal/hardhat-ethers-provider/hardhat-ethers-provider.ts#L184
     //
-    // As a result, the transaction is submitted with gas price 0, which is rejected
-    // because it is below Hedera's configured minimum gas price.
+    // Because we include rewards in the eth_maxPriorityFeePerGas the code below will not fail.
     const ethersWallet = await new ethers.Wallet(process.env.OPERATOR_PRIVATE_KEY, ethers.provider);
     await expect(submitTransactionUsingWallet(ethersWallet))
       .to.eventually
-      .be.rejectedWith('Gas price \'0\' is below configured minimum gas price \'710000000000\'');
+      .have.property('status').equal(1);
   });
 
   it('should be able to deploy a contract', async function () {

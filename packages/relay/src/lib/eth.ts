@@ -1042,18 +1042,24 @@ export class EthImpl implements Eth {
   }
 
   /**
-   * Get the priority fee needed to be included in a block.
-   * Since Hedera does not have this concept, this method will return a static response.
+   * Returns a suggested max priority fee per gas.
+   *
+   * Hedera does not implement EIP-1559 base fee burning, therefore the
+   * priority fee effectively represents the full gas price. The returned
+   * value is still exposed as `maxPriorityFeePerGas` to maintain Ethereum
+   * JSON-RPC compatibility and allow Ethereum clients to construct
+   * EIP-1559 style transactions correctly.
    *
    * @rpcMethod Exposed as eth_maxPriorityFeePerGas RPC endpoint
    * @rpcParamLayoutConfig decorated method parameter layout
-   *
-   * @returns A promise that resolves to "0x0".
+   * @param requestDetails
+   * @returns {Promise<string>} Suggested priority fee per gas in weibars as a hex string.
+   * @throws Will throw an error if unable to retrieve the gas price.
    */
   @rpcMethod
   @rpcParamLayoutConfig(RPC_LAYOUT.REQUEST_DETAILS_ONLY)
-  async maxPriorityFeePerGas(): Promise<string> {
-    return constants.ZERO_HEX;
+  async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+    return await this.feeService.maxPriorityFeePerGas(requestDetails);
   }
 
   /**

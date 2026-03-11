@@ -155,7 +155,7 @@ export interface Eth {
 
   hashrate(): Promise<string>;
 
-  maxPriorityFeePerGas(): Promise<string>;
+  maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string>;
 
   mining(requestDetails: RequestDetails): Promise<boolean>;
 

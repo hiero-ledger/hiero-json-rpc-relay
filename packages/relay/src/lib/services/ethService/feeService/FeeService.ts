@@ -85,24 +85,23 @@ export class FeeService implements IFeeService {
         return feeHistoryZeroBlockCountResponse;
       }
       let feeHistory: IFeeHistory;
-      const gasPriceFee = await this.common.gasPrice(requestDetails);
+      const rewards = await this.calculateRewardsFromEffectiveTips(
+        blockCount,
+        newestBlockNumber,
+        rewardPercentiles || [],
+        await this.common.gasPrice(requestDetails),
+      );
       if (ConfigService.get('ETH_FEE_HISTORY_FIXED')) {
         let oldestBlock = newestBlockNumber - blockCount + 1;
         if (oldestBlock <= 0) {
           blockCount = 1;
           oldestBlock = 1;
         }
-        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
+        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock);
       } else {
-        feeHistory = await this.getFeeHistory(
-          blockCount,
-          newestBlockNumber,
-          latestBlockNumber,
-          rewardPercentiles,
-          gasPriceFee,
-          requestDetails,
-        );
+        feeHistory = await this.getFeeHistory(blockCount, newestBlockNumber, latestBlockNumber, requestDetails);
       }
+      if (rewards !== null) feeHistory['reward'] = rewards;
 
       return feeHistory;
     } catch (e) {
@@ -120,27 +119,25 @@ export class FeeService implements IFeeService {
   /**
    * Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or tip.
    *
+   * Value derived from the 50th percentile effective priority fee
+   * of the latest block using `eth_feeHistory`. If the reward data is not
+   * available, the current gas price is returned as a fallback.
+   *
    * @param requestDetails
    */
-  public async maxPriorityFeePerGas(): Promise<string> {
-    return constants.ZERO_HEX;
+  public async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+    const feeHistory = await this.feeHistory(1, 'latest', [50], requestDetails);
+    return 'reward' in feeHistory && feeHistory.reward?.length
+      ? feeHistory.reward[0][0]
+      : await this.common.gasPrice(requestDetails);
   }
 
   /**
    * @param blockCount
    * @param oldestBlockNumber
-   * @param rewardPercentiles
-   * @param fee
    * @private
    */
-  private static getRepeatedFeeHistory(
-    blockCount: number,
-    oldestBlockNumber: number,
-    rewardPercentiles: Array<number> | null,
-    fee: string,
-  ): IFeeHistory {
-    const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
-
+  private static getRepeatedFeeHistory(blockCount: number, oldestBlockNumber: number): IFeeHistory {
     const feeHistory: IFeeHistory = {
       // This includes the next block after the newest of the returned range, because this value can be derived
       // from the newest block (this is where this plus one comes from). Only zeroes are returned in our case.
@@ -148,10 +145,6 @@ export class FeeService implements IFeeService {
       gasUsedRatio: Array(blockCount).fill(constants.DEFAULT_GAS_USED_RATIO),
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
-
-    if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
-    }
 
     return feeHistory;
   }
@@ -169,13 +162,10 @@ export class FeeService implements IFeeService {
     blockCount: number,
     newestBlockNumber: number,
     latestBlockNumber: number,
-    rewardPercentiles: Array<number> | null,
-    fee: string,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory> {
     // include the newest block number in the total block count
     const oldestBlockNumber = Math.max(0, newestBlockNumber - blockCount + 1);
-    const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
     const feeHistory: IFeeHistory = {
       baseFeePerGas: [] as string[],
       gasUsedRatio: [] as number[],
@@ -201,10 +191,32 @@ export class FeeService implements IFeeService {
       feeHistory.baseFeePerGas?.push(nextBaseFeePerGas);
     }
 
-    if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
-    }
-
     return feeHistory;
+  }
+
+  private async calculateRewardsFromEffectiveTips(
+    blockCount: number,
+    newestBlockNumber: number,
+    rewardPercentiles: number[],
+    fallbackFee: string,
+  ): Promise<string[][] | null> {
+    const shouldIncludeRewards = rewardPercentiles.length > 0;
+    if (!shouldIncludeRewards) return null;
+
+    // @TODO Replace the placeholder reward population with a real feeHistory reward calculation.
+    // `calculateRewardsFromEffectiveTips` should, for each returned block, inspect that block's
+    // transactions, compute each transaction's effective priority fee per gas, sort those values
+    // ascending, and return the requested gas-used-weighted reward percentiles in the same shape
+    // required by `eth_feeHistory.reward`.
+    //
+    // For Hedera, where `baseFeePerGas = 0`, the effective priority fee per gas is the full
+    // per-gas fee actually paid by the transaction. The result should therefore be:
+    //   reward[blockIndex][percentileIndex] = effective tip at that percentile for that block.
+    // (fallback fee can be used for the blocks where tip could not be properly calculated)
+    //
+    // Current code uses the same flat fallback fee (equal to gasPrice) for every percentile in every block.
+    //
+    // To be done in: https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5066
+    return Array(blockCount).fill(Array(rewardPercentiles.length).fill(fallbackFee));
   }
 }

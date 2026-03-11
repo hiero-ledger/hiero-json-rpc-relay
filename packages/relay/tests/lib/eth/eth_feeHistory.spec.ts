@@ -79,8 +79,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
       expect(feeHistory['oldestBlock']).to.equal(`0x${previousBlock.number.toString(16)}`);
       const rewards = feeHistory['reward'][0];
-      expect(rewards[0]).to.equal('0x0');
-      expect(rewards[1]).to.equal('0x0');
+      expect(rewards[0]).to.equal(BASE_FEE_PER_GAS_HEX);
+      expect(rewards[1]).to.equal(BASE_FEE_PER_GAS_HEX);
     });
 
     it('eth_feeHistory with latest param', async function () {
