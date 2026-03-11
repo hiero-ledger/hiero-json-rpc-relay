@@ -11,7 +11,6 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 import { Logger } from 'pino';
 
-import { BASE_FEE_PER_GAS_HEX } from '../../../relay/tests/lib/eth/eth-config';
 // Helper functions/constants from local resources
 import RelayCalls from '../../tests/helpers/constants';
 import Helper from '../../tests/helpers/constants';
@@ -830,7 +829,8 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
 
     it('should execute "eth_maxPriorityFeePerGas"', async function () {
       const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_MAX_PRIORITY_FEE_PER_GAS, []);
-      expect(res).to.be.equal(BASE_FEE_PER_GAS_HEX);
+      const gasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
+      expect(res).to.be.equal(gasPrice);
     });
   });
 
