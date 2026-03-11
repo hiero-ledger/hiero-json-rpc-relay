@@ -118,6 +118,10 @@ export default class RelayAssertions {
     this.verifyBlockConstants(block);
   };
 
+  static validateUint = (value: string) => {
+    return /^0x([1-9a-f]+[0-9a-f]*|0)$/.test(value);
+  };
+
   static validateHash = (hash: string, len?: number) => {
     let regex;
     if (len && len > 0) {

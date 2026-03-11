@@ -669,6 +669,8 @@ export class Utils {
     const { relayImpl } = global;
 
     // @ts-ignore
+    CommonService.PAYMASTER_WHITELIST = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
+    // @ts-ignore
     CommonService.PAYMASTER_ACCOUNTS_MAP = new Map(
       (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map((acc) => [acc[0], acc] as [string, PaymasterAccount]),
     );

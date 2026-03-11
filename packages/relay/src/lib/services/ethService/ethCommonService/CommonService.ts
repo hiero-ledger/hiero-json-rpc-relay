@@ -18,6 +18,7 @@ import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
 export type PaymasterAccount = [accountId: string, keyFormat: string, privateKey: string, gasAllowance: number];
+export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]];
 
 /**
  * Create a new Common Service implementation.
@@ -63,6 +64,18 @@ export class CommonService implements ICommonService {
   }
 
   /**
+   * A global whitelist of addresses for the main operator if PAYMASTER_ENABLED is set to true.
+   *
+   * The list is sourced from the `PAYMASTER_WHITELIST` configuration entry and normalized to lowercase to support
+   * case-insensitive address comparisons.
+   *
+   * This structure is introduced for efficient lookup.
+   */
+  public static readonly PAYMASTER_WHITELIST: string[] = ConfigService.get('PAYMASTER_WHITELIST').map((e) =>
+    e.toLowerCase(),
+  );
+
+  /**
    * A map of paymaster accounts keyed by their unique account identifier.
    *
    * The map is built from the `PAYMASTER_ACCOUNTS` configuration entry, which is expected to be an array of tuples
@@ -70,8 +83,8 @@ export class CommonService implements ICommonService {
    *
    * This structure is introduced for efficient lookup.
    */
-  public static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS') as any).map(
+  private static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
+    ConfigService.get('PAYMASTER_ACCOUNTS').map(
       (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
     ),
   );
@@ -87,8 +100,8 @@ export class CommonService implements ICommonService {
    * This structure is introduced for efficient lookup.
    */
   public static readonly PAYMASTER_ACCOUNTS_WHITELISTS_MAP: Map<string, string> = new Map(
-    (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as any).flatMap(([accountId, whitelist]) =>
-      whitelist.map((addr) => [addr.toLowerCase(), accountId] as [string, string]),
+    (ConfigService.get('PAYMASTER_ACCOUNTS_WHITELISTS') as unknown as PaymasterAccountWhitelist[]).flatMap(
+      ([accountId, whitelist]) => whitelist.map((addr) => [addr.toLowerCase(), accountId]),
     ),
   );
 
@@ -699,10 +712,9 @@ export class CommonService implements ICommonService {
 
     // handle default paymaster functionality
     if (ConfigService.get('PAYMASTER_ENABLED')) {
-      const paymasterWhitelist = ConfigService.get('PAYMASTER_WHITELIST').map((e) => e.toLowerCase());
       if (
-        paymasterWhitelist.includes('*') ||
-        (toAddress && paymasterWhitelist.includes(prepend0x(toAddress.toLowerCase())))
+        CommonService.PAYMASTER_WHITELIST.includes('*') ||
+        (toAddress && CommonService.PAYMASTER_WHITELIST.includes(prepend0x(toAddress.toLowerCase())))
       ) {
         return {
           accountId: ConfigService.get('OPERATOR_ID_MAIN')!,

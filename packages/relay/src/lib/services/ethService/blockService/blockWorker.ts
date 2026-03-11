@@ -202,7 +202,7 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
       logsBloom: crPerTx
         ? crPerTx.bloom
         : logsPerTx.length > 0
-          ? LogsBloomUtils.buildLogsBloom(logsPerTx[0].address, logsPerTx[0].topics)
+          ? LogsBloomUtils.buildLogsBloom(logsPerTx)
           : constants.EMPTY_BLOOM,
       logs: logsPerTx.map((log: IReceiptRootHashLog) => {
         return {
@@ -616,7 +616,7 @@ function createSyntheticReceiptRlpInput(syntheticLogs: Log[]): IReceiptRlpInput 
   return {
     cumulativeGasUsed: constants.ZERO_HEX,
     logs: syntheticLogs,
-    logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs[0].address, syntheticLogs[0].topics),
+    logsBloom: LogsBloomUtils.buildLogsBloom(syntheticLogs),
     root: constants.DEFAULT_ROOT_HASH,
     status: constants.ONE_HEX,
     transactionIndex: syntheticLogs[0].transactionIndex,

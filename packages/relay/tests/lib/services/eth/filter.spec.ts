@@ -139,7 +139,7 @@ describe('Filter API Test Suite', async function () {
 
       it(`should call newFilter`, async function () {
         expect(filterId).to.exist;
-        expect(RelayAssertions.validateHash(filterId, 32)).to.eq(true, 'returns valid filterId');
+        expect(RelayAssertions.validateUint(filterId)).to.eq(true, 'returns valid filterId');
       });
 
       it(`should call getFilterChanges`, async function () {
@@ -216,48 +216,42 @@ describe('Filter API Test Suite', async function () {
 
     it('Returns a valid filterId', async function () {
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter({ fromBlock: undefined, toBlock: undefined }, requestDetails),
-          32,
         ),
       ).to.eq(true, 'with default param values');
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter({ fromBlock: numberHex, toBlock: undefined }, requestDetails),
-          32,
         ),
       ).to.eq(true, 'with fromBlock');
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter({ fromBlock: numberHex, toBlock: 'latest' }, requestDetails),
-          32,
         ),
       ).to.eq(true, 'with fromBlock, toBlock');
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter(
             { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress },
             requestDetails,
           ),
-          32,
         ),
       ).to.eq(true, 'with fromBlock, toBlock, address');
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter(
             { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress, topics: defaultLogTopics },
             requestDetails,
           ),
-          32,
         ),
       ).to.eq(true, 'with fromBlock, toBlock, address, topics');
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter(
             { fromBlock: numberHex, toBlock: 'latest', address: defaultEvmAddress, topics: defaultLogTopics },
             requestDetails,
           ),
-          32,
         ),
       ).to.eq(true, 'with all parameters');
     });
@@ -303,18 +297,16 @@ describe('Filter API Test Suite', async function () {
 
       // block range is valid
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter(
             { fromBlock: blockNumberHexes[1400], toBlock: blockNumberHexes[1500] },
             requestDetails,
           ),
-          32,
         ),
       ).to.eq(true);
       expect(
-        RelayAssertions.validateHash(
+        RelayAssertions.validateUint(
           await filterService.newFilter({ fromBlock: blockNumberHexes[1400], toBlock: 'latest' }, requestDetails),
-          32,
         ),
       ).to.eq(true);
     });
@@ -360,7 +352,7 @@ describe('Filter API Test Suite', async function () {
     });
 
     it('Returns a valid filterId', async function () {
-      expect(RelayAssertions.validateHash(await filterService.newBlockFilter(requestDetails), 32)).to.eq(true);
+      expect(RelayAssertions.validateUint(await filterService.newBlockFilter(requestDetails))).to.eq(true);
     });
 
     it('Creates a filter with type=new_block', async function () {

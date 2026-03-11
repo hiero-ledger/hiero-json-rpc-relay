@@ -65,6 +65,8 @@ export class ConfigService {
 
     this.validateReadOnlyMode();
 
+    this.validatePaymasterAccounts();
+
     // note: temporary bandage solution
     // should be replaced after https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4840 is implemented
     if (this.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE') === 0) {
@@ -140,6 +142,53 @@ export class ConfigService {
         }
       });
     }
+  }
+
+  private validatePaymasterAccounts() {
+    const paymasterAccounts = this.get('PAYMASTER_ACCOUNTS');
+    if (!paymasterAccounts.length) {
+      return;
+    }
+
+    // regex for realm.shard.num
+    const accountIdRegex: RegExp = /^\d+\.\d+\.\d+$/;
+    // regex for 32 bytes 0x prefixed private key
+    const hexKeyRegex: RegExp = /^0x[a-fA-F0-9]{64}$/;
+    // regex for DER encoded private keys handling both:
+    // - ECDSA (50 bytes) - curve OID + ec private key structure + optional public key
+    // - Ed25519 (48 bytes) - simpler ASN.1, no curve parameters
+    const derKeyRegex = /^(?:[a-fA-F0-9]{96}|[a-fA-F0-9]{100})$/;
+    paymasterAccounts.forEach((entry, i) => {
+      if (!Array.isArray(entry) || entry.length !== 4) {
+        throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i} must be an array of 4 elements`);
+      }
+      const [accountId, keyType, privateKey, allowanceInHBAR] = entry;
+
+      // account id in format realm.shard.num
+      if (!accountIdRegex.test(accountId)) {
+        throw new Error(
+          `PAYMASTER_ACCOUNTS: Entry ${i}: invalid account id format, required format is realm.shard.num`,
+        );
+      }
+
+      // key type
+      if (!['HEX_ECDSA', 'HEX_ED25519'].includes(keyType)) {
+        throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i}: key type must be HEX_ECDSA or HEX_ED25519`);
+      }
+
+      // 0x prefixed hex or der private key
+      if (!hexKeyRegex.test(privateKey) && !derKeyRegex.test(privateKey)) {
+        throw new Error(
+          `PAYMASTER_ACCOUNTS: Entry ${i}: invalid private key format, it must be 0x prefixed hex or der encoded (48 or 50 bytes)`,
+        );
+      }
+
+      // allowanceInHBAR as integer
+      const w = Number(allowanceInHBAR);
+      if (!Number.isInteger(w) || w < 1) {
+        throw new Error(`PAYMASTER_ACCOUNTS: Entry ${i}: allowanceInHBAR must be an integer >= 1`);
+      }
+    });
   }
 
   private get<K extends ConfigKey>(name: K): GetTypeOfConfigKey<K> {

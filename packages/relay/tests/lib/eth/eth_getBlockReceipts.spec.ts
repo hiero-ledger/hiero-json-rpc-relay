@@ -232,10 +232,11 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
       const receipts = await ethImpl.getBlockReceipts(BLOCK_NUMBER_HEX, requestDetails);
 
       expect(receipts[0].logs.length).to.equal(0);
-      expect(receipts[1].logs.length).to.equal(1);
+      expect(receipts[1].logs.length).to.equal(defaultLogs1.length);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[0].transaction_hash);
       expect(receipts[1].transactionHash).to.equal(defaultLogs1[1].transaction_hash);
       expect(receipts[1].logs[0].blockTimestamp).to.equal(numberTo0x(Number(defaultLogs1[0].timestamp.split('.')[0])));
+      expect(receipts[1].logs[1].blockTimestamp).to.equal(numberTo0x(Number(defaultLogs1[1].timestamp.split('.')[0])));
     });
 
     it('should handle null to field for contract creation transactions', async function () {
