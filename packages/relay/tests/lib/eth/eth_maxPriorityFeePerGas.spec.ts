@@ -18,7 +18,7 @@ describe('@ethGasPrice Gas Price spec', async function () {
     restMock.reset();
   });
 
-  describe.only('@maxPriorityFeePerGas', async function () {
+  describe('@maxPriorityFeePerGas', async function () {
     it('eth_maxPriorityFeePerGas should return the value of the gasPrice', async function () {
       restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
       const result = await ethImpl.maxPriorityFeePerGas(requestDetails);
