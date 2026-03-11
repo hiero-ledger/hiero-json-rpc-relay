@@ -52,8 +52,8 @@ describe('CommonService', () => {
     });
 
     it('should return default paymaster when PAYMASTER_ENABLED and whitelist contains *', () => {
+      (CommonService as any).PAYMASTER_WHITELIST = ['*'];
       configStub.withArgs('PAYMASTER_ENABLED').returns(true);
-      configStub.withArgs('PAYMASTER_WHITELIST').returns(['*']);
       configStub.withArgs('OPERATOR_ID_MAIN').returns('0.0.1000');
       configStub.withArgs('MAX_GAS_ALLOWANCE_HBAR').returns(120);
 
@@ -69,8 +69,8 @@ describe('CommonService', () => {
       const toAddress = '0x0000000000000000000000000000000000000000';
       const normalized = prepend0x(toAddress.toLowerCase());
 
+      (CommonService as any).PAYMASTER_WHITELIST = [normalized];
       configStub.withArgs('PAYMASTER_ENABLED').returns(true);
-      configStub.withArgs('PAYMASTER_WHITELIST').returns([normalized]);
       configStub.withArgs('OPERATOR_ID_MAIN').returns('0.0.1000');
       configStub.withArgs('MAX_GAS_ALLOWANCE_HBAR').returns(500);
 

@@ -242,7 +242,7 @@ export class SDKClient {
         true,
         originalCallerAddress,
         undefined,
-        paymasterInfo ? this.paymasterClients.get(paymasterInfo.accountId!) : this.clientMain,
+        paymasterInfo?.accountId ? this.paymasterClients.get(paymasterInfo.accountId) : undefined,
       ),
     };
   }

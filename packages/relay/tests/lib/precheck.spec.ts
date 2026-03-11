@@ -28,6 +28,7 @@ const registry = new Registry();
 import sinon from 'sinon';
 
 import { CacheClientFactory } from '../../src/lib/factories/cacheClientFactory';
+import { CommonService } from '../../src/lib/services';
 import { TransactionPoolService } from '../../src/lib/services/transactionPoolService/transactionPoolService';
 import { RequestDetails } from '../../src/lib/types';
 
@@ -280,6 +281,16 @@ describe('Precheck', async function () {
   describe('gas price', async function () {
     overrideEnvsInMochaDescribe({ GAS_PRICE_TINY_BAR_BUFFER: 10000000000 }); // 1 tinybar
 
+    let initialPaymasterWhitelist;
+
+    before(() => {
+      initialPaymasterWhitelist = CommonService.PAYMASTER_WHITELIST;
+    });
+
+    after(() => {
+      (CommonService as any).PAYMASTER_WHITELIST = initialPaymasterWhitelist;
+    });
+
     it('should pass for gas price gt to required gas price', async function () {
       expect(() => precheck.gasPrice(parsedTxWithMatchingChainId, 10)).to.not.throw;
     });
@@ -385,8 +396,10 @@ describe('Precheck', async function () {
       });
     });
 
-    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: [contractAddress1] }, () => {
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should not pass if gas price is set to 0, PAYMASTER_ENABLED is true but the to address is not whitelisted', async function () {
+        (CommonService as any).PAYMASTER_WHITELIST = [contractAddress1];
+
         const tx = {
           ...parsedTxWithMatchingChainId,
           gasPrice: 0,
@@ -401,8 +414,10 @@ describe('Precheck', async function () {
       });
     });
 
-    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: [contractAddress1] }, () => {
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and the to address is whitelisted', async function () {
+        (CommonService as any).PAYMASTER_WHITELIST = [contractAddress1];
+
         const tx = {
           ...parsedTxWithMatchingChainId,
           to: contractAddress1,
@@ -416,8 +431,10 @@ describe('Precheck', async function () {
       });
     });
 
-    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true, PAYMASTER_WHITELIST: ['*'] }, () => {
+    withOverriddenEnvsInMochaTest({ PAYMASTER_ENABLED: true }, () => {
       it('should pass if gas price is set to 0, PAYMASTER_ENABLED is true and whitelist is set to wildcard', async function () {
+        (CommonService as any).PAYMASTER_WHITELIST = ['*'];
+
         const tx = {
           ...parsedTxWithMatchingChainId,
           gasPrice: 0,
