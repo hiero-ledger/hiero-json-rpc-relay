@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { getSkippedMethodCategory,shouldSkipKey } from '../config.js';
+import { getSkippedMethodCategory, shouldSkipKey, SKIP_CATEGORIES } from '../config.js';
 
 /**
  * Sets a nested value in an object using a dot-notation path
@@ -121,6 +121,13 @@ export function setObjectByPath(obj, path, value) {
   }
 
   const lastPart = parts[parts.length - 1];
+
+  ['description', 'title'].forEach((key) => {
+    if (current[lastPart]?.[key] && !value[key]) {
+      value[key] = current[lastPart][key];
+    }
+  });
+
   current[lastPart] = value;
 }
 
@@ -383,7 +390,10 @@ class RefFieldHandler {
     if (this.isComponent) {
       return this.cloneObject(obj);
     }
-    return this.createRefOnlyObject(obj['$ref']);
+    const result = {};
+    if (obj.description) result.description = obj.description;
+    if (obj.title) result.title = obj.title;
+    return { ...this.createRefOnlyObject(obj['$ref']), ...result };
   }
 
   /**
@@ -424,6 +434,9 @@ export function filterSkippedMethods(methods) {
     if (!methodName) return true;
 
     const category = getSkippedMethodCategory(methodName);
-    return category !== 'discarded';
+    return !(
+      category === SKIP_CATEGORIES.NOT_YET_IMPLEMENTED ||
+      category === SKIP_CATEGORIES.FORK_NOT_YET_IMPLEMENTED
+    );
   });
 }

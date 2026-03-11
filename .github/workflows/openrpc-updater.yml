@@ -1,25 +1,43 @@
 name: OpenRPC JSON Updater
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/openrpc.json'
-  # Needs to be removed for now
-  # pull_request:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - 'docs/openrpc.json'
+  schedule:
+    - cron: '0 14 * * 5' # Runs every Friday at 14:00 UTC
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.find-pr.outputs.proceed }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Check for existing OpenRPC update PRs
+        id: find-pr
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
+            const exists = prs.data.some(pr =>
+              (pr.title && pr.title.includes('docs: update OpenRPC JSON')) ||
+              (pr.head && pr.head.ref && pr.head.ref.startsWith('update-openrpc-'))
+            );
+            core.info(`Existing OpenRPC update PR detected: ${exists}`);
+            core.setOutput('proceed', exists ? 'false' : 'true');
+
   clone-and-build-execution-apis:
     runs-on: ubuntu-latest
+    needs: precheck
+    if: ${{ needs.precheck.outputs.proceed == 'true' }}
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -30,9 +48,9 @@ jobs:
       - name: Checkout execution-apis repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: v1.0.0-beta.4
-          repository: 'ethereum/execution-apis'
-          path: 'execution-apis'
+          repository: ethereum/execution-apis
+          ref: main # We need to be up to date with the latest main branch
+          path: execution-apis
 
       - name: Use Node.js TLS 22
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
@@ -55,7 +73,10 @@ jobs:
 
   update-openrpc:
     runs-on: ubuntu-latest
-    needs: clone-and-build-execution-apis
+    needs:
+      - precheck
+      - clone-and-build-execution-apis
+    if: ${{ needs.precheck.outputs.proceed == 'true' }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
@@ -87,14 +108,11 @@ jobs:
         working-directory: scripts/openrpc-json-updater
         run: npm ci
 
-      - name: Generate comparison report
+      - name: Generate Markdown comparison report
         id: generate-report
         working-directory: scripts/openrpc-json-updater
         run: |
-          REPORT_OUTPUT=$(node cli.js --original ./original-openrpc.json --modified ../../docs/openrpc.json)
-          echo "REPORT_OUTPUT<<EOF" >> $GITHUB_ENV
-          echo "$REPORT_OUTPUT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          node cli.js --original ./original-openrpc.json --modified ../../docs/openrpc.json --report-md ./openrpc-report.md
 
       # This workflow automatically creates PRs when the OpenRPC JSON file differs from the upstream source.
       # PRs are only created when actual changes are detected (SKIP_PR=false), ensuring that
@@ -133,23 +151,31 @@ jobs:
           echo "UNIQUE_BRANCH=${UNIQUE_BRANCH}" >> $GITHUB_ENV
           echo "Generated unique branch name: ${UNIQUE_BRANCH}"
 
+      - name: Import GPG Key
+        if: ${{ env.SKIP_PR != 'true' }}
+        id: gpg_importer
+        uses: step-security/ghaction-import-gpg@c86c374c0659a6c2d1284bccf8af889e73ce8fe0 # v6.3.0
+        with:
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_user_signingkey: true
+          gpg_private_key: ${{ secrets.GPG_KEY_CONTENTS }}
+          passphrase: ${{ secrets.GPG_KEY_PASSPHRASE }}
+
       - name: Create Pull Request
         if: ${{ env.SKIP_PR != 'true' }}
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
-          commit-message: Update OpenRPC JSON
-          title: 'docs: Update OpenRPC JSON'
-          body: |
-            # OpenRPC JSON Update
-
-            This PR updates the OpenRPC JSON specification with the latest changes from Ethereum JSON-RPC specification.
-
-            ## Comparison Report
-            ```
-            ${{ env.REPORT_OUTPUT }}
-            ```
+          commit-message: "docs: update OpenRPC JSON"
+          committer: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          author: ${{ steps.gpg_importer.outputs.name }} <${{ steps.gpg_importer.outputs.email }}>
+          signoff: true
+          title: 'docs: update OpenRPC JSON'
+          body-path: scripts/openrpc-json-updater/openrpc-report.md
           branch: ${{ env.UNIQUE_BRANCH }}
           base: 'main'
           add-paths: docs/openrpc.json
           delete-branch: true
+          labels: 'internal'
+          assignees: 'swirlds-automation'
