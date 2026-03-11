@@ -9,3 +9,4 @@ tsconfig.tsbuildinfo
 **/**/.nyc_output/
 .DS_Store
 test-results.*.xml
+.standalone
