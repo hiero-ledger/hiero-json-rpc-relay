@@ -16,6 +16,7 @@ export class LoggerService {
     ['OPERATOR_KEY_MAIN', true],
     ['GITHUB_TOKEN', true],
     ['GH_ACCESS_TOKEN', true],
+    ['MIRROR_NODE_AUTH_HEADER', true],
 
     // Fields where only certain positions in arrays are sensitive
     ['PAYMASTER_ACCOUNTS', [2]],
