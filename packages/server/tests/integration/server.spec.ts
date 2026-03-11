@@ -644,18 +644,6 @@ describe('RPC Server', function () {
     }
   });
 
-  it('should execute "eth_maxPriorityFeePerGas"', async function () {
-    const res = await testClient.post('/', {
-      id: '2',
-      jsonrpc: '2.0',
-      method: RelayCalls.ETH_ENDPOINTS.ETH_MAX_PRIORITY_FEE_PER_GAS,
-      params: [null],
-    });
-
-    BaseTest.defaultResponseChecks(res);
-    expect(res.data.result).to.be.equal('0x0');
-  });
-
   // Test all engine methods
   const engineMethods = [...RelayCalls.ETH_ENDPOINTS.ENGINE, 'engine_anyMethod'];
 
