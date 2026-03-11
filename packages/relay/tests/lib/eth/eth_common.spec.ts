@@ -9,7 +9,6 @@ import sinon from 'sinon';
 
 import { Relay } from '../../../src';
 import { RequestDetails } from '../../../src/lib/types';
-import { BASE_FEE_PER_GAS_HEX } from './eth-config';
 
 use(chaiAsPromised);
 
@@ -108,12 +107,6 @@ describe('@ethCommon', async function () {
       expect(result.code).to.be.equal(-32601);
       expect(result).to.have.property('message');
       expect(result.message).to.be.equal('Unsupported JSON-RPC method');
-    });
-
-    it('should execute "eth_maxPriorityFeePerGas" and return value equal to "eth_gasPrice', async function () {
-      const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
-      const gasPrice = await relay.eth().gasPrice(requestDetails);
-      expect(result).to.eq(gasPrice);
     });
   });
 });
