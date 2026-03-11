@@ -110,9 +110,10 @@ describe('@ethCommon', async function () {
       expect(result.message).to.be.equal('Unsupported JSON-RPC method');
     });
 
-    it('should execute "eth_maxPriorityFeePerGas"', async function () {
+    it('should execute "eth_maxPriorityFeePerGas" and return value equal to "eth_gasPrice', async function () {
       const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
-      expect(result).to.eq(BASE_FEE_PER_GAS_HEX);
+      const gasPrice = await relay.eth().gasPrice(requestDetails);
+      expect(result).to.eq(gasPrice);
     });
   });
 });
