@@ -86,21 +86,21 @@ export class FeeService implements IFeeService {
       }
       let feeHistory: IFeeHistory;
 
-      const reward = await this.common.gasPrice(requestDetails);
+      const gasPriceFee = await this.common.gasPrice(requestDetails);
       if (ConfigService.get('ETH_FEE_HISTORY_FIXED')) {
         let oldestBlock = newestBlockNumber - blockCount + 1;
         if (oldestBlock <= 0) {
           blockCount = 1;
           oldestBlock = 1;
         }
-        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, reward);
+        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       } else {
         feeHistory = await this.getFeeHistory(
           blockCount,
           newestBlockNumber,
           latestBlockNumber,
           rewardPercentiles,
-          reward,
+          gasPriceFee,
           requestDetails,
         );
       }
