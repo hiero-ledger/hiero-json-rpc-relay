@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@hashgraph/sdk": "^2.80.0",
-    "@types/chai": "^4.3.0",
+    "@types/chai": "^5.2.3",
     "@types/cors": "^2.8.12",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.9.1",
