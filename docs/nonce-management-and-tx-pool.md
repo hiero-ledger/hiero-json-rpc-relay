@@ -57,7 +57,7 @@ The pool is implemented behind a small interface so operators can choose a backe
 
 - Local in-memory storage (default fallback)
   - Per-process `Map<string, Set<string>>` keyed by lowercase address.
-  - Operations: add/remove a tx hash; get set size for count; clear all.
+  - Operations: add/remove a RLP-encoded transaction; get set size for count; clear all.
   - Duplicates are naturally prevented by `Set` semantics.
   - Resets on process restart; state is not shared across multiple relay instances.
 
@@ -69,7 +69,7 @@ The pool is implemented behind a small interface so operators can choose a backe
 
 Key design choices in the current implementation:
 - A per-address set is the source of truth for pending count.
-- The backend stores only hashes for counting purposes; raw RLP bodies are not currently stored.
+- The backend stores the raw RLP-encoded transaction body. This enables resubmission and txpool inspection via the txpool_* RPC methods.
 
 ---
 
@@ -90,7 +90,7 @@ This lets users compute the next usable nonce even while MN has not yet reflecte
    - Nonce precheck: define `signerNonce = MN_nonce` and, when `ENABLE_TX_POOL` is true, treat the acceptable minimum as `MN_nonce + pending_count(address)`. If `tx.nonce < signerNonce`, it fails.
 
 2) Pool bookkeeping and submission:
-   - Before submission, add the tx hash to the sender’s pending set.
+   - Before submission, add the transaction RLP hex payload to the sender’s pending set.
    - Submit to consensus and poll Mirror Node to obtain the resulting Ethereum hash.
    - On success, remove the pending entry using the observed transaction hash.
    - On SDK timeout/connection drop, poll MN; if a record is found, remove and return its hash; if not, remove using the computed hash and return the computed hash.
