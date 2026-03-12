@@ -99,4 +99,7 @@ export const setDefaultValuesForEnvParameters = () => {
   __ENV['RAMP_UP_DURATION'] = __ENV['RAMP_UP_DURATION'] || '2m';
   __ENV['STABLE_DURATION'] = __ENV['STABLE_DURATION'] || '20m';
   __ENV['RAMP_DOWN_DURATION'] = __ENV['RAMP_DOWN_DURATION'] || '1m';
+
+  // CN benchmark: target RPS sent to the Relay (expects ~100 to reach CN after loss)
+  __ENV['CN_BENCH_TARGET_RPS'] = __ENV['CN_BENCH_TARGET_RPS'] || '135';
 };
