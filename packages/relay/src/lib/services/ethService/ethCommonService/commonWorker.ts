@@ -7,7 +7,7 @@ import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { RequestDetails } from '../../../types';
-import { WorkersPool } from '../../workersService/WorkersPool';
+import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from './CommonService';
 
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
@@ -57,6 +57,6 @@ export async function getLogs(
 
     return await commonService.getLogsWithParams(address, params, requestDetails, sliceCountWrapper.value);
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw wrapError(e);
   }
 }

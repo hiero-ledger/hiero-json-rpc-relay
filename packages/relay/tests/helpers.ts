@@ -1150,24 +1150,39 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
 
   WorkersPool['instance'] = {
     run: async (task: any) => {
-      switch (task.type) {
-        case 'getBlock':
-          return await blockWorker.getBlock(task.blockHashOrNumber, task.showDetails, task.requestDetails, task.chain);
-        case 'getBlockReceipts':
-          return await blockWorker.getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
-        case 'getRawReceipts':
-          return await blockWorker.getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
-        case 'getLogs':
-          return await commonWorker.getLogs(
-            task.blockHash,
-            task.fromBlock,
-            task.toBlock,
-            task.address,
-            task.topics,
-            task.requestDetails,
-          );
-        default:
-          throw new Error(`Unsupported task type ${task.type}`);
+      // Simulate the Piscina worker boundary: a real worker runs wrapError(e) with a live
+      // parentPort, serialising the error into new Error(JSON.stringify(e)) before Piscina's
+      // postMessage transports it back to the main thread. We replicate that here so that
+      // unwrapError() receives the same JSON-encoded envelope and can reconstruct typed Error
+      // instances (JsonRpcError, MirrorNodeClientError) from the main-thread module graph,
+      // guaranteeing instanceof checks downstream remain correct.
+      try {
+        switch (task.type) {
+          case 'getBlock':
+            return await blockWorker.getBlock(
+              task.blockHashOrNumber,
+              task.showDetails,
+              task.requestDetails,
+              task.chain,
+            );
+          case 'getBlockReceipts':
+            return await blockWorker.getBlockReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+          case 'getRawReceipts':
+            return await blockWorker.getRawReceipts(task.blockHashOrBlockNumber, task.requestDetails);
+          case 'getLogs':
+            return await commonWorker.getLogs(
+              task.blockHash,
+              task.fromBlock,
+              task.toBlock,
+              task.address,
+              task.topics,
+              task.requestDetails,
+            );
+          default:
+            throw new Error(`Unsupported task type ${task.type}`);
+        }
+      } catch (e) {
+        throw new Error(JSON.stringify(e));
       }
     },
   } as Piscina<any, any>;
