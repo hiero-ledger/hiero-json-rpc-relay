@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { BigNumber } from '@hashgraph/sdk/lib/Transfer';
+import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
+import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
@@ -223,7 +224,7 @@ const toHash32 = (value: string): string => {
 
 const toNullableBigNumber = (value: string | null): string | null => {
   if (typeof value === 'string') {
-    return BigInt(value).toString();
+    return new BN(value).toString();
   }
 
   return null;

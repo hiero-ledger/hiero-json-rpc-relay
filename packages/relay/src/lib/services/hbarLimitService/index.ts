@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { zeroAddress } from '@ethereumjs/util';
 import { AccountId, Hbar } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
@@ -71,23 +72,10 @@ export class HbarLimitService implements IHbarLimitService {
   private reset: Date;
 
   /**
-   * Backing field for the lazily-resolved operator address.
+   * The operator address for the rate limiter.
    * @private
    */
-  private _operatorAddress?: string;
-
-  /** Lazily resolves the operator's EVM address, deferring the SDK `AccountId` call. */
-  private get operatorAddress(): string {
-    if (!this._operatorAddress) {
-      const operator = Utils.getOperator(this.logger);
-      if (operator) {
-        this._operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
-      } else {
-        this._operatorAddress = constants.ZERO_ADDRESS_HEX;
-      }
-    }
-    return this._operatorAddress;
-  }
+  private readonly operatorAddress: string;
 
   constructor(
     private readonly hbarSpendingPlanRepository: HbarSpendingPlanRepository,
@@ -98,6 +86,13 @@ export class HbarLimitService implements IHbarLimitService {
     private readonly limitDuration: number,
   ) {
     this.reset = this.getResetTimestamp();
+
+    const operator = Utils.getOperator(logger);
+    if (operator) {
+      this.operatorAddress = prepend0x(AccountId.fromString(operator.accountId.toString()).toSolidityAddress());
+    } else {
+      this.operatorAddress = zeroAddress();
+    }
 
     const totalBudget = HbarLimitService.TIER_LIMITS[SubscriptionTier.OPERATOR];
     if (totalBudget.toTinybars().lte(0)) {

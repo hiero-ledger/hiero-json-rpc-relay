@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import type { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
+import { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
@@ -62,10 +62,10 @@ export default class HAPIService {
   private readonly hederaNetwork: string;
 
   /**
-   * Backing field for the lazily-initialised SDK client.
-   * @see {@link ensureClient}
+   * The SDK Client used for connecting to both the consensus nodes and mirror node. The account
+   * associated with this client will pay for all operations on the main network.
    */
-  private _client?: SDKClient;
+  private client: SDKClient;
 
   /**
    * The logger used for logging all output from this class.
@@ -99,6 +99,8 @@ export default class HAPIService {
     this.hbarLimitService = hbarLimitService;
     this.eventEmitter = new EventEmitter<TypedEvents>();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
+
+    this.client = this.initSDKClient();
 
     const currentDateNow = Date.now();
     this.initialTransactionCount = ConfigService.get('HAPI_CLIENT_TRANSACTION_RESET');
@@ -165,23 +167,12 @@ export default class HAPIService {
   }
 
   /**
-   * Lazily initializes and returns the SDK client. Defers the creation of the
-   * consensus-node client until the first actual SDK operation.
-   */
-  private ensureClient(): SDKClient {
-    if (!this._client) {
-      this._client = this.initSDKClient();
-    }
-    return this._client;
-  }
-
-  /**
    * Reset the SDK Client and all counters.
    */
   private resetClient() {
     this.clientResetCounter.labels(this.transactionCount.toString(), this.errorCodes.toString()).inc(1);
 
-    this._client = this.initSDKClient();
+    this.client = this.initSDKClient();
 
     // Reset all counters with predefined configuration.
     this.transactionCount = this.initialTransactionCount;
@@ -208,7 +199,7 @@ export default class HAPIService {
    * @returns The operator account ID or `null` if not set.
    */
   public getOperatorAccountId(): AccountId | null {
-    return this.ensureClient().getOperatorAccountId();
+    return this.client.getOperatorAccountId();
   }
 
   /**
@@ -217,7 +208,7 @@ export default class HAPIService {
    * @returns The operator's public key or `null` if not set.
    */
   public getOperatorPublicKey(): PublicKey | null {
-    return this.ensureClient().getOperatorPublicKey();
+    return this.client.getOperatorPublicKey();
   }
 
   /**
@@ -226,7 +217,7 @@ export default class HAPIService {
    */
   private getSDKClient(): SDKClient {
     if (!this.isReinitEnabled) {
-      return this.ensureClient();
+      return this.client;
     }
 
     if (this.shouldReset) {
@@ -236,7 +227,7 @@ export default class HAPIService {
     this.decrementTransactionCounter();
     this.checkResetDuration();
 
-    return this.ensureClient();
+    return this.client;
   }
 
   /**

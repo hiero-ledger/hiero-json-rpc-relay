@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { BigNumber } from 'bignumber.js';
 
 enum CACHE_KEY {
   ACCOUNT = 'account',
@@ -132,10 +133,10 @@ export default {
   },
 
   HBAR_RATE_LIMIT_DURATION: ConfigService.get('HBAR_RATE_LIMIT_DURATION'),
-  HBAR_RATE_LIMIT_TOTAL: ConfigService.get('HBAR_RATE_LIMIT_TINYBAR') as number,
-  HBAR_RATE_LIMIT_BASIC: ConfigService.get('HBAR_RATE_LIMIT_BASIC') as number,
-  HBAR_RATE_LIMIT_EXTENDED: ConfigService.get('HBAR_RATE_LIMIT_EXTENDED') as number,
-  HBAR_RATE_LIMIT_PRIVILEGED: ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED') as number,
+  HBAR_RATE_LIMIT_TOTAL: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_TINYBAR')),
+  HBAR_RATE_LIMIT_BASIC: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_BASIC')),
+  HBAR_RATE_LIMIT_EXTENDED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_EXTENDED')),
+  HBAR_RATE_LIMIT_PRIVILEGED: BigNumber(ConfigService.get('HBAR_RATE_LIMIT_PRIVILEGED')),
   GAS_PRICE_TINY_BAR_BUFFER: ConfigService.get('GAS_PRICE_TINY_BAR_BUFFER'),
   WEB_SOCKET_PORT: ConfigService.get('WEB_SOCKET_PORT'),
   WEB_SOCKET_HTTP_PORT: ConfigService.get('WEB_SOCKET_HTTP_PORT'),

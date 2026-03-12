@@ -4,7 +4,7 @@ import { RLP } from '@ethereumjs/rlp';
 import { Trie } from '@ethereumjs/trie';
 import { bytesToInt, concatBytes, hexToBytes, intToBytes, intToHex } from '@ethereumjs/util';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import pino, { Logger } from 'pino';
+import pino from 'pino';
 
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
@@ -30,32 +30,13 @@ import { CommonService } from '../ethCommonService/CommonService';
  * Worker threads run in separate V8 Isolates with isolated memory heaps.
  * Complex objects (like network clients with sockets) cannot be shared by reference.
  * Therefore, we must instantiate separate clients for the worker.
- *
- * Initialization is deferred to the first task invocation so that worker threads
- * that are spawned but never receive work incur near-zero memory overhead.
- *
  * Ref: https://nodejs.org/api/worker_threads.html#worker-threads
  */
-interface WorkerContext {
-  logger: Logger;
-  mirrorNodeClient: MirrorNodeClient;
-  commonService: CommonService;
-}
-
-let _ctx: WorkerContext | undefined;
-
-/** Lazily initializes and returns the shared worker context. */
-function ctx(): WorkerContext {
-  if (!_ctx) {
-    const logger: Logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
-    const register = RegistryFactory.getInstance();
-    const cacheService = CacheClientFactory.create(logger, register);
-    const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
-    const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
-    _ctx = { logger, mirrorNodeClient, commonService };
-  }
-  return _ctx!;
-}
+const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
+const register = RegistryFactory.getInstance();
+const cacheService = CacheClientFactory.create(logger, register);
+const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
+const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 
 interface IReceiptRootHashLog {
   address: string;
@@ -306,7 +287,7 @@ async function prepareTransactionArray(
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
     if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-      ctx().logger.debug(
+      logger.debug(
         `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
         contractResult.hash,
         contractResult.result,
@@ -333,7 +314,7 @@ export async function getBlock(
   chain: string,
 ): Promise<Block | null> {
   try {
-    const blockResponse: MirrorNodeBlock = await ctx().commonService.getHistoricalBlockResponse(
+    const blockResponse: MirrorNodeBlock = await commonService.getHistoricalBlockResponse(
       requestDetails,
       blockHashOrNumber,
       true,
@@ -350,12 +331,12 @@ export async function getBlock(
     );
 
     const [contractResults, logs] = await Promise.all([
-      ctx().mirrorNodeClient.getContractResultWithRetry(ctx().mirrorNodeClient.getContractResults.name, [
+      mirrorNodeClient.getContractResultWithRetry(mirrorNodeClient.getContractResults.name, [
         requestDetails,
         params,
         undefined,
       ]),
-      ctx().commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
+      commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
     if (contractResults == null && logs.length == 0) {
@@ -372,7 +353,7 @@ export async function getBlock(
       showDetails,
       requestDetails,
       chain,
-      ctx().commonService,
+      commonService,
     );
 
     txArray = populateSyntheticTransactions(showDetails, logs, txArray, chain);
@@ -385,7 +366,7 @@ export async function getBlock(
 
     const receiptsRoot: string = await getRootHash(receipts);
 
-    const gasPrice = await ctx().commonService.gasPrice(requestDetails);
+    const gasPrice = await commonService.gasPrice(requestDetails);
 
     return await BlockFactory.createBlock({
       blockResponse,
@@ -411,13 +392,13 @@ export async function getBlockReceipts(
     }
 
     const effectiveGas = numberTo0x(
-      await ctx().commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
+      await commonService.getGasPriceInWeibars(requestDetails, block.timestamp.from.split('.')[0]),
     );
 
     const resolved = await Promise.all(
       contractResults.map(async (contractResult) => {
         if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          ctx().logger.debug(
+          logger.debug(
             `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
             contractResult.hash,
             contractResult.result,
@@ -427,8 +408,8 @@ export async function getBlockReceipts(
 
         const logs = logsByHash.get(contractResult.hash) || [];
         const [from, to] = await Promise.all([
-          ctx().commonService.resolveEvmAddress(contractResult.from, requestDetails),
-          contractResult.to === null ? null : ctx().commonService.resolveEvmAddress(contractResult.to, requestDetails),
+          commonService.resolveEvmAddress(contractResult.from, requestDetails),
+          contractResult.to === null ? null : commonService.resolveEvmAddress(contractResult.to, requestDetails),
         ]);
 
         return { contractResult, logs, from, to };
@@ -518,7 +499,7 @@ export async function getRawReceipts(
     const encodedReceipts = contractResults
       .map((contractResult) => {
         if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          ctx().logger.debug(
+          logger.debug(
             `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
             contractResult.hash,
             contractResult.result,
@@ -572,7 +553,7 @@ async function loadBlockExecutionData(
   contractResults: any[];
   logsByHash: Map<string, Log[]>;
 }> {
-  const block = await ctx().commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
+  const block = await commonService.getHistoricalBlockResponse(requestDetails, blockHashOrBlockNumber);
   if (!block) return { block: null, contractResults: [], logsByHash: new Map() };
 
   const paramTimestamp: IContractResultsParams = {
@@ -582,8 +563,8 @@ async function loadBlockExecutionData(
   const sliceCount = Math.ceil(block.count / ConfigService.get('MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE'));
 
   const [contractResults, logs] = await Promise.all([
-    ctx().mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
-    ctx().commonService.getLogsWithParams(null, paramTimestamp, requestDetails, sliceCount),
+    mirrorNodeClient.getContractResults(requestDetails, paramTimestamp),
+    commonService.getLogsWithParams(null, paramTimestamp, requestDetails, sliceCount),
   ]);
 
   const logsByHash = new Map<string, Log[]>();

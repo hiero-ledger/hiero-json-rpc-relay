@@ -4,6 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import Axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
+import { ethers } from 'ethers';
 import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
@@ -1116,7 +1117,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
   ): Promise<MirrorNodeContractLog[]> {
-    if (address === constants.ZERO_ADDRESS_HEX) return [];
+    if (address === ethers.ZeroAddress) return [];
 
     const apiEndpoint = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT.replace(
       MirrorNodeClient.ADDRESS_PLACEHOLDER,

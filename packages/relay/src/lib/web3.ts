@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { keccak_256 } from '@noble/hashes/sha3';
-import { bytesToHex } from '@noble/hashes/utils';
 
 import { Web3 } from '../index';
 import { rpcMethod } from './decorators';
@@ -37,6 +36,6 @@ export class Web3Impl implements Web3 {
     0: { type: 'hex', required: true },
   })
   sha3(input: string): string {
-    return '0x' + bytesToHex(keccak_256(Buffer.from(input.slice(2), 'hex')));
+    return keccak256(input);
   }
 }

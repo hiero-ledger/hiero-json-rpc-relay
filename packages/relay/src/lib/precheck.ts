@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Transaction } from 'ethers';
+import { ethers, Transaction } from 'ethers';
 
 import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
@@ -66,7 +66,7 @@ export class Precheck {
    * @param parsedTx - The parsed transaction.
    * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  validateBasicPropertiesStateless(parsedTx: Transaction) {
+  validateBasicPropertiesStateless(parsedTx: ethers.Transaction) {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
@@ -88,7 +88,7 @@ export class Precheck {
    * @throws If the transaction does not meet send-time requirements.
    */
   async validateAccountAndNetworkStateful(
-    parsedTx: Transaction,
+    parsedTx: ethers.Transaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
