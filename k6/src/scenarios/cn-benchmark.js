@@ -49,8 +49,8 @@ import { check } from 'k6';
 
 setDefaultValuesForEnvParameters();
 
-const TARGET_RPS = parseInt(__ENV['CN_BENCH_TARGET_RPS'] || '130', 10);
-const WALLETS_AMOUNT = parseInt(__ENV['WALLETS_AMOUNT'] || '80', 10);
+const TARGET_RPS = parseInt(__ENV['CN_BENCH_TARGET_RPS'], 10);
+const WALLETS_AMOUNT = parseInt(__ENV['WALLETS_AMOUNT'], 10);
 const RAMP_UP = __ENV['RAMP_UP_DURATION'];
 const STABLE = __ENV['STABLE_DURATION'];
 const RAMP_DOWN = __ENV['RAMP_DOWN_DURATION'];

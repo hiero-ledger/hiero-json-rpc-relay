@@ -101,5 +101,10 @@ export const setDefaultValuesForEnvParameters = () => {
   __ENV['RAMP_DOWN_DURATION'] = __ENV['RAMP_DOWN_DURATION'] || '1m';
 
   // CN benchmark: target RPS sent to the Relay (expects ~100 to reach CN after loss)
-  __ENV['CN_BENCH_TARGET_RPS'] = __ENV['CN_BENCH_TARGET_RPS'] || '135';
+  __ENV['CN_BENCH_TARGET_RPS'] = __ENV['CN_BENCH_TARGET_RPS'] || '130';
+
+  // Entities to be created by the prep.js script
+  __ENV['WALLETS_AMOUNT'] = __ENV['WALLETS_AMOUNT'] || '80';
+  __ENV['SIGNED_TXS'] = __ENV['SIGNED_TXS'] || '300';
+  __ENV['SMART_CONTRACTS_AMOUNT'] = __ENV['SMART_CONTRACTS_AMOUNT'] || '10';
 };
