@@ -34,11 +34,17 @@ interface GetRawReceiptsTask {
   requestDetails: RequestDetails;
 }
 
-type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | GetRawReceiptsTask;
+export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | GetRawReceiptsTask;
 
 /**
- * Main worker export - handles different task types.
- * This function is called by Piscina with the task data.
+ * Dispatches a worker task to the appropriate handler function.
+ *
+ * Invoked either by Piscina on a dedicated worker thread, or directly on the main
+ * thread when {@link WORKERS_POOL_ENABLED} is `false` (local execution mode).
+ *
+ * @param task - Discriminated-union descriptor for the task to execute.
+ * @returns A promise that resolves to the handler's result.
+ * @throws {Error} If `task.type` does not match any known task variant.
  */
 export default async function handleTask(task: WorkerTask): Promise<any> {
   switch (task.type) {

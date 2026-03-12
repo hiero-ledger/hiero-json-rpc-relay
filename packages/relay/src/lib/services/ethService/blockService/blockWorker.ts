@@ -23,7 +23,7 @@ import {
 import { Block, Log, Transaction } from '../../../model';
 import { IContractResultsParams, ITransactionReceipt, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { IReceiptRlpInput } from '../../../types/IReceiptRlpInput';
-import { WorkersPool } from '../../workersService/WorkersPool';
+import { wrapError } from '../../workersService/WorkersErrorUtils';
 import { CommonService } from '../ethCommonService/CommonService';
 
 /**
@@ -375,7 +375,7 @@ export async function getBlock(
       receiptsRoot,
     });
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw wrapError(e);
   }
 }
 
@@ -467,7 +467,7 @@ export async function getBlockReceipts(
 
     return sortedReceipts as ITransactionReceipt[];
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw wrapError(e);
   }
 }
 
@@ -482,8 +482,8 @@ export async function getBlockReceipts(
  * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
  * @param requestDetails - The request details for logging and tracking
  * @returns Promise of an array of hex-encoded receipt strings (RLP), or empty array if
- *   the block has no contract results and no logs. Re-throws errors wrapped with
- *   {@link WorkersPool.wrapError}.
+ *   the block has no contract results and no logs. Re-throws errors via {@link wrapError}
+ *   when running inside a worker thread, or propagates natively on the main thread.
  */
 export async function getRawReceipts(
   blockHashOrBlockNumber: string,
@@ -527,7 +527,7 @@ export async function getRawReceipts(
 
     return encodedReceipts;
   } catch (e: unknown) {
-    throw WorkersPool.wrapError(e);
+    throw wrapError(e);
   }
 }
 
