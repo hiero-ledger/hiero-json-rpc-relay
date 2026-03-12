@@ -35,11 +35,12 @@
     "typescript": "^5.8.3",
     "@vercel/nft": "^1.3.2"
   },
-  "workspaces": {
-    "packages": [
-      "packages/**"
-    ]
-  },
+  "workspaces": [
+    "packages/config-service",
+    "packages/relay",
+    "packages/server",
+    "packages/ws-server"
+  ],
   "scripts": {
     "acceptancetest": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts --exit",
     "acceptancetest:api_batch1": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@api-batch-1' --exit",
@@ -70,24 +71,24 @@
     "acceptancetest:json_rpc_compliance": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@json-rpc-compliance' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
     "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
-    "build": "npx lerna run build",
-    "build-and-test": "npx lerna run build && npx lerna run test",
+    "build": "npm run build --workspaces",
+    "build-and-test": "npm run build --workspaces && npm run test --workspaces",
     "build:docker": "docker build . -t ${npm_package_name}",
-    "clean": "npx lerna run clean",
-    "compile": "npx lerna run compile",
+    "clean": "npm run clean --workspaces",
+    "compile": "npm run compile --workspaces",
     "dev": "npm run build && tsc --watch",
     "deploy:docker": "docker push ghcr.io/hiero-ledger/${npm_package_name}:latest",
-    "format": "npx lerna run format",
+    "format": "npm run format --workspaces --if-present",
     "hopp": "hopp test packages/server/tests/hoppscotch.json -e packages/server/tests/hopp-env.json",
-    "lint": "npx lerna run lint",
-    "start": "npx lerna exec --scope @hashgraph/json-rpc-server -- npm run start",
-    "start:ws": "npx lerna exec --scope @hashgraph/json-rpc-ws-server -- npm run start",
+    "lint": "npm run lint --workspaces",
+    "start": "npm run start -w @hashgraph/json-rpc-server",
+    "start:ws": "npm run start -w @hashgraph/json-rpc-ws-server",
     "start:docker": "docker run --name hedera-relay -d -p 7546:7546 ${npm_package_name}:latest",
-    "test": "npx lerna run test",
+    "test": "npm run test --workspaces",
     "openrpctest": "ts-mocha packages/relay/tests/lib/openrpc.spec.ts --exit",
     "bump-version": "SEM_VER=${npm_config_semver} SNAPSHOT=${npm_config_snapshot} node scripts/.bump-version.js",
     "prepare": "husky",
-    "print-env": "npx lerna exec --scope @hashgraph/json-rpc-config-service -- npm run print-env"
+    "print-env": "npm run print-env -w @hashgraph/json-rpc-config-service"
   },
   "dependencies": {
     "@ethereumjs/rlp": "^10.0.0",
@@ -95,7 +96,6 @@
     "@ethereumjs/util": "^9.1.0",
     "@hoppscotch/cli": "0.30.0",
     "koa-websocket": "^7.0.0",
-    "lerna": "^9.0.0",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2",
     "prom-client": "^15.1.3",

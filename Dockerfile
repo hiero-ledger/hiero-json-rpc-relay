@@ -5,7 +5,7 @@ FROM node:22-alpine AS build
 
 WORKDIR /home/node/app
 
-COPY package.json package-lock.json lerna.json ./
+COPY package.json package-lock.json ./
 COPY packages/config-service/package.json packages/config-service/
 COPY packages/relay/package.json           packages/relay/
 COPY packages/server/package.json          packages/server/

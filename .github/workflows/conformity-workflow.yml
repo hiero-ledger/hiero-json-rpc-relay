@@ -77,7 +77,7 @@ jobs:
         run: cp ./packages/server/tests/localAcceptance.env .env
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
       - name: Install hedera local
         run: npm install @hashgraph/hedera-local -g
