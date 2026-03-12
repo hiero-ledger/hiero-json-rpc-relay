@@ -696,6 +696,11 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
+  USE_INTERNAL_RELAY: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   USE_ASYNC_TX_PROCESSING: {
     type: 'boolean',
     required: false,

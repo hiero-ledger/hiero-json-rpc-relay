@@ -59,7 +59,7 @@ describe('RPC Server Acceptance Tests', function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const INITIAL_BALANCE = ConfigService.get('INITIAL_BALANCE');
 
-  global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL;
+  global.relayIsLocal = RELAY_URL === LOCAL_RELAY_URL && ConfigService.get('USE_INTERNAL_RELAY');
   global.servicesNode = new ServicesClient(NETWORK, OPERATOR_ID, OPERATOR_KEY);
   global.mirrorNode = new MirrorClient(MIRROR_NODE_URL);
   global.metrics = new MetricsClient(RELAY_URL);
@@ -184,10 +184,9 @@ describe('RPC Server Acceptance Tests', function () {
 
     logger.info(`Start relay on port ${constants.RELAY_PORT}`);
     logger.info(`Start relay on host ${constants.RELAY_HOST}`);
-    const { app, relay } = await initializeServer();
+    const { app } = await initializeServer();
     const relayServer = app.listen({ port: constants.RELAY_PORT });
     global.relayServer = relayServer;
-    global.relayImpl = relay;
     setServerTimeout(relayServer);
 
     if (ConfigService.get('TEST_WS_SERVER')) {
