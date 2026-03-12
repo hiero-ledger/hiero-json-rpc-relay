@@ -215,6 +215,11 @@ export class MirrorNodeClient {
       httpsAgent: httpsAgent,
     });
 
+    // Authorization header
+    if (ConfigService.get('MIRROR_NODE_AUTH_HEADER')) {
+      axiosClient.defaults.headers.common['Authorization'] = ConfigService.get('MIRROR_NODE_AUTH_HEADER');
+    }
+
     // Custom headers
     if (ConfigService.get('MIRROR_NODE_URL_HEADER_X_API_KEY')) {
       axiosClient.defaults.headers.common[MirrorNodeClient.X_API_KEY] = ConfigService.get(
