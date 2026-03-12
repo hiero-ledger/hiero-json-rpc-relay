@@ -26,6 +26,14 @@ jobs:
             memory_limit: "104Mi"
           - name: "96-pure"
             memory_limit: "96Mi"
+          - name: "88-pure"
+            memory_limit: "88Mi"
+          - name: "80-pure"
+            memory_limit: "80Mi"
+          - name: "72-pure"
+            memory_limit: "72Mi"
+          - name: "64-pure"
+            memory_limit: "64Mi"
 
     permissions:
       contents: read
