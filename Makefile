@@ -141,6 +141,9 @@ run-relay:
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		echo "    WORKERS_POOL_ENABLED: \"false\""; \
 		echo "    LOG_LEVEL: \"info\""; \
+		echo "    RATE_LIMIT_DISABLED: \"true\""; \
+		echo "    REDIS_ENABLED: \"false\""; \
+		echo "    USE_ASYNC_TX_PROCESSING: \"true\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
