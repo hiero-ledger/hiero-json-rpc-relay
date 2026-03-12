@@ -75,6 +75,7 @@ setup-solo: clean-solo
 	solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
+	solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 	$(MAKE) port-forward
 
@@ -297,8 +298,10 @@ print-relay-procs:
 
 .PHONY: prune-docker
 prune-docker:
-	-docker rm -f $$(docker ps -aq)
-	-docker rmi -f $$(docker images -aq)
+	-docker rm -f $$(docker ps -aq) || true
+	-docker rmi -f $$(docker images -aq) || true
+	-docker system prune -f || true
+	-docker volume prune -f || true
 
 # CN Benchmark parameters
 # These can be overridden on the CLI, but now default to the same logic as k6/.env
@@ -321,12 +324,12 @@ run-cn-benchmark:
 	@echo "  Stable:         $(STABLE_DURATION)"
 	@echo "  Ramp-down:      $(RAMP_DOWN_DURATION)"
 	@echo ""
-	@echo "Step 1 of 2: Preparing wallets and pre-signed transactions..."
+	@echo "Step 1 of 2: Preparing wallets and pre-signed transactions (focused)..."
 	cd k6 && \
 		WALLETS_AMOUNT=$(WALLETS_AMOUNT) \
 		SIGNED_TXS=$(SIGNED_TXS) \
 		SMART_CONTRACTS_AMOUNT=$(SMART_CONTRACTS_AMOUNT) \
-		env-cmd node src/prepare/prep.js
+		env-cmd node src/prepare/cn-prep.js
 	@echo ""
 	@echo "Step 2 of 2: Running k6 cn-benchmark scenario..."
 	cd k6 && \
