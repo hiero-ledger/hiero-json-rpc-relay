@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { AccountId, PrivateKey } from '@hashgraph/sdk';
-import { Operator } from '@hashgraph/sdk/lib/client/Client';
+import type { Operator } from '@hashgraph/sdk/lib/client/Client';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 
@@ -121,7 +122,7 @@ export class Utils {
    * @returns The computed transaction hash with '0x' prefix
    */
   public static computeTransactionHash(transactionBuffer: Buffer): string {
-    return keccak256(transactionBuffer);
+    return '0x' + bytesToHex(keccak_256(transactionBuffer));
   }
 
   /**

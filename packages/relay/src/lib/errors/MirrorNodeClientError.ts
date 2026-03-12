@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
-
 export class MirrorNodeClientError extends Error {
   public statusCode: number;
   public data?: string;
@@ -21,7 +19,7 @@ export class MirrorNodeClientError extends Error {
 
   static messages = {
     INVALID_HEX: 'data field invalid hexadecimal string',
-    CONTRACT_REVERT_EXECUTED: Status.ContractRevertExecuted.toString(),
+    CONTRACT_REVERT_EXECUTED: 'CONTRACT_REVERT_EXECUTED',
   };
 
   constructor(error: any, statusCode: number) {

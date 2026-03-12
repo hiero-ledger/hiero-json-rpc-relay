@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import Piscina from 'piscina';
+import type Piscina from 'piscina';
 import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
@@ -106,12 +106,15 @@ export class WorkersPool {
   /**
    * Returns the shared Piscina worker pool instance.
    *
-   * If the pool has not yet been created, it initializes a new one using configuration-based thread settings.
+   * If the pool has not yet been created, it dynamically imports piscina and initializes
+   * a new pool using configuration-based thread settings. The dynamic import defers
+   * loading piscina's code until the pool is actually needed.
    *
    * @returns The globally shared `Piscina` instance.
    */
-  static getInstance(): Piscina {
+  static async getInstance(): Promise<Piscina> {
     if (!this.instance) {
+      const { default: Piscina } = await import('piscina');
       this.instance = new Piscina({
         filename: `${__dirname}/workers.js`,
         atomics: 'disabled',
@@ -254,18 +257,17 @@ export class WorkersPool {
     this.workerPoolQueueSizeGauge?.set(this.instance.queueSize);
 
     const startTime = process.hrtime.bigint();
-    const result = await this.getInstance()
-      .run(options)
-      .catch((error: unknown) => {
-        const unwrappedErr = unwrapError(error);
+    const pool = await this.getInstance();
+    const result = await pool.run(options).catch((error: unknown) => {
+      const unwrappedErr = unwrapError(error);
 
-        this.workerTaskDurationSecondsHistogram
-          ?.labels(taskType)
-          .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
-        this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
+      this.workerTaskDurationSecondsHistogram
+        ?.labels(taskType)
+        .observe(Number(process.hrtime.bigint() - startTime) * 1e-9);
+      this.workerTaskFailuresCounter?.labels(taskType, `${unwrappedErr.name} - ${unwrappedErr.message}`).inc();
 
-        throw unwrappedErr;
-      });
+      throw unwrappedErr;
+    });
 
     // division in floating-point math is slightly slower and may introduce rounding errors (especially when the
     // elapsed nanoseconds exceed 2^53) so using BigInt first and then multiplying by 1e-9 is safer than dividing by 1e9

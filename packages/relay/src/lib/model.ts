@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Used for fake implementation of block history
-import { Status, TransactionRecord } from '@hashgraph/sdk';
+import type { TransactionRecord } from '@hashgraph/sdk';
+
+/** Numeric code for Hedera `SUCCESS` status (stable protobuf value). */
+const HEDERA_SUCCESS_CODE = 22;
 
 /**
  * Represents an Ethereum-compatible block model.
@@ -194,7 +197,7 @@ export class Receipt {
     this.contractAddress = contractAddress;
     this.logs = [];
     this.logsBloom = '';
-    this.status = record.receipt.status == Status.Success ? '0x1' : '0x0';
+    this.status = record.receipt.status._code == HEDERA_SUCCESS_CODE ? '0x1' : '0x0';
   }
 }
 

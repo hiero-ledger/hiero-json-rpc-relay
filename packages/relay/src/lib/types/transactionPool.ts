@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from 'ethers';
+import type { Transaction } from 'ethers';
 
 /**
  * Service responsible for managing pending transactions in the pool and coordinating with consensus results.

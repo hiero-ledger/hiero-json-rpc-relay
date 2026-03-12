@@ -2,7 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
-import { createClient, RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { RedisCacheError } from '../errors/RedisCacheError';
 
@@ -38,6 +38,8 @@ export class RedisClientManager {
     if (!this.client) {
       const url = ConfigService.get('REDIS_URL');
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createClient } = require('redis');
       this.client = createClient({
         url,
         socket: { reconnectStrategy: (retries) => retries * ConfigService.get('REDIS_RECONNECT_DELAY_MS') },
