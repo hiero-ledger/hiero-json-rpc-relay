@@ -1,35 +1,20 @@
 {
-    "compilerOptions": {
-        "composite": true,
-        /* Language and Environment */
-        "target": "es6",
-        /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-        "lib": [
-            "es6"
-        ],
-        /* Modules */
-        "module": "commonjs",
-        /* Specify what module code is generated. */
-        "rootDir": "src/",
-        /* Specify the root folder within your source files. */
-        "moduleResolution": "node",
-        /* Specify how TypeScript looks up a file from a given module specifier. */
-        "outDir": "./dist",
-        /* Specify an output folder for all emitted files. */
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables `allowSyntheticDefaultImports` for type compatibility. */
-        "forceConsistentCasingInFileNames": true,
-        /* Ensure that casing is correct in imports. */
-        "noImplicitAny": false,
-        /* Type Checking */
-        "declaration": true,
-        "strict": true,
-        "sourceMap": true,
-        /* Enable all strict type-checking options. */
-        "typeRoots": ["./node_modules/@types", "./src/types"]
-    },
-    "include": [
-        "src"
-    ]
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["es6"],
+    "module": "commonjs",
+    "rootDir": "src/",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "declaration": true,
+    "strict": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src"]
 }

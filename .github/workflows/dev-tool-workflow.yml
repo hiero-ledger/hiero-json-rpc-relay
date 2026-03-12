@@ -47,7 +47,7 @@ jobs:
       - name: Create .env file
         run: |
           cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
-          cp ./packages/server/tests/localAcceptance.env .env
+          cp ./tests/server/localAcceptance.env .env
 
       - name: Build Typescript
         run: npm run build

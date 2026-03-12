@@ -77,7 +77,7 @@ jobs:
         run: npm ci
 
       - name: Create .env file
-        run: cp ./packages/server/tests/${{ inputs.envfile }} .env
+        run: cp ./tests/server/${{ inputs.envfile }} .env
 
       - name: Build Typescript
         run: npm run build

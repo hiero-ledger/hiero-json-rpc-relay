@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Create .env file
-        run: cp ./packages/server/tests/localAcceptance.env .env
+        run: cp ./tests/server/localAcceptance.env .env
 
       - name: Build Typescript
         run: npm run build
