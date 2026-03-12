@@ -57,9 +57,13 @@
         "name": "Accounts",
         "description": "Always returns an empty array",
         "schema": {
-          "title": "empty array",
+          "title": "Accounts",
           "type": "array",
-          "pattern": "^\\[\\s*\\]$"
+          "pattern": "^\\[\\s*\\]$",
+          "items": {
+            "$ref": "#/components/schemas/address"
+          },
+          "maxItems": 0
         }
       }
     },
@@ -77,21 +81,21 @@
     },
     {
       "name": "eth_call",
-      "summary": "Executes a new message call immediately without creating a transaction on the block chain. ",
+      "summary": "Executes a new message call immediately without creating a transaction on the block chain.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/TransactionWithSender"
+            "$ref": "#/components/schemas/GenericTransaction"
           }
         },
         {
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
@@ -143,7 +147,7 @@
           "name": "Transaction",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/TransactionWithSender"
+            "$ref": "#/components/schemas/GenericTransaction"
           }
         },
         {
@@ -217,9 +221,7 @@
               "description": "An array of gas used ratio.",
               "type": "array",
               "items": {
-                "title": "floating point number",
-                "type": "number",
-                "pattern": "^([0-9].[0-9]*|0)$"
+                "$ref": "#/components/schemas/ratio"
               }
             },
             "baseFeePerGas": {
@@ -245,7 +247,8 @@
                 }
               }
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -257,7 +260,6 @@
       "result": {
         "name": "Gas price",
         "schema": {
-          "title": "Gas price",
           "$ref": "#/components/schemas/uint"
         }
       }
@@ -278,14 +280,13 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
       "result": {
         "name": "Balance",
         "schema": {
-          "title": "hex encoded unsigned integer",
           "$ref": "#/components/schemas/uint"
         }
       }
@@ -389,7 +390,7 @@
         }
       ],
       "result": {
-        "name": "Transactions count",
+        "name": "Transaction count",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -408,7 +409,7 @@
         }
       ],
       "result": {
-        "name": "Transactions count",
+        "name": "Transaction count",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -473,10 +474,10 @@
           }
         },
         {
-          "name": "Position",
+          "name": "Storage slot",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint256"
           }
         },
         {
@@ -488,9 +489,9 @@
         }
       ],
       "result": {
-        "name": "Value from storage",
+        "name": "Value",
         "schema": {
-          "$ref": "#/components/schemas/hash32"
+          "$ref": "#/components/schemas/bytes"
         }
       }
     },
@@ -584,14 +585,13 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
       "result": {
         "name": "Transaction count",
         "schema": {
-          "title": "Transaction count",
           "$ref": "#/components/schemas/uint"
         }
       }
@@ -609,7 +609,7 @@
         }
       ],
       "result": {
-        "name": "Receipt Information",
+        "name": "Receipt information",
         "schema": {
           "$ref": "#/components/schemas/ReceiptInfo"
         }
@@ -685,12 +685,21 @@
         }
       ],
       "result": {
-        "name": "eth_getUncleCountByBlockHash result",
+        "name": "Uncle count",
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
           "type": "string",
-          "pattern": "0x0"
+          "pattern": "0x0",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "title": "Uncle count",
+              "$ref": "#/components/schemas/uint"
+            }
+          ]
         }
       }
     },
@@ -708,12 +717,21 @@
         }
       ],
       "result": {
-        "name": "eth_getUncleCountByBlockNumber result",
+        "name": "Uncle count",
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
           "type": "string",
-          "pattern": "0x0"
+          "pattern": "0x0",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "title": "Uncle count",
+              "$ref": "#/components/schemas/uint"
+            }
+          ]
         }
       }
     },
@@ -847,12 +865,11 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
-        "name": "eth_maxPriorityFeePerGas result",
+        "name": "Max priority fee per gas",
         "schema": {
+          "title": "Max priority fee per gas",
           "description": "Always returns '0x0'. Hedera doesn't have a concept of tipping nodes to promote any behavior",
-          "title": "hex encoded unsigned integer",
-          "type": "string",
-          "pattern": "0x0"
+          "$ref": "#/components/schemas/uint"
         }
       }
     },
@@ -875,7 +892,7 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
-        "name": "Filter ID",
+        "name": "Filter Identifier",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -892,14 +909,14 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
-          "name": "LogFilter",
+          "name": "Filter",
           "schema": {
             "$ref": "#/components/schemas/LogFilter"
           }
         }
       ],
       "result": {
-        "name": "Filter ID",
+        "name": "Filter Identifier",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -916,14 +933,14 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "FilterID",
+          "name": "Filter Identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Uninstall status",
+        "name": "Success",
         "schema": {
           "type": "boolean"
         }
@@ -955,14 +972,14 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "Filter ID",
+          "name": "Filter Identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Filter result",
+        "name": "Log objects",
         "schema": {
           "$ref": "#/components/schemas/FilterResults"
         }
@@ -979,21 +996,20 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "Filter ID",
+          "name": "Filter Identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Filter result",
+        "name": "Log objects",
         "schema": {
           "oneOf": [
             {
               "type": "array",
               "items": {
                 "blockHash": {
-                  "title": "block hash",
                   "$ref": "#/components/schemas/hash32"
                 }
               }
@@ -1004,7 +1020,8 @@
                 "$ref": "#/components/schemas/FilterResults"
               }
             }
-          ]
+          ],
+          "title": "Filter results"
         }
       },
       "tags": [
@@ -1107,7 +1124,7 @@
         "schema": {
           "title": "Not syncing",
           "description": "Always returns false.",
-          "type": "boolean"
+          "$ref": "#/components/schemas/SyncingStatus"
         }
       }
     },
@@ -1442,12 +1459,15 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
-        "name": "debug_getBadBlocks result",
+        "name": "Blocks",
         "description": "Always returns an empty array",
         "schema": {
-          "title": "empty array",
+          "title": "Bad block array",
           "type": "array",
-          "pattern": "^\\[\\s*\\]$"
+          "pattern": "^\\[\\s*\\]$",
+          "items": {
+            "$ref": "#/components/schemas/BadBlock"
+          }
         }
       }
     },
@@ -1704,7 +1724,7 @@
           },
           "difficulty": {
             "title": "Difficulty",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/uint"
           },
           "number": {
             "title": "Number",
@@ -1735,7 +1755,7 @@
             "$ref": "#/components/schemas/bytes8"
           },
           "totalDifficulty": {
-            "title": "Total difficult",
+            "title": "Total difficulty",
             "$ref": "#/components/schemas/uint"
           },
           "baseFeePerGas": {
@@ -1759,7 +1779,7 @@
                 "title": "Full transactions",
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/TransactionSigned"
+                  "$ref": "#/components/schemas/TransactionInfo"
                 }
               }
             ]
@@ -1778,7 +1798,7 @@
           },
           "withdrawalsRoot": {
             "title": "Withdrawals root",
-            "default": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "$ref": "#/components/schemas/hash32"
           }
         }
       },
@@ -2054,7 +2074,7 @@
         "type": "string",
         "enum": ["callTracer", "prestateTracer"]
       },
-      "TransactionWithSender": {
+      "GenericTransaction": {
         "title": "Transaction object with sender",
         "type": "object",
         "allOf": [
@@ -2103,7 +2123,7 @@
                 "type": "null"
               },
               {
-                "title": "Recipient Address",
+                "title": "Address",
                 "$ref": "#/components/schemas/address"
               }
             ]
@@ -2132,7 +2152,8 @@
           },
           "accessList": {
             "title": "accessList",
-            "type": "array"
+            "description": "EIP-2930 access list",
+            "$ref": "#/components/schemas/AccessList"
           },
           "chainId": {
             "title": "chainId",
@@ -2162,7 +2183,7 @@
                 "type": "null"
               },
               {
-                "title": "Recipient Address",
+                "title": "Address",
                 "$ref": "#/components/schemas/address"
               }
             ]
@@ -2205,14 +2226,7 @@
               "yParity": {
                 "title": "yParity",
                 "description": "The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/byte"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "$ref": "#/components/schemas/uint"
               },
               "r": {
                 "title": "r",
@@ -2225,14 +2239,7 @@
               "v": {
                 "title": "v",
                 "description": "For backwards compatibility, `v` is optionally provided as an alternative to `yParity`. This field is DEPRECATED and all use of it should migrate to `yParity`.",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/byte"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "$ref": "#/components/schemas/uint"
               }
             }
           }
@@ -2261,14 +2268,7 @@
             "properties": {
               "v": {
                 "title": "v",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/uint"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "$ref": "#/components/schemas/uint"
               },
               "r": {
                 "title": "r",
@@ -2392,17 +2392,7 @@
         "properties": {
           "type": {
             "title": "type",
-            "description": "Transaction type. Null for HAPI transactions.",
-            "oneOf": [
-              {
-                "title": "Transaction Type",
-                "$ref": "#/components/schemas/byte"
-              },
-              {
-                "title": "Null (HAPI transaction)",
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/byte"
           },
           "transactionHash": {
             "title": "transaction hash",
@@ -2652,6 +2642,87 @@
           }
         },
         "required": ["from", "gas", "input"]
+      },
+      "ratio": {
+        "title": "normalized ratio",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "SyncingStatus": {
+        "title": "Syncing status",
+        "oneOf": [
+          {
+            "title": "Syncing process",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "startingBlock": {
+                "title": "Starting block",
+                "$ref": "#/components/schemas/uint"
+              },
+              "currentBlock": {
+                "title": "Current block",
+                "$ref": "#/components/schemas/uint"
+              },
+              "highestBlock": {
+                "title": "Highest block",
+                "$ref": "#/components/schemas/uint"
+              }
+            }
+          },
+          {
+            "title": "Not syncing",
+            "description": "Should always return false if not syncing.",
+            "type": "boolean"
+          }
+        ]
+      },
+      "AccessList": {
+        "title": "accessList",
+        "type": "array",
+        "description": "EIP-2930 access list",
+        "items": {
+          "title": "Access list entry",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "title": "hex encoded address",
+              "type": "string",
+              "pattern": "^0x[0-9,a-f,A-F]{40}$"
+            },
+            "storageKeys": {
+              "type": "array",
+              "items": {
+                "title": "32 byte hex value",
+                "type": "string",
+                "pattern": "^0x[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "maxItems": 0
+      },
+      "BadBlock": {
+        "title": "Bad block",
+        "type": "object",
+        "required": ["block", "hash", "rlp"],
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "title": "block",
+            "$ref": "#/components/schemas/Block"
+          },
+          "hash": {
+            "title": "hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "rlp": {
+            "title": "RLP",
+            "$ref": "#/components/schemas/bytes"
+          }
+        }
       }
     }
   }
