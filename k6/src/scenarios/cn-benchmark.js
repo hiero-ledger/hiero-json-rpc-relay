@@ -48,7 +48,9 @@ import { check } from 'k6';
 // ---------------------------------------------------------------------------
 
 const STATE_FILE = 'cn-benchmark-state.json';
-const initialStartTime = Date.now();
+
+// Capture initialization time. This is stable across VUs within the same process.
+const runStartTime = Date.now();
 
 /**
  * Parses a duration string (e.g., "1m", "30s") into milliseconds.
@@ -83,10 +85,12 @@ const METHOD = 'eth_sendRawTransaction';
 
 /**
  * Identify the peak (stable) window for post-test verification.
- * We skip the ramp-up and ramp-down phases for the TPS assertion.
+ * We calculate these based on the initialization time of the script.
+ * Since all VUs and the summary run in the same process but different isolates,
+ * they will all see this same initial 'runStartTime'.
  */
-const peakStartTime = new Date(initialStartTime + parseDuration(RAMP_UP)).toISOString();
-const peakEndTime = new Date(initialStartTime + parseDuration(RAMP_UP) + parseDuration(STABLE)).toISOString();
+const peakStartTime = new Date(runStartTime + parseDuration(RAMP_UP)).toISOString();
+const peakEndTime = new Date(runStartTime + parseDuration(RAMP_UP) + parseDuration(STABLE)).toISOString();
 
 // ---------------------------------------------------------------------------
 // k6 options
@@ -163,7 +167,7 @@ export function handleSummary(data) {
   const state = {
     startTime: peakStartTime,
     endTime: peakEndTime,
-    totalStartTime: new Date(initialStartTime).toISOString(),
+    totalStartTime: new Date(runStartTime).toISOString(),
     totalEndTime: new Date().toISOString(),
     targetRPS: TARGET_RPS,
     wallets: WALLETS_AMOUNT,

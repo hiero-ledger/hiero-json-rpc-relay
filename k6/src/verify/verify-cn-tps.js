@@ -56,11 +56,13 @@ async function main() {
     try {
       const { readFileSync } = await import('fs');
       const state = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
-      startArg = state.startTime;
-      endArg = state.endTime;
+      startArg = state.startTime || startArg;
+      endArg = state.endTime || endArg;
       console.log(`[verify-cn-tps] Auto-discovered timestamps for PEAK (Stable) window from ${STATE_FILE}`);
     } catch (e) {
-      console.error('[verify-cn-tps] Could not auto-discover timestamps and no --start/--end provided.');
+      console.error(
+        `[verify-cn-tps] Could not auto-discover timestamps from ${STATE_FILE} and no --start/--end provided.`,
+      );
       process.exit(1);
     }
   }
@@ -79,13 +81,20 @@ async function main() {
   console.log(`[verify-cn-tps] Target TPS:          ${TARGET_TPS}`);
 
   // --- Mirror Node: count ethereumtransaction records in window ---
-  const txCount = await countEthereumTransactions(MIRROR_URL, startTs, endTs);
-  const measuredTps = txCount / windowSecs;
+  console.log('[verify-cn-tps] Fetching transactions from Mirror Node...');
+  const { total, errors } = await countEthereumTransactions(MIRROR_URL, startTs, endTs);
+  const measuredTps = total / windowSecs;
 
   console.log();
-  console.log(`[verify-cn-tps] Ethereum transactions at CN: ${txCount}`);
-  console.log(`[verify-cn-tps] Measured TPS:                ${measuredTps.toFixed(2)}`);
-  console.log(`[verify-cn-tps] Target TPS:                  ${TARGET_TPS}`);
+  console.log(`[verify-cn-tps] --- Result ---`);
+  console.log(`[verify-cn-tps] Confirmed at CN (Success): ${total}`);
+  if (errors.length > 0) {
+    console.log(`[verify-cn-tps] Confirmed at CN (Failed):  ${errors.length}`);
+    const uniqueErrors = [...new Set(errors)];
+    console.log(`[verify-cn-tps] Error types seen:         ${uniqueErrors.join(', ')}`);
+  }
+  console.log(`[verify-cn-tps] Measured TPS:              ${measuredTps.toFixed(2)}`);
+  console.log(`[verify-cn-tps] Target TPS:                ${TARGET_TPS}`);
 
   // --- Prometheus: optional diagnostic counter ---
   if (RELAY_PROM_URL) {
@@ -95,13 +104,25 @@ async function main() {
   // --- Assert ---
   console.log();
   if (measuredTps >= TARGET_TPS) {
-    console.log(`[verify-cn-tps] PASS — ${measuredTps.toFixed(2)} TPS ≥ ${TARGET_TPS} TPS target`);
+    console.log(`[verify-cn-tps] PASS — ${measuredTps.toFixed(2)} TPS confirmed success at CN`);
     process.exit(0);
   } else {
-    console.error(
-      `[verify-cn-tps] FAIL — ${measuredTps.toFixed(2)} TPS < ${TARGET_TPS} TPS target` +
-        ` (${txCount} txs / ${windowSecs}s)`,
-    );
+    console.error(`[verify-cn-tps] FAIL — ${measuredTps.toFixed(2)} TPS < ${TARGET_TPS} TPS target`);
+
+    // Help the user diagnose why it failed
+    if (total === 0 && errors.length === 0) {
+      console.error(
+        '[verify-cn-tps] DIAGNOSIS: Zero transactions found in the window. Check if the Relay is alive or if there is a clock desync.',
+      );
+    } else if (errors.length > total) {
+      console.error(
+        '[verify-cn-tps] DIAGNOSIS: High failure rate detected. Check for INSUFFICIENT_GAS or CONTRACT_REVERT.',
+      );
+    } else if (measuredTps > 0 && measuredTps < TARGET_TPS) {
+      console.error(
+        '[verify-cn-tps] DIAGNOSIS: Throughput achieved but insufficient. Check if ETH_SEND_RAW_TRANSACTION_ASYNC=true is enabled.',
+      );
+    }
     process.exit(1);
   }
 }
@@ -112,51 +133,58 @@ async function main() {
 
 /**
  * Pages through Mirror Node /api/v1/transactions and counts every
- * ethereumtransaction that has result=SUCCESS within [startTs, endTs].
- * Uses timestamp filter on the API to bound the page range.
+ * ethereumtransaction within [startTs, endTs].
+ * Returns success count and list of error reasons.
  */
 async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
   const baseApiUrl = `${mirrorUrl}/api/v1`;
 
   // Mirror Node uses nanosecond-precision string timestamps for filtering.
-  // Convert epoch seconds to "seconds.nanos" string form (nanos = 0).
   const tsGte = `${startTs}.000000000`;
   const tsLte = `${endTs}.000000000`;
 
   let url =
     `${baseApiUrl}/transactions` +
     `?transactiontype=ethereumtransaction` +
-    `&result=success` +
     `&order=asc` +
     `&timestamp=gte:${tsGte}` +
     `&timestamp=lte:${tsLte}` +
     `&limit=100`;
 
   let total = 0;
+  let errors = [];
   let page = 0;
 
   while (url) {
     page++;
     const data = await fetchJson(url);
+    console.log(`datadatadatadata`);
+    console.log(url);
+    console.log(data);
 
     const transactions = data.transactions || [];
-    total += transactions.length;
+    for (const tx of transactions) {
+      if (tx.result === 'SUCCESS') {
+        total++;
+      } else {
+        errors.push(tx.result);
+      }
+    }
 
     // Follow pagination cursor if more pages exist
     const nextUrl = data.links?.next;
     if (nextUrl && transactions.length > 0) {
-      // Mirror Node returns relative paths like "/api/v1/transactions?..."
       url = nextUrl.startsWith('http') ? nextUrl : `${mirrorUrl}${nextUrl}`;
     } else {
       url = null;
     }
 
     if (page % 10 === 0) {
-      process.stdout.write(`[verify-cn-tps]   ... paged ${page} pages, ${total} txs so far\n`);
+      process.stdout.write(`[verify-cn-tps]   ... paged ${page} pages, ${total} success, ${errors.length} failed\n`);
     }
   }
 
-  return total;
+  return { total, errors };
 }
 
 // ---------------------------------------------------------------------------
