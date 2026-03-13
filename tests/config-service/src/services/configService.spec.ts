@@ -3,9 +3,9 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import { LoggerService } from '../../../../dist/config-service/services/loggerService';
 import { ConfigService } from '../../../../src/config-service/services';
 import { type ConfigKey, GlobalConfig } from '../../../../src/config-service/services/globalConfig';
+import { LoggerService } from '../../../../src/config-service/services/loggerService';
 
 chai.use(chaiAsPromised);
 

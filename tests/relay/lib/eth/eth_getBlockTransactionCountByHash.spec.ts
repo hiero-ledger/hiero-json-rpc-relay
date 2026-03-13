@@ -4,7 +4,7 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
-import { numberTo0x } from '../../../../dist/relay/formatters';
+import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import {

@@ -22,8 +22,8 @@ import { CommonService } from '../../../src/relay/lib/services';
 
 chai.use(chaiAsPromised);
 
-import { initializeServer } from '../../../dist/server/server';
 import { MeasurableCache } from '../../../src/relay/lib/clients/cache/measurableCache';
+import { initializeServer } from '../../../src/server/server';
 import {
   contractAddress1,
   contractAddress2,
@@ -65,7 +65,7 @@ describe('RPC Server', function () {
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
 
     // Clear the module cache to ensure a fresh server instance
-    delete require.cache[require.resolve('../../src/server')];
+    delete require.cache[require.resolve('../../../src/server/server')];
     app = (await initializeServer()).app;
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = BaseTest.createTestClient();

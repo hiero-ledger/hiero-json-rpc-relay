@@ -6,12 +6,12 @@ import { AddressInfo } from 'net';
 import sinon from 'sinon';
 import WebSocket from 'ws';
 
-import * as jsonRpcController from '../../../dist/ws-server/controllers/jsonRpcController';
-import wsMetricRegistry from '../../../dist/ws-server/metrics/wsMetricRegistry';
-import * as utils from '../../../dist/ws-server/utils/utils';
-import * as webSocketServer from '../../../dist/ws-server/webSocketServer';
 import { ConfigService } from '../../../src/config-service/services';
 import { Relay } from '../../../src/relay';
+import * as jsonRpcController from '../../../src/ws-server/controllers/jsonRpcController';
+import wsMetricRegistry from '../../../src/ws-server/metrics/wsMetricRegistry';
+import * as utils from '../../../src/ws-server/utils/utils';
+import * as webSocketServer from '../../../src/ws-server/webSocketServer';
 
 async function httpGet(server: http.Server, path: string): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {

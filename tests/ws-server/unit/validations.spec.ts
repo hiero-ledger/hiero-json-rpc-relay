@@ -4,11 +4,11 @@ import chai, { expect } from 'chai';
 import pino from 'pino';
 import sinon from 'sinon';
 
-import { validateSubscribeEthLogsParams } from '../../../dist/ws-server/utils/validators';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../../../src/ws-server/utils/utils';
+import { validateSubscribeEthLogsParams } from '../../../src/ws-server/utils/validators';
 import { contractAddress1, contractAddress2 } from '../../relay/helpers';
 import { WsTestHelper } from '../helper';
 

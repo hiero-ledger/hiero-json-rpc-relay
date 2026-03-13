@@ -6,8 +6,8 @@ import chaiAsPromised from 'chai-as-promised';
 import * as _ from 'lodash';
 import sinon from 'sinon';
 
-import { numberTo0x } from '../../../../dist/relay/formatters';
 import { Eth } from '../../../../src/relay';
+import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';

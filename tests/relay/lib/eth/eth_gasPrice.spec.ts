@@ -2,8 +2,8 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import { numberTo0x } from '../../../../dist/relay/formatters';
 import { predefined } from '../../../../src/relay';
+import { numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';

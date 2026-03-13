@@ -6,12 +6,12 @@ import pino from 'pino';
 import { Registry } from 'prom-client';
 import sinon from 'sinon';
 
-import { numberTo0x } from '../../../dist/relay/formatters';
-import { TransactionPoolService } from '../../../dist/relay/lib/services';
-import { TxPoolImpl, TxPoolTransaction } from '../../../dist/relay/lib/txpool';
 import { ConfigService } from '../../../src/config-service/services';
+import { numberTo0x } from '../../../src/relay/formatters';
 import constants from '../../../src/relay/lib/constants';
 import { Relay } from '../../../src/relay/lib/relay';
+import { TransactionPoolService } from '../../../src/relay/lib/services';
+import { TxPoolImpl, TxPoolTransaction } from '../../../src/relay/lib/txpool';
 
 const logger = pino({ level: 'silent' });
 

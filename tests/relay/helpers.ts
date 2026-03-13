@@ -1145,8 +1145,8 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
       },
     },
   };
-  const blockWorker = proxyquire('../../relay/dist/lib/services/ethService/blockService/blockWorker.js', deps);
-  const commonWorker = proxyquire('../../relay/dist/lib/services/ethService/ethCommonService/commonWorker.js', deps);
+  const blockWorker = proxyquire('../../src/relay/lib/services/ethService/blockService/blockWorker', deps);
+  const commonWorker = proxyquire('../../src/relay/lib/services/ethService/ethCommonService/commonWorker', deps);
 
   WorkersPool['instance'] = {
     run: async (task: any) => {

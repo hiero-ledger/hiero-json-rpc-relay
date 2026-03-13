@@ -19,8 +19,8 @@ function makePiscinaStub(resolveWith?: unknown, rejectWith?: Error) {
 }
 
 describe('WorkersPool Test Suite', () => {
-  afterEach(() => {
-    // Reset all static state between tests to prevent cross-test contamination.
+  beforeEach(() => {
+    // Reset all static state before each test to prevent cross-test contamination.
     WorkersPool['handleTaskFn'] = null;
     WorkersPool['instance'] = undefined as any;
     (WorkersPool as any)['mirrorNodeClient'] = undefined;

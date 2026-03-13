@@ -28,7 +28,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, TypedEvents } from '../../../dist/relay/lib/types';
 import { ConfigService } from '../../../src/config-service/services';
 import { formatTransactionId } from '../../../src/relay/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../src/relay/lib/clients';
@@ -42,6 +41,7 @@ import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClient
 import HAPIService from '../../../src/relay/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/relay/lib/services/hbarLimitService';
 import MetricService from '../../../src/relay/lib/services/metricService/metricService';
+import { IExecuteQueryEventPayload, IExecuteTransactionEventPayload, TypedEvents } from '../../../src/relay/lib/types';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { Utils } from '../../../src/relay/utils';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';

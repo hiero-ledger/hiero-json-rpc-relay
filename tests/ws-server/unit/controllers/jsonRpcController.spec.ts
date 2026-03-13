@@ -4,15 +4,15 @@ import Koa from 'koa';
 import { Counter } from 'prom-client';
 import sinon from 'sinon';
 
-import { getRequestResult } from '../../../../dist/ws-server/controllers/jsonRpcController';
-import WsMetricRegistry from '../../../../dist/ws-server/metrics/wsMetricRegistry';
-import { SubscriptionService } from '../../../../dist/ws-server/service/subscriptionService';
 import { MirrorNodeClient } from '../../../../src/relay/lib/clients/mirrorNodeClient';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
 import { Relay } from '../../../../src/relay/lib/relay';
 import { RequestDetails } from '../../../../src/relay/lib/types/RequestDetails';
 import { IJsonRpcRequest } from '../../../../src/server/koaJsonRpc/lib/IJsonRpcRequest';
+import { getRequestResult } from '../../../../src/ws-server/controllers/jsonRpcController';
 import ConnectionLimiter from '../../../../src/ws-server/metrics/connectionLimiter';
+import WsMetricRegistry from '../../../../src/ws-server/metrics/wsMetricRegistry';
+import { SubscriptionService } from '../../../../src/ws-server/service/subscriptionService';
 import { WS_CONSTANTS } from '../../../../src/ws-server/utils/constants';
 
 function createMockContext(): Koa.Context {

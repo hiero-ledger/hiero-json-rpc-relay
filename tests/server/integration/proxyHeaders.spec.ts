@@ -12,8 +12,8 @@ ConfigServiceTestHelper.appendEnvsFromPath(__dirname + '/test.env');
 
 import sinon from 'sinon';
 
-import { initializeServer, register } from '../../../dist/server/server';
 import { Relay } from '../../../src/relay';
+import { initializeServer, register } from '../../../src/server/server';
 import {
   overrideEnvsInMochaDescribe,
   useInMemoryRedisServer,
@@ -21,7 +21,9 @@ import {
 } from '../../relay/helpers';
 import RelayCalls from '../helpers/constants';
 
-describe('Proxy Headers Integration Tests', function () {
+describe.only('Proxy Headers Integration Tests', function () {
+  this.timeout(10000);
+
   const logger = pino({ level: 'silent' });
 
   // Use in-memory Redis server for CI compatibility
@@ -67,8 +69,6 @@ describe('Proxy Headers Integration Tests', function () {
     // Clear the Prometheus registry to avoid conflicts with other test files
     register.clear();
   });
-
-  this.timeout(10000);
 
   function createTestClient(port = ConfigService.get('E2E_SERVER_PORT')) {
     return Axios.create({

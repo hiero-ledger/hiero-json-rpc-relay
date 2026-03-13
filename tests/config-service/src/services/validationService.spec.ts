@@ -3,8 +3,8 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import { GlobalConfig } from '../../../../dist/config-service/services/globalConfig';
-import { ValidationService } from '../../../../dist/config-service/services/validationService';
+import { GlobalConfig } from '../../../../src/config-service/services/globalConfig';
+import { ValidationService } from '../../../../src/config-service/services/validationService';
 import { overrideEnvsInMochaDescribe } from '../../../relay/helpers';
 
 chai.use(chaiAsPromised);

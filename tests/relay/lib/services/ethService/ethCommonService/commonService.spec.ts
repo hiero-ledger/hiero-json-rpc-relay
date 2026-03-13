@@ -3,9 +3,9 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import { prepend0x } from '../../../../../../dist/relay/formatters';
-import { CommonService } from '../../../../../../dist/relay/lib/services';
 import { ConfigService } from '../../../../../../src/config-service/services';
+import { prepend0x } from '../../../../../../src/relay/formatters';
+import { CommonService } from '../../../../../../src/relay/lib/services';
 
 describe('CommonService', () => {
   describe('getPaymasterIfTxCanBeSubsidized', async () => {

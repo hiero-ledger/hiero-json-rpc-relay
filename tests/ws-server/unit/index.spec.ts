@@ -2,9 +2,9 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import { ConfigService } from '../../../dist/config-service/services';
-import * as webSocketServer from '../../../dist/ws-server/webSocketServer';
+import { ConfigService } from '../../../src/config-service/services';
 import constants from '../../../src/relay/lib/constants';
+import * as webSocketServer from '../../../src/ws-server/webSocketServer';
 
 describe('WebSocket Server Main', () => {
   let initializeWsServerStub: sinon.SinonStub;
@@ -36,12 +36,12 @@ describe('WebSocket Server Main', () => {
   afterEach(() => {
     sinon.restore();
     // Clear the module cache to allow fresh imports
-    delete require.cache[require.resolve('../../../dist/ws-server/index.js')];
+    delete require.cache[require.resolve('../../../src/ws-server/index.ts')];
   });
 
   it('should initialize and start both WebSocket and HTTP servers successfully', async () => {
     // Import and execute the main module
-    await import('../../../dist/ws-server/index.js');
+    await import('../../../src/ws-server/index.ts');
 
     await new Promise((resolve) => setInterval(resolve, 100));
 
@@ -63,7 +63,7 @@ describe('WebSocket Server Main', () => {
     const testError = new Error('Initialization failed');
     initializeWsServerStub.rejects(testError);
 
-    await import('../../../dist/ws-server/index.js');
+    await import('../../../src/ws-server/index.ts');
 
     await new Promise((resolve) => setInterval(resolve, 100));
 

@@ -27,7 +27,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
   const requestDetails = new RequestDetails({ requestId: 'eth_feeHistoryTest', ipAddress: '0.0.0.0' });
 
-  overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+  overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1, ETH_FEE_HISTORY_FIXED: false });
 
   this.beforeEach(async () => {
     // reset cache and restMock

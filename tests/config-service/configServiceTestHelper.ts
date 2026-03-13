@@ -2,7 +2,7 @@
 
 import dotenv from 'dotenv';
 
-import { ConfigService } from '../../dist/config-service/services';
+import { ConfigService } from '../../src/config-service/services';
 
 /**
  * There are many tests, both integration and acceptance that

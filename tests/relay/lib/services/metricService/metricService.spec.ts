@@ -10,7 +10,6 @@ import pino from 'pino';
 import { register, Registry } from 'prom-client';
 import * as sinon from 'sinon';
 
-import type { TypedEvents } from '../../../../../dist/relay/lib/types';
 import { ConfigService } from '../../../../../src/config-service/services';
 import { MirrorNodeClient, SDKClient } from '../../../../../src/relay/lib/clients';
 import constants from '../../../../../src/relay/lib/constants';
@@ -20,6 +19,7 @@ import { IPAddressHbarSpendingPlanRepository } from '../../../../../src/relay/li
 import { CacheClientFactory } from '../../../../../src/relay/lib/factories/cacheClientFactory';
 import { HbarLimitService } from '../../../../../src/relay/lib/services/hbarLimitService';
 import MetricService from '../../../../../src/relay/lib/services/metricService/metricService';
+import type { TypedEvents } from '../../../../../src/relay/lib/types';
 import {
   IEthExecutionEventPayload,
   IExecuteQueryEventPayload,

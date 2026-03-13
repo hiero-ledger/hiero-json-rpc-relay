@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { nanOrNumberTo0x, numberTo0x } from '../../../../dist/relay/formatters';
 import { ConfigService } from '../../../../src/config-service/services';
+import { nanOrNumberTo0x, numberTo0x } from '../../../../src/relay/formatters';
 import constants from '../../../../src/relay/lib/constants';
 import {
   defaultDetailedContractResultByHash,

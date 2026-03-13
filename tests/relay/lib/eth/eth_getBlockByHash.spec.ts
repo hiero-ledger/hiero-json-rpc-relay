@@ -4,8 +4,8 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
-import { ASCIIToHex, numberTo0x, prepend0x } from '../../../../dist/relay/formatters';
 import { MirrorNodeClientError, predefined } from '../../../../src/relay';
+import { ASCIIToHex, numberTo0x, prepend0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';

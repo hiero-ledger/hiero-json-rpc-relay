@@ -16,12 +16,12 @@ import { Server } from 'http';
 import pino from 'pino';
 import { GCProfiler } from 'v8';
 
-import { setServerTimeout } from '../../../dist/server/koaJsonRpc/lib/utils';
-// Server related
-import { initializeServer } from '../../../dist/server/server';
 import { ConfigService } from '../../../src/config-service/services';
 // Constants
 import constants from '../../../src/relay/lib/constants';
+import { setServerTimeout } from '../../../src/server/koaJsonRpc/lib/utils';
+// Server related
+import { initializeServer } from '../../../src/server/server';
 import { initializeWsServer } from '../../../src/ws-server/webSocketServer';
 import MetricsClient from '../clients/metricsClient';
 import MirrorClient from '../clients/mirrorClient';
