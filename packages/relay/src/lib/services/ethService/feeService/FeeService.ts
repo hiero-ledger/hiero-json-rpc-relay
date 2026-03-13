@@ -21,13 +21,6 @@ export class FeeService implements IFeeService {
   private readonly common: ICommonService;
 
   /**
-   * The interface through which we interact with the mirror node.
-   *
-   * @private
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
    * The logger used for logging all output from this class.
    *
    * @private
@@ -37,13 +30,11 @@ export class FeeService implements IFeeService {
   /**
    * Constructor
    *
-   * @param mirrorNodeClient
    * @param common
    * @param logger
    * @param cacheService
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, common: ICommonService, logger: Logger) {
-    this.mirrorNodeClient = mirrorNodeClient;
+  constructor(common: ICommonService, logger: Logger) {
     this.common = common;
     this.logger = logger;
   }
@@ -95,13 +86,13 @@ export class FeeService implements IFeeService {
       }
       let feeHistory: IFeeHistory;
 
+      const gasPriceFee = await this.common.gasPrice(requestDetails);
       if (ConfigService.get('ETH_FEE_HISTORY_FIXED')) {
         let oldestBlock = newestBlockNumber - blockCount + 1;
         if (oldestBlock <= 0) {
           blockCount = 1;
           oldestBlock = 1;
         }
-        const gasPriceFee = await this.common.gasPrice(requestDetails);
         feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       } else {
         feeHistory = await this.getFeeHistory(
@@ -109,6 +100,7 @@ export class FeeService implements IFeeService {
           newestBlockNumber,
           latestBlockNumber,
           rewardPercentiles,
+          gasPriceFee,
           requestDetails,
         );
       }
@@ -129,10 +121,16 @@ export class FeeService implements IFeeService {
   /**
    * Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or tip.
    *
+   * Ethereum clients usually use value derived from the 50th percentile effective priority fee
+   * of the latest block using `eth_feeHistory` as a fallback for this value. But in our case it would
+   * always be the same as the gasPrice, so we can just return ir right away, avoiding expensive operations
+   * (we are not burning anything, so all the fees are priority fees and effectively should be the same as the gasPrice).
+   *
    * @param requestDetails
+   * @return Promise<string> - The priority fee per gas in wei (in our gas price).
    */
-  public async maxPriorityFeePerGas(): Promise<string> {
-    return constants.ZERO_HEX;
+  public async maxPriorityFeePerGas(requestDetails: RequestDetails): Promise<string> {
+    return await this.common.gasPrice(requestDetails);
   }
 
   /**
@@ -151,17 +149,15 @@ export class FeeService implements IFeeService {
     const shouldIncludeRewards = Array.isArray(rewardPercentiles) && rewardPercentiles.length > 0;
 
     const feeHistory: IFeeHistory = {
-      baseFeePerGas: Array(blockCount).fill(fee),
+      // This includes the next block after the newest of the returned range, because this value can be derived
+      // from the newest block (this is where this plus one comes from). Only zeroes are returned in our case.
+      baseFeePerGas: Array(blockCount + 1).fill(constants.ZERO_HEX),
       gasUsedRatio: Array(blockCount).fill(constants.DEFAULT_GAS_USED_RATIO),
       oldestBlock: numberTo0x(oldestBlockNumber),
     };
 
-    // next fee. Due to high block production rate and low fee change rate we add the next fee
-    // since by the time a user utilizes the response there will be a next block likely with the same fee
-    feeHistory.baseFeePerGas?.push(fee);
-
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
     }
 
     return feeHistory;
@@ -172,6 +168,7 @@ export class FeeService implements IFeeService {
    * @param newestBlockNumber
    * @param latestBlockNumber
    * @param rewardPercentiles
+   * @param fee
    * @param requestDetails
    * @private
    */
@@ -180,6 +177,7 @@ export class FeeService implements IFeeService {
     newestBlockNumber: number,
     latestBlockNumber: number,
     rewardPercentiles: Array<number> | null,
+    fee: string,
     requestDetails: RequestDetails,
   ): Promise<IFeeHistory> {
     // include the newest block number in the total block count
@@ -193,9 +191,7 @@ export class FeeService implements IFeeService {
 
     // get fees from oldest to newest blocks
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const fee = await this.getFeeByBlockNumber(blockNumber, requestDetails);
-
-      feeHistory.baseFeePerGas?.push(fee);
+      feeHistory.baseFeePerGas?.push(constants.ZERO_HEX);
       feeHistory.gasUsedRatio?.push(constants.DEFAULT_GAS_USED_RATIO);
     }
 
@@ -205,7 +201,7 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
-      nextBaseFeePerGas = await this.getFeeByBlockNumber(newestBlockNumber + 1, requestDetails);
+      nextBaseFeePerGas = constants.ZERO_HEX;
     }
 
     if (nextBaseFeePerGas) {
@@ -213,31 +209,9 @@ export class FeeService implements IFeeService {
     }
 
     if (shouldIncludeRewards) {
-      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(constants.ZERO_HEX));
+      feeHistory['reward'] = Array(blockCount).fill(Array(rewardPercentiles.length).fill(fee));
     }
 
     return feeHistory;
-  }
-
-  /**
-   * @param blockNumber
-   * @param requestDetails
-   * @private
-   */
-  private async getFeeByBlockNumber(blockNumber: number, requestDetails: RequestDetails): Promise<string> {
-    let fee = 0;
-    try {
-      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
-    } catch (error) {
-      this.logger.warn(
-        error,
-        `Fee history cannot retrieve block or fee. Returning %s fee for block %s`,
-        fee,
-        blockNumber,
-      );
-    }
-
-    return numberTo0x(fee);
   }
 }

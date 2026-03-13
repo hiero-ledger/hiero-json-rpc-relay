@@ -126,22 +126,28 @@ function App() {
   }, [signer, address]);
 
   const sendHbarsBtnHandle = useCallback(async () => {
-    const tx = await signer.sendTransaction({
-      to: hbarsToAddress,
-      value: hbarsAmount,
-      gasLimit: 1_000_000,
-    });
-    await tx.wait();
+    try {
+      const tx = await signer.sendTransaction({
+        to: hbarsToAddress,
+        value: hbarsAmount,
+        gasLimit: 1_000_000,
+      });
+      await tx.wait();
 
-    setToBalanceAfterTransfer(
-      ethers.formatEther(
-        await window.ethereum.request({
-          method: 'eth_getBalance',
-          params: [hbarsToAddress, 'latest'],
-        }),
-      ),
-    );
-    setSendHbarMsg('Done');
+      setToBalanceAfterTransfer(
+        ethers.formatEther(
+          await window.ethereum.request({
+            method: 'eth_getBalance',
+            params: [hbarsToAddress, 'latest'],
+          }),
+        ),
+      );
+      setSendHbarMsg('Done');
+    } catch (error) {
+      console.error(error.message);
+      console.error(JSON.stringify(error, null, 2));
+      setSendHbarMsg(error.message);
+    }
   }, [signer, hbarsToAddress, hbarsAmount]);
 
   return (

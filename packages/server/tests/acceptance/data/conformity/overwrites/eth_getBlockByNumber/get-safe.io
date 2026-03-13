@@ -5,6 +5,8 @@
 // Since we do not replay those transactions before starting the tests, we need a separate test that simulates
 // the same scenario.
 //
+// In hedera baseFeePerGas is always 0x0 as described here: https://hips.hedera.com/hip/hip-415
+//
 // Note: This is the original test file, modified for our test purposes:
 // https://github.com/ethereum/execution-apis/blob/main/tests/eth_getBlockByNumber/get-safe.io
 

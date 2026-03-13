@@ -59,7 +59,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
   let parentContractAddress: string;
   let mirrorContractDetails;
   let account2Address: string;
-  let expectedGasPrice: string;
   let createChildTx: ethers.ContractTransactionResponse;
   let htsTokenId: any; // Shared HTS token for synthetic transaction tests
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
@@ -101,8 +100,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
     this.timeout(240 * 1000); // 240 seconds
 
     this.beforeAll(async () => {
-      expectedGasPrice = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GAS_PRICE, []);
-
       const initialAccount: AliasAccount = global.accounts[0];
       const neededAccounts: number = 4;
       accounts.push(
@@ -653,7 +650,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           mirrorBlock.hash.substring(0, 66),
           false,
         ]);
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
+        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, false);
       });
 
       it('@release should execute "eth_getBlockByHash", hydrated transactions = true', async function () {
@@ -663,7 +660,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
+        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, true);
       });
 
       it('should execute "eth_getBlockByHash" for non-existing block hash and hydrated transactions = false', async function () {
@@ -689,7 +686,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, false);
+        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, false);
       });
 
       it('should not cache "latest" block in "eth_getBlockByNumber" ', async function () {
@@ -731,7 +728,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         ]);
         // Remove synthetic transactions
         blockResult.transactions = blockResult.transactions.filter((transaction) => transaction.value !== '0x1234');
-        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, expectedGasPrice, true);
+        Assertions.block(blockResult, mirrorBlock, mirrorTransactions, true);
       });
 
       it('should execute "eth_getBlockByNumber" for non existing block number and hydrated transactions = true', async function () {

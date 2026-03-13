@@ -108,10 +108,5 @@ describe('@ethCommon', async function () {
       expect(result).to.have.property('message');
       expect(result.message).to.be.equal('Unsupported JSON-RPC method');
     });
-
-    it('should execute "eth_maxPriorityFeePerGas"', async function () {
-      const result = await relay.eth().maxPriorityFeePerGas(requestDetails);
-      expect(result).to.eq('0x0');
-    });
   });
 });

@@ -28,8 +28,12 @@ export class Block {
   /** Gas limit for the block (hex string) */
   public readonly gasLimit: string = '0xe4e1c0';
 
-  /** Base fee per gas (EIP-1559) */
-  public readonly baseFeePerGas: string = '0xa54f4c3c00';
+  /**
+   * Base fee per gas (EIP-1559)
+   * Always zero, since there is no EIP-1559 style floating block capacity fees in Hedera,
+   * according to https://hips.hedera.com/hip/hip-415
+   */
+  public readonly baseFeePerGas: string = '0x0';
 
   /** Total gas used in block (hex string) */
   public readonly gasUsed: string = '0x0';
