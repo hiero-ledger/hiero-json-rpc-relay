@@ -18,20 +18,20 @@ jobs:
         include:
           - name: "128-pure"
             memory_limit: "128Mi"
-            wallet_amount: 50
+            wallet_amount: 30
             signed_txs: 300
-            bench_target_rps: 100
+            bench_target_rps: 150
 
           - name: "128-pure"
             memory_limit: "128Mi"
-            wallet_amount: 70
+            wallet_amount: 20
             signed_txs: 300
-            bench_target_rps: 100
+            bench_target_rps: 150
           - name: "128-pure"
             memory_limit: "128Mi"
-            wallet_amount: 90
+            wallet_amount: 10
             signed_txs: 300
-            bench_target_rps: 100
+            bench_target_rps: 150
 
     permissions:
       contents: read
