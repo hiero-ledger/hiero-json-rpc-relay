@@ -36,8 +36,10 @@ const MIRROR_URL = args['mirror-url'] || process.env['MIRROR_BASE_URL'] || 'http
 const TARGET_TPS = parseInt(args['target-tps'] || '100', 10);
 const RELAY_PROM_URL = args['relay-prom-url'] || null;
 
-const startArg = args['start'];
-const endArg = args['end'];
+// Automated state discovery
+const STATE_FILE = 'cn-benchmark-state.json';
+let startArg = args['start'];
+let endArg = args['end'];
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -49,10 +51,18 @@ main().catch((err) => {
 });
 
 async function main() {
+  // Try to load from state file if arguments are missing
   if (!startArg || !endArg) {
-    console.error('[verify-cn-tps] --start and --end are required.');
-    console.error('  Example: npm run verify-cn-tps -- --start 2024-01-01T00:00:00Z --end 2024-01-01T00:03:00Z');
-    process.exit(1);
+    try {
+      const { readFileSync } = await import('fs');
+      const state = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+      startArg = state.startTime;
+      endArg = state.endTime;
+      console.log(`[verify-cn-tps] Auto-discovered timestamps for PEAK (Stable) window from ${STATE_FILE}`);
+    } catch (e) {
+      console.error('[verify-cn-tps] Could not auto-discover timestamps and no --start/--end provided.');
+      process.exit(1);
+    }
   }
 
   const startTs = toEpochSeconds(startArg);

@@ -44,6 +44,28 @@ import { getPayLoad, httpParams, isNonErrorResponse } from './test/common.js';
 import { check } from 'k6';
 
 // ---------------------------------------------------------------------------
+// Globals and State Tracking
+// ---------------------------------------------------------------------------
+
+const STATE_FILE = 'cn-benchmark-state.json';
+const initialStartTime = Date.now();
+
+/**
+ * Parses a duration string (e.g., "1m", "30s") into milliseconds.
+ *
+ * @param {string} duration
+ * @returns {number}
+ */
+function parseDuration(duration) {
+  const match = duration.match(/^(\d+)([smh])$/);
+  if (!match) return 0;
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  const multipliers = { s: 1000, m: 60000, h: 3600000 };
+  return value * multipliers[unit];
+}
+
+// ---------------------------------------------------------------------------
 // Configuration — resolved once at init time
 // ---------------------------------------------------------------------------
 
@@ -58,6 +80,13 @@ const PASS_RATE = parseFloat(__ENV['DEFAULT_PASS_RATE']);
 const RELAY_URL = __ENV['RELAY_BASE_URL'];
 
 const METHOD = 'eth_sendRawTransaction';
+
+/**
+ * Identify the peak (stable) window for post-test verification.
+ * We skip the ramp-up and ramp-down phases for the TPS assertion.
+ */
+const peakStartTime = new Date(initialStartTime + parseDuration(RAMP_UP)).toISOString();
+const peakEndTime = new Date(initialStartTime + parseDuration(RAMP_UP) + parseDuration(STABLE)).toISOString();
 
 // ---------------------------------------------------------------------------
 // k6 options
@@ -131,7 +160,20 @@ export default function (testParameters) {
 // ---------------------------------------------------------------------------
 
 export function handleSummary(data) {
+  const state = {
+    startTime: peakStartTime,
+    endTime: peakEndTime,
+    totalStartTime: new Date(initialStartTime).toISOString(),
+    totalEndTime: new Date().toISOString(),
+    targetRPS: TARGET_RPS,
+    wallets: WALLETS_AMOUNT,
+  };
+
+  // k6 saves this to the [STATE_FILE] key in the returned object
+  const stateBlock = JSON.stringify(state, null, 2);
+
   return {
     stdout: textSummary(data, { indent: '  ', enableColors: true }),
+    [STATE_FILE]: stateBlock,
   };
 }
