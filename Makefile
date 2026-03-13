@@ -75,8 +75,8 @@ setup-solo: clean-solo
 	solo consensus network deploy --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
 	solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
-	solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
+	solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
 	$(MAKE) port-forward
 
 # Default values

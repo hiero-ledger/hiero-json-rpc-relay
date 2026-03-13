@@ -110,6 +110,7 @@ jobs:
           solo consensus node setup --deployment "${SOLO_DEPLOYMENT}"
           solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
           solo mirror node add  --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
+          solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
 
       - name: Run Solo Relay
         id: run-relay
@@ -142,7 +143,11 @@ jobs:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
-              USE_ASYNC_TX_PROCESSING: "false"
+              LOG_LEVEL: "error"
+              RATE_LIMIT_DISABLED: "true"
+              REDIS_ENABLED: "false"
+              USE_ASYNC_TX_PROCESSING: "true"
+              ENABLE_NONCE_ORDERING: "true"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -206,69 +211,127 @@ jobs:
             | awk '{printf "%-50s %d MB\n", $1, $2/1048576}' \
             || echo "(failed to fetch metrics)"
 
-      - name: Port-forward Consensus Node
+      - name: Install k6
         if: steps.run-relay.outcome == 'success'
         run: |
-          sudo kill -9 $(sudo lsof -ti :50211) || true
-          kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -q
+          sudo apt-get install -y k6
 
-      - name: Checkout Relay repo
+      - name: Port-forward Relay and Mirror Node
         if: steps.run-relay.outcome == 'success'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: 4900-solo-reduce-json-rpc-relay-memory-footprint
+        run: |
+          # Free any stale port holders before starting new port-forwards.
+          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
+          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
 
-      - name: Install packages
+          # Port-forward the relay JSON-RPC endpoint — needed by both prep-cn and cn-benchmark.
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+          if [ -z "${RELAY_POD}" ]; then
+            echo "ERROR: Relay pod not found; cannot port-forward."
+            exit 1
+          fi
+          kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
+          echo "Port-forwarding relay pod '${RELAY_POD}' port 7546 → localhost:7546"
+
+          # Port-forward the mirror node REST API — needed by verify-cn-tps (MIRROR_BASE_URL).
+          # Discover svc name and port dynamically to handle Solo deployment name variations.
+          MIRROR_SVC=$(kubectl get svc -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -iE 'rest' | grep -ivE 'grpc|ws|proxy' | head -1)
+          if [ -n "${MIRROR_SVC}" ]; then
+            MIRROR_PORT=$(kubectl get svc "${MIRROR_SVC}" -n "${SOLO_NAMESPACE}" \
+              -o jsonpath='{.spec.ports[0].port}' 2>/dev/null) || MIRROR_PORT="80"
+            kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"${MIRROR_SVC}" 8081:"${MIRROR_PORT}" &
+            echo "Port-forwarding mirror REST service '${MIRROR_SVC}' port ${MIRROR_PORT} → localhost:8081"
+          else
+            echo "WARNING: Mirror node REST service not found; MIRROR_BASE_URL may not be reachable."
+          fi
+
+          # Allow the port-forward daemons to bind before tests proceed.
+          sleep 3
+
+      - name: Install k6 package dependencies
         if: steps.run-relay.outcome == 'success'
+        working-directory: k6
         run: npm ci
 
-      - name: Build Relay
+      - name: Create k6 .env
         if: steps.run-relay.outcome == 'success'
-        run: npm run build
+        working-directory: k6
+        run: |
+          # Write the benchmark environment file consumed by env-cmd for all k6 scripts.
+          cat > .env << 'ENVEOF'
+          PRIVATE_KEYS='["0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524", "0x2e1d968b041d84dd120a5860cee60cd83f9374ef527ca86996317ada3d0d03e7", "0x45a5a7108a18dd5013cf2d5857a28144beadc9c70b3bdbd914e38df4e804b8d8", "0x6e9d61a325be3f6675cf8b7676c70e4a004d2308e3e182370a41f5653d52c6bd", "0x0b58b1bd44469ac9f813b5aeaf6213ddaa26720f0b2f133d08b6f234130a64f", "0x95eac372e0f0df3b43740fa780e62458b2d2cc32d6a440877f1cc2a9ad0c35cc", "0x6c6e6727b40c8d4b616ab0d26af357af09337299f09c66704146e14236972106", "0x5072e7aa1b03f531b4731a32a021f6a5d20d5ddc4e55acbb71ae202fc6f3a26d", "0x60fe891f13824a2c1da20fb6a14e28fa353421191069ba6b6d09dd6c29b90eff", "0xeae4e00ece872dd14fb6dc7a04f390563c7d69d16326f2a703ec8e0934060cc7"]'
+          MIRROR_BASE_URL=http://127.0.0.1:8081
+          RELAY_BASE_URL=http://127.0.0.1:7546
+          WALLETS_AMOUNT=150
+          SIGNED_TXS=300
+          CN_BENCH_TARGET_RPS=500
+          DEFAULT_DURATION=60s
+          ENVEOF
 
-      - name: Record test start time
+      - name: Prepare CN benchmark
         if: steps.run-relay.outcome == 'success'
+        id: prep-cn
+        working-directory: k6
+        run: npm run prep-cn
+
+      - name: Record benchmark start time
+        if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
         id: test-timing
         run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-      - name: Start json-rpc-relay-test-client
-        if: steps.run-relay.outcome == 'success'
-        env:
-          CHAIN_ID: "0x12a"
-          MIRROR_NODE_URL: "http://127.0.0.1:8081"
-          HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}'
-          OPERATOR_ID_MAIN: 0.0.2
-          OPERATOR_KEY_MAIN: 302e020100300506032b65700422042091132178e72057a1d7528025956fe39b0b847f200ab59b2fdd367017f3087137
-          REDIS_ENABLED: false
-          USE_ASYNC_TX_PROCESSING: false
-          E2E_RELAY_HOST: http://localhost:7546
-          SDK_LOG_LEVEL: trace
-          USE_INTERNAL_RELAY: false
-        run: npm run acceptancetest:xts
+      - name: Run CN benchmark
+        if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
+        id: cn-benchmark
+        continue-on-error: true
+        working-directory: k6
+        run: npm run cn-benchmark
 
-      - name: Record test end time
+      - name: Record benchmark end time
         if: steps.run-relay.outcome == 'success'
         id: test-end-time
         run: echo "end=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify CN TPS
+        if: steps.run-relay.outcome == 'success' && steps.cn-benchmark.outcome == 'success'
+        id: verify-cn-tps
+        continue-on-error: true
+        working-directory: k6
+        run: |
+          npm run verify-cn-tps 2>&1 | tee /tmp/verify-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          MEASURED_TPS=$(grep '\[verify-cn-tps\] MEASURED TPS' /tmp/verify-output.txt | awk '{print $NF}') || true
+          echo "measured_tps=${MEASURED_TPS:-N/A}" >> "$GITHUB_OUTPUT"
+          exit "${EXIT_CODE}"
 
       - name: Generate Report
         if: always()
         env:
           MEMORY_LIMIT: ${{ matrix.memory_limit }}
-          TEST_STATUS: ${{ (steps.run-relay.outcome == 'success' && steps.acceptance-test.outcome == 'success') && 'success' || 'failure' }}
+          TEST_STATUS: ${{ (steps.run-relay.outcome == 'success' && steps.cn-benchmark.outcome == 'success' && steps.verify-cn-tps.outcome == 'success') && 'success' || 'failure' }}
           TEST_START: ${{ steps.test-timing.outputs.start }}
           TEST_END: ${{ steps.test-end-time.outputs.end }}
           RELAY_STARTUP_SECS: ${{ steps.run-relay.outputs.startup_secs }}
           RELAY_STARTUP_OUTCOME: ${{ steps.run-relay.outcome }}
-          ACCEPTANCE_TEST_OUTCOME: ${{ steps.acceptance-test.outcome }}
+          K6_BENCHMARK_OUTCOME: ${{ steps.cn-benchmark.outcome }}
+          VERIFY_TPS_OUTCOME: ${{ steps.verify-cn-tps.outcome }}
+          MEASURED_TPS: ${{ steps.verify-cn-tps.outputs.measured_tps }}
         run: |
           set +e  # individual command failures must not abort the report
 
-          # ── E2E test duration (XTS suite wall-clock time) ─────────
-          # TEST_END is set by the dedicated "Record test end time" step
-          # immediately after the acceptance test runner finishes, giving
-          # a clean measurement of test execution time independent of the
-          # report-generation overhead.
+          # ── k6 CN benchmark wall-clock duration ───────────────────
+          # TEST_END is recorded immediately after the k6 run completes,
+          # giving a clean wall-clock measurement of benchmark execution
+          # time independent of prep and report-generation overhead.
           E2E_SECS=$(( ${TEST_END:-0} - ${TEST_START:-${TEST_END:-0}} ))
           E2E_TIME="$(( E2E_SECS / 60 ))m $(( E2E_SECS % 60 ))s"
           [ "${E2E_SECS}" -le 0 ] && E2E_TIME="N/A"
@@ -289,7 +352,6 @@ jobs:
             STARTUP_NOTE="OK"
           fi
 
-          # ── Test results from JUnit XML (Mocha format) ───────────
           # ── Pod resource snapshot via metrics-server ─────────────
           # Capture both forms up-front. Embedded $(...) inside a heredoc runs
           # in a subshell that does not inherit the runner environment reliably.
@@ -372,7 +434,10 @@ jobs:
           echo "  Test Status      : ${TEST_STATUS}"
           echo "  Relay Startup    : ${STARTUP_NOTE}"
           echo "  Relay Start Time : ${STARTUP_TIME}"
-          echo "  E2E Test Time    : ${E2E_TIME}"
+          echo "  k6 Benchmark Time: ${E2E_TIME}"
+          echo "  Measured TPS     : ${MEASURED_TPS:-N/A}"
+          echo "  k6 Benchmark     : ${K6_BENCHMARK_OUTCOME:-N/A}"
+          echo "  Verify TPS       : ${VERIFY_TPS_OUTCOME:-N/A}"
           echo "--------------------------------------------"
           echo "  Relay (HTTP)     : CPU=${RELAY_CPU}  MEM=${RELAY_MEM}  LIMIT=${MEMORY_LIMIT}"
           echo "  Relay (ws)       : CPU=${RELAY_WS_CPU}  MEM=${RELAY_WS_MEM}"
@@ -401,7 +466,10 @@ jobs:
           printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| **Relay Startup Time** | **`%s`** |\n' "${STARTUP_TIME}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '| **E2E Test Time (XTS)** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| **k6 CN Benchmark Duration** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| **Measured TPS** | **`%s`** |\n' "${MEASURED_TPS:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| k6 Benchmark Status | `%s` |\n' "${K6_BENCHMARK_OUTCOME:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| TPS Verification Status | `%s` |\n' "${VERIFY_TPS_OUTCOME:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Test Status | `%s` |\n\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
 
           printf '### Relay Resources\n' >> "${GITHUB_STEP_SUMMARY}"
@@ -437,7 +505,9 @@ jobs:
       - name: Fail if any test failed
         if: always()
         run: |
-          if [ "${{ steps.run-relay.outcome }}" == "failure" ] || [ "${{ steps.acceptance-test.outcome }}" == "failure" ]; then
-            echo "Relay or acceptance tests failed. Failing job."
+          if [ "${{ steps.run-relay.outcome }}" == "failure" ] \
+            || [ "${{ steps.cn-benchmark.outcome }}" == "failure" ] \
+            || [ "${{ steps.verify-cn-tps.outcome }}" == "failure" ]; then
+            echo "One or more benchmark steps failed. Failing job."
             exit 1
           fi
