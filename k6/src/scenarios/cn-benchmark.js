@@ -35,14 +35,14 @@
  *   RELAY_BASE_URL        = http://localhost:7546
  */
 
-import http from 'k6/http';
-import exec from 'k6/execution';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
+import { check } from 'k6';
+import exec from 'k6/execution';
+import http from 'k6/http';
 
+import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
 import { setDefaultValuesForEnvParameters } from '../lib/parameters.js';
 import { getPayLoad, httpParams, isNonErrorResponse } from './test/common.js';
-import { check } from 'k6';
-import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
 
 // ---------------------------------------------------------------------------
 // Globals and State Tracking
@@ -126,7 +126,14 @@ export const options = {
  */
 function syncWithMirrorNode() {
   const url = `${MIRROR_URL}/api/v1/blocks?limit=1&order=desc`;
+
+  // Bracket the HTTP call with local timestamps so we can use the request midpoint
+  // as the clock reference. Comparing consensus time to the post-response timestamp
+  // inflates the apparent lag by the full network RTT; the midpoint cancels roughly
+  // half that systematic bias.
+  const requestStartMs = Date.now();
   const res = http.get(url);
+  const requestEndMs = Date.now();
 
   if (res.status !== 200) {
     console.warn(`[sync] Failed to fetch latest block from ${url}. Using local system time.`);
@@ -135,15 +142,17 @@ function syncWithMirrorNode() {
 
   const data = JSON.parse(res.body);
   const latestConsensusSec = parseFloat(data.blocks[0].timestamp.to);
-  const nowMs = Date.now();
+  const localMidpointMs = Math.floor((requestStartMs + requestEndMs) / 2);
 
-  // driftOffsetMs = (Consensus Time) - (Local Time)
-  // If Consensus is behind Local, drift will be negative.
-  const driftOffsetMs = Math.floor(latestConsensusSec * 1000 - nowMs);
+  // A negative offset indicates the consensus clock is behind local time.
+  // Note: residual mirror node ingestion lag (typically 1–3 s) is unavoidable here
+  // because we observe the latest indexed block, not the live consensus head.
+  const driftOffsetMs = Math.floor(latestConsensusSec * 1000 - localMidpointMs);
 
   console.log(`[sync] Mirror Node Consensus: ${new Date(latestConsensusSec * 1000).toISOString()}`);
-  console.log(`[sync] Local System Time:     ${new Date(nowMs).toISOString()}`);
+  console.log(`[sync] Local System Time:     ${new Date(localMidpointMs).toISOString()}`);
   console.log(`[sync] Clock Drift Offset:    ${driftOffsetMs}ms`);
+  console.log(`[sync] Mirror Node RTT:       ${requestEndMs - requestStartMs}ms`);
 
   return { initialConsensusTime: latestConsensusSec * 1000, driftOffsetMs };
 }
