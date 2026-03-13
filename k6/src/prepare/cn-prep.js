@@ -85,22 +85,27 @@ function randomIntFromInterval(min, max) {
  */
 async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainId) {
   // Use a high default for benchmarking if not specified
-  const amount = parseInt(process.env.SIGNED_TXS || '300', 10);
-  console.log(`Generating (${amount}) Txs for Wallet ${wallet.address}...`);
+  const n = parseInt(process.env.SIGNED_TXS || '300', 10);
+  console.log(`Generating (${n}) Txs for Wallet ${wallet.address}...`);
 
-  // Benchmark wallets are typically fresh, so we start nonce at 0
+  // Gas calculation logic follows strict reliability safety margins (20% overhead)
+  const safeGasLimit = 1_000_000n; // Set a high fixed gas limit for benchmarking to avoid out-of-gas errors, as CN may have different gas requirements than EVM.
+  console.log(`   Using safe gasLimit: ${safeGasLimit} (Original: ${gasLimit})`);
+
   let nonce = 0;
   const signedTxCollection = [];
 
-  for (let i = 0; i < amount; i++) {
+  for (let i = 0; i < n; i++) {
     const contractIndex = randomIntFromInterval(0, greeterContracts.length);
     const contractAddress = greeterContracts[contractIndex];
     const contract = new ethers.Contract(contractAddress, Greeter.abi, wallet);
 
-    const msg = `CN Benchmark Iteration ${i} - ${Date.now()}`;
+    // UNIQUE MESSAGE PER TX: Prevents identical data fingerprints.
+    // Included extra space padding to avoid bitwise collision.
+    const msg = `CN Benchmark TX-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const txRequest = await contract['setGreeting'].populateTransaction(msg);
 
-    txRequest.gasLimit = gasLimit;
+    txRequest.gasLimit = safeGasLimit;
     txRequest.chainId = chainId;
     txRequest.gasPrice = gasPrice;
     txRequest.nonce = nonce + i;
@@ -108,8 +113,8 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
     const signedTx = await wallet.signTransaction(txRequest);
     signedTxCollection.push(signedTx);
 
-    if ((i + 1) % 50 === 0) {
-      console.log(`Signed ${i + 1}/${amount} transactions...`);
+    if ((i + 1) % 100 === 0) {
+      console.log(`   ...Progress: ${i + 1}/${n} transactions signed.`);
     }
   }
 

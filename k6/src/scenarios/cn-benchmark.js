@@ -42,6 +42,7 @@ import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 import { setDefaultValuesForEnvParameters } from '../lib/parameters.js';
 import { getPayLoad, httpParams, isNonErrorResponse } from './test/common.js';
 import { check } from 'k6';
+import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
 
 // ---------------------------------------------------------------------------
 // Globals and State Tracking
@@ -49,14 +50,22 @@ import { check } from 'k6';
 
 const STATE_FILE = 'cn-benchmark-state.json';
 
-// Capture initialization time. This is stable across VUs within the same process.
-const runStartTime = Date.now();
+// We track the actual test start in the first iteration
+let initialRunTimeMs = 0;
+
+/**
+ * Capture initialization time and clock offset dynamically in setup().
+ * This is populated once and shared with handleSummary.
+ *
+ * @type {{ initialConsensusTime: number, driftOffsetMs: number }}
+ */
+let clockSync = { initialConsensusTime: 0, driftOffsetMs: 0 };
 
 /**
  * Parses a duration string (e.g., "1m", "30s") into milliseconds.
  *
- * @param {string} duration
- * @returns {number}
+ * @param {string} duration The duration string.
+ * @returns {number} The duration in milliseconds.
  */
 function parseDuration(duration) {
   const match = duration.match(/^(\d+)([smh])$/);
@@ -80,17 +89,9 @@ const STABLE = __ENV['STABLE_DURATION'];
 const RAMP_DOWN = __ENV['RAMP_DOWN_DURATION'];
 const PASS_RATE = parseFloat(__ENV['DEFAULT_PASS_RATE']);
 const RELAY_URL = __ENV['RELAY_BASE_URL'];
+const MIRROR_URL = __ENV['MIRROR_BASE_URL'];
 
 const METHOD = 'eth_sendRawTransaction';
-
-/**
- * Identify the peak (stable) window for post-test verification.
- * We calculate these based on the initialization time of the script.
- * Since all VUs and the summary run in the same process but different isolates,
- * they will all see this same initial 'runStartTime'.
- */
-const peakStartTime = new Date(runStartTime + parseDuration(RAMP_UP)).toISOString();
-const peakEndTime = new Date(runStartTime + parseDuration(RAMP_UP) + parseDuration(STABLE)).toISOString();
 
 // ---------------------------------------------------------------------------
 // k6 options
@@ -117,17 +118,63 @@ export const options = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Setup — loads wallets from smartContractParams.json via bootstrapEnvParameters
-// ---------------------------------------------------------------------------
+/**
+ * Performs a clock-sync with the Mirror Node to align benchmark timestamps
+ * with the transaction consensus time.
+ *
+ * @returns {{ initialConsensusTime: number, driftOffsetMs: number }} Sync data.
+ */
+function syncWithMirrorNode() {
+  const url = `${MIRROR_URL}/api/v1/blocks?limit=1&order=desc`;
+  const res = http.get(url);
 
-export { setupTestParameters as setup } from '../lib/bootstrapEnvParameters.js';
+  if (res.status !== 200) {
+    console.warn(`[sync] Failed to fetch latest block from ${url}. Using local system time.`);
+    return { initialConsensusTime: Date.now(), driftOffsetMs: 0 };
+  }
+
+  const data = JSON.parse(res.body);
+  const latestConsensusSec = parseFloat(data.blocks[0].timestamp.to);
+  const nowMs = Date.now();
+
+  // driftOffsetMs = (Consensus Time) - (Local Time)
+  // If Consensus is behind Local, drift will be negative.
+  const driftOffsetMs = Math.floor(latestConsensusSec * 1000 - nowMs);
+
+  console.log(`[sync] Mirror Node Consensus: ${new Date(latestConsensusSec * 1000).toISOString()}`);
+  console.log(`[sync] Local System Time:     ${new Date(nowMs).toISOString()}`);
+  console.log(`[sync] Clock Drift Offset:    ${driftOffsetMs}ms`);
+
+  return { initialConsensusTime: latestConsensusSec * 1000, driftOffsetMs };
+}
+
+/**
+ * Step 1: Benchmark setup (runs once)
+ *
+ * @returns {Object} The test parameters for VUs.
+ */
+export function setup() {
+  const params = setupTestParameters();
+  const sync = syncWithMirrorNode();
+
+  return {
+    ...params,
+    clockSync: sync,
+    startLocalMs: Date.now(),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Default function — one iteration per VU, monotonic tx index
 // ---------------------------------------------------------------------------
 
 export default function (testParameters) {
+  // Transfer context from setup once per VU
+  if (clockSync.driftOffsetMs === 0 && testParameters.clockSync.driftOffsetMs !== 0) {
+    clockSync = testParameters.clockSync;
+    initialRunTimeMs = testParameters.startLocalMs;
+  }
+
   const vuIndex = exec.vu.idInInstance - 1; // 0-based
   const wallets = testParameters.wallets;
 
@@ -163,17 +210,40 @@ export default function (testParameters) {
 // Summary — printed to stdout at end of run; pipe to file with k6 --summary-export
 // ---------------------------------------------------------------------------
 
+/**
+ * Formats the summary output and generates the state file for the verifier.
+ * Includes clock-synced timestamps to match Mirror Node consensus time.
+ *
+ * @param {Object} data summary data from k6.
+ * @returns {Object} Output streams.
+ */
 export function handleSummary(data) {
+  // Transfer context from setup/test data
+  const sync = data.setup_data ? data.setup_data.clockSync : clockSync;
+  const startMs = data.setup_data ? data.setup_data.startLocalMs : initialRunTimeMs || Date.now();
+
+  const consensusStartMs = startMs + sync.driftOffsetMs;
+
+  const rampUpMs = parseDuration(RAMP_UP);
+  const stableMs = parseDuration(STABLE);
+  const rampDownMs = parseDuration(RAMP_DOWN);
+
+  const peakStartConsensus = new Date(consensusStartMs + rampUpMs).toISOString();
+  const peakEndConsensus = new Date(consensusStartMs + rampUpMs + stableMs).toISOString();
+
   const state = {
-    startTime: peakStartTime,
-    endTime: peakEndTime,
-    totalStartTime: new Date(runStartTime).toISOString(),
-    totalEndTime: new Date().toISOString(),
+    startTime: peakStartConsensus,
+    endTime: peakEndConsensus,
+    totalStartTime: new Date(consensusStartMs).toISOString(),
+    totalEndTime: new Date(consensusStartMs + rampUpMs + stableMs + rampDownMs).toISOString(),
+    driftOffsetMs: sync.driftOffsetMs,
     targetRPS: TARGET_RPS,
     wallets: WALLETS_AMOUNT,
+    rampUpMs,
+    stableMs,
+    rampDownMs,
   };
 
-  // k6 saves this to the [STATE_FILE] key in the returned object
   const stateBlock = JSON.stringify(state, null, 2);
 
   return {

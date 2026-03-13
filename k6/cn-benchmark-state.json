@@ -1,8 +1,12 @@
 {
-  "startTime": "2026-03-13T00:27:42.054Z",
-  "endTime": "2026-03-13T00:27:49.054Z",
-  "totalStartTime": "2026-03-13T00:27:41.054Z",
-  "totalEndTime": "2026-03-13T00:27:41.297Z",
+  "startTime": "2026-03-13T00:48:42.995Z",
+  "endTime": "2026-03-13T00:48:49.995Z",
+  "totalStartTime": "2026-03-13T00:48:41.995Z",
+  "totalEndTime": "2026-03-13T00:48:50.995Z",
+  "driftOffsetMs": -1036,
   "targetRPS": 135,
-  "wallets": 2
+  "wallets": 2,
+  "rampUpMs": 1000,
+  "stableMs": 7000,
+  "rampDownMs": 1000
 }

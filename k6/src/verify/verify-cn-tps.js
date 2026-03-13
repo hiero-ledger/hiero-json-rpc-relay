@@ -51,18 +51,19 @@ main().catch((err) => {
 });
 
 async function main() {
-  // Try to load from state file if arguments are missing
+  // CONFIGURATION RESOLUTION
   if (!startArg || !endArg) {
     try {
       const { readFileSync } = await import('fs');
       const state = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
-      startArg = state.startTime || startArg;
-      endArg = state.endTime || endArg;
-      console.log(`[verify-cn-tps] Auto-discovered timestamps for PEAK (Stable) window from ${STATE_FILE}`);
+
+      startArg = state.startTime;
+      endArg = state.endTime;
+
+      console.log(`[verify-cn-tps] AUTO-DISCOVERY: Synchronized with ${STATE_FILE}`);
+      console.log(`[verify-cn-tps] CLOCK OFFSET:     ${state.driftOffsetMs || 0}ms (Apply to Consensus)`);
     } catch (e) {
-      console.error(
-        `[verify-cn-tps] Could not auto-discover timestamps from ${STATE_FILE} and no --start/--end provided.`,
-      );
+      console.error(`[verify-cn-tps] ERROR: Missing valid timestamps in ${STATE_FILE} or --start/--end.`);
       process.exit(1);
     }
   }
@@ -72,55 +73,60 @@ async function main() {
   const windowSecs = endTs - startTs;
 
   if (windowSecs <= 0) {
-    console.error(`[verify-cn-tps] --end must be after --start (window=${windowSecs}s)`);
+    console.error(`[verify-cn-tps] ERROR: Measurement window is zero or negative (${windowSecs}s)`);
     process.exit(1);
   }
 
-  console.log(`[verify-cn-tps] Measurement window: ${startArg} → ${endArg} (${windowSecs}s)`);
-  console.log(`[verify-cn-tps] Mirror Node:         ${MIRROR_URL}`);
-  console.log(`[verify-cn-tps] Target TPS:          ${TARGET_TPS}`);
+  console.log(`[verify-cn-tps] MEASUREMENT:      ${startArg} → ${endArg} (${windowSecs}s)`);
+  console.log(`[verify-cn-tps] MIRROR ENDPOINT:  ${MIRROR_URL}`);
+  console.log(`[verify-cn-tps] TARGET TPS:       ${TARGET_TPS}`);
 
-  // --- Mirror Node: count ethereumtransaction records in window ---
-  console.log('[verify-cn-tps] Fetching transactions from Mirror Node...');
+  // CORE DATA RETRIEVAL
+  console.log('[verify-cn-tps] Fetching records...');
   const { total, errors } = await countEthereumTransactions(MIRROR_URL, startTs, endTs);
   const measuredTps = total / windowSecs;
 
+  // DIAGNOSTIC REPORTING
   console.log();
-  console.log(`[verify-cn-tps] --- Result ---`);
-  console.log(`[verify-cn-tps] Confirmed at CN (Success): ${total}`);
-  if (errors.length > 0) {
-    console.log(`[verify-cn-tps] Confirmed at CN (Failed):  ${errors.length}`);
-    const uniqueErrors = [...new Set(errors)];
-    console.log(`[verify-cn-tps] Error types seen:         ${uniqueErrors.join(', ')}`);
-  }
-  console.log(`[verify-cn-tps] Measured TPS:              ${measuredTps.toFixed(2)}`);
-  console.log(`[verify-cn-tps] Target TPS:                ${TARGET_TPS}`);
+  console.log(`[verify-cn-tps] --- AGGREGATED METRICS ---`);
+  console.log(`[verify-cn-tps] SUCCESSFUL TXS:    ${total}`);
 
-  // --- Prometheus: optional diagnostic counter ---
+  if (errors.length > 0) {
+    const errorDistribution = errors.reduce((acc, curr) => {
+      acc[curr] = (acc[curr] || 0) + 1;
+      return acc;
+    }, {});
+    console.log(`[verify-cn-tps] FAILED TXS:        ${errors.length}`);
+    Object.entries(errorDistribution).forEach(([err, count]) => {
+      console.log(`[verify-cn-tps]   - ${err}: ${count}`);
+    });
+  }
+
+  console.log(`[verify-cn-tps] MEASURED TPS:      ${measuredTps.toFixed(2)}`);
+  console.log(`[verify-cn-tps] TARGET TPS:        ${TARGET_TPS}`);
+
+  // PROMETHEUS INTEGRATION
   if (RELAY_PROM_URL) {
     await printPrometheusCounter(RELAY_PROM_URL);
   }
 
-  // --- Assert ---
+  // ASSERTION & FINAL DIAGNOSIS
   console.log();
   if (measuredTps >= TARGET_TPS) {
-    console.log(`[verify-cn-tps] PASS — ${measuredTps.toFixed(2)} TPS confirmed success at CN`);
+    console.log(`[verify-cn-tps] STATUS: PASS — Sustained ${measuredTps.toFixed(2)} TPS success verified.`);
     process.exit(0);
   } else {
-    console.error(`[verify-cn-tps] FAIL — ${measuredTps.toFixed(2)} TPS < ${TARGET_TPS} TPS target`);
+    console.error(`[verify-cn-tps] STATUS: FAIL — Insufficient throughput verified.`);
 
-    // Help the user diagnose why it failed
     if (total === 0 && errors.length === 0) {
-      console.error(
-        '[verify-cn-tps] DIAGNOSIS: Zero transactions found in the window. Check if the Relay is alive or if there is a clock desync.',
-      );
+      console.error('[verify-cn-tps] DIAGNOSIS: No transactions recorded. Verify Relay process and HAPI connectivity.');
     } else if (errors.length > total) {
       console.error(
-        '[verify-cn-tps] DIAGNOSIS: High failure rate detected. Check for INSUFFICIENT_GAS or CONTRACT_REVERT.',
+        '[verify-cn-tps] DIAGNOSIS: Critical failure rate. Most common error likely saturated the Relay or throttled at HAPI.',
       );
-    } else if (measuredTps > 0 && measuredTps < TARGET_TPS) {
+    } else {
       console.error(
-        '[verify-cn-tps] DIAGNOSIS: Throughput achieved but insufficient. Check if ETH_SEND_RAW_TRANSACTION_ASYNC=true is enabled.',
+        '[verify-cn-tps] DIAGNOSIS: Throughput plateau. Consider increasing WALLETS_AMOUNT or enabling ASYNC submission.',
       );
     }
     process.exit(1);
@@ -128,27 +134,27 @@ async function main() {
 }
 
 // ---------------------------------------------------------------------------
-// Mirror Node pagination
+// Mirror Node Data Ingestion
 // ---------------------------------------------------------------------------
 
 /**
- * Pages through Mirror Node /api/v1/transactions and counts every
- * ethereumtransaction within [startTs, endTs].
- * Returns success count and list of error reasons.
+ * Orchestrates Mirror Node pagination with strict time-window boundaries.
+ *
+ * @param {string} mirrorUrl
+ * @param {number} startTs
+ * @param {number} endTs
+ * @returns {Promise<{ total: number, errors: string[] }>} Aggregated counts.
  */
 async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
   const baseApiUrl = `${mirrorUrl}/api/v1`;
 
-  // Mirror Node uses nanosecond-precision string timestamps for filtering.
-  const tsGte = `${startTs}.000000000`;
-  const tsLte = `${endTs}.000000000`;
-
+  // We use exclusive 'gt' and 'lt' filters in the URL to prevent double-counting edge records.
   let url =
     `${baseApiUrl}/transactions` +
     `?transactiontype=ethereumtransaction` +
     `&order=asc` +
-    `&timestamp=gte:${tsGte}` +
-    `&timestamp=lte:${tsLte}` +
+    `&timestamp=gt:${startTs}` +
+    `&timestamp=lt:${endTs}` +
     `&limit=100`;
 
   let total = 0;
@@ -158,11 +164,11 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
   while (url) {
     page++;
     const data = await fetchJson(url);
+    const transactions = data.transactions || [];
     console.log(`datadatadatadata`);
     console.log(url);
     console.log(data);
 
-    const transactions = data.transactions || [];
     for (const tx of transactions) {
       if (tx.result === 'SUCCESS') {
         total++;
@@ -171,7 +177,6 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
       }
     }
 
-    // Follow pagination cursor if more pages exist
     const nextUrl = data.links?.next;
     if (nextUrl && transactions.length > 0) {
       url = nextUrl.startsWith('http') ? nextUrl : `${mirrorUrl}${nextUrl}`;
@@ -179,8 +184,8 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
       url = null;
     }
 
-    if (page % 10 === 0) {
-      process.stdout.write(`[verify-cn-tps]   ... paged ${page} pages, ${total} success, ${errors.length} failed\n`);
+    if (page % 5 === 0) {
+      process.stdout.write(`[verify-cn-tps]   In-Flight: ${total} success, ${errors.length} failed...\n`);
     }
   }
 
