@@ -144,7 +144,7 @@ run-relay:
 		echo "    RATE_LIMIT_DISABLED: \"true\""; \
 		echo "    REDIS_ENABLED: \"false\""; \
 		echo "    USE_ASYNC_TX_PROCESSING: \"true\""; \
-		echo "    ENABLE_NONCE_ORDERING: \"true\""; \
+		echo "    ENABLE_NONCE_ORDERING: \"false\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
