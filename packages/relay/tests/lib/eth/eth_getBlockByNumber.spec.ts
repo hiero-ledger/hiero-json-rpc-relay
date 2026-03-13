@@ -563,7 +563,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
   [false, true].forEach((showDetails) => {
     ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'].forEach((status) => {
-      it(`eth_getBlockByNumber should skip ${status} transactions when showDetails = ${showDetails}`, async () => {
+      it(`eth_getBlockByNumber should NOT skip ${status} transactions when showDetails = ${showDetails}`, async () => {
+        const HASH_1 = '0xf84b9a38205131431901ca6a945046369f5be81bb579167458d4992427d03bb1';
+        const HASH_2 = '0x9c8d9d99e033c56bec1669a0ea68887b7df69ec1bac55899150b6ed5bc3f4b79';
         // mirror node request mocks
         restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
         restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
@@ -575,12 +577,12 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
               {
                 ...defaultContractResults.results[0],
                 result: status,
-                hash: '0xf84b9a38205131431901ca6a945046369f5be81bb579167458d4992427d03bb1',
+                hash: HASH_1,
               },
               {
                 ...defaultContractResults.results[0],
                 error_message: prepend0x(ASCIIToHex(status)),
-                hash: '0x9c8d9d99e033c56bec1669a0ea68887b7df69ec1bac55899150b6ed5bc3f4b79',
+                hash: HASH_2,
               },
             ],
           }),
@@ -598,7 +600,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
             parentHash: BLOCK_HASH_PREV_TRIMMED,
             timestamp: BLOCK_TIMESTAMP_HEX,
             // should not include the transaction with wrong nonce or invalid account id
-            transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2],
+            transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2, HASH_1, HASH_2],
             receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
           },
           showDetails,
