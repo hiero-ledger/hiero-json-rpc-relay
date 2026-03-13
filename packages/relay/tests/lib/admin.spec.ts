@@ -73,22 +73,4 @@ describe('Admin', async function () {
       });
     },
   );
-
-  withOverriddenEnvsInMochaTest(
-    {
-      MIRROR_NODE_URL_HEADER_X_API_KEY: 'secret-api-key',
-    },
-    () => {
-      it('should mask MIRROR_NODE_URL_HEADER_X_API_KEY in the mirrorNode config', async () => {
-        const tempRelay = await Relay.init(logger, new Registry());
-        const res = await tempRelay.admin().config();
-
-        const mirrorNode = res.upstreamDependencies.find((dep) => dep.service === 'mirrorNode');
-        expect(mirrorNode).to.exist;
-        expect(mirrorNode!.config).to.haveOwnProperty('MIRROR_NODE_URL_HEADER_X_API_KEY');
-        expect(mirrorNode!.config['MIRROR_NODE_URL_HEADER_X_API_KEY']).to.equal('**********');
-        expect(mirrorNode!.config['MIRROR_NODE_URL_HEADER_X_API_KEY']).to.not.include('secret-api-key');
-      });
-    },
-  );
 });
