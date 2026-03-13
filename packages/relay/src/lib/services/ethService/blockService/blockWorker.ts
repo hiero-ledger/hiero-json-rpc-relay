@@ -8,7 +8,6 @@ import pino from 'pino';
 
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
-import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
@@ -286,15 +285,6 @@ async function prepareTransactionArray(
 ): Promise<Transaction[] | string[]> {
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
-    if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-      logger.debug(
-        `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-        contractResult.hash,
-        contractResult.result,
-      );
-      continue;
-    }
-
     [contractResult.from, contractResult.to] = await Promise.all([
       commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
       commonService.resolveEvmAddress(contractResult.to, requestDetails),
@@ -397,15 +387,6 @@ export async function getBlockReceipts(
 
     const resolved = await Promise.all(
       contractResults.map(async (contractResult) => {
-        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          logger.debug(
-            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-            contractResult.hash,
-            contractResult.result,
-          );
-          return null;
-        }
-
         const logs = logsByHash.get(contractResult.hash) || [];
         const [from, to] = await Promise.all([
           commonService.resolveEvmAddress(contractResult.from, requestDetails),
@@ -498,15 +479,6 @@ export async function getRawReceipts(
     let cumulativeGasUsed = 0;
     const encodedReceipts = contractResults
       .map((contractResult) => {
-        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          logger.debug(
-            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-            contractResult.hash,
-            contractResult.result,
-          );
-          return null;
-        }
-
         const logs = logsByHash.get(contractResult.hash) || [];
 
         cumulativeGasUsed += contractResult.gas_used;
