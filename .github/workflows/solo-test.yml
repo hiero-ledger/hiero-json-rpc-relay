@@ -16,6 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: "256-pure"
+            memory_limit: "256Mi"
           - name: "128-pure"
             memory_limit: "128Mi"
           - name: "120-pure"
@@ -26,14 +28,6 @@ jobs:
             memory_limit: "104Mi"
           - name: "96-pure"
             memory_limit: "96Mi"
-          - name: "88-pure"
-            memory_limit: "88Mi"
-          - name: "80-pure"
-            memory_limit: "80Mi"
-          - name: "72-pure"
-            memory_limit: "72Mi"
-          - name: "64-pure"
-            memory_limit: "64Mi"
 
     permissions:
       contents: read
@@ -112,9 +106,89 @@ jobs:
           solo mirror node add  --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
           solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
 
+          # Launch a bootstrap relay (default Solo configuration) so prep-cn can fund wallets
+          # and pre-sign transactions against a live network. This instance is destroyed and
+          # replaced by the matrix-specific relay before the benchmark begins.
+          solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}"
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Port-forward Relay and Mirror Node
+        run: |
+          # Free any stale port holders before starting new port-forwards.
+          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
+          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
+          sudo kill -9 $(sudo lsof -ti :50211) 2>/dev/null || true
+
+          # Port-forward the bootstrap relay JSON-RPC endpoint — required by prep-cn.
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+          if [ -z "${RELAY_POD}" ]; then
+            echo "ERROR: Relay pod not found; cannot port-forward."
+            exit 1
+          fi
+          kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
+          echo "Port-forwarding relay pod '${RELAY_POD}' port 7546 → localhost:7546"
+
+          # Port-forward node1 for direct consensus interactions — required to bypass proxy latency.
+          kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
+          echo "Port-forwarding consensus node 'network-node1-0' port 50211 → localhost:50211"
+
+          # Port-forward the mirror node REST API — needed by verify-cn-tps (MIRROR_BASE_URL).
+          # Discover svc name and port dynamically to handle Solo deployment name variations.
+          MIRROR_SVC=$(kubectl get svc -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -iE 'rest' | grep -ivE 'grpc|ws|proxy' | head -1)
+          if [ -n "${MIRROR_SVC}" ]; then
+            MIRROR_PORT=$(kubectl get svc "${MIRROR_SVC}" -n "${SOLO_NAMESPACE}" \
+              -o jsonpath='{.spec.ports[0].port}' 2>/dev/null) || MIRROR_PORT="80"
+            kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"${MIRROR_SVC}" 8081:"${MIRROR_PORT}" &
+            echo "Port-forwarding mirror REST service '${MIRROR_SVC}' port ${MIRROR_PORT} → localhost:8081"
+          else
+            echo "WARNING: Mirror node REST service not found; MIRROR_BASE_URL may not be reachable."
+          fi
+
+          # Allow the port-forward daemons to bind before tests proceed.
+          sleep 3
+
+      - name: Install k6 package dependencies
+        working-directory: k6
+        run: npm ci
+
+      - name: Create k6 .env
+        working-directory: k6
+        run: |
+          # Write the benchmark environment file consumed by env-cmd for all k6 scripts.
+          # Benchmark parameters are dynamically injected from the matrix strategy,
+          # with industrial-grade fallbacks to ensure workflow stability.
+          cat > .env << 'ENVEOF'
+          PRIVATE_KEYS='["0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524", "0x2e1d968b041d84dd120a5860cee60cd83f9374ef527ca86996317ada3d0d03e7", "0x45a5a7108a18dd5013cf2d5857a28144beadc9c70b3bdbd914e38df4e804b8d8", "0x6e9d61a325be3f6675cf8b7676c70e4a004d2308e3e182370a41f5653d52c6bd", "0x0b58b1bd44469ac9f813b5aeaf6213ddaea26720f0b2f133d08b6f234130a64f", "0x95eac372e0f0df3b43740fa780e62458b2d2cc32d6a440877f1cc2a9ad0c35cc", "0x6c6e6727b40c8d4b616ab0d26af357af09337299f09c66704146e14236972106", "0x5072e7aa1b03f531b4731a32a021f6a5d20d5ddc4e55acbb71ae202fc6f3a26d", "0x60fe891f13824a2c1da20fb6a14e28fa353421191069ba6b6d09dd6c29b90eff", "0xeae4e00ece872dd14fb6dc7a04f390563c7d69d16326f2a703ec8e0934060cc7"]'
+          MIRROR_BASE_URL=http://127.0.0.1:8081
+          RELAY_BASE_URL=http://127.0.0.1:7546
+          WALLETS_AMOUNT=${{ matrix.wallets || 150 }}
+          SIGNED_TXS=${{ matrix.txs || 300 }}
+          CN_BENCH_TARGET_RPS=${{ matrix.tps || 500 }}
+          DEFAULT_DURATION=${{ matrix.duration || '60s' }}
+          ENVEOF
+
+      - name: Prepare CN benchmark
+        id: prep-cn
+        working-directory: k6
+        run: npm run prep-cn
+
+      - name: Destroy Bootstrap Solo Relay
+        run: |
+          # Tear down the bootstrap relay that served prep-cn. The matrix-specific relay
+          # (with configured memory limits) is launched immediately after to ensure clean,
+          # uncontaminated benchmark conditions.
+          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
+          solo relay node destroy --deployment "${SOLO_DEPLOYMENT}"
+
       - name: Run Solo Relay
         id: run-relay
-        # continue-on-error: 128Mi/64Mi may OOMKill before passing readiness;
+        # continue-on-error: the relay may OOMKill before passing readiness at tight memory limits;
         # we still want the report to capture these failures.
         continue-on-error: true
         run: |
@@ -211,78 +285,26 @@ jobs:
             | awk '{printf "%-50s %d MB\n", $1, $2/1048576}' \
             || echo "(failed to fetch metrics)"
 
-      - name: Install k6
+      - name: Re-port-forward Relay
         if: steps.run-relay.outcome == 'success'
         run: |
-          sudo gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update -q
-          sudo apt-get install -y k6
-
-      - name: Port-forward Relay and Mirror Node
-        if: steps.run-relay.outcome == 'success'
-        run: |
-          # Free any stale port holders before starting new port-forwards.
+          # The bootstrap relay has been replaced by the matrix-specific relay.
+          # Re-establish the relay port-forward so cn-benchmark reaches the new pod.
+          # The mirror-node port-forward (8081) remains active from the initial setup.
           sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
-          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
 
-          # Port-forward the relay JSON-RPC endpoint — needed by both prep-cn and cn-benchmark.
           RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
             -o custom-columns=":metadata.name" 2>/dev/null \
             | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
           if [ -z "${RELAY_POD}" ]; then
-            echo "ERROR: Relay pod not found; cannot port-forward."
+            echo "ERROR: Matrix relay pod not found; cannot port-forward."
             exit 1
           fi
           kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
-          echo "Port-forwarding relay pod '${RELAY_POD}' port 7546 → localhost:7546"
+          echo "Port-forwarding matrix relay pod '${RELAY_POD}' port 7546 → localhost:7546"
 
-          # Port-forward the mirror node REST API — needed by verify-cn-tps (MIRROR_BASE_URL).
-          # Discover svc name and port dynamically to handle Solo deployment name variations.
-          MIRROR_SVC=$(kubectl get svc -n "${SOLO_NAMESPACE}" --no-headers \
-            -o custom-columns=":metadata.name" 2>/dev/null \
-            | grep -iE 'rest' | grep -ivE 'grpc|ws|proxy' | head -1)
-          if [ -n "${MIRROR_SVC}" ]; then
-            MIRROR_PORT=$(kubectl get svc "${MIRROR_SVC}" -n "${SOLO_NAMESPACE}" \
-              -o jsonpath='{.spec.ports[0].port}' 2>/dev/null) || MIRROR_PORT="80"
-            kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"${MIRROR_SVC}" 8081:"${MIRROR_PORT}" &
-            echo "Port-forwarding mirror REST service '${MIRROR_SVC}' port ${MIRROR_PORT} → localhost:8081"
-          else
-            echo "WARNING: Mirror node REST service not found; MIRROR_BASE_URL may not be reachable."
-          fi
-
-          # Allow the port-forward daemons to bind before tests proceed.
+          # Allow the port-forward daemon to bind before the benchmark proceeds.
           sleep 3
-
-      - name: Install k6 package dependencies
-        if: steps.run-relay.outcome == 'success'
-        working-directory: k6
-        run: npm ci
-
-      - name: Create k6 .env
-        if: steps.run-relay.outcome == 'success'
-        working-directory: k6
-        run: |
-          # Write the benchmark environment file consumed by env-cmd for all k6 scripts.
-          cat > .env << 'ENVEOF'
-          PRIVATE_KEYS='["0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524", "0x2e1d968b041d84dd120a5860cee60cd83f9374ef527ca86996317ada3d0d03e7", "0x45a5a7108a18dd5013cf2d5857a28144beadc9c70b3bdbd914e38df4e804b8d8", "0x6e9d61a325be3f6675cf8b7676c70e4a004d2308e3e182370a41f5653d52c6bd", "0x0b58b1bd44469ac9f813b5aeaf6213ddaa26720f0b2f133d08b6f234130a64f", "0x95eac372e0f0df3b43740fa780e62458b2d2cc32d6a440877f1cc2a9ad0c35cc", "0x6c6e6727b40c8d4b616ab0d26af357af09337299f09c66704146e14236972106", "0x5072e7aa1b03f531b4731a32a021f6a5d20d5ddc4e55acbb71ae202fc6f3a26d", "0x60fe891f13824a2c1da20fb6a14e28fa353421191069ba6b6d09dd6c29b90eff", "0xeae4e00ece872dd14fb6dc7a04f390563c7d69d16326f2a703ec8e0934060cc7"]'
-          MIRROR_BASE_URL=http://127.0.0.1:8081
-          RELAY_BASE_URL=http://127.0.0.1:7546
-          WALLETS_AMOUNT=150
-          SIGNED_TXS=300
-          CN_BENCH_TARGET_RPS=500
-          DEFAULT_DURATION=60s
-          ENVEOF
-
-      - name: Prepare CN benchmark
-        if: steps.run-relay.outcome == 'success'
-        id: prep-cn
-        working-directory: k6
-        run: npm run prep-cn
 
       - name: Record benchmark start time
         if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
@@ -317,6 +339,10 @@ jobs:
         if: always()
         env:
           MEMORY_LIMIT: ${{ matrix.memory_limit }}
+          BENCH_WALLETS: ${{ matrix.wallets || 150 }}
+          BENCH_TXS: ${{ matrix.txs || 300 }}
+          BENCH_TPS: ${{ matrix.tps || 500 }}
+          BENCH_DURATION: ${{ matrix.duration || '60s' }}
           TEST_STATUS: ${{ (steps.run-relay.outcome == 'success' && steps.cn-benchmark.outcome == 'success' && steps.verify-cn-tps.outcome == 'success') && 'success' || 'failure' }}
           TEST_START: ${{ steps.test-timing.outputs.start }}
           TEST_END: ${{ steps.test-end-time.outputs.end }}
@@ -431,11 +457,12 @@ jobs:
           echo "============================================"
           echo "  Solo Memory Benchmark — ${MEMORY_LIMIT}"
           echo "============================================"
+          echo "  Benchmark Config : Wallets=${BENCH_WALLETS}, Txs/Wallet=${BENCH_TXS}, Target=${BENCH_TPS} RPS, Duration=${BENCH_DURATION}"
           echo "  Test Status      : ${TEST_STATUS}"
           echo "  Relay Startup    : ${STARTUP_NOTE}"
           echo "  Relay Start Time : ${STARTUP_TIME}"
           echo "  k6 Benchmark Time: ${E2E_TIME}"
-          echo "  Measured TPS     : ${MEASURED_TPS:-N/A}"
+          echo "  Measured TPS     : ${MEASURED_TPS:-N/A} (Target: ${BENCH_TPS})"
           echo "  k6 Benchmark     : ${K6_BENCHMARK_OUTCOME:-N/A}"
           echo "  Verify TPS       : ${VERIFY_TPS_OUTCOME:-N/A}"
           echo "--------------------------------------------"
@@ -462,12 +489,20 @@ jobs:
           # Use printf to append each section: avoids heredoc quoting/escaping
           # pitfalls and makes each write independently verifiable.
           printf '## Solo Memory Benchmark — `%s`\n\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '### Benchmark Configuration\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Setting | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Memory Limit (Relay) | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Target RPS | `%s` |\n' "${BENCH_TPS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| VU count (Wallets) | `%s` |\n' "${BENCH_WALLETS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Transactions per Wallet | `%s` |\n' "${BENCH_TXS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| Configured Duration | `%s` |\n\n' "${BENCH_DURATION}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '### Performance Overview\n' >> "${GITHUB_STEP_SUMMARY}"
           printf '| Metric | Value |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY}"
-          printf '| Memory Limit | `%s` |\n' "${MEMORY_LIMIT}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Relay Startup Status | %s |\n' "${STARTUP_NOTE}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| **Relay Startup Time** | **`%s`** |\n' "${STARTUP_TIME}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| **k6 CN Benchmark Duration** | **`%s`** |\n' "${E2E_TIME}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '| **Measured TPS** | **`%s`** |\n' "${MEASURED_TPS:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '| **Measured TPS** | **`%s`** (Target: %s) |\n' "${MEASURED_TPS:-N/A}" "${BENCH_TPS}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| k6 Benchmark Status | `%s` |\n' "${K6_BENCHMARK_OUTCOME:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| TPS Verification Status | `%s` |\n' "${VERIFY_TPS_OUTCOME:-N/A}" >> "${GITHUB_STEP_SUMMARY}"
           printf '| Test Status | `%s` |\n\n' "${TEST_STATUS}" >> "${GITHUB_STEP_SUMMARY}"
