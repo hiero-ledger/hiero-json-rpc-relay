@@ -83,13 +83,14 @@ async function main() {
 
   // CORE DATA RETRIEVAL
   console.log('[verify-cn-tps] Fetching records...');
-  const { total, errors } = await countEthereumTransactions(MIRROR_URL, startTs, endTs);
-  const measuredTps = total / windowSecs;
+  const { totalSuccessful, errors } = await countEthereumTransactions(MIRROR_URL, startTs, endTs);
+  const totalProcessed = totalSuccessful + errors.length;
+  const measuredTps = totalProcessed / windowSecs;
 
   // DIAGNOSTIC REPORTING
   console.log();
   console.log(`[verify-cn-tps] --- AGGREGATED METRICS ---`);
-  console.log(`[verify-cn-tps] SUCCESSFUL TXS:    ${total}`);
+  console.log(`[verify-cn-tps] SUCCESSFUL TXS:    ${totalSuccessful}`);
 
   if (errors.length > 0) {
     const errorDistribution = errors.reduce((acc, curr) => {
@@ -102,6 +103,8 @@ async function main() {
     });
   }
 
+  console.log(`[verify-cn-tps] TOTAL REACHED CN:  ${totalProcessed}`);
+  console.log(`[verify-cn-tps] Total Period:      ${windowSecs}s`);
   console.log(`[verify-cn-tps] MEASURED TPS:      ${measuredTps.toFixed(2)}`);
   console.log(`[verify-cn-tps] TARGET TPS:        ${TARGET_TPS}`);
 
@@ -143,7 +146,7 @@ async function main() {
  * @param {string} mirrorUrl
  * @param {number} startTs
  * @param {number} endTs
- * @returns {Promise<{ total: number, errors: string[] }>} Aggregated counts.
+ * @returns {Promise<{ totalSuccessful: number, errors: string[] }>} Aggregated counts.
  */
 async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
   const baseApiUrl = `${mirrorUrl}/api/v1`;
@@ -157,7 +160,7 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
     `&timestamp=lt:${endTs}` +
     `&limit=100`;
 
-  let total = 0;
+  let totalSuccessful = 0;
   let errors = [];
   let page = 0;
 
@@ -165,13 +168,10 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
     page++;
     const data = await fetchJson(url);
     const transactions = data.transactions || [];
-    console.log(`datadatadatadata`);
-    console.log(url);
-    console.log(data);
 
     for (const tx of transactions) {
       if (tx.result === 'SUCCESS') {
-        total++;
+        totalSuccessful++;
       } else {
         errors.push(tx.result);
       }
@@ -185,11 +185,11 @@ async function countEthereumTransactions(mirrorUrl, startTs, endTs) {
     }
 
     if (page % 5 === 0) {
-      process.stdout.write(`[verify-cn-tps]   In-Flight: ${total} success, ${errors.length} failed...\n`);
+      process.stdout.write(`[verify-cn-tps]   In-Flight: ${totalSuccessful} success, ${errors.length} failed...\n`);
     }
   }
 
-  return { total, errors };
+  return { totalSuccessful, errors };
 }
 
 // ---------------------------------------------------------------------------
