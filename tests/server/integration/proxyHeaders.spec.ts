@@ -21,7 +21,7 @@ import {
 } from '../../relay/helpers';
 import RelayCalls from '../helpers/constants';
 
-describe.only('Proxy Headers Integration Tests', function () {
+describe('Proxy Headers Integration Tests', function () {
   this.timeout(10000);
 
   const logger = pino({ level: 'silent' });
