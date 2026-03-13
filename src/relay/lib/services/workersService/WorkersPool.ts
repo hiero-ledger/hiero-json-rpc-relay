@@ -113,7 +113,7 @@ export class WorkersPool {
   static getInstance(): Piscina {
     if (!this.instance) {
       this.instance = new Piscina({
-        filename: `${__dirname}/workers.js`,
+        filename: `${__dirname}/workers${__filename.endsWith('.ts') ? '.ts' : '.js'}`,
         atomics: 'disabled',
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),
         maxThreads: ConfigService.get('WORKERS_POOL_MAX_THREADS'),
