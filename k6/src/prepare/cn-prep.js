@@ -1,132 +1,113 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Greeter from './contracts/Greeter.json' with { type: 'json' };
 import { ethers, formatEther } from 'ethers';
 import * as fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import Greeter from './contracts/Greeter.json' with { type: 'json' };
+
 /**
- * @file cn-prep.js
- * @description Specialized preparation script for the Consensus Node (CN) Throughput Benchmark.
+ * Specialized preparation script for the Consensus Node (CN) Throughput Benchmark.
  *
- * This script is a streamlined version of the general prep.js, focused exclusively on:
- * 1. Deploying a minimal set of smart contracts.
- * 2. Creating a specific number of benchmark wallets (WALLETS_AMOUNT).
- * 3. Funding benchmark wallets from multiple treasury accounts (PRIVATE_KEYS).
- * 4. Pre-signing a high volume of transactions (SIGNED_TXS) per wallet to be replayed by k6.
+ * Performs four operations as fast as possible:
+ * 1. Deploy one Greeter contract per treasury account (parallel).
+ * 2. Create WALLETS_AMOUNT fresh benchmark wallets (local, instant).
+ * 3. Submit WALLETS_AMOUNT funding transactions to the treasury accounts (parallel),
+ *    while concurrently pre-signing SIGNED_TXS transactions per wallet (pure local CPU).
+ * 4. Await all funding confirmations, then persist the parameters file.
  *
- * Unlike the general prep script, this avoids:
- * - HTS token creation and transfers.
- * - Complex log/filter/block state generation.
- * - Expensive synthetic transaction generation across blocks.
+ * The critical performance optimization is that transaction signing uses
+ * Interface.encodeFunctionData for local calldata construction, eliminating the
+ * 24,000+ RPC calls that populateTransaction would otherwise make (one per tx).
+ * Signing and funding run concurrently because signing requires only the private
+ * key — a funded account is not a prerequisite.
  */
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const logPayloads = process.env.DEBUG_MODE === 'true';
+/** Absolute output path consumed by k6 bootstrapEnvParameters and verify-cn-tps. */
+const OUTPUT_PATH = path.resolve(__dirname, '../prepare/.smartContractParams.json');
+
+/** Pre-instantiated Interface reused across all wallets to avoid repeated ABI parsing. */
+const GREETER_INTERFACE = new ethers.Interface(Greeter.abi);
 
 /**
- * Custom JsonRpcProvider with optional payload logging for debugging.
+ * Pre-signs a batch of setGreeting transactions for a single wallet entirely
+ * in local memory — no network calls are made.
+ *
+ * All required transaction fields (to, data, gasLimit, gasPrice, chainId, nonce)
+ * are explicitly provided, so ethers has nothing to fetch from the provider.
+ * A provider-detached signer is used as an additional safeguard against implicit
+ * RPC calls that ethers may attempt to fill missing fields.
+ *
+ * Contracts are selected round-robin to distribute load evenly across deployed
+ * instances. Nonces start at 0 because benchmark wallets are created fresh on
+ * every prep run.
+ *
+ * @param {ethers.Wallet} wallet - Wallet whose private key is used for signing.
+ * @param {string[]} contracts - Deployed Greeter contract addresses.
+ * @param {bigint} gasPrice - Legacy gas price applied to every transaction.
+ * @param {bigint} chainId - Target network chain ID.
+ * @param {number} count - Number of transactions to pre-sign.
+ * @returns {Promise<string[]>} Ordered array of raw signed transaction hex strings.
  */
-class LoggingProvider extends ethers.JsonRpcProvider {
-  constructor(url) {
-    super(url);
-    this._nextId = 1;
-  }
+async function buildSignedTxs(wallet, contracts, gasPrice, chainId, count) {
+  // Detached signer (no provider) guarantees ethers cannot issue RPC calls to
+  // populate any missing field during signTransaction.
+  const signer = new ethers.Wallet(wallet.privateKey);
 
-  async send(method, params) {
-    if (logPayloads) {
-      const request = {
-        method: method,
-        params: params,
-        id: this._nextId++,
-        jsonrpc: '2.0',
-      };
-      console.log('>>>', method, '-->', JSON.stringify(request));
-    }
-
-    try {
-      const result = await super.send(method, params);
-      if (logPayloads) {
-        console.log('<<<', method, '-->', JSON.stringify(result));
-      }
-      return result;
-    } catch (error) {
-      if (logPayloads) {
-        console.error('<<< ERROR', method, '-->', error.message);
-      }
-      throw error;
-    }
-  }
+  return Promise.all(
+    Array.from({ length: count }, (_, i) =>
+      signer.signTransaction({
+        type: 0,
+        to: contracts[i % contracts.length],
+        // Wallet address + index produces a unique message per tx, preventing
+        // duplicate calldata fingerprints without any random number generation.
+        data: GREETER_INTERFACE.encodeFunctionData('setGreeting', [`${wallet.address}-${i}`]),
+        gasLimit: 1_000_000n,
+        gasPrice,
+        chainId,
+        nonce: i,
+      }),
+    ),
+  );
 }
 
 /**
- * Returns a random integer between min and max inclusive.
+ * Funds a set of benchmark wallets sequentially from a single treasury account.
  *
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function randomIntFromInterval(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-}
-
-/**
- * Generates an array of pre-signed setGreeting transactions for a given wallet.
+ * Hedera's relay enforces strict nonce ordering: a transaction with nonce N+1 is
+ * rejected if nonce N has not yet been confirmed on-chain. Submissions for the
+ * same treasury must therefore be serialized. Callers run multiple treasury chains
+ * in parallel via Promise.all to preserve overall throughput.
  *
- * @param {ethers.Wallet} wallet - Funded wallet to sign transactions.
- * @param {string[]} greeterContracts - Array of deployed contract addresses.
- * @param {bigint} gasPrice - Current gas price for the network.
- * @param {bigint} gasLimit - Estimated gas limit for the operation.
- * @param {bigint} chainId - Chain ID of the target network.
- * @returns {Promise<string[]>} - Array of raw signed transaction hex strings.
+ * @param {ethers.Wallet} treasury - Connected treasury wallet used to send funds.
+ * @param {ethers.Wallet[]} wallets - Benchmark wallets to fund, in order.
+ * @param {bigint} amount - Transfer value in tinybar per wallet.
+ * @param {number} startNonce - On-chain nonce to use for the first transaction.
+ * @returns {Promise<void>} Resolves after all wallets in this chain are confirmed.
  */
-async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainId) {
-  // Use a high default for benchmarking if not specified
-  const n = parseInt(process.env.SIGNED_TXS || '300', 10);
-  console.log(`Generating (${n}) Txs for Wallet ${wallet.address}...`);
-
-  // Gas calculation logic follows strict reliability safety margins (20% overhead)
-  const safeGasLimit = 1_000_000n; // Set a high fixed gas limit for benchmarking to avoid out-of-gas errors, as CN may have different gas requirements than EVM.
-  console.log(`   Using safe gasLimit: ${safeGasLimit} (Original: ${gasLimit})`);
-
-  let nonce = 0;
-  const signedTxCollection = [];
-
-  for (let i = 0; i < n; i++) {
-    const contractIndex = randomIntFromInterval(0, greeterContracts.length);
-    const contractAddress = greeterContracts[contractIndex];
-    const contract = new ethers.Contract(contractAddress, Greeter.abi, wallet);
-
-    // UNIQUE MESSAGE PER TX: Prevents identical data fingerprints.
-    // Included extra space padding to avoid bitwise collision.
-    const msg = `CN Benchmark TX-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const txRequest = await contract['setGreeting'].populateTransaction(msg);
-
-    txRequest.gasLimit = safeGasLimit;
-    txRequest.chainId = chainId;
-    txRequest.gasPrice = gasPrice;
-    txRequest.nonce = nonce + i;
-
-    const signedTx = await wallet.signTransaction(txRequest);
-    signedTxCollection.push(signedTx);
-
-    if ((i + 1) % 100 === 0) {
-      console.log(`   ...Progress: ${i + 1}/${n} transactions signed.`);
-    }
+async function fundWalletsSequentially(treasury, wallets, amount, startNonce) {
+  for (let i = 0; i < wallets.length; i++) {
+    const tx = await treasury.sendTransaction({
+      to: wallets[i].address,
+      value: amount,
+      nonce: startNonce + i,
+    });
+    await tx.wait();
+    console.log(
+      `   Funded [${wallets[i].address}] via ${treasury.address.slice(0, 10)}... (${i + 1}/${wallets.length})`,
+    );
   }
-
-  return signedTxCollection;
 }
 
 (async () => {
   const relayUrl = process.env.RELAY_BASE_URL || 'http://localhost:7546';
-  const provider = new LoggingProvider(relayUrl);
+  const provider = new ethers.JsonRpcProvider(relayUrl);
 
   const privateKeysEnv = process.env.PRIVATE_KEYS;
-  console.log('PRIVATE_KEYS env variable:', privateKeysEnv);
   if (!privateKeysEnv) {
     console.error('ERROR: PRIVATE_KEYS environment variable is missing.');
     process.exit(1);
@@ -135,138 +116,106 @@ async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainI
   let privateKeys;
   try {
     privateKeys = JSON.parse(privateKeysEnv);
-    if (!Array.isArray(privateKeys)) {
-      throw new Error('PRIVATE_KEYS is not an array');
-    }
+    if (!Array.isArray(privateKeys)) throw new Error('not a JSON array');
   } catch (e) {
-    console.error('ERROR: PRIVATE_KEYS must be a JSON array of strings.');
+    console.error(`ERROR: PRIVATE_KEYS must be a JSON array of hex strings: ${e.message}`);
     process.exit(1);
   }
 
   const treasuryWallets = privateKeys.map((pk) => new ethers.Wallet(pk, provider));
-  const network = await provider.getNetwork();
-  const chainId = network.chainId;
+  const { chainId } = await provider.getNetwork();
+  const walletCount = parseInt(process.env.WALLETS_AMOUNT || '80', 10);
+  const signedTxsPerWallet = parseInt(process.env.SIGNED_TXS || '300', 10);
 
   console.log('--- CN Benchmark Preparation ---');
-  console.log('Relay URL:           ' + relayUrl);
-  console.log('Chain ID:            ' + chainId);
+  console.log(`Relay URL:           ${relayUrl}`);
+  console.log(`Chain ID:            ${chainId}`);
   console.log(`Treasury Accounts:   ${treasuryWallets.length}`);
+  console.log(`Wallets:             ${walletCount}`);
+  console.log(`Signed TXs / Wallet: ${signedTxsPerWallet}`);
 
-  for (const wallet of treasuryWallets) {
-    const balance = await provider.getBalance(wallet.address);
-    console.log(`Treasury [${wallet.address}] Balance: ${formatEther(balance)} HBAR`);
+  for (const w of treasuryWallets) {
+    const bal = await provider.getBalance(w.address);
+    console.log(`Treasury [${w.address}] Balance: ${formatEther(bal)} HBAR`);
   }
 
-  // 1. Deploy Greeter Contracts
-  // Each treasury accounts deploys ONE contract concurrently
+  // ── Step 1: Deploy contracts ─────────────────────────────────────────────
   console.log(`\n1. Deploying ${treasuryWallets.length} Greeter contracts (one per treasury)...`);
-
-  const deployPromises = treasuryWallets.map(async (wallet, index) => {
-    const contractFactory = new ethers.ContractFactory(Greeter.abi, Greeter.bytecode, wallet);
-    const contract = await contractFactory.deploy(`CN Bench Warmup - Treasury ${index}`);
-    await contract.waitForDeployment();
-    const address = await contract.getAddress();
-    console.log(`   Contract [${index}] deployed by ${wallet.address} at: ${address}`);
-    return address;
-  });
-
-  const smartContracts = await Promise.all(deployPromises);
-
-  // 2. Setup Benchmark Wallets
-  const walletCount = parseInt(process.env.WALLETS_AMOUNT || '80', 10);
-  const wallets = [];
-
-  // Pre-calculate gas requirements for estimation using the first contract and treasury
-  const mockMsg = 'CN Benchmark Warmup Message';
-  const contractForEstimate = new ethers.Contract(smartContracts[0], Greeter.abi, treasuryWallets[0]);
-  const estimatedGasLimit = await contractForEstimate['setGreeting'].estimateGas(mockMsg);
-  const feeData = await provider.getFeeData();
-  const gasPrice = feeData.gasPrice;
-
-  console.log(`\n2. Creating and funding ${walletCount} benchmark wallets in batches...`);
-
-  const signedTxsPerWallet = parseInt(process.env.SIGNED_TXS || '300', 10);
-  const fundingPerWallet = gasPrice * estimatedGasLimit * BigInt(signedTxsPerWallet) * 5n;
-
-  // Track the current nonce for each treasury to ensure ordered execution within a batch
-  const treasuryNonces = await Promise.all(
-    treasuryWallets.map((wallet) => provider.getTransactionCount(wallet.address, 'pending')),
+  const smartContracts = await Promise.all(
+    treasuryWallets.map(async (wallet, i) => {
+      const factory = new ethers.ContractFactory(Greeter.abi, Greeter.bytecode, wallet);
+      const contract = await factory.deploy(`CN Bench Warmup - Treasury ${i}`);
+      await contract.waitForDeployment();
+      const address = await contract.getAddress();
+      console.log(`   Contract [${i}] deployed at: ${address}`);
+      return address;
+    }),
   );
 
-  let counter = 0;
+  // ── Step 2: Gas estimation (once, shared across all wallets) ─────────────
+  const { gasPrice } = await provider.getFeeData();
+  const gasLimit = await new ethers.Contract(smartContracts[0], Greeter.abi, treasuryWallets[0])[
+    'setGreeting'
+  ].estimateGas('warmup');
+  const perWalletFunding = gasPrice * gasLimit * BigInt(signedTxsPerWallet) * 5n;
 
-  // Process benchmark wallets in batches of treasuryWallets.length
-  for (let i = 0; i < walletCount; i += treasuryWallets.length) {
-    const batchSize = Math.min(treasuryWallets.length, walletCount - i);
-    console.log(`\n   Processing batch: wallets ${i} to ${i + batchSize - 1}...`);
+  console.log(
+    `\n2. Gas: price=${gasPrice}, estimated limit=${gasLimit}, funding per wallet: ${formatEther(perWalletFunding)} HBAR`,
+  );
 
-    const batchPromises = [];
+  // ── Step 3: Create wallets, resolve treasury nonces, and assign treasury groups ─
+  const newWallets = Array.from({ length: walletCount }, () => ethers.Wallet.createRandom());
 
-    for (let j = 0; j < batchSize; j++) {
-      const walletIndex = i + j;
-      const treasuryIndex = j;
-      const treasury = treasuryWallets[treasuryIndex];
+  const treasuryNonces = await Promise.all(
+    treasuryWallets.map((w) => provider.getTransactionCount(w.address, 'pending')),
+  );
 
-      const task = (async () => {
-        const tempWallet = ethers.Wallet.createRandom().connect(provider);
+  // Partition wallets into per-treasury groups using round-robin assignment.
+  // Each group is funded sequentially by its treasury to satisfy Hedera's
+  // strict nonce ordering requirement (no pending/queued transactions).
+  const treasuryGroups = treasuryWallets.map((_, tidx) =>
+    newWallets.filter((_, wi) => wi % treasuryWallets.length === tidx),
+  );
 
-        // Fund the wallet from assigned treasury using explicit nonce for safety
-        const fundTx = await treasury.sendTransaction({
-          to: tempWallet.address,
-          value: fundingPerWallet,
-          nonce: treasuryNonces[treasuryIndex]++,
-        });
+  // ── Step 4: Fund wallets + sign transactions (concurrent) ────────────────
+  // Signing is pure local secp256k1 computation with no dependency on wallet
+  // balance. Both phases start together: signing completes in CPU time while
+  // funding awaits on-chain confirmations, eliminating sequential blocking.
+  //
+  // Funding strategy: treasury chains run in parallel, but each chain submits
+  // one transaction at a time and waits for confirmation before the next.
+  // Hedera rejects nonce N+1 if nonce N is not yet confirmed on-chain.
+  console.log(
+    `\n3. Funding ${walletCount} wallets and pre-signing ${walletCount * signedTxsPerWallet} transactions concurrently...`,
+  );
 
-        // We wait for the fund transaction to be mined before finishing this task
-        // but since they use different treasuries, we can submit them concurrently
-        await fundTx.wait();
+  const [, allSignedTxs] = await Promise.all([
+    Promise.all(
+      treasuryWallets.map((treasury, tidx) =>
+        fundWalletsSequentially(treasury, treasuryGroups[tidx], perWalletFunding, treasuryNonces[tidx]),
+      ),
+    ),
+    Promise.all(
+      newWallets.map((wallet) => buildSignedTxs(wallet, smartContracts, gasPrice, chainId, signedTxsPerWallet)),
+    ),
+  ]);
 
-        console.log(
-          `   Wallet [${walletIndex}] ${tempWallet.address} funded by Treasury [${treasuryIndex}] with ${formatEther(
-            fundingPerWallet,
-          )} HBAR`,
-        );
+  console.log('   All wallets funded.');
 
-        // 3. Pre-sign transactions for this wallet
-        const signedTxs = await getSignedTxs(tempWallet, smartContracts, gasPrice, estimatedGasLimit, chainId);
-
-        return {
-          address: tempWallet.address,
-          privateKey: tempWallet.privateKey,
-          signedTxs: signedTxs,
-        };
-      })();
-
-      batchPromises.push(task);
-    }
-
-    // Wait for the entire batch to complete before moving to the next one
-    // This ensures no treasury has more than one pending transaction at a time if the batch size matches treasury count
-    const batchResults = await Promise.all(batchPromises);
-    wallets.push(...batchResults);
-
-    // Increment counter and pause every 10 batches to allow the network to process transactions and avoid overwhelming it
-    // with too many pending transactions at once. This is especially important if the batch size is large or if the network
-    //  has limited capacity.
-    counter += 1;
-    if (counter >= 5 && counter % 5 === 0 && counter * treasuryWallets.length < walletCount) {
-      console.log(`--- Counter Reached Batch ${counter}th, pausing for 3 seconds to allow network processing ---`);
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    }
-  }
-
-  // 4. Persistence
-  const outputPath = path.resolve(__dirname, '../prepare/.smartContractParams.json');
-  const outputData = {
-    wallets: wallets,
-    // Provide generic values for fields k6 might expect from setupTestParameters
-    smartContracts: smartContracts,
+  // ── Step 6: Persist output ───────────────────────────────────────────────
+  const output = {
+    wallets: newWallets.map((wallet, i) => ({
+      address: wallet.address,
+      privateKey: wallet.privateKey,
+      signedTxs: allSignedTxs[i],
+    })),
+    smartContracts,
     DEFAULT_ENTITY_FROM: treasuryWallets[0].address,
     DEFAULT_ENTITY_TO: smartContracts[0],
   };
 
-  fs.writeFileSync(outputPath, JSON.stringify(outputData, null, 2));
-  console.log(`\n3. Benchmark parameters saved to: ${outputPath}`);
+  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
+  console.log(`\n4. Parameters saved to: ${OUTPUT_PATH}`);
   console.log('--- Preparation Complete ---');
 })().catch((err) => {
   console.error('\nERROR during preparation:', err);
