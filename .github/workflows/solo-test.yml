@@ -16,38 +16,58 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "256-pure-30-vus-30-txs-100rps"
+          - name: "256-192-old-50-vus-150-rps-60s"
+            memory_limit: "256Mi"
+            wallet_amount: 50
+            signed_txs: 400
+            bench_target_rps: 150
+            duration: "60s"
+            node_opts: "--max-old-space-size=192"
+
+          - name: "256-192-old-30-vus-120-rps-60s"
             memory_limit: "256Mi"
             wallet_amount: 30
-            signed_txs: 30
-            bench_target_rps: 100
-
-          - name: "256-pure-20-vus-30-txs-100rps"
+            signed_txs: 600
+            bench_target_rps: 120
+            duration: "60s"
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-20-vus-100-rps-60s"
             memory_limit: "256Mi"
             wallet_amount: 20
-            signed_txs: 30
+            signed_txs: 100
             bench_target_rps: 100
-          - name: "256-pure-10-vus-30-txs-100rps"
+            duration: "60s"
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-10-vus-100-rps-10s"
             memory_limit: "256Mi"
-            wallet_amount: 10
-            signed_txs: 30
+            wallet_amount: 20
+            signed_txs: 100
             bench_target_rps: 100
-          - name: "128-pure-30-vus-30-txs-100rps"
+            duration: "10s"
+            node_opts: "--max-old-space-size=192"
+
+          - name: "128-90-old-50-vus-192-rps-60s"
+            memory_limit: "128Mi"
+            wallet_amount: 50
+            signed_txs: 400
+            bench_target_rps: 192
+            duration: "60s"
+            node_opts: "--max-old-space-size=90"
+
+          - name: "128-90-old-30-vus-192-rps-60s"
             memory_limit: "128Mi"
             wallet_amount: 30
-            signed_txs: 30
-            bench_target_rps: 100
-
-          - name: "128-pure-20-vus-30-txs-100rps"
+            signed_txs: 400
+            bench_target_rps: 192
+            duration: "60s"
+            node_opts: "--max-old-space-size=90"
+          - name: "128-90-old-20-vus-192-rps-10s"
             memory_limit: "128Mi"
             wallet_amount: 20
-            signed_txs: 30
-            bench_target_rps: 100
-          - name: "128-pure-10-vus-30-txs-100rps"
-            memory_limit: "128Mi"
-            wallet_amount: 10
-            signed_txs: 30
-            bench_target_rps: 100
+            signed_txs: 400
+            bench_target_rps: 192
+            duration: "10s"
+            node_opts: "--max-old-space-size=90"
 
     permissions:
       contents: read
@@ -187,9 +207,9 @@ jobs:
           PRIVATE_KEYS='["0x105d050185ccb907fba04dd92d8de9e32c18305e097ab41dadda21489a211524", "0x2e1d968b041d84dd120a5860cee60cd83f9374ef527ca86996317ada3d0d03e7", "0x45a5a7108a18dd5013cf2d5857a28144beadc9c70b3bdbd914e38df4e804b8d8", "0x6e9d61a325be3f6675cf8b7676c70e4a004d2308e3e182370a41f5653d52c6bd", "0x0b58b1bd44469ac9f813b5aeaf6213ddaea26720f0b2f133d08b6f234130a64f", "0x95eac372e0f0df3b43740fa780e62458b2d2cc32d6a440877f1cc2a9ad0c35cc", "0x6c6e6727b40c8d4b616ab0d26af357af09337299f09c66704146e14236972106", "0x5072e7aa1b03f531b4731a32a021f6a5d20d5ddc4e55acbb71ae202fc6f3a26d", "0x60fe891f13824a2c1da20fb6a14e28fa353421191069ba6b6d09dd6c29b90eff", "0xeae4e00ece872dd14fb6dc7a04f390563c7d69d16326f2a703ec8e0934060cc7"]'
           MIRROR_BASE_URL=http://127.0.0.1:8081
           RELAY_BASE_URL=http://127.0.0.1:7546
-          WALLETS_AMOUNT=${{ matrix.wallet_amount|| 150 }}
-          SIGNED_TXS=${{ matrix.signed_txs || 300 }}
-          CN_BENCH_TARGET_RPS=${{ matrix.bench_target_rps || 500 }}
+          WALLETS_AMOUNT=${{ matrix.wallet_amount|| 30 }}
+          SIGNED_TXS=${{ matrix.signed_txs || 100 }}
+          CN_BENCH_TARGET_RPS=${{ matrix.bench_target_rps || 150 }}
           DEFAULT_DURATION=${{ matrix.duration || '60s' }}
           ENVEOF
 
@@ -241,7 +261,9 @@ jobs:
               RATE_LIMIT_DISABLED: "true"
               REDIS_ENABLED: "false"
               USE_ASYNC_TX_PROCESSING: "true"
-              ENABLE_NONCE_ORDERING: "true"
+              ENABLE_NONCE_ORDERING: "false"
+              HAPI_CLIENT_TRANSACTION_RESET: "50000"  # ← New: avoid client rebuilds
+              ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"  # ← New: reduce MN lookups
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml

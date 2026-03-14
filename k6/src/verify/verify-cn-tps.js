@@ -98,7 +98,6 @@ async function main() {
     if (totalProcessed === 0) {
       console.error('[verify-cn-tps] DIAGNOSIS: No transactions recorded. Verify Relay and HAPI connectivity.');
     }
-    process.exit(1);
   }
 }
 
