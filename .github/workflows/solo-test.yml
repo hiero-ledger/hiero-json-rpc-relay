@@ -16,58 +16,65 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "256-192-old-50-vus-150-rps-60s"
+          - name: "256-192-old-250-vus-150-rps-60s"
             memory_limit: "256Mi"
-            wallet_amount: 50
-            signed_txs: 400
+            wallet_amount: 250
+            signed_txs: 500
             bench_target_rps: 150
             duration: "60s"
             node_opts: "--max-old-space-size=192"
 
-          - name: "256-192-old-30-vus-120-rps-60s"
+          - name: "256-192-old-200-vus-150-rps-60s"
             memory_limit: "256Mi"
-            wallet_amount: 30
-            signed_txs: 600
-            bench_target_rps: 120
+            wallet_amount: 200
+            signed_txs: 500
+            bench_target_rps: 150
             duration: "60s"
             node_opts: "--max-old-space-size=192"
-          - name: "256-192-old-20-vus-100-rps-60s"
+          - name: "256-192-old-150-vus-150-rps-60s"
             memory_limit: "256Mi"
-            wallet_amount: 20
-            signed_txs: 100
-            bench_target_rps: 100
+            wallet_amount: 150
+            signed_txs: 500
+            bench_target_rps: 150
             duration: "60s"
             node_opts: "--max-old-space-size=192"
-          - name: "256-192-old-10-vus-100-rps-10s"
+          - name: "256-192-old-100-vus-150-rps-60s"
             memory_limit: "256Mi"
-            wallet_amount: 20
-            signed_txs: 100
-            bench_target_rps: 100
-            duration: "10s"
+            wallet_amount: 100
+            signed_txs: 500
+            bench_target_rps: 150
+            duration: "60s"
             node_opts: "--max-old-space-size=192"
 
-          - name: "128-90-old-50-vus-192-rps-60s"
+          - name: "128-96-old-250-vus-150-rps-60s"
             memory_limit: "128Mi"
-            wallet_amount: 50
-            signed_txs: 400
-            bench_target_rps: 192
+            wallet_amount: 250
+            signed_txs: 500
+            bench_target_rps: 150
             duration: "60s"
-            node_opts: "--max-old-space-size=90"
+            node_opts: "--max-old-space-size=96"
 
-          - name: "128-90-old-30-vus-192-rps-60s"
+          - name: "128-96-old-200-vus-150-rps-60s"
             memory_limit: "128Mi"
-            wallet_amount: 30
-            signed_txs: 400
-            bench_target_rps: 192
+            wallet_amount: 200
+            signed_txs: 500
+            bench_target_rps: 150
             duration: "60s"
-            node_opts: "--max-old-space-size=90"
-          - name: "128-90-old-20-vus-192-rps-10s"
+            node_opts: "--max-old-space-size=96"
+          - name: "128-96-old-150-vus-150-rps-60s"
             memory_limit: "128Mi"
-            wallet_amount: 20
-            signed_txs: 400
-            bench_target_rps: 192
-            duration: "10s"
-            node_opts: "--max-old-space-size=90"
+            wallet_amount: 150
+            signed_txs: 500
+            bench_target_rps: 150
+            duration: "60s"
+            node_opts: "--max-old-space-size=96"
+          - name: "128-96-old-100-vus-150-rps-60s "
+            memory_limit: "128Mi"
+            wallet_amount: 100
+            signed_txs: 500
+            bench_target_rps: 150
+            duration: "60s"
+            node_opts: "--max-old-space-size=96"
 
     permissions:
       contents: read
