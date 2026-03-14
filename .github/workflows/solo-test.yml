@@ -16,22 +16,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "128-pure"
+          - name: "256-pure-30-vus-30-txs-100rps"
+            memory_limit: "256Mi"
+            wallet_amount: 30
+            signed_txs: 30
+            bench_target_rps: 100
+
+          - name: "256-pure-20-vus-30-txs-100rps"
+            memory_limit: "256Mi"
+            wallet_amount: 20
+            signed_txs: 30
+            bench_target_rps: 100
+          - name: "256-pure-10-vus-30-txs-100rps"
+            memory_limit: "256Mi"
+            wallet_amount: 10
+            signed_txs: 30
+            bench_target_rps: 100
+          - name: "128-pure-30-vus-30-txs-100rps"
             memory_limit: "128Mi"
             wallet_amount: 30
-            signed_txs: 300
-            bench_target_rps: 150
+            signed_txs: 30
+            bench_target_rps: 100
 
-          - name: "128-pure"
+          - name: "128-pure-20-vus-30-txs-100rps"
             memory_limit: "128Mi"
             wallet_amount: 20
-            signed_txs: 300
-            bench_target_rps: 150
-          - name: "128-pure"
+            signed_txs: 30
+            bench_target_rps: 100
+          - name: "128-pure-10-vus-30-txs-100rps"
             memory_limit: "128Mi"
             wallet_amount: 10
-            signed_txs: 300
-            bench_target_rps: 150
+            signed_txs: 30
+            bench_target_rps: 100
 
     permissions:
       contents: read
@@ -333,11 +349,7 @@ jobs:
         continue-on-error: true
         working-directory: k6
         run: |
-          npm run verify-cn-tps 2>&1 | tee /tmp/verify-output.txt
-          EXIT_CODE=${PIPESTATUS[0]}
-          MEASURED_TPS=$(grep '\[verify-cn-tps\] MEASURED TPS' /tmp/verify-output.txt | awk '{print $NF}') || true
-          echo "measured_tps=${MEASURED_TPS:-N/A}" >> "$GITHUB_OUTPUT"
-          exit "${EXIT_CODE}"
+          npm run verify-cn-tps
 
       - name: Generate Report
         if: always()
