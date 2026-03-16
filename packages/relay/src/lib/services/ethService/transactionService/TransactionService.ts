@@ -124,7 +124,7 @@ export class TransactionService implements ITransactionService {
     this.hapiService = hapiService;
     this.logger = logger;
     this.mirrorNodeClient = mirrorNodeClient;
-    this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService);
+    this.precheck = new Precheck(mirrorNodeClient, chain, transactionPoolService, common);
     this.transactionPoolService = transactionPoolService;
     this.lockService = lockService;
 

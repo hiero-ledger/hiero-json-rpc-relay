@@ -540,6 +540,13 @@ export class CommonService implements ICommonService {
    * @throws {Error} If the gas price cannot be estimated
    */
   public async getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number> {
+    // Cache current gas price (no timestamp) — it changes at most every few minutes
+    const cacheKey = constants.CACHE_KEY.GAS_PRICE;
+    if (!timestamp) {
+      const cachedGasPrice = await this.cacheService.getAsync(cacheKey, 'getGasPriceInWeibars');
+      if (cachedGasPrice !== null) return cachedGasPrice as number;
+    }
+
     const networkFees = await this.mirrorNodeClient.getNetworkFees(requestDetails, timestamp, undefined);
 
     if (networkFees && Array.isArray(networkFees.fees)) {
@@ -549,7 +556,16 @@ export class CommonService implements ICommonService {
 
       if (ethereumTransactionTypeFee?.gas) {
         // convert tinyBars into weiBars and return the value
-        return ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
+        const gasPrice = ethereumTransactionTypeFee.gas * constants.TINYBAR_TO_WEIBAR_COEF;
+        if (!timestamp) {
+          await this.cacheService.set(
+            cacheKey,
+            gasPrice,
+            'getGasPriceInWeibars',
+            ConfigService.get('ETH_GET_GAS_PRICE_CACHE_TTL_MS'),
+          );
+        }
+        return gasPrice;
       }
     }
 

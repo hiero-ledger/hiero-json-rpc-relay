@@ -90,16 +90,18 @@ describe('Precheck', async function () {
     // @ts-ignore
     mock = new MockAdapter(instance, { onNoMatch: 'throwException' });
 
+    const cacheService = CacheClientFactory.create(logger, registry);
     // @ts-ignore
     const mirrorNodeInstance = new MirrorNodeClient(
       ConfigService.get('MIRROR_NODE_URL')!,
       logger.child({ name: `mirror-node` }),
       registry,
-      CacheClientFactory.create(logger, registry),
+      cacheService,
       instance,
     );
     const transactionPoolService = sinon.createStubInstance(TransactionPoolService);
-    precheck = new Precheck(mirrorNodeInstance, '0x12a', transactionPoolService);
+    const commonService = new CommonService(mirrorNodeInstance, logger, cacheService);
+    precheck = new Precheck(mirrorNodeInstance, '0x12a', transactionPoolService, commonService);
   });
 
   this.beforeEach(() => {

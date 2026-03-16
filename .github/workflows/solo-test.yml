@@ -205,6 +205,9 @@ jobs:
               -o jsonpath='{.spec.ports[0].port}' 2>/dev/null) || MIRROR_PORT="80"
             kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"${MIRROR_SVC}" 8081:"${MIRROR_PORT}" &
             echo "Port-forwarding mirror REST service '${MIRROR_SVC}' port ${MIRROR_PORT} → localhost:8081"
+            # Persist for the post-relay-swap refresh
+            echo "MIRROR_SVC=${MIRROR_SVC}" >> "${GITHUB_ENV}"
+            echo "MIRROR_PORT=${MIRROR_PORT}" >> "${GITHUB_ENV}"
           else
             echo "WARNING: Mirror node REST service not found; MIRROR_BASE_URL may not be reachable."
           fi
@@ -341,6 +344,14 @@ jobs:
             sh -c 'echo "${WORKERS_POOL_ENABLED:-<not set>}" (Expected: false)' 2>/dev/null \
             || echo "(exec failed)"
 
+          echo "--- Mirror Node Retry Config ---"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'echo "MIRROR_NODE_RETRY_DELAY=${MIRROR_NODE_RETRY_DELAY:-<not set, default 2000>} (Expected: 500)"' 2>/dev/null \
+            || echo "(exec failed)"
+          kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'echo "MIRROR_NODE_REQUEST_RETRY_COUNT=${MIRROR_NODE_REQUEST_RETRY_COUNT:-<not set, default 10>} (Expected: 1)"' 2>/dev/null \
+            || echo "(exec failed)"
+
           echo "--- Live Memory Stats (/metrics) ---"
           kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
             node -e "const http = require('http'); http.get('http://localhost:7546/metrics', r => r.pipe(process.stdout)).on('error', () => process.exit(1));" 2>/dev/null \
@@ -348,13 +359,18 @@ jobs:
             | awk '{printf "%-50s %d MB\n", $1, $2/1048576}' \
             || echo "(failed to fetch metrics)"
 
-      - name: Re-port-forward Relay
+      - name: Re-port-forward Relay and Mirror Node
         if: steps.run-relay.outcome == 'success'
         run: |
           # The bootstrap relay has been replaced by the matrix-specific relay.
-          # Re-establish the relay port-forward so cn-benchmark reaches the new pod.
-          # The mirror-node port-forward (8081) remains active from the initial setup.
+          # Re-establish all three port-forwards to enter the benchmark phase with
+          # fresh TCP connections:
+          #   7546  — mandatory: new relay pod, old PF was killed during relay swap.
+          #   8081  — defensive: drop stale TCP state after heavy prep-cn traffic.
+          #   50211 — bypass proxy: direct path to consensus node, same as initial setup.
           sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
+          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
+          sudo kill -9 $(sudo lsof -ti :50211) 2>/dev/null || true
 
           RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
             -o custom-columns=":metadata.name" 2>/dev/null \
@@ -366,7 +382,27 @@ jobs:
           kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
           echo "Port-forwarding matrix relay pod '${RELAY_POD}' port 7546 → localhost:7546"
 
-          # Allow the port-forward daemon to bind before the benchmark proceeds.
+          # Re-forward consensus node directly — bypasses the Solo HAProxy.
+          kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
+          echo "Port-forwarding consensus node 'network-node1-0' port 50211 → localhost:50211"
+
+          # Re-forward mirror using the svc name/port cached during initial setup.
+          # Fall back to re-discovery if the env vars were not persisted.
+          if [ -z "${MIRROR_SVC}" ]; then
+            MIRROR_SVC=$(kubectl get svc -n "${SOLO_NAMESPACE}" --no-headers \
+              -o custom-columns=":metadata.name" 2>/dev/null \
+              | grep -iE 'rest' | grep -ivE 'grpc|ws|proxy' | head -1)
+            MIRROR_PORT=$(kubectl get svc "${MIRROR_SVC}" -n "${SOLO_NAMESPACE}" \
+              -o jsonpath='{.spec.ports[0].port}' 2>/dev/null) || MIRROR_PORT="80"
+          fi
+          if [ -n "${MIRROR_SVC}" ]; then
+            kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"${MIRROR_SVC}" 8081:"${MIRROR_PORT}" &
+            echo "Port-forwarding mirror REST service '${MIRROR_SVC}' port ${MIRROR_PORT} → localhost:8081"
+          else
+            echo "WARNING: Mirror node REST service not found; verify-cn-tps may fail."
+          fi
+
+          # Allow the port-forward daemons to bind before the benchmark proceeds.
           sleep 3
 
       - name: Start Relay Log Streaming

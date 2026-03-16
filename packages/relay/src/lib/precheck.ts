@@ -7,7 +7,7 @@ import { prepend0x } from '../formatters';
 import { MirrorNodeClient } from './clients';
 import constants from './constants';
 import { predefined } from './errors/JsonRpcError';
-import { CommonService, TransactionPoolService } from './services';
+import { CommonService, ICommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 import { IAccountBalance } from './types/mirrorNode';
 
@@ -18,17 +18,25 @@ export class Precheck {
   private readonly mirrorNodeClient: MirrorNodeClient;
   private readonly chain: string;
   private readonly transactionPoolService: TransactionPoolService;
+  private readonly commonService: ICommonService;
 
   /**
    * Creates an instance of Precheck.
    * @param mirrorNodeClient - The MirrorNodeClient instance.
    * @param chainId - The chain ID.
    * @param transactionPoolService
+   * @param commonService - The CommonService instance (used for cached account lookups).
    */
-  constructor(mirrorNodeClient: MirrorNodeClient, chainId: string, transactionPoolService: TransactionPoolService) {
+  constructor(
+    mirrorNodeClient: MirrorNodeClient,
+    chainId: string,
+    transactionPoolService: TransactionPoolService,
+    commonService: ICommonService,
+  ) {
     this.mirrorNodeClient = mirrorNodeClient;
     this.chain = chainId;
     this.transactionPoolService = transactionPoolService;
+    this.commonService = commonService;
   }
 
   /**
@@ -327,7 +335,7 @@ export class Precheck {
    */
   async receiverAccount(tx: Transaction, requestDetails: RequestDetails) {
     if (tx.to) {
-      const verifyAccount = await this.mirrorNodeClient.getAccount(tx.to, requestDetails);
+      const verifyAccount = await this.commonService.getAccount(tx.to, requestDetails);
 
       // When `receiver_sig_required` is set to true, the receiver's account must sign all incoming transactions.
       if (verifyAccount && verifyAccount.receiver_sig_required) {

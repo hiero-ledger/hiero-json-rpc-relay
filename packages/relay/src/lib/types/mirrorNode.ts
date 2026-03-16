@@ -16,6 +16,7 @@ export interface IAccountInfo {
   ethereum_nonce?: number;
   evm_address?: string;
   memo?: string;
+  receiver_sig_required?: boolean;
 }
 
 export interface IAccountBalance {

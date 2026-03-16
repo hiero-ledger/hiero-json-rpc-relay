@@ -173,7 +173,7 @@ describe('Equivalence tests', async function () {
     accounts[0] = await servicesClient.createAccountWithContractIdKey(contractMirror.contract_id, 200, relay.provider);
 
     tokenAddress = await createFungibleToken();
-    precheck = new Precheck(mirrorNodeClient, logger, '0x12a');
+    precheck = new Precheck(mirrorNodeClient, logger as unknown as string, '0x12a', null as any);
   });
 
   const getTestSummaryAmount = (amount: number): string => {
