@@ -772,6 +772,26 @@ describe('Debug API Test Suite', async function () {
           expect(result.revertReason).to.equal('SOME_NON_EXECUTED_STATUS');
         });
 
+        it('should return type=CALL for direct precompile call', async () => {
+          const directPrecompileCallActions = {
+            actions: [
+              makeCreateAction({
+                call_type: 'SYSTEM',
+                call_operation_type: 'CALL',
+              }),
+            ],
+          };
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(directPrecompileCallActions));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
+
+          expect(result.type).to.equal('CALL');
+        });
+
         describe('synthetic transaction handling', async function () {
           it('should return minimal trace for synthetic transaction with Transfer event topics', async function () {
             restMock.onGet(CONTRACTS_RESULTS_ACTIONS_SYNTHETIC).reply(404);
