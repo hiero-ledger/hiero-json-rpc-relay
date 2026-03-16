@@ -2600,6 +2600,29 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         expect(res.to).to.be.null;
       });
+
+      it('creates a new filter and retrieves logs using eth_getLogs with the same filter', async function () {
+        const filter = { fromBlock: 'latest', toBlock: 'latest' };
+        const createUintFilterIdWithLessThan16Bytes = async () => {
+          for (let attempt = 0; attempt < 200; attempt++) {
+            // Each attempt has ~10% of success rate.
+            const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [filter]);
+            if (filterId.length < 34) return BigInt(filterId); // 34 chars = 16 bytes + '0x' prefix
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          return null; // Should be extremely unlikely to reach this point (but it's still possible).
+        };
+        const filterId = await createUintFilterIdWithLessThan16Bytes();
+        expect(filterId).to.not.be.null;
+
+        const hexFilterId = numberTo0x(filterId!);
+        const numberResult = await relay.call('eth_getFilterLogs', [hexFilterId]);
+        expect(numberResult).to.be.an('array');
+
+        const zeroPrefixedFilterId = hexFilterId.replace('0x', '0x0');
+        const bytesResult = await relay.call('eth_getFilterLogs', [zeroPrefixedFilterId]);
+        expect(bytesResult).to.be.an('array');
+      });
     });
   });
 });
