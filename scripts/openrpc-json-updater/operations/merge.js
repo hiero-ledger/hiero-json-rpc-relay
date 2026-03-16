@@ -59,6 +59,7 @@ class MergeDocuments {
     const modifiedMap = getMethodMap(filteredModified);
 
     for (const origMethod of filteredOriginal.methods) {
+      delete origMethod.errors; // We are not comparing errors for now. Our openjsrpc schema does not store them.
       const name = origMethod.name;
       if (!name) continue;
 
