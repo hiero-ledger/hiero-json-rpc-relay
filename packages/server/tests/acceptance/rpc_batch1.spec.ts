@@ -2605,7 +2605,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         const filter = { fromBlock: 'latest', toBlock: 'latest' };
         const createUintFilterIdWithLessThan16Bytes = async () => {
           for (let attempt = 0; attempt < 200; attempt++) {
-            // Each attempt has ~10% of success rate.
+            // Each attempt has 10% of success rate.
             const filterId = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_NEW_FILTER, [filter]);
             if (filterId.length < 34) return BigInt(filterId); // 34 chars = 16 bytes + '0x' prefix
             await new Promise((resolve) => setTimeout(resolve, 1000));
