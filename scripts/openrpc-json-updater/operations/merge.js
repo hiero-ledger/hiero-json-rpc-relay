@@ -322,7 +322,9 @@ class MergeDocuments {
       return this.processWithOriginalDocument(result, originalDocument);
     }
 
-    return handleRefField(result);
+    return this.pruneUnusedComponents(
+      handleRefField(result),
+    );
   }
 
   /**
@@ -375,7 +377,7 @@ class MergeDocuments {
   processWithOriginalDocument(document, originalDocument) {
     this.processMethodsWithOriginal(document, originalDocument);
     this.processComponentsWithOriginal(document, originalDocument);
-    return document;
+    return this.pruneUnusedComponents(document);
   }
 
   /**
@@ -409,6 +411,138 @@ class MergeDocuments {
     }
 
     document.components = handleRefFieldsWithOriginal(document.components, originalDocument.components, true);
+  }
+
+  /**
+   * Prunes the components section to keep only items referenced by methods or by other referenced components.
+   * @param {Object} document - The OpenRPC document to prune.
+   * @returns {Object} document
+   */
+  pruneUnusedComponents(document) {
+    if (!document || !document.components) return;
+
+    const used = this.collectUsedComponentKeys(document);
+    const components = document.components;
+    const pruned = {};
+
+    Object.keys(components).forEach((section) => {
+      const sectionObj = components[section];
+      if (!sectionObj || typeof sectionObj !== 'object') return;
+      const kept = {};
+      Object.keys(sectionObj).forEach((name) => {
+        const key = `${section}/${name}`;
+        if (used.has(key)) {
+          kept[name] = sectionObj[name];
+        }
+      });
+      if (Object.keys(kept).length > 0) {
+        pruned[section] = kept;
+      }
+    });
+
+    document.components = pruned;
+    return document;
+  }
+
+  /**
+   * Collects transitive set of used component keys from methods and components.
+   * Keys are in the form "section/name".
+   * @param {Object} document
+   * @returns {Set<string>}
+   */
+  collectUsedComponentKeys(document) {
+    const used = new Set();
+    const index = this.buildComponentsIndex(document.components);
+
+    const enqueue = [];
+
+    if (Array.isArray(document.methods)) {
+      for (const m of document.methods) {
+        this.traverseObjectForRefs(m, (section, name) => {
+          const key = `${section}/${name}`;
+          if (!used.has(key)) {
+            used.add(key);
+            enqueue.push({ section, name });
+          }
+        });
+      }
+    }
+    while (enqueue.length > 0) {
+      const { section, name } = enqueue.shift();
+      const comp = index[section]?.[name];
+      if (!comp) continue;
+      this.traverseObjectForRefs(comp, (s, n) => {
+        const k = `${s}/${n}`;
+        if (!used.has(k)) {
+          used.add(k);
+          enqueue.push({ section: s, name: n });
+        }
+      });
+    }
+
+    return used;
+  }
+
+  /**
+   * Builds an index for fast lookup of components by section and name
+   * @param {Object} components
+   */
+  buildComponentsIndex(components) {
+    const index = {};
+    if (!components || typeof components !== 'object') return index;
+    Object.keys(components).forEach((section) => {
+      const sectionObj = components[section];
+      if (sectionObj && typeof sectionObj === 'object') {
+        index[section] = {};
+        Object.keys(sectionObj).forEach((name) => {
+          index[section][name] = sectionObj[name];
+        });
+      }
+    });
+    return index;
+  }
+
+  /**
+   * Traverses any object/array and invokes callback for every $ref that points into components.
+   * @param {*} obj
+   * @param {(section:string, name:string)=>void} onRef
+   */
+  traverseObjectForRefs(obj, onRef) {
+    const stack = [obj];
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current || typeof current !== 'object') continue;
+      if (Array.isArray(current)) {
+        for (const item of current) stack.push(item);
+        continue;
+      }
+      if (typeof current.$ref === 'string') {
+        const parsed = this.normalizeComponentRef(current.$ref);
+        if (parsed) onRef(parsed.section, parsed.name);
+      }
+      for (const key of Object.keys(current)) {
+        const val = current[key];
+        if (val && typeof val === 'object') stack.push(val);
+      }
+    }
+  }
+
+  /**
+   * Parses a $ref string like '#/components/<section>/<name>'
+   * @param {string} ref
+   * @returns {{section:string, name:string}|null}
+   */
+  normalizeComponentRef(ref) {
+    if (typeof ref !== 'string') return null;
+    const prefix = '#/components/';
+    if (!ref.startsWith(prefix)) return null;
+    const remainder = ref.slice(prefix.length);
+    const parts = remainder.split('/');
+    if (parts.length < 2) return null;
+    const section = parts[0];
+    const name = parts.slice(1).join('/');
+    if (!section || !name) return null;
+    return { section, name };
   }
 }
 

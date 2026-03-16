@@ -57,9 +57,12 @@
         "name": "Accounts",
         "description": "Always returns an empty array",
         "schema": {
-          "title": "empty array",
+          "title": "Accounts",
           "type": "array",
-          "pattern": "^\\[\\s*\\]$"
+          "pattern": "^\\[\\s*\\]$",
+          "items": {
+            "$ref": "#/components/schemas/address"
+          }
         }
       }
     },
@@ -77,21 +80,21 @@
     },
     {
       "name": "eth_call",
-      "summary": "Executes a new message call immediately without creating a transaction on the block chain. ",
+      "summary": "Executes a new message call immediately without creating a transaction on the block chain.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
           "name": "Transaction",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/TransactionWithSender"
+            "$ref": "#/components/schemas/GenericTransaction"
           }
         },
         {
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
@@ -143,7 +146,7 @@
           "name": "Transaction",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/TransactionWithSender"
+            "$ref": "#/components/schemas/GenericTransaction"
           }
         },
         {
@@ -199,7 +202,7 @@
         }
       ],
       "result": {
-        "name": "feeHistoryResult",
+        "name": "Fee history result",
         "description": "Fee history for the returned block range. This can be a subsection of the requested range if not all blocks are available.",
         "schema": {
           "title": "feeHistoryResults",
@@ -208,18 +211,16 @@
           "required": ["oldestBlock", "baseFeePerGas", "gasUsedRatio"],
           "properties": {
             "oldestBlock": {
-              "title": "oldestBlock",
+              "$ref": "#/components/schemas/uint",
               "description": "Lowest number block of returned range.",
-              "$ref": "#/components/schemas/uint"
+              "title": "oldestBlock"
             },
             "gasUsedRatio": {
               "title": "gasUsedRatio",
               "description": "An array of gas used ratio.",
               "type": "array",
               "items": {
-                "title": "floating point number",
-                "type": "number",
-                "pattern": "^([0-9].[0-9]*|0)$"
+                "$ref": "#/components/schemas/ratio"
               }
             },
             "baseFeePerGas": {
@@ -239,13 +240,14 @@
                 "description": "An array of effective priority fee per gas data points from a single block. All zeroes are returned if the block is empty.",
                 "type": "array",
                 "items": {
-                  "title": "rewardPercentile",
+                  "$ref": "#/components/schemas/uint",
                   "description": "A given percentile sample of effective priority fees per gas from a single block in ascending order, weighted by gas used. Zeroes are returned if the block is empty.",
-                  "$ref": "#/components/schemas/uint"
+                  "title": "rewardPercentile"
                 }
               }
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -257,8 +259,8 @@
       "result": {
         "name": "Gas price",
         "schema": {
-          "title": "Gas price",
-          "$ref": "#/components/schemas/uint"
+          "$ref": "#/components/schemas/uint",
+          "title": "Gas price"
         }
       }
     },
@@ -278,14 +280,13 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
       "result": {
         "name": "Balance",
         "schema": {
-          "title": "hex encoded unsigned integer",
           "$ref": "#/components/schemas/uint"
         }
       }
@@ -389,7 +390,7 @@
         }
       ],
       "result": {
-        "name": "Transactions count",
+        "name": "Transaction count",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -408,7 +409,7 @@
         }
       ],
       "result": {
-        "name": "Transactions count",
+        "name": "Transaction count",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -430,7 +431,7 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
@@ -473,10 +474,10 @@
           }
         },
         {
-          "name": "Position",
+          "name": "Storage slot",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/bytesMax32"
           }
         },
         {
@@ -488,9 +489,9 @@
         }
       ],
       "result": {
-        "name": "Value from storage",
+        "name": "Value",
         "schema": {
-          "$ref": "#/components/schemas/hash32"
+          "$ref": "#/components/schemas/bytes"
         }
       }
     },
@@ -584,14 +585,13 @@
           "name": "Block",
           "required": false,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTag"
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
           }
         }
       ],
       "result": {
-        "name": "Transaction count",
+        "name": "Account nonce",
         "schema": {
-          "title": "Transaction count",
           "$ref": "#/components/schemas/uint"
         }
       }
@@ -609,7 +609,7 @@
         }
       ],
       "result": {
-        "name": "Receipt Information",
+        "name": "Receipt information",
         "schema": {
           "$ref": "#/components/schemas/ReceiptInfo"
         }
@@ -685,12 +685,21 @@
         }
       ],
       "result": {
-        "name": "eth_getUncleCountByBlockHash result",
+        "name": "Uncle count",
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
           "type": "string",
-          "pattern": "0x0"
+          "pattern": "0x0",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "$ref": "#/components/schemas/uint",
+              "title": "Uncle count"
+            }
+          ]
         }
       }
     },
@@ -708,12 +717,21 @@
         }
       ],
       "result": {
-        "name": "eth_getUncleCountByBlockNumber result",
+        "name": "Uncle count",
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
           "type": "string",
-          "pattern": "0x0"
+          "pattern": "0x0",
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "$ref": "#/components/schemas/uint",
+              "title": "Uncle count"
+            }
+          ]
         }
       }
     },
@@ -847,12 +865,10 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [],
       "result": {
-        "name": "eth_maxPriorityFeePerGas result",
+        "name": "Max priority fee per gas",
         "schema": {
-          "description": "Always returns '0x0'. Hedera doesn't have a concept of tipping nodes to promote any behavior",
-          "title": "hex encoded unsigned integer",
-          "type": "string",
-          "pattern": "0x0"
+          "$ref": "#/components/schemas/uint",
+          "title": "Max priority fee per gas"
         }
       }
     },
@@ -875,7 +891,7 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
-        "name": "Filter ID",
+        "name": "Filter identifier",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -888,18 +904,18 @@
     },
     {
       "name": "eth_newFilter",
-      "summary": "Creates a filter object, based on filter options, to notify when the state changes (logs).",
+      "summary": "Install a log filter in the server, allowing for later polling. Registers client interest in logs matching the filter, and returns an identifier.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
       "params": [
         {
-          "name": "LogFilter",
+          "name": "Filter",
           "schema": {
-            "$ref": "#/components/schemas/LogFilter"
+            "$ref": "#/components/schemas/Filter"
           }
         }
       ],
       "result": {
-        "name": "Filter ID",
+        "name": "Filter identifier",
         "schema": {
           "$ref": "#/components/schemas/uint"
         }
@@ -916,14 +932,14 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "FilterID",
+          "name": "Filter identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Uninstall status",
+        "name": "Success",
         "schema": {
           "type": "boolean"
         }
@@ -951,18 +967,18 @@
     },
     {
       "name": "eth_getFilterLogs",
-      "summary": "Returns an array of all logs matching filter with given id.",
+      "summary": "Returns an array of all logs matching the filter with the given ID (created using `eth_newFilter`).",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "Filter ID",
+          "name": "Filter identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Filter result",
+        "name": "Log objects",
         "schema": {
           "$ref": "#/components/schemas/FilterResults"
         }
@@ -979,32 +995,16 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "Filter ID",
+          "name": "Filter identifier",
           "schema": {
             "$ref": "#/components/schemas/uint"
           }
         }
       ],
       "result": {
-        "name": "Filter result",
+        "name": "Log objects",
         "schema": {
-          "oneOf": [
-            {
-              "type": "array",
-              "items": {
-                "blockHash": {
-                  "title": "block hash",
-                  "$ref": "#/components/schemas/hash32"
-                }
-              }
-            },
-            {
-              "name": "Log objects",
-              "schema": {
-                "$ref": "#/components/schemas/FilterResults"
-              }
-            }
-          ]
+          "$ref": "#/components/schemas/FilterResults"
         }
       },
       "tags": [
@@ -1105,9 +1105,7 @@
       "result": {
         "name": "Syncing status",
         "schema": {
-          "title": "Not syncing",
-          "description": "Always returns false.",
-          "type": "boolean"
+          "$ref": "#/components/schemas/SyncingStatus"
         }
       }
     },
@@ -1137,13 +1135,13 @@
     },
     {
       "name": "net_version",
-      "summary": "Returns the current chain id.",
+      "summary": "Returns the current network ID. This is usually equivalent to the chainID, but may differ from it for some legacy networks or special testnets.",
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
-        "name": "The current chain id.",
+        "name": "Network ID",
         "schema": {
-          "$ref": "#/components/schemas/int"
+          "$ref": "#/components/schemas/uintDecimal"
         }
       }
     },
@@ -1300,18 +1298,17 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "block",
+          "name": "Block",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrTag"
           }
         }
       ],
       "result": {
-        "name": "debug_getRawBlock result",
+        "name": "Block RLP",
         "description": "The RLP-encoded block information, or 0x if the block is not found",
         "schema": {
-          "title": "raw block",
           "$ref": "#/components/schemas/bytes"
         }
       }
@@ -1322,10 +1319,10 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "block",
+          "name": "Block",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrTag"
           }
         }
       ],
@@ -1333,7 +1330,6 @@
         "name": "Header RLP",
         "description": "The RLP-encoded block header, or 0x if the block is not found",
         "schema": {
-          "title": "raw header",
           "$ref": "#/components/schemas/bytes"
         }
       }
@@ -1442,12 +1438,15 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [],
       "result": {
-        "name": "debug_getBadBlocks result",
+        "name": "Blocks",
         "description": "Always returns an empty array",
         "schema": {
-          "title": "empty array",
+          "title": "Bad block array",
           "type": "array",
-          "pattern": "^\\[\\s*\\]$"
+          "pattern": "^\\[\\s*\\]$",
+          "items": {
+            "$ref": "#/components/schemas/BadBlock"
+          }
         }
       }
     },
@@ -1457,10 +1456,10 @@
       "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
       "params": [
         {
-          "name": "block",
+          "name": "Block",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrTag"
           }
         }
       ],
@@ -1471,7 +1470,8 @@
           "type": "array",
           "items": {
             "$ref": "#/components/schemas/bytes"
-          }
+          },
+          "title": "Receipt array"
         }
       }
     },
@@ -1492,9 +1492,7 @@
         "name": "EIP-2718 binary-encoded transaction",
         "description": "The RLP-encoded transaction data, or 0x if the transaction is not found",
         "schema": {
-          "title": "raw transaction",
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]*$"
+          "$ref": "#/components/schemas/bytes"
         }
       }
     },
@@ -1563,16 +1561,6 @@
         "type": "string",
         "pattern": "^0x[0-9a-f]{512}$"
       },
-      "bytes65": {
-        "title": "65 hex encoded bytes",
-        "type": "string",
-        "pattern": "^0x[0-9a-f]{512}$"
-      },
-      "int": {
-        "title": "decimal value integer",
-        "type": "string",
-        "pattern": "^\\d+$"
-      },
       "uint": {
         "title": "hex encoded unsigned integer",
         "type": "string",
@@ -1582,11 +1570,6 @@
         "title": "hex encoded unsigned integer",
         "type": "string",
         "pattern": "^0x[0-9a-f]{64}$"
-      },
-      "hash16": {
-        "title": "16 byte hex value",
-        "type": "string",
-        "pattern": "^0x[0-9a-f]{32}$"
       },
       "hash32": {
         "title": "32 byte hex value",
@@ -1675,76 +1658,76 @@
         ],
         "properties": {
           "parentHash": {
-            "title": "Parent block hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Parent block hash"
           },
           "sha3Uncles": {
-            "title": "Ommers hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Ommers hash"
           },
           "miner": {
-            "title": "Coinbase",
-            "$ref": "#/components/schemas/address"
+            "$ref": "#/components/schemas/address",
+            "title": "Coinbase"
           },
           "stateRoot": {
-            "title": "State root",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "State root"
           },
           "transactionsRoot": {
-            "title": "Transactions root",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Transactions root"
           },
           "receiptsRoot": {
-            "title": "Receipts root",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Receipts root"
           },
           "logsBloom": {
-            "title": "Bloom filter",
-            "$ref": "#/components/schemas/bytes256"
+            "$ref": "#/components/schemas/bytes256",
+            "title": "Bloom filter"
           },
           "difficulty": {
-            "title": "Difficulty",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/uint",
+            "title": "Difficulty"
           },
           "number": {
-            "title": "Number",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Number"
           },
           "gasLimit": {
-            "title": "Gas limit",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Gas limit"
           },
           "gasUsed": {
-            "title": "Gas used",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Gas used"
           },
           "timestamp": {
-            "title": "Timestamp",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Timestamp"
           },
           "extraData": {
-            "title": "Extra data",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/bytes",
+            "title": "Extra data"
           },
           "mixHash": {
-            "title": "Mix hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Mix hash"
           },
           "nonce": {
-            "title": "Nonce",
-            "$ref": "#/components/schemas/bytes8"
+            "$ref": "#/components/schemas/bytes8",
+            "title": "Nonce"
           },
           "totalDifficulty": {
             "title": "Total difficult",
             "$ref": "#/components/schemas/uint"
           },
           "baseFeePerGas": {
-            "title": "Base fee per gas",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Base fee per gas"
           },
           "size": {
-            "title": "Block size",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Block size"
           },
           "transactions": {
             "anyOf": [
@@ -1759,7 +1742,7 @@
                 "title": "Full transactions",
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/TransactionSigned"
+                  "$ref": "#/components/schemas/TransactionInfo"
                 }
               }
             ]
@@ -1777,8 +1760,8 @@
             "default": []
           },
           "withdrawalsRoot": {
-            "title": "Withdrawals root",
-            "default": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "$ref": "#/components/schemas/hash32",
+            "title": "Withdrawals root"
           }
         }
       },
@@ -1791,12 +1774,12 @@
         "title": "Block number or tag",
         "oneOf": [
           {
-            "title": "Block number",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "Block number"
           },
           {
-            "title": "Block tag",
-            "$ref": "#/components/schemas/BlockTag"
+            "$ref": "#/components/schemas/BlockTag",
+            "title": "Block tag"
           }
         ]
       },
@@ -2054,24 +2037,6 @@
         "type": "string",
         "enum": ["callTracer", "prestateTracer"]
       },
-      "TransactionWithSender": {
-        "title": "Transaction object with sender",
-        "type": "object",
-        "allOf": [
-          {
-            "required": ["from"],
-            "properties": {
-              "from": {
-                "title": "from",
-                "$ref": "#/components/schemas/address"
-              }
-            }
-          },
-          {
-            "$ref": "#/components/schemas/TransactionUnsigned"
-          }
-        ]
-      },
       "Transaction1559Unsigned": {
         "type": "object",
         "title": "EIP-1559 transaction.",
@@ -2092,8 +2057,8 @@
             "$ref": "#/components/schemas/byte"
           },
           "nonce": {
-            "title": "nonce",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "nonce"
           },
           "to": {
             "title": "to address",
@@ -2103,41 +2068,42 @@
                 "type": "null"
               },
               {
-                "title": "Recipient Address",
-                "$ref": "#/components/schemas/address"
+                "$ref": "#/components/schemas/address",
+                "title": "Address"
               }
             ]
           },
           "gas": {
-            "title": "gas limit",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "gas limit"
           },
           "value": {
-            "title": "value",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "value"
           },
           "input": {
-            "title": "input data",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/bytes",
+            "title": "input data"
           },
           "maxPriorityFeePerGas": {
-            "title": "max priority fee per gas",
+            "$ref": "#/components/schemas/uint",
             "description": "Maximum fee per gas the sender is willing to pay to miners in wei",
-            "$ref": "#/components/schemas/uint"
+            "title": "max priority fee per gas"
           },
           "maxFeePerGas": {
-            "title": "max fee per gas",
+            "$ref": "#/components/schemas/uint",
             "description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
-            "$ref": "#/components/schemas/uint"
+            "title": "max fee per gas"
           },
           "accessList": {
-            "title": "accessList",
-            "type": "array"
+            "$ref": "#/components/schemas/AccessList",
+            "description": "EIP-2930 access list",
+            "title": "accessList"
           },
           "chainId": {
-            "title": "chainId",
+            "$ref": "#/components/schemas/uint",
             "description": "Chain ID that this transaction is valid on.",
-            "$ref": "#/components/schemas/uint"
+            "title": "chainId"
           }
         }
       },
@@ -2151,8 +2117,8 @@
             "$ref": "#/components/schemas/byte"
           },
           "nonce": {
-            "title": "nonce",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "nonce"
           },
           "to": {
             "title": "to address",
@@ -2162,32 +2128,32 @@
                 "type": "null"
               },
               {
-                "title": "Recipient Address",
-                "$ref": "#/components/schemas/address"
+                "$ref": "#/components/schemas/address",
+                "title": "Address"
               }
             ]
           },
           "gas": {
-            "title": "gas limit",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "gas limit"
           },
           "value": {
-            "title": "value",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "value"
           },
           "input": {
-            "title": "input data",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/bytes",
+            "title": "input data"
           },
           "gasPrice": {
-            "title": "gas price",
+            "$ref": "#/components/schemas/uint",
             "description": "The gas price willing to be paid by the sender in wei",
-            "$ref": "#/components/schemas/uint"
+            "title": "gas price"
           },
           "chainId": {
-            "title": "chainId",
+            "$ref": "#/components/schemas/uint",
             "description": "Chain ID that this transaction is valid on.",
-            "$ref": "#/components/schemas/uint"
+            "title": "chainId"
           }
         }
       },
@@ -2203,48 +2169,24 @@
             "required": ["yParity", "r", "s", "v"],
             "properties": {
               "yParity": {
-                "title": "yParity",
+                "$ref": "#/components/schemas/byte",
                 "description": "The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/byte"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "title": "yParity"
               },
               "r": {
-                "title": "r",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "r"
               },
               "s": {
-                "title": "s",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "s"
               },
               "v": {
-                "title": "v",
+                "$ref": "#/components/schemas/byte",
                 "description": "For backwards compatibility, `v` is optionally provided as an alternative to `yParity`. This field is DEPRECATED and all use of it should migrate to `yParity`.",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/byte"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "title": "v"
               }
             }
-          }
-        ]
-      },
-      "TransactionUnsigned": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/Transaction1559Unsigned"
-          },
-          {
-            "$ref": "#/components/schemas/TransactionLegacyUnsigned"
           }
         ]
       },
@@ -2260,23 +2202,16 @@
             "required": ["v", "r", "s"],
             "properties": {
               "v": {
-                "title": "v",
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/uint"
-                  },
-                  {
-                    "$ref": "#/components/schemas/null"
-                  }
-                ]
+                "$ref": "#/components/schemas/uint",
+                "title": "v"
               },
               "r": {
-                "title": "r",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "r"
               },
               "s": {
-                "title": "s",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "s"
               }
             }
           }
@@ -2301,24 +2236,24 @@
             "required": ["blockHash", "blockNumber", "from", "hash", "transactionIndex"],
             "properties": {
               "blockHash": {
-                "title": "block hash",
-                "$ref": "#/components/schemas/hash32"
+                "$ref": "#/components/schemas/hash32",
+                "title": "block hash"
               },
               "blockNumber": {
-                "title": "block number",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "block number"
               },
               "from": {
-                "title": "from address",
-                "$ref": "#/components/schemas/address"
+                "$ref": "#/components/schemas/address",
+                "title": "from address"
               },
               "hash": {
-                "title": "transaction hash",
-                "$ref": "#/components/schemas/hash32"
+                "$ref": "#/components/schemas/hash32",
+                "title": "transaction hash"
               },
               "transactionIndex": {
-                "title": "transaction index",
-                "$ref": "#/components/schemas/uint"
+                "$ref": "#/components/schemas/uint",
+                "title": "transaction index"
               }
             }
           },
@@ -2337,32 +2272,32 @@
             "type": "boolean"
           },
           "logIndex": {
-            "title": "log index",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "log index"
           },
           "transactionIndex": {
-            "title": "transaction index",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "transaction index"
           },
           "transactionHash": {
-            "title": "transaction hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "transaction hash"
           },
           "blockHash": {
-            "title": "block hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "block hash"
           },
           "blockNumber": {
-            "title": "block number",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "block number"
           },
           "address": {
-            "title": "address",
-            "$ref": "#/components/schemas/address"
+            "$ref": "#/components/schemas/address",
+            "title": "address"
           },
           "data": {
-            "title": "data",
-            "$ref": "#/components/schemas/bytes"
+            "$ref": "#/components/schemas/bytes",
+            "title": "data"
           },
           "topics": {
             "title": "topics",
@@ -2391,38 +2326,28 @@
         "additionalProperties": false,
         "properties": {
           "type": {
-            "title": "type",
-            "description": "Transaction type. Null for HAPI transactions.",
-            "oneOf": [
-              {
-                "title": "Transaction Type",
-                "$ref": "#/components/schemas/byte"
-              },
-              {
-                "title": "Null (HAPI transaction)",
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/byte",
+            "title": "type"
           },
           "transactionHash": {
-            "title": "transaction hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "transaction hash"
           },
           "transactionIndex": {
-            "title": "transaction index",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "transaction index"
           },
           "blockHash": {
-            "title": "block hash",
-            "$ref": "#/components/schemas/hash32"
+            "$ref": "#/components/schemas/hash32",
+            "title": "block hash"
           },
           "blockNumber": {
-            "title": "block number",
-            "$ref": "#/components/schemas/uint"
+            "$ref": "#/components/schemas/uint",
+            "title": "block number"
           },
           "from": {
-            "title": "from",
-            "$ref": "#/components/schemas/address"
+            "$ref": "#/components/schemas/address",
+            "title": "from"
           },
           "to": {
             "title": "to",
@@ -2433,20 +2358,20 @@
                 "type": "null"
               },
               {
-                "title": "Recipient Address",
-                "$ref": "#/components/schemas/address"
+                "$ref": "#/components/schemas/address",
+                "title": "Recipient Address"
               }
             ]
           },
           "cumulativeGasUsed": {
-            "title": "cumulative gas used",
+            "$ref": "#/components/schemas/uint",
             "description": "The sum of gas used by this transaction and all preceding transactions in the same block.",
-            "$ref": "#/components/schemas/uint"
+            "title": "cumulative gas used"
           },
           "gasUsed": {
-            "title": "gas used",
+            "$ref": "#/components/schemas/uint",
             "description": "The amount of gas used for this specific transaction alone.",
-            "$ref": "#/components/schemas/uint"
+            "title": "gas used"
           },
           "contractAddress": {
             "title": "contract address",
@@ -2469,23 +2394,23 @@
             }
           },
           "logsBloom": {
-            "title": "logs bloom",
-            "$ref": "#/components/schemas/bytes256"
+            "$ref": "#/components/schemas/bytes256",
+            "title": "logs bloom"
           },
           "root": {
-            "title": "state root",
+            "$ref": "#/components/schemas/hash32",
             "description": "The post-transaction state root. Only specified for transactions included before the Byzantium upgrade.",
-            "$ref": "#/components/schemas/hash32"
+            "title": "state root"
           },
           "status": {
-            "title": "status",
+            "$ref": "#/components/schemas/uint",
             "description": "Either 1 (success) or 0 (failure). Only specified for transactions included after the Byzantium upgrade.",
-            "$ref": "#/components/schemas/uint"
+            "title": "status"
           },
           "effectiveGasPrice": {
-            "title": "effective gas price",
+            "$ref": "#/components/schemas/uint",
             "description": "The actual value per gas deducted from the sender's account. Before EIP-1559, this is equal to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).",
-            "$ref": "#/components/schemas/uint"
+            "title": "effective gas price"
           }
         }
       },
@@ -2503,7 +2428,7 @@
             "title": "new transaction hashes",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/hash32"
+              "$ref": "#/components/schemas/Log"
             }
           },
           {
@@ -2561,8 +2486,8 @@
         "title": "Filter Topic List Entry",
         "oneOf": [
           {
-            "title": "Any Topic Match",
-            "type": "null"
+            "$ref": "#/components/schemas/bytes32",
+            "title": "Single Topic Match"
           },
           {
             "title": "Single Topic Match",
@@ -2576,28 +2501,6 @@
             }
           }
         ]
-      },
-      "LogFilter": {
-        "title": "log filter",
-        "type": "object",
-        "properties": {
-          "fromBlock": {
-            "title": "from block",
-            "$ref": "#/components/schemas/uint"
-          },
-          "toBlock": {
-            "title": "to block",
-            "$ref": "#/components/schemas/uint"
-          },
-          "address": {
-            "title": "Address",
-            "$ref": "#/components/schemas/address"
-          },
-          "topics": {
-            "title": "Topics",
-            "$ref": "#/components/schemas/FilterTopics"
-          }
-        }
       },
       "callframe": {
         "type": "object",
@@ -2652,6 +2555,226 @@
           }
         },
         "required": ["from", "gas", "input"]
+      },
+      "AccessList": {
+        "items": {
+          "$ref": "#/components/schemas/AccessListEntry"
+        },
+        "title": "Access list",
+        "type": "array"
+      },
+      "AccessListEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/address"
+          },
+          "storageKeys": {
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["address", "storageKeys"],
+        "title": "Access list entry",
+        "type": "object"
+      },
+      "AuthorizationList": {
+        "description": "List of authorizations for the transaction",
+        "items": {
+          "properties": {
+            "address": {
+              "$ref": "#/components/schemas/address"
+            },
+            "chainId": {
+              "$ref": "#/components/schemas/uint",
+              "description": "Chain ID on which this transaction is valid",
+              "title": "chainId"
+            },
+            "nonce": {
+              "$ref": "#/components/schemas/uint",
+              "title": "nonce"
+            },
+            "r": {
+              "$ref": "#/components/schemas/uint256",
+              "title": "r"
+            },
+            "s": {
+              "$ref": "#/components/schemas/uint256",
+              "title": "s"
+            },
+            "yParity": {
+              "$ref": "#/components/schemas/byte",
+              "description": "The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature",
+              "title": "yParity"
+            }
+          },
+          "required": ["chainId", "nonce", "address", "yParity", "r", "s"],
+          "type": "object"
+        },
+        "title": "Authorization List",
+        "type": "array"
+      },
+      "BadBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "$ref": "#/components/schemas/Block",
+            "title": "Block"
+          },
+          "hash": {
+            "$ref": "#/components/schemas/hash32",
+            "title": "Hash"
+          },
+          "rlp": {
+            "$ref": "#/components/schemas/bytes",
+            "title": "RLP"
+          }
+        },
+        "required": ["block", "hash", "rlp"],
+        "title": "Bad block",
+        "type": "object"
+      },
+      "GenericTransaction": {
+        "additionalProperties": false,
+        "properties": {
+          "accessList": {
+            "$ref": "#/components/schemas/AccessList",
+            "description": "EIP-2930 access list",
+            "title": "accessList"
+          },
+          "authorizationList": {
+            "$ref": "#/components/schemas/AuthorizationList",
+            "description": "EIP-7702 authorization list",
+            "title": "authorizationList"
+          },
+          "blobVersionedHashes": {
+            "description": "List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.",
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            },
+            "title": "blobVersionedHashes",
+            "type": "array"
+          },
+          "blobs": {
+            "description": "Raw blob data.",
+            "items": {
+              "$ref": "#/components/schemas/bytes"
+            },
+            "title": "blobs",
+            "type": "array"
+          },
+          "chainId": {
+            "$ref": "#/components/schemas/uint",
+            "description": "Chain ID that this transaction is valid on.",
+            "title": "chainId"
+          },
+          "from": {
+            "$ref": "#/components/schemas/address",
+            "title": "from address"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/uint",
+            "title": "gas limit"
+          },
+          "gasPrice": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The gas price willing to be paid by the sender in wei",
+            "title": "gas price"
+          },
+          "input": {
+            "$ref": "#/components/schemas/bytes",
+            "title": "input data"
+          },
+          "maxFeePerBlobGas": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The maximum total fee per gas the sender is willing to pay for blob gas in wei",
+            "title": "max fee per blob gas"
+          },
+          "maxFeePerGas": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
+            "title": "max fee per gas"
+          },
+          "maxPriorityFeePerGas": {
+            "$ref": "#/components/schemas/uint",
+            "description": "Maximum fee per gas the sender is willing to pay to miners in wei",
+            "title": "max priority fee per gas"
+          },
+          "nonce": {
+            "$ref": "#/components/schemas/uint",
+            "title": "nonce"
+          },
+          "to": {
+            "oneOf": [
+              {
+                "title": "Contract Creation (null)",
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/address",
+                "title": "Address"
+              }
+            ],
+            "title": "to address"
+          },
+          "type": {
+            "$ref": "#/components/schemas/byte",
+            "title": "type"
+          },
+          "value": {
+            "$ref": "#/components/schemas/uint",
+            "title": "value"
+          }
+        },
+        "title": "Transaction object generic to all types",
+        "type": "object"
+      },
+      "SyncingStatus": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "currentBlock": {
+                "$ref": "#/components/schemas/uint",
+                "title": "Current block"
+              },
+              "highestBlock": {
+                "$ref": "#/components/schemas/uint",
+                "title": "Highest block"
+              },
+              "startingBlock": {
+                "$ref": "#/components/schemas/uint",
+                "title": "Starting block"
+              }
+            },
+            "title": "Syncing progress",
+            "type": "object"
+          },
+          {
+            "description": "Should always return false if not syncing.",
+            "title": "Not syncing",
+            "type": "boolean"
+          }
+        ],
+        "title": "Syncing status"
+      },
+      "bytesMax32": {
+        "pattern": "^0x[0-9a-f]{0,64}$",
+        "title": "32 hex encoded bytes",
+        "type": "string"
+      },
+      "ratio": {
+        "maximum": 1,
+        "minimum": 0,
+        "title": "normalized ratio",
+        "type": "number"
+      },
+      "uintDecimal": {
+        "pattern": "^[1-9][0-9]*$",
+        "title": "decimal unsigned integer string",
+        "type": "string"
       }
     }
   }
