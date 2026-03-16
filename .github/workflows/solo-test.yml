@@ -283,6 +283,8 @@ jobs:
               ENABLE_NONCE_ORDERING: "false"
               HAPI_CLIENT_TRANSACTION_RESET: "50000"  # ← New: avoid client rebuilds
               ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"  # ← New: reduce MN lookups
+              MIRROR_NODE_REQUEST_RETRY_COUNT: "1"         # ← cut retry storm (was 10 × 2001ms = 20s of timers)
+              MIRROR_NODE_RETRY_DELAY: "500"               # ← cut retry delay (was 2001ms)
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -385,6 +387,21 @@ jobs:
             echo "WARNING: Relay pod not found; log streaming skipped."
           fi
 
+      - name: Start Resource Sampler
+        if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
+        run: |
+          # Sample pod resource usage every 15s during the benchmark so we can see
+          # memory trends under load — not just a single snapshot at the end.
+          # The PID is saved to GITHUB_ENV so the diagnostics step can stop it.
+          (while true; do
+            printf '=== %s ===\n' "$(date -u +%H:%M:%S)" >> /tmp/kubectl-top-snapshots.txt
+            kubectl top pods -n "${SOLO_NAMESPACE}" >> /tmp/kubectl-top-snapshots.txt 2>&1
+            sleep 15
+          done) &
+          KUBECTL_TOP_PID=$!
+          echo "KUBECTL_TOP_PID=${KUBECTL_TOP_PID}" >> "$GITHUB_ENV"
+          echo "Resource sampler started (PID ${KUBECTL_TOP_PID}) — sampling every 15s to /tmp/kubectl-top-snapshots.txt"
+
       - name: Record benchmark start time
         if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
         id: test-timing
@@ -419,6 +436,12 @@ jobs:
           if [ -n "${RELAY_LOGGER_PID}" ]; then
             kill "${RELAY_LOGGER_PID}" 2>/dev/null || true
             echo "Stopped relay log streamer (PID ${RELAY_LOGGER_PID})"
+          fi
+
+          # Stop background resource sampler if it's still running.
+          if [ -n "${KUBECTL_TOP_PID}" ]; then
+            kill "${KUBECTL_TOP_PID}" 2>/dev/null || true
+            echo "Stopped resource sampler (PID ${KUBECTL_TOP_PID})"
           fi
 
           # Relay pod may be gone if OOMKilled and not restarted — that's expected.
@@ -478,6 +501,65 @@ jobs:
             echo "${STREAMING_PREVIEW}"
           fi
 
+          # ── V8 heap metrics (live, from /metrics endpoint) ────────────────
+          # Shows heap_size_used vs heap_size_total vs the --max-old-space-size ceiling.
+          # If used ≈ total the GC is thrashing; if relay is frozen this will fail.
+          V8_METRICS=$(kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            node -e "const http=require('http');let d='';http.get('http://localhost:7546/metrics',r=>{r.on('data',c=>d+=c);r.on('end',()=>{console.log(d.split('\n').filter(l=>/nodejs_heap|nodejs_gc_duration|process_resident/.test(l)).join('\n'))})}).on('error',e=>{console.log('fetch failed: '+e.message);process.exit(1)});" \
+            2>/dev/null) || V8_METRICS="(metrics fetch failed — relay may be frozen)"
+
+          echo "=== V8 heap metrics ==="
+          echo "${V8_METRICS}"
+
+          # ── cGroup memory pressure (cgroups v2 preferred, v1 fallback) ─────
+          # memory.events reports oom/oom_kill counts even without an OOMKill.
+          # Under memory pressure the kernel reclaims pages (pgmajfault), causing
+          # GC spikes and event loop stalls even when the pod stays alive.
+          CGROUP_MEM=$(kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'cat /sys/fs/cgroup/memory.events 2>/dev/null \
+                   || cat /sys/fs/cgroup/memory/memory.stat 2>/dev/null \
+                      | grep -E "^(total_oom_kill|total_pgfault|total_pgmajfault|oom_kill)" \
+                   || echo "(cgroup stats unavailable)"' \
+            2>/dev/null) || CGROUP_MEM="(exec failed)"
+
+          echo "=== cGroup memory events ==="
+          echo "${CGROUP_MEM}"
+
+          # ── Mirror Node component logs ────────────────────────────────────
+          # The relay's 408/504 errors originate in Mirror Node. These logs show
+          # whether the REST API or the importer backlog is the actual bottleneck.
+          MN_REST_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E 'mirror.*rest[^j]' | head -1)
+          MN_IMPORTER_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E 'mirror.*importer' | head -1)
+
+          MN_REST_LOGS="(mirror-rest pod not found)"
+          if [ -n "${MN_REST_POD}" ]; then
+            MN_REST_LOGS=$(kubectl logs --tail=100 -n "${SOLO_NAMESPACE}" "${MN_REST_POD}" 2>/dev/null) \
+              || MN_REST_LOGS="(log fetch failed)"
+          fi
+
+          MN_IMPORTER_LOGS="(mirror-importer pod not found)"
+          if [ -n "${MN_IMPORTER_POD}" ]; then
+            MN_IMPORTER_LOGS=$(kubectl logs --tail=100 -n "${SOLO_NAMESPACE}" "${MN_IMPORTER_POD}" 2>/dev/null) \
+              || MN_IMPORTER_LOGS="(log fetch failed)"
+          fi
+
+          echo "=== Mirror Node REST logs (last 100 lines) ==="
+          echo "${MN_REST_LOGS}"
+          echo "=== Mirror Node Importer logs (last 100 lines) ==="
+          echo "${MN_IMPORTER_LOGS}"
+
+          # ── kubectl top snapshot history ──────────────────────────────────
+          TOP_SAMPLES="(no samples collected)"
+          if [ -f /tmp/kubectl-top-snapshots.txt ]; then
+            TOP_SAMPLES=$(cat /tmp/kubectl-top-snapshots.txt)
+            echo "=== kubectl top snapshots during benchmark ==="
+            echo "${TOP_SAMPLES}"
+          fi
+
           # ── Write diagnostics section to GitHub Step Summary ──────────────
           printf '## Pod Diagnostics\n\n' >> "${GITHUB_STEP_SUMMARY}"
 
@@ -496,6 +578,21 @@ jobs:
 
           printf '<details><summary>Relay Logs — streamed during benchmark (%s total lines, last 300)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
             "${STREAMING_LINES}" "${STREAMING_PREVIEW}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>V8 Heap Metrics (from /metrics at collection time)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${V8_METRICS}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>cGroup Memory Events (oom/pgfault counts)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${CGROUP_MEM}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>Mirror Node REST Logs (last 100 lines)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${MN_REST_LOGS}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>Mirror Node Importer Logs (last 100 lines)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${MN_IMPORTER_LOGS}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>kubectl top snapshots during benchmark (every 15s)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${TOP_SAMPLES}" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Generate Report
         if: always()
@@ -694,7 +791,7 @@ jobs:
             "${TOP_FULL}" >> "${GITHUB_STEP_SUMMARY}"
           printf '<details><summary>Relay Container Limits (from pod spec)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
             "${CONFIGURED_LIMITS}" >> "${GITHUB_STEP_SUMMARY}"
-          printf '---\n> **Reading guide:**\n> - Relay Memory ≈ limit → under pressure; OOMKills likely at higher load.\n> - Relay Memory ≪ limit → room for further reduction.\n> - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.\n' \
+          printf -- '---\n> **Reading guide:**\n> - Relay Memory ≈ limit → under pressure; OOMKills likely at higher load.\n> - Relay Memory ≪ limit → room for further reduction.\n> - OOMKills or Restarts > 0 → the limit is too aggressive for this workload.\n' \
             >> "${GITHUB_STEP_SUMMARY}"
 
           echo "Report written to GitHub Job Summary."
