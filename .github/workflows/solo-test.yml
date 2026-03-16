@@ -16,13 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "256-192-old-10-vus-110-rps-10s"
-            memory_limit: "256Mi"
-            wallet_amount: 10
-            signed_txs: 500
-            bench_target_rps: 110
-            duration: "10s"
-            node_opts: "--max-old-space-size=192"
           - name: "256-192-old-20-vus-100-rps-10s"
             memory_limit: "256Mi"
             wallet_amount: 20
@@ -30,7 +23,13 @@ jobs:
             bench_target_rps: 100
             duration: "10s"
             node_opts: "--max-old-space-size=192"
-
+          - name: "128-96-old-20-vus-50-rps-10s "
+            memory_limit: "128Mi"
+            wallet_amount: 20
+            signed_txs: 500
+            bench_target_rps: 50
+            duration: "10s"
+            node_opts: "--max-old-space-size=96"
           - name: "128-96-old-10-vus-50-rps-10s "
             memory_limit: "128Mi"
             wallet_amount: 10
@@ -38,20 +37,13 @@ jobs:
             bench_target_rps: 50
             duration: "10s"
             node_opts: "--max-old-space-size=96"
-          - name: "128-96-old-10-vus-30-rps-10s "
-            memory_limit: "128Mi"
+          - name: "112-84-old-10-vus-30-rps-10s "
+            memory_limit: "112Mi"
             wallet_amount: 10
             signed_txs: 500
-            bench_target_rps: 30
+            bench_target_rps: 50
             duration: "10s"
-            node_opts: "--max-old-space-size=96"
-          - name: "128-96-old-10-vus-15-rps-10s "
-            memory_limit: "128Mi"
-            wallet_amount: 10
-            signed_txs: 500
-            bench_target_rps: 15
-            duration: "10s"
-            node_opts: "--max-old-space-size=96"
+            node_opts: "--max-old-space-size=84"
           - name: "112-84-old-10-vus-30-rps-10s "
             memory_limit: "112Mi"
             wallet_amount: 10
@@ -59,41 +51,6 @@ jobs:
             bench_target_rps: 30
             duration: "10s"
             node_opts: "--max-old-space-size=84"
-          - name: "112-84-old-5-vus-10-rps-10s "
-            memory_limit: "112Mi"
-            wallet_amount: 5
-            signed_txs: 500
-            bench_target_rps: 10
-            duration: "10s"
-            node_opts: "--max-old-space-size=84"
-          - name: "112-84-old-5-vus-5-rps-10s "
-            memory_limit: "112Mi"
-            wallet_amount: 5
-            signed_txs: 500
-            bench_target_rps: 5
-            duration: "10s"
-            node_opts: "--max-old-space-size=84"
-          - name: "104-78-old-5-vus-20-rps-10s "
-            memory_limit: "104Mi"
-            wallet_amount: 5
-            signed_txs: 500
-            bench_target_rps: 20
-            duration: "10s"
-            node_opts: "--max-old-space-size=78"
-          - name: "104-78-old-5-vus-10-rps-10s  "
-            memory_limit: "104Mi"
-            wallet_amount: 5
-            signed_txs: 500
-            bench_target_rps: 10
-            duration: "10s"
-            node_opts: "--max-old-space-size=78"
-          - name: "104-78-old-5-vus-5-rps-10s "
-            memory_limit: "104Mi"
-            wallet_amount: 5
-            signed_txs: 500
-            bench_target_rps: 5
-            duration: "10s"
-            node_opts: "--max-old-space-size=78"
 
     permissions:
       contents: read
