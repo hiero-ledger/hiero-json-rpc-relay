@@ -3,6 +3,7 @@ import { Button, TextField, Typography } from '@mui/material';
 import { ethers } from 'ethers';
 import ContractTransferTx from '../contracts/ContractTransferTx.json';
 import bootstrapInfo from '../contracts/.bootstrapInfo.json';
+import { GAS_OPTIONS } from '../constants/gas';
 
 const ActivateHollowAccountForm = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +24,7 @@ const ActivateHollowAccountForm = ({ signer, isConnected, chain, address }) => {
       setIsLoading(true);
       setActivateHollowAccountMsg('Loading...');
 
-      const tx = await contract.transferTo(hollowAccountAddress, 3_000_000_000, { gasLimit: 1_000_000 });
+      const tx = await contract.transferTo(hollowAccountAddress, 3_000_000_000, GAS_OPTIONS);
       const receipt = await tx.wait();
 
       setActivateHollowAccountMsg(receipt.logs[0].fragment.name == 'Transferred' ? 'Done' : 'There was an error.');

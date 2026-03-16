@@ -10,6 +10,8 @@ import TransferHTSTokensForm from './components/TransferHTSTokensForm';
 import AssociateHTSTokensForm from './components/AssociateHTSTokensForm';
 import ActivateHollowAccountForm from './components/ActivateHollowAccountForm';
 
+import { GAS_OPTIONS } from './constants/gas';
+
 function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [signer, setSigner] = useState(null);
@@ -129,7 +131,7 @@ function App() {
     const tx = await signer.sendTransaction({
       to: hbarsToAddress,
       value: hbarsAmount,
-      gasLimit: 1_000_000,
+      ...GAS_OPTIONS,
     });
     await tx.wait();
 

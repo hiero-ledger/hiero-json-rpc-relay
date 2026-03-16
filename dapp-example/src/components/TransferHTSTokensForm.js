@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Button, TextField, Typography } from '@mui/material';
 import { ethers } from 'ethers';
 import ERC20ABI from '../contracts/ERC20ABI.json';
+import { GAS_OPTIONS } from '../constants/gas';
 
 const TransferHTSTokensForm = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +26,7 @@ const TransferHTSTokensForm = ({ signer, isConnected, chain, address }) => {
       setHtsTokenMsg('Loading...');
 
       const contract = new ethers.Contract(htsTokenAddress, ERC20ABI, signer);
-      const tx = await contract.transfer(htsTokenReceiverAddress, htsTokenAmount, { gasLimit: 1_000_000 });
+      const tx = await contract.transfer(htsTokenReceiverAddress, htsTokenAmount, GAS_OPTIONS);
       await tx.wait();
 
       setHtsTokenMsg('Done');

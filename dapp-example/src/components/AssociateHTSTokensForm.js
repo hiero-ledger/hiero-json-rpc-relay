@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Button, TextField, Typography } from '@mui/material';
 import { ethers } from 'ethers';
 import IHRC from '../contracts/IHRC.json';
+import { GAS_OPTIONS } from '../constants/gas';
 
 const AssociateHTSTokensForm = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -22,7 +23,7 @@ const AssociateHTSTokensForm = ({ signer, isConnected, chain, address }) => {
       setIsLoading(true);
       setHtsTokenAssocaiteMsg('Loading...');
 
-      const txAssociate = await hrcToken.associate({ gasLimit: 1_000_0000 });
+      const txAssociate = await hrcToken.associate(GAS_OPTIONS);
       const receiptAssociate = await txAssociate.wait();
 
       setHtsTokenAssocaiteMsg(receiptAssociate.status === 1 ? 'Done' : 'There was an error.');

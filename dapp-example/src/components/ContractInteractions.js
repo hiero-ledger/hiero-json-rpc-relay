@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Button, Typography, TextField, Link } from '@mui/material';
 import Greeter from '../contracts/Greeter.json';
 import { ethers } from 'ethers';
+import { GAS_OPTIONS } from '../constants/gas';
 
 const ContractInteractions = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +28,7 @@ const ContractInteractions = ({ signer, isConnected, chain, address }) => {
       setDeployContractMsg('Loading...');
 
       const contractFactory = new ethers.ContractFactory(Greeter.abi, Greeter.bytecode, signer);
-      const contract = await contractFactory.deploy('initial_msg', { gasLimit: 1_000_000 });
+      const contract = await contractFactory.deploy('initial_msg', GAS_OPTIONS);
       await contract.waitForDeployment();
       setContractAddress(contract.target);
 
