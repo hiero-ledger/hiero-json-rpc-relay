@@ -145,6 +145,7 @@ run-relay:
 		echo "    REDIS_ENABLED: \"false\""; \
 		echo "    USE_ASYNC_TX_PROCESSING: \"true\""; \
 		echo "    ENABLE_NONCE_ORDERING: \"false\""; \
+		echo "    SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: \"true\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
