@@ -276,7 +276,7 @@ jobs:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
-              LOG_LEVEL: "error"
+              LOG_LEVEL: "warn"
               RATE_LIMIT_DISABLED: "true"
               REDIS_ENABLED: "false"
               USE_ASYNC_TX_PROCESSING: "true"
@@ -367,6 +367,24 @@ jobs:
           # Allow the port-forward daemon to bind before the benchmark proceeds.
           sleep 3
 
+      - name: Start Relay Log Streaming
+        if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
+        run: |
+          # Stream relay logs to a file in the background so we capture what happens
+          # during load — not just startup or crash. The PID is saved to GITHUB_ENV
+          # so the diagnostics step can terminate the streamer after the benchmark.
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+          if [ -n "${RELAY_POD}" ]; then
+            kubectl logs -f -n "${SOLO_NAMESPACE}" "${RELAY_POD}" >> /tmp/relay-benchmark-logs.txt 2>&1 &
+            LOGGER_PID=$!
+            echo "RELAY_LOGGER_PID=${LOGGER_PID}" >> "$GITHUB_ENV"
+            echo "Streaming relay logs from pod '${RELAY_POD}' → /tmp/relay-benchmark-logs.txt (PID ${LOGGER_PID})"
+          else
+            echo "WARNING: Relay pod not found; log streaming skipped."
+          fi
+
       - name: Record benchmark start time
         if: steps.run-relay.outcome == 'success' && steps.prep-cn.outcome == 'success'
         id: test-timing
@@ -391,6 +409,93 @@ jobs:
         working-directory: k6
         run: |
           npm run verify-cn-tps
+
+      - name: Collect Pod Diagnostics
+        if: always()
+        run: |
+          set +e
+
+          # Stop background log streamer if it's still running.
+          if [ -n "${RELAY_LOGGER_PID}" ]; then
+            kill "${RELAY_LOGGER_PID}" 2>/dev/null || true
+            echo "Stopped relay log streamer (PID ${RELAY_LOGGER_PID})"
+          fi
+
+          # Relay pod may be gone if OOMKilled and not restarted — that's expected.
+          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+
+          if [ -z "${RELAY_POD}" ]; then
+            echo "WARNING: Relay pod not found at diagnostics collection time."
+            printf '## Pod Diagnostics\n\n> Relay pod not found — likely OOMKilled and not restarted before collection.\n\n' \
+              >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          echo "Collecting diagnostics from pod: ${RELAY_POD}"
+
+          # ── /proc/1/limits — the real ulimit inside the container ──────────
+          # Max open files tells us if EMFILE (too many open FDs) is the cause
+          # of "connection refused" errors. Max processes catches fork bombs /
+          # thread exhaustion. These are the kernel-enforced cgroup limits.
+          PROC_LIMITS=$(kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            cat /proc/1/limits 2>/dev/null) || PROC_LIMITS="(exec failed — pod may be terminating)"
+
+          echo "=== /proc/1/limits ==="
+          echo "${PROC_LIMITS}"
+
+          # ── Open FD count for PID 1 ──────────────────────────────────────
+          # If open FDs ≈ Max open files, the next open() call will get EMFILE
+          # and Node's net stack will surface this as "connection refused".
+          FD_COUNT=$(kubectl exec -n "${SOLO_NAMESPACE}" "${RELAY_POD}" -- \
+            sh -c 'ls /proc/1/fd 2>/dev/null | wc -l') || FD_COUNT="(exec failed)"
+
+          echo "=== Open FD count (PID 1): ${FD_COUNT} ==="
+
+          # ── Current container logs ────────────────────────────────────────
+          CURRENT_LOGS=$(kubectl logs --tail=300 -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 2>/dev/null) \
+            || CURRENT_LOGS="(log fetch failed)"
+
+          echo "=== Current relay logs (last 300 lines) ==="
+          echo "${CURRENT_LOGS}"
+
+          # ── Previous container logs (post-OOMKill) ────────────────────────
+          # These are the last lines the process wrote before the kernel killed it.
+          PREV_LOGS=$(kubectl logs --previous --tail=300 -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 2>/dev/null) \
+            || PREV_LOGS="(no previous container — pod has not restarted)"
+
+          echo "=== Previous relay logs (last 300 lines) ==="
+          echo "${PREV_LOGS}"
+
+          # ── Benchmark streaming logs ──────────────────────────────────────
+          STREAMING_LINES=0
+          STREAMING_PREVIEW="(benchmark log file not found)"
+          if [ -f /tmp/relay-benchmark-logs.txt ]; then
+            STREAMING_LINES=$(wc -l < /tmp/relay-benchmark-logs.txt)
+            STREAMING_PREVIEW=$(tail -300 /tmp/relay-benchmark-logs.txt)
+            echo "=== Benchmark streaming logs (${STREAMING_LINES} total lines, last 300) ==="
+            echo "${STREAMING_PREVIEW}"
+          fi
+
+          # ── Write diagnostics section to GitHub Step Summary ──────────────
+          printf '## Pod Diagnostics\n\n' >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '### Resource Limits (`/proc/1/limits`\n\n' >> "${GITHUB_STEP_SUMMARY}"
+          printf '> Compare **Max open files** against the open FD count below.\n'\
+                 '> If they are close, `EMFILE` is causing the "connection refused" errors.\n\n' \
+            >> "${GITHUB_STEP_SUMMARY}"
+          printf '```\n%s\n```\n\n' "${PROC_LIMITS}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '**Open FD count (PID 1):** `%s`\n\n' "${FD_COUNT}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>Relay Logs — current container (last 300 lines)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${CURRENT_LOGS}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>Relay Logs — previous container / post-OOMKill (last 300 lines)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${PREV_LOGS}" >> "${GITHUB_STEP_SUMMARY}"
+
+          printf '<details><summary>Relay Logs — streamed during benchmark (%s total lines, last 300)</summary>\n\n```\n%s\n```\n\n</details>\n\n' \
+            "${STREAMING_LINES}" "${STREAMING_PREVIEW}" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Generate Report
         if: always()
