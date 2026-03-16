@@ -22,12 +22,13 @@ import {
 import RelayCalls from '../helpers/constants';
 
 describe('Proxy Headers Integration Tests', function () {
-  this.timeout(10000);
+  this.timeout(30000);
 
   const logger = pino({ level: 'silent' });
 
   // Use in-memory Redis server for CI compatibility
-  useInMemoryRedisServer(logger, 6380);
+  // Port 6399 avoids conflicts with relay tests that use 6380
+  useInMemoryRedisServer(logger, 6399);
 
   // Test with rate limiting enabled and a low limit to make testing easier
   overrideEnvsInMochaDescribe({

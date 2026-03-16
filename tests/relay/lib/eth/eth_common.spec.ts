@@ -24,6 +24,10 @@ describe('@ethCommon', async function () {
     relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 
+  this.afterAll(() => {
+    sinon.restore();
+  });
+
   describe('@ethCommon', async function () {
     it('should execute "eth_chainId"', async function () {
       const chainId = relay.eth().chainId(requestDetails);
