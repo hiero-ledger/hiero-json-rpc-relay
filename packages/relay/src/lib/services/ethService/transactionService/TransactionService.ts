@@ -283,6 +283,14 @@ export class TransactionService implements ITransactionService {
       );
     }
     this.precheck.validateBasicPropertiesStateless(parsedTx);
+
+    // Lightweight mode: skip all Mirror Node prechecks and post-consensus validation.
+    // The relay acts as a thin pass-through to the consensus node.
+    if (ConfigService.get('SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE')) {
+      this.sendRawTransactionLightweight(transactionBuffer, parsedTx, requestDetails);
+      return Utils.computeTransactionHash(transactionBuffer);
+    }
+
     await this.transactionPoolService.saveTransaction(parsedTx.from!, parsedTx);
 
     let lockResult: LockAcquisitionResult | undefined;
@@ -624,6 +632,40 @@ export class TransactionService implements ITransactionService {
 
     // At this point, either no error or a post-execution failure that needs MN polling
     return this.getTransactionHashFromMirrorNode(submittedTransactionId, error, requestDetails);
+  }
+
+  /**
+   * Lightweight transaction processor that submits directly to the consensus node
+   * without Mirror Node precheck validation or post-consensus record polling.
+   * Used when SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE is enabled.
+   *
+   * @param transactionBuffer - The raw transaction data as a buffer.
+   * @param parsedTx - The parsed Ethereum transaction object.
+   * @param requestDetails - Details of the request for logging and tracking purposes.
+   */
+  private async sendRawTransactionLightweight(
+    transactionBuffer: Buffer,
+    parsedTx: EthersTransaction,
+    requestDetails: RequestDetails,
+  ): Promise<void> {
+    const originalCallerAddress = parsedTx.from?.toString() || '';
+
+    this.eventEmitter.emit('eth_execution', {
+      method: constants.ETH_SEND_RAW_TRANSACTION,
+    });
+
+    try {
+      await this.hapiService.submitEthereumTransaction(
+        transactionBuffer,
+        constants.ETH_SEND_RAW_TRANSACTION,
+        requestDetails,
+        originalCallerAddress,
+        0, // networkGasPriceInWeiBars - not needed, consensus node validates
+        await this.getCurrentNetworkExchangeRateInCents(requestDetails),
+      );
+    } catch (e: any) {
+      this.logger.warn(e, `Lightweight mode: transaction submission failed`);
+    }
   }
 
   /**

@@ -284,10 +284,17 @@ jobs:
               REDIS_ENABLED: "false"
               USE_ASYNC_TX_PROCESSING: "true"
               ENABLE_NONCE_ORDERING: "false"
-              HAPI_CLIENT_TRANSACTION_RESET: "50000"  # ← New: avoid client rebuilds
-              ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"  # ← New: reduce MN lookups
-              MIRROR_NODE_REQUEST_RETRY_COUNT: "1"         # ← cut retry storm (was 10 × 2001ms = 20s of timers)
-              MIRROR_NODE_RETRY_DELAY: "500"               # ← cut retry delay (was 2001ms)
+              HAPI_CLIENT_TRANSACTION_RESET: "50000"
+              ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"
+              MIRROR_NODE_REQUEST_RETRY_COUNT: "1"
+              SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: "true"
+              # NOTE: MIRROR_NODE_RETRY_DELAY is NOT set here because Solo hardcodes
+              # it via Helm --set (2001ms), which always overrides --values files.
+              # We override it in the "Override Solo Hardcoded Config" step via kubectl instead.
+              # Memory tuning for small pods:
+              MIRROR_NODE_HTTP_MAX_SOCKETS: "50"
+              MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "50"
+              CACHE_MAX: "200"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -296,6 +303,31 @@ jobs:
           STARTUP_SECS=$(( RELAY_END - RELAY_START ))
           echo "Relay startup time: ${STARTUP_SECS}s"
           echo "startup_secs=${STARTUP_SECS}" >> "$GITHUB_OUTPUT"
+
+      - name: Override Solo Hardcoded Config
+        if: steps.run-relay.outcome == 'success'
+        run: |
+          # Solo hardcodes MIRROR_NODE_RETRY_DELAY=2001 and
+          # MIRROR_NODE_GET_CONTRACT_RESULTS_DEFAULT_RETRIES=21 via Helm --set flags,
+          # which always take precedence over --values files. The only way to override
+          # them is to patch the deployment directly after Solo creates it.
+          RELAY_DEPLOY=$(kubectl get deployments -n "${SOLO_NAMESPACE}" --no-headers \
+            -o custom-columns=":metadata.name" 2>/dev/null \
+            | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1)
+
+          if [ -z "${RELAY_DEPLOY}" ]; then
+            echo "WARNING: Relay deployment not found; skipping config override."
+            exit 0
+          fi
+
+          echo "Patching deployment '${RELAY_DEPLOY}' to override Solo's hardcoded values..."
+          kubectl set env deployment "${RELAY_DEPLOY}" -n "${SOLO_NAMESPACE}" \
+            MIRROR_NODE_RETRY_DELAY="500" \
+            MIRROR_NODE_GET_CONTRACT_RESULTS_DEFAULT_RETRIES="1"
+
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment "${RELAY_DEPLOY}" -n "${SOLO_NAMESPACE}" --timeout=120s
+          echo "Config override applied and relay pod restarted."
 
       - name: check Relay Resources
         run: |

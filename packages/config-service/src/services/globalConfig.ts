@@ -706,6 +706,11 @@ const _CONFIG = {
     required: false,
     defaultValue: true,
   },
+  SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: {
+    type: 'boolean',
+    required: false,
+    defaultValue: false,
+  },
   LOCK_MAX_HOLD_MS: {
     type: 'number',
     required: false,
