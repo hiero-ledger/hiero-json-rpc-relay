@@ -13,7 +13,16 @@ import { CommonService } from './CommonService';
 const logger = pino({ level: ConfigService.get('LOG_LEVEL') || 'trace' });
 const register = RegistryFactory.getInstance();
 const cacheService = CacheClientFactory.create(logger, register);
-const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
+const mirrorNodeClient = new MirrorNodeClient(
+  ConfigService.get('MIRROR_NODE_URL'),
+  logger,
+  register,
+  cacheService,
+  undefined,
+  undefined,
+  undefined,
+  ConfigService.get('MIRROR_NODE_URL_REST_JAVA') || ConfigService.get('MIRROR_NODE_URL'),
+);
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 
 export async function getLogs(
