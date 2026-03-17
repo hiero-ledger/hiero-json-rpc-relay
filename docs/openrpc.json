@@ -689,8 +689,6 @@
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
-          "type": "string",
-          "pattern": "0x0",
           "oneOf": [
             {
               "$ref": "#/components/schemas/notFound"
@@ -721,8 +719,6 @@
         "schema": {
           "description": "Always returns '0x0'. There are no uncles in Hedera.",
           "title": "hex encoded unsigned integer",
-          "type": "string",
-          "pattern": "0x0",
           "oneOf": [
             {
               "$ref": "#/components/schemas/notFound"
@@ -868,7 +864,8 @@
         "name": "Max priority fee per gas",
         "schema": {
           "$ref": "#/components/schemas/uint",
-          "title": "Max priority fee per gas"
+          "title": "Max priority fee per gas",
+          "description": "Always returns '0x0'. Hedera doesn't have a concept of tipping nodes to promote any behavior"
         }
       }
     },
