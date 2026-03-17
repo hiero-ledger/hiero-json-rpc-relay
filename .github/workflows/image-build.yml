@@ -78,8 +78,8 @@ jobs:
       - name: Start WebSocket relay server
         run: |
           docker run --env-file .env \
-            -d -p 8546:8546 -p 8547:8547 --name relay-ws relay:latest \
-            packages/ws-server/dist/index.js
+            -e RPC_HTTP_ENABLED=false -e RPC_WS_ENABLED=true -e HEALTHCHECK_PORT=8547 \
+            -d -p 8546:8546 -p 8547:8547 --name relay-ws relay:latest
 
       - name: Test WebSocket relay liveness
         run: |
