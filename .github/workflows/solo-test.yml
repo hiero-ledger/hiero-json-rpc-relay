@@ -23,6 +23,13 @@ jobs:
             bench_target_rps: 100
             duration: "10s"
             node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-10-vus-120-rps-10s (100+ TPS locally)"
+            memory_limit: "256Mi"
+            wallet_amount: 10
+            signed_txs: 500
+            bench_target_rps: 120
+            duration: "10s"
+            node_opts: "--max-old-space-size=192"
           - name: "128-96-old-20-vus-50-rps-10s "
             memory_limit: "128Mi"
             wallet_amount: 20
