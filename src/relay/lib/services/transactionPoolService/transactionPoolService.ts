@@ -191,7 +191,7 @@ export class TransactionPoolService implements ITransactionPoolService {
    */
   async getPendingCount(address: string, fallbackValue?: number): Promise<number> {
     if (!TransactionPoolService.isEnabled()) {
-      return 0;
+      return fallbackValue ?? 0;
     }
 
     const addressLowerCased = address.toLowerCase();

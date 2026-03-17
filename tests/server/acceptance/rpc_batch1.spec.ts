@@ -23,7 +23,7 @@ import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { BLOCK_NUMBER_ERROR, HASH_ERROR } from '../../../src/relay/lib/validators';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
-import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
+import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
@@ -1237,22 +1237,37 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           });
         });
 
-        it('should fail with WRONG_NONCE when a transaction with very high nonce has been sent', async () => {
-          const nonceLatest = await relay.getAccountNonce(accounts[1].address);
-          const txHash = await relay.sendRawTransaction(
-            await accounts[1].wallet.signTransaction({
-              ...defaultLondonTransactionData,
-              to: accounts[2].address,
-              nonce: nonceLatest + 100,
-            }),
-          );
+        [true, false].forEach((ENABLE_TX_POOL) => {
+          withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL }, () => {
+            [
+              {
+                label: 'a nonce too high (by one only!)',
+                value: 1,
+              },
+              {
+                label: 'very high nonce',
+                value: 100,
+              },
+            ].forEach(({ label, value }) => {
+              it(`should fail with WRONG_NONCE when a transaction with ${label} has been sent`, async () => {
+                const nonceLatest = await relay.getAccountNonce(accounts[1].address);
+                const txHash = await relay.sendRawTransaction(
+                  await accounts[1].wallet.signTransaction({
+                    ...defaultLondonTransactionData,
+                    to: accounts[2].address,
+                    nonce: nonceLatest + value,
+                  }),
+                );
 
-          // wait for at least one block time
-          await new Promise((r) => setTimeout(r, 2100));
+                // wait for at least one block time
+                await new Promise((r) => setTimeout(r, 2100));
 
-          await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
-            (err: any) => err.response.status === 404,
-          );
+                await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
+                  (err: any) => err.response.status === 404,
+                );
+              });
+            });
+          });
         });
       });
 

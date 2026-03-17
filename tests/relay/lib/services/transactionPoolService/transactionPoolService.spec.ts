@@ -175,6 +175,13 @@ describe('TransactionPoolService Test Suite', function () {
         expect(result).to.equal(0);
         expect(mockStorage.getList.notCalled).to.be.true;
       });
+      [0, 1, 2].forEach((fallbackValue) => {
+        it(`should return fallback value  (${fallbackValue}) when present and if ENABLE_TX_POOL is set to false`, async function () {
+          await expect(transactionPoolService.getPendingCount(testAddress, fallbackValue)).to.eventually.equal(
+            fallbackValue,
+          );
+        });
+      });
     });
 
     it('should successfully retrieve pending transaction count', async () => {
