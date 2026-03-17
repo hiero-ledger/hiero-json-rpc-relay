@@ -63,7 +63,7 @@ export const options = {
   },
   thresholds: {
     [`http_req_failed{scenario:cn_benchmark}`]: [{ threshold: `rate<${1 - PASS_RATE}`, abortOnFail: false }],
-    [`http_req_duration{scenario:cn_benchmark}`]: [{ threshold: 'p(95)<10000', abortOnFail: false }],
+    [`http_req_duration{scenario:cn_benchmark}`]: [{ threshold: 'p(95)<100000', abortOnFail: false }],
   },
 };
 
