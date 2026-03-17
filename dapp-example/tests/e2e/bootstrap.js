@@ -3,7 +3,6 @@ const ethers = require('ethers');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { GAS_OPTIONS } = require('../../src/constants/gas');
 
 const randomUppercaseString = (length = 5) => {
   let result = '';
@@ -146,7 +145,7 @@ const deployAndFundContractTransferTx = async function (wallet) {
   const contractArtifact = require('../../src/contracts/ContractTransferTx.json');
 
   const contractFactory = new ethers.ContractFactory(contractArtifact.abi, contractArtifact.bytecode, wallet);
-  const contract = await contractFactory.deploy(GAS_OPTIONS);
+  const contract = await contractFactory.deploy({ gasLimit: 10_000_000, gasPrice: 710_000_000_000 });
   await contract.waitForDeployment();
   const contractAddress = contract.target;
 
