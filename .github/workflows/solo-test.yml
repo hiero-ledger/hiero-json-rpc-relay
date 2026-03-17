@@ -16,48 +16,69 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "256-192-old-20-vus-100-rps-10s"
+          - name: "256-192-old-200-vus-100-rps-10s"
             memory_limit: "256Mi"
-            wallet_amount: 20
+            wallet_amount: 200
             signed_txs: 500
             bench_target_rps: 100
             duration: "10s"
             node_opts: "--max-old-space-size=192"
-          - name: "256-192-old-10-vus-120-rps-10s (100+ TPS locally)"
+          - name: "256-192-old-150-vus-100-rps-10s"
             memory_limit: "256Mi"
-            wallet_amount: 10
+            wallet_amount: 150
             signed_txs: 500
-            bench_target_rps: 120
+            bench_target_rps: 100
             duration: "10s"
             node_opts: "--max-old-space-size=192"
-          - name: "128-96-old-20-vus-50-rps-10s "
-            memory_limit: "128Mi"
-            wallet_amount: 20
+          - name: "256-192-old-120-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 120
             signed_txs: 500
-            bench_target_rps: 50
+            bench_target_rps: 100
             duration: "10s"
-            node_opts: "--max-old-space-size=96"
-          - name: "128-96-old-10-vus-50-rps-10s "
-            memory_limit: "128Mi"
-            wallet_amount: 10
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-100-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 100
             signed_txs: 500
-            bench_target_rps: 50
+            bench_target_rps: 100
             duration: "10s"
-            node_opts: "--max-old-space-size=96"
-          - name: "112-84-old-10-vus-30-rps-10s "
-            memory_limit: "112Mi"
-            wallet_amount: 10
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-80-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 80
             signed_txs: 500
-            bench_target_rps: 50
+            bench_target_rps: 100
             duration: "10s"
-            node_opts: "--max-old-space-size=84"
-          - name: "112-84-old-10-vus-30-rps-10s "
-            memory_limit: "112Mi"
-            wallet_amount: 10
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-50-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 50
             signed_txs: 500
-            bench_target_rps: 30
+            bench_target_rps: 100
             duration: "10s"
-            node_opts: "--max-old-space-size=84"
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-30-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 30
+            signed_txs: 500
+            bench_target_rps: 100
+            duration: "10s"
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-15-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 15
+            signed_txs: 500
+            bench_target_rps: 100
+            duration: "10s"
+            node_opts: "--max-old-space-size=192"
+          - name: "256-192-old-5-vus-100-rps-10s"
+            memory_limit: "256Mi"
+            wallet_amount: 5
+            signed_txs: 500
+            bench_target_rps: 100
+            duration: "10s"
+            node_opts: "--max-old-space-size=192"
 
     permissions:
       contents: read
@@ -258,7 +279,7 @@ jobs:
               HAPI_CLIENT_TRANSACTION_RESET: "50000"
               ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"
               MIRROR_NODE_REQUEST_RETRY_COUNT: "1"
-              SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: "true"
+              SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: "false"
               # NOTE: MIRROR_NODE_RETRY_DELAY is NOT set here because Solo hardcodes
               # it via Helm --set (2001ms), which always overrides --values files.
               # We override it in the "Override Solo Hardcoded Config" step via kubectl instead.
