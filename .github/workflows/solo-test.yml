@@ -160,7 +160,12 @@ jobs:
           # Launch a bootstrap relay (default Solo configuration) so prep-cn can fund wallets
           # and pre-sign transactions against a live network. This instance is destroyed and
           # replaced by the matrix-specific relay before the benchmark begins.
-          solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}"
+          cat <<EOF > bootstrap-relay-config.yaml
+          relay:
+            config:
+              RATE_LIMIT_DISABLED: "true"
+          EOF
+          solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f bootstrap-relay-config.yaml
 
       - name: Install k6
         uses: grafana/setup-k6-action@v1
