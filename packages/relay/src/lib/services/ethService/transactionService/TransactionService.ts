@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
+import { Transaction as EthersTransaction } from '../../../../lib/ethers';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
