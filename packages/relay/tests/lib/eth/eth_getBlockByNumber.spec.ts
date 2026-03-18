@@ -599,7 +599,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
             number: BLOCK_NUMBER_HEX,
             parentHash: BLOCK_HASH_PREV_TRIMMED,
             timestamp: BLOCK_TIMESTAMP_HEX,
-            // should not include the transaction with wrong nonce or invalid account id
             transactions: [CONTRACT_HASH_1, CONTRACT_HASH_2, HASH_1, HASH_2],
             receiptsRoot: DEFAULT_BLOCK_RECEIPTS_ROOT_HASH,
           },

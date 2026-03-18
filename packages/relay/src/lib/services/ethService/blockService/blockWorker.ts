@@ -456,9 +456,8 @@ export async function getBlockReceipts(
  * Returns RLP-encoded transaction receipts for a block as hex strings.
  *
  * Loads block execution data (contract results and logs), then for each contract result
- * builds a receipt (with logs and cumulative gas), encodes it to RLP hex, and skips
- * results that fail Hedera-specific validation. Also appends synthetic receipts for
- * log groups that have no matching contract result.
+ * builds a receipt (with logs and cumulative gas), encodes it to RLP hex. Also appends
+ * synthetic receipts for log groups that have no matching contract result.
  *
  * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
  * @param requestDetails - The request details for logging and tracking
