@@ -2424,7 +2424,7 @@
             "title": "new transaction hashes",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Log"
+              "$ref": "#/components/schemas/hash32"
             }
           },
           {
