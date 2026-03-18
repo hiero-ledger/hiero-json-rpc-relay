@@ -30,6 +30,9 @@ help:
 	@echo "  make clean-solo          - Delete clusters"
 	@echo "  make prune-docker        - Force remove all containers and prune system/volumes"
 	@echo "  make run-cn-benchmark    - Prep wallets + run CN throughput benchmark (130 RPS → ≥100 TPS)"
+	@echo "  make cn-port-forward     - Port-forward consensus node (50211)"
+	@echo "  make mn-port-forward     - Port-forward mirror node REST (8081)"
+	@echo "  make relay-port-forward  - Port-forward relay JSON-RPC (7546)"
 	@echo ""
 	@echo "Parameters:"
 	@echo "  mem_limit                - Container memory limit (e.g., 128Mi, 256Mi)"
@@ -42,10 +45,39 @@ help:
 	@echo ""
 	@echo "Example: make run-relay mem_limit=128 old=32 semi=4 local"
 
-.PHONY: port-forward
-port-forward:
-	kill -9 $$(lsof -ti :50211) || true
+.PHONY: cn-port-forward
+cn-port-forward:
+	-kill -9 $$(lsof -ti :50211) 2>/dev/null || true
 	kubectl port-forward -n "${SOLO_NAMESPACE}" network-node1-0 50211:50211 &
+	@echo "Port-forwarding consensus node 50211 → localhost:50211"
+
+.PHONY: mn-port-forward
+mn-port-forward:
+	-kill -9 $$(lsof -ti :8081) 2>/dev/null || true
+	@MIRROR_SVC=$$(kubectl get svc -n "${SOLO_NAMESPACE}" --no-headers \
+	  -o custom-columns=":metadata.name" 2>/dev/null \
+	  | grep -iE 'rest' | grep -ivE 'grpc|ws|proxy' | head -1); \
+	if [ -n "$$MIRROR_SVC" ]; then \
+	  MIRROR_PORT=$$(kubectl get svc "$$MIRROR_SVC" -n "${SOLO_NAMESPACE}" \
+	    -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "80"); \
+	  kubectl port-forward -n "${SOLO_NAMESPACE}" svc/"$$MIRROR_SVC" 8081:"$$MIRROR_PORT" & \
+	  echo "Port-forwarding mirror '$$MIRROR_SVC' :$$MIRROR_PORT → localhost:8081"; \
+	else \
+	  echo "WARNING: Mirror REST service not found; port-forward skipped."; \
+	fi
+
+.PHONY: relay-port-forward
+relay-port-forward:
+	-kill -9 $$(lsof -ti :7546) 2>/dev/null || true
+	@RELAY_POD=$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+	  -o custom-columns=":metadata.name" 2>/dev/null \
+	  | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1); \
+	if [ -n "$$RELAY_POD" ]; then \
+	  kubectl port-forward -n "${SOLO_NAMESPACE}" "$$RELAY_POD" 7546:7546 & \
+	  echo "Port-forwarding relay '$$RELAY_POD' 7546 → localhost:7546"; \
+	else \
+	  echo "WARNING: Relay pod not found; port-forward skipped."; \
+	fi
 
 .PHONY: clean-solo
 clean-solo:
@@ -77,7 +109,7 @@ setup-solo: clean-solo
 	solo consensus node start --deployment "${SOLO_DEPLOYMENT}"
 	solo mirror node add --deployment "${SOLO_DEPLOYMENT}" --cluster-ref kind-${SOLO_CLUSTER_NAME} --enable-ingress --pinger
 	solo ledger account predefined --deployment "${SOLO_DEPLOYMENT}"
-	$(MAKE) port-forward
+	$(MAKE) cn-port-forward
 
 # Default values
 mem_limit ?= 1000Mi
@@ -140,12 +172,15 @@ run-relay:
 		echo "  config:"; \
 		echo "    npm_package_version: \"$(PACKAGE_VERSION)\""; \
 		echo "    WORKERS_POOL_ENABLED: \"false\""; \
-		echo "    LOG_LEVEL: \"error\""; \
+		echo "    LOG_LEVEL: \"silent\""; \
+		echo "    PRETTY_LOGS_ENABLED: \"false\""; \
 		echo "    RATE_LIMIT_DISABLED: \"true\""; \
 		echo "    REDIS_ENABLED: \"false\""; \
 		echo "    USE_ASYNC_TX_PROCESSING: \"true\""; \
 		echo "    ENABLE_NONCE_ORDERING: \"false\""; \
-		echo "    SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: \"true\""; \
+		echo "    SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: \"false\""; \
+		echo "    CACHE_MAX: \"50\""; \
+		echo "    CACHE_TTL: \"900\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \
@@ -164,7 +199,19 @@ run-relay:
 	-solo relay node destroy -i node1 --deployment "${SOLO_DEPLOYMENT}" --quiet-mode 2>/dev/null || true
 	solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
 	rm -f relay-resources.yaml
-	@echo "Relay setup complete with $$FINAL_MEM limit."
+# 	@echo "Overriding Solo hardcoded config (MIRROR_NODE_RETRY_DELAY, MIRROR_NODE_GET_CONTRACT_RESULTS_DEFAULT_RETRIES)..."
+# 	@RELAY_DEPLOY=$$(kubectl get deployments -n "${SOLO_NAMESPACE}" --no-headers \
+# 	  -o custom-columns=":metadata.name" 2>/dev/null \
+# 	  | grep -E '^relay-[0-9]+-' | grep -v -- '-ws-' | head -1); \
+# 	if [ -n "$$RELAY_DEPLOY" ]; then \
+# 	  kubectl set env deployment "$$RELAY_DEPLOY" -n "${SOLO_NAMESPACE}" \
+# 	    MIRROR_NODE_RETRY_DELAY="500" \
+# 	    MIRROR_NODE_GET_CONTRACT_RESULTS_DEFAULT_RETRIES="1"; \
+# 	  kubectl rollout status deployment "$$RELAY_DEPLOY" -n "${SOLO_NAMESPACE}" --timeout=120s; \
+# 	else \
+# 	  echo "WARNING: Relay deployment not found; skipping config override."; \
+# 	fi
+# 	$(MAKE) relay-port-forward
 
 .PHONY: destroy-relay clean-relay
 destroy-relay clean-relay:
@@ -199,10 +246,32 @@ extract-heap-snapshots:
 	@RELAY_POD=$$(kubectl get pods -n solo --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+-[^w]' | head -1); \
 	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
 	echo "Extracting snapshot files from $$RELAY_POD..."; \
-	for file in $$(kubectl exec -n solo "$$RELAY_POD" -- sh -c 'cd /home/node/app/packages/server && ls -1 *.heapsnapshot 2>/dev/null'); do \
+	for file in $$(kubectl exec -n solo "$$RELAY_POD" -- sh -c 'cd /home/node/app && ls -1 *.heapsnapshot 2>/dev/null'); do \
 		echo "Copying $$file to host..."; \
-		kubectl cp solo/$$RELAY_POD:/home/node/app/packages/server/$$file ./$$file; \
+		kubectl cp solo/$$RELAY_POD:/home/node/app/$$file ./$$file; \
 	done
+
+.PHONY: extract-heap-profiles
+extract-heap-profiles:
+	@RELAY_POD=$$(kubectl get pods -n solo --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+-[^w]' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Extracting .heapprofile files from $$RELAY_POD..."; \
+	FILES=$$(kubectl exec -n solo "$$RELAY_POD" -- sh -c 'cd /home/node/app && ls -1 *.heapprofile 2>/dev/null' 2>/dev/null); \
+	if [ -z "$$FILES" ]; then echo "No .heapprofile files found in pod."; exit 0; fi; \
+	for file in $$FILES; do \
+		echo "Copying $$file to host..."; \
+		kubectl cp solo/$$RELAY_POD:/home/node/app/$$file ./$$file; \
+	done
+
+.PHONY: stop-relay-node
+stop-relay-node:
+	@RELAY_POD=$$(kubectl get pods -n solo --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+-[^w]' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Discovering Node.js PID in $$RELAY_POD..."; \
+	NODE_PID=$$(kubectl exec -n solo "$$RELAY_POD" -- sh -c 'for p in /proc/[0-9]*; do cat $$p/cmdline 2>/dev/null | tr "\0" " " | grep -Eq "^node .*dist/index.js" && basename $$p && break; done'); \
+	if [ -z "$$NODE_PID" ]; then echo "Error: Node.js process not found"; exit 1; fi; \
+	echo "Sending SIGTERM to PID $$NODE_PID (Node.js will write .heapprofile on exit)..."; \
+	kubectl exec -n solo "$$RELAY_POD" -- sh -c "kill $$NODE_PID"
 
 
 .PHONY: report

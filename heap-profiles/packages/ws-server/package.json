@@ -1,0 +1,18 @@
+{
+  "name": "@hashgraph/json-rpc-ws-server",
+  "version": "0.76.0-SNAPSHOT",
+  "main": "dist/index.js",
+  "dependencies": {
+    "@hashgraph/json-rpc-config-service": "file:../config-service",
+    "@hashgraph/json-rpc-relay": "file:../relay",
+    "@hashgraph/json-rpc-server": "file:../server",
+    "@koa/cors": "^5.0.0",
+    "co-body": "6.2.0",
+    "dotenv": "^17.2.1",
+    "koa": "^3.0.1",
+    "koa-websocket": "^7.0.0",
+    "lru-cache": "^11.1.0",
+    "pino": "^10.1.0",
+    "pino-pretty": "^13.1.2"
+  }
+}

@@ -277,6 +277,7 @@ jobs:
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
               LOG_LEVEL: "warn"
+              PRETTY_LOGS_ENABLED: "false"
               RATE_LIMIT_DISABLED: "true"
               REDIS_ENABLED: "false"
               USE_ASYNC_TX_PROCESSING: "true"

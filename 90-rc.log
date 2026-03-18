@@ -1,0 +1,322 @@
+[11:0xffff9b240000]       26 ms: Scavenge 4.8 (5.4) -> 4.3 (6.4) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]       35 ms: Scavenge 5.2 (6.6) -> 4.8 (7.1) MB, pooled: 0 MB, 0.38 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]       44 ms: Scavenge 5.9 (7.1) -> 5.4 (7.6) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]        7 ms: Scavenge 3.1 (3.6) -> 2.4 (4.6) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]       51 ms: Scavenge 6.3 (8.1) -> 6.0 (8.4) MB, pooled: 0 MB, 0.33 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]       13 ms: Scavenge 3.3 (4.9) -> 3.0 (5.4) MB, pooled: 0 MB, 0.38 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]       65 ms: Scavenge 7.9 (9.4) -> 7.5 (10.1) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]       27 ms: Scavenge 4.0 (5.6) -> 3.8 (6.1) MB, pooled: 0 MB, 0.42 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]       73 ms: Scavenge 8.7 (10.4) -> 8.4 (10.9) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]       60 ms: Scavenge 4.8 (6.4) -> 4.5 (6.6) MB, pooled: 0 MB, 0.44 / 0.00 ms  (average mu = 1.000, current mu = 1.000) task; 
+[11:0xffff9b240000]      105 ms: Scavenge 9.1 (10.9) -> 8.8 (11.4) MB, pooled: 0 MB, 0.40 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      110 ms: Scavenge 9.6 (11.4) -> 9.2 (11.6) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      119 ms: Scavenge 10.2 (11.9) -> 9.8 (12.4) MB, pooled: 0 MB, 0.26 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]       83 ms: Scavenge 6.0 (7.4) -> 5.5 (7.6) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      149 ms: Scavenge 10.7 (12.4) -> 10.3 (12.6) MB, pooled: 0 MB, 0.33 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      154 ms: Scavenge 11.2 (12.9) -> 10.9 (13.4) MB, pooled: 0 MB, 0.34 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]      116 ms: Scavenge 6.4 (7.9) -> 5.9 (8.4) MB, pooled: 0 MB, 0.46 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      155 ms: Scavenge 11.4 (13.4) -> 11.3 (13.6) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      156 ms: Scavenge 11.8 (13.6) -> 11.7 (13.9) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      156 ms: Scavenge 12.3 (13.9) -> 12.1 (14.4) MB, pooled: 0 MB, 0.29 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      157 ms: Scavenge 12.7 (14.4) -> 12.5 (14.9) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      161 ms: Mark-Compact 13.0 (14.9) -> 10.0 (14.6) MB, pooled: 0 MB, 1.21 / 0.00 ms  (+ 0.1 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 4 ms) (average mu = 0.992, current mu = 0.992) finalize incremental marking via stack guard; GC in old space requested
+[11:0xffff9b240000]      169 ms: Scavenge 11.3 (14.6) -> 10.7 (14.6) MB, pooled: 0 MB, 0.20 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      172 ms: Scavenge 11.4 (14.9) -> 10.9 (14.9) MB, pooled: 0 MB, 0.26 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      201 ms: Scavenge 11.9 (14.9) -> 11.3 (14.9) MB, pooled: 0 MB, 0.40 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      205 ms: Scavenge 12.0 (14.9) -> 11.3 (14.9) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      210 ms: Scavenge 12.3 (14.9) -> 11.4 (14.9) MB, pooled: 0 MB, 0.18 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      212 ms: Scavenge 12.3 (15.5) -> 11.7 (15.2) MB, pooled: 0 MB, 0.18 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      213 ms: Scavenge 12.1 (15.6) -> 12.1 (15.6) MB, pooled: 0 MB, 0.12 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      213 ms: Scavenge 12.8 (16.3) -> 12.8 (16.3) MB, pooled: 0 MB, 0.13 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      214 ms: Scavenge 13.8 (17.2) -> 13.8 (17.2) MB, pooled: 0 MB, 0.16 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      215 ms: Scavenge 15.4 (18.7) -> 15.3 (18.7) MB, pooled: 0 MB, 0.20 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      216 ms: Scavenge 16.4 (19.8) -> 15.9 (19.4) MB, pooled: 0 MB, 0.14 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      218 ms: Scavenge 17.1 (20.6) -> 17.1 (20.6) MB, pooled: 0 MB, 0.17 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      221 ms: Scavenge 19.6 (23.1) -> 19.6 (23.1) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      226 ms: Scavenge (interleaved) 25.6 (28.1) -> 25.0 (28.1) MB, pooled: 0 MB, 1.62 / 0.00 ms  (average mu = 0.992, current mu = 0.992) allocation failure; 
+[11:0xffff9b240000]      229 ms: Mark-Compact 25.4 (28.1) -> 16.8 (20.4) MB, pooled: 0 MB, 1.97 / 0.00 ms  (+ 0.1 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 7 ms) (average mu = 0.986, current mu = 0.970) finalize incremental marking via stack guard; GC in old space requested
+[11:0xffff9b240000]      231 ms: Scavenge 17.8 (20.4) -> 17.5 (20.4) MB, pooled: 0 MB, 0.58 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      233 ms: Scavenge 18.4 (21.0) -> 17.8 (20.8) MB, pooled: 0 MB, 0.67 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      252 ms: Scavenge 18.8 (20.8) -> 18.1 (21.0) MB, pooled: 0 MB, 0.30 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      256 ms: Scavenge 19.0 (21.0) -> 18.5 (21.3) MB, pooled: 0 MB, 0.37 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      260 ms: Scavenge 19.4 (21.3) -> 18.9 (21.8) MB, pooled: 0 MB, 0.46 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      264 ms: Scavenge 19.7 (21.8) -> 19.2 (22.0) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      268 ms: Scavenge 20.1 (22.0) -> 19.7 (22.0) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      273 ms: Scavenge 20.5 (22.3) -> 20.0 (22.5) MB, pooled: 0 MB, 0.25 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      278 ms: Scavenge 20.9 (22.8) -> 20.4 (23.3) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      281 ms: Scavenge 21.2 (23.3) -> 20.8 (23.5) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      285 ms: Scavenge 21.7 (23.5) -> 21.2 (24.0) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      303 ms: Scavenge 22.2 (24.0) -> 21.6 (24.3) MB, pooled: 0 MB, 0.26 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      305 ms: Scavenge 22.4 (24.3) -> 21.7 (24.5) MB, pooled: 0 MB, 0.15 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      314 ms: Scavenge 22.9 (24.8) -> 22.4 (24.8) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      323 ms: Scavenge 23.4 (25.0) -> 23.1 (25.5) MB, pooled: 0 MB, 0.41 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      328 ms: Scavenge 24.0 (25.8) -> 23.6 (26.3) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      332 ms: Scavenge 24.5 (26.5) -> 24.3 (26.8) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      337 ms: Scavenge 25.0 (26.8) -> 24.6 (27.5) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      349 ms: Scavenge 25.6 (27.5) -> 25.0 (27.8) MB, pooled: 0 MB, 0.39 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      358 ms: Scavenge 26.4 (28.1) -> 25.8 (28.4) MB, pooled: 0 MB, 0.44 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      361 ms: Scavenge 26.5 (28.4) -> 26.0 (28.9) MB, pooled: 0 MB, 0.54 / 0.00 ms  (average mu = 0.986, current mu = 0.970) allocation failure; 
+[11:0xffff9b240000]      375 ms: Mark-Compact 27.1 (29.4) -> 25.1 (29.2) MB, pooled: 0 MB, 1.47 / 0.00 ms  (+ 0.1 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 14 ms) (average mu = 0.988, current mu = 0.990) finalize incremental marking via stack guard; GC in old space requested
+[11:0xffff9b240000]      410 ms: Scavenge 26.8 (29.7) -> 26.4 (29.7) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      413 ms: Scavenge 27.1 (30.1) -> 26.8 (30.6) MB, pooled: 0 MB, 0.41 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      419 ms: Scavenge 27.9 (30.6) -> 27.5 (31.1) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      422 ms: Scavenge 28.2 (31.1) -> 27.9 (31.3) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      427 ms: Scavenge 28.9 (31.6) -> 28.5 (31.8) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      431 ms: Scavenge 29.2 (31.8) -> 28.8 (32.3) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      435 ms: Scavenge 29.7 (32.3) -> 29.3 (32.6) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      439 ms: Scavenge 30.1 (32.8) -> 29.9 (33.3) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      443 ms: Scavenge 30.6 (33.3) -> 30.3 (33.8) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      447 ms: Scavenge 31.2 (33.8) -> 30.9 (34.3) MB, pooled: 0 MB, 0.29 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      451 ms: Scavenge 31.7 (34.3) -> 31.3 (34.8) MB, pooled: 0 MB, 0.26 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      458 ms: Scavenge 32.8 (35.4) -> 32.5 (35.9) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      459 ms: Scavenge 33.0 (35.9) -> 32.9 (36.4) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      459 ms: Scavenge 33.5 (36.4) -> 33.3 (36.9) MB, pooled: 0 MB, 0.23 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      461 ms: Scavenge 33.9 (36.9) -> 33.7 (37.1) MB, pooled: 0 MB, 0.33 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      465 ms: Scavenge 34.5 (37.1) -> 34.0 (37.6) MB, pooled: 0 MB, 0.24 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      469 ms: Scavenge 34.8 (37.6) -> 34.4 (37.9) MB, pooled: 0 MB, 0.25 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      473 ms: Scavenge (interleaved) 35.2 (37.9) -> 34.9 (38.1) MB, pooled: 0 MB, 0.55 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      475 ms: Scavenge (interleaved) 35.9 (38.5) -> 35.5 (38.4) MB, pooled: 0 MB, 1.19 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      478 ms: Scavenge (interleaved) 37.0 (39.4) -> 36.6 (39.2) MB, pooled: 0 MB, 1.65 / 0.00 ms  (average mu = 0.988, current mu = 0.990) allocation failure; 
+[11:0xffff9b240000]      502 ms: Mark-Compact 37.0 (39.2) -> 34.7 (39.2) MB, pooled: 0 MB, 2.00 / 0.00 ms  (+ 0.2 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 32 ms) (average mu = 0.986, current mu = 0.984) finalize incremental marking via stack guard; GC in old space requested
+[11:0xffff9b240000]      509 ms: Scavenge 36.0 (39.2) -> 35.4 (40.2) MB, pooled: 0 MB, 0.32 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      514 ms: Scavenge 36.2 (40.5) -> 35.9 (40.5) MB, pooled: 0 MB, 0.32 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      518 ms: Scavenge 36.6 (40.5) -> 36.1 (40.7) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      522 ms: Scavenge 37.1 (40.7) -> 36.4 (40.7) MB, pooled: 0 MB, 0.18 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      525 ms: Scavenge 37.3 (40.7) -> 36.7 (40.7) MB, pooled: 0 MB, 0.27 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      528 ms: Scavenge 37.7 (41.0) -> 37.1 (41.0) MB, pooled: 0 MB, 0.18 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      532 ms: Scavenge 38.0 (41.0) -> 37.4 (41.0) MB, pooled: 0 MB, 0.19 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      537 ms: Scavenge 38.5 (41.2) -> 38.1 (41.2) MB, pooled: 0 MB, 0.29 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      542 ms: Scavenge 38.8 (41.2) -> 38.4 (41.7) MB, pooled: 0 MB, 0.29 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      552 ms: Scavenge 39.3 (42.0) -> 38.6 (42.0) MB, pooled: 0 MB, 0.33 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      557 ms: Scavenge 39.6 (42.2) -> 38.9 (42.2) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      561 ms: Scavenge 39.9 (42.2) -> 39.3 (42.5) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      567 ms: Scavenge 40.3 (42.7) -> 39.8 (43.0) MB, pooled: 0 MB, 0.31 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      573 ms: Scavenge 40.7 (43.0) -> 40.2 (43.5) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      579 ms: Scavenge 41.2 (43.5) -> 40.6 (43.7) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      583 ms: Scavenge 41.4 (43.7) -> 40.9 (44.0) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      588 ms: Scavenge 41.9 (44.2) -> 41.3 (44.2) MB, pooled: 0 MB, 0.34 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      591 ms: Scavenge 42.1 (44.2) -> 41.5 (44.5) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      599 ms: Scavenge 42.6 (45.2) -> 42.0 (45.5) MB, pooled: 0 MB, 0.28 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      600 ms: Scavenge 42.8 (45.5) -> 42.0 (45.5) MB, pooled: 0 MB, 0.22 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      600 ms: Scavenge 43.0 (45.5) -> 42.0 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      600 ms: Scavenge 43.0 (45.5) -> 42.0 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      601 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      601 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      602 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.19 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      603 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.11 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      603 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.08 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      604 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      604 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      604 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      605 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      605 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      605 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      606 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      606 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      607 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      607 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      607 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      608 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      608 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      608 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      609 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      609 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      610 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      610 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      610 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      611 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      611 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      612 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      612 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.06 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      612 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      613 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.05 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      613 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      614 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      614 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.15 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      615 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.10 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      615 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.12 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      616 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.09 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      616 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.12 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      616 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.08 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      617 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.15 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      617 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.10 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      618 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.09 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      618 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      619 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.08 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      619 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.19 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      620 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.09 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      620 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.08 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      620 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      621 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      621 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.07 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      622 ms: Scavenge 43.0 (45.5) -> 42.1 (45.5) MB, pooled: 0 MB, 0.16 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      650 ms: Scavenge (interleaved) 43.2 (45.7) -> 42.3 (45.7) MB, pooled: 0 MB, 0.58 / 0.00 ms  (average mu = 0.986, current mu = 0.984) allocation failure; 
+[11:0xffff9b240000]      659 ms: Mark-Compact 42.6 (45.7) -> 41.0 (45.9) MB, pooled: 0 MB, 2.23 / 0.00 ms  (+ 0.1 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 34 ms) (average mu = 0.986, current mu = 0.986) finalize incremental marking via stack guard; GC in old space requested
+[11:0xffff79a20000]        7 ms: Scavenge 3.1 (3.6) -> 2.3 (4.6) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff79a20000]       10 ms: Scavenge 3.4 (5.1) -> 3.1 (5.4) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff79a20000]       13 ms: Scavenge 4.2 (5.6) -> 3.9 (6.4) MB, pooled: 0 MB, 0.46 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff79a20000]       47 ms: Scavenge 4.9 (6.6) -> 4.7 (6.9) MB, pooled: 0 MB, 0.36 / 0.00 ms  (average mu = 1.000, current mu = 1.000) task; 
+[04:00:43.882] [33mWARN[39m (config-service/11): [36mNo .env file is found. The relay cannot operate without valid .env.[39m
+[11:0xffff79a20000]       64 ms: Scavenge 6.1 (7.6) -> 5.7 (7.9) MB, pooled: 0 MB, 0.35 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]      681 ms: Scavenge 7.0 (8.6) -> 6.3 (8.9) MB, pooled: 0 MB, 0.29 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff8a820000]      710 ms: Scavenge 7.1 (8.9) -> 6.3 (9.1) MB, pooled: 0 MB, 0.32 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mBATCH_REQUESTS_DISALLOWED_METHODS = debug_traceTransaction,debug_traceBlockByNumber,eth_newFilter,eth_uninstallFilter,eth_getFilterChanges,eth_getFilterLogs,eth_newBlockFilter,eth_newPendingTransactionFilter[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mBATCH_REQUESTS_ENABLED = true[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mBATCH_REQUESTS_MAX_SIZE = 100[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCACHE_MAX = 50[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCACHE_TTL = 900[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCALL_DATA_SIZE_LIMIT = 131072[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCHAIN_ID = 298[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCLIENT_TRANSPORT_SECURITY = false[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCONSENSUS_MAX_EXECUTION_TIME = 10000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCONTRACT_CALL_GAS_LIMIT = 50000000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mCONTRACT_QUERY_TIMEOUT_RETRIES = 3[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mDEBUG_API_ENABLED = false[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mDEFAULT_RATE_LIMIT = 200[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mDISABLE_ADMIN_NAMESPACE = false[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mE2E_RELAY_HOST = http://localhost:7546[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mE2E_SERVER_PORT = 7546[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mENABLE_TX_POOL = false[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_BLOCK_NUMBER_CACHE_TTL_MS = 1000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_CALL_ACCEPTED_ERRORS = [39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_CALL_CACHE_TTL = 200[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_FEE_HISTORY_FIXED = true[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_GET_BALANCE_CACHE_TTL_MS = 1000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_GET_GAS_PRICE_CACHE_TTL_MS = 1800000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_GET_LOGS_BLOCK_RANGE_LIMIT = 1000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_GET_TRANSACTION_COUNT_CACHE_TTL = 500[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE = 1000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mHEDERA_SPECIFIC_REVERT_STATUSES = WRONG_NONCE,INVALID_ACCOUNT_ID,SCHEDULE_FUTURE_THROTTLE_EXCEEDED,SCHEDULE_FUTURE_GAS_LIMIT_EXCEEDED,THROTTLED_AT_CONSENSUS,EVM_HOOK_GAS_THROTTLED,BUSY,CONSENSUS_GAS_EXHAUSTED,INVALID_SOLIDITY_ADDRESS,MAX_GAS_LIMIT_EXCEEDED,INVALID_FILE_ID[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mFEE_HISTORY_MAX_RESULTS = 10[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mFILE_APPEND_CHUNK_SIZE = 5120[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mFILE_APPEND_MAX_CHUNKS = 20[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mFILTER_API_ENABLED = true[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mFILTER_TTL = 300000[39m
+[04:00:43.883] [32mINFO[39m (config-service/11): [36mGAS_PRICE_PERCENTAGE_BUFFER = 0[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mGAS_PRICE_TINY_BAR_BUFFER = 10000000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mGET_RECORD_DEFAULT_TO_CONSENSUS_NODE = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHAPI_CLIENT_DURATION_RESET = 3600000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHAPI_CLIENT_ERROR_RESET = 21,50[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHAPI_CLIENT_TRANSACTION_RESET = 50[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_RATE_LIMIT_BASIC = 300000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_RATE_LIMIT_EXTENDED = 100000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_RATE_LIMIT_PRIVILEGED = 270000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_RATE_LIMIT_DURATION = 86400000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_RATE_LIMIT_TINYBAR = 25000000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHEDERA_NETWORK = {"10.96.123.33:50211":"0.0.3"}[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mHBAR_SPENDING_PLANS_CONFIG = spendingPlansConfig.json[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mINITIAL_BALANCE = 5000000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mINPUT_SIZE_LIMIT = 1[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mJUMBO_TX_ENABLED = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLIMIT_DURATION = 60000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLOCAL_LOCK_MAX_ENTRIES = 1000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLOG_LEVEL = silent[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPRETTY_LOGS_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMAX_BLOCK_RANGE = 5[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMAX_TRANSACTION_FEE_THRESHOLD = 15000000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMAX_GAS_ALLOWANCE_HBAR = 0[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_AGENT_CACHEABLE_DNS = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX = 200[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX = 500[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_CONTRACT_RESULTS_PG_MAX = 25[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_HTTP_KEEP_ALIVE = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_HTTP_KEEP_ALIVE_MSECS = 1000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_HTTP_MAX_SOCKETS = 300[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS = 300[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_HTTP_SOCKET_TIMEOUT = 60000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_LIMIT_PARAM = 100[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_MAX_REDIRECTS = 5[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_RETRIES = 0[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_RETRY_CODES = [39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_RETRY_DELAY = 2001[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_REQUEST_RETRY_COUNT = 10[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_TIMEOUT = 10000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_URL = http://mirror-ingress-controller-solo.solo.svc.cluster.local[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_URL_WEB3 = http://mirror-ingress-controller-solo.solo.svc.cluster.local[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE = 100[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mMIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY = 30[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mnpm_package_version = 0.76.0-SNAPSHOT[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mOPCODELOGGER_ENABLED = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mOPERATOR_ID_MAIN = 0.0.2[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mOPERATOR_KEY_MAIN = **********[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPAYMASTER_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPAYMASTER_WHITELIST = [39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPAYMASTER_ACCOUNTS = [39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPAYMASTER_ACCOUNTS_WHITELISTS = [39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mRATE_LIMIT_DISABLED = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mREAD_ONLY = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mREDIS_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mREDIS_RECONNECT_DELAY_MS = 1000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mREDIS_URL = redis://127.0.0.1:6379[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mREQUEST_ID_IS_OPTIONAL = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSDK_LOG_LEVEL = silent[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSDK_GRPC_DEADLINE = 10000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSDK_MAX_ATTEMPTS = 10[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSDK_REQUEST_TIMEOUT = 30000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSEND_RAW_TRANSACTION_SIZE_LIMIT = 133120[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSERVER_PORT = 7546[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSERVER_REQUEST_TIMEOUT_MS = 60000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSUBSCRIPTIONS_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTEST_GAS_PRICE_DEVIATION = 0.2[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTEST_INITIAL_ACCOUNT_STARTING_BALANCE = 2000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTEST_TRANSACTION_RECORD_COST_TOLERANCE = 0.02[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTEST_WS_SERVER = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mPENDING_TRANSACTION_STORAGE_TTL = 30[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTIER_1_RATE_LIMIT = 100[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTIER_2_RATE_LIMIT = 800[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTIER_3_RATE_LIMIT = 1600[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mTXPOOL_API_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mUSE_INTERNAL_RELAY = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mUSE_ASYNC_TX_PROCESSING = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mSEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLOCK_MAX_HOLD_MS = 30000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLOCK_QUEUE_POLL_INTERVAL_MS = 50[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mLOCK_HEARTBEAT_MISSED_COUNT = 5[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mENABLE_NONCE_ORDERING = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWEB_SOCKET_HTTP_PORT = 8547[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWEB_SOCKET_PORT = 8546[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_BATCH_REQUESTS_ENABLED = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_BATCH_REQUESTS_MAX_SIZE = 20[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_CACHE_TTL = 20000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_CONNECTION_LIMIT = 10[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_CONNECTION_LIMIT_PER_IP = 10[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_MAX_INACTIVITY_TTL = 300000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_MULTIPLE_ADDRESSES_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_NEW_HEADS_ENABLED = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWORKERS_POOL_ENABLED = false[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWORKERS_POOL_MAX_THREADS = 4[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWORKERS_POOL_MIN_THREADS = 2[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_PING_INTERVAL = 100000[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_POLLING_INTERVAL = 500[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_RELAY_URL = ws://127.0.0.1:8546[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_SAME_SUB_FOR_SAME_EVENT = true[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mWS_SUBSCRIPTION_LIMIT = 10[39m
+[04:00:43.884] [32mINFO[39m (config-service/11): [36mON_VALID_JSON_RPC_HTTP_RESPONSE_STATUS_CODE = 400[39m
+[11:0xffff79a20000]       98 ms: Scavenge 6.6 (8.1) -> 6.0 (8.6) MB, pooled: 0 MB, 0.41 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[11:0xffff9b240000]      754 ms: Scavenge 42.8 (46.4) -> 42.1 (46.4) MB, pooled: 0 MB, 0.44 / 0.00 ms  (average mu = 0.986, current mu = 0.986) task; 
+[11:0xffff8a820000]     8171 ms: Mark-Compact (reduce) 6.5 (9.1) -> 5.4 (7.6) MB, pooled: 0 MB, 1.42 / 0.00 ms  (+ 1.4 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 3 ms) (average mu = 1.000, current mu = 1.000) finalize incremental marking via task; GC in old space requested
+[11:0xffff79a20000]     8153 ms: Mark-Compact (reduce) 6.4 (8.9) -> 5.2 (7.4) MB, pooled: 0 MB, 2.85 / 0.00 ms  (+ 0.4 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 4 ms) (average mu = 1.000, current mu = 1.000) finalize incremental marking via task; GC in old space requested
+[11:0xffff8a820000]     8776 ms: Mark-Compact (reduce) 5.4 (7.6) -> 5.4 (7.1) MB, pooled: 0 MB, 2.30 / 0.00 ms  (+ 1.5 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 4 ms) (average mu = 0.999, current mu = 0.994) finalize incremental marking via task; GC in old space requested
+[11:0xffff9b240000]     8826 ms: Mark-Compact (reduce) 42.2 (46.4) -> 40.4 (44.6) MB, pooled: 0 MB, 3.12 / 0.00 ms  (+ 7.5 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 13 ms) (average mu = 0.998, current mu = 0.999) finalize incremental marking via task; GC in old space requested
+[11:0xffff9b240000]     9439 ms: Mark-Compact (reduce) 40.5 (44.9) -> 40.0 (44.1) MB, pooled: 0 MB, 2.98 / 0.00 ms  (+ 7.7 ms in 0 steps since start of marking, biggest step 0.0 ms, walltime since start of marking 12 ms) (average mu = 0.996, current mu = 0.983) finalize incremental marking via task; GC in old space requested
+[11:0xffff9b240000]    59838 ms: Scavenge 41.4 (44.4) -> 40.7 (44.4) MB, pooled: 1 MB, 0.63 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   109836 ms: Scavenge 41.4 (44.4) -> 40.8 (44.4) MB, pooled: 1 MB, 0.81 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   159834 ms: Scavenge 41.6 (44.4) -> 40.9 (44.4) MB, pooled: 1 MB, 0.75 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   209835 ms: Scavenge 41.7 (44.4) -> 41.0 (44.4) MB, pooled: 1 MB, 0.57 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   260102 ms: Scavenge 41.8 (44.4) -> 41.2 (44.4) MB, pooled: 1 MB, 0.63 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   309835 ms: Scavenge 41.9 (44.4) -> 41.2 (44.4) MB, pooled: 1 MB, 0.61 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   359835 ms: Scavenge 42.0 (44.4) -> 41.3 (44.4) MB, pooled: 1 MB, 0.47 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   409836 ms: Scavenge 42.1 (44.4) -> 41.4 (44.4) MB, pooled: 1 MB, 0.49 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   459834 ms: Scavenge 42.1 (44.4) -> 41.5 (44.4) MB, pooled: 1 MB, 0.38 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   509835 ms: Scavenge 42.2 (44.4) -> 41.6 (44.4) MB, pooled: 1 MB, 0.57 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   559835 ms: Scavenge 42.3 (44.4) -> 41.6 (44.4) MB, pooled: 1 MB, 0.54 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   610480 ms: Scavenge 42.4 (44.4) -> 41.7 (44.4) MB, pooled: 1 MB, 0.62 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   661339 ms: Scavenge 42.5 (44.4) -> 41.8 (44.4) MB, pooled: 1 MB, 0.49 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   713896 ms: Scavenge 42.5 (44.4) -> 41.9 (44.4) MB, pooled: 1 MB, 1.01 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   763081 ms: Scavenge 42.6 (44.4) -> 42.0 (44.4) MB, pooled: 1 MB, 0.63 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   818120 ms: Scavenge 42.7 (44.4) -> 42.1 (44.6) MB, pooled: 1 MB, 0.86 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   867476 ms: Scavenge 42.8 (44.6) -> 42.2 (44.6) MB, pooled: 1 MB, 0.71 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   916918 ms: Scavenge 42.9 (44.6) -> 42.2 (44.9) MB, pooled: 1 MB, 0.41 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]   969835 ms: Scavenge 43.0 (44.9) -> 42.3 (44.9) MB, pooled: 1 MB, 0.61 / 0.01 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]  1019837 ms: Scavenge 43.1 (44.9) -> 42.4 (44.9) MB, pooled: 1 MB, 0.60 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 
+[11:0xffff9b240000]  1070523 ms: Scavenge 43.2 (44.9) -> 42.5 (44.9) MB, pooled: 1 MB, 0.54 / 0.00 ms  (average mu = 0.996, current mu = 0.983) task; 

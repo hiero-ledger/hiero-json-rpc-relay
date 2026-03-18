@@ -1,0 +1,9 @@
+{
+  "name": "@hashgraph/json-rpc-config-service",
+  "version": "0.76.0-SNAPSHOT",
+  "main": "dist/index.js",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "find-config": "^1.0.0"
+  }
+}

@@ -1,0 +1,2658 @@
+{
+  "openrpc": "1.0.0",
+  "info": {
+    "title": "Hedera JSON-RPC Specification",
+    "description": "A specification of the implemented Ethereum JSON RPC APIs interface for Hedera clients and adheres to the Ethereum execution APIs schema.",
+    "version": "0.76.0-SNAPSHOT"
+  },
+  "servers": [
+    {
+      "name": "Mainnet",
+      "url": "https://mainnet.hashio.io/api",
+      "description": "Hedera Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "Testnet",
+      "url": "https://testnet.hashio.io/api",
+      "description": "Hedera Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "Previewnet",
+      "url": "https://previewnet.hashio.io/api",
+      "description": "Hedera Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "localhost",
+      "url": "http://localhost:7546",
+      "description": "Run your own instance of [`hiero-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+    },
+    {
+      "name": "WS Mainnet",
+      "url": "wss://mainnet.hashio.io/ws",
+      "description": "Hedera Web Socket Mainnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "WS Testnet",
+      "url": "wss://testnet.hashio.io/ws",
+      "description": "Hedera Web Socket Testnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "WS Previewnet",
+      "url": "wss://previewnet.hashio.io/ws",
+      "description": "Hedera Web Socket Previewnet endpoint, hosted by [Hashio](https://swirldslabs.com/hashio/), a JSON-RPC Relay Community Service. Rate limited based [on IP address](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/rate-limiting.md) and [on global HBAR spend](https://github.com/hiero-ledger/hiero-json-rpc-relay/blob/main/docs/hbar-limiting.md)."
+    },
+    {
+      "name": "WS localhost",
+      "url": "ws://localhost:8546",
+      "description": "Run your own instance of Web Socket [`hiero-json-rpc-relay`](https://github.com/hiero-ledger/hiero-json-rpc-relay) on `localhost`, and configure it connect to your choice of Hedera networks. No rate limits apply."
+    }
+  ],
+  "methods": [
+    {
+      "name": "eth_accounts",
+      "summary": "Returns a list of addresses owned by client.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Accounts",
+        "description": "Always returns an empty array",
+        "schema": {
+          "title": "empty array",
+          "type": "array",
+          "pattern": "^\\[\\s*\\]$"
+        }
+      }
+    },
+    {
+      "name": "eth_blockNumber",
+      "summary": "Returns the number of most recent block.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "Block number",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_call",
+      "summary": "Executes a new message call immediately without creating a transaction on the block chain. ",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Transaction",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TransactionWithSender"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Return data",
+        "schema": {
+          "$ref": "#/components/schemas/bytes"
+        }
+      }
+    },
+    {
+      "name": "eth_chainId",
+      "summary": "Returns the chain ID of the current network.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "Chain ID",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_coinbase",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_blobBaseFee",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_estimateGas",
+      "summary": "Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Transaction",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TransactionWithSender"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Gas used",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_feeHistory",
+      "summary": "Returns transaction base fee per gas and effective priority fee per gas for the requested/supported block range.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "blockCount",
+          "description": "Requested range of blocks. Clients will return less than the requested range if not all blocks are available.",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        },
+        {
+          "name": "newestBlock",
+          "description": "Highest block of the requested range.",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "rewardPercentiles",
+          "description": "A monotonically increasing list of percentile values. For each block in the requested range, the transactions will be sorted in ascending order by effective tip per gas and the coresponding effective tip for the percentile will be determined, accounting for gas consumed.",
+          "required": true,
+          "schema": {
+            "title": "rewardPercentiles",
+            "type": "array",
+            "items": {
+              "title": "rewardPercentile",
+              "description": "Floating point value between 0 and 100.",
+              "type": "number",
+              "pattern": "^[0-9][0-9]?$|^100$"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "feeHistoryResult",
+        "description": "Fee history for the returned block range. This can be a subsection of the requested range if not all blocks are available.",
+        "schema": {
+          "title": "feeHistoryResults",
+          "description": "Fee history results.",
+          "type": "object",
+          "required": ["oldestBlock", "baseFeePerGas", "gasUsedRatio"],
+          "properties": {
+            "oldestBlock": {
+              "title": "oldestBlock",
+              "description": "Lowest number block of returned range.",
+              "$ref": "#/components/schemas/uint"
+            },
+            "gasUsedRatio": {
+              "title": "gasUsedRatio",
+              "description": "An array of gas used ratio.",
+              "type": "array",
+              "items": {
+                "title": "floating point number",
+                "type": "number",
+                "pattern": "^([0-9].[0-9]*|0)$"
+              }
+            },
+            "baseFeePerGas": {
+              "title": "baseFeePerGas",
+              "description": "An array of block base fees per gas. This includes the next block after the newest of the returned range.",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/uint"
+              }
+            },
+            "reward": {
+              "title": "reward",
+              "description": "A two-dimensional array of effective priority fees per gas at the requested block percentiles.",
+              "type": "array",
+              "items": {
+                "title": "rewardPercentile",
+                "description": "An array of effective priority fee per gas data points from a single block. All zeroes are returned if the block is empty.",
+                "type": "array",
+                "items": {
+                  "title": "rewardPercentile",
+                  "description": "A given percentile sample of effective priority fees per gas from a single block in ascending order, weighted by gas used. Zeroes are returned if the block is empty.",
+                  "$ref": "#/components/schemas/uint"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "eth_gasPrice",
+      "summary": "Returns the current price per gas in weibars.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "Gas price",
+        "schema": {
+          "title": "Gas price",
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_getBalance",
+      "summary": "Returns the balance of the account of given address.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/address"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Balance",
+        "schema": {
+          "title": "hex encoded unsigned integer",
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_getBlockByHash",
+      "summary": "Returns information about a block by hash.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Block hash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        {
+          "name": "Hydrated transactions",
+          "required": true,
+          "schema": {
+            "title": "hydrated",
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "Block information",
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      }
+    },
+    {
+      "name": "eth_getBlockByNumber",
+      "summary": "Returns information about a block by number.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "Hydrated transactions",
+          "required": true,
+          "schema": {
+            "title": "hydrated",
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "Block information",
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      }
+    },
+    {
+      "name": "eth_getBlockReceipts",
+      "summary": "Returns the receipts of a block by number or hash.",
+      "params": [
+        {
+          "name": "Block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Receipts information",
+        "schema": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "title": "Receipts information",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ReceiptInfo"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "eth_getBlockTransactionCountByHash",
+      "summary": "Returns the number of transactions in a block from a block matching the given block hash.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block hash",
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transactions count",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_getBlockTransactionCountByNumber",
+      "summary": "Returns the number of transactions in a block matching the given block number.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block",
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transactions count",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_getCode",
+      "summary": "Returns code at a given address.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/address"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Bytecode",
+        "schema": {
+          "$ref": "#/components/schemas/bytes"
+        }
+      }
+    },
+    {
+      "name": "eth_getLogs",
+      "summary": "Returns an array of all logs matching a given filter object.",
+      "description": "The block range filter, _i.e._, `fromBlock` and `toBlock` arguments, cannot be larger than `ETH_GET_LOGS_BLOCK_RANGE_LIMIT` (defaults to `1000`). However, when `address` represents a single address, either a `string` or an array with a single element, this restriction is lifted. In any case, if the `topics` param is present the block range must be within ~`302,400` blocks, the equivalent to 7 days.\n\nWhen the logs for an individual address exceeds `MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX * MIRROR_NODE_LIMIT_PARAM` (defaults to `20k`) an error `-32011` _Mirror Node pagination count range too large_ is returned. These settings are the Mirror Node page limit (defaults to `200`) and Mirror Node entries per page (defaults to `100`) respectively. ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Filter",
+          "schema": {
+            "$ref": "#/components/schemas/Filter"
+          }
+        }
+      ],
+      "result": {
+        "name": "Log objects",
+        "schema": {
+          "$ref": "#/components/schemas/FilterResults"
+        }
+      }
+    },
+    {
+      "name": "eth_getStorageAt",
+      "summary": "Returns the value from a storage position at a given address and block. The optional block param may be latest or a valid tag of a historical block.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/address"
+          }
+        },
+        {
+          "name": "Position",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Value from storage",
+        "schema": {
+          "$ref": "#/components/schemas/hash32"
+        }
+      }
+    },
+    {
+      "name": "eth_getTransactionByBlockHashAndIndex",
+      "summary": "Returns information about a transaction by block hash and transaction index position.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block hash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        {
+          "name": "Transaction index",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transaction information",
+        "schema": {
+          "$ref": "#/components/schemas/TransactionInfo"
+        }
+      }
+    },
+    {
+      "name": "eth_getTransactionByBlockNumberAndIndex",
+      "summary": "Returns information about a transaction by block number and transaction index position.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "Transaction index",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transaction information",
+        "schema": {
+          "$ref": "#/components/schemas/TransactionInfo"
+        }
+      }
+    },
+    {
+      "name": "eth_getTransactionByHash",
+      "summary": "Returns the information about a transaction requested by transaction hash.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Transaction hash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transaction information",
+        "schema": {
+          "$ref": "#/components/schemas/TransactionInfo"
+        }
+      }
+    },
+    {
+      "name": "eth_getTransactionCount",
+      "summary": "Returns the number of transactions sent from an address.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/address"
+          }
+        },
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transaction count",
+        "schema": {
+          "title": "Transaction count",
+          "$ref": "#/components/schemas/uint"
+        }
+      }
+    },
+    {
+      "name": "eth_getTransactionReceipt",
+      "summary": "Returns the receipt of a transaction by transaction hash.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Transaction hash",
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
+      "result": {
+        "name": "Receipt Information",
+        "schema": {
+          "$ref": "#/components/schemas/ReceiptInfo"
+        }
+      }
+    },
+    {
+      "name": "eth_getUncleByBlockHashAndIndex",
+      "summary": "Returns information about a uncle of a block by hash and uncle index position.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block hash",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        {
+          "name": "Index",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getUncleByBlockHashAndIndex result",
+        "schema": {
+          "description": "Always returns null. There are no uncles in Hedera.",
+          "$ref": "#/components/schemas/null"
+        }
+      }
+    },
+    {
+      "name": "eth_getUncleByBlockNumberAndIndex",
+      "summary": "Returns information about a uncle of a block by number and uncle index position.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        },
+        {
+          "name": "Index",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getUncleByBlockNumberAndIndex result",
+        "schema": {
+          "description": "Always returns null. There are no uncles in Hedera.",
+          "$ref": "#/components/schemas/null"
+        }
+      }
+    },
+    {
+      "name": "eth_getUncleCountByBlockHash",
+      "summary": "Returns the number of uncles in a block from a block matching the given block hash.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block hash",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getUncleCountByBlockHash result",
+        "schema": {
+          "description": "Always returns '0x0'. There are no uncles in Hedera.",
+          "title": "hex encoded unsigned integer",
+          "type": "string",
+          "pattern": "0x0"
+        }
+      }
+    },
+    {
+      "name": "eth_getUncleCountByBlockNumber",
+      "summary": "Returns the number of transactions in a block matching the given block number.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Block",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getUncleCountByBlockNumber result",
+        "schema": {
+          "description": "Always returns '0x0'. There are no uncles in Hedera.",
+          "title": "hex encoded unsigned integer",
+          "type": "string",
+          "pattern": "0x0"
+        }
+      }
+    },
+    {
+      "name": "eth_getWork",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_hashrate",
+      "summary": "Returns the number of hashes per second that the node is mining with. Always returns 0x0.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Mining status",
+        "schema": {
+          "title": "Hashrate",
+          "type": "string",
+          "pattern": "0x0"
+        }
+      }
+    },
+    {
+      "name": "txpool_content",
+      "summary": "Returns all pending and queued transactions (queued are always an empty object {} due to Hedera specifics).",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool content",
+        "schema": {
+          "type": "object",
+          "required": ["pending", "queued"],
+          "properties": {
+            "pending": {
+              "type": "object",
+              "patternProperties": {
+                "^0x[a-fA-F0-9]{40}$": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[0-9]+$": {
+                      "$ref": "#/components/schemas/TxPoolTransaction"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "queued": {
+              "type": "object",
+              "patternProperties": {
+                "^0x[a-fA-F0-9]{40}$": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^[0-9]+$": {
+                      "$ref": "#/components/schemas/TxPoolTransaction"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "txpool_contentFrom",
+      "summary": "Returns pending and queued transactions (queued are always an empty object {} due to Hedera specifics) of this address, grouped by nonce.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool contentFrom",
+        "schema": {
+          "type": "object",
+          "required": ["pending", "queued"],
+          "properties": {
+            "pending": {
+              "type": "object",
+              "patternProperties": {
+                "^[0-9]+$": {
+                  "$ref": "#/components/schemas/TxPoolTransaction"
+                }
+              },
+              "additionalProperties": false
+            },
+            "queued": {
+              "type": "object",
+              "patternProperties": {
+                "^[0-9]+$": {
+                  "$ref": "#/components/schemas/TxPoolTransaction"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "txpool_status",
+      "summary": "Returns the number of transactions in pending and queued states (queued are always 0x0 due to Hedera specifics).",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Txpool status",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pending": {
+              "$ref": "#/components/schemas/uint"
+            },
+            "queued": {
+              "$ref": "#/components/schemas/uint"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "eth_maxPriorityFeePerGas",
+      "summary": "Returns a fee per gas that is an estimate of how much you can pay as a priority fee, or 'tip', to get a transaction included in the current block.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "eth_maxPriorityFeePerGas result",
+        "schema": {
+          "description": "Always returns '0x0'. Hedera doesn't have a concept of tipping nodes to promote any behavior",
+          "title": "hex encoded unsigned integer",
+          "type": "string",
+          "pattern": "0x0"
+        }
+      }
+    },
+    {
+      "name": "eth_mining",
+      "summary": "Returns whether the client is a miner. We don't mine, so this always returns false.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Mining status",
+        "schema": {
+          "title": "miningStatus",
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "name": "eth_newBlockFilter",
+      "summary": "Creates a filter object, to notify of newly created blocks.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Filter ID",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      },
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_newFilter",
+      "summary": "Creates a filter object, based on filter options, to notify when the state changes (logs).",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "LogFilter",
+          "schema": {
+            "$ref": "#/components/schemas/LogFilter"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filter ID",
+        "schema": {
+          "$ref": "#/components/schemas/uint"
+        }
+      },
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_uninstallFilter",
+      "summary": "Uninstalls a filter with given id.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "FilterID",
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "Uninstall status",
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_newPendingTransactionFilter",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ],
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_getFilterLogs",
+      "summary": "Returns an array of all logs matching filter with given id.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Filter ID",
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filter result",
+        "schema": {
+          "$ref": "#/components/schemas/FilterResults"
+        }
+      },
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_getFilterChanges",
+      "summary": "Gets the latest results since the last request for a provided filter according to its type.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Filter ID",
+          "schema": {
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filter result",
+        "schema": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "blockHash": {
+                  "title": "block hash",
+                  "$ref": "#/components/schemas/hash32"
+                }
+              }
+            },
+            {
+              "name": "Log objects",
+              "schema": {
+                "$ref": "#/components/schemas/FilterResults"
+              }
+            }
+          ]
+        }
+      },
+      "tags": [
+        {
+          "name": "alpha API"
+        }
+      ]
+    },
+    {
+      "name": "eth_protocolVersion",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_sendRawTransaction",
+      "summary": "Submits a raw transaction.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "Transaction",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/bytes"
+          }
+        }
+      ],
+      "result": {
+        "name": "Transaction hash",
+        "schema": {
+          "$ref": "#/components/schemas/hash32"
+        }
+      }
+    },
+    {
+      "name": "eth_sendTransaction",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_signTransaction",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_sign",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_submitHashrate",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_submitWork",
+      "summary": "Used for submitting a proof-of-work solution.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "PoW solution",
+        "schema": {
+          "title": "No proof-of-work",
+          "description": "Always returns false.",
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "name": "eth_syncing",
+      "summary": "Returns syncing status.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Syncing status",
+        "schema": {
+          "title": "Not syncing",
+          "description": "Always returns false.",
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "name": "eth_simulateV1",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "net_listening",
+      "summary": "Returns true if client is actively listening for network connections.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "Listening status.",
+        "schema": {
+          "title": "Not listening",
+          "description": "Always returns false.",
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "name": "net_version",
+      "summary": "Returns the current chain id.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "The current chain id.",
+        "schema": {
+          "$ref": "#/components/schemas/int"
+        }
+      }
+    },
+    {
+      "name": "net_peerCount",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "web3_clientVersion",
+      "summary": "Returns the current client version.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "The current client version.",
+        "schema": {
+          "type": "string",
+          "pattern": "relay/[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9-]+)?$"
+        }
+      }
+    },
+    {
+      "name": "web3_sha3",
+      "summary": "Returns sha3 of the input.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png) ![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [],
+      "result": {
+        "name": "The sha3 result.",
+        "schema": {
+          "$ref": "#/components/schemas/hash32"
+        }
+      }
+    },
+    {
+      "name": "eth_subscribe",
+      "summary": "Creates a new subscription for desired events. Sends data as soon as it occurs.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "subscription_type",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": ["logs"]
+          },
+          "description": "The type of event you want to subscribe to."
+        },
+        {
+          "name": "options",
+          "required": false,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/address"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/address"
+                    }
+                  }
+                ],
+                "description": "Single address or array of addresses to restrict the logs."
+              },
+              "topics": {
+                "$ref": "#/components/schemas/FilterTopics",
+                "description": "Array of topics used to filter logs."
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Filter options for the subscription. Required for 'logs' type."
+        }
+      ],
+      "result": {
+        "name": "subscription_id",
+        "schema": {
+          "type": "string",
+          "$ref": "#/components/schemas/hash32"
+        },
+        "description": "The hex encoded subscription ID used to identify and manage the subscription."
+      }
+    },
+    {
+      "name": "eth_unsubscribe",
+      "summary": "Cancels a subscription.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/ws_label.png)",
+      "params": [
+        {
+          "name": "subscription_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The subscription ID to cancel."
+        }
+      ],
+      "result": {
+        "name": "success",
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "True if the subscription was successfully cancelled, otherwise false."
+      }
+    },
+    {
+      "name": "debug_traceTransaction",
+      "summary": "Attempts to run the transaction in the exact same manner as it was executed on the network.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "transactionHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          },
+          "description": "The hash of the transaction to trace."
+        },
+        {
+          "name": "tracerConfig",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/TracerConfigWrapper"
+          },
+          "description": "Configuration object for the tracer. Supports two formats: 1) Standard nested format with 'tracer' and 'tracerConfig' properties, 2) Simplified format with opcodeLogger config properties directly at top level (when no explicit 'tracer' is specified, defaults to opcodeLogger)."
+        }
+      ],
+      "result": {
+        "name": "trace",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "callFrame": {
+              "$ref": "#/components/schemas/callframe"
+            }
+          },
+          "required": ["callFrame"],
+          "additionalProperties": false
+        },
+        "description": "The trace object containing detailed information about the transaction execution, encapsulated in a call frame."
+      }
+    },
+    {
+      "name": "debug_getRawBlock",
+      "summary": "Returns an RLP-encoded block.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "debug_getRawBlock result",
+        "description": "The RLP-encoded block information, or 0x if the block is not found",
+        "schema": {
+          "title": "raw block",
+          "$ref": "#/components/schemas/bytes"
+        }
+      }
+    },
+    {
+      "name": "debug_getRawHeader",
+      "summary": "Returns an RLP-encoded header.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Header RLP",
+        "description": "The RLP-encoded block header, or 0x if the block is not found",
+        "schema": {
+          "title": "raw header",
+          "$ref": "#/components/schemas/bytes"
+        }
+      }
+    },
+    {
+      "name": "debug_traceBlockByNumber",
+      "summary": "Returns the tracing result for all transactions in the block specified by number with a tracer.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "blockNumber",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTag"
+          },
+          "description": "The block number or tag (e.g., 'latest', 'earliest', 'pending', 'safe', 'finalized')."
+        },
+        {
+          "name": "tracerOptions",
+          "required": false,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "tracer": {
+                "$ref": "#/components/schemas/BlockTracerType",
+                "description": "The type of tracer to use. Either 'callTracer' or 'prestateTracer'."
+              },
+              "tracerConfig": {
+                "type": "object",
+                "description": "Configuration options for the specified tracer",
+                "properties": {
+                  "onlyTopCall": {
+                    "type": "boolean",
+                    "description": "When set to true, this will only trace the primary (top-level) call and not any sub-calls."
+                  }
+                }
+              }
+            }
+          },
+          "description": "Specifies the type of tracer and optional configuration. Supported tracers are 'callTracer' and 'prestateTracer'."
+        }
+      ],
+      "result": {
+        "name": "traces",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/TraceBlockTxResult"
+          }
+        },
+        "description": "An array of trace result objects, each containing a transaction hash and its trace result. For callTracer, the result is a call frame with transaction details. For prestateTracer, the result is an object mapping addresses to their account state."
+      }
+    },
+    {
+      "name": "debug_traceBlockByHash",
+      "summary": "Returns the tracing result for all transactions in the block specified by hash with a tracer.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          },
+          "description": "The 32-byte block hash."
+        },
+        {
+          "name": "tracerOptions",
+          "required": false,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "tracer": {
+                "$ref": "#/components/schemas/BlockTracerType",
+                "description": "The type of tracer to use. Either 'callTracer' or 'prestateTracer'."
+              },
+              "tracerConfig": {
+                "type": "object",
+                "description": "Configuration options for the specified tracer",
+                "properties": {
+                  "onlyTopCall": {
+                    "type": "boolean",
+                    "description": "When set to true, this will only trace the primary (top-level) call and not any sub-calls."
+                  }
+                }
+              }
+            }
+          },
+          "description": "Specifies the type of tracer and optional configuration. Supported tracers are 'callTracer' and 'prestateTracer'."
+        }
+      ],
+      "result": {
+        "name": "traces",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/TraceBlockTxResult"
+          }
+        },
+        "description": "An array of trace result objects, each containing a transaction hash and its trace result. For callTracer, the result is a call frame with transaction details. For prestateTracer, the result is an object mapping addresses to their account state."
+      }
+    },
+    {
+      "name": "debug_getBadBlocks",
+      "summary": "Returns an array of recent bad blocks (bad blocks are always an empty array [] due to Hedera specifics) that the client has seen on the network.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [],
+      "result": {
+        "name": "debug_getBadBlocks result",
+        "description": "Always returns an empty array",
+        "schema": {
+          "title": "empty array",
+          "type": "array",
+          "pattern": "^\\[\\s*\\]$"
+        }
+      }
+    },
+    {
+      "name": "debug_getRawReceipts",
+      "summary": "Returns an array of EIP-2718 binary-encoded receipts.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Receipts",
+        "description": "An array of EIP-2718 binary-encoded receipts.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/bytes"
+          }
+        }
+      }
+    },
+    {
+      "name": "debug_getRawTransaction",
+      "summary": "Returns an array of EIP-2718 binary-encoded transactions.",
+      "description": "![](https://raw.githubusercontent.com/hiero-ledger/hiero-json-rpc-relay/main/docs/images/http_label.png)",
+      "params": [
+        {
+          "name": "Transaction hash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        }
+      ],
+      "result": {
+        "name": "EIP-2718 binary-encoded transaction",
+        "description": "The RLP-encoded transaction data, or 0x if the transaction is not found",
+        "schema": {
+          "title": "raw transaction",
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]*$"
+        }
+      }
+    },
+    {
+      "name": "eth_getProof",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    },
+    {
+      "name": "eth_createAccessList",
+      "summary": "Always returns UNSUPPORTED_METHOD error.",
+      "params": [],
+      "errors": [
+        {
+          "$ref": "#/components/errors/unsupportedError"
+        }
+      ]
+    }
+  ],
+  "components": {
+    "errors": {
+      "unsupportedError": {
+        "code": -32601,
+        "message": "Unsupported JSON-RPC method"
+      }
+    },
+    "schemas": {
+      "address": {
+        "title": "hex encoded address",
+        "type": "string",
+        "pattern": "^0x[0-9,a-f,A-F]{40}$"
+      },
+      "addresses": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/address"
+        }
+      },
+      "byte": {
+        "title": "hex encoded byte",
+        "type": "string",
+        "pattern": "^0x([0-9,a-f,A-F]?){1,2}$"
+      },
+      "bytes": {
+        "title": "hex encoded bytes",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]*$"
+      },
+      "bytes8": {
+        "title": "8 hex encoded bytes",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{16}$"
+      },
+      "bytes32": {
+        "title": "32 hex encoded bytes",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "bytes256": {
+        "title": "256 hex encoded bytes",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{512}$"
+      },
+      "bytes65": {
+        "title": "65 hex encoded bytes",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{512}$"
+      },
+      "int": {
+        "title": "decimal value integer",
+        "type": "string",
+        "pattern": "^\\d+$"
+      },
+      "uint": {
+        "title": "hex encoded unsigned integer",
+        "type": "string",
+        "pattern": "^0x([1-9a-f]+[0-9a-f]*|0)$"
+      },
+      "uint256": {
+        "title": "hex encoded unsigned integer",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "hash16": {
+        "title": "16 byte hex value",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{32}$"
+      },
+      "hash32": {
+        "title": "32 byte hex value",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "null": {
+        "title": "null value",
+        "type": "null",
+        "pattern": "null"
+      },
+      "subcall": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["CALL", "CREATE"],
+            "description": "The type of action (CALL for function calls or CREATE for contract creation)."
+          },
+          "from": {
+            "$ref": "#/components/schemas/address",
+            "description": "The address of the sender."
+          },
+          "to": {
+            "$ref": "#/components/schemas/address",
+            "description": "The address of the receiver. In the case of a contract creation, this might be null."
+          },
+          "value": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The value transferred with the call, in hexadecimal."
+          },
+          "gas": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The gas provided for the call, in hexadecimal."
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The gas used during the call, in hexadecimal."
+          },
+          "input": {
+            "$ref": "#/components/schemas/bytes",
+            "description": "The input data sent with the call."
+          },
+          "output": {
+            "$ref": "#/components/schemas/bytes",
+            "description": "The output data returned by the call."
+          },
+          "error": {
+            "type": "string",
+            "description": "Error encountered during the call, if any."
+          },
+          "revertReason": {
+            "type": "string",
+            "description": "Solidity revert reason, if applicable."
+          }
+        },
+        "required": ["from", "gas", "input"]
+      },
+      "notFound": {
+        "title": "Not Found (null)",
+        "type": "null"
+      },
+      "Block": {
+        "title": "Block object",
+        "type": "object",
+        "required": [
+          "parentHash",
+          "sha3Uncles",
+          "miner",
+          "stateRoot",
+          "transactionsRoot",
+          "receiptsRoot",
+          "logsBloom",
+          "number",
+          "gasLimit",
+          "gasUsed",
+          "timestamp",
+          "extraData",
+          "mixHash",
+          "nonce",
+          "size",
+          "transactions",
+          "uncles",
+          "withdrawals",
+          "withdrawalsRoot"
+        ],
+        "properties": {
+          "parentHash": {
+            "title": "Parent block hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "sha3Uncles": {
+            "title": "Ommers hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "miner": {
+            "title": "Coinbase",
+            "$ref": "#/components/schemas/address"
+          },
+          "stateRoot": {
+            "title": "State root",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "transactionsRoot": {
+            "title": "Transactions root",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "receiptsRoot": {
+            "title": "Receipts root",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "logsBloom": {
+            "title": "Bloom filter",
+            "$ref": "#/components/schemas/bytes256"
+          },
+          "difficulty": {
+            "title": "Difficulty",
+            "$ref": "#/components/schemas/bytes"
+          },
+          "number": {
+            "title": "Number",
+            "$ref": "#/components/schemas/uint"
+          },
+          "gasLimit": {
+            "title": "Gas limit",
+            "$ref": "#/components/schemas/uint"
+          },
+          "gasUsed": {
+            "title": "Gas used",
+            "$ref": "#/components/schemas/uint"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "$ref": "#/components/schemas/uint"
+          },
+          "extraData": {
+            "title": "Extra data",
+            "$ref": "#/components/schemas/bytes"
+          },
+          "mixHash": {
+            "title": "Mix hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "nonce": {
+            "title": "Nonce",
+            "$ref": "#/components/schemas/bytes8"
+          },
+          "totalDifficulty": {
+            "title": "Total difficult",
+            "$ref": "#/components/schemas/uint"
+          },
+          "baseFeePerGas": {
+            "title": "Base fee per gas",
+            "$ref": "#/components/schemas/uint"
+          },
+          "size": {
+            "title": "Block size",
+            "$ref": "#/components/schemas/uint"
+          },
+          "transactions": {
+            "anyOf": [
+              {
+                "title": "Transaction hashes",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/hash32"
+                }
+              },
+              {
+                "title": "Full transactions",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TransactionSigned"
+                }
+              }
+            ]
+          },
+          "uncles": {
+            "title": "Uncles",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            }
+          },
+          "withdrawals": {
+            "title": "Withdrawals",
+            "type": "array",
+            "default": []
+          },
+          "withdrawalsRoot": {
+            "title": "Withdrawals root",
+            "default": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        }
+      },
+      "BlockTag": {
+        "type": "string",
+        "enum": ["earliest", "latest", "pending", "finalized", "safe"],
+        "description": "`earliest`: The lowest numbered block the client has available; `latest` | `pending` | 'finalized' | 'safe' : The most recent block."
+      },
+      "BlockNumberOrTag": {
+        "title": "Block number or tag",
+        "oneOf": [
+          {
+            "title": "Block number",
+            "$ref": "#/components/schemas/uint"
+          },
+          {
+            "title": "Block tag",
+            "$ref": "#/components/schemas/BlockTag"
+          }
+        ]
+      },
+      "TxPoolTransaction": {
+        "type": "object",
+        "description": "A transaction currently in the pool.",
+        "required": [
+          "blockHash",
+          "blockNumber",
+          "transactionIndex",
+          "from",
+          "gas",
+          "hash",
+          "input",
+          "nonce",
+          "to",
+          "value",
+          "type",
+          "v",
+          "r",
+          "s"
+        ],
+        "properties": {
+          "blockHash": {
+            "type": ["string"],
+            "pattern": "^0x([A-Fa-f0-9]{64})$",
+            "description": "Zero hex 32 bytes."
+          },
+          "blockNumber": {
+            "type": ["null"],
+            "description": "Null."
+          },
+          "transactionIndex": {
+            "type": ["null"],
+            "description": "Null."
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "description": "Address of the sender."
+          },
+          "gas": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Gas provided by the sender."
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{64}$",
+            "description": "Transaction hash."
+          },
+          "input": {
+            "type": "string",
+            "pattern": "^0x([A-Fa-f0-9]*)$",
+            "description": "Input data."
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Nonce of the transaction."
+          },
+          "to": {
+            "type": ["string", "null"],
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "description": "Recipient address (null for contract creation)."
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Value transferred."
+          },
+          "type": {
+            "type": ["string"],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Transaction type (EIP-2718 typed transactions)."
+          },
+          "v": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature v component."
+          },
+          "r": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature r component."
+          },
+          "s": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Signature s component."
+          },
+          "chainId": {
+            "type": ["string", "null"],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Chain ID for EIP-155 transactions."
+          },
+          "gasPrice": {
+            "type": ["string", "null"],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "Gas price."
+          },
+          "maxFeePerGas": {
+            "type": ["string", "null"],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "For EIP-1559 transactions: maximum fee per gas."
+          },
+          "maxPriorityFeePerGas": {
+            "type": ["string", "null"],
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "description": "For EIP-1559 transactions: max priority fee per gas."
+          }
+        },
+        "additionalProperties": false
+      },
+      "BlockNumberOrTagOrHash": {
+        "title": "Block number, tag, or block hash",
+        "oneOf": [
+          {
+            "title": "Block number",
+            "$ref": "#/components/schemas/uint"
+          },
+          {
+            "title": "Block tag",
+            "$ref": "#/components/schemas/BlockTag"
+          },
+          {
+            "title": "Block hash",
+            "$ref": "#/components/schemas/hash32"
+          }
+        ]
+      },
+      "CallTracerConfig": {
+        "title": "CallTracer config",
+        "type": "object",
+        "properties": {
+          "onlyTopCall": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OpcodeLoggerConfig": {
+        "title": "OpcodeLogger config",
+        "type": "object",
+        "properties": {
+          "enableMemory": {
+            "type": "boolean"
+          },
+          "disableStack": {
+            "type": "boolean"
+          },
+          "disableStorage": {
+            "type": "boolean"
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Non-standard parameter sometimes sent by Remix - accepted for compatibility but ignored in implementation"
+          }
+        }
+      },
+      "TracerConfig": {
+        "title": "Tracer config",
+        "type": "object",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CallTracerConfig"
+          },
+          {
+            "$ref": "#/components/schemas/OpcodeLoggerConfig"
+          }
+        ]
+      },
+      "TracerType": {
+        "title": "Tracer type",
+        "type": "string",
+        "enum": ["callTracer", "opcodeLogger", "prestateTracer"]
+      },
+      "TracerConfigWrapper": {
+        "title": "Tracer config wrapper",
+        "type": "object",
+        "properties": {
+          "tracer": {
+            "$ref": "#/components/schemas/TracerType"
+          },
+          "tracerConfig": {
+            "$ref": "#/components/schemas/TracerConfig"
+          },
+          "enableMemory": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStack": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "disableStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Only valid when no explicit 'tracer' is specified (defaults to opcodeLogger)."
+          },
+          "fullStorage": {
+            "type": "boolean",
+            "description": "Top-level opcodeLogger config property. Non-standard parameter for Remix compatibility - accepted but ignored. Only valid when no explicit 'tracer' is specified."
+          }
+        }
+      },
+      "TraceBlockTxResult": {
+        "title": "Block trace result for a single transaction",
+        "type": "object",
+        "required": ["txHash", "result"],
+        "properties": {
+          "txHash": {
+            "$ref": "#/components/schemas/hash32",
+            "description": "The hash of the traced transaction."
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/callframe",
+                "description": "Call tracer result containing the call frame."
+              },
+              {
+                "type": "object",
+                "title": "Prestate Tracer Response",
+                "description": "prestateTracer response format - an object where keys are ethereum addresses and values contain account state data",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "balance": {
+                      "$ref": "#/components/schemas/uint",
+                      "description": "The balance of the account/contract, expressed in wei and encoded as a hexadecimal string"
+                    },
+                    "nonce": {
+                      "$ref": "#/components/schemas/uint",
+                      "description": "The latest nonce of the account, represented as an unsigned integer."
+                    },
+                    "code": {
+                      "$ref": "#/components/schemas/bytes",
+                      "description": "The bytecode of the contract, encoded as a hexadecimal string. If the account is not a contract, this will be an empty hex string (0x)."
+                    },
+                    "storage": {
+                      "type": "object",
+                      "description": "A map of key-value pairs representing the storage slots of the contract.",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/bytes32"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "BlockTracerType": {
+        "title": "Block tracer type",
+        "type": "string",
+        "enum": ["callTracer", "prestateTracer"]
+      },
+      "TransactionWithSender": {
+        "title": "Transaction object with sender",
+        "type": "object",
+        "allOf": [
+          {
+            "required": ["from"],
+            "properties": {
+              "from": {
+                "title": "from",
+                "$ref": "#/components/schemas/address"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/TransactionUnsigned"
+          }
+        ]
+      },
+      "Transaction1559Unsigned": {
+        "type": "object",
+        "title": "EIP-1559 transaction.",
+        "required": [
+          "type",
+          "nonce",
+          "gas",
+          "value",
+          "input",
+          "maxFeePerGas",
+          "maxPriorityFeePerGas",
+          "chainId",
+          "accessList"
+        ],
+        "properties": {
+          "type": {
+            "title": "type",
+            "$ref": "#/components/schemas/byte"
+          },
+          "nonce": {
+            "title": "nonce",
+            "$ref": "#/components/schemas/uint"
+          },
+          "to": {
+            "title": "to address",
+            "oneOf": [
+              {
+                "title": "Contract Creation (null)",
+                "type": "null"
+              },
+              {
+                "title": "Recipient Address",
+                "$ref": "#/components/schemas/address"
+              }
+            ]
+          },
+          "gas": {
+            "title": "gas limit",
+            "$ref": "#/components/schemas/uint"
+          },
+          "value": {
+            "title": "value",
+            "$ref": "#/components/schemas/uint"
+          },
+          "input": {
+            "title": "input data",
+            "$ref": "#/components/schemas/bytes"
+          },
+          "maxPriorityFeePerGas": {
+            "title": "max priority fee per gas",
+            "description": "Maximum fee per gas the sender is willing to pay to miners in wei",
+            "$ref": "#/components/schemas/uint"
+          },
+          "maxFeePerGas": {
+            "title": "max fee per gas",
+            "description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
+            "$ref": "#/components/schemas/uint"
+          },
+          "accessList": {
+            "title": "accessList",
+            "type": "array"
+          },
+          "chainId": {
+            "title": "chainId",
+            "description": "Chain ID that this transaction is valid on.",
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      },
+      "TransactionLegacyUnsigned": {
+        "type": "object",
+        "title": "Legacy transaction.",
+        "required": ["type", "nonce", "gas", "value", "input", "gasPrice"],
+        "properties": {
+          "type": {
+            "title": "type",
+            "$ref": "#/components/schemas/byte"
+          },
+          "nonce": {
+            "title": "nonce",
+            "$ref": "#/components/schemas/uint"
+          },
+          "to": {
+            "title": "to address",
+            "oneOf": [
+              {
+                "title": "Contract Creation (null)",
+                "type": "null"
+              },
+              {
+                "title": "Recipient Address",
+                "$ref": "#/components/schemas/address"
+              }
+            ]
+          },
+          "gas": {
+            "title": "gas limit",
+            "$ref": "#/components/schemas/uint"
+          },
+          "value": {
+            "title": "value",
+            "$ref": "#/components/schemas/uint"
+          },
+          "input": {
+            "title": "input data",
+            "$ref": "#/components/schemas/bytes"
+          },
+          "gasPrice": {
+            "title": "gas price",
+            "description": "The gas price willing to be paid by the sender in wei",
+            "$ref": "#/components/schemas/uint"
+          },
+          "chainId": {
+            "title": "chainId",
+            "description": "Chain ID that this transaction is valid on.",
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      },
+      "Transaction1559Signed": {
+        "title": "Signed 1559 Transaction",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Transaction1559Unsigned"
+          },
+          {
+            "title": "EIP-1559 transaction signature properties.",
+            "required": ["yParity", "r", "s", "v"],
+            "properties": {
+              "yParity": {
+                "title": "yParity",
+                "description": "The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/byte"
+                  },
+                  {
+                    "$ref": "#/components/schemas/null"
+                  }
+                ]
+              },
+              "r": {
+                "title": "r",
+                "$ref": "#/components/schemas/uint"
+              },
+              "s": {
+                "title": "s",
+                "$ref": "#/components/schemas/uint"
+              },
+              "v": {
+                "title": "v",
+                "description": "For backwards compatibility, `v` is optionally provided as an alternative to `yParity`. This field is DEPRECATED and all use of it should migrate to `yParity`.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/byte"
+                  },
+                  {
+                    "$ref": "#/components/schemas/null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "TransactionUnsigned": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Transaction1559Unsigned"
+          },
+          {
+            "$ref": "#/components/schemas/TransactionLegacyUnsigned"
+          }
+        ]
+      },
+      "TransactionLegacySigned": {
+        "title": "Signed Legacy Transaction",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TransactionLegacyUnsigned"
+          },
+          {
+            "title": "Legacy transaction signature properties.",
+            "required": ["v", "r", "s"],
+            "properties": {
+              "v": {
+                "title": "v",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/uint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/null"
+                  }
+                ]
+              },
+              "r": {
+                "title": "r",
+                "$ref": "#/components/schemas/uint"
+              },
+              "s": {
+                "title": "s",
+                "$ref": "#/components/schemas/uint"
+              }
+            }
+          }
+        ]
+      },
+      "TransactionSigned": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Transaction1559Signed"
+          },
+          {
+            "$ref": "#/components/schemas/TransactionLegacySigned"
+          }
+        ]
+      },
+      "TransactionInfo": {
+        "type": "object",
+        "title": "Transaction information",
+        "allOf": [
+          {
+            "title": "Contextual information",
+            "required": ["blockHash", "blockNumber", "from", "hash", "transactionIndex"],
+            "properties": {
+              "blockHash": {
+                "title": "block hash",
+                "$ref": "#/components/schemas/hash32"
+              },
+              "blockNumber": {
+                "title": "block number",
+                "$ref": "#/components/schemas/uint"
+              },
+              "from": {
+                "title": "from address",
+                "$ref": "#/components/schemas/address"
+              },
+              "hash": {
+                "title": "transaction hash",
+                "$ref": "#/components/schemas/hash32"
+              },
+              "transactionIndex": {
+                "title": "transaction index",
+                "$ref": "#/components/schemas/uint"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/TransactionSigned"
+          }
+        ]
+      },
+      "Log": {
+        "title": "log",
+        "type": "object",
+        "required": ["transactionHash"],
+        "properties": {
+          "removed": {
+            "title": "removed",
+            "type": "boolean"
+          },
+          "logIndex": {
+            "title": "log index",
+            "$ref": "#/components/schemas/uint"
+          },
+          "transactionIndex": {
+            "title": "transaction index",
+            "$ref": "#/components/schemas/uint"
+          },
+          "transactionHash": {
+            "title": "transaction hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "blockHash": {
+            "title": "block hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "blockNumber": {
+            "title": "block number",
+            "$ref": "#/components/schemas/uint"
+          },
+          "address": {
+            "title": "address",
+            "$ref": "#/components/schemas/address"
+          },
+          "data": {
+            "title": "data",
+            "$ref": "#/components/schemas/bytes"
+          },
+          "topics": {
+            "title": "topics",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/bytes32"
+            }
+          }
+        }
+      },
+      "ReceiptInfo": {
+        "type": "object",
+        "title": "Receipt information",
+        "required": [
+          "blockHash",
+          "blockNumber",
+          "from",
+          "cumulativeGasUsed",
+          "gasUsed",
+          "logs",
+          "logsBloom",
+          "transactionHash",
+          "transactionIndex",
+          "effectiveGasPrice"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "title": "type",
+            "description": "Transaction type. Null for HAPI transactions.",
+            "oneOf": [
+              {
+                "title": "Transaction Type",
+                "$ref": "#/components/schemas/byte"
+              },
+              {
+                "title": "Null (HAPI transaction)",
+                "type": "null"
+              }
+            ]
+          },
+          "transactionHash": {
+            "title": "transaction hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "transactionIndex": {
+            "title": "transaction index",
+            "$ref": "#/components/schemas/uint"
+          },
+          "blockHash": {
+            "title": "block hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "blockNumber": {
+            "title": "block number",
+            "$ref": "#/components/schemas/uint"
+          },
+          "from": {
+            "title": "from",
+            "$ref": "#/components/schemas/address"
+          },
+          "to": {
+            "title": "to",
+            "description": "Address of the receiver or null in a contract creation transaction.",
+            "oneOf": [
+              {
+                "title": "Contract Creation (null)",
+                "type": "null"
+              },
+              {
+                "title": "Recipient Address",
+                "$ref": "#/components/schemas/address"
+              }
+            ]
+          },
+          "cumulativeGasUsed": {
+            "title": "cumulative gas used",
+            "description": "The sum of gas used by this transaction and all preceding transactions in the same block.",
+            "$ref": "#/components/schemas/uint"
+          },
+          "gasUsed": {
+            "title": "gas used",
+            "description": "The amount of gas used for this specific transaction alone.",
+            "$ref": "#/components/schemas/uint"
+          },
+          "contractAddress": {
+            "title": "contract address",
+            "description": "The contract address created, if the transaction was a contract creation, otherwise null.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/address"
+              },
+              {
+                "title": "Null",
+                "type": "null"
+              }
+            ]
+          },
+          "logs": {
+            "title": "logs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Log"
+            }
+          },
+          "logsBloom": {
+            "title": "logs bloom",
+            "$ref": "#/components/schemas/bytes256"
+          },
+          "root": {
+            "title": "state root",
+            "description": "The post-transaction state root. Only specified for transactions included before the Byzantium upgrade.",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "status": {
+            "title": "status",
+            "description": "Either 1 (success) or 0 (failure). Only specified for transactions included after the Byzantium upgrade.",
+            "$ref": "#/components/schemas/uint"
+          },
+          "effectiveGasPrice": {
+            "title": "effective gas price",
+            "description": "The actual value per gas deducted from the sender's account. Before EIP-1559, this is equal to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).",
+            "$ref": "#/components/schemas/uint"
+          }
+        }
+      },
+      "FilterResults": {
+        "title": "Filter results",
+        "oneOf": [
+          {
+            "title": "new block hashes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            }
+          },
+          {
+            "title": "new transaction hashes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            }
+          },
+          {
+            "title": "new logs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Log"
+            }
+          }
+        ]
+      },
+      "Filter": {
+        "title": "filter",
+        "type": "object",
+        "properties": {
+          "fromBlock": {
+            "title": "from block",
+            "$ref": "#/components/schemas/uint"
+          },
+          "toBlock": {
+            "title": "to block",
+            "$ref": "#/components/schemas/uint"
+          },
+          "blockHash": {
+            "title": "Block hash",
+            "$ref": "#/components/schemas/hash32"
+          },
+          "address": {
+            "title": "Address(es)",
+            "oneOf": [
+              {
+                "title": "Address",
+                "$ref": "#/components/schemas/address"
+              },
+              {
+                "title": "Addresses",
+                "$ref": "#/components/schemas/addresses"
+              }
+            ]
+          },
+          "topics": {
+            "title": "Topics",
+            "$ref": "#/components/schemas/FilterTopics"
+          }
+        }
+      },
+      "FilterTopics": {
+        "title": "Filter Topics",
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/FilterTopic"
+        }
+      },
+      "FilterTopic": {
+        "title": "Filter Topic List Entry",
+        "oneOf": [
+          {
+            "title": "Any Topic Match",
+            "type": "null"
+          },
+          {
+            "title": "Single Topic Match",
+            "$ref": "#/components/schemas/bytes32"
+          },
+          {
+            "title": "Multiple Topic Match",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/bytes32"
+            }
+          }
+        ]
+      },
+      "LogFilter": {
+        "title": "log filter",
+        "type": "object",
+        "properties": {
+          "fromBlock": {
+            "title": "from block",
+            "$ref": "#/components/schemas/uint"
+          },
+          "toBlock": {
+            "title": "to block",
+            "$ref": "#/components/schemas/uint"
+          },
+          "address": {
+            "title": "Address",
+            "$ref": "#/components/schemas/address"
+          },
+          "topics": {
+            "title": "Topics",
+            "$ref": "#/components/schemas/FilterTopics"
+          }
+        }
+      },
+      "callframe": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["CALL", "CREATE"],
+            "description": "The type of action (CALL for function calls or CREATE for contract creation)."
+          },
+          "from": {
+            "$ref": "#/components/schemas/address",
+            "description": "The address of the sender."
+          },
+          "to": {
+            "$ref": "#/components/schemas/address",
+            "description": "The address of the receiver. In the case of a contract creation, this might be null."
+          },
+          "value": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The value transferred with the call, in hexadecimal."
+          },
+          "gas": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The gas provided for the call, in hexadecimal."
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/uint",
+            "description": "The gas used during the call, in hexadecimal."
+          },
+          "input": {
+            "$ref": "#/components/schemas/bytes",
+            "description": "The input data sent with the call."
+          },
+          "output": {
+            "$ref": "#/components/schemas/bytes",
+            "description": "The output data returned by the call."
+          },
+          "error": {
+            "type": "string",
+            "description": "Error encountered during the call, if any."
+          },
+          "revertReason": {
+            "type": "string",
+            "description": "Solidity revert reason, if applicable."
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/subcall"
+            },
+            "description": "Sub-calls made during this call frame."
+          }
+        },
+        "required": ["from", "gas", "input"]
+      }
+    }
+  }
+}

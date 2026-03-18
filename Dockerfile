@@ -45,6 +45,10 @@ ENV HEALTHCHECK_PORT=7546
 
 WORKDIR /home/node/app
 
+# Install tini so Node.js does not run as PID 1 (PID 1 ignores signals like SIGUSR2
+# needed for on-demand heap snapshots via --heapsnapshot-signal).
+RUN apk add --no-cache tini
+
 # Remove unnecessary Node.js toolchains from the final runtime image.
 RUN rm -rf \
     /usr/local/lib/node_modules \
@@ -58,6 +62,9 @@ RUN rm -rf \
 COPY --from=build --chown=node:node /home/node/app/.standalone   ./
 COPY --from=build --chown=node:node /home/node/app/.env.release ./.env.release
 
+# Ensure node user can write to WORKDIR (needed for heap snapshots written to CWD).
+RUN chown node:node /home/node/app
+
 # expose ports for the relay and WebSocket server.
 EXPOSE 7546
 EXPOSE 8546
@@ -70,7 +77,7 @@ USER node
 HEALTHCHECK --interval=10s --retries=3 --start-period=25s --timeout=2s \
     CMD wget -q -O- http://localhost:${HEALTHCHECK_PORT}/health/liveness || exit 1
 
-# Execute Node.js as PID 1 to ensure proper signal handling (SIGTERM, SIGINT).
+# Use tini as PID 1 so Node.js receives signals properly (SIGTERM, SIGINT, SIGUSR2).
 # Explicitly loads .env.release at startup.
-ENTRYPOINT ["node", "--env-file=/home/node/app/.env.release"]
+ENTRYPOINT ["/sbin/tini", "--", "node", "--trace-gc", "--heap-prof", "--heap-prof-dir=/home/node/app", "--heap-prof-interval=512", "--heapsnapshot-signal=SIGUSR2", "--env-file=/home/node/app/.env.release"]
 CMD ["packages/server/dist/index.js"]
