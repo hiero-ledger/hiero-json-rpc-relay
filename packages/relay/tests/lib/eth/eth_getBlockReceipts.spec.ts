@@ -167,7 +167,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
     });
 
     ['WRONG_NONCE', 'INVALID_ACCOUNT_ID'].forEach((status) => {
-      it('should filter out transactions with Hedera-specific validation failures', async function () {
+      it('should NOT filter out transactions with Hedera-specific validation failures', async function () {
         const modifiedContractResults = {
           results: [
             { ...results[0] }, // Normal transaction
@@ -184,8 +184,9 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
         // Verify only one receipt was returned (the non-reverted one)
         expect(receipts).to.exist;
-        expect(receipts.length).to.equal(1);
+        expect(receipts.length).to.equal(2);
         expect(receipts[0].transactionHash).to.equal(results[0].hash);
+        expect(receipts[1].transactionHash).to.equal(results[1].hash);
 
         expectValidReceipt(receipts[0], results[0], results[0].gas_used);
       });
