@@ -70,6 +70,23 @@ describe('rpcParamLayoutConfig decorator', () => {
       const result = Utils.arrangeRpcParams(mockMethod, ['param1', 'param2'], requestDetails);
       expect(result).to.deep.equal([requestDetails]);
     });
+
+    it('should be processed correctly by Utils.arrangeRpcParams if passed parameter is number', () => {
+      const numberParam: number = 9303;
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
+
+      const result = Utils.arrangeRpcParams(mockMethod, numberParam, requestDetails);
+      expect(result).to.deep.equal([numberParam, requestDetails]);
+    });
+
+    it('should be processed correctly by Utils.arrangeRpcParams if passed parameter is null', () => {
+      const mockMethod = function () {};
+      mockMethod[RPC_PARAM_LAYOUT_KEY] = [];
+
+      const result = Utils.arrangeRpcParams(mockMethod, null, requestDetails);
+      expect(result).to.deep.equal([requestDetails]);
+    });
   });
 
   describe('RPC_LAYOUT.custom', () => {
