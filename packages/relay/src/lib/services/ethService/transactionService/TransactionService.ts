@@ -503,10 +503,6 @@ export class TransactionService implements ITransactionService {
 
       if (Array.isArray(blockContractResults)) {
         for (const cr of blockContractResults) {
-          if (Utils.isRejectedDueToHederaSpecificValidation(cr)) {
-            continue;
-          }
-
           if (cr.transaction_index == null || cr.gas_used == null) {
             continue;
           }
