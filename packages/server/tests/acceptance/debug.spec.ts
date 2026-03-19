@@ -21,11 +21,13 @@ import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import deployerContractJson from '../contracts/Deployer.json';
+import IHederaTokenServiceJson from '../contracts/IHederaTokenService.json';
 import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import mockContractJson from '../contracts/MockContract.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
 import Assertions from '../helpers/assertions';
+import Constants from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
@@ -642,6 +644,38 @@ describe('@debug API Acceptance Tests', function () {
     });
 
     describe('Call Tracer', () => {
+      it('should return type=CALL for direct precompile call', async () => {
+        const contract = new ethers.Contract(constants.HTS_ADDRESS, IHederaTokenServiceJson.abi, accounts[0].wallet);
+        const tx = await contract.createFungibleToken(
+          {
+            name: 'name',
+            symbol: 'SYMBOL',
+            treasury: accounts[0].wallet.address,
+            memo: 'memo',
+            tokenSupplyType: true,
+            maxSupply: 1000000,
+            freezeDefault: false,
+            tokenKeys: [],
+            expiry: {
+              second: 0,
+              autoRenewAccount: accounts[0].wallet.address,
+              autoRenewPeriod: 8000000,
+            },
+          },
+          100,
+          18,
+          {
+            value: '35000000000000000000', // 35 hbars
+            gasLimit: 10_000_000,
+          },
+        );
+        await tx.wait();
+
+        const res = await relay.call(DEBUG_TRACE_TRANSACTION, [tx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE]);
+
+        expect(res.type).to.equal('CALL');
+      });
+
       it('should return a hex-encoded top-level output for reverted direct call with hedera specific reason', async () => {
         const sendHbarTx = {
           value: constants.TINYBAR_TO_WEIBAR_COEF, // 1 tinybar

@@ -683,7 +683,7 @@ export class DebugImpl implements Debug {
         };
       }
 
-      if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
+      if (!actionsResponse?.[0]?.call_operation_type || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
@@ -691,7 +691,7 @@ export class DebugImpl implements Debug {
         )) as CallTracerResult;
       }
 
-      const { call_type: type } = actionsResponse[0];
+      const { call_operation_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
 
       const {
