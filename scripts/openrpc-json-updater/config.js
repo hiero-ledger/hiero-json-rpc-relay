@@ -22,6 +22,7 @@ export const OVERWRITTEN_SKIP_FIELDS = [
   'eth_maxPriorityFeePerGas.summary', // we give more context
   'eth_getFilterChanges.summary',
   'eth_feeHistory.summary',
+  'eth_syncing.summary',
   'eth_feeHistory.description',
   'eth_feeHistory.params.2.description',
   'eth_feeHistory.result.schema.properties.gasUsedRatio.description',
@@ -38,13 +39,13 @@ export const OVERWRITTEN_SKIP_FIELDS = [
 export const NOT_SUPPORTED_SKIP_LIST = [
   'eth_coinbase',
   'eth_blobBaseFee',
-  'eth_syncing',
   'eth_getProof',
   'eth_createAccessList',
   'eth_sendTransaction',
   'eth_sign',
   'eth_signTransaction',
   'eth_newPendingTransactionFilter',
+  'eth_simulateV1',
 ];
 
 export const NOT_YET_IMPLEMENTED_SKIP_LIST = [

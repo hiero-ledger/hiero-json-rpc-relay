@@ -67,6 +67,7 @@ const blockResponse: any = {
   number: parseInt(blockInfo.number, 16),
   previous_hash: blockInfo.parentHash,
   size: parseInt(blockInfo.size, 16),
+  hapi_version: '0.68.0',
 };
 
 const hexToData = (buf) => `0x${Buffer.from(buf).toString('hex')}`;

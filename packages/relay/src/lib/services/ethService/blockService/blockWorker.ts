@@ -286,15 +286,6 @@ async function prepareTransactionArray(
 ): Promise<Transaction[] | string[]> {
   const txArray: Transaction[] | string[] = [];
   for (const contractResult of contractResults) {
-    if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-      logger.debug(
-        `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-        contractResult.hash,
-        contractResult.result,
-      );
-      continue;
-    }
-
     [contractResult.from, contractResult.to] = await Promise.all([
       commonService.resolveEvmAddress(contractResult.from, requestDetails, [constants.TYPE_ACCOUNT]),
       commonService.resolveEvmAddress(contractResult.to, requestDetails),
@@ -368,6 +359,14 @@ export async function getBlock(
 
     const gasPrice = await commonService.gasPrice(requestDetails);
 
+    // Have logger error this here instead of blockGasLimit.ts to keep BlockFactory static
+    const hapiVersion = blockResponse.hapi_version;
+    if (!hapiVersion || !Utils.VERSION_REGEX.test(hapiVersion)) {
+      logger.error(
+        `Invalid HAPI version format: "${hapiVersion}". Expected format "major.minor.patch". Returning default gas limit.`,
+      );
+    }
+
     return await BlockFactory.createBlock({
       blockResponse,
       txArray,
@@ -397,15 +396,6 @@ export async function getBlockReceipts(
 
     const resolved = await Promise.all(
       contractResults.map(async (contractResult) => {
-        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          logger.debug(
-            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-            contractResult.hash,
-            contractResult.result,
-          );
-          return null;
-        }
-
         const logs = logsByHash.get(contractResult.hash) || [];
         const [from, to] = await Promise.all([
           commonService.resolveEvmAddress(contractResult.from, requestDetails),
@@ -475,9 +465,8 @@ export async function getBlockReceipts(
  * Returns RLP-encoded transaction receipts for a block as hex strings.
  *
  * Loads block execution data (contract results and logs), then for each contract result
- * builds a receipt (with logs and cumulative gas), encodes it to RLP hex, and skips
- * results that fail Hedera-specific validation. Also appends synthetic receipts for
- * log groups that have no matching contract result.
+ * builds a receipt (with logs and cumulative gas), encodes it to RLP hex. Also appends
+ * synthetic receipts for log groups that have no matching contract result.
  *
  * @param blockHashOrBlockNumber - Block hash (0x-prefixed) or block number string
  * @param requestDetails - The request details for logging and tracking
@@ -498,15 +487,6 @@ export async function getRawReceipts(
     let cumulativeGasUsed = 0;
     const encodedReceipts = contractResults
       .map((contractResult) => {
-        if (Utils.isRejectedDueToHederaSpecificValidation(contractResult)) {
-          logger.debug(
-            `Transaction with hash %s is skipped due to hedera-specific validation failure (%s)`,
-            contractResult.hash,
-            contractResult.result,
-          );
-          return null;
-        }
-
         const logs = logsByHash.get(contractResult.hash) || [];
 
         cumulativeGasUsed += contractResult.gas_used;
