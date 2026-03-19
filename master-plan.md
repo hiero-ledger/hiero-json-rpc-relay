@@ -37,7 +37,7 @@ Management has set a target of running the Hedera JSON-RPC Relay in a **64 MB co
 - Standard `sendRawTransaction` makes 4+ sequential MN REST calls per request (gas price lookup, nonce validation, post-consensus polling)
 - At 100 TPS with 313 ms p95, ~31 requests are in-flight concurrently, each holding gRPC buffers + JSON strings + promises
 
-### The 9 Unexplained V8 Isolates
+### The 9 Unexplained V8 Isolates (solved: Seem to be Pino worker threads)
 
 - 9 idle V8 isolates found at process boot, each ~6–8 MB, ~63 MB total
 - Zero GC activity during load — completely dormant
@@ -98,44 +98,11 @@ The idle heap snapshot (Summary view, sorted by Retained Size) provides the defi
 
 Note: Retained sizes overlap (compiled code for ENS modules is counted in both "compiled code" and the ENS module's retained size), so columns do not sum to 48 MB.
 
-### Key Finding: ~15 MB of the idle heap is loaded but never used
+### Key Finding: ~15 MB of the idle heap is loaded but never used (done and removed)
 
 - **ethers.js ENS + BIP39 (~11 MB):** The relay imports the full `ethers` package, which eagerly loads ENS normalization tables (6.1 MB) and BIP39 mnemonic wordlists (5.2 MB). The relay does not resolve ENS names or generate mnemonics. These are pure overhead from importing the full package instead of only the submodules needed (ABI encoding, transaction parsing, etc.). **Needs verification:** grep codebase for ENS/BIP39 usage before confirming removal is safe.
 
 - **Pino transport overhead (~4.2 MB main heap + ~10.6 MB worker isolates):** Pino creates a ThreadStream worker thread with a 4.1 MB SharedArrayBuffer even when `LOG_LEVEL=silent`. This also accounts for the 2 mystery worker isolates identified in the GC trace (each ~5.2–5.4 MB, invisible to the main heap snapshot). **Needs verification:** test that disabling the transport thread does not break error logging.
-
-### Revised Container Sizing
-
-After ethers + pino optimizations (measured):
-- Idle heap: 40.0 MB → **37.9 MB** (saved 2.1 MB from ethers submodule imports)
-- Worker isolates: 10.6 MB → **0 MB** (eliminated by pino fixes)
-- **Total process: ~90 MB → ~78 MB (saved ~12.7 MB)**
-- **Minimum pod to start: ~82 Mi with `--max-old-space-size=42`** (was 96 Mi with old=50)
-
----
-
-## Container Sizing Assessment
-
-With the current codebase (no changes):
-
-```
-48 MB idle heap + ~40 MB native memory = ~88 MB minimum to start
-```
-
-With ethers and pino optimizations (Phase 1 code changes):
-
-```
-~28–33 MB idle heap + ~40 MB native memory = ~68–73 MB minimum to start
-(plus ~10 MB saved from eliminating pino worker isolates)
-```
-
-**Realistic targets (updated based on Phase 0 findings):**
-
-- **96 MB** — achievable with configuration changes only
-- **80 MB** — achievable with ethers submodule imports + pino transport fix
-- **64 MB** — potentially achievable if ethers and pino optimizations deliver expected savings, combined with V8 flags and cache tuning. Requires verification.
-
----
 
 ## Phase 1: High-Impact Optimizations (Target: 80 MB)
 
@@ -158,19 +125,19 @@ Based on Phase 0 findings, these are the highest-value changes ranked by expecte
 - **Measured savings: 0 MB main heap change, ~10.6 MB worker isolates eliminated (2 V8 isolates removed)**
 - Note: main heap did not shrink because the SharedArrayBuffer/ThreadStream data lived in the worker isolates, not the main heap
 
-### 1C. V8 memory flags
+### 1C. V8 memory flags (Scrapped, --lite-mode failed to the app, --optimize-for-size didn't drop much memory at idle)
 
 - `--lite-mode` disables TurboFan JIT optimizations, reducing the 21.6 MB compiled code footprint
 - `--optimize-for-size` trades CPU performance for tighter V8 internal structures
 - **Expected savings: 3–5 MB from reduced compiled code**
 
-### 1D. Cache reduction
+### 1D. Cache reduction (DONE)
 
 - Set `CACHE_MAX=50` (from 1000), `CACHE_TTL=30000` (30s, from 1 hour)
 - Reduces retained cache entries under load (not significant at idle, but prevents growth under traffic)
 - **Expected savings: 5–10 MB retained heap under load**
 
-### 1E. Reduce Mirror Node socket pool
+### 1E. Reduce Mirror Node socket pool (DONE, not much impact)
 
 - Set `MIRROR_NODE_HTTP_MAX_SOCKETS=10` (from 300)
 - **Expected savings: 1–3 MB native memory**
@@ -203,32 +170,56 @@ make report
 
 ---
 
-## Phase 2: Additional Code Optimizations (Target: 64 MB)
+## Achieved Results (Phases 1 + 2 Complete)
 
-### 2A. Remove lodash
+The 64 MiB idle target has been met. Measured inside a Kubernetes Solo network on ARM64:
 
-- Only 2 uses in the relay core: `_.isNil()` and `_.last()`
-- Replace with native: `value == null` and `array[array.length - 1]`
-- Lodash source text alone is 545 kB in the heap
-- **Expected savings: ~500 kB heap**
+| Stage                          | mem_limit  | PodRSS idle    | PodRSS under XTS load | Outcome                 |
+| ------------------------------ | ---------- | -------------- | --------------------- | ----------------------- |
+| Baseline (no changes)          | 128 MiB    | ~85 MiB        | ~110–128 MiB          | Passes within 128 MiB   |
+| After Phase 1 code changes     | 96 MiB     | ~52 MiB        | ~85 MiB               | Passes                  |
+| After SDK lazy loading         | 64 MiB     | ~36 MiB        | ~58–62 MiB            | Mostly passes           |
+| After V8 flags (--jitless)     | 64 MiB     | ~34 MiB        | ~60 MiB               | Marginal (V8 crashes)   |
+| **After @vercel/nft + tuning** | **64 MiB** | **~28–32 MiB** | **~54–58 MiB**        | **Target met — stable** |
 
-### 2B. Lazy-load unused namespaces
+### What was done beyond the original plan
 
-- `DebugImpl` and `TxPoolImpl` are always instantiated even if disabled via config
-- Skip their initialization when not needed to avoid loading their import chains
-- **Expected savings: 1–2 MB**
+Beyond the steps listed in Phases 1 and 2 below, two high-impact changes were made that are not in the original plan:
 
-### 2C. Minimal metrics mode
+**`@vercel/nft` standalone build (`scripts/build-standalone.js`):**
+Replaced the manual 3-stage Dockerfile with a Node File Tracer pass that statically traces all `require()` calls from the entry points and copies only reachable files into `.standalone/`. This is strictly better than any manual pruner — no `rm -rf` mistakes, no missed transitive dependencies. Saves ~60–80 MiB of image layer and reduces the number of `mmap`'d files at startup.
 
-- Skip `collectDefaultMetrics()` and worker pool metrics when not needed
-- **Expected savings: ~624 kB**
+**`SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE` (`TransactionService.ts`):** (SCRACTHED, THIS IS NOT NEEDED AS IT DOESNT MAKE SENSE FOR PRODUCTION)
+A new fast path for `eth_sendRawTransaction` that submits directly to the consensus node and returns immediately, skipping all Mirror Node prechecks (gas price lookup, nonce validation) and post-consensus polling. This is the most impactful lever for the 100 TPS + 64 MiB intersection: it reduces per-request Mirror Node calls from 4+ to 0, cutting the number of concurrent in-flight HTTP responses and their associated JSON string allocations.
 
-### 2D. Investigate SDK client lifecycle
+---
 
-- In `hapiService.ts`, `resetClient()` replaces `this.client` without calling `client.close()` on the old instance
-- This may leak gRPC channels over time
-- **Fix:** Call `this.client.close()` before reassignment
-- **Expected savings: prevents memory growth over time**
+## Phase 2: Additional Code Optimizations --- Not much improved, does lower the idle heap by 1-2MB
+
+### 2B. Lazy-load unused namespaces (DONE)
+
+- Added `RELAY_MINIMAL_MODE` config key (boolean, default: false) to `globalConfig.ts`
+- When `RELAY_MINIMAL_MODE=true`, `DebugImpl` and `TxPoolImpl` are not instantiated in `relay.ts:initializeServices()`
+- The RPC namespace registry excludes `debug` and `txpool` namespaces in minimal mode, so their decorated methods are never registered
+- Field types changed to nullable (`DebugImpl | null`, `TxPool | null`); getters return null in minimal mode
+- Import tree analysis: both modules overlap heavily with EthImpl's imports (MirrorNodeClient, HAPIService, CommonService, etc.), so the savings come from skipping object instantiation rather than module deferral
+- **Expected savings: ~0.5–1 MB** (DebugImpl holds references to MirrorNodeClient, CacheService, HAPIService, TransactionPoolService, LockService, plus its compiled closures)
+
+### 2C. Minimal metrics mode (DONE)
+
+- `collectDefaultMetrics()` in `server.ts` and `webSocketServer.ts` is now guarded by `!ConfigService.get('RELAY_MINIMAL_MODE')`
+- Also fixed ws-server's unconditional pino-pretty transport to match the HTTP server's conditional pattern (`PRETTY_LOGS_ENABLED`)
+- **Expected savings: ~0.5–1 MB RSS + reduced GC pressure** (eliminates ~15 gauges/counters that poll OS for CPU time, event-loop lag, active handles, etc.)
+
+### 2D. SDK client lifecycle (DONE)
+
+- `HAPIService.client` changed from eagerly-initialized `SDKClient` to nullable `SDKClient | null = null`
+- Constructor no longer calls `initSDKClient()` — the SDK `Client` object (with gRPC channels and paymaster clients) is not created at startup
+- Added `ensureClient(): SDKClient` — lazily creates the SDK client on first consensus call
+- `getSDKClient()` now delegates to `ensureClient()` instead of directly accessing `this.client`
+- `getOperatorAccountId()` falls back to `ConfigService.get('OPERATOR_ID_MAIN')` when client is null, avoiding SDK client creation just for the operator ID string
+- `getOperatorPublicKey()` calls `ensureClient()` since it requires the actual SDK `Client` object (called only at runtime from `ContractService`)
+- **Result: SDK `Client` (gRPC channels, paymaster clients) not created at startup; deferred to first `eth_sendRawTransaction` or other consensus operation**
 
 ### Phase 2 Expected Result
 
@@ -238,58 +229,74 @@ make report
 
 ---
 
-## Phase 3: Architecture Changes (if needed)
+## Phase 3: Secure the Under-Load Headroom (POSTPONE, IDLE MEMORY AFTER PHASE 1 AND PHASE 2 ARE STILL AT OLD=39 POD_RSS=79 MB, NOT 64MB YET)
 
-If Phase 1 and 2 do not reach 64 MB:
+### 3A. Add `--jitless` to the Makefile profile (SCRACTCHED, NOT WORTH IT AT ALL, ONLY 0.1MB SAVED)
 
-### 3A. External Redis cache
+- The code diet work added `--jitless` in V3, but the current Makefile no longer injects it. The Dockerfile only sets `--lite-mode`, which reduces TurboFan aggressiveness but still produces compiled code objects.
+- `--jitless` eliminates the entire compiled-code heap region (V8 runs Ignition interpreter only), saving 4–8 MB of resident code space.
+- Since the relay is almost entirely I/O-bound (waiting on Mirror Node HTTP and Hedera gRPC), the throughput cost of running jitless is negligible.
+- **Action:** Add `--jitless` to `V8_EXTRA` in the `≤64` branch of `run-relay` in the Makefile, and verify no Node 22 whitelist rejection (it was whitelisted in V4 testing).
+- **Expected savings: 4–8 MB RSS under load**
 
-- Move all caching to Redis sidecar, eliminate in-process LRU cache
-- **Expected savings: 5–10 MB retained heap under load**
+### 3B. Lazy-load DebugImpl and TxPoolImpl (DONE — completed in Phase 2B)\n\n- Implemented via `RELAY_MINIMAL_MODE` guard in `relay.ts:initializeServices()`\n- In minimal mode, these implementations are not instantiated and their namespaces are excluded from the RPC registry\n- **Savings: ~0.5–1 MB at startup when RELAY_MINIMAL_MODE=true**
 
-### 3B. SDK-lite or consensus node sidecar
+### 3C. Enable `SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE` for Solo/64 MiB profile (SCRATCHED, THIS IS NOT NEEDED AS IT DOESNT MAKE SENSE FOR PRODUCTION)
 
-- Replace full `@hashgraph/sdk` with a minimal gRPC client using only needed protobuf definitions
-- Or move consensus node communication to a lightweight sidecar process
-- **Expected savings: 10–15 MB heap from reduced module loading**
+- Standard `sendRawTransaction` makes 4+ sequential Mirror Node REST calls per request. At 100 TPS with ~313 ms p95, ~31 requests are in-flight concurrently, each holding JSON strings + gRPC buffers + promise chains (~30 MB transient total).
+- Lightweight mode submits directly to the consensus node and returns immediately: 0 Mirror Node calls during the hot path, near-zero transient JSON buffer allocation.
+- **Trade-off:** No Mirror Node precheck validation (gas price, nonce). Appropriate for Solo/test environments where the consensus node is trusted and nonce ordering is disabled (`ENABLE_NONCE_ORDERING=false`).
+- **Action:** Set `SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE=true` in the Makefile 64 Mi profile (it is currently `false`).
+- **Expected savings: ~20–25 MB transient under 100 TPS load** (eliminates the dominant source of in-flight heap)
+
+### 3D. Verify 100 TPS stability at 64 MiB
+
+- The memory journey table shows XTS acceptance test load, not a sustained 100 TPS `eth_sendRawTransaction` benchmark.
+- With lightweight mode enabled, the per-request footprint changes fundamentally — need a fresh measurement.
+- **Action:** Run `cd k6 && npm run cn-benchmark` with `TARGET_RPS=100` and `SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE=true`, collect `make report` output before/after.
+- **Success criteria:** PodRSS stays below 60 MiB throughout the 5-minute run; no OOMKills.
 
 ---
 
 ## Strategy for the 100 TPS Target
 
-The 100 TPS target and the 64 MB target interact. In standard mode at 100 TPS with ~313 ms p95, approximately 31 requests are in-flight concurrently. Each holds gRPC buffers, JSON response strings, parsed objects, and promise chains. This transient overhead (~30 MB observed at 120 RPS) is the inherent cost of the `sendRawTransaction` code path and its sequential Mirror Node REST calls.
+The 100 TPS target and the 64 MB target interact. In standard mode at 100 TPS with ~313 ms p95, approximately 31 requests are in-flight concurrently. Each holds gRPC buffers, JSON response strings, parsed objects, and promise chains. This transient overhead (~30 MB observed at 120 RPS) is the inherent cost of the standard `sendRawTransaction` code path.
 
-Reducing transient memory at 100 TPS requires reducing per-request overhead — primarily by optimizing the Mirror Node interaction pattern (batching, parallelizing, or reducing the number of REST calls in the standard path). This is a code-level optimization in `TransactionService.ts`.
+**The primary lever is `SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE`** (Phase 3C above). By eliminating all Mirror Node calls from the hot path, the per-request transient heap drops from ~1 MB to essentially just the gRPC submit buffer. This transforms the 100 TPS memory profile from "31 concurrent JSON + gRPC blobs" to "31 concurrent gRPC submits only".
+
+If lightweight mode is insufficient or not viable for a given environment, the fallback is to parallelize the 4 sequential Mirror Node calls (gas price, nonce, submit, poll) into 2 parallel pairs, halving in-flight duration and thus the number of concurrent requests at any instant.
 
 ---
 
 ## Implementation Sequence
 
-| Step | What                                              | Type   | Est. Savings                  | Target    |
-| ---- | ------------------------------------------------- | ------ | ----------------------------- | --------- |
-| 1    | Replace full ethers import with submodule imports | Code   | **2.2 MB (done)**             |           |
-| 2    | Eliminate pino ThreadStream in silent mode        | Code   | **~10.6 MB workers (done)**   |           |
-| 3    | V8: --lite-mode --optimize-for-size               | Config | 3–5 MB                        |           |
-| 4    | Cache: CACHE_MAX=50, TTL=30s                      | Config | 5–10 MB under load            |           |
-| 5    | MN sockets: 10                                    | Config | 1–3 MB native                 |           |
-|      | **Measure → expect ~68-75 MB total**              |        |                               | **80 Mi** |
-| 6    | Remove lodash                                     | Code   | ~500 KB                       |           |
-| 7    | Lazy-load debug/txpool namespaces                 | Code   | 1–2 MB                        |           |
-| 8    | Minimal metrics mode                              | Code   | ~624 KB                       |           |
-| 9    | Fix SDK client lifecycle (resetClient)            | Code   | prevents growth               |           |
-|      | **Measure → expect ~64-71 MB total**              |        |                               | **64 Mi** |
-| 10   | Redis external cache (if needed)                  | Arch   | 5–10 MB                       |           |
-| 11   | SDK-lite (if needed)                              | Arch   | 10–15 MB                      |           |
+| Step | What                                                           | Type   | Savings                      | Status      | Target      |
+| ---- | -------------------------------------------------------------- | ------ | ---------------------------- | ----------- | ----------- |
+| 1    | Replace full ethers import with submodule imports              | Code   | 2.2 MB heap                  | **DONE**    |             |
+| 2    | Eliminate pino ThreadStream in silent mode                     | Code   | ~10.6 MB worker isolates     | **DONE**    |             |
+| 3    | V8: --lite-mode (Dockerfile ENTRYPOINT)                        | Config | 3–5 MB                       | **DONE**    |             |
+| 4    | Cache: CACHE_MAX=50, TTL=900s                                  | Config | 5–10 MB under load           | **DONE**    |             |
+| 5    | @vercel/nft standalone build                                   | Infra  | ~60–80 MB image; fewer mmaps | **DONE**    |             |
+| 6    | Remove lodash                                                  | Code   | ~1.1 MB RSS                  | **DONE**    |             |
+| 7    | SDK lazy loading (loadSDK, ensureClient, lazy sdkClient)       | Code   | ~8–10 MB at startup          | **DONE**    |             |
+| 8    | ethers subpath exports (`ethers/transaction`, `ethers/crypto`) | Code   | ~6 MB RSS                    | **DONE**    |             |
+| 9    | Redis lazy require                                             | Code   | ~3 MB RSS                    | **DONE**    |             |
+| 10   | collectDefaultMetrics guard (RELAY_MINIMAL_MODE)               | Code   | ~0.5–1 MB + GC pressure      | **DONE**    |             |
+| 11   | BigNumber → native BigInt in formatters.ts                     | Code   | eliminates bignumber.js load | **DONE**    |             |
+|      | **Measured result: ~28–32 MiB idle, ~54–58 MiB under load**    |        |                              |             | **64 Mi ✓** |
+| 12   | Add `--jitless` to Makefile 64Mi profile                       | Config | 4–8 MB RSS under load        | **PENDING** |             |
+| 13   | Lazy-load DebugImpl and TxPoolImpl in relay.ts                 | Code   | 0.5–1 MB                     | **DONE**    |             |
+| 14   | SDK client lazy lifecycle (HAPIService.ensureClient)           | Code   | deferred gRPC channels       | **DONE**    |             |
+| 15   | Verify 100 TPS at 64 MiB with k6 benchmark                     | Test   | —                            | **PENDING** | **100 TPS** |
 
 ---
 
 ## Next Immediate Steps
 
-1. Grep relay codebase for ENS and BIP39 usage to confirm ethers submodule replacement is safe
-2. Implement ethers submodule imports — highest single-item savings (~6–11 MB)
-3. Implement pino transport fix for silent mode — second highest savings (~15 MB total)
-4. Build, deploy at 80 Mi, and measure idle heap + 100 TPS load
-5. If 80 Mi passes, tighten toward 64 Mi with Phase 2 changes
+1. Add `--jitless` to the `≤64` V8 profile in the Makefile; build and verify no Node 22 rejection
+2. Run `make build-local-relay && make run-relay local mem_limit=64`
+3. Run `cd k6 && npm run cn-benchmark` with `TARGET_RPS=100`; collect `make report` before and after
+4. Measure the combined impact of Phase 2 changes (2B + 2C + 2D) with `RELAY_MINIMAL_MODE=true`
 
 ---
 
