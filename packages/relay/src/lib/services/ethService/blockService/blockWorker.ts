@@ -363,7 +363,9 @@ export async function getBlock(
     // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,
     // or adding a constructor to accept it — forcing instantiation via `new BlockFactory(logger)`.
     const hapiVersion = blockResponse.hapi_version;
-    if (!hapiVersion || !Utils.VERSION_REGEX.test(hapiVersion)) {
+    // strips pre-release/build metadata identifiers (e.g. "0.59.20-node-alpha" → "0.59.20")
+    const normalizedVersion = hapiVersion?.split(/[-+]/)[0];
+    if (!normalizedVersion || !Utils.VERSION_REGEX.test(normalizedVersion)) {
       logger.error(
         `Invalid HAPI version format: "${hapiVersion}". Expected format "major.minor.patch". Returning default gas limit.`,
       );

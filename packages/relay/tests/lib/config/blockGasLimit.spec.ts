@@ -43,6 +43,11 @@ describe('blockGasLimit', () => {
     expect(obtainBlockGasLimit('bad.version.x')).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
   });
 
+  it('should strip pre-release and build metadata identifiers, returning only "major.minor.patch"', () => {
+    expect(obtainBlockGasLimit('0.68.0-node-alpha')).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
+    expect(obtainBlockGasLimit('1.0.0-node-alpha')).to.equal(150_000_000);
+  });
+
   it('should correctly resolve gas limit when patch version changes within a range', () => {
     // All 0.68.x < 0.69.0 should return 30M
     expect(obtainBlockGasLimit('0.68.1')).to.equal(30_000_000);

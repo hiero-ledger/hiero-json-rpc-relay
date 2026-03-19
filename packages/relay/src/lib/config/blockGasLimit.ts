@@ -54,12 +54,13 @@ export const obtainBlockGasLimit = (
   hapiVersion?: string,
   config: ReadonlyArray<VersionGasLimit> = BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
 ): number => {
-  if (!hapiVersion || !Utils.VERSION_REGEX.test(hapiVersion)) {
+  const normalizedHapiVersion = hapiVersion?.split(/[-+]/)[0];
+  if (!normalizedHapiVersion || !Utils.VERSION_REGEX.test(normalizedHapiVersion)) {
     return constants.DEFAULT_BLOCK_GAS_LIMIT;
   }
 
   for (let i = 0; i < config.length; i++) {
-    if (isHapiVersionAtLeast(hapiVersion, config[i].version)) {
+    if (isHapiVersionAtLeast(normalizedHapiVersion, config[i].version)) {
       return config[i].gasLimit;
     }
   }
