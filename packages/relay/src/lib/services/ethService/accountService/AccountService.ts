@@ -10,6 +10,7 @@ import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { RequestDetails } from '../../../types';
 import { LatestBlockNumberTimestamp } from '../../../types/mirrorNode';
 import { TransactionPoolService } from '../../transactionPoolService/transactionPoolService';
+import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IAccountService } from './IAccountService';
 
@@ -111,73 +112,23 @@ export class AccountService implements IAccountService {
     blockNumberOrTagOrHash: string,
     requestDetails: RequestDetails,
   ): Promise<string> {
-    let latestBlock: LatestBlockNumberTimestamp | null | undefined;
-    // this check is required, because some tools like Metamask pass for parameter latest block, with a number (ex 0x30ea)
-    // tolerance is needed, because there is a small delay between requesting latest block from blockNumber and passing it here
-    if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-      ({ latestBlock, blockNumberOrTagOrHash } = await this.extractBlockNumberAndTimestamp(
+    return WorkersPool.run(
+      {
+        type: 'getBalance',
+        account,
         blockNumberOrTagOrHash,
         requestDetails,
-      ));
-    }
-
-    let blockNumber = null;
-    let balanceFound = false;
-    let weibars = BigInt(0);
-    let mirrorAccount;
-
-    try {
-      if (!this.common.blockTagIsLatestOrPending(blockNumberOrTagOrHash)) {
-        const block = await this.common.getHistoricalBlockResponse(requestDetails, blockNumberOrTagOrHash, true);
-        if (block) {
-          blockNumber = block.number;
-          // A blockNumberOrTag has been provided. If it is `latest` or `pending` retrieve the balance from /accounts/{account.id}
-          // If the parsed blockNumber is the same as the one from the latest block retrieve the balance from /accounts/{account.id}
-          if (latestBlock && block.number !== latestBlock.blockNumber) {
-            ({ balanceFound, weibars } = await this.getBalanceAtBlockNumber(
-              account,
-              block,
-              latestBlock,
-              requestDetails,
-            ));
-          }
-        }
-      }
-
-      if (!balanceFound && !mirrorAccount) {
-        // If no balance and no account, then we need to make a request to the mirror node for the account.
-        mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails);
-        // Test if exists here
-        if (mirrorAccount !== null && mirrorAccount !== undefined) {
-          balanceFound = true;
-          weibars = BigInt(mirrorAccount.balance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
-        }
-      }
-
-      if (!balanceFound) {
-        if (this.logger.isLevelEnabled('debug')) {
-          this.logger.debug(
-            `Unable to find account %s in block %s (%s), returning 0x0 balance`,
-            account,
-            JSON.stringify(blockNumber),
-            blockNumberOrTagOrHash,
-          );
-        }
-        return constants.ZERO_HEX;
-      }
-
-      return numberTo0x(weibars);
-    } catch (error: any) {
-      throw this.common.genericErrorHandler(error, `Error raised during getBalance for account ${account}`);
-    }
+      },
+      this.mirrorNodeClient,
+      this.cacheService,
+    );
   }
 
   /**
    * @param blockNumberOrTagOrHash
    * @param requestDetails
-   * @private
    */
-  private async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
+  public async extractBlockNumberAndTimestamp(blockNumberOrTagOrHash: string, requestDetails: RequestDetails) {
     let latestBlock: LatestBlockNumberTimestamp;
     const latestBlockTolerance = 1;
     let blockHashNumber, isHash;
@@ -239,9 +190,8 @@ export class AccountService implements IAccountService {
    * @param block
    * @param latestBlock
    * @param requestDetails
-   * @private
    */
-  private async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
+  async getBalanceAtBlockNumber(account, block, latestBlock, requestDetails) {
     let balanceFound = false;
     let weibars = BigInt(0);
     let mirrorAccount;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RequestDetails } from '../../types';
+import { getBalance } from '../ethService/accountService/accountWorker';
 import { getBlock, getBlockReceipts, getRawReceipts } from '../ethService/blockService/blockWorker';
 import { getLogs } from '../ethService/ethCommonService/commonWorker';
 
@@ -34,7 +35,14 @@ interface GetRawReceiptsTask {
   requestDetails: RequestDetails;
 }
 
-export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | GetRawReceiptsTask;
+interface GetBalanceTask {
+  type: 'getBalance';
+  account: string;
+  blockNumberOrTagOrHash: string;
+  requestDetails: RequestDetails;
+}
+
+export type WorkerTask = GetLogsTask | GetBlockTask | GetBlockReceiptsTask | GetRawReceiptsTask | GetBalanceTask;
 
 /**
  * Dispatches a worker task to the appropriate handler function.
@@ -63,6 +71,8 @@ export default async function handleTask(task: WorkerTask): Promise<any> {
         task.topics,
         task.requestDetails,
       );
+    case 'getBalance':
+      return await getBalance(task.account, task.blockOrNumberTagOrHash, task.requestDetails);
 
     default:
       throw new Error(`Unknown task type: ${(task as any).type}`);
