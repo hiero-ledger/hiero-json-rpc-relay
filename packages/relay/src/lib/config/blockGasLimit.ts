@@ -55,7 +55,7 @@ export const getBlockGasLimit = (
   config: ReadonlyArray<VersionGasLimit> = BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
 ): number => {
   if (!hapiVersion || !Utils.VERSION_REGEX.test(hapiVersion)) {
-    return constants.BLOCK_GAS_LIMIT;
+    return constants.DEFAULT_BLOCK_GAS_LIMIT;
   }
 
   for (let i = 0; i < config.length; i++) {
@@ -64,5 +64,5 @@ export const getBlockGasLimit = (
     }
   }
 
-  return constants.BLOCK_GAS_LIMIT;
+  return constants.DEFAULT_BLOCK_GAS_LIMIT;
 };

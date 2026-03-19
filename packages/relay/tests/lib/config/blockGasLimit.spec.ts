@@ -31,16 +31,16 @@ describe('blockGasLimit', () => {
 
   it('should return the default gas limit when no HAPI version is provided', () => {
     const defaultGasLimit = getBlockGasLimit(undefined);
-    expect(defaultGasLimit).to.equal(constants.BLOCK_GAS_LIMIT);
+    expect(defaultGasLimit).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
   });
 
   it('should return default gas limit for empty or malformed version strings', () => {
-    expect(getBlockGasLimit('')).to.equal(constants.BLOCK_GAS_LIMIT);
+    expect(getBlockGasLimit('')).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
   });
 
   it('should handle partial or malformed version strings gracefully', () => {
-    expect(getBlockGasLimit('0.69')).to.equal(constants.BLOCK_GAS_LIMIT);
-    expect(getBlockGasLimit('bad.version.x')).to.equal(constants.BLOCK_GAS_LIMIT);
+    expect(getBlockGasLimit('0.69')).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
+    expect(getBlockGasLimit('bad.version.x')).to.equal(constants.DEFAULT_BLOCK_GAS_LIMIT);
   });
 
   it('should correctly resolve gas limit when patch version changes within a range', () => {
