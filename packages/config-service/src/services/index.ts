@@ -9,15 +9,28 @@ import { GlobalConfig } from './globalConfig';
 import { LoggerService } from './loggerService';
 import { ValidationService } from './validationService';
 
+// Load .env early so LOG_LEVEL and PRETTY_LOGS_ENABLED are available for logger configuration.
+// This is safe to call before ConfigService initialization — dotenv only adds to process.env
+// without overwriting existing values, and the .env file may not exist (e.g., in containers
+// where env vars are injected directly).
+const envPath = findConfig('.env');
+if (envPath) {
+  dotenv.config({ path: envPath });
+}
+
+const prettyLogsEnabled = process.env.PRETTY_LOGS_ENABLED !== 'false';
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: true,
+  level: process.env.LOG_LEVEL || 'info',
+  ...(prettyLogsEnabled && {
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: true,
+      },
     },
-  },
+  }),
 });
 const logger = mainLogger.child({ name: 'config-service' });
 

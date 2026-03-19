@@ -143,7 +143,10 @@ export class SDKClient {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel)).setLogger(
+    // Pass '/dev/null' as logFile to avoid creating a pino-pretty worker thread.
+    // The SDK Logger's internal pino instance is immediately replaced by setLogger()
+    // with the relay's own pino child logger, so the /dev/null destination is never used.
+    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel), '/dev/null').setLogger(
       // @ts-ignore
       logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );
