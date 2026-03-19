@@ -95,6 +95,28 @@ describe('@json-rpc-compliance HTTP/JSON-RPC semantics acceptance tests', functi
     expectNoHttp500(response);
   }
 
+  it('Should not throw an error for passing null as a param', async () => {
+    expectNoHttp500(
+      await sendJsonRpc({
+        jsonrpc: '2.0',
+        id: 'default-value',
+        method: 'web3_clientVersion',
+        params: null,
+      }),
+    );
+  });
+
+  it('Should not throw an error for passing number as a param', async () => {
+    expectNoHttp500(
+      await sendJsonRpc({
+        jsonrpc: '2.0',
+        id: 'default-value',
+        method: 'web3_clientVersion',
+        params: 9303,
+      }),
+    );
+  });
+
   it('Malformed HTTP method/body -> 405', async function () {
     const getWithBody = await sendRaw('GET', '/', {
       jsonrpc: '2.0',

@@ -180,6 +180,6 @@ export class Utils {
     }
 
     // No configuration, use default behavior
-    return [...rpcParams, requestDetails];
+    return [...(Array.isArray(rpcParams) ? rpcParams : rpcParams == null ? [] : [rpcParams]), requestDetails];
   }
 }

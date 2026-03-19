@@ -2,8 +2,8 @@
   "name": "layer-zero-example",
   "scripts": {},
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
-    "hardhat": "^2.12.4"
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "hardhat": "^3.1.12"
   },
   "dependencies": {
     "@layerzerolabs/lz-evm-oapp-v2": "^3.0.21",
