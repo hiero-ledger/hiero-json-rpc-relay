@@ -79,5 +79,5 @@ HEALTHCHECK --interval=10s --retries=3 --start-period=25s --timeout=2s \
 
 # Use tini as PID 1 so Node.js receives signals properly (SIGTERM, SIGINT, SIGUSR2).
 # Explicitly loads .env.release at startup.
-ENTRYPOINT ["/sbin/tini", "--", "node", "--trace-gc", "--heap-prof", "--heap-prof-dir=/home/node/app", "--heap-prof-interval=512", "--heapsnapshot-signal=SIGUSR2", "--env-file=/home/node/app/.env.release"]
+ENTRYPOINT ["/sbin/tini", "--", "node", "--trace-gc", "--heapsnapshot-signal=SIGUSR2", "--env-file=/home/node/app/.env.release"]
 CMD ["packages/server/dist/index.js"]
