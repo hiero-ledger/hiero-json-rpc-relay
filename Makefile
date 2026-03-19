@@ -178,9 +178,8 @@ run-relay:
 		echo "    REDIS_ENABLED: \"false\""; \
 		echo "    USE_ASYNC_TX_PROCESSING: \"true\""; \
 		echo "    ENABLE_NONCE_ORDERING: \"false\""; \
-		echo "    SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: \"false\""; \
 		echo "    CACHE_MAX: \"50\""; \
-		echo "    CACHE_TTL: \"900\""; \
+		echo "    CACHE_TTL: \"300\""; \
 		echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"10\""; \
 		echo "    RELAY_MINIMAL_MODE: \"true\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \

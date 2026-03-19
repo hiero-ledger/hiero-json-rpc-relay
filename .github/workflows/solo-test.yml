@@ -16,27 +16,41 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "102-69-old-200-vus-120-rps-10s"
-            memory_limit: "102Mi"
-            wallet_amount: 30
+          - name: "96-60-old-200-vus-120-rps-30s"
+            memory_limit: "96Mi"
+            wallet_amount: 200
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=69"
-          - name: "102-66-old-200-vus-120-rps-10s"
-            memory_limit: "102Mi"
-            wallet_amount: 30
+            node_opts: "--max-old-space-size=60"
+          - name: "96-60-old-100-vus-120-rps-30s"
+            memory_limit: "96Mi"
+            wallet_amount: 100
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=66"
-          - name: "96-63-old-200-vus-120-rps-10s"
+            node_opts: "--max-old-space-size=60"
+          - name: "96-60-old-75-vus-120-rps-30s"
+            memory_limit: "96Mi"
+            wallet_amount: 75
+            signed_txs: 1000
+            bench_target_rps: 120
+            duration: "30s"
+            node_opts: "--max-old-space-size=60"
+          - name: "96-60-old-50-vus-120-rps-30s"
+            memory_limit: "96Mi"
+            wallet_amount: 50
+            signed_txs: 1000
+            bench_target_rps: 120
+            duration: "30s"
+            node_opts: "--max-old-space-size=60"
+          - name: "96-60-old-30-vus-120-rps-30s"
             memory_limit: "96Mi"
             wallet_amount: 30
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
+            node_opts: "--max-old-space-size=60"
 
     permissions:
       contents: read
@@ -128,19 +142,47 @@ jobs:
       - name: Install k6
         uses: grafana/setup-k6-action@v1
 
-      - name: Port-forward Relay and Mirror Node
+      - name: Port-forward Relay and Mirror Node and Consensus Node
         run: |
-          # Free any stale port holders before starting new port-forwards.
-          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
-          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
-          sudo kill -9 $(sudo lsof -ti :50211) 2>/dev/null || true
+          cleanup_port_forward() {
+            local pattern="$1"
+            if command -v pkill >/dev/null 2>&1; then
+              sudo pkill -f "$pattern" 2>/dev/null || true
+            fi
+          }
+
+          wait_for_relay_pod() {
+            local relay_pod=''
+            local attempt=0
+
+            while [ "${attempt}" -lt 24 ]; do
+              relay_pod=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+                -o custom-columns=":metadata.name" 2>/dev/null \
+                | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | tail -1)
+
+              if [ -n "${relay_pod}" ] && kubectl wait --for=condition=Ready -n "${SOLO_NAMESPACE}" \
+                "pod/${relay_pod}" --timeout=10s >/dev/null 2>&1; then
+                echo "${relay_pod}"
+                return 0
+              fi
+
+              attempt=$(( attempt + 1 ))
+              sleep 5
+            done
+
+            return 1
+          }
+
+          # Free any stale port-forward processes before starting new ones.
+          cleanup_port_forward 'kubectl port-forward .* 7546:7546'
+          cleanup_port_forward 'kubectl port-forward .* 8081:'
+          cleanup_port_forward 'kubectl port-forward .* 50211:50211'
 
           # Port-forward the bootstrap relay JSON-RPC endpoint — required by prep-cn.
-          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
-            -o custom-columns=":metadata.name" 2>/dev/null \
-            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+          RELAY_POD=$(wait_for_relay_pod)
           if [ -z "${RELAY_POD}" ]; then
-            echo "ERROR: Relay pod not found; cannot port-forward."
+            echo "ERROR: Relay pod not found or not ready; cannot port-forward."
+            kubectl get pods -n "${SOLO_NAMESPACE}" || true
             exit 1
           fi
           kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
@@ -197,10 +239,17 @@ jobs:
 
       - name: Destroy Bootstrap Solo Relay
         run: |
+          cleanup_port_forward() {
+            local pattern="$1"
+            if command -v pkill >/dev/null 2>&1; then
+              sudo pkill -f "$pattern" 2>/dev/null || true
+            fi
+          }
+
           # Tear down the bootstrap relay that served prep-cn. The matrix-specific relay
           # (with configured memory limits) is launched immediately after to ensure clean,
           # uncontaminated benchmark conditions.
-          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
+          cleanup_port_forward 'kubectl port-forward .* 7546:7546'
           solo relay node destroy --deployment "${SOLO_DEPLOYMENT}"
 
       - name: Run Solo Relay
@@ -234,23 +283,16 @@ jobs:
               npm_package_version: "${PACKAGE_VERSION}"
               NODE_OPTIONS: "${{ matrix.node_opts }}"
               WORKERS_POOL_ENABLED: "false"
-              LOG_LEVEL: "warn"
+              LOG_LEVEL: "silent"
               PRETTY_LOGS_ENABLED: "false"
               RATE_LIMIT_DISABLED: "true"
               REDIS_ENABLED: "false"
               USE_ASYNC_TX_PROCESSING: "true"
               ENABLE_NONCE_ORDERING: "false"
-              HAPI_CLIENT_TRANSACTION_RESET: "50000"
-              ETH_GET_TRANSACTION_COUNT_CACHE_TTL: "5000"
-              MIRROR_NODE_REQUEST_RETRY_COUNT: "1"
-              SEND_RAW_TRANSACTION_LIGHTWEIGHT_MODE: "false"
-              # NOTE: MIRROR_NODE_RETRY_DELAY is NOT set here because Solo hardcodes
-              # it via Helm --set (2001ms), which always overrides --values files.
-              # We override it in the "Override Solo Hardcoded Config" step via kubectl instead.
-              # Memory tuning for small pods:
-              MIRROR_NODE_HTTP_MAX_SOCKETS: "50"
-              MIRROR_NODE_HTTP_MAX_TOTAL_SOCKETS: "50"
-              CACHE_MAX: "200"
+              CACHE_MAX: "50"
+              CACHE_TTL: "300"
+              MIRROR_NODE_HTTP_MAX_SOCKETS: "10"
+              RELAY_MINIMAL_MODE: "true"
           EOF
           cat relay-resources.yaml
           solo relay node add -i node1 --deployment "${SOLO_DEPLOYMENT}" -f relay-resources.yaml
@@ -347,24 +389,52 @@ jobs:
             | awk '{printf "%-50s %d MB\n", $1, $2/1048576}' \
             || echo "(failed to fetch metrics)"
 
-      - name: Re-port-forward Relay and Mirror Node
+      - name: Re-port-forward Relay and Mirror Node and Consensus Node
         if: steps.run-relay.outcome == 'success'
         run: |
+          cleanup_port_forward() {
+            local pattern="$1"
+            if command -v pkill >/dev/null 2>&1; then
+              sudo pkill -f "$pattern" 2>/dev/null || true
+            fi
+          }
+
+          wait_for_relay_pod() {
+            local relay_pod=''
+            local attempt=0
+
+            while [ "${attempt}" -lt 24 ]; do
+              relay_pod=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
+                -o custom-columns=":metadata.name" 2>/dev/null \
+                | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | tail -1)
+
+              if [ -n "${relay_pod}" ] && kubectl wait --for=condition=Ready -n "${SOLO_NAMESPACE}" \
+                "pod/${relay_pod}" --timeout=10s >/dev/null 2>&1; then
+                echo "${relay_pod}"
+                return 0
+              fi
+
+              attempt=$(( attempt + 1 ))
+              sleep 5
+            done
+
+            return 1
+          }
+
           # The bootstrap relay has been replaced by the matrix-specific relay.
           # Re-establish all three port-forwards to enter the benchmark phase with
           # fresh TCP connections:
           #   7546  — mandatory: new relay pod, old PF was killed during relay swap.
           #   8081  — defensive: drop stale TCP state after heavy prep-cn traffic.
           #   50211 — bypass proxy: direct path to consensus node, same as initial setup.
-          sudo kill -9 $(sudo lsof -ti :7546) 2>/dev/null || true
-          sudo kill -9 $(sudo lsof -ti :8081) 2>/dev/null || true
-          sudo kill -9 $(sudo lsof -ti :50211) 2>/dev/null || true
+          cleanup_port_forward 'kubectl port-forward .* 7546:7546'
+          cleanup_port_forward 'kubectl port-forward .* 8081:'
+          cleanup_port_forward 'kubectl port-forward .* 50211:50211'
 
-          RELAY_POD=$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers \
-            -o custom-columns=":metadata.name" 2>/dev/null \
-            | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1)
+          RELAY_POD=$(wait_for_relay_pod)
           if [ -z "${RELAY_POD}" ]; then
-            echo "ERROR: Matrix relay pod not found; cannot port-forward."
+            echo "ERROR: Matrix relay pod not found or not ready; cannot port-forward."
+            kubectl get pods -n "${SOLO_NAMESPACE}" || true
             exit 1
           fi
           kubectl port-forward -n "${SOLO_NAMESPACE}" "${RELAY_POD}" 7546:7546 &
