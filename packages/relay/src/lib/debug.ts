@@ -7,6 +7,7 @@ import { Registry } from 'prom-client';
 
 import {
   decodeErrorMessage,
+  isHex,
   mapKeysAndValues,
   numberTo0x,
   prepend0x,
@@ -676,7 +677,7 @@ export class DebugImpl implements Debug {
           ) as CallTracerResult),
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
-          output: transactionsResponse.result.startsWith(constants.EMPTY_HEX)
+          output: isHex(transactionsResponse.result)
             ? transactionsResponse.result
             : prepend0x(toHexString(transactionsResponse.result)),
         };
@@ -718,12 +719,7 @@ export class DebugImpl implements Debug {
         gas: numberTo0x(gas),
         gasUsed: numberTo0x(gasUsed),
         input,
-        output:
-          result !== constants.SUCCESS && error
-            ? error.startsWith(constants.EMPTY_HEX)
-              ? error
-              : prepend0x(toHexString(error))
-            : output,
+        output: result !== constants.SUCCESS && error ? (isHex(error) ? error : prepend0x(toHexString(error))) : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),
         ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error ?? undefined) }),
         // if we have more than one call executed during the transactions we would return all calls
