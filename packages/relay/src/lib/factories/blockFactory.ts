@@ -4,7 +4,7 @@ import { RLP } from '@ethereumjs/rlp';
 import { AuthorizationLike, ethers } from 'ethers';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
-import { getBlockGasLimit } from '../config/blockGasLimit';
+import { obtainBlockGasLimit } from '../config/blockGasLimit';
 import constants from '../constants';
 import {
   AuthorizationListEntry,
@@ -35,7 +35,7 @@ export class BlockFactory {
       baseFeePerGas: gasPrice,
       difficulty: constants.ZERO_HEX,
       extraData: constants.EMPTY_HEX,
-      gasLimit: numberTo0x(getBlockGasLimit(blockResponse.hapi_version)),
+      gasLimit: numberTo0x(obtainBlockGasLimit(blockResponse.hapi_version)),
       gasUsed: numberTo0x(blockResponse.gas_used),
       hash: blockHash,
       logsBloom: blockResponse.logs_bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,

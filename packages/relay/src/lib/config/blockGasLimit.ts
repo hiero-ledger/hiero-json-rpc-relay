@@ -50,7 +50,7 @@ export function isHapiVersionAtLeast(candidateVersion: string, minimumVersion: s
  * @returns the block gas limit corresponding to the provided version, or a default value if the version is not recognized
  */
 
-export const getBlockGasLimit = (
+export const obtainBlockGasLimit = (
   hapiVersion?: string,
   config: ReadonlyArray<VersionGasLimit> = BLOCK_GAS_LIMIT_BY_HAPI_VERSION,
 ): number => {
