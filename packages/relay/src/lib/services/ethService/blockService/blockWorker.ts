@@ -359,7 +359,9 @@ export async function getBlock(
 
     const gasPrice = await commonService.gasPrice(requestDetails);
 
-    // Have logger error this here instead of blockGasLimit.ts to keep BlockFactory static
+    // Log the error here rather than inside BlockFactory to preserve its static-only design.
+    // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,
+    // or adding a constructor to accept it — forcing instantiation via `new BlockFactory(logger)`.
     const hapiVersion = blockResponse.hapi_version;
     if (!hapiVersion || !Utils.VERSION_REGEX.test(hapiVersion)) {
       logger.error(
