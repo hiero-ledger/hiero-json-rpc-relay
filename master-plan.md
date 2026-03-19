@@ -106,15 +106,11 @@ Note: Retained sizes overlap (compiled code for ENS modules is counted in both "
 
 ### Revised Container Sizing
 
-If ethers waste and pino overhead are eliminated:
-
-- Current idle heap: ~48 MB → reduced to ~33 MB
-- Compiled code and source strings shrink proportionally (fewer modules) → estimated ~28–33 MB
-- Worker isolates eliminated → saves ~10.6 MB of process memory
-- **Potential idle process: ~28–33 MB heap + ~40 MB native = ~68–73 MB**
-- **With worker isolate elimination: ~58–63 MB total**
-
-This changes the feasibility assessment for 64 MB — it may be reachable without architectural changes, pending verification of the ethers and pino optimizations.
+After ethers + pino optimizations (measured):
+- Idle heap: 40.0 MB → **37.9 MB** (saved 2.1 MB from ethers submodule imports)
+- Worker isolates: 10.6 MB → **0 MB** (eliminated by pino fixes)
+- **Total process: ~90 MB → ~78 MB (saved ~12.7 MB)**
+- **Minimum pod to start: ~82 Mi with `--max-old-space-size=42`** (was 96 Mi with old=50)
 
 ---
 
@@ -145,22 +141,22 @@ With ethers and pino optimizations (Phase 1 code changes):
 
 Based on Phase 0 findings, these are the highest-value changes ranked by expected savings.
 
-### 1A. Replace full ethers import with submodule imports
+### 1A. Replace full ethers import with submodule imports (DONE)
 
-- The heap snapshot shows `ens_normalize` tables (6.1 MB) and BIP39 wordlist (5.2 MB) retained in the idle heap
-- These are loaded because the relay imports the full `ethers` package, which eagerly loads all submodules
-- The relay uses ethers for ABI encoding, transaction parsing, and address utilities — not ENS resolution or mnemonic generation
-- **Action:** Replace `import { ethers } from 'ethers'` with targeted submodule imports (e.g., `@ethersproject/abi`, `@ethersproject/transactions`)
-- **Prerequisite:** Grep codebase to confirm no ENS/BIP39 usage exists
-- **Expected savings: 6–11 MB heap** (ENS tables + BIP39 wordlist + associated compiled code and source strings)
+- Created a wrapper module (`lib/ethers.ts`) that imports from `ethers/transaction` and `ethers/crypto` submodules instead of the full `ethers` package
+- Replaced `randomBytes`/`uuidV4` with native `crypto.randomUUID()`, `ethers.ZeroAddress` with existing `constants.ZERO_ADDRESS_HEX`
+- Confirmed ENS normalization tables and BIP39 wordlists are no longer loaded at runtime
+- Ethers files loaded reduced from 159 to 61 (62% reduction)
+- **Measured savings: ~2.2 MB heap** (40.0 MB to 37.8 MB idle)
+- Note: Original estimate of 6-11 MB was based on retained sizes from heap snapshot which double-count memory shared with V8 compiled code and source strings. Actual unique savings are ~2.2 MB.
 
-### 1B. Eliminate pino ThreadStream worker in silent mode
+### 1B. Eliminate pino worker threads (DONE)
 
-- The heap snapshot shows Pino allocates a 4.1 MB SharedArrayBuffer for ThreadStream worker communication even with `LOG_LEVEL=silent`
-- This also creates 2 worker thread isolates (~5.2–5.4 MB each), confirmed by GC trace analysis
-- **Action:** Configure pino to skip the transport thread when `LOG_LEVEL=silent`, or use a synchronous destination
-- **Prerequisite:** Verify error logging still functions correctly
-- **Expected savings: ~4.2 MB main heap + ~10.6 MB worker isolate heap = ~15 MB total process memory**
+- Traced worker thread creation to 2 sources: config-service's hardcoded pino-pretty logger and @hashgraph/sdk's Logger class
+- config-service fix: made pino-pretty transport conditional on `PRETTY_LOGS_ENABLED`, added early dotenv loading so `LOG_LEVEL` is respected
+- SDK fix: pass `/dev/null` as logFile to `HederaLogger` to avoid pino-pretty transport (internal logger is immediately replaced by `setLogger()`)
+- **Measured savings: 0 MB main heap change, ~10.6 MB worker isolates eliminated (2 V8 isolates removed)**
+- Note: main heap did not shrink because the SharedArrayBuffer/ThreadStream data lived in the worker isolates, not the main heap
 
 ### 1C. V8 memory flags
 
@@ -181,11 +177,12 @@ Based on Phase 0 findings, these are the highest-value changes ranked by expecte
 
 ### Phase 1 Expected Result
 
-- Current idle: ~48 MB heap + ~40 MB native + ~10 MB worker isolates = ~98 MB total
-- After ethers fix: heap drops ~6–11 MB
-- After pino fix: heap drops ~4 MB, worker isolates eliminated (~10 MB)
-- After V8 flags: heap drops ~3–5 MB
-- **Expected idle: ~28–35 MB heap + ~40 MB native = ~68–75 MB total → fits 80 Mi**
+- Original idle: ~40 MB heap + ~40 MB native + ~10 MB worker isolates = ~90 MB total
+- After ethers fix (done): heap drops ~2.2 MB → **37.8 MB heap**
+- After pino fix (done): worker isolates eliminated → **0 MB worker overhead**
+- **Current idle: ~38 MB heap + ~40 MB native = ~78 MB total (was ~90 MB)**
+- After V8 flags: heap drops ~3–5 MB → needs measurement
+- **Current minimum pod to start: ~90 Mi with old=48 (was 96 Mi with old=50)**
 
 ### Phase 1 Verification
 
@@ -270,8 +267,8 @@ Reducing transient memory at 100 TPS requires reducing per-request overhead — 
 
 | Step | What                                              | Type   | Est. Savings                  | Target    |
 | ---- | ------------------------------------------------- | ------ | ----------------------------- | --------- |
-| 1    | Replace full ethers import with submodule imports | Code   | 6–11 MB heap                  |           |
-| 2    | Eliminate pino ThreadStream in silent mode        | Code   | ~15 MB total (heap + workers) |           |
+| 1    | Replace full ethers import with submodule imports | Code   | **2.2 MB (done)**             |           |
+| 2    | Eliminate pino ThreadStream in silent mode        | Code   | **~10.6 MB workers (done)**   |           |
 | 3    | V8: --lite-mode --optimize-for-size               | Config | 3–5 MB                        |           |
 | 4    | Cache: CACHE_MAX=50, TTL=30s                      | Config | 5–10 MB under load            |           |
 | 5    | MN sockets: 10                                    | Config | 1–3 MB native                 |           |
