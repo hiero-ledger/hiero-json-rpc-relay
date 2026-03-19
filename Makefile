@@ -182,6 +182,7 @@ run-relay:
 		echo "    CACHE_MAX: \"50\""; \
 		echo "    CACHE_TTL: \"900\""; \
 		echo "    MIRROR_NODE_HTTP_MAX_SOCKETS: \"10\""; \
+		echo "    RELAY_MINIMAL_MODE: \"true\""; \
 		if [ -z "$(PURE_FLAG)" ]; then \
 			echo "    NODE_OPTIONS: \"$$NODE_OPTS\""; \
 		fi; \

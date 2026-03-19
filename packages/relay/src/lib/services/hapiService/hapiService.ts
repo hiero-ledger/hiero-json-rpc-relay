@@ -64,8 +64,9 @@ export default class HAPIService {
   /**
    * The SDK Client used for connecting to both the consensus nodes and mirror node. The account
    * associated with this client will pay for all operations on the main network.
+   * Lazily initialized on first consensus call to avoid gRPC channel overhead at startup.
    */
-  private client: SDKClient;
+  private client: SDKClient | null = null;
 
   /**
    * The logger used for logging all output from this class.
@@ -100,7 +101,7 @@ export default class HAPIService {
     this.eventEmitter = new EventEmitter<TypedEvents>();
     this.hederaNetwork = ConfigService.get('HEDERA_NETWORK').toLowerCase();
 
-    this.client = this.initSDKClient();
+    // SDK client is lazily initialized on first consensus call via ensureClient()
 
     const currentDateNow = Date.now();
     this.initialTransactionCount = ConfigService.get('HAPI_CLIENT_TRANSACTION_RESET');
@@ -167,6 +168,17 @@ export default class HAPIService {
   }
 
   /**
+   * Ensures the SDK client is initialized, creating it on first access.
+   * All consensus-node operations must go through this method.
+   */
+  private ensureClient(): SDKClient {
+    if (!this.client) {
+      this.client = this.initSDKClient();
+    }
+    return this.client;
+  }
+
+  /**
    * Reset the SDK Client and all counters.
    */
   private resetClient() {
@@ -195,20 +207,26 @@ export default class HAPIService {
 
   /**
    * Returns the operator account ID.
+   * Falls back to config when the SDK client has not been initialized yet.
    *
    * @returns The operator account ID or `null` if not set.
    */
   public getOperatorAccountId(): AccountId | null {
-    return this.client.getOperatorAccountId();
+    if (this.client) {
+      return this.client.getOperatorAccountId();
+    }
+    const operatorId = ConfigService.get('OPERATOR_ID_MAIN');
+    return operatorId ? AccountId.fromString(operatorId) : null;
   }
 
   /**
    * Returns the public key of the operator account.
+   * Initializes the SDK client if not already created.
    *
    * @returns The operator's public key or `null` if not set.
    */
   public getOperatorPublicKey(): PublicKey | null {
-    return this.client.getOperatorPublicKey();
+    return this.ensureClient().getOperatorPublicKey();
   }
 
   /**
@@ -217,7 +235,7 @@ export default class HAPIService {
    */
   private getSDKClient(): SDKClient {
     if (!this.isReinitEnabled) {
-      return this.client;
+      return this.ensureClient();
     }
 
     if (this.shouldReset) {
@@ -227,7 +245,7 @@ export default class HAPIService {
     this.decrementTransactionCounter();
     this.checkResetDuration();
 
-    return this.client;
+    return this.ensureClient();
   }
 
   /**

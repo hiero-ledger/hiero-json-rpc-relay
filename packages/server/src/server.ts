@@ -170,9 +170,9 @@ export async function initializeServer() {
 
   const app = koaJsonRpc.getKoaApp();
 
-  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
-
-  // clear and create metric in registry
+  if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
+    collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
+  }
   const metricHistogramName = 'rpc_relay_method_response';
   register.removeSingleMetric(metricHistogramName);
   const methodResponseHistogram = new Histogram({
