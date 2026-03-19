@@ -8,7 +8,7 @@ import { predefined } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import RelayAssertions from '../../assertions';
-import { defaultErrorMessageHex } from '../../helpers';
+import { defaultErrorMessageHex, withOverriddenEnvsInMochaTest } from '../../helpers';
 import { BLOCK_HASH, BLOCK_NUMBER, DEFAULT_BLOCK, EMPTY_LOGS_RESPONSE, GAS_USED_1, GAS_USED_2 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
 
@@ -401,64 +401,67 @@ describe('@ethGetTransactionReceipt eth_getTransactionReceipt tests', async func
     expect(receipt?.to).to.be.null;
   });
 
-  it('should handle cumulative gas used for receipt with multiple transactions in the block', async function () {
-    const tx1GasUsed = GAS_USED_1;
-    const tx2GasUsed = GAS_USED_2;
-    const blockGasUsed = tx1GasUsed + tx2GasUsed;
+  withOverriddenEnvsInMochaTest({ HEDERA_SPECIFIC_REVERT_STATUSES: ['WRONG_NONCE'] }, () => {
+    it('should handle cumulative gas used for receipt with multiple transactions in the block', async function () {
+      const tx1GasUsed = GAS_USED_1;
+      const tx2GasUsed = GAS_USED_2;
+      const blockGasUsed = tx1GasUsed + tx2GasUsed;
 
-    const secondTxHash = '0xbcfc47c474ebcf39f71f47414713325b37b81df00b5d0eed6703dd7bf6a80a7e';
+      const secondTxHash = '0xbcfc47c474ebcf39f71f47414713325b37b81df00b5d0eed6703dd7bf6a80a7e';
 
-    const secondTxContractResult = {
-      ...defaultDetailedContractResultByHash,
-      hash: secondTxHash,
-      block_hash: BLOCK_HASH,
-      block_number: BLOCK_NUMBER,
-      gas_used: tx2GasUsed,
-      block_gas_used: blockGasUsed,
-      transaction_index: 1,
-    };
+      const secondTxContractResult = {
+        ...defaultDetailedContractResultByHash,
+        hash: secondTxHash,
+        block_hash: BLOCK_HASH,
+        block_number: BLOCK_NUMBER,
+        gas_used: tx2GasUsed,
+        block_gas_used: blockGasUsed,
+        transaction_index: 1,
+        result: 'WRONG_NONCE',
+      };
 
-    restMock.onGet(`accounts/${secondTxContractResult.from}?transactions=false`).reply(200);
-    restMock.onGet(`accounts/${secondTxContractResult.from}?transactions=false`).reply(200);
-    restMock.onGet(`accounts/${secondTxContractResult.to}?transactions=false`).reply(200);
-    restMock.onGet(`accounts/${secondTxContractResult.to}?transactions=false`).reply(200);
-    restMock.onGet(`contracts/${secondTxContractResult.to}`).reply(200);
-    restMock.onGet(`contracts/${secondTxContractResult.to}`).reply(200);
-    restMock.onGet(`tokens/${secondTxContractResult.contract_id}`).reply(200);
-    restMock.onGet(`tokens/${secondTxContractResult.contract_id}`).reply(200);
-    restMock.onGet(`contracts/${secondTxContractResult.created_contract_ids[0]}`).reply(404);
+      restMock.onGet(`accounts/${secondTxContractResult.from}?transactions=false`).reply(200);
+      restMock.onGet(`accounts/${secondTxContractResult.from}?transactions=false`).reply(200);
+      restMock.onGet(`accounts/${secondTxContractResult.to}?transactions=false`).reply(200);
+      restMock.onGet(`accounts/${secondTxContractResult.to}?transactions=false`).reply(200);
+      restMock.onGet(`contracts/${secondTxContractResult.to}`).reply(200);
+      restMock.onGet(`contracts/${secondTxContractResult.to}`).reply(200);
+      restMock.onGet(`tokens/${secondTxContractResult.contract_id}`).reply(200);
+      restMock.onGet(`tokens/${secondTxContractResult.contract_id}`).reply(200);
+      restMock.onGet(`contracts/${secondTxContractResult.created_contract_ids[0]}`).reply(404);
 
-    stubBlockAndFeesFunc(sandbox);
+      stubBlockAndFeesFunc(sandbox);
 
-    restMock.onGet(`contracts/results/${secondTxHash}`).reply(200, JSON.stringify(secondTxContractResult));
+      restMock.onGet(`contracts/results/${secondTxHash}`).reply(200, JSON.stringify(secondTxContractResult));
 
-    restMock.onGet(`contracts/results?block.number=${BLOCK_NUMBER}&limit=100&order=asc`).reply(
-      200,
-      JSON.stringify({
-        results: [
-          {
-            ...defaultDetailedContractResultByHash,
-            block_hash: BLOCK_HASH,
-            block_number: BLOCK_NUMBER,
-            block_gas_used: blockGasUsed,
-            gas_used: tx1GasUsed,
-            transaction_index: 0,
-          },
-          secondTxContractResult, // tx2
-        ],
-        links: { next: null },
-      }),
-    );
+      restMock.onGet(`contracts/results?block.number=${BLOCK_NUMBER}&limit=100&order=asc`).reply(
+        200,
+        JSON.stringify({
+          results: [
+            {
+              ...defaultDetailedContractResultByHash,
+              block_hash: BLOCK_HASH,
+              block_number: BLOCK_NUMBER,
+              block_gas_used: blockGasUsed,
+              gas_used: tx1GasUsed,
+              transaction_index: 0,
+            },
+            secondTxContractResult, // tx2
+          ],
+          links: { next: null },
+        }),
+      );
 
-    const receipt = await ethImpl.getTransactionReceipt(secondTxHash, requestDetails);
+      const receipt = await ethImpl.getTransactionReceipt(secondTxHash, requestDetails);
 
-    expect(receipt).to.exist;
-    if (!receipt) return;
+      expect(receipt).to.exist;
+      if (!receipt) return;
 
-    const expectedGasUsedHex = '0x' + tx2GasUsed.toString(16);
-    expect(receipt.gasUsed).to.equal(expectedGasUsedHex);
+      const expectedGasUsedHex = '0x' + tx2GasUsed.toString(16);
+      expect(receipt.gasUsed).to.equal(expectedGasUsedHex);
 
-    const expectedCumulativeHex = '0x' + blockGasUsed.toString(16);
-    expect(receipt.cumulativeGasUsed).to.equal(expectedCumulativeHex);
+      const expectedCumulativeHex = '0x' + blockGasUsed.toString(16);
+      expect(receipt.cumulativeGasUsed).to.equal(expectedCumulativeHex);
+    });
   });
 });
