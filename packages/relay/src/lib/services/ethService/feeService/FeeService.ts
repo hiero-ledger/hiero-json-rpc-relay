@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import _ from 'lodash';
 import { Logger } from 'pino';
 
 import { numberTo0x } from '../../../../formatters';
@@ -201,7 +200,7 @@ export class FeeService implements IFeeService {
 
     // get latest block fee
     // @ts-ignore
-    let nextBaseFeePerGas: string = _.last(feeHistory.baseFeePerGas);
+    let nextBaseFeePerGas: string = feeHistory.baseFeePerGas[feeHistory.baseFeePerGas.length - 1];
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { AccountId, PrivateKey } from '@hashgraph/sdk';
 import { Operator } from '@hashgraph/sdk/lib/client/Client';
@@ -10,6 +9,7 @@ import { Logger } from 'pino';
 import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
+import { keccak256 } from './lib/ethers';
 import { RequestDetails } from './lib/types';
 
 export class Utils {

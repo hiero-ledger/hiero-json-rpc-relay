@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import Piscina from 'piscina';
+import type Piscina from 'piscina';
 import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 import { parentPort } from 'worker_threads';
 
@@ -112,7 +112,11 @@ export class WorkersPool {
    */
   static getInstance(): Piscina {
     if (!this.instance) {
-      this.instance = new Piscina({
+      // Piscina is required lazily here so the module is not loaded when WORKERS_POOL_ENABLED=false.
+      // The top-level import is type-only and is erased at compile time.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const PiscinaConstructor = require('piscina') as typeof Piscina;
+      this.instance = new PiscinaConstructor({
         filename: `${__dirname}/workers.js`,
         atomics: 'disabled',
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),

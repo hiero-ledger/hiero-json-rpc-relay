@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { keccak256 } from '@ethersproject/keccak256';
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 
 import { Web3 } from '../index';
 import { rpcMethod } from './decorators';
+import { keccak256 } from './ethers';
 import { rpcParamValidationRules } from './validators';
 
 export class Web3Impl implements Web3 {
