@@ -143,8 +143,8 @@ export const register = RegistryFactory.getInstance(true);
 export async function initializeServer(sharedRelay?: Relay, sharedRegister?: Registry, redisClient?: RedisClientType) {
   const register = sharedRegister ?? RegistryFactory.getInstance(true);
   const relay = sharedRelay ?? (await Relay.init(logger.child({ name: 'relay' }), register));
-  if (!redisClient && !sharedRelay) {
-    redisClient = RedisClientManager.isRedisEnabled() ? await RedisClientManager.getClient(logger) : undefined;
+  if (!redisClient && !sharedRelay && RedisClientManager.isRedisEnabled()) {
+    redisClient = await RedisClientManager.getClient(logger);
   }
   // Initialize rate limit store failure counter
   const storeFailureMetricName = 'rpc_relay_rate_limit_store_failures';

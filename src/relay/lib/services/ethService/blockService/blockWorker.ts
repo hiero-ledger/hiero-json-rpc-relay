@@ -43,7 +43,6 @@ const mirrorNodeClient = new MirrorNodeClient(
   undefined,
   undefined,
   undefined,
-  ConfigService.get('MIRROR_NODE_URL_REST_JAVA') || ConfigService.get('MIRROR_NODE_URL'),
 );
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
 

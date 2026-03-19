@@ -127,11 +127,9 @@ export class MirrorNodeClient {
   private readonly logger: Logger;
 
   private readonly restClient: AxiosInstance;
-  private readonly restJavaClient: AxiosInstance;
   private readonly web3Client: AxiosInstance;
 
   public readonly restUrl: string;
-  public readonly restJavaUrl: string;
   public readonly web3Url: string;
 
   /**
@@ -263,7 +261,6 @@ export class MirrorNodeClient {
     restClient?: AxiosInstance,
     web3Url?: string,
     web3Client?: AxiosInstance,
-    restJavaUrl?: string,
   ) {
     if (!web3Url) {
       web3Url = restUrl;
@@ -272,20 +269,15 @@ export class MirrorNodeClient {
     if (restClient !== undefined) {
       this.restUrl = '';
       this.web3Url = '';
-      this.restJavaUrl = '';
 
       this.restClient = restClient;
       this.web3Client = web3Client ? web3Client : restClient;
-      this.restJavaClient = restClient;
     } else {
       this.restUrl = this.buildUrl(restUrl);
       this.web3Url = this.buildUrl(web3Url);
-      this.restJavaUrl = restJavaUrl ? this.buildUrl(restJavaUrl) : this.restUrl;
 
       this.restClient = restClient ? restClient : this.createAxiosClient(this.restUrl);
       this.web3Client = web3Client ? web3Client : this.createAxiosClient(this.web3Url);
-      this.restJavaClient =
-        this.restJavaUrl !== this.restUrl ? this.createAxiosClient(this.restJavaUrl) : this.restClient;
     }
 
     this.logger = logger;
@@ -316,9 +308,6 @@ export class MirrorNodeClient {
       this.restUrl,
       this.web3Url,
     );
-    if (this.restJavaUrl !== this.restUrl) {
-      this.logger.info(`Mirror Node REST Java url: %s`, this.restJavaUrl);
-    }
     this.cacheService = cacheService;
 
     // set  up eth call  accepted error codes.
@@ -390,23 +379,6 @@ export class MirrorNodeClient {
       if (method === MirrorNodeClient.HTTP_GET) {
         if (pathLabel == MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
-        } else if (
-          pathLabel === MirrorNodeClient.GET_NETWORK_FEES_ENDPOINT ||
-          pathLabel === MirrorNodeClient.GET_NETWORK_EXCHANGERATE_ENDPOINT
-        ) {
-          axiosRequestConfig['transformResponse'] = [
-            (data) => {
-              if (data) {
-                try {
-                  return JSONBigInt.parse(data);
-                } catch (error) {
-                  this.logger.warn(`Failed to parse response data from Mirror Node: %s`, error);
-                }
-              }
-              return data;
-            },
-          ];
-          response = await this.restJavaClient.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
           // is converted to a JS Number type, precision is lost due to rounding.

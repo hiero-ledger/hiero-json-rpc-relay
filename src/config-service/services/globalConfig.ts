@@ -500,11 +500,6 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
-  MIRROR_NODE_URL_REST_JAVA: {
-    type: 'string',
-    required: false,
-    defaultValue: null,
-  },
   MIRROR_NODE_URL_WEB3: {
     type: 'string',
     required: false,

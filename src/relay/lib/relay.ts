@@ -332,8 +332,6 @@ export class Relay {
       this.cacheService,
       undefined,
       ConfigService.get('MIRROR_NODE_URL_WEB3') || ConfigService.get('MIRROR_NODE_URL'),
-      undefined,
-      ConfigService.get('MIRROR_NODE_URL_REST_JAVA') || ConfigService.get('MIRROR_NODE_URL'),
     );
 
     // Create Metric service
