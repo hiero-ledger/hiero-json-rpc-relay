@@ -465,6 +465,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 5,
   },
+  MIRROR_NODE_PAGINATION_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 20,
+  },
   MIRROR_NODE_RETRIES: {
     type: 'number',
     required: false,

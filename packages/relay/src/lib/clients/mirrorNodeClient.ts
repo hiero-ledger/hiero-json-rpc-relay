@@ -554,7 +554,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     results = [],
     page = 1,
-    pageMax: number = constants.MAX_MIRROR_NODE_PAGINATION,
+    pageMax: number = Number(ConfigService.get('MIRROR_NODE_PAGINATION_MAX')),
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
