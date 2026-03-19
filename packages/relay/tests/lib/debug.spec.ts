@@ -1871,6 +1871,19 @@ describe('Debug API Test Suite', async function () {
       input: '0x3',
       output: '0x4',
     };
+    const callTracerWrongNonce = {
+      type: 'CALL',
+      from: '0x2cd9e9e416c816f5ad3496d9c31e6b4eb573670e',
+      to: '0xe8bf85ee602cb26402b73b3d0bb5b7442a2c3543',
+      gas: '0x61a80',
+      gasUsed: '0x0',
+      value: '0x0',
+      input: '0x',
+      output: '0x',
+      calls: [],
+      error: 'WRONG_NONCE',
+      revertReason: 'WRONG_NONCE',
+    };
     const prestateTracerResult1 = {
       '0xc37f417fa09933335240fca72dd257bfbde9c275': {
         balance: '0x100000000',
@@ -2001,13 +2014,17 @@ describe('Debug API Test Suite', async function () {
           expect(result[1]).to.deep.equal({ txHash: contractResult2.hash, result: callTracerResult2 });
         });
 
-        it('should filter out WRONG_NONCE transactions', async function () {
+        it('should NOT filter out WRONG_NONCE transactions', async function () {
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResultWrongNonce]);
 
-          const callTracerStub = sinon.stub(debugService, 'callTracer');
-          callTracerStub.resolves(callTracerResult1);
+          sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerWrongNonce);
 
           const result = await debugService.traceBlockByHash(
             blockHash,
@@ -2015,13 +2032,9 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.have.length(1);
+          expect(result).to.have.length(2);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
-
-          const wrongNonceCalls = callTracerStub
-            .getCalls()
-            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
-          expect(wrongNonceCalls).to.be.empty;
+          expect(result[1]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: callTracerWrongNonce });
         });
       });
 
@@ -2181,18 +2194,20 @@ describe('Debug API Test Suite', async function () {
           expect(callTracerStub.callCount).to.equal(1);
         });
 
-        it('should filter out WRONG_NONCE transactions and still trace synthetic transactions', async function () {
+        it('should NOT filter out WRONG_NONCE transactions and still trace synthetic transactions', async function () {
           sinon
             .stub(mirrorNodeInstance, 'getContractResultWithRetry')
             .resolves([contractResult1, contractResultWrongNonce]);
           sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
 
-          const callTracerStub = sinon
+          sinon
             .stub(debugService, 'callTracer')
             .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any)
             .resolves(callTracerResult1)
             .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any)
-            .resolves(syntheticCallTracerResult1);
+            .resolves(syntheticCallTracerResult1)
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any)
+            .resolves(callTracerWrongNonce);
 
           const result = await debugService.traceBlockByHash(
             blockHash,
@@ -2200,14 +2215,10 @@ describe('Debug API Test Suite', async function () {
             requestDetails,
           );
 
-          expect(result).to.be.an('array').with.lengthOf(2);
+          expect(result).to.be.an('array').with.lengthOf(3);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
-          expect(result[1]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
-
-          const wrongNonceCalls = callTracerStub
-            .getCalls()
-            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
-          expect(wrongNonceCalls).to.be.empty;
+          expect(result[1]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: callTracerWrongNonce });
+          expect(result[2]).to.deep.equal({ txHash: syntheticTxHash, result: syntheticCallTracerResult1 });
         });
       });
 
