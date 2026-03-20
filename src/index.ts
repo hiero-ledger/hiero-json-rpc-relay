@@ -31,10 +31,10 @@ const mainLogger = pino({
 const logger = mainLogger.child({ name: 'main' });
 
 async function main() {
-  const httpEnabled = ConfigService.get('RPC_HTTP_ENABLED');
-  const wsEnabled = ConfigService.get('RPC_WS_ENABLED');
+  const rpcHttpEnabled = ConfigService.get('RPC_HTTP_ENABLED');
+  const rpcWsEnabled = ConfigService.get('RPC_WS_ENABLED');
 
-  if (!httpEnabled && !wsEnabled) {
+  if (!rpcHttpEnabled && !rpcWsEnabled) {
     logger.fatal('At least one transport must be enabled (RPC_HTTP_ENABLED or RPC_WS_ENABLED)');
     process.exit(1);
   }
@@ -50,7 +50,7 @@ async function main() {
     const servers: Array<{ stop(): Promise<void> }> = [];
 
     // Start HTTP transport
-    if (httpEnabled) {
+    if (rpcHttpEnabled) {
       const { app } = await initializeServer(relay, register, redisClient);
       const server = app.listen({
         port: ConfigService.get('SERVER_PORT'),
@@ -62,7 +62,7 @@ async function main() {
     }
 
     // Start WebSocket transport
-    if (wsEnabled) {
+    if (rpcWsEnabled) {
       const { app, httpApp } = await initializeWsServer(relay, register, redisClient);
       const host = ConfigService.get('SERVER_HOST');
 
@@ -71,7 +71,7 @@ async function main() {
       logger.info(`WebSocket server listening on port ${constants.WEB_SOCKET_PORT}`);
 
       // WS health/metrics HTTP listener — only needed if HTTP transport is disabled
-      if (!httpEnabled) {
+      if (!rpcHttpEnabled) {
         const wsHttpServer = httpApp.listen({
           port: constants.WEB_SOCKET_HTTP_PORT,
           host,
