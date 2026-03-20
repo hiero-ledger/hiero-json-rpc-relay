@@ -1511,6 +1511,32 @@
           "$ref": "#/components/errors/unsupportedError"
         }
       ]
+    },
+    {
+      "name": "eth_getBlockAccessList",
+      "params": [
+        {
+          "name": "Block",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrTagOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Block access list",
+        "schema": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/notFound"
+            },
+            {
+              "$ref": "#/components/schemas/BlockAccessList"
+            }
+          ]
+        }
+      },
+      "summary": "Returns the block access list for a given block."
     }
   ],
   "components": {
@@ -2424,7 +2450,7 @@
             "title": "new transaction hashes",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/hash32"
+              "$ref": "#/components/schemas/Log"
             }
           },
           {
@@ -2482,8 +2508,8 @@
         "title": "Filter Topic List Entry",
         "oneOf": [
           {
-            "title": "Any Topic Match",
-            "type": "null"
+            "$ref": "#/components/schemas/bytes32",
+            "title": "Single Topic Match"
           },
           {
             "title": "Single Topic Match",
@@ -2770,6 +2796,132 @@
       "uintDecimal": {
         "pattern": "^[1-9][0-9]*$",
         "title": "decimal unsigned integer string",
+        "type": "string"
+      },
+      "AccountAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/address"
+          },
+          "balanceChanges": {
+            "items": {
+              "$ref": "#/components/schemas/BalanceChange"
+            },
+            "type": "array"
+          },
+          "codeChanges": {
+            "items": {
+              "$ref": "#/components/schemas/CodeChange"
+            },
+            "type": "array"
+          },
+          "nonceChanges": {
+            "items": {
+              "$ref": "#/components/schemas/NonceChange"
+            },
+            "type": "array"
+          },
+          "storageChanges": {
+            "items": {
+              "$ref": "#/components/schemas/SlotChanges"
+            },
+            "type": "array"
+          },
+          "storageReads": {
+            "items": {
+              "$ref": "#/components/schemas/hash32"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["address"],
+        "title": "Account access",
+        "type": "object"
+      },
+      "BalanceChange": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/uint64"
+          },
+          "value": {
+            "$ref": "#/components/schemas/uint256"
+          }
+        },
+        "required": ["index", "value"],
+        "title": "Balance change",
+        "type": "object"
+      },
+      "BlockAccessList": {
+        "items": {
+          "$ref": "#/components/schemas/AccountAccess"
+        },
+        "title": "Block access list",
+        "type": "array"
+      },
+      "CodeChange": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/bytes"
+          },
+          "index": {
+            "$ref": "#/components/schemas/uint64"
+          }
+        },
+        "required": ["index", "code"],
+        "title": "Code change",
+        "type": "object"
+      },
+      "NonceChange": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/uint64"
+          },
+          "value": {
+            "$ref": "#/components/schemas/uint64"
+          }
+        },
+        "required": ["index", "value"],
+        "title": "Nonce change",
+        "type": "object"
+      },
+      "SlotChanges": {
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/StorageChange"
+            },
+            "type": "array"
+          },
+          "key": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        "required": ["key", "changes"],
+        "title": "Slot changes",
+        "type": "object"
+      },
+      "StorageChange": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/uint64"
+          },
+          "value": {
+            "$ref": "#/components/schemas/hash32"
+          }
+        },
+        "required": ["index", "value"],
+        "title": "Storage change",
+        "type": "object"
+      },
+      "uint64": {
+        "pattern": "^0x(0|[1-9a-f][0-9a-f]{0,15})$",
+        "title": "hex encoded 64 bit unsigned integer",
         "type": "string"
       }
     }
