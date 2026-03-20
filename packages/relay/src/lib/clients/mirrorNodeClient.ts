@@ -614,14 +614,14 @@ export class MirrorNodeClient {
 
   /**
    * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant `MIRROR_NODE_QUERY_LIMIT`.
+   * transaction count exceeds the constant `MIRROR_NODE_LIMIT_PARAM`.
    */
   public async getAccountPaginated(url: string, requestDetails: RequestDetails) {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
-    this.setQueryParam(queryParamObject, 'limit', constants.MIRROR_NODE_QUERY_LIMIT);
+    this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
     const queryParams = this.getQueryParams(queryParamObject);
 
@@ -1343,7 +1343,7 @@ export class MirrorNodeClient {
 
   public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string) {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
-      constants.MIRROR_NODE_QUERY_LIMIT,
+      ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
     );
     const queryParamObject = {};
@@ -1371,7 +1371,7 @@ export class MirrorNodeClient {
     blockEndTimestamp?: string,
   ) {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
-      constants.MIRROR_NODE_QUERY_LIMIT,
+      ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
     );
     const queryParamObject = {};
