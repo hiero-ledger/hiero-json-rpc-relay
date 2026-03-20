@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Status } from '@hashgraph/sdk';
+import { Status } from '../hashgraph-sdk';
 
 export class MirrorNodeClientError extends Error {
   public statusCode: number;
