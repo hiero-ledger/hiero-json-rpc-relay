@@ -15,7 +15,6 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   DEFAULT_BLOCK,
   DEFAULT_NETWORK_FEES,
-  GAS_USED_RATIO,
   NOT_FOUND_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
@@ -77,7 +76,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x870ab1a800');
       expect(feeHistory['baseFeePerGas'][1]).to.equal('0x84b6a5c400');
       expect(feeHistory['baseFeePerGas'][2]).to.equal('0x84b6a5c400');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${previousBlock.number.toString(16)}`);
       const rewards = feeHistory['reward'][0];
       expect(rewards[0]).to.equal('0x0');
@@ -157,7 +156,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     expect(firstFeeHistory).to.exist;
     expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
-    expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+    expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
     expect(firstFeeHistory['oldestBlock']).to.equal(hexBlockNumber);
 
     expect(firstFeeHistory).to.equal(secondFeeHistory);
@@ -169,7 +168,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 

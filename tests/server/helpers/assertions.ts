@@ -313,12 +313,6 @@ export default class Assertions {
       expected.oldestBlock,
     );
 
-    res.gasUsedRatio.map((gasRatio: string) =>
-      expect(gasRatio, "Assert feeHistory: 'gasRatio' should equal 'defaultGasUsed'").to.equal(
-        Assertions.defaultGasUsed,
-      ),
-    );
-
     if (expected.checkReward) {
       expect(res.reward, "Assert feeHistory: 'reward' should exist and be an Array").to.exist.to.be.an('Array');
       expect(res.reward.length, "Assert feeHistory: 'reward' length should equal passed expected value").to.equal(

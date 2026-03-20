@@ -8,7 +8,7 @@ import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { IFeeHistory, RequestDetails } from '../../../types';
+import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
 
@@ -193,10 +193,12 @@ export class FeeService implements IFeeService {
 
     // get fees from oldest to newest blocks
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const fee = await this.getFeeByBlockNumber(blockNumber, requestDetails);
+      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+      const fee = await this.getFeeFromBlock(block, requestDetails);
+      const gasUsedRatio = this.gasUsedRatioForBlock(block);
 
       feeHistory.baseFeePerGas?.push(fee);
-      feeHistory.gasUsedRatio?.push(constants.DEFAULT_GAS_USED_RATIO);
+      feeHistory.gasUsedRatio?.push(gasUsedRatio);
     }
 
     // get latest block fee
@@ -205,7 +207,8 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
-      nextBaseFeePerGas = await this.getFeeByBlockNumber(newestBlockNumber + 1, requestDetails);
+      const nextBlock = await this.mirrorNodeClient.getBlock(newestBlockNumber + 1, requestDetails);
+      nextBaseFeePerGas = await this.getFeeFromBlock(nextBlock, requestDetails);
     }
 
     if (nextBaseFeePerGas) {
@@ -224,20 +227,52 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    * @private
    */
-  private async getFeeByBlockNumber(blockNumber: number, requestDetails: RequestDetails): Promise<string> {
+  private async getFeeFromBlock(block: MirrorNodeBlock, requestDetails: RequestDetails): Promise<string> {
     let fee = 0;
     try {
-      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
       fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
     } catch (error) {
       this.logger.warn(
         error,
         `Fee history cannot retrieve block or fee. Returning %s fee for block %s`,
         fee,
-        blockNumber,
+        block.number,
       );
     }
 
     return numberTo0x(fee);
+  }
+
+  /**
+   * Returns the `gasUsedRatio` entry for for a block
+   * `gasUsed / blockGasLimit`, using {@link MirrorNodeBlock.gas_used} as gas used.
+   *
+   * If the effective block gas limit is non-positive, logs a warning and returns `0`.
+   * If `gasUsed` exceeds that limit, logs a warning and returns `1` (100% usage).
+   *
+   * @param block - Mirror node block metadata (must include `number`, `gas_used`)
+   * @returns Ratio in the range [0, 1] suitable for JSON-RPC `gasUsedRatio`
+   * @private
+   */
+  private gasUsedRatioForBlock(block: MirrorNodeBlock): number {
+    const blockGasLimit = constants.BLOCK_GAS_LIMIT; //FIXME: Get the value from blockGasLimit.ts after #5065 is merged
+    const gasUsed = block.gas_used || 0;
+    const blockNumber = block.number;
+
+    if (blockGasLimit <= 0) {
+      this.logger.warn(
+        { blockNumber, gasUsed, blockGasLimit },
+        'eth_feeHistory: block gas limit is non-positive; using 0 for gasUsedRatio',
+      );
+      return 0;
+    }
+    if (gasUsed > blockGasLimit) {
+      this.logger.warn(
+        { blockNumber, gasUsed, blockGasLimit },
+        'eth_feeHistory: gasUsed exceeds block gas limit; clamping gasUsedRatio to 1',
+      );
+      return 1;
+    }
+    return gasUsed / blockGasLimit;
   }
 }
