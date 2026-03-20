@@ -16,41 +16,48 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "96-60-old-200-vus-120-rps-30s"
-            memory_limit: "96Mi"
+          - name: "84-63-old-200-vus-120-rps-30s"
+            memory_limit: "84Mi"
             wallet_amount: 200
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=60"
-          - name: "96-60-old-100-vus-120-rps-30s"
-            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=63"
+          - name: "84-63-old-100-vus-120-rps-30s"
+            memory_limit: "84Mi"
             wallet_amount: 100
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=60"
-          - name: "96-60-old-75-vus-120-rps-30s"
-            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=63"
+          - name: "84-63-old-75-vus-120-rps-30s"
+            memory_limit: "84Mi"
             wallet_amount: 75
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=60"
-          - name: "96-60-old-50-vus-120-rps-30s"
-            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=63"
+          - name: "84-63-old-50-vus-120-rps-30s"
+            memory_limit: "84Mi"
             wallet_amount: 50
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=60"
-          - name: "96-60-old-30-vus-120-rps-30s"
-            memory_limit: "96Mi"
+            node_opts: "--max-old-space-size=63"
+          - name: "84-63-old-30-vus-120-rps-30s"
+            memory_limit: "84Mi"
             wallet_amount: 30
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=60"
+            node_opts: "--max-old-space-size=63"
+          - name: "64-48-old-30-vus-120-rps-30s"
+            memory_limit: "64Mi"
+            wallet_amount: 30
+            signed_txs: 1000
+            bench_target_rps: 120
+            duration: "30s"
+            node_opts: "--max-old-space-size=48"
 
     permissions:
       contents: read
