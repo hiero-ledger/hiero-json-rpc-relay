@@ -1,20 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { EventEmitter } from 'events';
-import { Logger } from 'pino';
-
-import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
-import { Utils } from '../../utils';
-import type {
-  AccountId,
-  PublicKey,
-  Query,
-  Transaction,
-  TransactionRecord,
-  TransactionResponse,
-} from '../hashgraph-sdk';
 import {
+  AccountId,
   Client,
   EthereumTransaction,
   EthereumTransactionData,
@@ -28,9 +16,19 @@ import {
   HbarUnit,
   Logger as HederaLogger,
   LogLevel,
+  PublicKey,
+  Query,
   Status,
+  Transaction,
+  TransactionRecord,
   TransactionRecordQuery,
-} from '../hashgraph-sdk';
+  TransactionResponse,
+} from '@hashgraph/sdk';
+import { EventEmitter } from 'events';
+import { Logger } from 'pino';
+
+import { prepend0x, weibarHexToTinyBarInt } from '../../formatters';
+import { Utils } from '../../utils';
 import { CommonService, PaymasterAccount } from '../services';
 import { HbarLimitService } from '../services/hbarLimitService';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../types';

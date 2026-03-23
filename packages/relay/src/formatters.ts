@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { BigNumber } from '@hashgraph/sdk/lib/Transfer';
 import { BigNumber as BN } from 'bignumber.js';
 import crypto from 'crypto';
 
 import constants from './lib/constants';
-import type { BigNumber } from './lib/hashgraph-sdk';
 
 const EMPTY_HEX = '0x';
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zeroAddress } from '@ethereumjs/util';
+import { AccountId, Hbar } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
@@ -12,7 +13,6 @@ import { HbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/hb
 import { IPAddressHbarSpendingPlanRepository } from '../../db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { IDetailedHbarSpendingPlan } from '../../db/types/hbarLimiter/hbarSpendingPlan';
 import { SubscriptionTier } from '../../db/types/hbarLimiter/subscriptionTier';
-import { AccountId, Hbar } from '../../hashgraph-sdk';
 import { RequestDetails } from '../../types';
 import { IHbarLimitService } from './IHbarLimitService';
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { FileId } from '@hashgraph/sdk';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
@@ -17,7 +18,6 @@ import {
   ISyntheticTransactionReceiptParams,
   TransactionReceiptFactory,
 } from '../../../factories/transactionReceiptFactory';
-import type { FileId } from '../../../hashgraph-sdk';
 import { Log, Transaction } from '../../../model';
 import { Precheck } from '../../../precheck';
 import {

@@ -4,46 +4,6 @@ const { nodeFileTrace } = require('@vercel/nft');
 const fs = require('fs');
 const path = require('path');
 
-const HASHGRAPH_SDK_RUNTIME_MODULES = [
-  'lib/account/AccountId.cjs',
-  'lib/client/NodeClient.cjs',
-  'lib/EthereumTransaction.cjs',
-  'lib/EthereumTransactionData.cjs',
-  // EthereumTransactionData variants required eagerly for SDK Cache initialization side effects.
-  'lib/EthereumTransactionDataLegacy.cjs',
-  'lib/EthereumTransactionDataEip1559.cjs',
-  'lib/EthereumTransactionDataEip2930.cjs',
-  'lib/EthereumTransactionDataEip7702.cjs',
-  // Key._fromProtobufKey() dispatches through Cache for these converters.
-  'lib/contract/ContractId.cjs',
-  'lib/contract/DelegateContractId.cjs',
-  'lib/KeyList.cjs',
-  'lib/ExchangeRate.cjs',
-  'lib/file/FileAppendTransaction.cjs',
-  'lib/file/FileCreateTransaction.cjs',
-  'lib/file/FileDeleteTransaction.cjs',
-  'lib/file/FileId.cjs',
-  'lib/file/FileInfoQuery.cjs',
-  'lib/Hbar.cjs',
-  'lib/HbarUnit.cjs',
-  'lib/logger/Logger.cjs',
-  'lib/logger/LogLevel.cjs',
-  'lib/PrivateKey.cjs',
-  'lib/PublicKey.cjs',
-  'lib/query/Query.cjs',
-  'lib/Status.cjs',
-  'lib/transaction/Transaction.cjs',
-  'lib/transaction/TransactionRecord.cjs',
-  'lib/transaction/TransactionRecordQuery.cjs',
-  'lib/transaction/TransactionResponse.cjs',
-];
-
-function resolveHashgraphSdkRuntimeEntries(root) {
-  const sdkRoot = path.dirname(require.resolve('@hashgraph/sdk/package.json'));
-
-  return HASHGRAPH_SDK_RUNTIME_MODULES.map((modulePath) => path.relative(root, path.join(sdkRoot, modulePath)));
-}
-
 /**
  * Traces and bundles production dependencies into a `.standalone` directory.
  * This minimizes the Docker image footprint by isolating only the required runtime files.
@@ -57,9 +17,6 @@ async function buildStandalone() {
     'packages/ws-server/dist/index.js',
     // nft cannot trace dynamic pino transports; pino-pretty must be provided as a root entry to be bundled
     require.resolve('pino-pretty'),
-    // The relay's selective SDK wrapper loads these modules via computed absolute paths.
-    // Seed nft with the concrete files so the standalone image retains them and their transitive dependencies.
-    ...resolveHashgraphSdkRuntimeEntries(root),
   ];
 
   console.log('Generating standalone build...');

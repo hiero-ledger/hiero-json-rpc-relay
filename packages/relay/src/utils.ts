@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { AccountId, PrivateKey } from '@hashgraph/sdk';
+import { Operator } from '@hashgraph/sdk/lib/client/Client';
 import crypto from 'crypto';
 import { Logger } from 'pino';
 
@@ -8,8 +10,6 @@ import { hexToASCII, strip0x } from './formatters';
 import constants from './lib/constants';
 import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
 import { keccak256 } from './lib/ethers';
-import type { Operator } from './lib/hashgraph-sdk';
-import { AccountId, PrivateKey } from './lib/hashgraph-sdk';
 import { RequestDetails } from './lib/types';
 
 export class Utils {

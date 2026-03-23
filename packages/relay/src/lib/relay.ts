@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
 import { Gauge, Registry } from 'prom-client';
 import { RedisClientType } from 'redis';
@@ -20,7 +21,6 @@ import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
-import type { AccountId } from './hashgraph-sdk';
 import { NetImpl } from './net';
 import { LockService, LockStrategyFactory, TransactionPoolService } from './services';
 import HAPIService from './services/hapiService/hapiService';

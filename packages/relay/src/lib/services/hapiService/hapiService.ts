@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { AccountId, FileId, PublicKey, TransactionResponse } from '@hashgraph/sdk';
 import { EventEmitter } from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
 import { SDKClient } from '../../clients';
-import type { FileId, PublicKey, TransactionResponse } from '../../hashgraph-sdk';
-import { AccountId } from '../../hashgraph-sdk';
 import { ITransactionRecordMetric, RequestDetails, TypedEvents } from '../../types';
 import { HbarLimitService } from '../hbarLimitService';
 
