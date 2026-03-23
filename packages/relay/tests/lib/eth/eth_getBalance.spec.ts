@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 import { numberTo0x } from '../../../dist/formatters';
+import { Eth } from '../../../src';
+import { MirrorNodeClient } from '../../../src/lib/clients';
+import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
+import { CommonService } from '../../../src/lib/services';
+import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { RequestDetails } from '../../../src/lib/types';
-import { buildCryptoTransferTransaction, overrideEnvsInMochaDescribe } from '../../helpers';
+import { buildCryptoTransferTransaction, mockWorkersPool, overrideEnvsInMochaDescribe } from '../../helpers';
 import {
   BLOCK_TIMESTAMP,
   BLOCK_ZERO,
@@ -29,13 +35,30 @@ use(chaiAsPromised);
 
 describe('@ethGetBalance using MirrorNode', async function () {
   this.timeout(10000);
-  const { restMock, ethImpl, cacheService } = generateEthTestEnv();
+
+  const {
+    restMock,
+    ethImpl,
+    cacheService,
+    commonService,
+    mirrorNodeInstance,
+  }: {
+    restMock: MockAdapter;
+    ethImpl: Eth;
+    cacheService: ICacheClient;
+    commonService: CommonService;
+    mirrorNodeInstance: MirrorNodeClient;
+  } = generateEthTestEnv();
 
   const requestDetails = new RequestDetails({ requestId: 'eth_getBalanceTest', ipAddress: '0.0.0.0' });
 
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
-  this.beforeEach(async () => {
+  before(async () => {
+    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+  });
+
+  beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
     restMock.reset();
@@ -43,7 +66,7 @@ describe('@ethGetBalance using MirrorNode', async function () {
     restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
   });
 
-  this.afterEach(() => {
+  afterEach(() => {
     restMock.resetHandlers();
   });
 

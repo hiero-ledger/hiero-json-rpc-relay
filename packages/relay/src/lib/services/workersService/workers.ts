@@ -72,7 +72,7 @@ export default async function handleTask(task: WorkerTask): Promise<any> {
         task.requestDetails,
       );
     case 'getBalance':
-      return await getBalance(task.account, task.blockOrNumberTagOrHash, task.requestDetails);
+      return await getBalance(task.account, task.blockNumberOrTagOrHash, task.requestDetails);
 
     default:
       throw new Error(`Unknown task type: ${(task as any).type}`);
