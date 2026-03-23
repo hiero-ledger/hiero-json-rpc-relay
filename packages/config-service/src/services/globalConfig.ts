@@ -796,6 +796,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 2,
   },
+  WORKERS_POOL_IDLE_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
+  },
   WS_PING_INTERVAL: {
     type: 'number',
     required: false,

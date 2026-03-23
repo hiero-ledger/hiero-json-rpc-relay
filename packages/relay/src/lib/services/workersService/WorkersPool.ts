@@ -117,6 +117,7 @@ export class WorkersPool {
         atomics: 'disabled',
         minThreads: ConfigService.get('WORKERS_POOL_MIN_THREADS'),
         maxThreads: ConfigService.get('WORKERS_POOL_MAX_THREADS'),
+        idleTimeout: ConfigService.get('WORKERS_POOL_IDLE_TIMEOUT_MS'),
       });
 
       this.instance.on('message', (msg) => {
