@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+
 import {
   isHex,
   nanOrNumberInt64To0x,
@@ -110,6 +112,10 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
         }))
     : [];
 
+/** When true, mirror contract-result monetary fields are in tinybars; when false, they are already in weibars (`hbar=false`). */
+const contractResultsMonetaryFieldsInTinybars = (): boolean =>
+  ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_HBAR') === true;
+
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
@@ -133,12 +139,18 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     return null;
   }
 
+  const tinybarMode = contractResultsMonetaryFieldsInTinybars();
   const gasPrice =
     cr.gas_price === null || cr.gas_price === '0x'
       ? '0x0'
       : isHex(cr.gas_price)
-        ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        ? tinybarMode
+          ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+          : numberTo0x(BigInt(cr.gas_price))
         : nanOrNumberTo0x(cr.gas_price);
+  const valueHex = tinybarMode
+    ? nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true))
+    : nanOrNumberInt64To0x(cr.amount == null ? null : BigInt(cr.amount));
 
   const commonFields = {
     blockHash: toHash32(cr.block_hash),
@@ -155,17 +167,35 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     transactionIndex: nullableNumberTo0x(cr.transaction_index),
     type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
     v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-    value: nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true)),
+    value: valueHex,
     // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
     //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
     //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
     chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
   };
 
+  const maxPriorityFeePerGas =
+    cr.max_priority_fee_per_gas === null || cr.max_priority_fee_per_gas === constants.EMPTY_HEX
+      ? null
+      : isHex(cr.max_priority_fee_per_gas)
+        ? tinybarMode
+          ? numberTo0x(BigInt(cr.max_priority_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+          : numberTo0x(BigInt(cr.max_priority_fee_per_gas))
+        : nanOrNumberTo0x(cr.max_priority_fee_per_gas);
+
+  const maxFeePerGas =
+    cr.max_fee_per_gas === null || cr.max_fee_per_gas === constants.EMPTY_HEX
+      ? null
+      : isHex(cr.max_fee_per_gas)
+        ? tinybarMode
+          ? numberTo0x(BigInt(cr.max_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+          : numberTo0x(BigInt(cr.max_fee_per_gas))
+        : nanOrNumberTo0x(cr.max_fee_per_gas);
+
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
-    maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
-    maxFeePerGas: cr.max_fee_per_gas,
+    maxPriorityFeePerGas: maxPriorityFeePerGas,
+    maxFeePerGas: maxFeePerGas,
     authorizationList: cr.authorization_list,
   });
 };

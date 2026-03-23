@@ -203,8 +203,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     const result = await ethImpl.getTransactionByHash(DEFAULT_TX_HASH, requestDetails);
     RelayAssertions.assertTransaction(result, {
       ...DEFAULT_TRANSACTION,
-      maxFeePerGas: '0x55',
-      maxPriorityFeePerGas: '0x43',
+      maxFeePerGas: '0xc5e7f2b400',
+      maxPriorityFeePerGas: '0x9bff1cac00',
     });
   });
 
@@ -221,8 +221,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     const result = await ethImpl.getTransactionByHash(uniqueTxHash, requestDetails);
     RelayAssertions.assertTransaction(result, {
       ...DEFAULT_TRANSACTION,
-      maxFeePerGas: '0x55',
-      maxPriorityFeePerGas: '0x43',
+      maxFeePerGas: '0xc5e7f2b400',
+      maxPriorityFeePerGas: '0x9bff1cac00',
       r: '0x0',
       s: '0x0',
     });
@@ -336,8 +336,8 @@ describe('@ethGetTransactionByHash eth_getTransactionByHash tests', async functi
     const result = await ethImpl.getTransactionByHash(DEFAULT_TX_HASH, requestDetails);
     RelayAssertions.assertTransaction(result, {
       ...DEFAULT_TRANSACTION,
-      maxFeePerGas: '0x55',
-      maxPriorityFeePerGas: '0x43',
+      maxFeePerGas: '0xc5e7f2b400',
+      maxPriorityFeePerGas: '0x9bff1cac00',
     });
   });
 

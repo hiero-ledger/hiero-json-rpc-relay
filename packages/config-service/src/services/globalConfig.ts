@@ -515,6 +515,11 @@ const _CONFIG = {
     required: false,
     defaultValue: 30,
   },
+  MIRROR_NODE_CONTRACT_RESULTS_HBAR: {
+    type: 'boolean',
+    required: false,
+    defaultValue: true,
+  },
   // the actual env var in the node process is npm_package_version
   npm_package_version: {
     type: 'string',
