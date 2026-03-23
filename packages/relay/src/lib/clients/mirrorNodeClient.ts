@@ -10,6 +10,7 @@ import https from 'https';
 import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
+import { isMainThread } from 'worker_threads';
 
 import { formatTransactionId } from '../../formatters';
 import { predefined } from '../errors/JsonRpcError';
@@ -315,11 +316,13 @@ export class MirrorNodeClient {
       registers: [register],
     });
 
-    this.logger.info(
-      `Mirror Node client successfully configured to REST url: %s and Web3 url: %s `,
-      this.restUrl,
-      this.web3Url,
-    );
+    if (isMainThread) {
+      this.logger.info(
+        `Mirror Node client successfully configured to REST url: %s and Web3 url: %s `,
+        this.restUrl,
+        this.web3Url,
+      );
+    }
     this.cacheService = cacheService;
 
     // set  up eth call  accepted error codes.
