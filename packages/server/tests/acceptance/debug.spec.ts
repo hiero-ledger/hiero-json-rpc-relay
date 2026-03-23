@@ -22,6 +22,7 @@ import ServicesClient from '../clients/servicesClient';
 import basicContractJson from '../contracts/Basic.json';
 import deployerContractJson from '../contracts/Deployer.json';
 import IHederaTokenServiceJson from '../contracts/IHederaTokenService.json';
+import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import mockContractJson from '../contracts/MockContract.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
@@ -673,6 +674,43 @@ describe('@debug API Acceptance Tests', function () {
         const res = await relay.call(DEBUG_TRACE_TRANSACTION, [tx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE]);
 
         expect(res.type).to.equal('CALL');
+      });
+
+      it('should return a hex-encoded top-level output for reverted direct call with hedera specific reason', async () => {
+        const sendHbarTx = {
+          value: constants.TINYBAR_TO_WEIBAR_COEF, // 1 tinybar
+          gasLimit: 30_000,
+          to: '0x0000000000000000000000000000000000000002',
+          nonce: await relay.getAccountNonce(accounts[0].address),
+          gasPrice: await relay.gasPrice(),
+        };
+
+        const signedSendHbarTx = await accounts[0].wallet.signTransaction(sendHbarTx);
+        const txHash = await relay.sendRawTransaction(signedSendHbarTx);
+        await relay.pollForValidTransactionReceipt(txHash);
+
+        const res = await relay.call(DEBUG_TRACE_TRANSACTION, [txHash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE]);
+
+        expect(res.error).to.equal('INVALID_CONTRACT_ID');
+        expect(res.output).to.equal('0x494e56414c49445f434f4e54524143545f4944'); // INVALID_CONTRACT_ID in hex
+      });
+
+      it('should return a hex-encoded output for reverted internal call with hedera specific reason', async () => {
+        const contract = await Utils.deployContract(
+          EquivalenceContractJson.abi,
+          EquivalenceContractJson.bytecode,
+          accounts[0].wallet,
+        );
+        const tx = await contract.makeCallWithAmount('0x0000000000000000000000000000000000000002', '0x', {
+          value: constants.TINYBAR_TO_WEIBAR_COEF, // 1 tinybar
+          gasLimit: 100_000,
+        });
+        await relay.pollForValidTransactionReceipt(tx.hash);
+
+        const res = await relay.call(DEBUG_TRACE_TRANSACTION, [tx.hash, TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE]);
+
+        expect(res.error).to.equal('INVALID_CONTRACT_ID');
+        expect(res.output).to.equal('0x494e56414c49445f434f4e54524143545f4944'); // INVALID_CONTRACT_ID in hex
       });
 
       it('@release should trace a transaction using CallTracer with onlyTopCall=false', async function () {
