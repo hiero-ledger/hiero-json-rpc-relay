@@ -571,11 +571,6 @@ const _CONFIG = {
     required: false,
     defaultValue: false,
   },
-  RELAY_MINIMAL_MODE: {
-    type: 'boolean',
-    required: false,
-    defaultValue: false,
-  },
   REDIS_ENABLED: {
     type: 'boolean',
     required: false,

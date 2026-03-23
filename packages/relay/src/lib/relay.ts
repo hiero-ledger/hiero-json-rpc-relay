@@ -84,9 +84,8 @@ export class Relay {
    * @private
    * @readonly
    * @property {TxPool} txpoolImpl - The TxPool implementation used for handling Ethereum-specific JSON-RPC requests.
-   * Null when RELAY_MINIMAL_MODE is enabled, as txpool_* methods are not needed.
    */
-  private txpoolImpl: TxPool | null = null;
+  private txpoolImpl!: TxPool;
 
   /**
    * @private
@@ -111,9 +110,8 @@ export class Relay {
 
   /**
    * The Debug Service implementation that takes care of all filter API operations.
-   * Null when RELAY_MINIMAL_MODE is enabled, as debug_* methods are not needed.
    */
-  private debugImpl: DebugImpl | null = null;
+  private debugImpl!: DebugImpl;
 
   /**
    * Registry for RPC methods that manages the mapping between RPC method names and their implementations.
@@ -231,7 +229,7 @@ export class Relay {
     });
   }
 
-  debug(): DebugImpl | null {
+  debug(): DebugImpl {
     return this.debugImpl;
   }
 
@@ -251,7 +249,7 @@ export class Relay {
     return this.ethImpl;
   }
 
-  txpool(): TxPool | null {
+  txpool(): TxPool {
     return this.txpoolImpl;
   }
 
@@ -374,21 +372,19 @@ export class Relay {
       this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
-    // Create Debug, TxPool and Admin implementations (skipped in minimal mode)
-    const minimalMode: boolean = ConfigService.get('RELAY_MINIMAL_MODE');
-    if (!minimalMode) {
-      this.txpoolImpl = new TxPoolImpl(transactionPoolService);
-      this.debugImpl = new DebugImpl(
-        this.mirrorNodeClient,
-        this.logger,
-        this.cacheService,
-        chainId,
-        hapiService,
-        transactionPoolService,
-        lockService,
-        this.register,
-      );
-    }
+    this.txpoolImpl = new TxPoolImpl(transactionPoolService);
+
+    // Create Debug and Admin implementations
+    this.debugImpl = new DebugImpl(
+      this.mirrorNodeClient,
+      this.logger,
+      this.cacheService,
+      chainId,
+      hapiService,
+      transactionPoolService,
+      lockService,
+      this.register,
+    );
     this.adminImpl = new AdminImpl(this.cacheService);
 
     // Create HBAR spending plan config service
@@ -405,9 +401,8 @@ export class Relay {
     // Populate pre-configured spending plans asynchronously
     this.populatePreconfiguredSpendingPlans().then();
 
-    // Create RPC method registry (exclude debug/txpool in minimal mode)
-    const namespaces = minimalMode ? ['eth', 'net', 'web3'] : ['eth', 'net', 'web3', 'debug', 'txpool'];
-    const rpcNamespaceRegistry = namespaces.map((namespace) => ({
+    // Create RPC method registry
+    const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
       namespace,
       serviceImpl: this[namespace](),
     }));

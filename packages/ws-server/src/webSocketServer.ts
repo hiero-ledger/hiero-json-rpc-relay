@@ -29,8 +29,6 @@ import { getBatchRequestsMaxSize, getWsBatchRequestsEnabled, handleConnectionClo
 // https://nodejs.org/api/async_context.html#asynchronous-context-tracking
 const context = new AsyncLocalStorage<{ requestId: string; connectionId: string }>();
 
-const prettyLogsEnabled = ConfigService.get('PRETTY_LOGS_ENABLED');
-
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
   level: ConfigService.get('LOG_LEVEL'),
@@ -44,19 +42,16 @@ const mainLogger = pino({
         }
       : {};
   },
-  // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
-  ...(prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-        messageFormat: '{connectionId}{requestId}{msg}',
-        // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-        ignore: 'connectionId,requestId',
-      },
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: true,
+      messageFormat: '{connectionId}{requestId}{msg}',
+      // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
+      ignore: 'connectionId,requestId',
     },
-  }),
+  },
 });
 
 export const logger = mainLogger.child({ name: 'rpc-ws-server' });
@@ -272,9 +267,7 @@ export async function initializeWsServer() {
 
   const koaJsonRpc = new KoaJsonRpc(logger, register, relay, rateLimitStore, undefined);
   const httpApp = koaJsonRpc.getKoaApp();
-  if (!ConfigService.get('RELAY_MINIMAL_MODE')) {
-    collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
-  }
+  collectDefaultMetrics({ register, prefix: 'rpc_relay_' });
 
   httpApp.use(async (ctx: Koa.Context, next: Koa.Next) => {
     // prometheus metrics exposure
