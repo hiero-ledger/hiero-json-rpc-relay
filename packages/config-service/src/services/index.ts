@@ -3,6 +3,7 @@
 import dotenv from 'dotenv';
 import findConfig from 'find-config';
 import pino from 'pino';
+import { isMainThread } from 'worker_threads';
 
 import type { ConfigKey, GetTypeOfConfigKey } from './globalConfig';
 import { GlobalConfig } from './globalConfig';
@@ -58,9 +59,11 @@ export class ConfigService {
     // transform string representations of env vars into proper types
     this.envs = ValidationService.typeCasting(process.env);
 
-    // printing current env variables, masking up sensitive information
-    for (const name in this.envs) {
-      logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
+    if (isMainThread) {
+      // printing current env variables, masking up sensitive information
+      for (const name in this.envs) {
+        logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
+      }
     }
 
     this.validateReadOnlyMode();
