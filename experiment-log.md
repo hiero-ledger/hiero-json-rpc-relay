@@ -33,8 +33,10 @@ Running log of measurements, observations, and results from memory optimization 
 
 need to test LOG_LEVEL=error and LOG_LEVEL=warn to see how it works with the pino worker elimination
 
-default - 27/30MB
-revert minimal mode - 29/32MB
-revert minimal mode (w or w/o collectDefaultMetrics) - 29/32MB
-revert lodash and keccak - 30/33MB
+default - 27/30MB [baseline]
+revert minimal mode (w or w/o collectDefaultMetrics) - 29/32MB [works for underload 88-66old, 120RPS, 30s]
+revert lodash removal and keccak - 30/33MB [works for underload 88-66old, 120RPS, 30s]
 revert pino worker elimination - 30/33MB (but not able to run load test when 88-66old due to hitting RSS limit as the worker threads consume more memory)
+revert Selective SDK Import - 39.4 (43.1) (able to start with 64-48old, and able to survive load test with 88-66old)
+
+So looks like we justneed Ethers Submodule imports, Pino worker elimination and that's it for it to be able to start with 64-48old and survive load test with 88-66old. The other three optimizations just basically add deferred memory footprint at startup, but when under load, it makes no difference.
