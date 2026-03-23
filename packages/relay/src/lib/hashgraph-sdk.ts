@@ -46,6 +46,81 @@ import type { BigNumber as _BigNumber } from '@hashgraph/sdk/lib/Transfer';
 
 const path = require('path');
 
+// ---------------------------------------------------------------------------
+// Pre-seed require.cache for @ethersproject/abi to prevent ENS table loading
+// ---------------------------------------------------------------------------
+//
+// The SDK's ContractFunctionResult.cjs requires the @ethersproject/abi barrel
+// (index.js), which imports interface.js → @ethersproject/hash → namehash.js
+// → ens-normalize/lib.js. That module builds a 5 MB+ Unicode validation Set
+// and supporting structures at module scope — memory the relay never uses
+// because it never resolves ENS names.
+//
+// The SDK only calls defaultAbiCoder.decode() and defaultAbiCoder.encode()
+// (from abi-coder.js) and references ParamType (from fragments.js). By
+// constructing a replacement module that loads only those two submodules and
+// defers Interface/Indexed/LogDescription/TransactionDescription/checkResultErrors
+// to a lazy getter (loaded only if actually accessed), the ENS normalization
+// tables are never evaluated during normal relay operation.
+//
+// This cache entry must be installed before any SDK module triggers
+// require("@ethersproject/abi").
+// ---------------------------------------------------------------------------
+(function installLightweightAbiModule() {
+  const abiEntryPath = require.resolve('@ethersproject/abi');
+  const abiDir = path.dirname(abiEntryPath);
+
+  // Load only the safe submodules (fragments + abi-coder) — no ENS dependency chain
+  const fragments = require(path.join(abiDir, 'fragments'));
+  const abiCoder = require(path.join(abiDir, 'abi-coder'));
+
+  // Build a replacement exports object with the same shape as the original index.js
+  const syntheticExports: Record<string, unknown> = {
+    __esModule: true,
+
+    // fragments.js exports — always loaded (lightweight)
+    ConstructorFragment: fragments.ConstructorFragment,
+    ErrorFragment: fragments.ErrorFragment,
+    EventFragment: fragments.EventFragment,
+    FormatTypes: fragments.FormatTypes,
+    Fragment: fragments.Fragment,
+    FunctionFragment: fragments.FunctionFragment,
+    ParamType: fragments.ParamType,
+
+    // abi-coder.js exports — always loaded (lightweight)
+    AbiCoder: abiCoder.AbiCoder,
+    defaultAbiCoder: abiCoder.defaultAbiCoder,
+  };
+
+  // interface.js exports — deferred behind lazy getters so the ENS dependency
+  // chain (interface.js → @ethersproject/hash → ens-normalize) only loads if
+  // code actually accesses Interface, Indexed, etc. The SDK never does.
+  let interfaceModule: Record<string, unknown> | null = null;
+  function getInterfaceModule(): Record<string, unknown> {
+    if (!interfaceModule) {
+      interfaceModule = require(path.join(abiDir, 'interface')) as Record<string, unknown>;
+    }
+    return interfaceModule;
+  }
+
+  for (const name of ['checkResultErrors', 'Indexed', 'Interface', 'LogDescription', 'TransactionDescription']) {
+    Object.defineProperty(syntheticExports, name, {
+      enumerable: true,
+      get: () => getInterfaceModule()[name],
+    });
+  }
+
+  // Replace the cached module entry so all subsequent require("@ethersproject/abi")
+  // calls receive the lightweight version without triggering the original index.js.
+  const Module = require('module') as typeof import('module');
+  const syntheticModule = new Module(abiEntryPath);
+  syntheticModule.id = abiEntryPath;
+  syntheticModule.filename = abiEntryPath;
+  syntheticModule.loaded = true;
+  syntheticModule.exports = syntheticExports;
+  require.cache[abiEntryPath] = syntheticModule;
+})();
+
 const exportTarget = exports as Record<string, unknown>;
 const sdkLibPath = path.join(path.dirname(require.resolve('@hashgraph/sdk/package.json')), 'lib');
 
