@@ -810,7 +810,7 @@ export class MirrorNodeClient {
   }
 
   public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails) {
-    const hbarSuffix = MirrorNodeClient.contractResultsMonetaryFieldsInTinybars() ? 'hbar' : 'weibar';
+    const hbarSuffix = MirrorNodeClient.contractResultsMonetaryFieldsInTinybars() ? 'tinybar' : 'weibar';
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}.${hbarSuffix}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 

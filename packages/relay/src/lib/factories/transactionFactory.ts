@@ -129,6 +129,16 @@ const contractResultsMonetaryFieldsInTinybars = (): boolean =>
 const formatGasFee = (gasFee: any): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
 
+const normalizeContractResultFeeToWeibarHex = (fee: any, tinybarMode: boolean): string => {
+  return fee === null || fee === '0x'
+    ? '0x0'
+    : isHex(fee)
+      ? tinybarMode
+        ? numberTo0x(BigInt(fee) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
+        : numberTo0x(BigInt(fee))
+      : nanOrNumberTo0x(fee);
+};
+
 /**
  * Creates a Transaction object from a contract result
  * @param cr The contract result object from the mirror node
@@ -140,14 +150,7 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
   }
 
   const tinybarMode = contractResultsMonetaryFieldsInTinybars();
-  const gasPrice =
-    cr.gas_price === null || cr.gas_price === '0x'
-      ? '0x0'
-      : isHex(cr.gas_price)
-        ? tinybarMode
-          ? numberTo0x(BigInt(cr.gas_price) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-          : numberTo0x(BigInt(cr.gas_price))
-        : nanOrNumberTo0x(cr.gas_price);
+  const gasPrice = normalizeContractResultFeeToWeibarHex(cr.gas_price, tinybarMode);
   const valueHex = tinybarMode
     ? nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true))
     : nanOrNumberInt64To0x(cr.amount == null ? null : BigInt(cr.amount));
@@ -174,23 +177,9 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
   };
 
-  const maxPriorityFeePerGas =
-    cr.max_priority_fee_per_gas === null || cr.max_priority_fee_per_gas === constants.EMPTY_HEX
-      ? null
-      : isHex(cr.max_priority_fee_per_gas)
-        ? tinybarMode
-          ? numberTo0x(BigInt(cr.max_priority_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-          : numberTo0x(BigInt(cr.max_priority_fee_per_gas))
-        : nanOrNumberTo0x(cr.max_priority_fee_per_gas);
+  const maxPriorityFeePerGas = normalizeContractResultFeeToWeibarHex(cr.max_priority_fee_per_gas, tinybarMode);
 
-  const maxFeePerGas =
-    cr.max_fee_per_gas === null || cr.max_fee_per_gas === constants.EMPTY_HEX
-      ? null
-      : isHex(cr.max_fee_per_gas)
-        ? tinybarMode
-          ? numberTo0x(BigInt(cr.max_fee_per_gas) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-          : numberTo0x(BigInt(cr.max_fee_per_gas))
-        : nanOrNumberTo0x(cr.max_fee_per_gas);
+  const maxFeePerGas = normalizeContractResultFeeToWeibarHex(cr.max_fee_per_gas, tinybarMode);
 
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
