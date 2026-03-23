@@ -32,3 +32,9 @@ Running log of measurements, observations, and results from memory optimization 
 **Note: We want lowest Pod Limit but highest old-space possible**: Low old space means there will be more GC events, and each GC event pauses the event loop, making throughput worse. So we want to minimize the Pod Limit while maximizing the old-space size.
 
 need to test LOG_LEVEL=error and LOG_LEVEL=warn to see how it works with the pino worker elimination
+
+default - 27/30MB
+revert minimal mode - 29/32MB
+revert minimal mode (w or w/o collectDefaultMetrics) - 29/32MB
+revert lodash and keccak - 30/33MB
+revert pino worker elimination - 30/33MB (but not able to run load test when 88-66old due to hitting RSS limit as the worker threads consume more memory)
