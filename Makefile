@@ -26,6 +26,8 @@ help:
 	@echo "  make run-relay           - Run relay (default: mem_limit=1000Mi)"
 	@echo "  make report              - Resource usage report"
 	@echo "  make live-relay-resource - monitor relay resource usage live (1s interval)"
+	@echo "  make cgroup-mem          - show cgroup memory (current/peak/limit) — what K8s actually tracks"
+	@echo "  make live-cgroup-mem     - monitor cgroup memory live (1s interval)"
 	@echo "  make destroy-relay       - Destroy relay node (for starting fresh)"
 	@echo "  make clean-solo          - Delete clusters"
 	@echo "  make prune-docker        - Force remove all containers and prune system/volumes"
@@ -354,6 +356,67 @@ live-relay-resource:
 %:
 	@:
 
+
+.PHONY: cgroup-mem
+cgroup-mem:
+	@RELAY_POD=$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Cgroup memory for $$RELAY_POD:"; \
+	kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- sh -c ' \
+		if [ -f /sys/fs/cgroup/memory.current ]; then \
+			CUR=$$(cat /sys/fs/cgroup/memory.current); \
+			MAX=$$(cat /sys/fs/cgroup/memory.max); \
+			PEAK=$$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "N/A"); \
+			SWAP=$$(cat /sys/fs/cgroup/memory.swap.current 2>/dev/null || echo "0"); \
+			CUR_KB=$$(( CUR / 1024 )); \
+			printf "  current:  %s KB  (%.1f MB)\n" $$CUR_KB $$(echo "scale=1; $$CUR_KB / 1024" | bc); \
+			if [ "$$PEAK" = "N/A" ]; then printf "  peak:     N/A\n"; \
+			else PEAK_KB=$$(( PEAK / 1024 )); printf "  peak:     %s KB  (%.1f MB)\n" $$PEAK_KB $$(echo "scale=1; $$PEAK_KB / 1024" | bc); fi; \
+			if [ "$$MAX" = "max" ]; then printf "  limit:    unlimited\n"; \
+			else MAX_KB=$$(( MAX / 1024 )); printf "  limit:    %s KB  (%.1f MB)\n" $$MAX_KB $$(echo "scale=1; $$MAX_KB / 1024" | bc); fi; \
+			SWAP_KB=$$(( SWAP / 1024 )); \
+			printf "  swap:     %s KB\n" $$SWAP_KB; \
+			printf "  usage %%:  "; \
+			if [ "$$MAX" != "max" ] && [ "$$MAX" -gt 0 ]; then \
+				printf "%s%%\n" $$(( CUR * 100 / MAX )); \
+			else printf "N/A\n"; fi; \
+		elif [ -f /sys/fs/cgroup/memory/memory.usage_in_bytes ]; then \
+			CUR=$$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes); \
+			MAX=$$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes); \
+			CUR_KB=$$(( CUR / 1024 )); MAX_KB=$$(( MAX / 1024 )); \
+			printf "  current:  %s KB  (%.1f MB) (cgroup v1)\n" $$CUR_KB $$(echo "scale=1; $$CUR_KB / 1024" | bc); \
+			printf "  limit:    %s KB  (%.1f MB)\n" $$MAX_KB $$(echo "scale=1; $$MAX_KB / 1024" | bc); \
+		else \
+			echo "  cgroup memory files not found"; \
+		fi'
+
+.PHONY: live-cgroup-mem
+live-cgroup-mem:
+	@RELAY_POD=$$(kubectl get pods -n "${SOLO_NAMESPACE}" --no-headers -o custom-columns=":metadata.name" | grep -E '^relay-[0-9]+' | grep -v -- '-ws-' | head -1); \
+	if [ -z "$$RELAY_POD" ]; then echo "Error: relay pod not found"; exit 1; fi; \
+	echo "Live cgroup memory for $$RELAY_POD (1s interval, Ctrl+C to stop)..."; \
+	while true; do \
+		kubectl exec -n "${SOLO_NAMESPACE}" "$$RELAY_POD" -- sh -c ' \
+			if [ -f /sys/fs/cgroup/memory.current ]; then \
+				CUR=$$(cat /sys/fs/cgroup/memory.current); \
+				MAX=$$(cat /sys/fs/cgroup/memory.max); \
+				PEAK=$$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "N/A"); \
+				CUR_KB=$$(( CUR / 1024 )); \
+				if [ "$$MAX" = "max" ]; then PCT="N/A"; MAX_STR="unlimited"; \
+				elif [ "$$MAX" -gt 0 ]; then PCT="$$(( CUR * 100 / MAX ))%%"; MAX_KB=$$(( MAX / 1024 )); MAX_STR="$${MAX_KB}KB"; \
+				else PCT="N/A"; MAX_STR="0"; fi; \
+				PEAK_STR=$$([ "$$PEAK" = "N/A" ] && echo "N/A" || echo "$$(( PEAK / 1024 ))KB"); \
+				printf "[%s] cgroup: %sKB / %s | peak: %s | usage: %s\n" \
+					"$$(date +%H:%M:%S)" \
+					"$$CUR_KB" \
+					"$$MAX_STR" \
+					"$$PEAK_STR" \
+					"$$PCT"; \
+			else \
+				echo "cgroup v2 memory files not found"; \
+			fi' 2>/dev/null; \
+		sleep 1; \
+	done
 
 .PHONY: exec-relay
 exec-relay:
