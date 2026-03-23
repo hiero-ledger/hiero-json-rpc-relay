@@ -16,41 +16,41 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "84-63-old-200-vus-120-rps-30s"
-            memory_limit: "84Mi"
+          - name: "88-66-old-200-vus-120-rps-30s"
+            memory_limit: "88Mi"
             wallet_amount: 200
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
-          - name: "84-63-old-100-vus-120-rps-30s"
-            memory_limit: "84Mi"
+            node_opts: "--max-old-space-size=66"
+          - name: "88-66-old-100-vus-120-rps-30s"
+            memory_limit: "88Mi"
             wallet_amount: 100
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
-          - name: "84-63-old-75-vus-120-rps-30s"
-            memory_limit: "84Mi"
+            node_opts: "--max-old-space-size=66"
+          - name: "88-66-old-75-vus-120-rps-30s"
+            memory_limit: "88Mi"
             wallet_amount: 75
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
-          - name: "84-63-old-50-vus-120-rps-30s"
-            memory_limit: "84Mi"
+            node_opts: "--max-old-space-size=66"
+          - name: "88-66-old-50-vus-120-rps-30s"
+            memory_limit: "88Mi"
             wallet_amount: 50
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
-          - name: "84-63-old-30-vus-120-rps-30s"
-            memory_limit: "84Mi"
+            node_opts: "--max-old-space-size=66"
+          - name: "88-66-old-30-vus-120-rps-30s"
+            memory_limit: "88Mi"
             wallet_amount: 30
             signed_txs: 1000
             bench_target_rps: 120
             duration: "30s"
-            node_opts: "--max-old-space-size=63"
+            node_opts: "--max-old-space-size=66"
           - name: "64-48-old-30-vus-120-rps-30s"
             memory_limit: "64Mi"
             wallet_amount: 30
