@@ -134,7 +134,7 @@ export default class RelayAssertions {
   };
 
   static verifyBlockConstants = (block: Block) => {
-    expect(block.gasLimit).equal(numberTo0x(constants.BLOCK_GAS_LIMIT));
+    expect(block.gasLimit).equal(numberTo0x(constants.DEFAULT_BLOCK_GAS_LIMIT));
     expect(block.baseFeePerGas).equal(BASE_FEE_PER_GAS_DEFAULT);
     expect(block.difficulty).equal(constants.ZERO_HEX);
     expect(block.extraData).equal(constants.EMPTY_HEX);
