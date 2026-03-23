@@ -15,6 +15,7 @@ Running log of measurements, observations, and results from memory optimization 
 | **+ Pino worker elimination**                          | 37.9 MB   | ~41.1 MB           | 0 MB    | ~40 MB | ~77.9 MB  | 82 Mi     | 42        | -10.5 MB |
 | **+ Lodash + @ethersproject/keccak256 + lazy piscina** | 36.6 MB   | ~39.8 MB           | 0 MB    | ~40 MB | ~76.6 MB  | 79 Mi     | 39        | -1.3 MB  |
 | **+ Relay Minimal Mode + Skip collectDefaultMetrics**  | 36.6 MB   | ~39 MB             | 0 MB    | ~40 MB | ~76.6 MB  | 79 Mi     | 39        | -1.3 MB  |
+| **+ Selective SDK Import**                             | 26.6 MB   | ~27.2 MB           | 0 MB    | ~x MB  | ~76.6 MB  | 64 Mi     | 39-48     | -1.3 MB  |
 
 ### Under load (120 RPS, 30 VUs, 30s, standard mode)
 
@@ -22,7 +23,8 @@ Running log of measurements, observations, and results from memory optimization 
 | --------------------------------------------------------------------------- | --------- | ------- | ------ | --------- | --------- | --------- |
 | **Original** (no changes)                                                   | ~84 MB    | 10.6 MB | ~40 MB | ~134 MB   | 128 Mi    | 84        |
 | **+ Ethers + Pino**                                                         | ~63 MB    | 0 MB    | ~40 MB | ~103 MB   | 102 Mi    | 63-66     |
-| **+ Lodash + @keccak256 + lazy piscina + Min Mode + collectDefaultMetrics** | ~56 MB    | 0 MB    | ~40 MB | ~88 MB    | 88 Mi     | 57-63     |
+| **+ Lodash + @keccak256 + lazy piscina + Min Mode + collectDefaultMetrics** | ~56 MB    | 0 MB    | ~24 MB | ~88 MB    | 88 Mi     | 57-63     |
+| **+ Selective SDK Import**                                                  | ~56 MB    | 0 MB    | ~24 MB | ~80 MB    | 84 Mi     | 63        |
 
 **Cumulative idle savings from baseline: ~14 MB (~15% reduction)** — 40.0 MB → 36.6 MB heap + 10.6 MB workers eliminated
 **Cumulative load savings from baseline: ~31 MB (~23% reduction)**
