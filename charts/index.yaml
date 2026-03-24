@@ -3,7 +3,7 @@ entries:
   hedera-json-rpc:
   - apiVersion: v2
     appVersion: 0.70.0-SNAPSHOT
-    created: "2026-03-24T09:18:17.919538773Z"
+    created: "2026-03-24T10:51:09.965916697Z"
     dependencies:
     - alias: relay
       condition: relay.enabled
@@ -21,7 +21,7 @@ entries:
       repository: https://charts.bitnami.com/bitnami
       version: 20.11.4
     description: Umbrella Helm chart deployment of the hashgraph/hedera-json-rpc products
-    digest: d2636af4ad48789aedbe6fc9c1040c298f6b1c18b9381a600926148194d7b12f
+    digest: 64d9be40564aa017c71995a5b4d7126d9c9425af49f37bb47fb8b21ffc186ade
     home: https://github.com/hashgraph/hedera-json-rpc-relay
     icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
     keywords:
@@ -5702,9 +5702,9 @@ entries:
   hedera-json-rpc-relay:
   - apiVersion: v2
     appVersion: 0.76.0-rc1
-    created: "2026-03-24T09:18:17.920243478Z"
+    created: "2026-03-24T10:51:09.966738233Z"
     description: Helm chart deployment of the hiero-ledger/hiero-json-rpc-relay
-    digest: 07aa542d237889ab9fed0f45c96868bc31488b98c3c1a96af5f7592ed1b51fc9
+    digest: e9afd63c0929b1982c6667fc437ba22a137d868f69829152f2dcb67691dd3b85
     home: https://github.com/hiero-ledger/hiero-json-rpc-relay
     icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
     keywords:
@@ -9942,10 +9942,10 @@ entries:
   hedera-json-rpc-relay-websocket:
   - apiVersion: v2
     appVersion: 0.76.0-rc1
-    created: "2026-03-24T09:18:17.920728141Z"
+    created: "2026-03-24T10:51:09.967263576Z"
     description: Helm chart deployment of the hiero-ledger/hiero-json-rpc-relay web
       socket server
-    digest: 250b4326d64cabea6a65c1e68829b093a1889822f19bd13cc04cb2127993fd1a
+    digest: 218593c7ae8a4638f0f5e69b057926aea738adfee6fd6eb156112aaa5de2effe
     home: https://github.com/hiero-ledger/hiero-json-rpc-relay
     icon: https://camo.githubusercontent.com/cca6b767847bb8ca5c7059481ba13a5fc81c5938/68747470733a2f2f7777772e6865646572612e636f6d2f6c6f676f2d6361706974616c2d686261722d776f72646d61726b2e6a7067
     keywords:
@@ -14381,4 +14381,4 @@ entries:
     urls:
     - json-rpc-relay-websocket-0.26.0-SNAPSHOT.tgz
     version: 0.26.0-SNAPSHOT
-generated: "2026-03-24T09:18:17.909212943Z"
+generated: "2026-03-24T10:51:09.957174061Z"
