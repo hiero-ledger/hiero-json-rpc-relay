@@ -121,18 +121,10 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
     : [];
 
 /**
- * Formats an authorization list by normalizing and sanitizing its fields.
+ * Formats an access list by normalizing and sanitizing its fields.
  *
- * - Ensures the input is an array of objects.
- * - Normalizes numeric fields to 0x-prefixed hex values.
- * - Pads and sanitizes addresses to 40 hex characters.
- * - Truncates signature fields (r, s) to valid length.
- * - Falls back to zero-value constants when fields are missing.
- *
- * Additional unknown properties on each authorization item are preserved.
- *
- * @param {any} accessList - The raw authorization list.
- * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
+ * @param {any} accessList - The raw access list.
+ * @returns {AccessListEntry[]} A normalized access list.
  */
 const formatAccessList = (accessList: any): AccessListEntry[] =>
   accessList && Array.isArray(accessList)
