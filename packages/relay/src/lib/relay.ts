@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Must be imported before any @hashgraph/sdk usage — see abi-lite.ts for details
-import './abi-lite';
-
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { AccountId } from '@hashgraph/sdk';
 import { Logger } from 'pino';
