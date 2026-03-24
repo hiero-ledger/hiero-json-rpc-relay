@@ -405,6 +405,11 @@ const _CONFIG = {
     required: false,
     defaultValue: null,
   },
+  MIRROR_NODE_ACCOUNT_TXS_PG_MAX: {
+    type: 'number',
+    required: false,
+    defaultValue: 100,
+  },
   MIRROR_NODE_AGENT_CACHEABLE_DNS: {
     type: 'boolean',
     required: false,

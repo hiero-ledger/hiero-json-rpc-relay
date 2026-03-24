@@ -625,11 +625,16 @@ export class MirrorNodeClient {
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
     const queryParams = this.getQueryParams(queryParamObject);
 
+    const pageMax = Number(ConfigService.get('MIRROR_NODE_ACCOUNT_TXS_PG_MAX'));
+
     return this.getPaginatedResults(
       `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${accountId}${queryParams}`,
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
       'transactions',
       requestDetails,
+      [], // results
+      1, //
+      pageMax,
     );
   }
 
