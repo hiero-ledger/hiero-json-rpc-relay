@@ -8,6 +8,7 @@ import sinon from 'sinon';
 
 import { numberTo0x } from '../../../dist/formatters';
 import { Eth } from '../../../src';
+import { prepend0x } from '../../../src/formatters';
 import { SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import { predefined } from '../../../src/lib/errors/JsonRpcError';
@@ -227,6 +228,36 @@ describe('@ethGetTransactionByBlockHashAndIndex using MirrorNode', async functio
       requestDetails,
     );
     expect(result).to.be.an.instanceOf(Transaction1559);
+  });
+
+  [1, 2, 4].forEach((transactionType) => {
+    it(`eth_getTransactionByBlockHashAndIndex returns 1559 transaction for type ${transactionType} with non-empty accessList`, async function () {
+      const accessList = [
+        {
+          address: CONTRACT_ADDRESS_1,
+          storageKeys: [prepend0x('00'.repeat(32))],
+        },
+      ];
+      restMock.onGet(contractResultsByHashByIndexURL(DEFAULT_BLOCK.hash, DEFAULT_BLOCK.count)).reply(
+        200,
+        JSON.stringify({
+          results: [
+            {
+              ...CONTRACT_RESULT_MOCK,
+              type: transactionType,
+              access_list: accessList,
+            },
+          ],
+        }),
+      );
+
+      const result = await ethImpl.getTransactionByBlockHashAndIndex(
+        DEFAULT_BLOCK.hash.toString(),
+        numberTo0x(DEFAULT_BLOCK.count),
+        requestDetails,
+      );
+      expect(result).to.have.property('accessList').that.deep.equal(accessList);
+    });
   });
 
   it('eth_getTransactionByBlockHashAndIndex returns 7702 transaction for type 4', async function () {

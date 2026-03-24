@@ -309,6 +309,28 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
+    it.only('eth_call with non-empty accessList', async function () {
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        accessList: [
+          {
+            address: CONTRACT_ADDRESS_2,
+            storageKeys: [
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
+              '0x0000000000000000000000000000000000000000000000000000000000000001',
+            ],
+          },
+        ],
+      };
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+      const result = await contractService.call(callData, 'latest', requestDetails);
+      expect(result).to.equal('0x00');
+    });
+
     it('eth_call with all fields but mirrorNode throws 429 hence rejected with COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,

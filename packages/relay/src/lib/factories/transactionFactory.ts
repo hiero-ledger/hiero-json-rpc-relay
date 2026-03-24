@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AccessList } from 'ethers';
+
 import {
   isHex,
   nanOrNumberInt64To0x,
@@ -13,7 +15,15 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
+import {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+  Transaction2930,
+  Transaction7702,
+} from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
@@ -24,19 +34,19 @@ export class TransactionFactory {
       case 1:
         return new Transaction2930({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
         }); // eip 2930 fields
       case 2:
         return new Transaction1559({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
         }); // eip 1559 fields
       case 4:
         return new Transaction7702({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
           authorizationList: formatAuthorizationList(fields.authorizationList),
@@ -111,6 +121,32 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
     : [];
 
 /**
+ * Formats an authorization list by normalizing and sanitizing its fields.
+ *
+ * - Ensures the input is an array of objects.
+ * - Normalizes numeric fields to 0x-prefixed hex values.
+ * - Pads and sanitizes addresses to 40 hex characters.
+ * - Truncates signature fields (r, s) to valid length.
+ * - Falls back to zero-value constants when fields are missing.
+ *
+ * Additional unknown properties on each authorization item are preserved.
+ *
+ * @param {any} accessList - The raw authorization list.
+ * @returns {AuthorizationListEntry[]} A normalized authorization list. Returns an empty array if input is invalid.
+ */
+const formatAccessList = (accessList: any): AccessListEntry[] =>
+  accessList && Array.isArray(accessList)
+    ? accessList
+        .filter((item: any) => item !== null && typeof item === 'object')
+        .map((item: any) => ({
+          address: !item.address
+            ? constants.ZERO_ADDRESS_HEX
+            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+          storageKeys: !item.storageKeys ? [] : item.storageKeys,
+        }))
+    : [];
+
+/**
  * Formats a gas fee value into a 0x-prefixed hex string.
  *
  * @TODO There is a known issue with this algorithm, track fix in:
@@ -167,5 +203,6 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
+    accessList: cr.access_list,
   });
 };

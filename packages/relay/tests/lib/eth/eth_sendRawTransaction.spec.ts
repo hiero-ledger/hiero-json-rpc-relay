@@ -20,7 +20,7 @@ import pino from 'pino';
 import sinon, { useFakeTimers } from 'sinon';
 
 import { Eth, JsonRpcError, predefined } from '../../../src';
-import { formatTransactionIdWithoutQueryParams } from '../../../src/formatters';
+import { formatTransactionIdWithoutQueryParams, prepend0x } from '../../../src/formatters';
 import { MirrorNodeClient, SDKClient } from '../../../src/lib/clients';
 import type { ICacheClient } from '../../../src/lib/clients/cache/ICacheClient';
 import constants from '../../../src/lib/constants';
@@ -801,6 +801,53 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             expect(returnValue).to.equal(undefined);
             sinon.assert.notCalled(lockServiceStub.releaseLock);
           });
+        });
+
+        it('should preserve and propagate accessList from raw transaction to tx pool', async function () {
+          const accessList = [
+            {
+              address: ACCOUNT_ADDRESS_1,
+              storageKeys: [prepend0x('11'.repeat(32))],
+            },
+          ];
+
+          const eip1559Tx = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            type: 2,
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x0',
+            maxFeePerGas: gasPrice,
+            maxPriorityFeePerGas: gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+            accessList,
+          } as const;
+
+          const signed = await signTransaction(eip1559Tx);
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          // Just make sure that the accessList is propagated to the tx pool
+          const saveSpy = sinon.stub(txPool, 'saveTransaction').callsFake(async (_from: unknown, parsedTx: unknown) => {
+            expect(parsedTx).to.have.property('accessList');
+            expect(parsedTx!['accessList']).to.deep.equal(accessList);
+            return Promise.resolve();
+          });
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          await ethImpl.sendRawTransaction(signed, requestDetails);
+          sinon.assert.calledOnce(saveSpy);
         });
       });
     });
