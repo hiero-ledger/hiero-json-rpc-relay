@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
@@ -262,7 +263,7 @@ export class AccountService implements IAccountService {
       let currentBalance = 0;
       let balanceFromTxs = 0;
       mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
-        limit: constants.MIRROR_NODE_QUERY_LIMIT,
+        limit: ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
         transactions: true,
       });
       if (mirrorAccount) {

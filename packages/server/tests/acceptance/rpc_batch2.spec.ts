@@ -6,6 +6,7 @@ import { predefined } from '@hashgraph/json-rpc-relay/dist';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
 import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
 import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
+import { overrideEnvsInMochaDescribe } from '@hashgraph/json-rpc-relay/tests/helpers';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -546,6 +547,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       });
 
       await relay.pollForValidTransactionReceipt(response.hash);
+    });
+    overrideEnvsInMochaDescribe({
+      MIRROR_NODE_LIMIT_PARAM: 100,
     });
 
     it('@release should execute "eth_getBalance" for newly created account with 1 HBAR', async function () {
