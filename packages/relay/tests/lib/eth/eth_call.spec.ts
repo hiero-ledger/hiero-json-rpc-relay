@@ -309,7 +309,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it.only('eth_call with non-empty accessList', async function () {
+    it('eth_call with non-empty accessList', async function () {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
