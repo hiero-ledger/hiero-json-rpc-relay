@@ -260,13 +260,6 @@ export class FeeService implements IFeeService {
     const gasUsed = block.gas_used || 0;
     const blockNumber = block.number;
 
-    if (blockGasLimit <= 0) {
-      this.logger.warn(
-        { blockNumber, gasUsed, blockGasLimit },
-        'eth_feeHistory: block gas limit is non-positive; using 0 for gasUsedRatio',
-      );
-      return 0;
-    }
     if (gasUsed > blockGasLimit) {
       this.logger.warn(
         { blockNumber, gasUsed, blockGasLimit },

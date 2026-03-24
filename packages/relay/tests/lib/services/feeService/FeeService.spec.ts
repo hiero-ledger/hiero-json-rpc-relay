@@ -137,20 +137,6 @@ describe('FeeService', function () {
       expect(warnSpy.firstCall.args[1]).to.include('clamping gasUsedRatio to 1');
     });
 
-    it('returns 0 and warns when obtainBlockGasLimit is 0', function () {
-      obtainStub.returns(0);
-      expect(ratioFor(minimalMirrorBlock(6, 50, '0.0.0'))).to.equal(0);
-      expect(warnSpy.calledOnce).to.be.true;
-      expect(warnSpy.firstCall.args[1]).to.include('non-positive');
-    });
-
-    it('returns 0 and warns when obtainBlockGasLimit is negative', function () {
-      obtainStub.returns(-1);
-      expect(ratioFor(minimalMirrorBlock(7, 1, '0.0.0'))).to.equal(0);
-      expect(warnSpy.calledOnce).to.be.true;
-      expect(warnSpy.firstCall.args[1]).to.include('non-positive');
-    });
-
     it('returns a fractional ratio when stub supplies a small limit', function () {
       obtainStub.returns(7);
       expect(ratioFor(minimalMirrorBlock(8, 3, '0.0.0'))).to.be.closeTo(3 / 7, 1e-12);
