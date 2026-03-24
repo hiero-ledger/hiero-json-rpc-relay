@@ -22,7 +22,7 @@ const register = RegistryFactory.getInstance();
 const cacheService = CacheClientFactory.create(logger, register);
 const mirrorNodeClient = new MirrorNodeClient(ConfigService.get('MIRROR_NODE_URL'), logger, register, cacheService);
 const commonService = new CommonService(mirrorNodeClient, logger, cacheService);
-// Can use LocalPendingTransactionStorage() as transactionPoolService is required in constructor but not used for getBalance
+// Can use LocalPendingTransactionStorage() as transactionPoolService is required in AccountService constructor but not used for getBalance
 const transactionPoolService = new TransactionPoolService(new LocalPendingTransactionStorage(), logger, register);
 const accountService = new AccountService(
   cacheService,
@@ -102,8 +102,6 @@ export async function getBalance(
 
     return numberTo0x(weibars);
   } catch (e: unknown) {
-    // Check if remove this genericErrorHandler changes the tests
-    // throw commonService.genericErrorHandler(error, `Error raised during getBalance for account ${account}`);
     throw wrapError(e);
   }
 }
