@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { Transaction } from 'ethers';
+import { Transaction } from 'ethers/transaction';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
