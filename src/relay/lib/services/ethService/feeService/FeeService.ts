@@ -6,6 +6,7 @@ import { Logger } from 'pino';
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
+import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../types';
@@ -255,7 +256,7 @@ export class FeeService implements IFeeService {
    * @private
    */
   private gasUsedRatioForBlock(block: MirrorNodeBlock): number {
-    const blockGasLimit = constants.BLOCK_GAS_LIMIT; //FIXME: Get the value from blockGasLimit.ts after #5065 is merged
+    const blockGasLimit = obtainBlockGasLimit(block.hapi_version);
     const gasUsed = block.gas_used || 0;
     const blockNumber = block.number;
 

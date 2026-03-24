@@ -6,6 +6,7 @@ import { Logger } from 'pino';
 import sinon from 'sinon';
 
 import { numberTo0x } from '../../../../src/formatters';
+import * as blockGasLimit from '../../../../src/lib/config/blockGasLimit';
 import constants from '../../../../src/lib/constants';
 import { FeeService } from '../../../../src/lib/services/ethService/feeService/FeeService';
 import { RequestDetails } from '../../../../src/lib/types';
@@ -14,13 +15,12 @@ import { MirrorNodeBlock } from '../../../../src/lib/types/mirrorNode';
 
 describe('FeeService', function () {
   const requestDetails = new RequestDetails({ requestId: 'feeServiceUnitTest', ipAddress: '0.0.0.0' });
-  const originalBlockGasLimit = constants.BLOCK_GAS_LIMIT;
 
-  function minimalMirrorBlock(number: number, gasUsed: number): MirrorNodeBlock {
+  function minimalMirrorBlock(number: number, gasUsed: number, hapiVersion: string = '0.0.0'): MirrorNodeBlock {
     return {
       count: 0,
       gas_used: gasUsed,
-      hapi_version: '0.0.0',
+      hapi_version: hapiVersion,
       hash: '0x',
       logs_bloom: '0x',
       name: '',
@@ -58,7 +58,7 @@ describe('FeeService', function () {
       const head = 100;
       commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
 
-      const block = minimalMirrorBlock(head, 1_000_000);
+      const block = minimalMirrorBlock(head, 1_000_000, '0.0.0');
       mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
       commonStub.getGasPriceInWeibars.withArgs(requestDetails, `lte:${block.timestamp.to}`).resolves(77);
     });
@@ -67,13 +67,14 @@ describe('FeeService', function () {
       sinon.restore();
     });
 
-    it('returns fee history with computed gasUsedRatio when newest block is latest', async function () {
+    it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async function () {
       const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
 
       expect(result).to.not.have.property('code');
       const feeHistory = result as IFeeHistory;
+      const expectedLimit = blockGasLimit.obtainBlockGasLimit('0.0.0');
       expect(feeHistory.oldestBlock).to.equal(numberTo0x(100));
-      expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / constants.BLOCK_GAS_LIMIT]);
+      expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
       expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(77), numberTo0x(77)]);
       expect(mirrorStub.getBlock.callCount).to.equal(1);
       expect(mirrorStub.getBlock.firstCall.args).to.deep.equal([100, requestDetails]);
@@ -83,69 +84,83 @@ describe('FeeService', function () {
   describe('gasUsedRatioForBlock (private)', function () {
     let warnSpy: sinon.SinonSpy;
     let feeService: FeeService;
+    let obtainStub: sinon.SinonStub;
 
-    function ratioFor(block: Pick<MirrorNodeBlock, 'number' | 'gas_used'>): number {
+    function ratioFor(block: MirrorNodeBlock): number {
       return (feeService as any).gasUsedRatioForBlock(block);
     }
 
     beforeEach(function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = originalBlockGasLimit;
       warnSpy = sinon.spy();
       feeService = new FeeService({} as any, {} as any, { warn: warnSpy } as unknown as Logger);
+      obtainStub = sinon.stub(blockGasLimit, 'obtainBlockGasLimit').callThrough();
     });
 
     afterEach(function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = originalBlockGasLimit;
+      sinon.restore();
     });
 
-    it('returns gasUsed / blockGasLimit when within limit', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 10_000_000;
-      expect(ratioFor({ number: 1, gas_used: 2_500_000 })).to.equal(0.25);
+    it('returns gasUsed / obtainBlockGasLimit(hapi_version) when within limit (0.0.0 tier)', function () {
+      expect(ratioFor(minimalMirrorBlock(1, 7_500_000, '0.0.0'))).to.equal(0.25);
+      expect(warnSpy.called).to.be.false;
+    });
+
+    it('uses higher limit for 0.69.0 HAPI version', function () {
+      const limit = blockGasLimit.obtainBlockGasLimit('0.69.0');
+      expect(limit).to.equal(150_000_000);
+      expect(ratioFor(minimalMirrorBlock(1, 75_000_000, '0.69.0'))).to.equal(0.5);
       expect(warnSpy.called).to.be.false;
     });
 
     it('returns 0 when gasUsed is 0', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 10_000_000;
-      expect(ratioFor({ number: 2, gas_used: 0 })).to.equal(0);
+      expect(ratioFor(minimalMirrorBlock(2, 0, '0.0.0'))).to.equal(0);
       expect(warnSpy.called).to.be.false;
     });
 
     it('treats missing gas_used as 0', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 10_000_000;
-      expect(ratioFor({ number: 3, gas_used: undefined as unknown as number })).to.equal(0);
+      const block = minimalMirrorBlock(3, 0, '0.0.0');
+      (block as { gas_used: number | undefined }).gas_used = undefined;
+      expect(ratioFor(block)).to.equal(0);
       expect(warnSpy.called).to.be.false;
     });
 
-    it('returns 1 when gasUsed equals blockGasLimit', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 5_000_000;
-      expect(ratioFor({ number: 4, gas_used: 5_000_000 })).to.equal(1);
+    it('returns 1 when gasUsed equals block gas limit for that HAPI version', function () {
+      const limit = blockGasLimit.obtainBlockGasLimit('0.0.0');
+      expect(ratioFor(minimalMirrorBlock(4, limit, '0.0.0'))).to.equal(1);
       expect(warnSpy.called).to.be.false;
     });
 
-    it('returns 1 and warns when gasUsed exceeds blockGasLimit', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 100;
-      expect(ratioFor({ number: 5, gas_used: 101 })).to.equal(1);
+    it('returns 1 and warns when gasUsed exceeds obtainBlockGasLimit', function () {
+      const limit = blockGasLimit.obtainBlockGasLimit('0.0.0');
+      expect(ratioFor(minimalMirrorBlock(5, limit + 1, '0.0.0'))).to.equal(1);
       expect(warnSpy.calledOnce).to.be.true;
       expect(warnSpy.firstCall.args[1]).to.include('clamping gasUsedRatio to 1');
     });
 
-    it('returns 0 and warns when blockGasLimit is 0', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 0;
-      expect(ratioFor({ number: 6, gas_used: 50 })).to.equal(0);
+    it('returns 0 and warns when obtainBlockGasLimit is 0', function () {
+      obtainStub.returns(0);
+      expect(ratioFor(minimalMirrorBlock(6, 50, '0.0.0'))).to.equal(0);
       expect(warnSpy.calledOnce).to.be.true;
       expect(warnSpy.firstCall.args[1]).to.include('non-positive');
     });
 
-    it('returns 0 and warns when blockGasLimit is negative', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = -1;
-      expect(ratioFor({ number: 7, gas_used: 1 })).to.equal(0);
+    it('returns 0 and warns when obtainBlockGasLimit is negative', function () {
+      obtainStub.returns(-1);
+      expect(ratioFor(minimalMirrorBlock(7, 1, '0.0.0'))).to.equal(0);
       expect(warnSpy.calledOnce).to.be.true;
       expect(warnSpy.firstCall.args[1]).to.include('non-positive');
     });
 
-    it('returns an irreducible fractional ratio', function () {
-      (constants as { BLOCK_GAS_LIMIT: number }).BLOCK_GAS_LIMIT = 7;
-      expect(ratioFor({ number: 1, gas_used: 3 })).to.be.closeTo(3 / 7, 1e-12);
+    it('returns a fractional ratio when stub supplies a small limit', function () {
+      obtainStub.returns(7);
+      expect(ratioFor(minimalMirrorBlock(8, 3, '0.0.0'))).to.be.closeTo(3 / 7, 1e-12);
+      expect(warnSpy.called).to.be.false;
+    });
+
+    it('uses DEFAULT_BLOCK_GAS_LIMIT when hapi_version is invalid (obtainBlockGasLimit fallback)', function () {
+      const gasUsed = constants.DEFAULT_BLOCK_GAS_LIMIT / 4;
+      expect(ratioFor(minimalMirrorBlock(9, gasUsed, 'not-a-version'))).to.equal(0.25);
+      expect(warnSpy.called).to.be.false;
     });
   });
 });
