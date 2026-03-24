@@ -23,11 +23,11 @@ import HAPIService from '../../../src/lib/services/hapiService/hapiService';
 import { HbarLimitService } from '../../../src/lib/services/hbarLimitService';
 
 export function contractResultsByNumberByIndexURL(number: number, index: number): string {
-  return `contracts/results?block.number=${number}&transaction.index=${index}&limit=100&order=asc`;
+  return `contracts/results?block.number=${number}&transaction.index=${index}&limit=100&order=asc&hbar=false`;
 }
 
 export function contractResultsByHashByIndexURL(hash: string, index: number): string {
-  return `contracts/results?block.hash=${hash}&transaction.index=${index}&limit=100&order=asc`;
+  return `contracts/results?block.hash=${hash}&transaction.index=${index}&limit=100&order=asc&hbar=false`;
 }
 
 export function balancesByAccountIdByTimestampURL(id: string, timestamp?: string): string {

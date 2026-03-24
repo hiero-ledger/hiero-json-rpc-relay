@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-
 import {
-  isHex,
   nanOrNumberInt64To0x,
   nanOrNumberTo0x,
   nullableNumberTo0x,
   numberTo0x,
   prepend0x,
   stripLeadingZeroForSignatures,
-  tinybarsToWeibars,
   toHash32,
   trimPrecedingZeros,
 } from '../../formatters';
@@ -112,32 +108,14 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
         }))
     : [];
 
-/** When true, mirror contract-result monetary fields are in tinybars; when false, they are already in weibars (`hbar=false`). */
-const contractResultsMonetaryFieldsInTinybars = (): boolean =>
-  ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_HBAR') === true;
-
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
- *
- * @TODO There is a known issue with this algorithm, track fix in:
- *       https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4901
- *       The value should be returned in weibars, not tinybars, as it is currently.
  *
  * @param {any} gasFee - The raw gas price value (hex or number).
  * @returns {string} The formatted gas fee as a 0x-prefixed hex string.
  */
 const formatGasFee = (gasFee: any): string =>
   gasFee === null || gasFee === constants.EMPTY_HEX ? constants.ZERO_HEX : prepend0x(trimPrecedingZeros(gasFee) ?? '0');
-
-const normalizeContractResultFeeToWeibarHex = (fee: any, tinybarMode: boolean): string => {
-  return fee === null || fee === '0x'
-    ? '0x0'
-    : isHex(fee)
-      ? tinybarMode
-        ? numberTo0x(BigInt(fee) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF))
-        : numberTo0x(BigInt(fee))
-      : nanOrNumberTo0x(fee);
-};
 
 /**
  * Creates a Transaction object from a contract result
@@ -149,11 +127,8 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     return null;
   }
 
-  const tinybarMode = contractResultsMonetaryFieldsInTinybars();
-  const gasPrice = normalizeContractResultFeeToWeibarHex(cr.gas_price, tinybarMode);
-  const valueHex = tinybarMode
-    ? nanOrNumberInt64To0x(tinybarsToWeibars(cr.amount, true))
-    : nanOrNumberInt64To0x(cr.amount == null ? null : BigInt(cr.amount));
+  const gasPrice = formatGasFee(cr.gas_price);
+  const valueHex = nanOrNumberInt64To0x(cr.amount == null ? null : BigInt(cr.amount));
 
   const commonFields = {
     blockHash: toHash32(cr.block_hash),
@@ -177,9 +152,9 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
   };
 
-  const maxPriorityFeePerGas = normalizeContractResultFeeToWeibarHex(cr.max_priority_fee_per_gas, tinybarMode);
+  const maxPriorityFeePerGas = formatGasFee(cr.max_priority_fee_per_gas);
 
-  const maxFeePerGas = normalizeContractResultFeeToWeibarHex(cr.max_fee_per_gas, tinybarMode);
+  const maxFeePerGas = formatGasFee(cr.max_fee_per_gas);
 
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,

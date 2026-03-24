@@ -32,7 +32,7 @@ const GAS_PRICE_1501_GWEI = BigInt(1501) * GWEI;
 
 const LEGACY_GAS_LIMIT = 3_000_000;
 
-describe('@tinybarToWeibarConversion Acceptance Tests', function () {
+describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
   this.timeout(240 * 1000);
 
   // @ts-ignore

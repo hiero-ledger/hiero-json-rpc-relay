@@ -241,7 +241,7 @@ describe('TransactionFactory', () => {
       transaction_index: 9,
       chain_id: '0x12a',
       gas_price: '0x',
-      max_fee_per_gas: '0x59',
+      max_fee_per_gas: '0xcf38224400',
       max_priority_fee_per_gas: '0x',
       r: '0x2af9d41244c702764ed86c5b9f1a734b075b91c4d9c65e78bc584b0e35181e42',
       s: '0x3f0a6baa347876e08c53ffc70619ba75881841885b2bd114dbb1905cd57112a5',

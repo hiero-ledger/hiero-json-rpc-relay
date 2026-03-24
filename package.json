@@ -70,7 +70,7 @@
     "acceptancetest:json_rpc_compliance": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@json-rpc-compliance' --exit",
     "acceptancetest:debug": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@debug' --exit",
     "acceptancetest:xts": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@xts' --exit",
-    "acceptancetest:tinybarToWeibarConversion": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@tinybarToWeibarConversion' --exit",
+    "acceptancetest:sub_tinybar_monetary_precision": "c8 ts-mocha packages/server/tests/acceptance/index.spec.ts  -g '@sub_tinybar_monetary_precision' --exit",
     "build": "npx lerna run build",
     "build-and-test": "npx lerna run build && npx lerna run test",
     "build:docker": "docker build . -t ${npm_package_name}",

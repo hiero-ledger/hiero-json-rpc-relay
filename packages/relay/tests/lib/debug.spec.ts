@@ -55,12 +55,12 @@ describe('Debug API Test Suite', async function () {
   const tracerObjectCallTracerTrue = { tracer: callTracer, tracerConfig: tracerConfigTrue };
   const CONTRACTS_RESULTS_OPCODES = `contracts/results/${transactionHash}/opcodes`;
   const CONTARCTS_RESULTS_ACTIONS = `contracts/results/${transactionHash}/actions`;
-  const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}`;
+  const CONTRACTS_RESULTS_BY_HASH = `contracts/results/${transactionHash}?hbar=false`;
   const CONTRACT_BY_ADDRESS = `contracts/${contractAddress}`;
   const SENDER_BY_ADDRESS = `accounts/${senderAddress}?transactions=false`;
   const ACCOUNT_BY_ADDRESS = `accounts/${accountAddress}?transactions=false`;
   const CONTRACT_BY_ADDRESS2 = `contracts/${contractAddress2}`;
-  const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}`;
+  const CONTRACTS_RESULTS_BY_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}?hbar=false`;
   const CONTRACT_RESULTS_BY_ACTIONS_NON_EXISTENT_HASH = `contracts/results/${nonExistentTransactionHash}/actions`;
 
   // Synthetic transaction test data
@@ -68,7 +68,7 @@ describe('Debug API Test Suite', async function () {
   const syntheticTxHash2 = '0xb9a433b014684558d4154c73de3ed360bd5867725239938c2143acb7a76bca83';
   const CONTRACT_RESULTS_LOGS_SYNTHETIC = `contracts/results/logs?transaction.hash=${syntheticTxHash}&limit=100&order=asc`;
   const CONTRACTS_RESULTS_ACTIONS_SYNTHETIC = `contracts/results/${syntheticTxHash}/actions`;
-  const CONTRACTS_RESULTS_SYNTHETIC = `contracts/results/${syntheticTxHash}`;
+  const CONTRACTS_RESULTS_SYNTHETIC = `contracts/results/${syntheticTxHash}?hbar=false`;
   const CONTRACTS_RESULTS_OPCODES_SYNTHETIC = `contracts/results/${syntheticTxHash}/opcodes`;
 
   // Standard ERC-20/HTS Transfer event signature: keccak256("Transfer(address,address,uint256)")
@@ -2765,7 +2765,7 @@ describe('Debug API Test Suite', async function () {
           }),
         );
 
-        restMock.onGet(`contracts/results/${nonExistentTransactionHash}`).reply(
+        restMock.onGet(`contracts/results/${nonExistentTransactionHash}?hbar=false`).reply(
           404,
           JSON.stringify({
             _status: {

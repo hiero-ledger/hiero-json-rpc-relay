@@ -167,14 +167,7 @@ export class MirrorNodeClient {
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
   );
 
-  private static contractResultsMonetaryFieldsInTinybars(): boolean {
-    return ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_HBAR') === true;
-  }
-
   private static appendHbarQueryToContractResultsPath(path: string): string {
-    if (MirrorNodeClient.contractResultsMonetaryFieldsInTinybars()) {
-      return path;
-    }
     const sep = path.includes('?') ? '&' : '?';
     return `${path}${sep}hbar=false`;
   }
@@ -810,8 +803,7 @@ export class MirrorNodeClient {
   }
 
   public async getContractResult(transactionIdOrHash: string, requestDetails: RequestDetails) {
-    const hbarSuffix = MirrorNodeClient.contractResultsMonetaryFieldsInTinybars() ? 'tinybar' : 'weibar';
-    const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}.${hbarSuffix}`;
+    const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 
     if (cachedResponse) {
@@ -924,9 +916,7 @@ export class MirrorNodeClient {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
-    if (!MirrorNodeClient.contractResultsMonetaryFieldsInTinybars()) {
-      this.setQueryParam(queryParamObject, 'hbar', false);
-    }
+    this.setQueryParam(queryParamObject, 'hbar', false);
     const queryParams = this.getQueryParams(queryParamObject);
     return this.getPaginatedResults(
       `${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`,
@@ -981,9 +971,7 @@ export class MirrorNodeClient {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
-    if (!MirrorNodeClient.contractResultsMonetaryFieldsInTinybars()) {
-      this.setQueryParam(queryParamObject, 'hbar', false);
-    }
+    this.setQueryParam(queryParamObject, 'hbar', false);
     const queryParams = this.getQueryParams(queryParamObject);
     return this.get(
       `${MirrorNodeClient.getContractResultsByAddressPath(contractIdOrAddress)}${queryParams}`,
