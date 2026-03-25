@@ -485,6 +485,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 10,
   },
+  MIRROR_NODE_STARTUP_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  MIRROR_NODE_STARTUP_RETRY_DELAY_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 3000,
+  },
   MIRROR_NODE_TIMEOUT: {
     type: 'number',
     required: false,

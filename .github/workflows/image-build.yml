@@ -50,6 +50,7 @@ jobs:
           MIRROR_NODE_URL=http://127.0.0.1:5551
           READ_ONLY=true
           REDIS_ENABLED=false
+          MIRROR_NODE_STARTUP_MAX_ATTEMPTS=0
           EOF
 
       - name: Start HTTP relay server
