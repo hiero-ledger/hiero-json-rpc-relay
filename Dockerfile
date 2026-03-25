@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # ── Build ─────────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS build
+# Use bookworm-slim (glibc) for the build stage to avoid QEMU/musl crashes
+# when cross-compiling for linux/arm64 on amd64 CI runners.
+FROM node:22-bookworm-slim AS build
 
 WORKDIR /home/node/app
 
