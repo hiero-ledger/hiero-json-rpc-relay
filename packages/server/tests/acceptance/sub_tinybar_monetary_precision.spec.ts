@@ -16,6 +16,7 @@
 // External resources
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { withOverriddenEnvsInMochaTest } from '@hashgraph/json-rpc-relay/tests/helpers';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
 
@@ -39,7 +40,6 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
   const { mirrorNode, relay, initialBalance }: { mirrorNode: any; relay: RelayClient; initialBalance: string } = global;
 
   const CHAIN_ID = Number(ConfigService.get('CHAIN_ID'));
-  const debugApiEnabled = ConfigService.get('DEBUG_API_ENABLED') === true;
 
   const accounts: AliasAccount[] = [];
   let sender: ethers.Wallet;
@@ -156,7 +156,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       expect(cr.hash?.toLowerCase()).to.equal(hash.toLowerCase());
     });
 
-    if (debugApiEnabled) {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('debug_getRawTransaction RLP round-trip matches signer and hash', async function () {
         const { hash, signedTx } = await sendLegacyTx({
           value: ONE_TINYBAR_WEI,
@@ -164,7 +164,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
         });
         await assertDebugRawRoundTrip(signedTx, hash);
       });
-    }
+    });
   });
 
   describe('legacy type-0 — value precision (1.1 tinybar in weibars)', function () {
@@ -177,7 +177,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       assertEthGetTxMatchesSigned(signedTx, rpcTx);
     });
 
-    if (debugApiEnabled) {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('debug_getRawTransaction RLP round-trip matches signer and hash', async function () {
         const { hash, signedTx } = await sendLegacyTx({
           value: ONE_POINT_ONE_TINYBAR_WEI,
@@ -185,7 +185,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
         });
         await assertDebugRawRoundTrip(signedTx, hash);
       });
-    }
+    });
   });
 
   describe('legacy type-0 — gasPrice precision (1501 gwei)', function () {
@@ -198,7 +198,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       assertEthGetTxMatchesSigned(signedTx, rpcTx);
     });
 
-    if (debugApiEnabled) {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('debug_getRawTransaction RLP round-trip matches signer and hash', async function () {
         const { hash, signedTx } = await sendLegacyTx({
           value: ONE_TINYBAR_WEI,
@@ -206,7 +206,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
         });
         await assertDebugRawRoundTrip(signedTx, hash);
       });
-    }
+    });
   });
 
   describe('type-2 (EIP-1559) — baseline fees', function () {
@@ -220,7 +220,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       assertEthGetTxMatchesSigned(signedTx, rpcTx);
     });
 
-    if (debugApiEnabled) {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('debug_getRawTransaction RLP round-trip matches signer and hash', async function () {
         const { hash, signedTx } = await sendType2Tx({
           value: ONE_TINYBAR_WEI,
@@ -229,7 +229,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
         });
         await assertDebugRawRoundTrip(signedTx, hash);
       });
-    }
+    });
   });
 
   describe('type-2 (EIP-1559) — fee precision (1501 gwei)', function () {
@@ -243,7 +243,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       assertEthGetTxMatchesSigned(signedTx, rpcTx);
     });
 
-    if (debugApiEnabled) {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
       it('debug_getRawTransaction RLP round-trip matches signer and hash', async function () {
         const { hash, signedTx } = await sendType2Tx({
           value: ONE_TINYBAR_WEI,
@@ -252,12 +252,12 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
         });
         await assertDebugRawRoundTrip(signedTx, hash);
       });
-    }
+    });
   });
 
   describe('GET /contracts/results list path via eth_getTransactionByBlockNumberAndIndex', function () {
     it('returns same fields as eth_getTransactionByHash for baseline legacy tx', async function () {
-      const { hash, signedTx } = await sendLegacyTx({
+      const { hash } = await sendLegacyTx({
         value: ONE_TINYBAR_WEI,
         gasPrice: GAS_PRICE_1500_GWEI,
       });
