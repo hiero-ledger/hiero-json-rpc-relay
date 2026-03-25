@@ -354,6 +354,37 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           removeStub.restore();
         });
       });
+
+      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transactionID is invalid', async function () {
+        const signed = await signTransaction(transaction);
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: '',
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+          .to.be.rejectedWith(JsonRpcError)
+          .and.eventually.satisfy((error: JsonRpcError) => expect(error.code).to.equal(expectedInternalError.code));
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
+      it.only('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when submitted transactionID is invalid', async function () {
+        const signed = await signTransaction(transaction);
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: '',
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
+        expect(response).to.equal(ethereumHash);
+      });
     });
 
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
