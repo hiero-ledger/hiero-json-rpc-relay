@@ -60,6 +60,14 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
   let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
   overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
 
+  /**
+   * Helper to check if the Mirror Node contract results endpoint was called.
+   * Uses restMock.history.get to inspect actual HTTP calls made.
+   */
+  const wasContractResultEndpointCalled = (): boolean => {
+    return restMock.history.get.some((req) => req.url?.includes(MirrorNodeClient['GET_CONTRACT_RESULT_ENDPOINT']));
+  };
+
   this.beforeEach(async () => {
     // reset cache and restMock
     await cacheService.clear(requestDetails);
@@ -204,8 +212,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
         (sdkClientInternals.deleteFile as sinon.SinonStub).resolves();
 
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: expectedTxHash }));
-
         const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
         if (useAsyncTxProcessing) await clock.tickAsync(1);
 
@@ -239,18 +245,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       );
     });
 
-    it('should return a computed hash if unable to retrieve EthereumHash from record due to contract revert', async function () {
-      const signed = await signTransaction(transaction);
-
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-      const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
-      expect(resultingHash).to.equal(ethereumHash);
-    });
-
-    it('should return hash from ContractResult mirror node api', async function () {
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
+    it('should return pre-calculated hash without calling MN', async function () {
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -261,11 +256,12 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
       const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
       expect(resultingHash).to.equal(ethereumHash);
+
+      // Hash should be computed, not fetched from the mirror node
+      expect(wasContractResultEndpointCalled()).to.be.false;
     });
 
     it('should not send second transaction upon succession', async function () {
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
           transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -283,7 +279,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     it('should not send second transaction on error different from timeout', async function () {
-      restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
       const repeatedRequestSpy = sinon.spy((ethImpl as any).transactionService.mirrorNodeClient, 'repeatedRequest');
       sdkClientStub.submitEthereumTransaction.resolves({
         txResponse: {
@@ -337,7 +332,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
           const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
           sinon.stub(txPool, 'getPendingCount').resolves(0);
-          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
           sdkClientStub.submitEthereumTransaction.resolves({
             txResponse: {
               transactionId: TransactionId.fromString(transactionIdServicesFormat),
@@ -356,168 +350,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           saveStub.restore();
           removeStub.restore();
-        });
-
-        it('should save and remove transaction even when MN returns 404 (tx pool cleanup happens before MN polling)', async function () {
-          const signed = await signTransaction(transaction);
-          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
-
-          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
-          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
-          sinon.stub(txPool, 'getPendingCount').resolves(0);
-
-          // MN returns 404, which causes INTERNAL_ERROR after cleanup
-          restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
-          sdkClientStub.submitEthereumTransaction.resolves({
-            txResponse: {
-              transactionId: TransactionId.fromString(transactionIdServicesFormat),
-            } as unknown as TransactionResponse,
-            fileId: null,
-          });
-
-          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
-            .to.be.rejectedWith(JsonRpcError)
-            .and.eventually.satisfy(
-              (error: JsonRpcError) =>
-                expect(error.code).to.equal(expectedInternalError.code) &&
-                expect(error.message).to.include(expectedInternalError.message),
-            );
-
-          // Verify tx pool operations still happened (before MN polling)
-          sinon.assert.calledOnce(saveStub);
-          sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
-
-          sinon.assert.calledOnce(removeStub);
-          sinon.assert.calledWith(removeStub, accountAddress, signed);
-
-          saveStub.restore();
-          removeStub.restore();
-        });
-      });
-
-      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transaction returned from mirror node is null', async function () {
-        const signed = await signTransaction(transaction);
-
-        restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: transactionIdServicesFormat,
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-
-        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
-          .to.be.rejectedWith(JsonRpcError)
-          .and.eventually.satisfy(
-            (error: JsonRpcError) =>
-              expect(error.code).to.equal(expectedInternalError.code) &&
-              expect(error.message).to.include(expectedInternalError.message),
-          );
-      });
-
-      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transactionID is invalid', async function () {
-        const signed = await signTransaction(transaction);
-
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: '',
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-
-        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
-          .to.be.rejectedWith(JsonRpcError)
-          .and.eventually.satisfy((error: JsonRpcError) => expect(error.code).to.equal(expectedInternalError.code));
-      });
-
-      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error if ContractResult from mirror node contains a null hash', async function () {
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: null }));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: TransactionId.fromString(transactionIdServicesFormat),
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-        const signed = await signTransaction(transaction);
-
-        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
-          .to.be.rejectedWith(JsonRpcError)
-          .and.eventually.satisfy(
-            (error: JsonRpcError) =>
-              expect(error.code).to.equal(expectedInternalError.code) &&
-              expect(error.message).to.include(expectedInternalError.message),
-          );
-      });
-    });
-
-    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
-      it('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when transaction returned from mirror node is null', async function () {
-        const signed = await signTransaction(transaction);
-
-        restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: transactionIdServicesFormat,
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-
-        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
-        expect(response).to.equal(ethereumHash);
-      });
-
-      it('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when submitted transactionID is invalid', async function () {
-        const signed = await signTransaction(transaction);
-
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: '',
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-
-        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
-        expect(response).to.equal(ethereumHash);
-      });
-
-      it('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when ContractResult from mirror node contains a null hash', async function () {
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: null }));
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: TransactionId.fromString(transactionIdServicesFormat),
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-        const signed = await signTransaction(transaction);
-
-        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
-        expect(response).to.equal(ethereumHash);
-      });
-
-      ['timeout exceeded', 'Connection dropped'].forEach((error) => {
-        it(`[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when hit ${error} error`, async function () {
-          restMock
-            .onGet(contractResultEndpoint)
-            .replyOnce(404, mockData.notFound)
-            .onGet(contractResultEndpoint)
-            .reply(200, JSON.stringify({ hash: ethereumHash }));
-
-          sdkClientStub.submitEthereumTransaction
-            .onCall(0)
-            .throws(new SDKClientError({ status: 21 }, error, transactionIdServicesFormat));
-
-          const signed = await signTransaction(transaction);
-
-          const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
-          expect(resultingHash).to.equal(ethereumHash);
         });
       });
     });
@@ -709,7 +541,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
           const currentTime = process.hrtime.bigint();
           lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
@@ -752,7 +583,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             return [200, ACCOUNT_RES];
           });
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
           const currentTime = process.hrtime.bigint();
           lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
@@ -782,7 +612,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
             restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
             restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
             sdkClientStub.submitEthereumTransaction.resolves({
               txResponse: {
@@ -830,7 +659,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
           restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
           restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
           restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-          restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
           const currentTime = process.hrtime.bigint();
           lockServiceStub.acquireLock.resolves({ sessionKey: 'session-after-consensus-1', acquiredAt: currentTime });
@@ -869,36 +697,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         }
       });
 
-      it('should release lock even when mirror node polling fails after consensus', async function () {
-        const signed = await signTransaction(transaction);
-
-        // Mock successful consensus but failed mirror node polling
-        restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
-        restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
-        restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-        restMock.onGet(contractResultEndpoint).reply(404, JSON.stringify(mockData.notFound));
-
-        const currentTime = process.hrtime.bigint();
-        lockServiceStub.acquireLock.resolves({ sessionKey: 'session-mn-fail', acquiredAt: currentTime });
-        lockServiceStub.releaseLock.resolves();
-
-        sdkClientStub.submitEthereumTransaction.resolves({
-          txResponse: {
-            transactionId: TransactionId.fromString(transactionIdServicesFormat),
-          } as unknown as TransactionResponse,
-          fileId: null,
-        });
-
-        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
-        if (useAsyncTxProcessing) await clock.tickAsync(1);
-        // Should return txHash because of async processing
-        expect(result).to.equal(ethereumHash);
-
-        // Verify lock was released despite MN polling failure
-        sinon.assert.calledOnce(lockServiceStub.releaseLock);
-        sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-mn-fail');
-      });
-
       it('should not release lock when lockSessionKey is undefined', async function () {
         const signed = await signTransaction(transaction);
 
@@ -906,7 +704,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
         restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
         restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
         restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-        restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
         // Lock acquisition returns undefined (lock not acquired)
         lockServiceStub.acquireLock.resolves(undefined as any);
@@ -937,7 +734,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
             restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
             restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
-            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
 
             const currentTime = process.hrtime.bigint();
             lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
@@ -952,9 +748,11 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
             const result = await ethImpl.sendRawTransaction(signed, requestDetails);
 
-            // Should return hash from mirror node (not computed)
+            // Hash should be computed, not fetched from the mirror node
             expect(result).to.equal(ethereumHash);
-            sinon.assert.notCalled(computeHashSpy);
+            expect(wasContractResultEndpointCalled()).to.be.false;
+            sinon.assert.calledOnce(computeHashSpy);
+
             // Verify lock was released during synchronous execution (no need to tick clock)
             sinon.assert.calledOnce(lockServiceStub.releaseLock);
             sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-sync');
@@ -997,14 +795,6 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             statusCode: statusValue._code,
           };
         });
-
-      /**
-       * Helper to check if the Mirror Node contract results endpoint was called.
-       * Uses restMock.history.get to inspect actual HTTP calls made.
-       */
-      const wasContractResultEndpointCalled = (): boolean => {
-        return restMock.history.get.some((req) => req.url?.includes(MirrorNodeClient['GET_CONTRACT_RESULT_ENDPOINT']));
-      };
 
       withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
         SDK_CONSENSUS_ERRORS.forEach(({ statusName, statusCode }) => {
