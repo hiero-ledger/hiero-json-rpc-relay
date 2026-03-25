@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   precheck:
-    runs-on: ubuntu-latest
+    runs-on: hiero-smart-contracts-linux-medium
     outputs:
       proceed: ${{ steps.find-pr.outputs.proceed }}
     steps:
@@ -35,7 +35,7 @@ jobs:
             core.setOutput('proceed', exists ? 'false' : 'true');
 
   clone-and-build-execution-apis:
-    runs-on: ubuntu-latest
+    runs-on: hiero-smart-contracts-linux-medium
     needs: precheck
     if: ${{ needs.precheck.outputs.proceed == 'true' }}
 
@@ -72,7 +72,7 @@ jobs:
           path: ./execution-apis/refs-openrpc.json
 
   update-openrpc:
-    runs-on: ubuntu-latest
+    runs-on: hiero-smart-contracts-linux-medium
     needs:
       - precheck
       - clone-and-build-execution-apis
