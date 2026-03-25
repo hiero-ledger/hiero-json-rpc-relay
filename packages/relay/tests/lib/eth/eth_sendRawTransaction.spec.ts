@@ -372,7 +372,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
     });
 
     withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
-      it.only('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when submitted transactionID is invalid', async function () {
+      it('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when submitted transactionID is invalid', async function () {
         const signed = await signTransaction(transaction);
 
         sdkClientStub.submitEthereumTransaction.resolves({
