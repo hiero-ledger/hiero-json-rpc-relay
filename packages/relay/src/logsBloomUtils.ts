@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { keccak256 } from 'ethers';
+import { keccak256 } from 'ethers/crypto';
 
 import { prepend0x, strip0x } from './formatters';
 import constants from './lib/constants';
