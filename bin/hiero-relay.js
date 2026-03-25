@@ -174,7 +174,8 @@ yargs(hideBin(process.argv))
           ...networkEnvs,
           ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
           ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
-          ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {})
+          ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
+          ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {})
         },
         shell: true
       });
@@ -231,6 +232,13 @@ yargs(hideBin(process.argv))
     demandOption: false,
     describe: 'Specify the config file location.',
     type: 'string'
+  })
+  .option('l', {
+    alias: 'logging',
+    demandOption: false,
+    describe: 'Specify the logging level.',
+    type: 'string',
+    choices: ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
   })
   .demandCommand()
   .strictCommands()
