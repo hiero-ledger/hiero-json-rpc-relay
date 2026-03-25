@@ -248,7 +248,6 @@ export class FeeService implements IFeeService {
    * Returns the `gasUsedRatio` entry for for a block
    * `gasUsed / blockGasLimit`, using {@link MirrorNodeBlock.gas_used} as gas used.
    *
-   * If the effective block gas limit is non-positive, logs a warning and returns `0`.
    * If `gasUsed` exceeds that limit, logs a warning and returns `1` (100% usage).
    *
    * @param block - Mirror node block metadata (must include `number`, `gas_used`)
