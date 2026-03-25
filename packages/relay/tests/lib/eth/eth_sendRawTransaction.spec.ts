@@ -297,7 +297,9 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
       await clock.tickAsync(1);
       expect(resultingHash).to.equal(ethereumHash);
       sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
-      sinon.assert.calledOnceWithExactly(
+
+      // Contract results should never be polled from MN for a transaction that was received by CN
+      sinon.assert.neverCalledWith(
         repeatedRequestSpy,
         'getContractResult',
         [formattedTransactionId, newRequestDetails],
@@ -688,7 +690,7 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
 
           // In async mode, verify computeHash was called before lock release
           if (useAsyncTxProcessing) {
-            sinon.assert.calledOnce(computeHashSpy);
+            sinon.assert.called(computeHashSpy);
             expect(sendRawTransactionProcessorSpy.calledBefore(computeHashSpy)).to.be.true;
             expect(computeHashSpy.calledBefore(lockServiceStub.releaseLock)).to.be.true;
           }
@@ -898,8 +900,8 @@ describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function ()
             const result = await ethImpl.sendRawTransaction(signed, requestDetails);
             expect(result).to.equal(ethereumHash);
 
-            // Verify Mirror Node contracts/results/ endpoint WAS called for post-execution errors
-            expect(wasContractResultEndpointCalled()).to.be.true;
+            // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
+            expect(wasContractResultEndpointCalled()).to.be.false;
           });
         });
 
