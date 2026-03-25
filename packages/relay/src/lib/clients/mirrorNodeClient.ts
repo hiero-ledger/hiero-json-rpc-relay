@@ -633,7 +633,7 @@ export class MirrorNodeClient {
       'transactions',
       requestDetails,
       [], // results
-      1, //
+      1, // page
       pageMax,
     );
   }
