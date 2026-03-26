@@ -1,12 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import {
+  IAccountInfo,
+  MirrorNodeBlock,
+  MirrorNodeContractLog,
+  MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../types';
 
 export interface ICommonService {
   addTopicsToParams(params: any, topics: any[] | null): void;
 
   blockTagIsLatestOrPending(tag: any): boolean;
+
+  computeBlockBaseFeePerGas(
+    contractResults: MirrorNodeContractResult[],
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<string>;
 
   gasPrice(requestDetails: RequestDetails): Promise<string>;
 
@@ -19,6 +31,8 @@ export interface ICommonService {
   getCurrentGasPriceForBlock(block: string, requestDetails: RequestDetails): Promise<string>;
 
   getGasPriceInWeibars(requestDetails: RequestDetails, timestamp?: string): Promise<number>;
+
+  getGasUsedRatioForBlock(block: MirrorNodeBlock): number;
 
   getHistoricalBlockResponse(
     requestDetails: RequestDetails,

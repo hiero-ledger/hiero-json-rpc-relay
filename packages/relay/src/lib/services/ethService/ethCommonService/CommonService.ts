@@ -4,16 +4,30 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import * as _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
+import {
+  numberTo0x,
+  parseNumericEnvVar,
+  prepend0x,
+  tinybarsToWeibars,
+  toHash32,
+  trimPrecedingZeros,
+} from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
+import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
 import { MirrorNodeClientError } from '../../../errors/MirrorNodeClientError';
 import { SDKClientError } from '../../../errors/SDKClientError';
 import { Log } from '../../../model';
-import { IAccountInfo, MirrorNodeContractLog, RequestDetails } from '../../../types';
+import {
+  IAccountInfo,
+  MirrorNodeBlock,
+  MirrorNodeContractLog,
+  MirrorNodeContractResult,
+  RequestDetails,
+} from '../../../types';
 import { WorkersPool } from '../../workersService/WorkersPool';
 import { ICommonService } from './ICommonService';
 
@@ -573,6 +587,27 @@ export class CommonService implements ICommonService {
     }
   }
 
+  public async computeBlockBaseFeePerGas(
+    contractResults: MirrorNodeContractResult[],
+    block: MirrorNodeBlock,
+    requestDetails: RequestDetails,
+  ): Promise<string> {
+    if (contractResults.length === 0 || block.gas_used === 0) {
+      const fee = await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      return numberTo0x(fee);
+    }
+
+    // cr.gas_price is in tinybars; convert it to wei
+    const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
+      if (!cr.gas_price || cr.gas_price === '0x') return acc;
+      const gasPriceWei = tinybarsToWeibars(Number(cr.gas_price))!;
+      return acc + BigInt(gasPriceWei) * BigInt(cr.gas_used);
+    }, BigInt(0));
+
+    const baseFee = totalChargeWei / BigInt(block.gas_used);
+    return numberTo0x(baseFee);
+  }
+
   /**
    * Translates a block tag into a number. 'latest', 'pending', and null are the most recent block, 'earliest' is 0, numbers become numbers.
    *
@@ -662,6 +697,11 @@ export class CommonService implements ICommonService {
     const gasPriceForTimestamp = await this.getGasPriceInWeibars(requestDetails, timestampDecimalString);
 
     return numberTo0x(gasPriceForTimestamp);
+  }
+
+  public getGasUsedRatioForBlock(block: MirrorNodeBlock): number {
+    const gasLimit = obtainBlockGasLimit(block?.hapi_version);
+    return block.gas_used / gasLimit;
   }
 
   public static redirectBytecodeAddressReplace(address: string): string {
