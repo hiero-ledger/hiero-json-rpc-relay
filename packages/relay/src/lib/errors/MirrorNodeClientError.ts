@@ -10,6 +10,7 @@ export class MirrorNodeClientError extends Error {
 
   static ErrorCodes = {
     ECONNABORTED: 504,
+    ECONNREFUSED: 567,
     NOT_SUPPORTED: 501,
   };
 
@@ -51,6 +52,10 @@ export class MirrorNodeClientError extends Error {
 
   public isTimeout(): boolean {
     return this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNABORTED;
+  }
+
+  public isNetworkUnavailable(): boolean {
+    return this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNREFUSED || this.isTimeout();
   }
 
   public isContractRevert() {

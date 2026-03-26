@@ -16,6 +16,7 @@ describe('Admin', async function () {
   // which checks the operator balance, we want to stub this method, its not part of the test
   before(() => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
   });
 
   after(() => {
