@@ -131,9 +131,9 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
     ? accessList
         .filter((item: any) => item !== null && typeof item === 'object')
         .map((item: any) => ({
-          address: !item.address
-            ? constants.ZERO_ADDRESS_HEX
-            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+          address: item.address
+            ? `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`
+            : constants.ZERO_ADDRESS_HEX,
           storageKeys: !item.storageKeys ? [] : item.storageKeys,
         }))
     : [];
