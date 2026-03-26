@@ -4,7 +4,7 @@ import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services'
 import _ from 'lodash';
 import { Logger } from 'pino';
 
-import { numberTo0x } from '../../../../formatters';
+import { numberTo0x, tinybarsToWeibars } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
@@ -93,7 +93,6 @@ export class FeeService implements IFeeService {
         };
         return feeHistoryZeroBlockCountResponse;
       }
-      let feeHistory: IFeeHistory;
 
       if (ConfigService.get('ETH_FEE_HISTORY_FIXED')) {
         let oldestBlock = newestBlockNumber - blockCount + 1;
@@ -102,18 +101,16 @@ export class FeeService implements IFeeService {
           oldestBlock = 1;
         }
         const gasPriceFee = await this.common.gasPrice(requestDetails);
-        feeHistory = FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
-      } else {
-        feeHistory = await this.getFeeHistory(
-          blockCount,
-          newestBlockNumber,
-          latestBlockNumber,
-          rewardPercentiles,
-          requestDetails,
-        );
+        return FeeService.getRepeatedFeeHistory(blockCount, oldestBlock, rewardPercentiles, gasPriceFee);
       }
 
-      return feeHistory;
+      return await this.getFeeHistory(
+        blockCount,
+        newestBlockNumber,
+        latestBlockNumber,
+        rewardPercentiles,
+        requestDetails,
+      );
     } catch (e) {
       const feeHistoryEmptyResponse: IFeeHistory = {
         baseFeePerGas: [],
@@ -193,10 +190,18 @@ export class FeeService implements IFeeService {
 
     // get fees from oldest to newest blocks
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const fee = await this.getFeeByBlockNumber(blockNumber, requestDetails);
-
-      feeHistory.baseFeePerGas?.push(fee);
-      feeHistory.gasUsedRatio?.push(constants.DEFAULT_GAS_USED_RATIO);
+      const isCurrentlyLatestBlock = blockNumber === latestBlockNumber;
+      if (!isCurrentlyLatestBlock) {
+        const { fee, gasUsedRatio } = await this.getFeeAndGasUsedByBlockNumber(blockNumber, requestDetails);
+        feeHistory.baseFeePerGas?.push(fee);
+        feeHistory.gasUsedRatio?.push(gasUsedRatio);
+      } else {
+        // if the block is currently the latest block, get the fee from gas price endpoint to avoid the potential delay of block data availability in mirror node
+        const fee = await this.common.gasPrice(requestDetails);
+        const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+        feeHistory.baseFeePerGas?.push(fee);
+        feeHistory.gasUsedRatio?.push(this.common.getGasUsedRatioForBlock(block));
+      }
     }
 
     // get latest block fee
@@ -205,7 +210,7 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
-      nextBaseFeePerGas = await this.getFeeByBlockNumber(newestBlockNumber + 1, requestDetails);
+      nextBaseFeePerGas = (await this.getFeeAndGasUsedByBlockNumber(newestBlockNumber + 1, requestDetails)).fee;
     }
 
     if (nextBaseFeePerGas) {
@@ -224,20 +229,38 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    * @private
    */
-  private async getFeeByBlockNumber(blockNumber: number, requestDetails: RequestDetails): Promise<string> {
-    let fee = 0;
+  private async getFeeAndGasUsedByBlockNumber(
+    blockNumber: number,
+    requestDetails: RequestDetails,
+  ): Promise<{ fee: string; gasUsedRatio: number }> {
     try {
       const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
-    } catch (error) {
-      this.logger.warn(
-        error,
-        `Fee history cannot retrieve block or fee. Returning %s fee for block %s`,
-        fee,
-        blockNumber,
-      );
-    }
 
-    return numberTo0x(fee);
+      const gasUsedRatio = this.common.getGasUsedRatioForBlock(block);
+
+      const contractResults = await this.mirrorNodeClient.getContractResults(
+        requestDetails,
+        { blockNumber },
+        { limit: 1, order: 'desc' },
+      );
+
+      if (
+        contractResults?.length > 0 &&
+        contractResults[0].gas_price &&
+        contractResults[0].gas_price !== constants.EMPTY_HEX
+      ) {
+        const gasPriceWei = tinybarsToWeibars(contractResults[0].gas_price)!;
+        return {
+          fee: numberTo0x(gasPriceWei),
+          gasUsedRatio,
+        };
+      }
+      // empty block fallback
+      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      return { fee: numberTo0x(fee), gasUsedRatio };
+    } catch (error) {
+      this.logger.warn(error, `Fee history cannot retrieve block or fee. Returning 0 fee for block %s`, blockNumber);
+      return { fee: constants.ZERO_HEX, gasUsedRatio: constants.DEFAULT_GAS_USED_RATIO };
+    }
   }
 }
