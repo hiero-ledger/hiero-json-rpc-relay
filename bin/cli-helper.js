@@ -56,7 +56,6 @@ export class CliHelper {
     }
   };
 
-
   /**
    * Populates environment variables based on read-only mode and operator credentials.
    *
