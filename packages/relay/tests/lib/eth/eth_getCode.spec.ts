@@ -6,15 +6,17 @@ import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../src';
 import constants from '../../../src/lib/constants';
-import { ContractService } from '../../../src/lib/services';
 import { CommonService } from '../../../src/lib/services';
 import { RequestDetails } from '../../../src/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';
 import {
+  BLOCK_TS_AT_OR_AFTER_ACCOUNT,
   CONTRACT_ADDRESS_1,
   DEFAULT_CONTRACT,
   DEFAULT_HTS_TOKEN,
   DEFAULT_NETWORK_FEES,
+  DELEGATED_EOA_ADDRESS,
+  EIP7702_DELEGATION_TARGET,
   HTS_TOKEN_ADDRESS,
   MIRROR_NODE_DEPLOYED_BYTECODE,
   NO_TRANSACTIONS,
@@ -278,6 +280,58 @@ describe('@ethGetCode using MirrorNode', async function () {
       restMock.onGet(`tokens/${accountId}`).reply(200, JSON.stringify(DEFAULT_HTS_TOKEN));
       const res = await ethImpl.getCode(addr, null, requestDetails);
       expect(res).to.be.equal(CommonService.redirectBytecodeAddressReplace(addr));
+    });
+
+    it('should return EIP-7702 / HIP-1340 delegation designator when mirror account has delegation_address', async () => {
+      restMock.onGet(`contracts/${DELEGATED_EOA_ADDRESS}`).reply(404, null);
+      restMock.onGet(new RegExp(`tokens/0\\.0\\.\\d+`)).reply(404, null);
+      restMock.onGet(new RegExp(`accounts/${DELEGATED_EOA_ADDRESS}\\?`)).reply(
+        200,
+        JSON.stringify({
+          account: '0.0.12345',
+          evm_address: DELEGATED_EOA_ADDRESS,
+          created_timestamp: '1718000000.000000000',
+          delegation_address: EIP7702_DELEGATION_TARGET,
+        }),
+      );
+
+      const res = await ethImpl.getCode(DELEGATED_EOA_ADDRESS, null, requestDetails);
+      const expected =
+        constants.EOA_DELEGATION_DESIGNATOR_PREFIX + EIP7702_DELEGATION_TARGET.replace(/^0x/i, '').toLowerCase();
+      expect(res).to.equal(expected);
+    });
+
+    it('should return empty bytecode for account without delegation when not a contract or token', async () => {
+      restMock.onGet(`contracts/${DELEGATED_EOA_ADDRESS}`).reply(404, null);
+      restMock.onGet(new RegExp(`tokens/0\\.0\\.\\d+`)).reply(404, null);
+      restMock.onGet(new RegExp(`accounts/${DELEGATED_EOA_ADDRESS}\\?`)).reply(
+        200,
+        JSON.stringify({
+          account: '0.0.12345',
+          evm_address: DELEGATED_EOA_ADDRESS,
+          created_timestamp: BLOCK_TS_AT_OR_AFTER_ACCOUNT,
+        }),
+      );
+
+      const res = await ethImpl.getCode(DELEGATED_EOA_ADDRESS, null, requestDetails);
+      expect(res).to.equal(constants.EMPTY_HEX);
+    });
+
+    it('should return empty bytecode when delegation_address is present but invalid', async () => {
+      restMock.onGet(`contracts/${DELEGATED_EOA_ADDRESS}`).reply(404, null);
+      restMock.onGet(new RegExp(`tokens/0\\.0\\.\\d+`)).reply(404, null);
+      restMock.onGet(new RegExp(`accounts/${DELEGATED_EOA_ADDRESS}\\?`)).reply(
+        200,
+        JSON.stringify({
+          account: '0.0.12345',
+          evm_address: DELEGATED_EOA_ADDRESS,
+          created_timestamp: BLOCK_TS_AT_OR_AFTER_ACCOUNT,
+          delegation_address: '0xbad',
+        }),
+      );
+
+      const res = await ethImpl.getCode(DELEGATED_EOA_ADDRESS, null, requestDetails);
+      expect(res).to.equal(constants.EMPTY_HEX);
     });
   });
 });

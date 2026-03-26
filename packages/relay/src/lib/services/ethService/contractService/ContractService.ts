@@ -198,6 +198,7 @@ export class ContractService implements IContractService {
       const result = await this.mirrorNodeClient.resolveEntityType(address, constants.ETH_GET_CODE, requestDetails, [
         constants.TYPE_CONTRACT,
         constants.TYPE_TOKEN,
+        constants.TYPE_ACCOUNT,
       ]);
       if (result) {
         const blockInfo = await this.common.getHistoricalBlockResponse(requestDetails, blockNumber, true);
@@ -210,6 +211,12 @@ export class ContractService implements IContractService {
         } else if (result.type === constants.TYPE_CONTRACT) {
           if (result.entity.runtime_bytecode !== constants.EMPTY_HEX) {
             return result.entity.runtime_bytecode;
+          }
+        } else if (result.type === constants.TYPE_ACCOUNT) {
+          const delegatedHex = ContractService.delegationAddressFromMirrorAccount(result.entity);
+          if (delegatedHex) {
+            this.logger.trace(`EIP-7702 / HIP-1340 delegated EOA, return delegation designator`);
+            return `${constants.EOA_DELEGATION_DESIGNATOR_PREFIX}${delegatedHex}`;
           }
         }
       }
@@ -520,5 +527,21 @@ export class ContractService implements IContractService {
       estimate: false,
       ...(block !== null ? { block } : {}),
     };
+  }
+
+  /**
+   * Mirror REST account field for EIP-7702 code delegation (HIP-1340).
+   * Returns 40 hex chars (no 0x) or null if missing/invalid.
+   */
+  private static delegationAddressFromMirrorAccount(entity: { delegation_address?: string } | null): string | null {
+    const raw = entity?.delegation_address;
+    if (raw == null || typeof raw !== 'string' || raw === '') {
+      return null;
+    }
+    const hex = raw.startsWith('0x') || raw.startsWith('0X') ? raw.slice(2) : raw;
+    if (!/^[0-9a-fA-F]{40}$/.test(hex)) {
+      return null;
+    }
+    return hex.toLowerCase();
   }
 }
