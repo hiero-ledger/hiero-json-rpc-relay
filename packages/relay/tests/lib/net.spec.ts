@@ -14,6 +14,7 @@ const logger = pino({ level: 'silent' });
 describe('Net', async function () {
   before(() => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
   });
 
   after(() => {

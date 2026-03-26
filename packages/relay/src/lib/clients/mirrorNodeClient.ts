@@ -579,6 +579,42 @@ export class MirrorNodeClient {
     }
   }
 
+  /**
+   * Probes the Mirror Node's dedicated readiness endpoint to determine whether the server
+   * is ready to accept API requests.
+   *
+   * The probe targets `GET /health/readiness`, which the Mirror Node exposes specifically
+   * for infrastructure health checks (Kubernetes readiness probes). Any genuine HTTP
+   * response — including 4xx from reverse-proxy setups that block the path — is treated
+   * as confirmation that the server is reachable at the network level. Only network-layer
+   * failures (ECONNREFUSED, connection timeout) are surfaced as errors.
+   *
+   * @throws {MirrorNodeClientError} When the server is not reachable due to a
+   *   network-level failure (ECONNREFUSED or connection timeout).
+   */
+  public async checkServerReadiness(): Promise<void> {
+    // When constructed with an injected Axios instance the base URL is unavailable;
+    // skip the probe in that configuration.
+    if (!this.restUrl) {
+      return;
+    }
+
+    const healthUrl = `${new URL(this.restUrl).origin}/health/readiness`;
+    try {
+      await this.restClient.get(healthUrl);
+    } catch (error: unknown) {
+      // Any genuine HTTP response (4xx, 5xx) confirms the server is reachable at the
+      // network level — only the application layer rejected the request.
+      const axiosError = error as { response?: unknown; code?: string; message?: string };
+      if (axiosError.response) {
+        return;
+      }
+      const statusCode =
+        MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
+      throw new MirrorNodeClientError(axiosError, statusCode);
+    }
+  }
+
   public async getAccount(
     idOrAliasOrEvmAddress: string,
     requestDetails: RequestDetails,

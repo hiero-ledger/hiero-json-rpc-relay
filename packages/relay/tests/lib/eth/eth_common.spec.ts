@@ -21,6 +21,7 @@ describe('@ethCommon', async function () {
 
   this.beforeAll(async () => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
     relay = await Relay.init(pino({ level: 'silent' }), new Registry());
   });
 
