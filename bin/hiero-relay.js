@@ -2,132 +2,12 @@
 
 // SPDX-License-Identifier: Apache-2.0
 
+const fs = require('fs');
 const yargs = require('yargs');
+const dotenv = require('dotenv');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
-const dotenv = require('dotenv');
-
-/**
- * Populates environment variables based on the specified network.
- *
- * @param {string} network - The network to configure. Accepted values are:
- *                           - 'mainnet'
- *                           - 'testnet'
- *                           - 'previewnet'
- * @returns {Object} An object containing the network-specific environment configuration:
- *                   - CHAIN_ID {string} - The hexadecimal chain ID for the network.
- *                   - HEDERA_NETWORK {string} - JSON string mapping Hedera nodes to account IDs.
- *                   - MIRROR_NODE_URL {string} - URL of the Hedera mirror node.
- *                   - MIRROR_NODE_URL_WEB3 {string} - URL of the Hedera mirror node for Web3 access.
- *
- * @throws {Error} Throws an error if an invalid network is provided.
- */
-const populateEnvBasedOnNetwork = (network) => {
-  switch (network) {
-    case 'mainnet': {
-      return {
-        CHAIN_ID: '0x127',
-        HEDERA_NETWORK: '{ "0.mainnet.hedera.com:50211": "0.0.3" }',
-        MIRROR_NODE_URL: 'https://mainnet-public.mirrornode.hedera.com:443',
-        MIRROR_NODE_URL_WEB3: 'https://mainnet-public.mirrornode.hedera.com:443'
-      };
-    }
-    case 'testnet': {
-      return {
-        CHAIN_ID: '0x128',
-        HEDERA_NETWORK: '{"0.testnet.hedera.com:50211":"0.0.3"}',
-        MIRROR_NODE_URL: 'https://testnet.mirrornode.hedera.com',
-        MIRROR_NODE_URL_WEB3: 'https://testnet.mirrornode.hedera.com'
-      };
-    }
-    case 'previewnet': {
-      return {
-        CHAIN_ID: '0x129',
-        HEDERA_NETWORK: '{"0.previewnet.hedera.com:50211":"0.0.3"}',
-        MIRROR_NODE_URL_WEB3: 'https://previewnet.mirrornode.hedera.com',
-        MIRROR_NODE_URL: 'https://previewnet.mirrornode.hedera.com'
-      };
-    }
-    default: {
-      throw new Error('Invalid network selection.');
-    }
-  }
-};
-
-
-/**
- * Populates environment variables based on read-only mode and operator credentials.
- *
- * @param {Object} argv - Command-line arguments object (typically from yargs or similar parser).
- * @param {boolean} argv['read-only'] - If true, enables read-only mode; operator credentials are optional.
- * @param {string} [argv['operator-id']] - Operator account ID (required if not in read-only mode).
- * @param {string} [argv['operator-key']] - Operator private key (required if not in read-only mode).
- * @param {string} [argv['operator-key-format']] - Format of the operator key (required if not in read-only mode).
- *                                                Accepted values: "HEX_ECDSA", "HEX_ED25519".
- *
- * @returns {Object} An object containing either:
- *                   - { READ_ONLY: true } if read-only mode is enabled.
- *                   - { READ_ONLY: false, OPERATOR_ID_MAIN, OPERATOR_KEY_MAIN, OPERATOR_KEY_FORMAT } with operator details.
- *
- * @throws {Error} Throws an error if required operator credentials are missing while read-only mode is disabled.
- */
-const populateEnvBaseOnReadOnlyOption = (argv) => {
-  if (!argv['read-only']) {
-    if (!argv['operator-id']) {
-      throw new Error('The "--operator-id" option is required unless read-only mode is enabled.');
-    }
-    if (!argv['operator-key']) {
-      throw new Error('The "--operator-key" option is required unless read-only mode is enabled.');
-    }
-    if (!argv['operator-key-format']) {
-      throw new Error('The "--operator-key-format" is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA" or "HEX_ED25519".');
-    }
-
-    return {
-      READ_ONLY: false,
-      OPERATOR_ID_MAIN: argv['operator-id'],
-      OPERATOR_KEY_MAIN: argv['operator-key'],
-      OPERATOR_KEY_FORMAT: argv['operator-key-format']
-    };
-  }
-
-  return {
-    READ_ONLY: true
-  };
-};
-
-/**
- * Hardcoded env values
- */
-const MANDATORY_ENV_OVERRIDES = {
-  'npm_package_version': '1.0.0',
-  'REDIS_ENABLED': 'false'
-};
-
-/**
- * Cross-platform graceful stop
- *
- * @param child
- */
-const gracefulStop = (child) => {
-  const { pid } = child;
-  if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', pid, '/T', '/F']);
-  } else {
-    try {
-      process.kill(-pid, 'SIGTERM');
-    } catch (e) {
-      try {
-        process.kill(pid, 'SIGTERM');
-      } catch {
-      }
-    }
-  }
-
-  console.log('\nCaught interrupt signal. Shutting down gracefully...\n');
-  process.exit(0);
-};
-
+const { CliHelper } = require('./cli-helper');
 
 /**
  * This script is the entry point for the Hiero JSON-RPC Relay CLI.
@@ -154,7 +34,7 @@ yargs(hideBin(process.argv))
           stdio: 'inherit',
           env: {
             ...process.env,
-            ...MANDATORY_ENV_OVERRIDES
+            ...CliHelper.MANDATORY_ENV_OVERRIDES
           },
           shell: true
         });
@@ -162,14 +42,15 @@ yargs(hideBin(process.argv))
         return;
       }
 
-      const readOnlyEnvs = populateEnvBaseOnReadOnlyOption(argv);
-      const networkEnvs = populateEnvBasedOnNetwork(argv.network);
+      const readOnlyEnvs = CliHelper.populateEnvBaseOnReadOnlyOption(argv);
+      const networkEnvs = CliHelper.populateEnvBasedOnNetwork(argv.network);
+      const sdtIoInfo = CliHelper.getStdio(argv['logging-path']);
 
       childProcess = spawn('node', ['.standalone/dist/index.js'], {
-        stdio: 'inherit',
+        stdio: sdtIoInfo.stdio,
         env: {
           ...process.env,
-          ...MANDATORY_ENV_OVERRIDES,
+          ...CliHelper.MANDATORY_ENV_OVERRIDES,
           ...readOnlyEnvs,
           ...networkEnvs,
           ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
@@ -179,6 +60,21 @@ yargs(hideBin(process.argv))
         },
         shell: true
       });
+
+
+      if (sdtIoInfo.overrideStd) {
+        const logStream = fs.createWriteStream(argv['logging-path'], { flags: 'a' });
+
+        childProcess.stdout.on('data', (data) => {
+          logStream.write(data);
+        });
+
+        childProcess.stderr.on('data', (err) => {
+          logStream.write(err);
+        });
+
+        console.log(`All logs are redirected to ${argv['logging-path']}`);
+      }
     }
   )
   .option('n', {
@@ -240,6 +136,12 @@ yargs(hideBin(process.argv))
     type: 'string',
     choices: ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
   })
+  .option('lp', {
+    alias: 'logging-path',
+    demandOption: false,
+    describe: 'Specify the logging path.',
+    type: 'string'
+  })
   .demandCommand()
   .strictCommands()
   .recommendCommands()
@@ -254,9 +156,9 @@ yargs(hideBin(process.argv))
   .parse();
 
 process.on('SIGINT', async () => {
-  gracefulStop(childProcess);
+  CliHelper.gracefulStop(childProcess, spawn);
 });
 
 process.on('SIGTERM', async () => {
-  gracefulStop(childProcess);
+  CliHelper.gracefulStop(childProcess, spawn);
 });
