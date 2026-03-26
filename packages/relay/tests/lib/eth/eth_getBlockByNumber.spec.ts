@@ -4,6 +4,7 @@ import { fail } from 'assert';
 import MockAdapter from 'axios-mock-adapter';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { describe } from 'mocha';
 import sinon from 'sinon';
 
 import { ASCIIToHex, numberTo0x, prepend0x } from '../../../dist/formatters';
@@ -25,6 +26,7 @@ import {
   withOverriddenEnvsInMochaTest,
 } from '../../helpers';
 import {
+  BASE_FEE_PER_GAS_HEX,
   BLOCK_HASH,
   BLOCK_HASH_PREV_TRIMMED,
   BLOCK_HASH_TRIMMED,
@@ -119,7 +121,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
 
   this.beforeEach(async () => {
     // reset cache and restMock
-    await cacheService.clear(requestDetails);
+    await cacheService.clear();
     restMock.reset();
     restMock.resetHandlers();
 
@@ -344,6 +346,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
     restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify({ results: [] }));
     restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify({ logs: [] }));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
     if (result) {
       // verify aggregated info
@@ -382,6 +387,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     restMock.onGet(LATEST_BLOCK_QUERY).reply(200, JSON.stringify(LATEST_BLOCK_RESPONSE));
     restMock.onGet(CONTRACT_QUERY).reply(200, JSON.stringify(CONTRACT_RESPONSE_MOCK));
     restMock.onGet(LOG_QUERY).reply(200, JSON.stringify(LOGS_RESPONSE_MOCK));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${BLOCK_WITH_SYN_TXN.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
 
     const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER_WITH_SYN_TXN), true, requestDetails);
     if (result) {
@@ -441,7 +449,7 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
   });
 
   describe('eth_getBlockByNumber with tag', async function () {
-    const TOTAL_GET_CALLS_EXECUTED = 12;
+    const TOTAL_GET_CALLS_EXECUTED = 11;
     function confirmResult(result: Block | null) {
       expect(result).to.exist;
       expect(result).to.not.be.null;
@@ -472,7 +480,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -507,7 +514,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -522,7 +528,6 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
       expect(restMock.history.get[2].url).equal(
         'contracts/results/logs?timestamp=gte:1651560386.060890949&timestamp=lte:1651560389.060890949&limit=100&order=asc',
       );
-      expect(restMock.history.get[TOTAL_GET_CALLS_EXECUTED - 1].url).equal('network/fees');
       confirmResult(result);
     });
 
@@ -639,5 +644,65 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
         expect(error.message).to.equal(predefinedError.message);
       }
     }
+  });
+
+  describe('baseFeePerGas computation', function () {
+    beforeEach(function () {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify(MOST_RECENT_BLOCK));
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(DEFAULT_BLOCK));
+      restMock.onGet(CONTRACT_RESULTS_LOGS_WITH_FILTER_URL).reply(200, JSON.stringify({ logs: [] }));
+    });
+
+    it('reflects weighted average of tx gas prices for non-empty block', async function () {
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(defaultContractResults));
+
+      const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
+
+      const TINYBAR_TO_WEIBAR = BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      const gasPrice1Wei = BigInt(results[0].gas_price) * TINYBAR_TO_WEIBAR;
+      const gasPrice2Wei = BigInt(results[1].gas_price) * TINYBAR_TO_WEIBAR;
+      const totalCharge = BigInt(results[0].gas_used) * gasPrice1Wei + BigInt(results[1].gas_used) * gasPrice2Wei;
+      const expectedBaseFee = numberTo0x(totalCharge / BigInt(DEFAULT_BLOCK.gas_used));
+
+      expect(result!.baseFeePerGas).to.equal(expectedBaseFee);
+    });
+
+    it('satisfies baseFee * gasUsed <= sum(gasUsed_i * gasPrice_wei_i)', async function () {
+      const mixedPriceResults = {
+        results: [
+          { ...defaultContractResults.results[0], gas_price: '0x39', gas_used: 100_000 }, // 57 tinybars
+          { ...defaultContractResults.results[1], gas_price: '0x72', gas_used: 200_000 }, // 114 tinybars
+        ],
+        links: { next: null },
+      };
+      restMock.onGet(CONTRACT_RESULTS_WITH_FILTER_URL).reply(200, JSON.stringify(mixedPriceResults));
+
+      const block = { ...DEFAULT_BLOCK, gas_used: 300_000 };
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(block));
+
+      const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
+
+      const price1Wei = BigInt('0x39') * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      const price2Wei = BigInt('0x72') * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
+      const totalCharge = 100_000n * price1Wei + 200_000n * price2Wei;
+      const baseFee = BigInt(result!.baseFeePerGas!);
+
+      expect(baseFee * BigInt(block.gas_used)).to.be.lte(totalCharge);
+      expect(baseFee).to.equal(totalCharge / BigInt(block.gas_used));
+    });
+
+    it('falls back to network fees at block timestamp for empty block', async function () {
+      const emptyBlock = { ...DEFAULT_BLOCK, gas_used: 0 };
+      restMock.onGet(`blocks/${BLOCK_NUMBER}`).reply(200, JSON.stringify(emptyBlock));
+      restMock
+        .onGet(CONTRACT_RESULTS_WITH_FILTER_URL)
+        .reply(200, JSON.stringify({ results: [], links: { next: null } }));
+      restMock
+        .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+        .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+
+      const result = await ethImpl.getBlockByNumber(numberTo0x(BLOCK_NUMBER), false, requestDetails);
+      expect(result!.baseFeePerGas).to.equal(BASE_FEE_PER_GAS_HEX);
+    });
   });
 });
