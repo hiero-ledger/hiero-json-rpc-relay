@@ -8,6 +8,7 @@ import {
   numberTo0x,
   parseNumericEnvVar,
   prepend0x,
+  strip0x,
   trimPrecedingZeros,
   weibarHexToTinyBarInt,
 } from '../../../../formatters';
@@ -215,7 +216,7 @@ export class ContractService implements IContractService {
         } else if (result.type === constants.TYPE_ACCOUNT) {
           const delegatedHex = ContractService.delegationAddressFromMirrorAccount(result.entity);
           if (delegatedHex) {
-            this.logger.trace(`EIP-7702 / HIP-1340 delegated EOA, return delegation designator`);
+            this.logger.trace('EIP-7702 / HIP-1340 delegated EOA, return delegation designator');
             return `${constants.EOA_DELEGATION_DESIGNATOR_PREFIX}${delegatedHex}`;
           }
         }
@@ -535,13 +536,10 @@ export class ContractService implements IContractService {
    */
   private static delegationAddressFromMirrorAccount(entity: { delegation_address?: string } | null): string | null {
     const raw = entity?.delegation_address;
-    if (raw == null || typeof raw !== 'string' || raw === '') {
+    if (typeof raw !== 'string' || raw === '' || !isValidEthereumAddress(raw)) {
       return null;
     }
-    const hex = raw.startsWith('0x') || raw.startsWith('0X') ? raw.slice(2) : raw;
-    if (!/^[0-9a-fA-F]{40}$/.test(hex)) {
-      return null;
-    }
-    return hex.toLowerCase();
+
+    return strip0x(raw.toLowerCase());
   }
 }
