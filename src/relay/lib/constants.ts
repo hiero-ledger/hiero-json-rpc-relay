@@ -263,6 +263,9 @@ export default {
   BLOCK_FINALIZED: 'finalized',
   BLOCK_HASH_LENGTH: 66,
 
+  /** EIP-7702 / HIP-1340: prefix returned by eth_getCode for EOAs with code delegation. */
+  EOA_DELEGATION_DESIGNATOR_PREFIX: '0xef0100',
+
   ETH_FEE_HISTORY: 'eth_feeHistory',
   ETH_GET_BLOCK_RECEIPTS: 'eth_getBlockReceipts',
   ETH_GET_TRANSACTION_COUNT_BY_HASH: 'eth_getTransactionCountByHash',
