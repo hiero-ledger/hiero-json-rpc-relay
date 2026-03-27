@@ -59,7 +59,7 @@ describe('MirrorNodeClient', async function () {
 
   describe('constructor', () => {
     function mirrorNodeClientClassForMainThread(isMainThread: boolean): typeof MirrorNodeClient {
-      return proxyquire.noCallThru()('../../src/lib/clients/mirrorNodeClient', {
+      return proxyquire.noCallThru()('../../../src/relay/lib/clients/mirrorNodeClient', {
         worker_threads: { isMainThread },
       }).MirrorNodeClient;
     }
