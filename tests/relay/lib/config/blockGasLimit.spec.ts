@@ -8,8 +8,8 @@ import {
   isHapiVersionAtLeast,
   obtainBlockGasLimit,
   VersionGasLimit,
-} from '../../../src/lib/config/blockGasLimit';
-import constants from '../../../src/lib/constants';
+} from '../../../../src/relay/lib/config/blockGasLimit';
+import constants from '../../../../src/relay/lib/constants';
 
 const TEST_CONFIG_FULL: ReadonlyArray<VersionGasLimit> = [
   { version: '1.1.0', gasLimit: 350_000_000 },
