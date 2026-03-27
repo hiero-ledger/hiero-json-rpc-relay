@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction } from 'ethers/transaction';
+import { Transaction as EthersTransaction } from 'ethers';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';

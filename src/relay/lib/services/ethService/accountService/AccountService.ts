@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { Logger } from 'pino';
 
+import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
