@@ -18,6 +18,7 @@ describe('Web3', function () {
 
   before(async () => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
     relay = await Relay.init(logger, new Registry());
   });
 

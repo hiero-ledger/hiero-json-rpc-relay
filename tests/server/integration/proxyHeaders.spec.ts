@@ -55,6 +55,7 @@ describe('Proxy Headers Integration Tests', function () {
 
   before(async function () {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
     const { app } = await initializeServer();
     testServer = app.listen(ConfigService.get('E2E_SERVER_PORT'));
     testClient = createTestClient();

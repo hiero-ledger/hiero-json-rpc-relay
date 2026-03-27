@@ -9,6 +9,7 @@ import sinon from 'sinon';
 
 import { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients/mirrorNodeClient';
+import { MirrorNodeClientError } from '../../../src/relay/lib/errors/MirrorNodeClientError';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../helpers';
 
 chai.use(chaiAsPromised);
@@ -20,6 +21,8 @@ describe('Relay', () => {
 
   beforeEach(async () => {
     sinon.stub(Relay.prototype, 'ensureOperatorHasBalance').resolves();
+    // Prevent waitForMirrorNode from making real HTTP requests during non-connectivity tests
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
     relay = await Relay.init(logger, register);
   });
 
@@ -112,6 +115,8 @@ describe('Relay', () => {
   describe('ensureOperatorHasBalance', function () {
     beforeEach(() => {
       sinon.restore();
+      // Allow waitForMirrorNode to pass through without real HTTP calls
+      sinon.stub(MirrorNodeClient.prototype, 'checkServerReadiness').resolves();
     });
 
     withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
@@ -163,5 +168,96 @@ describe('Relay', () => {
         await expect(relay.initializeRelay()).to.be.rejectedWith(message);
       });
     });
+  });
+
+  describe('waitForMirrorNode', function () {
+    let checkServerReadinessStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      sinon.restore();
+      // Re-stub ensureOperatorHasBalance so these tests only exercise waitForMirrorNode
+      sinon.stub(Relay.prototype, <any>'ensureOperatorHasBalance').resolves();
+      checkServerReadinessStub = sinon.stub(MirrorNodeClient.prototype, 'checkServerReadiness').resolves();
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should succeed when Mirror Node is reachable on the first attempt', async function () {
+      await expect(relay.initializeRelay()).to.not.be.rejected;
+      expect(checkServerReadinessStub.callCount).to.equal(1);
+    });
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 3, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should succeed when Mirror Node becomes reachable after transient network failures', async function () {
+          const networkError = new MirrorNodeClientError({ message: 'connect ECONNREFUSED' }, 567);
+          checkServerReadinessStub.onCall(0).rejects(networkError);
+          checkServerReadinessStub.onCall(1).rejects(networkError);
+          checkServerReadinessStub.onCall(2).resolves();
+
+          await expect(relay.initializeRelay()).to.not.be.rejected;
+          expect(checkServerReadinessStub.callCount).to.equal(3);
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 2, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should reject when Mirror Node remains unreachable after exhausting all attempts', async function () {
+          const networkError = new MirrorNodeClientError({ message: 'connect ECONNREFUSED' }, 567);
+          checkServerReadinessStub.rejects(networkError);
+
+          await expect(relay.initializeRelay()).to.be.rejected;
+          // MAX_ATTEMPTS=2 means loop runs for attempt 1, 2 → 2 total calls
+          expect(checkServerReadinessStub.callCount).to.equal(2);
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest({ MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 0 }, () => {
+      it('should skip the connectivity check entirely when MIRROR_NODE_STARTUP_MAX_ATTEMPTS is 0', async function () {
+        checkServerReadinessStub.rejects(new Error('should not be called'));
+
+        await expect(relay.initializeRelay()).to.not.be.rejected;
+        expect(checkServerReadinessStub.callCount).to.equal(0);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
+      it('should perform the connectivity check even in READ_ONLY mode', async function () {
+        await expect(relay.initializeRelay()).to.not.be.rejected;
+        expect(checkServerReadinessStub.callCount).to.equal(1);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest(
+      { READ_ONLY: true, MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 1, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should reject in READ_ONLY mode when Mirror Node is unreachable', async function () {
+          const networkError = new MirrorNodeClientError({ message: 'connect ECONNREFUSED' }, 567);
+          checkServerReadinessStub.rejects(networkError);
+
+          await expect(relay.initializeRelay()).to.be.rejected;
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 3, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should not retry when Mirror Node returns a non-network HTTP error', async function () {
+          const httpError = new MirrorNodeClientError({ message: 'Internal Server Error' }, 500);
+          checkServerReadinessStub.rejects(httpError);
+
+          await expect(relay.initializeRelay()).to.be.rejected;
+          // Non-network errors must fail immediately without retrying
+          expect(checkServerReadinessStub.callCount).to.equal(1);
+        });
+      },
+    );
   });
 });

@@ -8,6 +8,7 @@ import pino from 'pino';
 import { ConfigService } from '../../../../../config-service/services';
 import { nanOrNumberTo0x, numberTo0x, prepend0x } from '../../../../formatters';
 import { LogsBloomUtils } from '../../../../logsBloomUtils';
+import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
 import { predefined } from '../../../errors/JsonRpcError';
@@ -365,6 +366,18 @@ export async function getBlock(
     const receiptsRoot: string = await getRootHash(receipts);
 
     const gasPrice = await commonService.gasPrice(requestDetails);
+
+    // Log the error here rather than inside BlockFactory to preserve its static-only design.
+    // Introducing a logger into BlockFactory would require either passing it as an argument to each static method,
+    // or adding a constructor to accept it — forcing instantiation via `new BlockFactory(logger)`.
+    const hapiVersion = blockResponse.hapi_version;
+    // strips pre-release/build metadata identifiers (e.g. "0.59.20-node-alpha" → "0.59.20")
+    const normalizedVersion = hapiVersion?.split(/[-+]/)[0];
+    if (!normalizedVersion || !Utils.VERSION_REGEX.test(normalizedVersion)) {
+      logger.error(
+        `Invalid HAPI version format: "${hapiVersion}". Expected format "major.minor.patch". Returning default gas limit.`,
+      );
+    }
 
     return await BlockFactory.createBlock({
       blockResponse,

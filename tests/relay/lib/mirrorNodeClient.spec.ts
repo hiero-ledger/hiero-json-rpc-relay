@@ -8,6 +8,8 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers } from 'ethers';
 import pino from 'pino';
 import { Registry } from 'prom-client';
+import proxyquire from 'proxyquire';
+import sinon from 'sinon';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { MirrorNodeClientError, predefined } from '../../../src/relay';
@@ -53,6 +55,58 @@ describe('MirrorNodeClient', async function () {
   beforeEach(async () => {
     mock = new MockAdapter(instance);
     await cacheService.clear();
+  });
+
+  describe('constructor', () => {
+    function mirrorNodeClientClassForMainThread(isMainThread: boolean): typeof MirrorNodeClient {
+      return proxyquire.noCallThru()('../../src/lib/clients/mirrorNodeClient', {
+        worker_threads: { isMainThread },
+      }).MirrorNodeClient;
+    }
+
+    const buildLocalClientDeps = () => {
+      const localRegistry = new Registry();
+      const localLogger = pino({ level: 'silent' });
+      const localInstance = axios.create({
+        baseURL: 'https://localhost:5551/api/v1',
+        responseType: 'json' as const,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 20 * 1000,
+      });
+      const localCache = CacheClientFactory.create(localLogger, localRegistry);
+      return { localRegistry, localLogger, localInstance, localCache };
+    };
+
+    it('should not log mirror node URLs when not on the main thread', () => {
+      const MirrorNodeClientUnderTest = mirrorNodeClientClassForMainThread(false);
+      const { localRegistry, localLogger, localInstance, localCache } = buildLocalClientDeps();
+      const infoSpy = sinon.spy(localLogger, 'info');
+      new MirrorNodeClientUnderTest(
+        ConfigService.get('MIRROR_NODE_URL'),
+        localLogger,
+        localRegistry,
+        localCache,
+        localInstance,
+      );
+      expect(infoSpy.called).to.be.false;
+    });
+
+    it('should log mirror node URLs when on the main thread', () => {
+      const MirrorNodeClientUnderTest = mirrorNodeClientClassForMainThread(true);
+      const { localRegistry, localLogger, localInstance, localCache } = buildLocalClientDeps();
+      const infoSpy = sinon.spy(localLogger, 'info');
+      new MirrorNodeClientUnderTest(
+        ConfigService.get('MIRROR_NODE_URL'),
+        localLogger,
+        localRegistry,
+        localCache,
+        localInstance,
+      );
+      expect(infoSpy.calledOnce).to.be.true;
+      expect(infoSpy.firstCall.args[0]).to.include('Mirror Node client successfully configured');
+    });
   });
 
   describe('Forwarded Header', () => {
