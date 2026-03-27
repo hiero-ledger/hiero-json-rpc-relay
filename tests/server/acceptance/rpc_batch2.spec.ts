@@ -974,6 +974,45 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.eq(constants.EMPTY_HEX);
     });
 
+    /**
+     * HIP-1340 / EIP-7702: {@code eth_getCode} on an EOA with code delegation should return
+     * {@code 0xef0100} concatenated with the 20-byte delegated contract address.
+     */
+    it('should return EIP-7702 delegation designator on eth_getCode after type-4 delegation to a contract for an EOA', async function () {
+      const signer = accounts[1];
+      const gasPrice = await relay.gasPrice();
+      const defaultGasLimit = numberTo0x(3_000_000);
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: basicContractAddress,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const unsignedTx = {
+        type: 4,
+        chainId: Number(CHAIN_ID),
+        nonce: currentNonce,
+        maxPriorityFeePerGas: gasPrice,
+        maxFeePerGas: gasPrice,
+        gasLimit: defaultGasLimit,
+        to: accounts[0].address,
+        value: ONE_TINYBAR,
+        authorizationList,
+      };
+
+      const signedTx = await signer.wallet.signTransaction(unsignedTx);
+      const txHash = await relay.sendRawTransaction(signedTx);
+      await relay.pollForValidTransactionReceipt(txHash);
+
+      const code = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_CODE, [signer.address, 'latest']);
+      const delegateHex = basicContractAddress.replace(/^0x/i, '').toLowerCase();
+      const expectedCode = `0xef0100${delegateHex}`;
+      expect(code.toLowerCase()).to.equal(expectedCode);
+    });
+
     // Issue # 2619 https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/2619
     // Refactor to consider HIP-868
     xit('should not return contract bytecode after sefldestruct', async function () {
