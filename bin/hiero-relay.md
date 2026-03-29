@@ -23,7 +23,7 @@ The **Hiero JSON-RPC Relay CLI** is a command-line tool to start a local JSON-RP
 
 ## Installation
 
-Download the npm package from npmj
+Download the npm package from npmjs
 
 ```bash
 npm install @hashgraph/hiero-relay-cli -g
@@ -57,7 +57,7 @@ If no command is specified, the relay starts with default settings. For more inf
 | `--mirror-node-web3-url` | -     | string  | Mirror node WEB3 URL                                          | ❌        | -                                                  |
 | `--config-file`          | `-c`  | string  | Path to environment config file                               | ❌        | -                                                  |
 | `--logging`              | `-l`  | string  | Logging level                                                 | ❌        | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
-| `--logging-path`         | `-lp` | string  | Path to write logs                                            | ❌        | -                                                  |
+| `--logging-path`         | -     | string  | Path to write logs                                            | ❌        | -                                                  |
 
 ---
 
@@ -84,7 +84,7 @@ hiero-relay -c ./env/.relay.env
 **Start relay with custom logging:**
 
 ```bash
-hiero-relay -n previewnet -l debug -lp ./logs/relay.log
+hiero-relay -n previewnet -r -l debug --logging-path ./logs/relay.log
 ```
 
 ---
@@ -98,7 +98,7 @@ hiero-relay -n previewnet -l debug -lp ./logs/relay.log
 Example:
 
 ```bash
-hiero-relay -n testnet -l info -lp ./logs/relay.log
+hiero-relay -n testnet -r -l info --logging-path ./logs/relay.log
 ```
 
 All logs will be appended to `./logs/relay.log`.
