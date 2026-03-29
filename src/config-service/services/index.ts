@@ -3,21 +3,38 @@
 import dotenv from 'dotenv';
 import findConfig from 'find-config';
 import pino from 'pino';
+import { isMainThread } from 'worker_threads';
 
 import type { ConfigKey, GetTypeOfConfigKey } from './globalConfig';
 import { GlobalConfig } from './globalConfig';
 import { LoggerService } from './loggerService';
 import { ValidationService } from './validationService';
 
+// Bootstrap dotenv early so PRETTY_LOGS_ENABLED is available before logger construction.
+// ConfigService loads .env lazily in its constructor, but the logger is created at module
+// load time — before the singleton is ever instantiated. A second dotenv.config() call
+// in the constructor is safe because dotenv does not override variables already in process.env.
+const _bootstrapEnvPath = findConfig('.env');
+if (_bootstrapEnvPath) {
+  dotenv.config({ path: _bootstrapEnvPath });
+}
+
+// Mirror the GlobalConfig default (true): only suppress pino-pretty when the variable is
+// explicitly set to 'false'. Without this guard, pino unconditionally spawns a worker thread
+// for the pino-pretty transport regardless of log level or output destination.
+const _prettyLogsEnabled = process.env.PRETTY_LOGS_ENABLED?.toLowerCase() !== 'false';
+
 const mainLogger = pino({
   name: 'hedera-json-rpc-relay',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: true,
+  ...(_prettyLogsEnabled && {
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: true,
+      },
     },
-  },
+  }),
 });
 const logger = mainLogger.child({ name: 'config-service' });
 
@@ -58,9 +75,11 @@ export class ConfigService {
     // transform string representations of env vars into proper types
     this.envs = ValidationService.typeCasting(process.env);
 
-    // printing current env variables, masking up sensitive information
-    for (const name in this.envs) {
-      logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
+    if (isMainThread) {
+      // printing current env variables, masking up sensitive information
+      for (const name in this.envs) {
+        logger.info(LoggerService.maskUpEnv(name, this.envs[name]));
+      }
     }
 
     this.validateReadOnlyMode();

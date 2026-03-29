@@ -2,6 +2,7 @@
 
 import { Logger } from 'pino';
 
+import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x, parseNumericEnvVar } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -262,7 +263,7 @@ export class AccountService implements IAccountService {
       let currentBalance = 0;
       let balanceFromTxs = 0;
       mirrorAccount = await this.mirrorNodeClient.getAccount(account, requestDetails, {
-        limit: constants.MIRROR_NODE_QUERY_LIMIT,
+        limit: ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
         transactions: true,
       });
       if (mirrorAccount) {

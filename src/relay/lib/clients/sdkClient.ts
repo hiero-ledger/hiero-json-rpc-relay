@@ -143,7 +143,15 @@ export class SDKClient {
       client.setOperator(operator.accountId, operator.privateKey);
     }
 
-    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel)).setLogger(
+    // supplying '/dev/null' as logFile forces HederaLogger to construct its
+    // internal pino instance with pino.destination() (a SonicBoom stream) rather than a
+    // pino-pretty transport. Without this, HederaLogger unconditionally spawns a worker
+    // thread that persists for the process lifetime even though setLogger() immediately
+    // replaces the internal logger below. The '/dev/null' destination is never written to.
+    // TODO: Remove once @hashgraph/sdk exposes a no-op or silent construction option.
+    //       Upstream ticket https://github.com/hiero-ledger/hiero-sdk-js/issues/3891
+    //       Tech-debt ticket https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5148
+    const sdkLogger = new HederaLogger(LogLevel._fromString(sdkLogLevel), '/dev/null').setLogger(
       // @ts-ignore
       logger.child({ name: 'sdk-client' }, { level: sdkLogLevel }),
     );

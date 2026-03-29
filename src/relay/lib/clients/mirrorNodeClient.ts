@@ -3,12 +3,12 @@
 import Axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { install as betterLookupInstall } from 'better-lookup';
-import { ethers } from 'ethers';
 import http from 'http';
 import https from 'https';
 import JSONBigInt from 'json-bigint';
 import { Logger } from 'pino';
 import { Counter, Histogram, Registry } from 'prom-client';
+import { isMainThread } from 'worker_threads';
 
 import { ConfigService } from '../../../config-service/services';
 import { formatTransactionId } from '../../formatters';
@@ -303,11 +303,13 @@ export class MirrorNodeClient {
       registers: [register],
     });
 
-    this.logger.info(
-      `Mirror Node client successfully configured to REST url: %s and Web3 url: %s `,
-      this.restUrl,
-      this.web3Url,
-    );
+    if (isMainThread) {
+      this.logger.info(
+        `Mirror Node client successfully configured to REST url: %s and Web3 url: %s `,
+        this.restUrl,
+        this.web3Url,
+      );
+    }
     this.cacheService = cacheService;
 
     // set  up eth call  accepted error codes.
@@ -577,6 +579,42 @@ export class MirrorNodeClient {
     }
   }
 
+  /**
+   * Probes the Mirror Node's dedicated readiness endpoint to determine whether the server
+   * is ready to accept API requests.
+   *
+   * The probe targets `GET /health/readiness`, which the Mirror Node exposes specifically
+   * for infrastructure health checks (Kubernetes readiness probes). Any genuine HTTP
+   * response — including 4xx from reverse-proxy setups that block the path — is treated
+   * as confirmation that the server is reachable at the network level. Only network-layer
+   * failures (ECONNREFUSED, connection timeout) are surfaced as errors.
+   *
+   * @throws {MirrorNodeClientError} When the server is not reachable due to a
+   *   network-level failure (ECONNREFUSED or connection timeout).
+   */
+  public async checkServerReadiness(): Promise<void> {
+    // When constructed with an injected Axios instance the base URL is unavailable;
+    // skip the probe in that configuration.
+    if (!this.restUrl) {
+      return;
+    }
+
+    const healthUrl = `${new URL(this.restUrl).origin}/health/readiness`;
+    try {
+      await this.restClient.get(healthUrl);
+    } catch (error: unknown) {
+      // Any genuine HTTP response (4xx, 5xx) confirms the server is reachable at the
+      // network level — only the application layer rejected the request.
+      const axiosError = error as { response?: unknown; code?: string; message?: string };
+      if (axiosError.response) {
+        return;
+      }
+      const statusCode =
+        MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
+      throw new MirrorNodeClientError(axiosError, statusCode);
+    }
+  }
+
   public async getAccount(
     idOrAliasOrEvmAddress: string,
     requestDetails: RequestDetails,
@@ -614,14 +652,14 @@ export class MirrorNodeClient {
 
   /**
    * To be used to make paginated calls for the account information when the
-   * transaction count exceeds the constant `MIRROR_NODE_QUERY_LIMIT`.
+   * transaction count exceeds the constant `MIRROR_NODE_LIMIT_PARAM`.
    */
   public async getAccountPaginated(url: string, requestDetails: RequestDetails) {
     const queryParamObject = {};
     const accountId = this.extractAccountIdFromUrl(url);
     const params = new URLSearchParams(url.split('?')[1]);
 
-    this.setQueryParam(queryParamObject, 'limit', constants.MIRROR_NODE_QUERY_LIMIT);
+    this.setQueryParam(queryParamObject, 'limit', ConfigService.get('MIRROR_NODE_LIMIT_PARAM'));
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
     const queryParams = this.getQueryParams(queryParamObject);
 
@@ -1117,7 +1155,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams?: IContractLogsResultsParams,
     limitOrderParams?: ILimitOrderParams,
   ): Promise<MirrorNodeContractLog[]> {
-    if (address === ethers.ZeroAddress) return [];
+    if (address === constants.ZERO_ADDRESS_HEX) return [];
 
     const apiEndpoint = MirrorNodeClient.GET_CONTRACT_RESULT_LOGS_BY_ADDRESS_ENDPOINT.replace(
       MirrorNodeClient.ADDRESS_PLACEHOLDER,
@@ -1343,7 +1381,7 @@ export class MirrorNodeClient {
 
   public async getContractState(address: string, requestDetails: RequestDetails, timestamp?: string) {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
-      constants.MIRROR_NODE_QUERY_LIMIT,
+      ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
     );
     const queryParamObject = {};
@@ -1371,7 +1409,7 @@ export class MirrorNodeClient {
     blockEndTimestamp?: string,
   ) {
     const limitOrderParams: ILimitOrderParams = this.getLimitOrderQueryParam(
-      constants.MIRROR_NODE_QUERY_LIMIT,
+      ConfigService.get('MIRROR_NODE_LIMIT_PARAM'),
       constants.ORDER.DESC,
     );
     const queryParamObject = {};

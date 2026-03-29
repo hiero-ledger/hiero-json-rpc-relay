@@ -61,6 +61,8 @@ describe('RPC Server', function () {
       CHAIN_ID: '0x12a',
     });
 
+    sinon.stub(Relay.prototype, <any>'waitForMirrorNode').resolves();
+
     // Set up spy BEFORE requiring the server module to catch the constructor call
     populatePreconfiguredSpendingPlansSpy = sinon.spy(Relay.prototype, <any>'populatePreconfiguredSpendingPlans');
 
