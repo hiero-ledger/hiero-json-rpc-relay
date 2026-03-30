@@ -587,6 +587,22 @@ export class CommonService implements ICommonService {
     }
   }
 
+  /**
+   * Computes the `baseFeePerGas` for a block as a gas-weighted average of the effective
+   * gas price paid across all transactions in that block.
+   *
+   * Transaction types are handled as follows:
+   * - **Type 0 / Type 1**: carry an explicit `gas_price` in tinybars — used directly.
+   * - **Type 2 (EIP-1559) / Type 4 (EIP-7702)**: `gas_price` is `"0x"` in the mirror node
+   *   response. The effective price is derived as
+   *   `min(maxFeePerGas, networkFee + maxPriorityFeePerGas)`, where `networkFee` is the
+   *   Hedera network gas price at the block's timestamp (fetched once if any such tx exists).
+   *
+   * @param contractResults - Contract results for all transactions in the block.
+   * @param block - The block whose `baseFeePerGas` is being computed.
+   * @param requestDetails - Request metadata for logging and mirror node calls.
+   * @returns The computed `baseFeePerGas` as a `0x`-prefixed hex string in weibars.
+   */
   public async computeBlockBaseFeePerGas(
     contractResults: MirrorNodeContractResult[],
     block: MirrorNodeBlock,
@@ -597,24 +613,23 @@ export class CommonService implements ICommonService {
       return numberTo0x(fee);
     }
 
-    const hasType2Txs = contractResults.some((cr) => cr.type === 2);
-    const networkBaseGasFee = hasType2Txs
+    const hasEIP1559Type = contractResults.some((cr) => cr.type === 2 || cr.type === 4);
+    // Make the network call only once if some transactions have EIP1559 type
+    const networkBaseGasFee = hasEIP1559Type
       ? BigInt(await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`))
       : BigInt(0);
 
-    // Compute a gas-weighted average of the actual gas prices paid across all transactions in this block.
-    // Only transactions type pre-Eip1559 carry an explicit gas_price field.
-    // Type 2 transactions set gas_price to "0x" in the mirror node response.
     const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
       if (!cr.gas_price) return acc;
       // cr.gas_price | cr.max_*_fee_per_gas are in tinybars; convert it to wei
-      if (cr.type === 2) {
+      if (cr.type === 2 || cr.type === 4) {
         const maxGasFee = BigInt(tinybarsToWeibars(Number(cr.max_fee_per_gas))!);
         const priorityGasFee = BigInt(tinybarsToWeibars(Number(cr.max_priority_fee_per_gas))!);
         const baseFeeWithTip = networkBaseGasFee + priorityGasFee;
         const effectiveGasFeeWei = baseFeeWithTip < maxGasFee ? baseFeeWithTip : maxGasFee;
         return acc + BigInt(effectiveGasFeeWei) * BigInt(cr.gas_used);
       }
+      // Only transactions type pre-EIP1559 carry an explicit gas_price field.
       const gasPriceWei = tinybarsToWeibars(Number(cr.gas_price))!;
       return acc + BigInt(gasPriceWei) * BigInt(cr.gas_used);
     }, BigInt(0));

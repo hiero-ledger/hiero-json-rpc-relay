@@ -130,6 +130,9 @@ describe('@ethGetBlockByNumber using MirrorNode', async function () {
     const modifiedNetworkFees = structuredClone(DEFAULT_NETWORK_FEES);
     modifiedNetworkFees.fees[2].gas *= 100;
     restMock.onGet('network/fees').reply(200, JSON.stringify(modifiedNetworkFees));
+    restMock
+      .onGet(`network/fees?timestamp=lte:${DEFAULT_BLOCK.timestamp.to}`)
+      .reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
     restMock.onGet(`accounts/${defaultContractResults.results[0].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[1].from}?transactions=false`).reply(200);
     restMock.onGet(`accounts/${defaultContractResults.results[0].to}?transactions=false`).reply(200);
