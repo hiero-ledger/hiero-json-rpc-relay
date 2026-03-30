@@ -81,13 +81,13 @@ describe('FeeService', function () {
     });
   });
 
-  describe('gasUsedRatioForBlock (private)', function () {
+  describe('getGasUsedRatioForBlock (private)', function () {
     let warnSpy: sinon.SinonSpy;
     let feeService: FeeService;
     let obtainStub: sinon.SinonStub;
 
     function ratioFor(block: MirrorNodeBlock): number {
-      return (feeService as any).gasUsedRatioForBlock(block);
+      return (feeService as any).getGasUsedRatioForBlock(block);
     }
 
     beforeEach(function () {
@@ -131,10 +131,14 @@ describe('FeeService', function () {
     });
 
     it('returns 1 and warns when gasUsed exceeds obtainBlockGasLimit', function () {
-      const limit = blockGasLimit.obtainBlockGasLimit('0.0.0');
-      expect(ratioFor(minimalMirrorBlock(5, limit + 1, '0.0.0'))).to.equal(1);
+      const blockNumber = 5;
+      const blockGasLimitValue = blockGasLimit.obtainBlockGasLimit('0.0.0');
+      const gasUsed = blockGasLimitValue + 1;
+      expect(ratioFor(minimalMirrorBlock(blockNumber, gasUsed, '0.0.0'))).to.equal(1);
       expect(warnSpy.calledOnce).to.be.true;
-      expect(warnSpy.firstCall.args[1]).to.include('clamping gasUsedRatio to 1');
+      expect(warnSpy.firstCall.args[0]).to.be.equal(
+        `eth_feeHistory: gasUsed exceeds block gas limit for block ${blockNumber}; Gas used: ${gasUsed}, Block gas limit: ${blockGasLimitValue}; clamping gasUsedRatio to 1`,
+      );
     });
 
     it('returns a fractional ratio when stub supplies a small limit', function () {

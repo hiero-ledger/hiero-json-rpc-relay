@@ -196,7 +196,7 @@ export class FeeService implements IFeeService {
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
       const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
       const fee = await this.getFeeFromBlock(block, requestDetails);
-      const gasUsedRatio = this.gasUsedRatioForBlock(block);
+      const gasUsedRatio = this.getGasUsedRatioForBlock(block);
 
       feeHistory.baseFeePerGas?.push(fee);
       feeHistory.gasUsedRatio?.push(gasUsedRatio);
@@ -254,15 +254,14 @@ export class FeeService implements IFeeService {
    * @returns Ratio in the range [0, 1] suitable for JSON-RPC `gasUsedRatio`
    * @private
    */
-  private gasUsedRatioForBlock(block: MirrorNodeBlock): number {
+  private getGasUsedRatioForBlock(block: MirrorNodeBlock): number {
     const blockGasLimit = obtainBlockGasLimit(block.hapi_version);
     const gasUsed = block.gas_used || 0;
     const blockNumber = block.number;
 
     if (gasUsed > blockGasLimit) {
       this.logger.warn(
-        { blockNumber, gasUsed, blockGasLimit },
-        'eth_feeHistory: gasUsed exceeds block gas limit; clamping gasUsedRatio to 1',
+        `eth_feeHistory: gasUsed exceeds block gas limit for block ${blockNumber}; Gas used: ${gasUsed}, Block gas limit: ${blockGasLimit}; clamping gasUsedRatio to 1`,
       );
       return 1;
     }
