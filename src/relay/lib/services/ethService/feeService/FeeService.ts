@@ -261,7 +261,10 @@ export class FeeService implements IFeeService {
 
     if (gasUsed > blockGasLimit) {
       this.logger.warn(
-        `eth_feeHistory: gasUsed exceeds block gas limit for block ${blockNumber}; Gas used: ${gasUsed}, Block gas limit: ${blockGasLimit}; clamping gasUsedRatio to 1`,
+        'eth_feeHistory: gasUsed exceeds block gas limit for block %s; Gas used: %s, Block gas limit: %s; clamping gasUsedRatio to 1',
+        blockNumber,
+        gasUsed,
+        blockGasLimit,
       );
       return 1;
     }

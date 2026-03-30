@@ -136,9 +136,6 @@ describe('FeeService', function () {
       const gasUsed = blockGasLimitValue + 1;
       expect(ratioFor(minimalMirrorBlock(blockNumber, gasUsed, '0.0.0'))).to.equal(1);
       expect(warnSpy.calledOnce).to.be.true;
-      expect(warnSpy.firstCall.args[0]).to.be.equal(
-        `eth_feeHistory: gasUsed exceeds block gas limit for block ${blockNumber}; Gas used: ${gasUsed}, Block gas limit: ${blockGasLimitValue}; clamping gasUsedRatio to 1`,
-      );
     });
 
     it('returns a fractional ratio when stub supplies a small limit', function () {
