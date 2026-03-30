@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { FileId } from '@hashgraph/sdk';
-import { Transaction as EthersTransaction } from 'ethers';
+import { Transaction as EthersTransaction } from 'ethers/transaction';
 import EventEmitter from 'events';
 import { Logger } from 'pino';
 import { Counter, Registry } from 'prom-client';
 
-import { formatTransactionIdWithoutQueryParams, numberTo0x, toHash32 } from '../../../../formatters';
+import { numberTo0x, toHash32 } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
@@ -579,7 +579,8 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Asynchronously processes a raw transaction by submitting it to the network, managing HFS, polling the MN, handling errors, and returning the transaction hash.
+   * Asynchronously processes a raw transaction by submitting it to the network, managing HFS,
+   * handling errors, and returning the transaction hash.
    *
    * @async
    * @param {Buffer} transactionBuffer - The raw transaction data as a buffer.
@@ -602,7 +603,7 @@ export class TransactionService implements ITransactionService {
       method: constants.ETH_SEND_RAW_TRANSACTION,
     });
 
-    const { submittedTransactionId, error } = await this.submitTransaction(
+    const { error } = await this.submitTransaction(
       transactionBuffer,
       originalCallerAddress,
       networkGasPriceInWeiBars,
@@ -615,21 +616,22 @@ export class TransactionService implements ITransactionService {
     // Remove the transaction from the transaction pool after submission
     await this.transactionPoolService.removeTransaction(originalCallerAddress, parsedTx.serialized);
 
-    // Handle submission errors - throws for definitive failures, returns for MN polling cases
+    // Handle submission errors - throws for definitive failures, returns when transaction was received by the network
     await this.handleSubmissionError(error, parsedTx, requestDetails);
 
-    // At this point, either no error or a post-execution failure that needs MN polling
-    return this.getTransactionHashFromMirrorNode(submittedTransactionId, error, requestDetails);
+    // At this point, either no error or a post-execution failure
+    return Utils.computeTransactionHash(transactionBuffer);
   }
 
   /**
    * Handles transaction submission errors by classifying and routing them appropriately.
    *
    * This method serves as the single decision point for error handling after transaction submission.
-   * It evaluates the error type and either throws immediately or returns to allow Mirror Node polling.
+   * It evaluates the error type and either throws immediately or returns when the transaction is considered successful
+   * (i.e., no error or a post-execution failure)
    *
    * Error handling flow:
-   * 1. No error → return (proceed to MN polling for tx hash)
+   * 1. No error → return (proceed)
    * 2. Non-SDK error → throw as-is (application-level failure)
    * 3. SDK timeout error → throw as-is (network failure)
    * 4. Pre-execution failure (in HEDERA_SPECIFIC_REVERT_STATUSES):
@@ -638,7 +640,7 @@ export class TransactionService implements ITransactionService {
    *      - If nonce too low → throw NONCE_TOO_LOW
    *      - If unable to determine → fallback to original status
    *    - Others: throws TRANSACTION_REJECTED with status details
-   * 5. Post-execution failure → return (proceed to MN polling for tx hash)
+   * 5. Post-execution failure → return (proceed)
    *
    * @param error - The error from transaction submission, or null/undefined if successful
    * @param parsedTx - The parsed transaction for nonce comparison (used for WRONG_NONCE handling)
@@ -652,7 +654,7 @@ export class TransactionService implements ITransactionService {
     parsedTx: EthersTransaction,
     requestDetails: RequestDetails,
   ): Promise<void> {
-    // No error - proceed to MN polling for transaction validation and txhash retrieval
+    // No error - proceed to txhash retrieval
     if (!error) {
       return;
     }
@@ -704,57 +706,9 @@ export class TransactionService implements ITransactionService {
       throw predefined.TRANSACTION_REJECTED(error.status.toString(), error.message);
     }
 
-    // Post-execution failure (e.g. CONTRACT_REVERT_EXECUTED, INVALID_ALIAS_KEY, etc.)
-    // proceed to allow MN polling for transaction hash
+    // Post-execution failure (e.g. CONTRACT_REVERT_EXECUTED, INVALID_ALIAS_KEY, etc.),
+    // proceed anyway: details can be obtained using the getTransactionReceipt method
     return;
-  }
-
-  /**
-   * Retrieves the transaction hash from Mirror Node after transaction submission.
-   *
-   * This method is called when a transaction has a valid transaction ID and either:
-   * - Succeeded without error
-   * - Failed with a post-execution error (transaction executed at consensus but reverted)
-   *
-   * If the Mirror Node cannot find the transaction record:
-   * - If there is any unknown SDK errors, propagate to preserve the original failure context
-   * - If there is no error, throw INTERNAL_ERROR because the transaction should exist after successful submission
-   *
-   * @param submittedTransactionId - The transaction ID to query
-   * @param submissionError - Original submission error
-   * @param requestDetails - Request details for logging and tracking
-   * @returns The transaction hash
-   * @throws {SDKClientError} Throws original SDK error when MN record not found and if submissionError exists
-   * @throws {JsonRpcError} Throws INTERNAL_ERROR when MN record unexpectedly missing after successful submission
-   */
-  private async getTransactionHashFromMirrorNode(
-    submittedTransactionId: string,
-    submissionError: any,
-    requestDetails: RequestDetails,
-  ): Promise<string> {
-    const formattedTransactionId = formatTransactionIdWithoutQueryParams(submittedTransactionId);
-
-    const contractResult = await this.mirrorNodeClient.repeatedRequest(
-      this.mirrorNodeClient.getContractResult.name,
-      [formattedTransactionId, { ...requestDetails, ipAddress: constants.MASKED_IP_ADDRESS }],
-      this.mirrorNodeClient.getMirrorNodeRequestRetryCount(),
-    );
-
-    // If contract result exists and has a hash, it's a successful case
-    if (contractResult && contractResult.hash != null) {
-      return contractResult.hash;
-    }
-
-    // Contract result not found on Mirror Node
-    // If there's any unknown SDK errors, propagate to preserve the original failure context
-    if (submissionError) {
-      throw submissionError;
-    }
-
-    // Otherwise, throw INTERNAL_ERROR as the transaction should exist but doesn't
-    throw predefined.INTERNAL_ERROR(
-      `Transaction submitted but record unavailable: transactionId=${submittedTransactionId}`,
-    );
   }
 
   /**

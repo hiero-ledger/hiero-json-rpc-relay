@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import { AuthorizationLike, ethers } from 'ethers';
+import { Signature } from 'ethers/crypto';
+import type { AuthorizationLike } from 'ethers/transaction';
+import { Transaction as EthersTransaction } from 'ethers/transaction';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
+import { obtainBlockGasLimit } from '../config/blockGasLimit';
 import constants from '../constants';
 import {
   AuthorizationListEntry,
@@ -34,7 +37,7 @@ export class BlockFactory {
       baseFeePerGas: gasPrice,
       difficulty: constants.ZERO_HEX,
       extraData: constants.EMPTY_HEX,
-      gasLimit: numberTo0x(constants.BLOCK_GAS_LIMIT),
+      gasLimit: numberTo0x(obtainBlockGasLimit(blockResponse.hapi_version)),
       gasUsed: numberTo0x(blockResponse.gas_used),
       hash: blockHash,
       logsBloom: blockResponse.logs_bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
@@ -69,7 +72,7 @@ export class BlockFactory {
     const r = tx.r === '0x' || tx.r === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.r).padStart(64, '0'));
     const s = tx.s === '0x' || tx.s === '0x0' ? constants.ZERO_HEX_32_BYTE : prepend0x(strip0x(tx.s).padStart(64, '0'));
 
-    const ethersTx = new ethers.Transaction();
+    const ethersTx = new EthersTransaction();
 
     // Common fields
     ethersTx.type = txType;
@@ -94,7 +97,7 @@ export class BlockFactory {
                 chainId: entry.chainId,
                 nonce: entry.nonce,
                 address: entry.address,
-                signature: ethers.Signature.from({
+                signature: Signature.from({
                   r: entry.r,
                   s: entry.s,
                   yParity: Number(entry.yParity) as 0 | 1,
@@ -129,7 +132,7 @@ export class BlockFactory {
       return ethersTx.unsignedSerialized;
     }
 
-    ethersTx.signature = ethers.Signature.from({
+    ethersTx.signature = Signature.from({
       r,
       s,
       v: Number(tx.v ?? '0x0'),

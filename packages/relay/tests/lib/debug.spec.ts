@@ -751,7 +751,7 @@ describe('Debug API Test Suite', async function () {
           // Non-synthetic contract result with a non-success status
           const rejectedContractResult = {
             ...contractsResultsByHashResult,
-            result: 'SOME_NON_EXECUTED_STATUS',
+            result: 'INVALID_SOLIDITY_ADDRESS',
             error_message: '0x',
           };
           restMock.onGet(CONTRACTS_RESULTS_BY_HASH).reply(200, JSON.stringify(rejectedContractResult));
@@ -767,9 +767,29 @@ describe('Debug API Test Suite', async function () {
           expect(result.gasUsed).to.equal('0x0');
           expect(result.value).to.equal('0x0');
           expect(result.input).to.equal('0x');
-          expect(result.output).to.equal('0x');
-          expect(result).to.have.property('error', 'SOME_NON_EXECUTED_STATUS');
-          expect(result.revertReason).to.equal('SOME_NON_EXECUTED_STATUS');
+          expect(result.output).to.equal('0x494e56414c49445f534f4c49444954595f41444452455353'); // INVALID_SOLIDITY_ADDRESS in hex
+          expect(result).to.have.property('error', 'INVALID_SOLIDITY_ADDRESS');
+          expect(result.revertReason).to.equal('INVALID_SOLIDITY_ADDRESS');
+        });
+
+        it('should return type=CALL for direct precompile call', async () => {
+          const directPrecompileCallActions = {
+            actions: [
+              makeCreateAction({
+                call_type: 'SYSTEM',
+                call_operation_type: 'CALL',
+              }),
+            ],
+          };
+          restMock.onGet(CONTARCTS_RESULTS_ACTIONS).reply(200, JSON.stringify(directPrecompileCallActions));
+
+          const result = await debugService.traceTransaction(
+            transactionHash,
+            tracerObjectCallTracerFalse,
+            requestDetails,
+          );
+
+          expect(result.type).to.equal('CALL');
         });
 
         describe('synthetic transaction handling', async function () {

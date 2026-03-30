@@ -7,6 +7,7 @@ import { Registry } from 'prom-client';
 
 import {
   decodeErrorMessage,
+  isHex,
   mapKeysAndValues,
   numberTo0x,
   prepend0x,
@@ -676,10 +677,13 @@ export class DebugImpl implements Debug {
           ) as CallTracerResult),
           error: transactionsResponse.result,
           revertReason: transactionsResponse.result,
+          output: isHex(transactionsResponse.result)
+            ? transactionsResponse.result
+            : prepend0x(toHexString(transactionsResponse.result)),
         };
       }
 
-      if (!actionsResponse?.[0]?.call_type || !transactionsResponse) {
+      if (!actionsResponse?.[0]?.call_operation_type || !transactionsResponse) {
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
@@ -687,7 +691,7 @@ export class DebugImpl implements Debug {
         )) as CallTracerResult;
       }
 
-      const { call_type: type } = actionsResponse[0];
+      const { call_operation_type: type } = actionsResponse[0];
       const formattedActions = await this.formatActionsResult(actionsResponse, requestDetails);
 
       const {
@@ -715,7 +719,7 @@ export class DebugImpl implements Debug {
         gas: numberTo0x(gas),
         gasUsed: numberTo0x(gasUsed),
         input,
-        output: result !== constants.SUCCESS && error ? error : output,
+        output: result !== constants.SUCCESS && error ? (isHex(error) ? error : prepend0x(toHexString(error))) : output,
         ...(result !== constants.SUCCESS && { error: errorResult }),
         ...(result !== constants.SUCCESS && { revertReason: decodeErrorMessage(error ?? undefined) }),
         // if we have more than one call executed during the transactions we would return all calls

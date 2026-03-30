@@ -19,6 +19,7 @@ import { HbarSpendingPlanRepository } from './db/repositories/hbarLimiter/hbarSp
 import { IPAddressHbarSpendingPlanRepository } from './db/repositories/hbarLimiter/ipAddressHbarSpendingPlanRepository';
 import { DebugImpl } from './debug';
 import { RpcMethodDispatcher } from './dispatcher';
+import { MirrorNodeClientError } from './errors/MirrorNodeClientError';
 import { EthImpl } from './eth';
 import { CacheClientFactory } from './factories/cacheClientFactory';
 import { NetImpl } from './net';
@@ -267,7 +268,11 @@ export class Relay {
     // 2. Initialize all services with the connected Redis client
     this.initializeServices();
 
-    // 3. Validate operator balance (requires ethImpl to be initialized)
+    // 3. Confirm Mirror Node is reachable before proceeding; applies in all modes
+    //    because Mirror Node is required for both read-only and read-write operation.
+    await this.waitForMirrorNode();
+
+    // 4. Validate operator balance (requires ethImpl to be initialized)
     if (!ConfigService.get('READ_ONLY')) {
       await this.ensureOperatorHasBalance();
     }
@@ -420,6 +425,57 @@ export class Relay {
       this.redisClient = await RedisClientManager.getClient(this.logger);
     } else {
       this.redisClient = undefined;
+    }
+  }
+
+  /**
+   * Polls the Mirror Node readiness endpoint until the server is reachable or the
+   * configured attempt budget is exhausted.
+   *
+   * Each attempt calls {@link MirrorNodeClient.checkServerReadiness}, which targets the
+   * dedicated `GET /health/readiness` endpoint. Any genuine HTTP response is treated as
+   * confirmation that the server is reachable; only network-level failures (ECONNREFUSED,
+   * connection timeout) trigger a retry.
+   *
+   * Attempts are bounded by `MIRROR_NODE_STARTUP_MAX_ATTEMPTS` (total attempt count).
+   *
+   * @throws {MirrorNodeClientError} When Mirror Node remains unreachable after all
+   *   configured attempts are exhausted.
+   */
+  private async waitForMirrorNode(): Promise<void> {
+    const maxAttempts = ConfigService.get('MIRROR_NODE_STARTUP_MAX_ATTEMPTS');
+    const delayMs = ConfigService.get('MIRROR_NODE_STARTUP_RETRY_DELAY_MS');
+
+    if (maxAttempts === 0) {
+      return;
+    }
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await this.mirrorNodeClient.checkServerReadiness();
+        this.logger.info('Mirror Node is reachable (startup check passed on attempt %d/%d)', attempt, maxAttempts);
+        return;
+      } catch (error: unknown) {
+        const isNetworkUnavailable = error instanceof MirrorNodeClientError && error.isNetworkUnavailable();
+        const isLastAttempt = attempt >= maxAttempts;
+
+        if (!isNetworkUnavailable || isLastAttempt) {
+          this.logger.error(
+            { err: error },
+            'Mirror Node did not become reachable after %d attempt(s). Aborting startup.',
+            attempt,
+          );
+          throw error;
+        }
+
+        this.logger.warn(
+          'Mirror Node not reachable on startup attempt %d/%d. Retrying in %dms...',
+          attempt,
+          maxAttempts,
+          delayMs,
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
 

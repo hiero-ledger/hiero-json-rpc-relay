@@ -495,6 +495,16 @@ const _CONFIG = {
     required: false,
     defaultValue: 10,
   },
+  MIRROR_NODE_STARTUP_MAX_ATTEMPTS: {
+    type: 'number',
+    required: false,
+    defaultValue: 10,
+  },
+  MIRROR_NODE_STARTUP_RETRY_DELAY_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 3000,
+  },
   MIRROR_NODE_TIMEOUT: {
     type: 'number',
     required: false,
@@ -805,6 +815,11 @@ const _CONFIG = {
     type: 'number',
     required: false,
     defaultValue: 2,
+  },
+  WORKERS_POOL_IDLE_TIMEOUT_MS: {
+    type: 'number',
+    required: false,
+    defaultValue: 300000,
   },
   WS_PING_INTERVAL: {
     type: 'number',
