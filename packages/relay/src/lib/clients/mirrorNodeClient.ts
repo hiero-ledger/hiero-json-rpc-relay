@@ -554,7 +554,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     results = [],
     page = 1,
-    pageMax: number = Number(ConfigService.get('MIRROR_NODE_PAGINATION_MAX')),
+    pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
@@ -625,8 +625,6 @@ export class MirrorNodeClient {
     this.setQueryParam(queryParamObject, 'timestamp', params.get('timestamp'));
     const queryParams = this.getQueryParams(queryParamObject);
 
-    const pageMax = Number(ConfigService.get('MIRROR_NODE_ACCOUNT_TXS_PG_MAX'));
-
     return this.getPaginatedResults(
       `${MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT}${accountId}${queryParams}`,
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
@@ -634,7 +632,7 @@ export class MirrorNodeClient {
       requestDetails,
       [], // results
       1, // page
-      pageMax,
+      ConfigService.get('MIRROR_NODE_ACCOUNT_TXS_PG_MAX'),
     );
   }
 
