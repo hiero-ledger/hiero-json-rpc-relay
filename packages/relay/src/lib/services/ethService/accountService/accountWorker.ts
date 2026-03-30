@@ -34,7 +34,6 @@ const accountService = new AccountService(
 
 /**
  * Gets the balance of an account as of the given block from the mirror node.
- * Current implementation does not yet utilize blockNumber
  *
  * @param {string} account The account to get the balance from
  * @param {string} blockNumberOrTagOrHash The block number or tag or hash to get the balance from
