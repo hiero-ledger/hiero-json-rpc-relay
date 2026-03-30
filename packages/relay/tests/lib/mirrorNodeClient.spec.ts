@@ -1667,8 +1667,8 @@ describe('MirrorNodeClient', async function () {
       expect(results).to.deep.equal(mockedResults);
     });
 
-    it('stops paginating when it reaches MAX_MIRROR_NODE_PAGINATION', async () => {
-      const pages = constants.MAX_MIRROR_NODE_PAGINATION * 2;
+    it('stops paginating when it reaches MIRROR_NODE_PAGINATION_MAX', async () => {
+      const pages = ConfigService.get('MIRROR_NODE_PAGINATION_MAX') * 2;
       mockPages(pages);
 
       try {
@@ -1677,7 +1677,7 @@ describe('MirrorNodeClient', async function () {
       } catch (e: any) {
         const errorRef = predefined.PAGINATION_MAX(0); // reference error for all properties except message
         expect(e.message).to.equal(
-          `Exceeded maximum mirror node pagination count: ${constants.MAX_MIRROR_NODE_PAGINATION}`,
+          `Exceeded maximum mirror node pagination count: ${ConfigService.get('MIRROR_NODE_PAGINATION_MAX')}`,
         );
         expect(e.code).to.equal(errorRef.code);
       }
