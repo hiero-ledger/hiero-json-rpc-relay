@@ -84,7 +84,7 @@ try {
     )
     .option('n', {
       alias: 'network',
-      demandOption: "You must specify a network to run the relay against. Select from [mainnet, testnet, previewnet].",
+      demandOption: false,
       describe: 'Select a network to run the relay against.',
       type: 'string',
       choices: ['mainnet', 'testnet', 'previewnet']
@@ -163,6 +163,12 @@ try {
       demandOption: false,
       describe: 'Choose whether to start the ws server',
       type: 'boolean'
+    })
+    .check((argv) => {
+      if (!argv.c && !argv.network) {
+        throw new Error('You must specify --network (-n) when --config-file (-c) is not provided.');
+      }
+      return true;
     })
     .demandCommand()
     .strictCommands()

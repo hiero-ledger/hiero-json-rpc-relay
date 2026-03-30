@@ -81,7 +81,7 @@ export class CliHelper {
         throw new Error('Argument: --operator-key is required unless read-only mode is enabled.');
       }
       if (!argv['operator-key-format']) {
-        throw new Error('Argument: --operator-key is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA" or "HEX_ED25519".');
+        throw new Error('Argument: --operator-key-format is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA" or "HEX_ED25519".');
       }
 
       return {
@@ -104,6 +104,10 @@ export class CliHelper {
    * @param spawn
    */
   static gracefulStop = (child, spawn) => {
+    if (!child) {
+      return;
+    }
+
     const { pid } = child;
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', pid, '/T', '/F']);
