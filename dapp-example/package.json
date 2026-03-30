@@ -22,7 +22,7 @@
     "ws": "^8.17.1",
     "axios": "^1.8.2",
     "cookie": "^0.7.0",
-    "path-to-regexp": "^0.1.12",
+    "path-to-regexp": "^0.1.13",
     "gh-pages": "^5.0.0",
     "mocha": "10.8.2"
   },
