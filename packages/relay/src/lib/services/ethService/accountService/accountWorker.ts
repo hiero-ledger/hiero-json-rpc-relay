@@ -6,7 +6,6 @@ import pino from 'pino';
 import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients/mirrorNodeClient';
 import constants from '../../../constants';
-import { predefined } from '../../../errors/JsonRpcError';
 import { CacheClientFactory } from '../../../factories/cacheClientFactory';
 import { RegistryFactory } from '../../../factories/registryFactory';
 import { RequestDetails } from '../../../types';
