@@ -58,7 +58,10 @@ try {
             ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
             ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
             ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
-            ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {})
+            ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {}),
+            ...(argv.hasOwnProperty('json-pretty-print-enabled') ? { PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] } : {}),
+            ...(argv.hasOwnProperty('rpc-http-enabled') ? { RPC_HTTP_ENABLED: argv['rpc-http-enabled'] } : {}),
+            ...(argv.hasOwnProperty('rpc-ws-enabled') ? { RPC_WS_ENABLED: argv['rpc-ws-enabled'] } : {}),
           },
           shell: true
         });
@@ -142,6 +145,24 @@ try {
       demandOption: false,
       describe: 'Specify the logging path.',
       type: 'string'
+    })
+    .option('json-pretty-print-enabled', {
+      default: true,
+      demandOption: false,
+      describe: 'Choose whether to enable a basic ndjson formatter to be used in development.',
+      type: 'boolean'
+    })
+    .option('rpc-http-enabled', {
+      default: true,
+      demandOption: false,
+      describe: 'Choose whether to start the http server.',
+      type: 'boolean'
+    })
+    .option('rpc-ws-enabled', {
+      default: false,
+      demandOption: false,
+      describe: 'Choose whether to start the ws server',
+      type: 'boolean'
     })
     .demandCommand()
     .strictCommands()

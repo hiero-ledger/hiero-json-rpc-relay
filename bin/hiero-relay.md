@@ -58,6 +58,9 @@ If no command is specified, the relay starts with default settings. For more inf
 | `--config-file`          | `-c`  | string  | Path to environment config file                               | ❌        | -                                                  |
 | `--logging`              | `-l`  | string  | Logging level                                                 | ❌        | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `--logging-path`         | -     | string  | Path to write logs                                            | ❌        | -                                                  |
+| `--json-pretty-print-enabled` | - | boolean | Enabled/disable a basic ndjson formatter                     | ❌        | -                                                  |
+| `--rpc-http-enabled`     | -     | boolean  | Enable HTTP server (default: true)                           | ❌        | -                                                  |
+| `--rpc-ws-enabled`       | -     | boolean  | Enable WS server (default: false)                            | ❌        | -                                                  |
 
 ---
 
@@ -85,6 +88,12 @@ hiero-relay -c ./env/.relay.env
 
 ```bash
 hiero-relay -n previewnet -r -l debug --logging-path ./logs/relay.log
+```
+
+**Start relay with both http and ws servers:**
+
+```bash
+hiero-relay -n previewnet -r --rpc-ws-enabled true
 ```
 
 ---
