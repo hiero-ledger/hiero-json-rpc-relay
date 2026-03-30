@@ -597,9 +597,24 @@ export class CommonService implements ICommonService {
       return numberTo0x(fee);
     }
 
-    // cr.gas_price is in tinybars; convert it to wei
+    const hasType2Txs = contractResults.some((cr) => cr.type === 2);
+    const networkBaseGasFee = hasType2Txs
+      ? BigInt(await this.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`))
+      : BigInt(0);
+
+    // Compute a gas-weighted average of the actual gas prices paid across all transactions in this block.
+    // Only transactions type pre-Eip1559 carry an explicit gas_price field.
+    // Type 2 transactions set gas_price to "0x" in the mirror node response.
     const totalChargeWei = contractResults.reduce((acc: bigint, cr: MirrorNodeContractResult) => {
-      if (!cr.gas_price || cr.gas_price === '0x') return acc;
+      if (!cr.gas_price) return acc;
+      // cr.gas_price | cr.max_*_fee_per_gas are in tinybars; convert it to wei
+      if (cr.type === 2) {
+        const maxGasFee = BigInt(tinybarsToWeibars(Number(cr.max_fee_per_gas))!);
+        const priorityGasFee = BigInt(tinybarsToWeibars(Number(cr.max_priority_fee_per_gas))!);
+        const baseFeeWithTip = networkBaseGasFee + priorityGasFee;
+        const effectiveGasFeeWei = baseFeeWithTip < maxGasFee ? baseFeeWithTip : maxGasFee;
+        return acc + BigInt(effectiveGasFeeWei) * BigInt(cr.gas_used);
+      }
       const gasPriceWei = tinybarsToWeibars(Number(cr.gas_price))!;
       return acc + BigInt(gasPriceWei) * BigInt(cr.gas_used);
     }, BigInt(0));
