@@ -252,7 +252,12 @@ describe('@erc20 Acceptance Tests', async function () {
 
                   beforeEach('reducing balance', async function () {
                     amount = initialSupply;
-                    await contract.connect(tokenOwnerWallet).approve(spender, initialSupply, await Utils.gasOptions());
+
+                    const approvalTx = await contract
+                      .connect(tokenOwnerWallet)
+                      .approve(spender, initialSupply, await Utils.gasOptions());
+                    await approvalTx.wait();
+
                     await contract.transfer(to, 1, await Utils.gasOptions());
                     // 5 seconds sleep to propagate the changes to mirror node
                     await new Promise((r) => setTimeout(r, 5000));
@@ -282,7 +287,8 @@ describe('@erc20 Acceptance Tests', async function () {
                 });
 
                 beforeEach(async function () {
-                  await contract.approve(spender, allowance, await Utils.gasOptions());
+                  const approvalTx = await contract.approve(spender, allowance, await Utils.gasOptions());
+                  await approvalTx.wait();
                 });
 
                 describe('when the token owner has enough balance', function () {
@@ -290,7 +296,8 @@ describe('@erc20 Acceptance Tests', async function () {
                   before(async function () {
                     allowance = initialSupply - BigInt(1);
                     amount = initialSupply;
-                    await contract.approve(spender, allowance, await Utils.gasOptions());
+                    const approvalTx = await contract.approve(spender, allowance, await Utils.gasOptions());
+                    await approvalTx.wait();
                   });
 
                   it('reverts', async function () {
@@ -342,7 +349,10 @@ describe('@erc20 Acceptance Tests', async function () {
                 amount = initialSupply;
                 to = ethers.ZeroAddress;
                 tokenOwnerWallet = accounts[2].wallet;
-                await contract.connect(tokenOwnerWallet).approve(spender, amount, await Utils.gasOptions());
+                const approveTx = await contract
+                  .connect(tokenOwnerWallet)
+                  .approve(spender, amount, await Utils.gasOptions());
+                await approveTx.wait();
               });
 
               it('reverts', async function () {
