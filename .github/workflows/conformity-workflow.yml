@@ -89,22 +89,39 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
-      - name: Install hedera local
-        run: npm install @hashgraph/hedera-local -g
 
-      - name: Run hedera local
+      - name: Generate falcon-values config file
         run: |
-          HEDERA_CMD="npx hedera restart -d --verbose=trace"
-          if [ -n "${{ inputs.networkTag }}" ]; then
-            HEDERA_CMD="$HEDERA_CMD --network-tag=${{ inputs.networkTag }}"
-          fi
-          if [ -n "${{ inputs.mirrorTag }}" ]; then
-            HEDERA_CMD="$HEDERA_CMD --mirror-tag=${{ inputs.mirrorTag }}"
-          fi
-          $HEDERA_CMD
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+            --force-port-forward: true
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+            --force-port-forward: true
+          EOF
 
-      - name: Stop  relay
-        run: docker stop json-rpc-relay json-rpc-relay-ws
+      - name: Setup Kind
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
+
+      - name: Start the solo node
+        run: npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy --values-file .github/falcon.yml --dev --deploy-explorer=false --deploy-relay=false
+        timeout-minutes: 15
 
       - name: Download openrpc.json artifact
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
