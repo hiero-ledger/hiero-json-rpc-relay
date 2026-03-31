@@ -46,12 +46,13 @@ Example:
     - **MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX**,
     - **MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX**,
     - MIRROR_NODE_LIMIT_PARAM.
-  - Behavior:
+  - Behavior - when querying without an account filter:
     - If the request specifies fromBlock/toBlock beyond ETH_GET_LOGS_BLOCK_RANGE_LIMIT, the Relay rejects the request.
     - The Relay determines whether the filter is single‑block/narrow scope or spans a range, then applies the relevant page cap.
     - Worst‑case logs fetched = L × P_x:
       - MIRROR_NODE_LIMIT_PARAM × MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX or
       - MIRROR_NODE_LIMIT_PARAM × MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX
+    - There is also a hardcoded maximum time interval for the block range query, set to 7 days.
   - Parameters which affect the performance but not the number of records fetched:
       - MIRROR_NODE_TIMESTAMP_SLICING_CONCURRENCY
       - MIRROR_NODE_TIMESTAMP_SLICING_MAX_LOGS_PER_SLICE
