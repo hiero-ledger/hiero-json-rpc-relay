@@ -168,9 +168,9 @@ describe('@mirror-node-pagination-limits pagination and range limits', function 
           const txCountHex = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_TRANSACTION_COUNT_BY_NUMBER, [
             initialBlockNumber,
           ]);
-          const L = (env.get('MIRROR_NODE_LIMIT_PARAM') as number) ?? 100;
-          const pageMax = (env.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX') as number) ?? 25;
-          const txCount = parseInt(txCountHex ?? '0');
+          const L = env.get('MIRROR_NODE_LIMIT_PARAM') as number;
+          const pageMax = env.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX') as number;
+          const txCount = parseInt(txCountHex);
           const pagesRequired = Math.ceil((txCount || 0) / L);
 
           const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_BY_NUMBER, [initialBlockNumber, true]);
@@ -221,10 +221,10 @@ describe('@mirror-node-pagination-limits pagination and range limits', function 
           const txCountHex = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_TRANSACTION_COUNT_BY_NUMBER, [
             latestBlockNumber,
           ]);
-          const L = (env.get('MIRROR_NODE_LIMIT_PARAM') as number) ?? 100;
-          const pageMax = (env.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX') as number) ?? 25;
-          const txCount = parseInt(txCountHex ?? '0');
-          const pagesRequired = Math.ceil((txCount || 0) / L);
+          const L = env.get('MIRROR_NODE_LIMIT_PARAM') as number;
+          const pageMax = env.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX') as number;
+          const txCount = parseInt(txCountHex);
+          const pagesRequired = Math.ceil((parseInt(txCountHex) || 0) / L);
 
           const promise = relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_BLOCK_RECEIPTS, [latestBlockNumber]);
 
