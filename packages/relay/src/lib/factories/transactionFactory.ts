@@ -66,7 +66,7 @@ export class TransactionFactory {
    */
   public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
     return TransactionFactory.createTransactionByType(type, {
-      accessList: undefined, // we don't support access lists for now
+      accessList: undefined, // we won't receive an access list for synthetic transactions, so we set it to undefined
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
       chainId: chainId,
