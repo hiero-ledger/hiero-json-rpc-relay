@@ -2,6 +2,7 @@
 
 import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { numberTo0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import { MirrorNodeClient } from '@hashgraph/json-rpc-relay/dist/lib/clients';
 import { CommonService, PaymasterAccount } from '@hashgraph/json-rpc-relay/dist/lib/services';
 import { AccountCreateTransaction, AccountId, Hbar, KeyList, PrivateKey } from '@hashgraph/sdk';
 import crypto from 'crypto';
@@ -682,5 +683,23 @@ export class Utils {
     );
     // @ts-ignore
     relayImpl.ethImpl.transactionService.hapiService.client.initPaymastersClients();
+  }
+
+  public static reloadLimitConfigs() {
+    // @ts-ignore
+    const { relayImpl } = global;
+
+    // @ts-ignore
+    MirrorNodeClient.mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
+
+    // @ts-ignore
+    MirrorNodeClient.mirrorNodeContractResultsLogsPageMax = ConfigService.get(
+      'MIRROR_NODE_CONTRACT_RESULTS_LOGS_PG_MAX',
+    );
+
+    // @ts-ignore
+    MirrorNodeClient.mirrorNodeContractResultsLogsBlockRangePageMax = ConfigService.get(
+      'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
+    );
   }
 }
