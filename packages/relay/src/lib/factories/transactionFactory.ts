@@ -59,14 +59,12 @@ export class TransactionFactory {
   }
 
   /**
-   * Creates a transaction object from a log entry
+   * Creates a transaction object from a log entry. All the synthetic transactions are treated as legacy transactions.
    * @param log The log entry containing transaction data
-   * @param type Transaction type (2 by default)
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
-    return TransactionFactory.createTransactionByType(type, {
-      accessList: undefined, // we won't receive an access list for synthetic transactions, so we set it to undefined
+  public static createTransactionFromLog(chainId: string, log: Log): Transaction | null {
+    return TransactionFactory.createTransactionByType(0, {
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
       chainId: chainId,
@@ -82,7 +80,7 @@ export class TransactionFactory {
       s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: numberTo0x(type), // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      type: constants.ZERO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
@@ -142,10 +140,12 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
  */
 const formatAddress = (address: any): string => {
   if (!address) return constants.ZERO_ADDRESS_HEX;
-  return address
-    .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
-    .slice(-40)
-    .padStart(40, '0');
+  return prepend0x(
+    address
+      .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
+      .slice(-40)
+      .padStart(40, '0'),
+  );
 };
 
 /**

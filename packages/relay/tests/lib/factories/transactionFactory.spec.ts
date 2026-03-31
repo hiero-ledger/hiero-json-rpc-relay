@@ -117,7 +117,7 @@ describe('TransactionFactory', () => {
 
     const expectTxFromLog = (tx: Transaction, inputLog: Log, expectedChainId: string) => {
       expect(tx).to.exist;
-      expect(tx.type).to.equal(constants.TWO_HEX);
+      expect(tx.type).to.equal(constants.ZERO_HEX);
       expect(tx).to.have.property('accessList').that.deep.eq([]);
 
       expect(tx.blockHash).to.equal(inputLog.blockHash);
