@@ -111,9 +111,7 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
           ...item, // additional properties remain allowed for authorization list items
           chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
           nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
-          address: !item.address
-            ? constants.ZERO_ADDRESS_HEX
-            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+          address: formatAddress(item.address),
           yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
           r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
           s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
@@ -131,12 +129,24 @@ const formatAccessList = (accessList: any): AccessListEntry[] =>
     ? accessList
         .filter((item: any) => item !== null && typeof item === 'object')
         .map((item: any) => ({
-          address: item.address
-            ? `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`
-            : constants.ZERO_ADDRESS_HEX,
+          address: formatAddress(item.address),
           storageKeys: item.storageKeys ?? [],
         }))
     : [];
+
+/**
+ * Formats an address by normalizing and sanitizing its format.
+ *
+ * @param {any} address - The value received.
+ * @returns {string} - The formatted address as a 0x-prefixed hex string with a length of 40 characters.
+ */
+const formatAddress = (address: any): string => {
+  if (!address) return constants.ZERO_ADDRESS_HEX;
+  return address
+    .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
+    .slice(-40)
+    .padStart(40, '0');
+};
 
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
