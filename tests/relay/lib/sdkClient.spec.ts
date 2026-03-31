@@ -103,7 +103,7 @@ describe('SdkClient', async function () {
     sdkClient = new SDKClient(hederaNetwork, logger, eventEmitter, hbarLimitService) as unknown as SDKClientTest;
 
     instance = axios.create({
-      baseURL: 'https://localhost:5551/api/v1',
+      baseURL: 'https://localhost:8081/api/v1',
       responseType: 'json' as const,
       headers: {
         'Content-Type': 'application/json',

@@ -47,7 +47,7 @@ jobs:
           cat <<EOF > .env
           CHAIN_ID=0x12a
           HEDERA_NETWORK={"127.0.0.1:50211":"0.0.3"}
-          MIRROR_NODE_URL=http://127.0.0.1:5551
+          MIRROR_NODE_URL=http://127.0.0.1:8081
           READ_ONLY=true
           REDIS_ENABLED=false
           MIRROR_NODE_STARTUP_MAX_ATTEMPTS=0

@@ -100,7 +100,7 @@ describe('Open RPC Specification', function () {
 
     // mock axios
     const instance = axios.create({
-      baseURL: 'https://localhost:5551/api/v1',
+      baseURL: 'https://localhost:8081/api/v1',
       responseType: 'json' as const,
       headers: {
         'Content-Type': 'application/json',

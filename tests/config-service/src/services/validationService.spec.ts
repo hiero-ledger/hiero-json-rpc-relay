@@ -14,7 +14,7 @@ describe('ValidationService tests', async function () {
     const mandatoryStartUpFields = {
       CHAIN_ID: '0x12a',
       HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}',
-      MIRROR_NODE_URL: 'http://127.0.0.1:5551',
+      MIRROR_NODE_URL: 'http://127.0.0.1:8081',
       npm_package_version: '1.0.0',
       OPERATOR_ID_MAIN: '0.0.1002',
       OPERATOR_KEY_MAIN:
@@ -102,7 +102,7 @@ describe('ValidationService tests', async function () {
     const mandatoryStartUpFields = {
       CHAIN_ID: '0x12a',
       HEDERA_NETWORK: '{"127.0.0.1:50211":"0.0.3"}',
-      MIRROR_NODE_URL: 'http://127.0.0.1:5551',
+      MIRROR_NODE_URL: 'http://127.0.0.1:8081',
       OPERATOR_ID_MAIN: '0.0.1002',
       OPERATOR_KEY_MAIN:
         '302000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',

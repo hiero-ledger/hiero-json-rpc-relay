@@ -86,7 +86,7 @@ export const computeLatestLogParameters = (configuration) =>
   });
 
 export const setDefaultValuesForEnvParameters = () => {
-  __ENV['MIRROR_BASE_URL'] = __ENV['MIRROR_BASE_URL'] || 'http://localhost:5551';
+  __ENV['MIRROR_BASE_URL'] = __ENV['MIRROR_BASE_URL'] || 'http://localhost:8081';
   __ENV['RELAY_BASE_URL'] = __ENV['RELAY_BASE_URL'] || 'http://localhost:7546';
   __ENV['DEFAULT_DURATION'] = __ENV['DEFAULT_DURATION'] || '120s';
   __ENV['DEFAULT_VUS'] = __ENV['DEFAULT_VUS'] || 10;

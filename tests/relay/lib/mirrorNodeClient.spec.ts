@@ -35,7 +35,7 @@ describe('MirrorNodeClient', async function () {
   before(() => {
     // mock axios
     instance = axios.create({
-      baseURL: 'https://localhost:5551/api/v1',
+      baseURL: 'https://localhost:8081/api/v1',
       responseType: 'json' as const,
       headers: {
         'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ describe('MirrorNodeClient', async function () {
       const localRegistry = new Registry();
       const localLogger = pino({ level: 'silent' });
       const localInstance = axios.create({
-        baseURL: 'https://localhost:5551/api/v1',
+        baseURL: 'https://localhost:8081/api/v1',
         responseType: 'json' as const,
         headers: {
           'Content-Type': 'application/json',
