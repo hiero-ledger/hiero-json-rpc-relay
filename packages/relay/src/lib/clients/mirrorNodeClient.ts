@@ -166,7 +166,7 @@ export class MirrorNodeClient {
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
   );
 
-  private static appendHbarQueryToContractResultsPath(path: string): string {
+  private static withHbarDisabled(path: string): string {
     const sep = path.includes('?') ? '&' : '?';
     return `${path}${sep}hbar=false`;
   }
@@ -847,7 +847,7 @@ export class MirrorNodeClient {
 
     const resourcePath = `${MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT}${transactionIdOrHash}`;
     const response = await this.get(
-      MirrorNodeClient.appendHbarQueryToContractResultsPath(resourcePath),
+      MirrorNodeClient.withHbarDisabled(resourcePath),
       MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT,
       requestDetails,
     );
@@ -951,10 +951,9 @@ export class MirrorNodeClient {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
-    this.setQueryParam(queryParamObject, 'hbar', false);
     const queryParams = this.getQueryParams(queryParamObject);
     return this.getPaginatedResults(
-      `${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`,
+      MirrorNodeClient.withHbarDisabled(`${MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT}${queryParams}`),
       MirrorNodeClient.GET_CONTRACT_RESULTS_ENDPOINT,
       'results',
       requestDetails,
@@ -966,7 +965,7 @@ export class MirrorNodeClient {
 
   public async getContractResultsDetails(contractId: string, timestamp: string, requestDetails: RequestDetails) {
     return this.get(
-      `${MirrorNodeClient.appendHbarQueryToContractResultsPath(this.getContractResultsDetailsByContractIdAndTimestamp(contractId, timestamp))}`,
+      MirrorNodeClient.withHbarDisabled(this.getContractResultsDetailsByContractIdAndTimestamp(contractId, timestamp)),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_CONTRACT_ID_ENDPOINT,
       requestDetails,
     );
@@ -1006,10 +1005,11 @@ export class MirrorNodeClient {
     const queryParamObject = {};
     this.setContractResultsParams(queryParamObject, contractResultsParams);
     this.setLimitOrderParams(queryParamObject, limitOrderParams);
-    this.setQueryParam(queryParamObject, 'hbar', false);
     const queryParams = this.getQueryParams(queryParamObject);
     return this.get(
-      `${MirrorNodeClient.getContractResultsByAddressPath(contractIdOrAddress)}${queryParams}`,
+      MirrorNodeClient.withHbarDisabled(
+        `${MirrorNodeClient.getContractResultsByAddressPath(contractIdOrAddress)}${queryParams}`,
+      ),
       MirrorNodeClient.GET_CONTRACT_RESULTS_BY_ADDRESS_ENDPOINT,
       requestDetails,
     );
@@ -1022,7 +1022,7 @@ export class MirrorNodeClient {
   ) {
     const apiPath = MirrorNodeClient.getContractResultsByAddressAndTimestampPath(contractIdOrAddress, timestamp);
     return this.get(
-      `${MirrorNodeClient.appendHbarQueryToContractResultsPath(apiPath)}`,
+      MirrorNodeClient.withHbarDisabled(apiPath),
       MirrorNodeClient.GET_CONTRACT_RESULTS_DETAILS_BY_ADDRESS_AND_TIMESTAMP_ENDPOINT,
       requestDetails,
     );

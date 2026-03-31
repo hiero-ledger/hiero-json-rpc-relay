@@ -128,7 +128,6 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
   }
 
   const gasPrice = formatGasFee(cr.gas_price);
-  const valueHex = nanOrNumberInt64To0x(cr.amount == null ? null : BigInt(cr.amount));
 
   const commonFields = {
     blockHash: toHash32(cr.block_hash),
@@ -145,21 +144,17 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     transactionIndex: nullableNumberTo0x(cr.transaction_index),
     type: cr.type === null ? '0x0' : nanOrNumberTo0x(cr.type),
     v: cr.v === null ? '0x0' : nanOrNumberTo0x(cr.v),
-    value: valueHex,
+    value: nanOrNumberInt64To0x(cr.amount),
     // for legacy EIP155 with tx.chainId=0x0, mirror-node will return a '0x' (EMPTY_HEX) value for contract result's chain_id
     //   which is incompatibile with certain tools (i.e. foundry). By setting this field, chainId, to undefined, the end jsonrpc
     //   object will leave out this field, which is the proper behavior for other tools to be compatible with.
     chainId: cr.chain_id === constants.EMPTY_HEX ? undefined : cr.chain_id,
   };
 
-  const maxPriorityFeePerGas = formatGasFee(cr.max_priority_fee_per_gas);
-
-  const maxFeePerGas = formatGasFee(cr.max_fee_per_gas);
-
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
-    maxPriorityFeePerGas,
-    maxFeePerGas,
+    maxPriorityFeePerGas: formatGasFee(cr.max_priority_fee_per_gas),
+    maxFeePerGas: formatGasFee(cr.max_fee_per_gas),
     authorizationList: cr.authorization_list,
   });
 };
