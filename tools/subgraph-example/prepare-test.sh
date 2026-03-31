@@ -6,7 +6,7 @@ npx @hashgraph/solo falcon destroy || true
 sleep 5
 
 echo "starting Hiero Solo one-shot falcon deploy"
-npx @hashgraph/solo one-shot falcon deploy --dev --deploy-explorer=false --deploy-relay=false --force-port-forward &
+npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false --force-port-forward &
 SOLO_PID=$!
 
 echo "(re)starting local Redis on port 6379"

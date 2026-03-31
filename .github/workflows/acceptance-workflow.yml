@@ -115,7 +115,6 @@ jobs:
             --values-file .github/falcon.yml \
             --dev \
             --force-port-forward \
-            --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 

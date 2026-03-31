@@ -38,7 +38,7 @@ Run `npm install` or `yarn [install]`
 
 Start a local single-node Hiero network using Solo:
 
-`npx @hashgraph/solo one-shot falcon deploy --dev --force-port-forward --deploy-explorer=false --deploy-relay=false`
+`npx @hashgraph/solo one-shot falcon deploy --dev --force-port-forward --deploy-relay=false`
 
 Note: If you previously used the Hedera local node CLI, replace it with the Solo command above.
 
@@ -128,7 +128,7 @@ _NOTE: At this time the whole test workflow can't be proficiently automated, so 
 
 1. Be sure to start a clean local node using Hiero Solo. If a previous local node is running, stop it.
    1. Run `npx @hashgraph/solo falcon destroy` to ensure any previous local network is torn down.
-   2. Run `npx @hashgraph/solo one-shot falcon deploy --dev --deploy-explorer=false --deploy-relay=false` to start a clean single-node local network.
+   2. Run `npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false` to start a clean single-node local network.
 2. After the node has started, execute `npx hardhat prepare` task, which will deploy and interact with the contracts.
 3. Be sure to start a clean graph-node by executing `yarn/npm run graph-local-clean` and then `yarn/npm run graph-local`
 4. Create and deploy the subgraph by executing `yarn/npm run create-local` and `yarn deploy-local --network local` or `npx run deploy-local -- --network local` and follow the instructions
