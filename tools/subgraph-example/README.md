@@ -26,7 +26,7 @@ For more information on subgraphs, check the official TheGraph documentation htt
 
 ### Prerequisites:
 
-Hedera-Local-Node, recommended version: 2.12.0
+Hiero Solo node (local single-node network), recommended to use the latest published CLI (e.g., @hashgraph/solo@^0.64.x)
 
 The full hedera local-node config can be found [here](./configs/local-test.json)
 
@@ -34,9 +34,13 @@ The full hedera local-node config can be found [here](./configs/local-test.json)
 
 Run `npm install` or `yarn [install]`
 
-#### Run Hedera local node:
+#### Run a local node (Hiero Solo):
 
-To start a Hedera local node by running `npx hedera start --network local-test`. Note that when the containers are up, you'll need to stop the `json-rpc-relay` container and start a local relay server.
+Start a local single-node Hiero network using Solo:
+
+`npx @hashgraph/solo one-shot falcon deploy --dev --deploy-explorer=false --deploy-relay=false`
+
+Note: If you previously used the Hedera local node CLI, replace it with the Solo command above.
 
 #### JSON-RPC Relay configurations:
 
@@ -122,9 +126,9 @@ To deploy the subgraph:
 
 _NOTE: At this time the whole test workflow can't be proficiently automated, so you'll need to perform some manual steps:_
 
-1. Be sure to start a clean local hedera node. If the node is currently running stop it.
-   1. Run `npx hedera stop` to be sure that all containers are stopped and the temp files and volumes have been removed.
-   2. Run `npx hedera start --network local-test` to start a new clean node.
+1. Be sure to start a clean local node using Hiero Solo. If a previous local node is running, stop it.
+   1. Run `npx @hashgraph/solo falcon destroy` to ensure any previous local network is torn down.
+   2. Run `npx @hashgraph/solo one-shot falcon deploy --dev --deploy-explorer=false --deploy-relay=false` to start a clean single-node local network.
 2. After the node has started, execute `npx hardhat prepare` task, which will deploy and interact with the contracts.
 3. Be sure to start a clean graph-node by executing `yarn/npm run graph-local-clean` and then `yarn/npm run graph-local`
 4. Create and deploy the subgraph by executing `yarn/npm run create-local` and `yarn deploy-local --network local` or `npx run deploy-local -- --network local` and follow the instructions
