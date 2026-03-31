@@ -49,9 +49,6 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
-      - name: Start the hedera local node
-        run: npx hedera start -d
-
       - name: Setup Kind
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
@@ -63,7 +60,11 @@ jobs:
           wait: 120s
 
       - name: Start the solo node
-        run: npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy --values-file .github/falcon.yml --dev --deploy-relay=false
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy \
+          --values-file .github/falcon.yml \
+          --dev \
+          --force-port-forward
         timeout-minutes: 15
 
       - name: Start the local relay

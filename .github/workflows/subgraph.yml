@@ -54,12 +54,10 @@ jobs:
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
-            --force-port-forward: true
           mirrorNode:
             --enable-ingress: true
             --pinger: true
             --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
-            --force-port-forward: true
           EOF
 
       - name: Setup Kind
@@ -74,7 +72,13 @@ jobs:
 
       - name: Start the solo node
         working-directory: .
-        run: npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy --values-file .github/falcon.yml --dev --deploy-explorer=false --deploy-relay=false
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --force-port-forward \
+            --deploy-explorer=false \
+            --deploy-relay=false
         timeout-minutes: 15
 
       - name: Start Redis
