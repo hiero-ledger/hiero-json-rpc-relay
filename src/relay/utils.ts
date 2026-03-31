@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { keccak256 } from '@ethersproject/keccak256';
+import { AccountId, PrivateKey } from '@hashgraph/sdk';
+import { Operator } from '@hashgraph/sdk/lib/client/Client';
+import crypto from 'crypto';
+import { Logger } from 'pino';
+
+import { ConfigService } from '../config-service/services';
+import { hexToASCII, strip0x } from './formatters';
+import constants from './lib/constants';
+import { RPC_LAYOUT, RPC_PARAM_LAYOUT_KEY } from './lib/decorators';
+import { RequestDetails } from './lib/types';
+
+export class Utils {
+  public static readonly IP_ADDRESS_REGEX = /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}\b/g;
+
+  public static readonly VERSION_REGEX = /^\d+\.\d+\.\d+$/; // major.minor.patch
+
+  public static readonly addPercentageBufferToGasPrice = (gasPrice: number): number => {
+    // converting to tinybar and afterward to weibar again is needed
+    // in order to handle the possibility of an invalid floating number being calculated as a gas price
+    // e.g.
+    //   current gas price = 126
+    //   buffer = 10%
+    //   buffered gas price = 126 + 12.6 = 138.6 <--- invalid tinybars
+    gasPrice +=
+      Math.round(
+        (gasPrice / constants.TINYBAR_TO_WEIBAR_COEF) * (ConfigService.get('GAS_PRICE_PERCENTAGE_BUFFER') / 100),
+      ) * constants.TINYBAR_TO_WEIBAR_COEF;
+
+    return gasPrice;
+  };
+
+  /**
+   * @param key
+   * @param format
+   * @returns PrivateKey
+   */
+  public static createPrivateKeyBasedOnFormat(key: string, format: string | null = null): PrivateKey {
+    const keyFormat = format ?? ConfigService.get('OPERATOR_KEY_FORMAT');
+
+    switch (keyFormat) {
+      case 'DER':
+      case undefined:
+      case null:
+        return PrivateKey.fromStringDer(key);
+      case 'HEX_ED25519':
+        return PrivateKey.fromStringED25519(key);
+      case 'HEX_ECDSA':
+        return PrivateKey.fromStringECDSA(key);
+      default:
+        throw new Error(`Invalid OPERATOR_KEY_FORMAT provided: ${keyFormat}`);
+    }
+  }
+
+  /**
+   * Generates a random trace ID for requests.
+   *
+   * @returns {string} The generated random trace ID.
+   */
+  public static generateRequestId = (): string => {
+    return crypto.randomUUID();
+  };
+
+  /**
+   * Estimates the transaction fees for file create and file append transactions based on the provided
+   * call data size, file chunk size, and current network exchange rate.
+   *
+   * @param {number} callDataSize - The size of the call data in bytes.
+   * @param {number} fileChunkSize - The size of each file chunk in bytes.
+   * @param {number} currentNetworkExchangeRateInCents - The current network exchange rate in cents.
+   * @returns {number} The estimated transaction fee in tinybars.
+   */
+  public static estimateFileTransactionsFee(
+    callDataSize: number,
+    fileChunkSize: number,
+    currentNetworkExchangeRateInCents: number,
+  ): number {
+    const fileCreateTransactions = 1;
+    const fileCreateFeeInCents = constants.NETWORK_FEES_IN_CENTS.FILE_CREATE_PER_5_KB;
+
+    // The first chunk goes in with FileCreateTransaciton, the rest are FileAppendTransactions
+    const fileAppendTransactions = Math.floor(callDataSize / fileChunkSize) - 1;
+    const lastFileAppendChunkSize = callDataSize % fileChunkSize;
+
+    const fileAppendFeeInCents = constants.NETWORK_FEES_IN_CENTS.FILE_APPEND_PER_5_KB;
+    const lastFileAppendChunkFeeInCents =
+      constants.NETWORK_FEES_IN_CENTS.FILE_APPEND_BASE_FEE +
+      lastFileAppendChunkSize * constants.NETWORK_FEES_IN_CENTS.FILE_APPEND_RATE_PER_BYTE;
+
+    const totalTxFeeInCents =
+      fileCreateTransactions * fileCreateFeeInCents +
+      fileAppendFeeInCents * fileAppendTransactions +
+      lastFileAppendChunkFeeInCents;
+
+    const estimatedTxFee = Math.round(
+      (totalTxFeeInCents / currentNetworkExchangeRateInCents) * constants.HBAR_TO_TINYBAR_COEF,
+    );
+
+    return estimatedTxFee;
+  }
+
+  /**
+   * Check whether the transaction has been rejected by a hedera-specific validation before the actual evm execution
+   * @param contractResult
+   * @returns {boolean}
+   */
+  public static isRejectedDueToHederaSpecificValidation(contractResult: {
+    result: string;
+    error_message: any;
+  }): boolean {
+    const statuses = ConfigService.get('HEDERA_SPECIFIC_REVERT_STATUSES');
+    return (
+      statuses.includes(contractResult.result) ||
+      statuses.includes(hexToASCII(strip0x(contractResult.error_message ?? '')))
+    );
+  }
+
+  /**
+   * Computes the Keccak-256 hash of a transaction buffer and prepends '0x'
+   * @param transactionBuffer - The raw transaction buffer to hash
+   * @returns The computed transaction hash with '0x' prefix
+   */
+  public static computeTransactionHash(transactionBuffer: Buffer): string {
+    return keccak256(transactionBuffer);
+  }
+
+  /**
+   * Gets operator credentials based on the provided type.
+   * @param {Logger} logger - The logger instance
+   * @returns {Operator | null} The operator credentials or null if not found
+   */
+  public static getOperator(logger: Logger): Operator | null {
+    const operatorId = ConfigService.get('OPERATOR_ID_MAIN');
+    const operatorKey = ConfigService.get('OPERATOR_KEY_MAIN');
+
+    if (!operatorId || !operatorKey) {
+      logger.warn(`Invalid operatorId or operatorKey for main client.`);
+      return null;
+    }
+
+    return {
+      privateKey: Utils.createPrivateKeyBasedOnFormat(operatorKey),
+      accountId: AccountId.fromString(operatorId.trim()),
+    };
+  }
+
+  public static getNetworkNameByChainId(): string {
+    switch (ConfigService.get('CHAIN_ID')) {
+      case '0x127':
+        return 'mainnet';
+      case '0x128':
+        return 'testnet';
+      case '0x129':
+        return 'previewnet';
+      default:
+        return 'local';
+    }
+  }
+
+  /**
+   * Arranges parameters for an RPC method based on its layout configuration
+   *
+   * @param method - The RPC method handler
+   * @param rpcParams - Parameters from the RPC request
+   * @param requestDetails - Request context information
+   * @returns Array of parameters arranged for the method
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  public static arrangeRpcParams(method: Function, rpcParams: any[] = [], requestDetails: RequestDetails): any[] {
+    const layout = method[RPC_PARAM_LAYOUT_KEY];
+
+    // Method only needs requestDetails
+    if (layout === RPC_LAYOUT.REQUEST_DETAILS_ONLY) {
+      return [requestDetails];
+    }
+
+    // Method has custom parameter rearrangement
+    if (typeof layout === 'function') {
+      return [...layout(rpcParams), requestDetails];
+    }
+
+    // No configuration, use default behavior
+    return [...(Array.isArray(rpcParams) ? rpcParams : rpcParams == null ? [] : [rpcParams]), requestDetails];
+  }
+}

@@ -1,5 +1,6 @@
 'use strict';
 module.exports = {
+    'node-option': ['no-experimental-strip-types'],
     'forbid-only': Boolean(process.env.CI),
     color: true,
     'fail-zero': Boolean(process.env.CI),

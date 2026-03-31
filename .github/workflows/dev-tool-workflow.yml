@@ -47,10 +47,10 @@ jobs:
       - name: Create .env file
         run: |
           cp ${{ inputs.directory }}/.env.example ${{ inputs.directory }}/.env
-          cp ./packages/server/tests/localAcceptance.env .env
+          cp ./tests/server/localAcceptance.env .env
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
       - name: Start the hedera local node
         run: npx hedera start -d
