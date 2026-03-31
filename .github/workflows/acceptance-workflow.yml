@@ -115,9 +115,6 @@ jobs:
         run: npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy --values-file .github/falcon.yml --dev --deploy-explorer=false --deploy-relay=false
         timeout-minutes: 15
 
-      - name: Stop relay
-        run: docker stop json-rpc-relay json-rpc-relay-ws
-
       - name: Run acceptance tests
         run: |
             if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
