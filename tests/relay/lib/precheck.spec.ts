@@ -27,6 +27,7 @@ import { ONE_TINYBAR_IN_WEI_HEX } from './eth/eth-config';
 const registry = new Registry();
 import sinon from 'sinon';
 
+import { prepend0x } from '../../../src/relay/formatters';
 import { CacheClientFactory } from '../../../src/relay/lib/factories/cacheClientFactory';
 import { CommonService } from '../../../src/relay/lib/services';
 import { TransactionPoolService } from '../../../src/relay/lib/services/transactionPoolService/transactionPoolService';
@@ -720,6 +721,81 @@ describe('Precheck', async function () {
         to: contractAddress1,
       } as Transaction);
       expect(intrinsicGasCost).to.be.equal(constants.TX_BASE_COST);
+    });
+
+    [
+      {
+        label: 'one address only',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+        ],
+      },
+      {
+        label: 'address and storage key',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`)],
+          },
+        ],
+      },
+      {
+        label: 'address and multiple storage keys',
+        expectedAccessListCost: constants.ACCESS_LIST_ADDRESS_COST + 3 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [
+              prepend0x(`${'0'.repeat(31)}1`),
+              prepend0x(`${'0'.repeat(31)}2`),
+              prepend0x(`${'0'.repeat(31)}3`),
+            ],
+          },
+        ],
+      },
+      {
+        label: 'multiple addresses and storage keys',
+        expectedAccessListCost: 2 * constants.ACCESS_LIST_ADDRESS_COST + 2 * constants.ACCESS_LIST_STORAGE_KEY_COST,
+        accessList: [
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [],
+          },
+          {
+            address: ethers.Wallet.createRandom().address,
+            storageKeys: [prepend0x(`${'0'.repeat(31)}1`), prepend0x(`${'0'.repeat(31)}2`)],
+          },
+        ],
+      },
+    ].forEach(({ label, accessList, expectedAccessListCost }) => {
+      it(`should be able to able to calculate cost of an access list With ${label}`, function () {
+        const intrinsicGasCost = Precheck.transactionIntrinsicGasCost({
+          data: transfer,
+          to: contractAddress1,
+          accessList,
+        } as Transaction);
+
+        expect(intrinsicGasCost).to.equal(constants.TX_BASE_COST + expectedAccessListCost);
+      });
     });
 
     it('should be able to calculate for odd length tx', function () {
