@@ -255,7 +255,7 @@ export class Precheck {
    * Calculates the intrinsic gas cost based on the number of bytes in the data field.
    * Using a loop that goes through every two characters in the string it counts the zero and non-zero bytes.
    * Every two characters that are packed together and are both zero counts towards zero bytes.
-   * N.B! Access list calculation is not added, since accessLists are currently not supported
+   *
    * @param data - The data with the bytes to be calculated
    * @returns The intrinsic gas cost.
    * @private
@@ -310,6 +310,12 @@ export class Precheck {
     if (tx.type === 4 && authorizationList && Array.isArray(authorizationList)) {
       standardIntrinsicGas += constants.PER_EMPTY_ACCOUNT_COST * authorizationList.length;
     }
+
+    // EIP-2930: Add access list cost
+    const accessList = tx.accessList || [];
+    standardIntrinsicGas += constants.ACCESS_LIST_ADDRESS_COST * accessList.length;
+    standardIntrinsicGas +=
+      constants.ACCESS_LIST_STORAGE_KEY_COST * accessList.flatMap(({ storageKeys }) => storageKeys).length;
 
     // EIP-7623: Floor price for calldata-heavy transactions
     const floorPrice = constants.TX_BASE_COST + constants.TOTAL_COST_FLOOR_PER_TOKEN * tokensInCalldata;

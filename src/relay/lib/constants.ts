@@ -107,6 +107,13 @@ export default {
 
   // EIP-7702: Authorization list cost for type 4 transactions
   PER_EMPTY_ACCOUNT_COST: 25_000,
+
+  // EIP-2930 Access List cost of a single storage key
+  ACCESS_LIST_STORAGE_KEY_COST: 1_900,
+
+  // EIP-2930 Access List cost of a single address
+  ACCESS_LIST_ADDRESS_COST: 2_400,
+
   BALANCES_UPDATE_INTERVAL: 900, // 15 minutes
   MAX_MIRROR_NODE_PAGINATION: 20,
   NEXT_LINK_PREFIX: '/api/v1/',
