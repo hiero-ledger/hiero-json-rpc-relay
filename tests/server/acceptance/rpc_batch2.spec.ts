@@ -11,6 +11,7 @@ import { predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
+import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
 import MirrorClient from '../clients/mirrorClient';
 import RelayClient from '../clients/relayClient';
 import ServicesClient from '../clients/servicesClient';
@@ -546,6 +547,9 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       });
 
       await relay.pollForValidTransactionReceipt(response.hash);
+    });
+    overrideEnvsInMochaDescribe({
+      MIRROR_NODE_LIMIT_PARAM: 100,
     });
 
     it('@release should execute "eth_getBalance" for newly created account with 1 HBAR', async function () {

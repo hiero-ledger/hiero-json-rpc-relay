@@ -29,7 +29,7 @@ try {
           });
 
           if (res.error) {
-            throw new Error(res.error);
+            throw res.error;
           }
 
           childProcess = spawn('node', ['.standalone/dist/index.js'], {
@@ -37,8 +37,7 @@ try {
             env: {
               ...process.env,
               ...CliHelper.MANDATORY_ENV_OVERRIDES
-            },
-            shell: true
+            }
           });
 
           return;
@@ -62,8 +61,7 @@ try {
             ...(argv.hasOwnProperty('json-pretty-print-enabled') ? { PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] } : {}),
             ...(argv.hasOwnProperty('rpc-http-enabled') ? { RPC_HTTP_ENABLED: argv['rpc-http-enabled'] } : {}),
             ...(argv.hasOwnProperty('rpc-ws-enabled') ? { RPC_WS_ENABLED: argv['rpc-ws-enabled'] } : {}),
-          },
-          shell: true
+          }
         });
 
 
@@ -76,6 +74,10 @@ try {
 
           childProcess.stderr.on('data', (err) => {
             logStream.write(err);
+          });
+
+          childProcess.on('exit', () => {
+            logStream.end();
           });
 
           console.log(`All logs are redirected to ${argv['logging-path']}`);
