@@ -37,8 +37,7 @@ try {
             env: {
               ...process.env,
               ...CliHelper.MANDATORY_ENV_OVERRIDES
-            },
-            shell: true
+            }
           });
 
           return;
@@ -59,8 +58,7 @@ try {
             ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
             ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
             ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {})
-          },
-          shell: true
+          }
         });
 
 
