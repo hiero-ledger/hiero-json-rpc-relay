@@ -48,10 +48,10 @@ jobs:
         run: npm ci
 
       - name: Create .env file
-        run: cp ./packages/server/tests/localAcceptance.env .env
+        run: cp ./tests/server/localAcceptance.env .env
 
       - name: Build Typescript
-        run: npx lerna run build
+        run: npm run build
 
       - name: Start the hedera local node
         run: npx hedera start -d

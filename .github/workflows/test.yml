@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Create .env file
-        run: cp ./packages/relay/tests/test.env .env
+        run: cp ./tests/relay/test.env .env
 
       - name: Build Typescript and Run tests
         env:

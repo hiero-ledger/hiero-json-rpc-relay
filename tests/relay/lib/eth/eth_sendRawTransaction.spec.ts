@@ -1,0 +1,1113 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+  FileAppendTransaction,
+  FileId,
+  FileInfo,
+  Hbar,
+  HbarUnit,
+  Long,
+  Status,
+  TransactionId,
+  TransactionResponse,
+} from '@hashgraph/sdk';
+import MockAdapter from 'axios-mock-adapter';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+import { EventEmitter } from 'events';
+import pino from 'pino';
+import sinon, { useFakeTimers } from 'sinon';
+
+import { ConfigService } from '../../../../src/config-service/services';
+import { Eth, JsonRpcError, predefined } from '../../../../src/relay';
+import { formatTransactionIdWithoutQueryParams } from '../../../../src/relay/formatters';
+import { MirrorNodeClient, SDKClient } from '../../../../src/relay/lib/clients';
+import type { ICacheClient } from '../../../../src/relay/lib/clients/cache/ICacheClient';
+import constants from '../../../../src/relay/lib/constants';
+import { SDKClientError } from '../../../../src/relay/lib/errors/SDKClientError';
+import { LockService, TransactionPoolService } from '../../../../src/relay/lib/services';
+import HAPIService from '../../../../src/relay/lib/services/hapiService/hapiService';
+import { HbarLimitService } from '../../../../src/relay/lib/services/hbarLimitService';
+import { RequestDetails } from '../../../../src/relay/lib/types';
+import { Utils } from '../../../../src/relay/utils';
+import RelayAssertions from '../../assertions';
+import { mockData, overrideEnvsInMochaDescribe, signTransaction, withOverriddenEnvsInMochaTest } from '../../helpers';
+import { ACCOUNT_ADDRESS_1, DEFAULT_NETWORK_FEES, MAX_GAS_LIMIT_HEX, NO_TRANSACTIONS } from './eth-config';
+import { generateEthTestEnv } from './eth-helpers';
+
+use(chaiAsPromised);
+
+let sdkClientStub: sinon.SinonStubbedInstance<SDKClient>;
+let getSdkClientStub: sinon.SinonStub;
+
+describe('@ethSendRawTransaction eth_sendRawTransaction spec', async function () {
+  this.timeout(10000);
+  const {
+    restMock,
+    hapiServiceInstance,
+    ethImpl,
+    cacheService,
+    registry,
+  }: {
+    restMock: MockAdapter;
+    hapiServiceInstance: HAPIService;
+    ethImpl: Eth;
+    cacheService: ICacheClient;
+    registry: import('prom-client').Registry;
+  } = generateEthTestEnv();
+
+  const requestDetails = new RequestDetails({ requestId: 'eth_sendRawTransactionTest', ipAddress: '0.0.0.0' });
+  let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
+  overrideEnvsInMochaDescribe({ ETH_GET_TRANSACTION_COUNT_MAX_BLOCK_RANGE: 1 });
+
+  /**
+   * Helper to check if the Mirror Node contract results endpoint was called.
+   * Uses restMock.history.get to inspect actual HTTP calls made.
+   */
+  const wasContractResultEndpointCalled = (): boolean => {
+    return restMock.history.get.some((req) => req.url?.includes(MirrorNodeClient['GET_CONTRACT_RESULT_ENDPOINT']));
+  };
+
+  this.beforeEach(async () => {
+    // reset cache and restMock
+    await cacheService.clear(requestDetails);
+    restMock.reset();
+    sdkClientStub = sinon.createStubInstance(SDKClient);
+    getSdkClientStub = sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+    restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+    const txPoolServiceWithMockedStorage = new TransactionPoolService(
+      {
+        getList: sinon.stub(),
+        addToList: sinon.stub(),
+        removeFromList: sinon.stub(),
+        removeAll: sinon.stub(),
+        getUniqueAddressCount: sinon.stub(),
+      },
+      pino({ level: 'silent' }),
+      registry,
+    );
+    ethImpl['transactionService']['precheck']['transactionPoolService'] = txPoolServiceWithMockedStorage;
+    ethImpl['transactionService']['transactionPoolService'] = txPoolServiceWithMockedStorage;
+  });
+
+  this.afterEach(() => {
+    getSdkClientStub.restore();
+    restMock.resetHandlers();
+  });
+
+  describe('eth_sendRawTransaction', async function () {
+    let clock: any;
+    const accountAddress = '0x9eaee9E66efdb91bfDcF516b034e001cc535EB57';
+    const accountEndpoint = `accounts/${accountAddress}${NO_TRANSACTIONS}`;
+    const receiverAccountEndpoint = `accounts/${ACCOUNT_ADDRESS_1}${NO_TRANSACTIONS}`;
+    const gasPrice = '0xad78ebc5ac620000';
+    const transactionIdServicesFormat = '0.0.902@1684375868.230217103';
+    const transactionId = '0.0.902-1684375868-230217103';
+    const value = '0x511617DE831B9E173';
+    const contractResultEndpoint = `contracts/results/${transactionId}?hbar=false`;
+    const networkExchangeRateEndpoint = 'network/exchangerate';
+    const ethereumHash = '0x6d20b034eecc8d455c4c040fb3763082d499353a8b7d318b1085ad8d7de15f7e';
+    const mockedExchangeRate = {
+      current_rate: {
+        cent_equivalent: 12,
+        expiration_time: 4102444800,
+        hbar_equivalent: 1,
+      },
+    };
+    const transaction = {
+      chainId: Number(ConfigService.get('CHAIN_ID')),
+      to: ACCOUNT_ADDRESS_1,
+      from: accountAddress,
+      value,
+      gasPrice,
+      gasLimit: MAX_GAS_LIMIT_HEX,
+    };
+    const ACCOUNT_RES = {
+      account: accountAddress,
+      balance: {
+        balance: Hbar.from(100_000_000_000, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+      },
+      ethereum_nonce: 0,
+    };
+    const RECEIVER_ACCOUNT_RES = {
+      account: ACCOUNT_ADDRESS_1,
+      balance: {
+        balance: Hbar.from(1, HbarUnit.Hbar).to(HbarUnit.Tinybar),
+      },
+      ethereum_nonce: 0,
+      receiver_sig_required: false,
+    };
+    const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
+    // Expect INTERNAL_ERROR because MN doesn't have the record
+    const expectedInternalError = predefined.INTERNAL_ERROR('Transaction submitted but record unavailable');
+
+    beforeEach(() => {
+      clock = useFakeTimers();
+      sinon.restore();
+      sdkClientStub = sinon.createStubInstance(SDKClient);
+      sinon.stub(hapiServiceInstance, 'getSDKClient').returns(sdkClientStub);
+      restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+      JSON.stringify(restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES)));
+      JSON.stringify(restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate)));
+      lockServiceStub = sinon.createStubInstance(LockService);
+
+      // Replace the lock service with our stub
+      ethImpl['transactionService']['lockService'] = lockServiceStub;
+      lockServiceStub.acquireLock.resolves();
+    });
+
+    afterEach(() => {
+      sinon.restore();
+      clock.restore();
+    });
+
+    withOverriddenEnvsInMochaTest({ JUMBO_TX_ENABLED: false }, () => {
+      it('should emit tracking event (limiter and metrics) only for successful tx responses from FileAppend transaction', async function () {
+        const signed = await signTransaction({
+          ...transaction,
+          data: '0x' + '22'.repeat(13000),
+        });
+        const expectedTxHash = Utils.computeTransactionHash(Buffer.from(signed.replace('0x', ''), 'hex'));
+
+        const FILE_ID = new FileId(0, 0, 5644);
+        const sdkClientInternals = sdkClientStub as unknown as Record<string, any>;
+        const enableCallThrough = (
+          method: 'submitEthereumTransaction' | 'createFile' | 'executeAllTransaction',
+        ): void => {
+          (sdkClientInternals[method] as sinon.SinonStub).callsFake(function (this: SDKClient, ...args: unknown[]) {
+            return (SDKClient.prototype[method] as unknown as (...methodArgs: unknown[]) => unknown).apply(this, args);
+          });
+        };
+        enableCallThrough('submitEthereumTransaction');
+        enableCallThrough('createFile');
+        enableCallThrough('executeAllTransaction');
+
+        sdkClientInternals.fileAppendChunkSize = 2048;
+        sdkClientInternals.clientMain = { operatorAccountId: '', operatorKey: null };
+        sdkClientInternals.logger = pino({ level: 'silent' });
+
+        const fileInfoMock = { size: new Long(26000) } as unknown as FileInfo;
+        (sdkClientInternals.executeQuery as sinon.SinonStub).resolves(fileInfoMock);
+
+        // simulates error after first append by returning only one transaction response
+        sinon
+          .stub(FileAppendTransaction.prototype, 'executeAll')
+          .resolves([{ transactionId: TransactionId.fromString(transactionIdServicesFormat) } as TransactionResponse]);
+
+        const eventEmitterMock = sinon.createStubInstance(EventEmitter);
+        sdkClientInternals.eventEmitter = eventEmitterMock;
+
+        const hbarLimiterMock = sinon.createStubInstance(HbarLimitService);
+        sdkClientInternals.hbarLimitService = hbarLimiterMock;
+
+        const txResponseMock = sinon.createStubInstance(TransactionResponse);
+        (sdkClientInternals.executeTransaction as sinon.SinonStub).resolves(txResponseMock);
+
+        txResponseMock.getReceipt
+          .onFirstCall()
+          .resolves({ fileId: FILE_ID } as unknown as import('@hashgraph/sdk').TransactionReceipt);
+        Object.assign(txResponseMock, {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        });
+
+        (sdkClientInternals.deleteFile as sinon.SinonStub).resolves();
+
+        const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+        if (useAsyncTxProcessing) await clock.tickAsync(1);
+
+        expect(eventEmitterMock.emit.callCount).to.equal(1);
+        expect(hbarLimiterMock.shouldLimit.callCount).to.equal(1);
+        expect(resultingHash).to.equal(expectedTxHash);
+      });
+    });
+
+    it('should return a predefined GAS_LIMIT_TOO_HIGH instead of NUMERIC_FAULT as precheck exception', async function () {
+      // tx with 'gasLimit: BigNumber { value: "30678687678687676876786786876876876000" }'
+      const tx =
+        '0x02f881820128048459682f0086014fa0186f00901714801554cbe52dd95512bedddf68e09405fba803be258049a27b820088bab1cad205887185174876e80080c080a0cab3f53602000c9989be5787d0db637512acdd2ad187ce15ba83d10d9eae2571a07802515717a5a1c7d6fa7616183eb78307b4657d7462dbb9e9deca820dd28f62';
+      await RelayAssertions.assertRejection(
+        predefined.GAS_LIMIT_TOO_HIGH(null, null),
+        ethImpl.sendRawTransaction,
+        false,
+        ethImpl,
+        [tx, requestDetails],
+      );
+    });
+
+    it('should return a predefined INVALID_ARGUMENTS when transaction has invalid format', async function () {
+      // signature has been truncated
+      await RelayAssertions.assertRejection(
+        predefined.INVALID_ARGUMENTS('unexpected junk after rlp payload'),
+        ethImpl.sendRawTransaction,
+        false,
+        ethImpl,
+        [constants.INVALID_TRANSACTION, requestDetails],
+      );
+    });
+
+    it('should return pre-calculated hash without calling MN', async function () {
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+      const signed = await signTransaction(transaction);
+
+      const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+      expect(resultingHash).to.equal(ethereumHash);
+
+      // Hash should be computed, not fetched from the mirror node
+      expect(wasContractResultEndpointCalled()).to.be.false;
+    });
+
+    it('should not send second transaction upon succession', async function () {
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+
+      const signed = await signTransaction(transaction);
+
+      const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+      if (useAsyncTxProcessing) await clock.tickAsync(1);
+
+      expect(resultingHash).to.equal(ethereumHash);
+      sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+    });
+
+    it('should not send second transaction on error different from timeout', async function () {
+      const repeatedRequestSpy = sinon.spy((ethImpl as any).transactionService.mirrorNodeClient, 'repeatedRequest');
+      sdkClientStub.submitEthereumTransaction.resolves({
+        txResponse: {
+          transactionId: TransactionId.fromString(transactionIdServicesFormat),
+        } as unknown as TransactionResponse,
+        fileId: null,
+      });
+
+      const signed = await signTransaction(transaction);
+
+      const resultingHash = await ethImpl.sendRawTransaction(signed, requestDetails);
+      const mirrorNodeRetry = 10;
+      const newRequestDetails = { ...requestDetails, ipAddress: constants.MASKED_IP_ADDRESS };
+      const formattedTransactionId = formatTransactionIdWithoutQueryParams(transactionIdServicesFormat);
+
+      await clock.tickAsync(1);
+      expect(resultingHash).to.equal(ethereumHash);
+      sinon.assert.calledOnce(sdkClientStub.submitEthereumTransaction);
+
+      // Contract results should never be polled from MN for a transaction that was received by CN
+      sinon.assert.neverCalledWith(
+        repeatedRequestSpy,
+        'getContractResult',
+        [formattedTransactionId, newRequestDetails],
+        mirrorNodeRetry,
+      );
+    });
+
+    it('should throw precheck error for type=3 transactions', async function () {
+      const type3tx = {
+        ...transaction,
+        type: 3,
+        maxFeePerBlobGas: transaction.gasPrice,
+        blobVersionedHashes: [ethereumHash],
+      };
+      const signed = await signTransaction(type3tx);
+
+      await RelayAssertions.assertRejection(
+        predefined.UNSUPPORTED_TRANSACTION_TYPE_3,
+        ethImpl.sendRawTransaction,
+        false,
+        ethImpl,
+        [signed, requestDetails],
+      );
+    });
+
+    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+      withOverriddenEnvsInMochaTest({ ENABLE_TX_POOL: true }, () => {
+        it('should save and remove transaction from transaction pool on success path', async function () {
+          const signed = await signTransaction(transaction);
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+          sinon.stub(txPool, 'getPendingCount').resolves(0);
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          expect(result).to.equal(ethereumHash);
+          sinon.assert.calledOnce(saveStub);
+          sinon.assert.calledWithMatch(saveStub, accountAddress, sinon.match.object);
+
+          sinon.assert.calledOnce(removeStub);
+          sinon.assert.calledWith(removeStub, accountAddress, signed);
+
+          saveStub.restore();
+          removeStub.restore();
+        });
+      });
+
+      it('[USE_ASYNC_TX_PROCESSING=false] should throw internal error when transactionID is invalid', async function () {
+        const signed = await signTransaction(transaction);
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: '',
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+          .to.be.rejectedWith(JsonRpcError)
+          .and.eventually.satisfy((error: JsonRpcError) => expect(error.code).to.equal(expectedInternalError.code));
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: true }, () => {
+      it('[USE_ASYNC_TX_PROCESSING=true] should still return expected transaction hash even when submitted transactionID is invalid', async function () {
+        const signed = await signTransaction(transaction);
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: '',
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const response = await ethImpl.sendRawTransaction(signed, requestDetails);
+        expect(response).to.equal(ethereumHash);
+      });
+    });
+
+    withOverriddenEnvsInMochaTest({ READ_ONLY: true }, () => {
+      [false, true].forEach((useAsyncTxProcessing) => {
+        withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: useAsyncTxProcessing }, () => {
+          [
+            { title: 'ill-formatted', transaction: constants.INVALID_TRANSACTION },
+            {
+              title: 'failed precheck',
+              transaction:
+                '0x02f881820128048459682f0086014fa0186f00901714801554cbe52dd95512bedddf68e09405fba803be258049a27b820088bab1cad205887185174876e80080c080a0cab3f53602000c9989be5787d0db637512acdd2ad187ce15ba83d10d9eae2571a07802515717a5a1c7d6fa7616183eb78307b4657d7462dbb9e9deca820dd28f62',
+            },
+            { title: 'valid', transaction },
+          ].forEach(({ title, transaction }) => {
+            it(`should throw \`UNSUPPORTED_OPERATION\` when Relay is in Read-Only mode for a '${title}' transaction`, async function () {
+              const signed = typeof transaction === 'string' ? transaction : await signTransaction(transaction);
+              await RelayAssertions.assertRejection(
+                predefined.UNSUPPORTED_OPERATION('Relay is in read-only mode'),
+                ethImpl.sendRawTransaction,
+                false,
+                ethImpl,
+                [signed, requestDetails],
+              );
+            });
+          });
+        });
+      });
+    });
+
+    describe('Lock Release Error Handling', () => {
+      let loggerErrorStub: sinon.SinonStub;
+      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
+      beforeEach(() => {
+        loggerErrorStub = sinon.stub(ethImpl['transactionService']['logger'], 'error');
+      });
+
+      afterEach(() => {
+        loggerErrorStub.restore();
+      });
+
+      describe('Validation Error Path', () => {
+        const poorAccount = {
+          ...ACCOUNT_RES,
+          balance: { balance: 1000 }, // Very low balance
+        };
+
+        it('should preserve original validation error when lock release fails', async function () {
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: 10_000_000_000,
+            gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          // Mock account data
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          const currentTime = process.hrtime.bigint();
+          // Simulate successful lock acquisition
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-123', acquiredAt: currentTime });
+
+          // Simulate lock release failure
+          lockServiceStub.releaseLock.resolves();
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            'Insufficient funds for transfer',
+          );
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock release was attempted
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-123', currentTime);
+        });
+
+        it('should preserve original precheck error when lock release fails', async function () {
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x2386f26fc10000', // Large value
+            gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          // Mock insufficient balance
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          lockServiceStub.acquireLock.resolves('test-session-key-456');
+          lockServiceStub.releaseLock.resolves();
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            'Insufficient funds',
+          );
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock release was attempted despite failure
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+        });
+
+        it('should successfully release lock when validation fails and lock service works', async function () {
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: 10_000_000_000,
+            gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(poorAccount));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
+          lockServiceStub.releaseLock.resolves(); // Successful release
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            'Insufficient funds for transfer',
+          );
+          // Verify lock was properly released
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'test-session-key-success', currentTime);
+
+          // Transaction should be added to the tx pool and removed from it after failed async validation.
+          sinon.assert.calledOnce(saveStub);
+          sinon.assert.calledOnce(removeStub);
+        });
+
+        it('should not initialize lock when base sync precheck fails and lock service works', async function () {
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+
+          const transaction = {
+            chainId: Number(ConfigService.get('CHAIN_ID')),
+            to: ACCOUNT_ADDRESS_1,
+            from: accountAddress,
+            value: '0x1', // Less than one tinybar
+            gasPrice,
+            gasLimit: MAX_GAS_LIMIT_HEX,
+            nonce: 0,
+          };
+          const signed = await signTransaction(transaction);
+
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            JsonRpcError,
+            "Value can't be non-zero and less than 10_000_000_000 wei which is 1 tinybar",
+          );
+          sinon.assert.notCalled(saveStub);
+          sinon.assert.notCalled(lockServiceStub.acquireLock);
+        });
+      });
+
+      describe('Successful Transaction Path', () => {
+        it('should acquire lock and pass lockSessionKey to processor without releasing', async function () {
+          const signed = await signTransaction(transaction);
+
+          // Mock successful flow
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
+          lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          expect(result).to.equal(ethereumHash);
+
+          // Verify lock was acquired
+          sinon.assert.calledOnce(lockServiceStub.acquireLock);
+          sinon.assert.calledWith(lockServiceStub.acquireLock, accountAddress);
+
+          // Verify lock was NOT released in sendRawTransaction
+          // (it should be released later in the chain, in sdkClient.executeTransaction)
+          sinon.assert.notCalled(lockServiceStub.releaseLock);
+
+          // Verify no error logs
+          sinon.assert.notCalled(loggerErrorStub);
+        });
+
+        it('should be able to add more than 1 transaction into the pending queue', async function () {
+          const txPool = ethImpl['transactionService']['transactionPoolService'] as any;
+
+          const saveStub = sinon.stub(txPool, 'saveTransaction').resolves();
+          const removeStub = sinon.stub(txPool, 'removeTransaction').resolves();
+
+          const firstTransaction = await signTransaction(transaction);
+          const secondTransaction = await signTransaction({ ...transaction, nonce: 1 });
+
+          restMock.onGet(receiverAccountEndpoint).reply(async () => {
+            await new Promise((r) => setTimeout(r, 5000));
+            return [200, ACCOUNT_RES];
+          });
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'test-session-key-success', acquiredAt: currentTime });
+          lockServiceStub.releaseLock.resolves(); // Won't be called in sendRawTransaction
+
+          const resultPromises = [
+            ethImpl.sendRawTransaction(firstTransaction, requestDetails),
+            ethImpl.sendRawTransaction(secondTransaction, requestDetails),
+          ];
+          await Promise.all(resultPromises);
+
+          const firstSave = saveStub.getCall(0);
+          const secondSave = saveStub.getCall(1);
+          const firstRemove = removeStub.getCall(0);
+
+          // Make sure we make continious save calls one after another before we start removing transactions from queue.
+          // This means that, at some point, we had both transactions in the pool.
+          sinon.assert.match(firstSave.calledBefore(secondSave), true);
+          sinon.assert.match(secondSave.calledBefore(firstRemove), true);
+        });
+
+        withOverriddenEnvsInMochaTest({ ENABLE_NONCE_ORDERING: false }, () => {
+          it('should not get session key when ENABLE_NONCE_ORDERING is disabled', async function () {
+            const signed = await signTransaction(transaction);
+
+            // Mock successful flow
+            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            expect(result).to.equal(ethereumHash);
+
+            // Verify lock was NOT acquired when feature is disabled
+            sinon.assert.calledOnce(lockServiceStub.acquireLock);
+            const returnValue = await lockServiceStub.acquireLock.getCall(0).returnValue;
+            expect(returnValue).to.equal(undefined);
+            sinon.assert.notCalled(lockServiceStub.releaseLock);
+          });
+        });
+      });
+    });
+
+    describe('Consensus Submission Lock Release', () => {
+      overrideEnvsInMochaDescribe({ ENABLE_NONCE_ORDERING: true });
+
+      let lockServiceStub: sinon.SinonStubbedInstance<LockService>;
+      let sendRawTransactionProcessorSpy: sinon.SinonSpy;
+
+      beforeEach(() => {
+        lockServiceStub = sinon.createStubInstance(LockService);
+        ethImpl['transactionService']['lockService'] = lockServiceStub;
+        sendRawTransactionProcessorSpy = sinon.spy(ethImpl['transactionService'], 'sendRawTransactionProcessor');
+      });
+
+      afterEach(() => {
+        sendRawTransactionProcessorSpy.restore();
+      });
+
+      it('should release lock immediately after consensus submission succeeds', async function () {
+        const signed = await signTransaction(transaction);
+        const computeHashSpy = sinon.spy(Utils, 'computeTransactionHash');
+
+        try {
+          // Mock successful flow
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+          const currentTime = process.hrtime.bigint();
+          lockServiceStub.acquireLock.resolves({ sessionKey: 'session-after-consensus-1', acquiredAt: currentTime });
+          lockServiceStub.releaseLock.resolves();
+
+          sdkClientStub.submitEthereumTransaction.resolves({
+            txResponse: {
+              transactionId: TransactionId.fromString(transactionIdServicesFormat),
+            } as unknown as TransactionResponse,
+            fileId: null,
+          });
+
+          const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+          // In async mode, wait for background processing to complete
+          if (useAsyncTxProcessing) {
+            await clock.tickAsync(1);
+          }
+
+          expect(result).to.equal(ethereumHash);
+
+          // Verify lock was released after submitEthereumTransaction
+          sinon.assert.calledOnce(lockServiceStub.releaseLock);
+          sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-after-consensus-1');
+
+          expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+
+          // In async mode, verify computeHash was called before lock release
+          if (useAsyncTxProcessing) {
+            sinon.assert.called(computeHashSpy);
+            expect(sendRawTransactionProcessorSpy.calledBefore(computeHashSpy)).to.be.true;
+            expect(computeHashSpy.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+          }
+        } finally {
+          computeHashSpy.restore();
+        }
+      });
+
+      it('should not release lock when lockSessionKey is undefined', async function () {
+        const signed = await signTransaction(transaction);
+
+        // Mock successful flow
+        restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+        restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+        restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+        // Lock acquisition returns undefined (lock not acquired)
+        lockServiceStub.acquireLock.resolves(undefined as any);
+        lockServiceStub.releaseLock.resolves();
+
+        sdkClientStub.submitEthereumTransaction.resolves({
+          txResponse: {
+            transactionId: TransactionId.fromString(transactionIdServicesFormat),
+          } as unknown as TransactionResponse,
+          fileId: null,
+        });
+
+        const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+        expect(result).to.equal(ethereumHash);
+
+        // Verify lock release was NOT attempted
+        sinon.assert.notCalled(lockServiceStub.releaseLock);
+      });
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        it('should release lock during synchronous processing when async mode is disabled', async function () {
+          const signed = await signTransaction(transaction);
+          const computeHashSpy = sinon.spy(Utils, 'computeTransactionHash');
+
+          try {
+            // Mock successful flow
+            restMock.onGet(accountEndpoint).reply(200, JSON.stringify(ACCOUNT_RES));
+            restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+            restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+
+            const currentTime = process.hrtime.bigint();
+            lockServiceStub.acquireLock.resolves({ sessionKey: 'session-sync', acquiredAt: currentTime });
+            lockServiceStub.releaseLock.resolves();
+
+            sdkClientStub.submitEthereumTransaction.resolves({
+              txResponse: {
+                transactionId: TransactionId.fromString(transactionIdServicesFormat),
+              } as unknown as TransactionResponse,
+              fileId: null,
+            });
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+
+            // Hash should be computed, not fetched from the mirror node
+            expect(result).to.equal(ethereumHash);
+            expect(wasContractResultEndpointCalled()).to.be.false;
+            sinon.assert.calledOnce(computeHashSpy);
+
+            // Verify lock was released during synchronous execution (no need to tick clock)
+            sinon.assert.calledOnce(lockServiceStub.releaseLock);
+            sinon.assert.calledWith(lockServiceStub.releaseLock, accountAddress, 'session-sync');
+
+            expect(sdkClientStub.submitEthereumTransaction.calledBefore(lockServiceStub.releaseLock)).to.be.true;
+          } finally {
+            computeHashSpy.restore();
+          }
+        });
+      });
+    });
+
+    describe('SDK Consensus Errors', function () {
+      /**
+       * Tests that SDK consensus errors are properly surfaced to clients instead of being
+       * masked by returning a transaction hash. These errors occur when a transaction
+       * reaches consensus but fails validation at the network level.
+       *
+       * Note: WRONG_NONCE is excluded here and tested separately due to special handling that
+       * converts it to NONCE_TOO_HIGH or NONCE_TOO_LOW based on account state.
+       */
+      const SDK_CONSENSUS_ERRORS: Array<{ statusName: string; statusCode: number }> = ConfigService.get(
+        'HEDERA_SPECIFIC_REVERT_STATUSES',
+      )
+        .filter((statusName) => statusName !== 'WRONG_NONCE')
+        .map((statusName) => {
+          // Convert SNAKE_CASE to PascalCase (e.g., 'INVALID_ACCOUNT_ID' → 'InvalidAccountId')
+          const pascalCase = statusName
+            .split('_')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join('');
+
+          const statusValue = (Status as any)[pascalCase];
+          if (!statusValue) {
+            throw new Error(`Status.${pascalCase} not found in Hedera SDK Status enum`);
+          }
+
+          return {
+            statusName,
+            statusCode: statusValue._code,
+          };
+        });
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        SDK_CONSENSUS_ERRORS.forEach(({ statusName, statusCode }) => {
+          it(`should throw TRANSACTION_REJECTED for ${statusName} without polling MN`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws error with transaction ID (simulating consensus-level failure)
+            // Use Status._fromCode to create proper Status object matching real SDK behavior
+            const sdkError = new SDKClientError(
+              { status: Status._fromCode(statusCode), message: statusName },
+              statusName,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+
+            // Set up MN mock (should NOT be called for consensus errors)
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            // Should throw TRANSACTION_REJECTED JsonRpcError, not return the hash from Mirror Node
+            const expectedError = predefined.TRANSACTION_REJECTED(statusName, statusName);
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+              JsonRpcError,
+              expectedError.message,
+            );
+
+            // Verify Mirror Node contracts/results/ endpoint was NOT called
+            expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        /**
+         * Timeout error should be thrown immediately without MN polling
+         */
+        const SDK_TIMEOUT_ERRORS: Array<{ name: string; statusCode: number; message: string }> = [
+          { name: 'timeout exceeded', statusCode: Status.Unknown._code, message: 'timeout exceeded' },
+          { name: 'Connection dropped', statusCode: Status.Unknown._code, message: 'Connection dropped' },
+          {
+            name: 'gRPC timeout',
+            statusCode: Status.InvalidTransactionId._code,
+            message: 'gRPC timeout',
+          },
+        ];
+
+        SDK_TIMEOUT_ERRORS.forEach(({ name, statusCode, message }) => {
+          it(`should throw SDK timeout error (${name}) immediately without polling Mirror Node`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws timeout error with transaction ID
+            const timeoutError = new SDKClientError(
+              { status: { _code: statusCode }, message },
+              message,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(timeoutError);
+
+            // Timeout error should be thrown immediately without MN polling
+            await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+              SDKClientError,
+              message,
+            );
+
+            // Verify Mirror Node contracts/results/ endpoint was NOT called
+            expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        /**
+         * Post-execution errors (not in HEDERA_SPECIFIC_REVERT_STATUSES) should trigger
+         * Mirror Node polling because the transaction executed on the network and has a
+         * valid transaction record, even though it failed.
+         *
+         * Examples: CONTRACT_REVERT_EXECUTED, INVALID_CONTRACT_ID, INVALID_ALIAS_KEY
+         */
+        const POST_EXECUTION_ERRORS: Array<{ statusName: string; statusCode: number }> = [
+          { statusName: 'CONTRACT_REVERT_EXECUTED', statusCode: Status.ContractRevertExecuted._code },
+          { statusName: 'INVALID_CONTRACT_ID', statusCode: Status.InvalidContractId._code },
+          { statusName: 'INVALID_ALIAS_KEY', statusCode: Status.InvalidAliasKey._code },
+        ];
+
+        POST_EXECUTION_ERRORS.forEach(({ statusName, statusCode }) => {
+          it(`should poll Mirror Node for ${statusName} and return hash when transaction executed`, async function () {
+            // Reset history to ensure we're only checking calls from this test
+            restMock.resetHistory();
+            const signed = await signTransaction(transaction);
+
+            // SDK throws post-execution error with transaction ID
+            const sdkError = new SDKClientError(
+              { status: Status._fromCode(statusCode), message: statusName },
+              statusName,
+              transactionIdServicesFormat,
+            );
+            sdkClientStub.submitEthereumTransaction.throws(sdkError);
+
+            // Mirror Node returns transaction hash (transaction executed but failed)
+            restMock.onGet(contractResultEndpoint).reply(200, JSON.stringify({ hash: ethereumHash }));
+
+            const result = await ethImpl.sendRawTransaction(signed, requestDetails);
+            expect(result).to.equal(ethereumHash);
+
+            // Verify Mirror Node contracts/results/ endpoint WAS NOT called for post-execution errors
+            expect(wasContractResultEndpointCalled()).to.be.false;
+          });
+        });
+
+        it('should throw immediately for non-SDKClientError errors without polling MN', async function () {
+          // Reset history to ensure we're only checking calls from this test
+          restMock.resetHistory();
+          const signed = await signTransaction(transaction);
+
+          // Non-SDK error thrown during transaction submission
+          const genericError = new Error('Generic network failure');
+          sdkClientStub.submitEthereumTransaction.throws(genericError);
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails)).to.be.rejectedWith(
+            Error,
+            'Generic network failure',
+          );
+
+          // Verify Mirror Node contracts/results/ endpoint was NOT called
+          expect(wasContractResultEndpointCalled()).to.be.false;
+        });
+      });
+    });
+
+    describe('WRONG_NONCE Error Handling', function () {
+      /**
+       * Tests that WRONG_NONCE errors are properly converted to NONCE_TOO_HIGH or NONCE_TOO_LOW
+       * based on comparing the transaction nonce with the current account nonce from Mirror Node.
+       */
+
+      /**
+       * Helper to check if the Mirror Node accounts endpoint was called.
+       */
+      const wasAccountEndpointCalled = (): boolean => {
+        return restMock.history.get.some((req) => req.url?.includes('accounts/'));
+      };
+
+      withOverriddenEnvsInMochaTest({ USE_ASYNC_TX_PROCESSING: false }, () => {
+        it('should throw NONCE_TOO_HIGH when transaction nonce > account nonce', async function () {
+          // Create transaction with nonce 10
+          const txWithHighNonce = {
+            ...transaction,
+            nonce: 10,
+          };
+          const signed = await signTransaction(txWithHighNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set nonce 5 (lower than tx nonce 10)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.NONCE_TOO_HIGH(10, 5).code) &&
+                expect(error.message).to.include('Nonce too high'),
+            );
+
+          // Verify accounts endpoint WAS called to get current nonce
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw NONCE_TOO_LOW when transaction nonce < account nonce', async function () {
+          // Create transaction with nonce 3
+          const txWithLowNonce = {
+            ...transaction,
+            nonce: 3,
+          };
+          const signed = await signTransaction(txWithLowNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set nonce 8 (higher than tx nonce 3)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 8 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.NONCE_TOO_LOW(3, 8).code) &&
+                expect(error.message).to.include('Nonce too low'),
+            );
+
+          // Verify accounts endpoint WAS called to get current nonce
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw TRANSACTION_REJECTED when Mirror Node cannot determine nonce discrepancy', async function () {
+          // Create transaction with specific nonce
+          const txWithNonce = {
+            ...transaction,
+            nonce: 5,
+          };
+          const signed = await signTransaction(txWithNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset the account mock and set same nonce as transaction (cannot determine difference)
+          restMock.resetHistory();
+          restMock.onGet(accountEndpoint).reply(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }));
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
+            );
+
+          // Verify accounts endpoint WAS called
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+
+        it('should throw TRANSACTION_REJECTED when Mirror Node request fails', async function () {
+          // Create transaction with specific nonce
+          const txWithNonce = {
+            ...transaction,
+            nonce: 5,
+          };
+          const signed = await signTransaction(txWithNonce);
+
+          // SDK throws WRONG_NONCE error with proper Status object
+          const wrongNonceError = new SDKClientError(
+            { status: Status.WrongNonce, message: 'WRONG_NONCE' },
+            'WRONG_NONCE',
+            transactionIdServicesFormat,
+          );
+          sdkClientStub.submitEthereumTransaction.throws(wrongNonceError);
+
+          // Reset all handlers, then set up responses:
+          // - network/fees, networkExchangeRate, receiverAccount needed for precheck
+          // - First accountEndpoint call (precheck) succeeds
+          // - Second accountEndpoint call (during WRONG_NONCE handler) fails with 500
+          restMock.reset();
+          restMock.onGet('network/fees').reply(200, JSON.stringify(DEFAULT_NETWORK_FEES));
+          restMock.onGet(networkExchangeRateEndpoint).reply(200, JSON.stringify(mockedExchangeRate));
+          restMock.onGet(receiverAccountEndpoint).reply(200, JSON.stringify(RECEIVER_ACCOUNT_RES));
+          restMock
+            .onGet(accountEndpoint)
+            .replyOnce(200, JSON.stringify({ ...ACCOUNT_RES, ethereum_nonce: 5 }))
+            .onGet(accountEndpoint)
+            .replyOnce(500);
+
+          await expect(ethImpl.sendRawTransaction(signed, requestDetails))
+            .to.be.rejectedWith(JsonRpcError)
+            .and.eventually.satisfy(
+              (error: JsonRpcError) =>
+                expect(error.code).to.equal(predefined.TRANSACTION_REJECTED('WRONG_NONCE').code) &&
+                expect(error.message).to.include(predefined.TRANSACTION_REJECTED('WRONG_NONCE').message),
+            );
+
+          // Verify accounts endpoint WAS called
+          expect(wasAccountEndpointCalled()).to.be.true;
+        });
+      });
+    });
+  });
+});

@@ -7,11 +7,7 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /home/node/app
 
-COPY package.json package-lock.json lerna.json ./
-COPY packages/config-service/package.json packages/config-service/
-COPY packages/relay/package.json           packages/relay/
-COPY packages/server/package.json          packages/server/
-COPY packages/ws-server/package.json       packages/ws-server/
+COPY package.json package-lock.json ./
 
 # Install dependencies using npm ci for deterministic builds.
 # --ignore-scripts blocks third-party lifecycle hooks (preinstall/postinstall),
@@ -21,13 +17,13 @@ RUN npm ci --ignore-scripts
 
 # Copy source code and configurations for compilation.
 COPY tsconfig.json ./
-COPY packages/ packages/
+COPY src/ src/
 COPY scripts/ scripts/
 
 # Copy OpenRPC document for runtime access by /openrpc endpoint.
 COPY docs/openrpc.json docs/
 
-# Compile packages.
+# Compile the single package.
 RUN npm run build
 
 # Stores npm_package_version required by ConfigService.
@@ -75,4 +71,4 @@ HEALTHCHECK --interval=10s --retries=3 --start-period=25s --timeout=2s \
 # Execute Node.js as PID 1 to ensure proper signal handling (SIGTERM, SIGINT).
 # Explicitly loads .env.release at startup.
 ENTRYPOINT ["node", "--env-file=/home/node/app/.env.release"]
-CMD ["packages/server/dist/index.js"]
+CMD ["dist/index.js"]
