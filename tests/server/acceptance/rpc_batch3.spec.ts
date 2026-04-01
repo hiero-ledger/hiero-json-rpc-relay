@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { predefined } from '@hashgraph/json-rpc-relay';
+import { prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
+import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
+// Helper functions/constants from local resources
+import { TYPES } from '@hashgraph/json-rpc-relay/src/lib/validators';
+import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
 import { ContractId } from '@hashgraph/sdk';
 import Axios from 'axios';
 import chai, { expect } from 'chai';
@@ -136,6 +145,24 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
         to: basicContractAddress,
         gas: numberTo0x(30000),
         data: BASIC_CONTRACT_PING_CALL_DATA,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
+    it('@release should execute "eth_call" request to Basic contract with an access list provided', async function () {
+      const callData = {
+        from: accounts[0].address,
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+        accessList: [
+          {
+            address: accounts[0].address,
+            storageKeys: [prepend0x('00'.repeat(32))],
+          },
+        ],
       };
 
       const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);

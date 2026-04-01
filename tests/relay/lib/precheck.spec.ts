@@ -974,14 +974,25 @@ describe('Precheck', async function () {
       expect(parsedTxWithMatchingChainId.accessList).to.be.empty;
     });
 
-    it('should throw NOT_YET_IMPLEMENTED for non-empty access list', function () {
+    it('should throw "not supported for legacy transactions" for non-empty access list when tx type is 0', function () {
       parsedTxWithMatchingChainId.accessList = [
         {
           address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
           storageKeys: [],
         },
       ];
-      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('Not yet implemented');
+      parsedTxWithMatchingChainId.type = 0;
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.throw('not supported for legacy transactions');
+    });
+
+    it('should successfully parse a valid transaction string with non empty access list', function () {
+      parsedTxWithMatchingChainId.accessList = [
+        {
+          address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+          storageKeys: [],
+        },
+      ];
+      expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.not.throw;
     });
   });
 });

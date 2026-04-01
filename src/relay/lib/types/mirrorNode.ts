@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AuthorizationListEntry } from '../model';
+import { AccessListEntry, AuthorizationListEntry } from '../model';
 
 export interface IAccountInfo {
   /**
@@ -64,6 +64,7 @@ export interface IContractCallRequest {
   value?: number | string | null;
   data?: string | null;
   input?: string;
+  accessList?: AccessListEntry[];
 }
 
 export interface IContractCallResponse {

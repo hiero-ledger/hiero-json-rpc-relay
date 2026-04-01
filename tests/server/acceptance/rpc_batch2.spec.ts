@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
+import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
+import { predefined } from '@hashgraph/json-rpc-relay/dist';
+import { numberTo0x, prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
+import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
+import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -231,19 +236,34 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
       expect(res).to.not.be.equal('0x0');
     });
 
-    it('should execute "eth_estimateGas" with to, from, value, accessList and gas field', async function () {
-      const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
-        {
-          from: accounts[0].address,
-          to: accounts[1].address,
-          value: '0x1',
-          gas: '0xd97010',
-          accessList: [],
-        },
-      ]);
-      expect(res).to.contain('0x');
-      expect(res).to.not.be.equal('0x');
-      expect(res).to.not.be.equal('0x0');
+    [
+      {
+        accessListLabel: 'accessList',
+        accessList: [],
+      },
+      {
+        accessListLabel: 'non-empty accessList',
+        accessList: [
+          {
+            address: prepend0x('11'.repeat(20)),
+            storageKeys: [prepend0x('00'.repeat(32))],
+          },
+        ],
+      },
+    ].forEach(({ accessListLabel, accessList }) => {
+      it(`should execute "eth_estimateGas" with to, from, value, ${accessListLabel} and gas field`, async function () {
+        const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_ESTIMATE_GAS, [
+          {
+            from: accounts[0].address,
+            to: accounts[1].address,
+            value: '0x1',
+            gas: '0xd97010',
+            accessList,
+          },
+        ]);
+        expect(res).to.contain('0x');
+        expect(res).to.not.be.oneOf(['0x', '0x0']);
+      });
     });
 
     it('should execute "eth_estimateGas" with `to` field set to null (deployment transaction)', async function () {

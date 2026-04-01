@@ -110,10 +110,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
     });
 
     describe('accessList', function () {
-      it('should fail when calling "eth_sendRawTransaction" with non-empty access list', async function () {
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and tx type = 0', async function () {
         const gasPrice = await relay.gasPrice();
         const transaction = {
-          type: 2,
+          type: 0,
           chainId: Number(CHAIN_ID),
           nonce: await relay.getAccountNonce(accounts[1].address),
           maxPriorityFeePerGas: gasPrice,
@@ -130,6 +130,49 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
 
         const signedTx = await accounts[1].wallet.signTransaction(transaction);
         await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
+      });
+
+      // This test requires access list support in both the consensus node and the client SDK.
+      // Currently, it fails to decode a correctly formatted access list because it expects
+      // an array of strings. However, an access list maps each address to multiple storage keys.
+      // https://github.com/hiero-ledger/hiero-sdk-js/blob/main/src/EthereumTransactionDataEip1559.js#L16
+      // Related issue: https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5139
+      it('should succeed when calling "eth_sendRawTransaction" with non-empty access list and tx type != 0', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          gasLimit: defaultGasLimit,
+          accessList: [
+            {
+              address: '0x67D8d32E9Bf1a9968a5ff53B87d777Aa8EBBEe69',
+              storageKeys: [prepend0x('00'.repeat(32))],
+            },
+          ],
+          to: accounts[0].address,
+        };
+
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.exist;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getTransactionByHash.
+        const tx = await relay.call('eth_getTransactionByHash', [transactionHash]);
+        expect(tx).to.have.property('accessList').that.is.an('array');
+        expect(tx.accessList).to.not.be.empty;
+
+        // Now verify if this access list is present in the transaction fetched by eth_getBlockByNumber.
+        const block = await relay.call('eth_getBlockByNumber', [tx.blockNumber, true]);
+        expect(block).to.have.property('transactions').that.is.an('array');
+        const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
+        expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
+        expect(transactionInBlock.accessList).to.not.be.empty;
       });
 
       it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {

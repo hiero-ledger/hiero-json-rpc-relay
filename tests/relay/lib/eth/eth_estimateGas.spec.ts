@@ -715,6 +715,29 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect(transaction.gas).to.eq(14250000);
   });
 
+  it('should keep the received accessList and not lose it before submitting to the MirrorNode', async () => {
+    const transaction = {
+      from: '0x05fba803be258049a27b820088bab1cad2058871',
+      value: '0xA186B8E9800',
+      gasPrice: '0xF4240',
+      gas: '0xd97010',
+      accessList: [
+        {
+          address: '0x05fba803be258049a27b820088bab1cad2058871',
+          storageKeys: ['0x0000000000000000000000000000000000000000000000000000000000000000'],
+        },
+      ],
+    };
+
+    await contractService['contractCallFormat'](transaction, requestDetails);
+    expect(transaction.accessList).to.have.lengthOf(1);
+    expect(transaction.accessList[0].address).to.be.eq('0x05fba803be258049a27b820088bab1cad2058871');
+    expect(transaction.accessList[0].storageKeys).to.have.lengthOf(1);
+    expect(transaction.accessList[0].storageKeys[0]).to.be.eq(
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+    );
+  });
+
   describe('eth_estimateGas with mirror node 5xx server errors', function () {
     const serverErrorStatusCodes = [429, 500, 501, 502, 503, 504];
 
