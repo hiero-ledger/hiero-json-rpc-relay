@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
 import { expect } from 'chai';
 import { Logger } from 'pino';
 import sinon from 'sinon';
 
-import { numberTo0x } from '../../../../src/formatters';
-import * as blockGasLimit from '../../../../src/lib/config/blockGasLimit';
-import constants from '../../../../src/lib/constants';
-import { FeeService } from '../../../../src/lib/services/ethService/feeService/FeeService';
-import { RequestDetails } from '../../../../src/lib/types';
-import { IFeeHistory } from '../../../../src/lib/types/IFeeHistory';
-import { MirrorNodeBlock } from '../../../../src/lib/types/mirrorNode';
+import { ConfigService } from '../../../../../src/config-service/services';
+import { numberTo0x } from '../../../../../src/relay/formatters';
+import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
+import constants from '../../../../../src/relay/lib/constants';
+import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
+import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
 
 describe('FeeService', function () {
   const requestDetails = new RequestDetails({ requestId: 'feeServiceUnitTest', ipAddress: '0.0.0.0' });
