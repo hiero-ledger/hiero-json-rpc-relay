@@ -313,8 +313,8 @@ export class Precheck {
 
     // EIP-2930: Add access list cost
     const accessList = tx.accessList || [];
-    standardIntrinsicGas += constants.ACCESS_LIST_ADDRESS_COST * accessList.length;
     standardIntrinsicGas +=
+      constants.ACCESS_LIST_ADDRESS_COST * accessList.length +
       constants.ACCESS_LIST_STORAGE_KEY_COST * accessList.flatMap(({ storageKeys }) => storageKeys).length;
 
     // EIP-7623: Floor price for calldata-heavy transactions
