@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { ConfigService } from '../../../src/config-service/services';
 import { JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
+import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';
 import RelayAssertions from '../../relay/assertions';
 
@@ -25,7 +26,6 @@ export default class Assertions {
   static defaultGasPrice = 710_000_000_000;
   static datedGasPrice = 570_000_000_000;
   static updatedGasPrice = 640_000_000_000;
-  static maxBlockGasLimit = 30_000_000;
   static defaultGasUsed = 0.5;
 
   public static readonly gasPriceDeviation = ConfigService.get('TEST_GAS_PRICE_DEVIATION');
@@ -97,9 +97,10 @@ export default class Assertions {
     expect(relayResponse.logsBloom, "Assert block: 'logsBloom' should equal mirrorNode response").to.eq(
       mirrorNodeResponse.logs_bloom === Assertions.emptyHex ? constants.EMPTY_BLOOM : mirrorNodeResponse.logs_bloom,
     );
-    expect(relayResponse.gasLimit, "Assert block: 'gasLimit' should equal 'maxBlockGasLimit'").to.equal(
-      ethers.toQuantity(Assertions.maxBlockGasLimit),
-    );
+    expect(
+      relayResponse.gasLimit,
+      "Assert block: 'gasLimit' should equal block gas limit for the given HAPI version",
+    ).to.eq(ethers.toQuantity(obtainBlockGasLimit(mirrorNodeResponse.hapi_version)));
 
     // Assert dynamic values
     expect(relayResponse.hash, "Assert block: 'hash' should equal mirrorNode response").to.be.equal(
