@@ -98,6 +98,12 @@ hiero-relay -n testnet -r -l debug --logging-path ./logs/relay.log
 hiero-relay -n testnet -r --rpc-ws-enabled true
 ```
 
+**Start relay with ws server only:**
+
+```bash
+hiero-relay -n testnet -r --rpc-http-enabled false --rpc-ws-enabled true
+```
+
 **Start relay with both http and ws servers with specific subdomains**
 
 ```bash
