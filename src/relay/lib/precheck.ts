@@ -73,6 +73,7 @@ export class Precheck {
     this.gasLimit(parsedTx);
     this.chainId(parsedTx);
     this.value(parsedTx);
+    this.accessList(parsedTx);
   }
 
   /**
@@ -102,7 +103,6 @@ export class Precheck {
     const signerNonce = mirrorAccountInfo.ethereum_nonce + pendingTransactions - 1;
     this.nonce(parsedTx, signerNonce);
     this.balance(parsedTx, mirrorAccountInfo.balance);
-    this.accessList(parsedTx);
     await this.receiverAccount(parsedTx, requestDetails);
   }
 
@@ -241,11 +241,14 @@ export class Precheck {
   }
 
   /**
-   * Checks if the value of the access was not set.
-   * @param tx - The transaction.
+   * Checks if the value of the access was not set for legacy transactions.
+   *
+   * @param tx - The transaction to validate.
    */
   accessList(tx: Transaction): void {
-    if (tx.accessList?.length) throw predefined.NOT_YET_IMPLEMENTED;
+    if (Number(tx.type) === 0 && (tx.accessList ?? []).length > 0) {
+      throw predefined.INVALID_PARAMETER('accessList', 'not supported for legacy transactions');
+    }
   }
 
   /**

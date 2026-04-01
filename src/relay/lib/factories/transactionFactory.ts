@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { AccessList } from 'ethers';
+
 import {
   nanOrNumberInt64To0x,
   nanOrNumberTo0x,
@@ -11,7 +13,15 @@ import {
   trimPrecedingZeros,
 } from '../../formatters';
 import constants from '../constants';
-import { AuthorizationListEntry, Log, Transaction, Transaction1559, Transaction2930, Transaction7702 } from '../model';
+import {
+  AccessListEntry,
+  AuthorizationListEntry,
+  Log,
+  Transaction,
+  Transaction1559,
+  Transaction2930,
+  Transaction7702,
+} from '../model';
 
 // TransactionFactory is a factory class that creates a Transaction object based on the type of transaction.
 export class TransactionFactory {
@@ -22,19 +32,19 @@ export class TransactionFactory {
       case 1:
         return new Transaction2930({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
         }); // eip 2930 fields
       case 2:
         return new Transaction1559({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
         }); // eip 1559 fields
       case 4:
         return new Transaction7702({
           ...fields,
-          accessList: [],
+          accessList: formatAccessList(fields.accessList),
           maxPriorityFeePerGas: formatGasFee(fields.maxPriorityFeePerGas),
           maxFeePerGas: formatGasFee(fields.maxFeePerGas),
           authorizationList: formatAuthorizationList(fields.authorizationList),
@@ -47,14 +57,12 @@ export class TransactionFactory {
   }
 
   /**
-   * Creates a transaction object from a log entry
+   * Creates a transaction object from a log entry. All the synthetic transactions are treated as legacy transactions.
    * @param log The log entry containing transaction data
-   * @param type Transaction type (2 by default)
    * @returns {Transaction | null} A Transaction object or null if creation fails
    */
-  public static createTransactionFromLog(chainId: string, log: Log, type: number = 2): Transaction | null {
-    return TransactionFactory.createTransactionByType(type, {
-      accessList: undefined, // we don't support access lists for now
+  public static createTransactionFromLog(chainId: string, log: Log): Transaction | null {
+    return TransactionFactory.createTransactionByType(0, {
       blockHash: log.blockHash,
       blockNumber: log.blockNumber,
       chainId: chainId,
@@ -70,7 +78,7 @@ export class TransactionFactory {
       s: constants.EMPTY_HEX,
       to: log.address,
       transactionIndex: log.transactionIndex,
-      type: numberTo0x(type), // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
+      type: constants.ZERO_HEX, // 0x0 for legacy transactions, 0x1 for access list types, 0x2 for dynamic fees.
       v: constants.ZERO_HEX,
       value: constants.ZERO_HEX,
     });
@@ -99,14 +107,44 @@ const formatAuthorizationList = (authorizationList: any): AuthorizationListEntry
           ...item, // additional properties remain allowed for authorization list items
           chainId: !item.chainId ? constants.ZERO_HEX : prepend0x(item.chainId),
           nonce: !item.nonce ? constants.ZERO_HEX : prepend0x(item.nonce),
-          address: !item.address
-            ? constants.ZERO_ADDRESS_HEX
-            : `0x${item.address.replace(/^0x/i, '').slice(-40).padStart(40, '0')}`,
+          address: formatAddress(item.address),
           yParity: !item.yParity ? constants.ZERO_HEX : prepend0x(item.yParity).substring(0, 4),
           r: !item.r ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.r.substring(0, 66)),
           s: !item.s ? constants.ZERO_HEX : stripLeadingZeroForSignatures(item.s.substring(0, 66)),
         }))
     : [];
+
+/**
+ * Formats an access list by normalizing and sanitizing its fields.
+ *
+ * @param {any} accessList - The raw access list.
+ * @returns {AccessListEntry[]} A normalized access list.
+ */
+const formatAccessList = (accessList: any): AccessListEntry[] =>
+  accessList && Array.isArray(accessList)
+    ? accessList
+        .filter((item: any) => item !== null && typeof item === 'object')
+        .map((item: any) => ({
+          address: formatAddress(item.address),
+          storageKeys: item.storageKeys ?? [],
+        }))
+    : [];
+
+/**
+ * Formats an address by normalizing and sanitizing its format.
+ *
+ * @param {any} address - The value received.
+ * @returns {string} - The formatted address as a 0x-prefixed hex string with a length of 40 characters.
+ */
+const formatAddress = (address: any): string => {
+  if (!address) return constants.ZERO_ADDRESS_HEX;
+  return prepend0x(
+    address
+      .replace(new RegExp(`^${constants.EMPTY_HEX}`, 'i'), '')
+      .slice(-40)
+      .padStart(40, '0'),
+  );
+};
 
 /**
  * Formats a gas fee value into a 0x-prefixed hex string.
@@ -156,5 +194,6 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
     maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
     maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
+    accessList: cr.access_list,
   });
 };
