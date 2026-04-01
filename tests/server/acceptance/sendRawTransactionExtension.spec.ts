@@ -2,6 +2,7 @@
 
 // External resources
 import { expect } from 'chai';
+import { Transaction } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 // Other imports
@@ -9,6 +10,7 @@ import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 // Errors and constants from local resources
 import { predefined } from '../../../src/relay/lib/errors/JsonRpcError';
+import { Precheck } from '../../../src/relay/lib/precheck';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
 import { overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../relay/helpers';
@@ -172,6 +174,27 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
         const transactionInBlock = block.transactions.find((t: any) => t.hash === transactionHash);
         expect(transactionInBlock).to.have.property('accessList').that.is.an('array');
         expect(transactionInBlock.accessList).to.not.be.empty;
+      });
+
+      it('should fail when calling "eth_sendRawTransaction" with non-empty access list and access list not taken into consideration when calculating gas limit', async function () {
+        const gasPrice = await relay.gasPrice();
+        const transaction = {
+          type: 2,
+          chainId: Number(CHAIN_ID),
+          nonce: await relay.getAccountNonce(accounts[1].address),
+          maxPriorityFeePerGas: gasPrice,
+          maxFeePerGas: gasPrice,
+          to: accounts[0].address,
+        } as unknown as Transaction;
+        transaction.gasLimit = Precheck.transactionIntrinsicGasCost(transaction);
+        transaction.accessList = [
+          {
+            address: accounts[0].address,
+            storageKeys: [],
+          },
+        ];
+        const signedTx = await accounts[1].wallet.signTransaction(transaction);
+        await expect(relay.sendRawTransaction(signedTx)).to.eventually.be.rejected;
       });
 
       it('should succeed when calling "eth_sendRawTransaction" with an empty access list', async function () {
