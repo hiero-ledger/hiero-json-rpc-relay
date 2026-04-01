@@ -3,6 +3,7 @@
 import Koa from 'koa';
 import { Logger } from 'pino';
 
+import { ConfigService } from '../../config-service/services';
 import { JsonRpcError, predefined, Relay } from '../../relay';
 import { MirrorNodeClient } from '../../relay/lib/clients';
 import { RequestDetails } from '../../relay/lib/types';
@@ -29,6 +30,8 @@ export type ISharedParams = {
   requestDetails: RequestDetails;
   subscriptionService: SubscriptionService;
 };
+
+const RELAY_RPC_WS_API = ConfigService.get('RELAY_RPC_WS_API');
 
 /**
  * Handles sending requests to a Relay by calling a specified method with given parameters.
@@ -95,6 +98,11 @@ export const getRequestResult = async (
   // Extract the method and parameters from the received request
   // eslint-disable-next-line prefer-const
   let { method, params } = request;
+
+  const subdomain = method.split('_')[0] ?? null;
+  if (RELAY_RPC_WS_API.indexOf(subdomain) === -1) {
+    return jsonRespError(null, spec.MethodNotFound(subdomain), requestDetails.requestId);
+  }
 
   // support go-ethereum client by turning undefined into empty array
   if (!params) params = [];
