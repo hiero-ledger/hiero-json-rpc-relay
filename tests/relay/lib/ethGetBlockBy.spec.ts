@@ -182,7 +182,6 @@ describe('eth_getBlockBy', async function () {
   describe('populateSyntheticTransactions w showDetails=true', () => {
     const getTransactionModel = (transactionHash: string) => {
       return new Transaction({
-        accessList: undefined,
         blockHash: toHash32(defaultDetailedContractResults.block_hash),
         blockNumber: numberTo0x(defaultDetailedContractResults.block_number),
         chainId: defaultDetailedContractResults.chain_id,

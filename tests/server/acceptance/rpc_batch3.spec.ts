@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { predefined } from '@hashgraph/json-rpc-relay';
-import { prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { numberTo0x } from '@hashgraph/json-rpc-relay/src/formatters';
-import { TracerType } from '@hashgraph/json-rpc-relay/src/lib/constants';
-// Helper functions/constants from local resources
-import { TYPES } from '@hashgraph/json-rpc-relay/src/lib/validators';
-import RelayAssertions from '@hashgraph/json-rpc-relay/tests/assertions';
 import { ContractId } from '@hashgraph/sdk';
 import Axios from 'axios';
 import chai, { expect } from 'chai';
@@ -18,7 +9,7 @@ import { BaseContract, ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x } from '../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { TracerType } from '../../../src/relay/lib/constants';
 // Helper functions/constants from local resources

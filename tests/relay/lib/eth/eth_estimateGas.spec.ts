@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256 } from 'ethers';
+import { AbiCoder, keccak256, Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -11,15 +11,15 @@ import { numberTo0x } from '../../../../src/relay/formatters';
 import { SDKClient } from '../../../../src/relay/lib/clients';
 import constants from '../../../../src/relay/lib/constants';
 import { predefined } from '../../../../src/relay/lib/errors/JsonRpcError';
-import { MirrorNodeClientError } from '../../../../src/relay/lib/errors/MirrorNodeClientError';
 import { EthImpl } from '../../../../src/relay/lib/eth';
+import { Precheck } from '../../../../src/relay/lib/precheck';
 import {
   LocalPendingTransactionStorage,
   LockService,
   TransactionPoolService,
 } from '../../../../src/relay/lib/services';
 import { IContractCallRequest, IContractCallResponse, RequestDetails } from '../../../../src/relay/lib/types';
-import { mockData, overrideEnvsInMochaDescribe } from '../../helpers';
+import { mockData, overrideEnvsInMochaDescribe, withOverriddenEnvsInMochaTest } from '../../helpers';
 import {
   ACCOUNT_ADDRESS_1,
   DEFAULT_NETWORK_FEES,
@@ -28,7 +28,6 @@ import {
   RECEIVER_ADDRESS,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
-import { Precheck } from '../../../src/lib/precheck';
 
 use(chaiAsPromised);
 
@@ -681,6 +680,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
 
   it('should handle estimateGas error and return INTERNAL_ERROR', async function () {
     const originalEstimateGas = contractService.estimateGas;
+    // @ts-ignore
     contractService.estimateGas = async () => {
       return predefined.INTERNAL_ERROR('Test error for estimateGas');
     };
@@ -688,7 +688,9 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     const result = await ethImpl.estimateGas(transaction, null, requestDetails);
 
     expect(result).to.be.an('error');
+    // @ts-ignore
     expect((result as JsonRpcError).code).to.equal(-32603);
+    // @ts-ignore
     expect((result as JsonRpcError).message).to.contain('Test error for estimateGas');
 
     contractService.estimateGas = originalEstimateGas;

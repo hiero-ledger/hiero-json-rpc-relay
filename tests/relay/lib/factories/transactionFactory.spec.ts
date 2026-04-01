@@ -137,8 +137,8 @@ describe('TransactionFactory', () => {
       expect(tx.gasPrice).to.equal(constants.INVALID_EVM_INSTRUCTION);
       expect(tx.input).to.equal(constants.ZERO_HEX_8_BYTE);
 
-      expect(tx).to.have.property('maxPriorityFeePerGas').that.equals(constants.ZERO_HEX);
-      expect(tx).to.have.property('maxFeePerGas').that.equals(constants.ZERO_HEX);
+      expect(tx).to.not.have.property('maxPriorityFeePerGas');
+      expect(tx).to.not.have.property('maxFeePerGas');
       expect(tx.nonce).to.equal(numberTo0x(0));
 
       expect(tx.r).to.equal(constants.EMPTY_HEX);
