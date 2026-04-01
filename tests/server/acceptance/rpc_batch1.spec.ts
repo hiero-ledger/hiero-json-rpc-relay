@@ -2421,7 +2421,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         });
 
         if (!useAsyncTxProcessing) {
-          it('@release fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with a higher nonce', async function () {
+          it('fail "eth_getTransactionReceipt" on precheck with wrong nonce error when sending a tx with a higher nonce and async tx processing is disabled', async function () {
             const nonce = await relay.getAccountNonce(accounts[2].address);
 
             const transaction = {
