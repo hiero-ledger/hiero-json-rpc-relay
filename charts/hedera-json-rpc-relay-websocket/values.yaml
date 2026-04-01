@@ -10,6 +10,10 @@ autoscaling:
 
 # For reference see .env.ws.example
 config:
+  # Transport Selection
+  RPC_HTTP_ENABLED: false
+  RPC_WS_ENABLED: true
+
   # ========== REQUIRED CONFIGURATION ==========
   # Network Configuration
   CHAIN_ID: ''

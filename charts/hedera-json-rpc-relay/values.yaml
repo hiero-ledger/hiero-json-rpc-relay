@@ -11,6 +11,10 @@ autoscaling:
 
 # For full reference and defaults see .env.http.example
 config:
+  # Transport Selection
+  RPC_HTTP_ENABLED: true
+  RPC_WS_ENABLED: false
+
   # Network Configuration
   CHAIN_ID: ''
   HEDERA_NETWORK: ''
