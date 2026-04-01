@@ -29,7 +29,7 @@ try {
           });
 
           if (res.error) {
-            throw new Error(res.error);
+            throw res.error;
           }
 
           childProcess = spawn('node', ['.standalone/dist/index.js'], {
@@ -71,6 +71,10 @@ try {
 
           childProcess.stderr.on('data', (err) => {
             logStream.write(err);
+          });
+
+          childProcess.on('exit', () => {
+            logStream.end();
           });
 
           console.log(`All logs are redirected to ${argv['logging-path']}`);
