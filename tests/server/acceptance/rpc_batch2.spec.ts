@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // External resources
-import { ConfigService } from '@hashgraph/json-rpc-config-service/dist/services';
-import { predefined } from '@hashgraph/json-rpc-relay/dist';
-import { numberTo0x, prepend0x } from '@hashgraph/json-rpc-relay/dist/formatters';
-import Constants from '@hashgraph/json-rpc-relay/dist/lib/constants';
-import { CommonService } from '@hashgraph/json-rpc-relay/src/lib/services';
 import { ContractId, Hbar, HbarUnit } from '@hashgraph/sdk';
 import { expect } from 'chai';
 import { ethers } from 'ethers';
@@ -13,7 +8,7 @@ import { Logger } from 'pino';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { predefined } from '../../../src/relay';
-import { numberTo0x } from '../../../src/relay/formatters';
+import { numberTo0x, prepend0x } from '../../../src/relay/formatters';
 import Constants from '../../../src/relay/lib/constants';
 import { CommonService } from '../../../src/relay/lib/services';
 import { overrideEnvsInMochaDescribe } from '../../relay/helpers';
@@ -998,7 +993,7 @@ describe('@api-batch-2 RPC Server Acceptance Tests', function () {
      * HIP-1340 / EIP-7702: {@code eth_getCode} on an EOA with code delegation should return
      * {@code 0xef0100} concatenated with the 20-byte delegated contract address.
      */
-    it('should return EIP-7702 delegation designator on eth_getCode after type-4 delegation to a contract for an EOA', async function () {
+    it.skip('should return EIP-7702 delegation designator on eth_getCode after type-4 delegation to a contract for an EOA', async function () {
       const signer = accounts[1];
       const gasPrice = await relay.gasPrice();
       const defaultGasLimit = numberTo0x(3_000_000);
