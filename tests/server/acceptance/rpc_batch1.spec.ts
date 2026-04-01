@@ -34,7 +34,7 @@ import logsContractJson from '../contracts/Logs.json';
 import parentContractJson from '../contracts/Parent.json';
 import reverterContractJson from '../contracts/Reverter.json';
 // Assertions from local resources
-import Assertions from '../helpers/assertions';
+import Assertions, { computeExpectedCumulativeGasUsed } from '../helpers/assertions';
 import RelayCalls from '../helpers/constants';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
@@ -1397,8 +1397,9 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [legacyTxHash]);
         const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of London transaction', async function () {
@@ -1421,31 +1422,45 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
         const currentPrice = await relay.gasPrice();
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release-light, @release should execute "eth_getTransactionReceipt" for hash of 2930 transaction', async function () {
         const gasPriceWithDeviation = await getGasWithDeviation(relay, gasPriceDeviation);
-        const transaction = {
-          ...defaultLegacy2930TransactionData,
-          to: parentContractAddress,
-          nonce: await relay.getAccountNonce(accounts[2].address),
-          gasPrice: gasPriceWithDeviation,
-        };
 
-        const signedTx = await accounts[2].wallet.signTransaction(transaction);
-        const transactionHash = await relay.sendRawTransaction(signedTx);
-        // Since the transactionId is not available in this context
-        // Wait for the transaction to be processed and imported in the mirror node with axios-retry
+        // Use all 4 accounts so companion transactions have independent nonces and can be sent
+        // simultaneously without ordering constraints. accounts[2] sends the test transaction.
+        const signers = [accounts[0], accounts[1], accounts[2], accounts[3]];
+        const nonces = await Promise.all(signers.map((a) => relay.getAccountNonce(a.address)));
+
+        const signedTxs = await Promise.all(
+          signers.map((signer, i) =>
+            signer.wallet.signTransaction({
+              ...defaultLegacy2930TransactionData,
+              to: parentContractAddress,
+              nonce: nonces[i],
+              gasPrice: gasPriceWithDeviation,
+            }),
+          ),
+        );
+
+        const allHashes = await Promise.all(signedTxs.map((signed) => relay.sendRawTransaction(signed)));
+        const transactionHash = allHashes[2]; // accounts[2] is the test subject
+
+        await Promise.all(allHashes.map((h) => relay.pollForValidTransactionReceipt(h)));
+
         const mirrorResult = await mirrorNode.get(`/contracts/results/${transactionHash}`);
         mirrorResult.from = accounts[2].wallet.address;
         mirrorResult.to = parentContractAddress;
 
+        const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+
         const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [transactionHash]);
         const currentPrice = await relay.gasPrice();
 
-        Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+        Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
       });
 
       it('@release should fail to execute "eth_getTransactionReceipt" for hash of London transaction', async function () {
@@ -2414,7 +2429,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
 
           const res = await relay.call(RelayCalls.ETH_ENDPOINTS.ETH_GET_TRANSACTION_RECEIPT, [txHash1]);
           const currentPrice = await relay.gasPrice();
-          Assertions.transactionReceipt(res, mirrorResult, currentPrice);
+          const expectedCumulativeGasUsed = await computeExpectedCumulativeGasUsed(mirrorNode, mirrorResult);
+          Assertions.transactionReceipt(res, mirrorResult, currentPrice, expectedCumulativeGasUsed);
           const error = predefined.NONCE_TOO_LOW(nonce, nonce + 1);
 
           await Assertions.assertPredefinedRpcError(error, sendRawTransaction, true, relay, [signedTx, requestDetails]);
