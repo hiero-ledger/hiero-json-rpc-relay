@@ -74,19 +74,30 @@ describe('validations unit test', async function () {
     });
   });
 
-  it("Should execute verifySupportedMethod() to validate requests' methods and return true if methods are supported", () => {
-    const SUPPORTED_METHODS = Object.keys(WS_CONSTANTS.METHODS);
+  describe('verifySupportedMethod()', () => {
+    it('should return true for methods present in the relay registry', () => {
+      const REGISTRY_METHODS = ['eth_chainId', 'eth_blockNumber', 'eth_feeHistory', 'eth_getLogs'];
+      const mockRelay = { rpcMethodRegistry: new Map(REGISTRY_METHODS.map((m) => [m, sinon.stub()])) } as any;
 
-    SUPPORTED_METHODS.forEach((method) => {
-      expect(verifySupportedMethod(method)).to.be.true;
+      REGISTRY_METHODS.forEach((method) => {
+        expect(verifySupportedMethod(mockRelay, method), method).to.be.true;
+      });
     });
-  });
 
-  it("Should execute verifySupportedMethod() to validate requests' methods and return false if methods are not supported", () => {
-    const UNSUPPORTED_METHODS = ['eth_contractIdd', 'eth_getCall', 'getLogs', 'blockNum'];
+    it('should return true for WS-only methods eth_subscribe and eth_unsubscribe even when not in registry', () => {
+      const mockRelay = { rpcMethodRegistry: new Map() } as any;
 
-    UNSUPPORTED_METHODS.forEach((method) => {
-      expect(verifySupportedMethod(method)).to.be.false;
+      expect(verifySupportedMethod(mockRelay, WS_CONSTANTS.METHODS.ETH_SUBSCRIBE)).to.be.true;
+      expect(verifySupportedMethod(mockRelay, WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)).to.be.true;
+    });
+
+    it('should return false for unknown method names', () => {
+      const mockRelay = { rpcMethodRegistry: new Map() } as any;
+      const GARBAGE_METHODS = ['eth_contractIdd', 'eth_getCall', 'getLogs', 'blockNum', 'eth_feehistory'];
+
+      GARBAGE_METHODS.forEach((method) => {
+        expect(verifySupportedMethod(mockRelay, method), method).to.be.false;
+      });
     });
   });
 

@@ -52,6 +52,7 @@ describe('JSON Rpc Controller', function () {
       },
     } as unknown as Counter);
     stubRelay = sinon.createStubInstance(Relay);
+    stubRelay.rpcMethodRegistry = new Map([['eth_chainId', sinon.stub()]]);
     stubConnectionLimiter = sinon.createStubInstance(ConnectionLimiter);
     stubMirrorNodeClient = sinon.createStubInstance(MirrorNodeClient);
     stubSubscriptionService = sinon.createStubInstance(SubscriptionService);
@@ -74,7 +75,7 @@ describe('JSON Rpc Controller', function () {
         createMockContext(),
         stubRelay,
         mockLogger,
-        { id: '2', method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest,
+        { id: '2', method: 'eth_chainId', jsonrpc: '2.0' } as IJsonRpcRequest,
         stubConnectionLimiter,
         stubMirrorNodeClient,
         stubWsMetricRegistry,
@@ -84,7 +85,7 @@ describe('JSON Rpc Controller', function () {
     });
 
     it('should throw invalid request if id is missing from request body', async function () {
-      defaultRequestParams[3] = { method: WS_CONSTANTS.METHODS.ETH_CHAINID, jsonrpc: '2.0' } as IJsonRpcRequest;
+      defaultRequestParams[3] = { method: 'eth_chainId', jsonrpc: '2.0' } as IJsonRpcRequest;
       const resp = await getRequestResult(...defaultRequestParams);
 
       expect(resp.error.code).to.equal(-32600);

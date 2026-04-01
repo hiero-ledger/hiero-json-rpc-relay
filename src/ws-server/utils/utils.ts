@@ -3,7 +3,7 @@
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
-import { predefined } from '../../relay';
+import { predefined, Relay } from '../../relay';
 import { RequestDetails } from '../../relay/lib/types';
 import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { type IJsonRpcResponse, jsonRespError } from '../../server/koaJsonRpc/lib/RpcResponse';
@@ -124,8 +124,12 @@ export const getBatchRequestsMaxSize = (): number => {
  * @param {string} method - The method to verify.
  * @returns {boolean} A boolean indicating whether the method is supported.
  */
-export const verifySupportedMethod = (method: string): boolean => {
-  return hasOwnProperty(WS_CONSTANTS.METHODS, method.toUpperCase());
+export const verifySupportedMethod = (relay: Relay, method: string): boolean => {
+  return (
+    relay.rpcMethodRegistry.has(method) ||
+    method === WS_CONSTANTS.METHODS.ETH_SUBSCRIBE ||
+    method === WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE
+  );
 };
 
 /**
