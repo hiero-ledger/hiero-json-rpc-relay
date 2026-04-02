@@ -259,5 +259,63 @@ describe('Relay', () => {
         });
       },
     );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 3, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should retry when Mirror Node returns 503 Service Unavailable during startup', async function () {
+          const serviceUnavailableError = new MirrorNodeClientError({ message: 'Service Unavailable' }, 503);
+          checkServerReadinessStub.onCall(0).rejects(serviceUnavailableError);
+          checkServerReadinessStub.onCall(1).rejects(serviceUnavailableError);
+          checkServerReadinessStub.onCall(2).resolves();
+
+          await expect(relay.initializeRelay()).to.not.be.rejected;
+          expect(checkServerReadinessStub.callCount).to.equal(3);
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 2, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should reject when Mirror Node keeps returning 503 after exhausting all attempts', async function () {
+          const serviceUnavailableError = new MirrorNodeClientError({ message: 'Service Unavailable' }, 503);
+          checkServerReadinessStub.rejects(serviceUnavailableError);
+
+          await expect(relay.initializeRelay()).to.be.rejected;
+          expect(checkServerReadinessStub.callCount).to.equal(2);
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 3, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should retry when Mirror Node returns 502 Bad Gateway during startup', async function () {
+          const badGatewayError = new MirrorNodeClientError({ message: 'Bad Gateway' }, 502);
+          checkServerReadinessStub.onCall(0).rejects(badGatewayError);
+          checkServerReadinessStub.onCall(1).rejects(badGatewayError);
+          checkServerReadinessStub.onCall(2).resolves();
+
+          await expect(relay.initializeRelay()).to.not.be.rejected;
+          expect(checkServerReadinessStub.callCount).to.equal(3);
+        });
+      },
+    );
+
+    withOverriddenEnvsInMochaTest(
+      { MIRROR_NODE_STARTUP_MAX_ATTEMPTS: 3, MIRROR_NODE_STARTUP_RETRY_DELAY_MS: 10 },
+      () => {
+        it('should retry when Mirror Node returns 504 Gateway Timeout during startup', async function () {
+          const gatewayTimeoutError = new MirrorNodeClientError({ message: 'Gateway Timeout' }, 504);
+          checkServerReadinessStub.onCall(0).rejects(gatewayTimeoutError);
+          checkServerReadinessStub.onCall(1).rejects(gatewayTimeoutError);
+          checkServerReadinessStub.onCall(2).resolves();
+
+          await expect(relay.initializeRelay()).to.not.be.rejected;
+          expect(checkServerReadinessStub.callCount).to.equal(3);
+        });
+      },
+    );
   });
 });
