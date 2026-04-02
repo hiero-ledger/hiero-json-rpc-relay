@@ -111,7 +111,6 @@ livenessProbe:
   httpGet:
     path: /health/liveness
     port: metrics
-  initialDelaySeconds: 20
   periodSeconds: 10
   timeoutSeconds: 5
 
@@ -173,8 +172,15 @@ readinessProbe:
   httpGet:
     path: /health/readiness
     port: metrics
-  initialDelaySeconds: 20
   timeoutSeconds: 5
+
+startupProbe:
+  failureThreshold: 20
+  httpGet:
+    path: /health/readiness
+    port: metrics
+  periodSeconds: 1
+  timeoutSeconds: 1
 
 terminationGracePeriodSeconds: 60
 
