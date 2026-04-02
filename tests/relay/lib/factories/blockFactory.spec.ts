@@ -12,7 +12,7 @@ const blockInfo = {
   timestamp: '0x698afa66',
   difficulty: '0x0',
   extraData: '0x',
-  gasLimit: '0x1c9c380',
+  gasLimit: '0x8f0d180',
   baseFeePerGas: '0xd63445f000',
   gasUsed: '0xa32c1',
   logsBloom:
