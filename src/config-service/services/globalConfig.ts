@@ -380,6 +380,12 @@ const _CONFIG = {
     required: false,
     defaultValue: 'trace',
   },
+  LOG_MODE: {
+    // standard | fingers-crossed
+    type: 'string',
+    required: false,
+    defaultValue: 'standard',
+  },
   PRETTY_LOGS_ENABLED: {
     type: 'boolean',
     required: false,

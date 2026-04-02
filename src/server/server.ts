@@ -25,8 +25,16 @@ import EthereumRPCConformityService from './koaJsonRpc/services/EthereumRPCConfo
 const context = new AsyncLocalStorage<{ requestId: string }>();
 
 const prettyLogsEnabled = ConfigService.get('PRETTY_LOGS_ENABLED');
+const logMode = ConfigService.get('LOG_MODE');
 
-const mainLogger = pino({
+import {
+  createFingersCrossedDestination,
+  discardBufferedLogs,
+  flushBufferedLogs,
+  responseHasError,
+} from './fingersCrossed';
+
+const basePinoOptions: pino.LoggerOptions = {
   name: 'hedera-json-rpc-relay',
   level: ConfigService.get('LOG_LEVEL'),
   // https://github.com/pinojs/pino/blob/main/docs/api.md#mixin-function
@@ -34,20 +42,28 @@ const mainLogger = pino({
     const store = context.getStore();
     return store ? { requestId: `[Request ID: ${store.requestId}] ` } : {};
   },
-  // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
-  ...(prettyLogsEnabled && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: true,
-        messageFormat: '{requestId}{msg}',
-        // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
-        ignore: 'requestId',
-      },
-    },
-  }),
-});
+};
+
+// In fingers-crossed mode, we must keep raw JSON lines for buffering, so skip pretty transport
+const mainLogger =
+  logMode === 'fingers-crossed'
+    ? pino(basePinoOptions, createFingersCrossedDestination(context.getStore()?.requestId || ''))
+    : pino({
+        ...basePinoOptions,
+        // Use pino-pretty when PRETTY_LOGS_ENABLED is true (default), otherwise use JSON format
+        ...(prettyLogsEnabled && {
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              translateTime: true,
+              messageFormat: '{requestId}{msg}',
+              // Ignore one or several keys, nested keys are supported with each property delimited by a dot character (`.`)
+              ignore: 'requestId',
+            },
+          },
+        }),
+      });
 
 const ethereumRPCConformityService = new EthereumRPCConformityService();
 
@@ -340,6 +356,15 @@ export async function initializeServer(sharedRelay?: Relay, sharedRegister?: Reg
   app.use(async (ctx) => {
     await rpcApp(ctx);
     ethereumRPCConformityService.ensureEthereumJsonRpcCompliance(ctx);
+
+    if (logMode === 'fingers-crossed') {
+      const key = `[Request ID: ${ctx.state.reqId}] `;
+      if (responseHasError(ctx.body)) {
+        flushBufferedLogs((line) => process.stdout.write(line + (line.endsWith('\n') ? '' : '\n')), key);
+      } else {
+        discardBufferedLogs(key);
+      }
+    }
   });
 
   return { app, relay };
