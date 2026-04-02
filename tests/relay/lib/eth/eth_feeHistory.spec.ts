@@ -76,6 +76,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x870ab1a800');
       expect(feeHistory['baseFeePerGas'][1]).to.equal('0x84b6a5c400');
       expect(feeHistory['baseFeePerGas'][2]).to.equal('0x84b6a5c400');
+      //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
       expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${previousBlock.number.toString(16)}`);
       const rewards = feeHistory['reward'][0];
@@ -156,6 +157,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     expect(firstFeeHistory).to.exist;
     expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
+    //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
     expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
     expect(firstFeeHistory['oldestBlock']).to.equal(hexBlockNumber);
 
@@ -168,7 +170,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 

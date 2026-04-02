@@ -4,12 +4,12 @@ import { expect } from 'chai';
 import { Logger } from 'pino';
 import sinon from 'sinon';
 
-import { ConfigService } from '../../../../../src/config-service/services';
 import { numberTo0x } from '../../../../../src/relay/formatters';
 import * as blockGasLimit from '../../../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../../../src/relay/lib/constants';
 import { FeeService } from '../../../../../src/relay/lib/services/ethService/feeService/FeeService';
 import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../../../src/relay/lib/types';
+import { withOverriddenEnvsInMochaTest } from '../../../helpers';
 
 describe('FeeService', function () {
   const requestDetails = new RequestDetails({ requestId: 'feeServiceUnitTest', ipAddress: '0.0.0.0' });
@@ -37,45 +37,41 @@ describe('FeeService', function () {
       getGasPriceInWeibars: sinon.SinonStub;
     };
 
-    beforeEach(function () {
-      sinon.stub(ConfigService, 'get').callsFake((key: string) => {
-        if (key === 'TEST') return true;
-        if (key === 'ETH_FEE_HISTORY_FIXED') return false;
-        return undefined;
+    withOverriddenEnvsInMochaTest({ TEST: true, ETH_FEE_HISTORY_FIXED: false }, () => {
+      beforeEach(function () {
+        mirrorStub = { getBlock: sinon.stub() };
+        commonStub = {
+          translateBlockTag: sinon.stub(),
+          getGasPriceInWeibars: sinon.stub(),
+        };
+
+        const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
+        feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+
+        const head = 100;
+        commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
+
+        const block = minimalMirrorBlock(head, 1_000_000, '0.0.0');
+        mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
+        commonStub.getGasPriceInWeibars.withArgs(requestDetails, `lte:${block.timestamp.to}`).resolves(77);
       });
 
-      mirrorStub = { getBlock: sinon.stub() };
-      commonStub = {
-        translateBlockTag: sinon.stub(),
-        getGasPriceInWeibars: sinon.stub(),
-      };
+      afterEach(function () {
+        sinon.restore();
+      });
 
-      const logger = { error: sinon.stub(), warn: sinon.stub() } as unknown as Logger;
-      feeService = new FeeService(mirrorStub as any, commonStub as any, logger);
+      it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async function () {
+        const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
 
-      const head = 100;
-      commonStub.translateBlockTag.withArgs(constants.BLOCK_LATEST, requestDetails).resolves(head);
-
-      const block = minimalMirrorBlock(head, 1_000_000, '0.0.0');
-      mirrorStub.getBlock.withArgs(head, requestDetails).resolves(block);
-      commonStub.getGasPriceInWeibars.withArgs(requestDetails, `lte:${block.timestamp.to}`).resolves(77);
-    });
-
-    afterEach(function () {
-      sinon.restore();
-    });
-
-    it('returns fee history with gasUsedRatio from obtainBlockGasLimit(hapi_version) when newest block is latest', async function () {
-      const result = await feeService.feeHistory(1, 'latest', null, requestDetails);
-
-      expect(result).to.not.have.property('code');
-      const feeHistory = result as IFeeHistory;
-      const expectedLimit = blockGasLimit.obtainBlockGasLimit('0.0.0');
-      expect(feeHistory.oldestBlock).to.equal(numberTo0x(100));
-      expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
-      expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(77), numberTo0x(77)]);
-      expect(mirrorStub.getBlock.callCount).to.equal(1);
-      expect(mirrorStub.getBlock.firstCall.args).to.deep.equal([100, requestDetails]);
+        expect(result).to.not.have.property('code');
+        const feeHistory = result as IFeeHistory;
+        const expectedLimit = blockGasLimit.obtainBlockGasLimit('0.0.0');
+        expect(feeHistory.oldestBlock).to.equal(numberTo0x(100));
+        expect(feeHistory.gasUsedRatio).to.deep.equal([1_000_000 / expectedLimit]);
+        expect(feeHistory.baseFeePerGas).to.deep.equal([numberTo0x(77), numberTo0x(77)]);
+        expect(mirrorStub.getBlock.callCount).to.equal(1);
+        expect(mirrorStub.getBlock.firstCall.args).to.deep.equal([100, requestDetails]);
+      });
     });
   });
 

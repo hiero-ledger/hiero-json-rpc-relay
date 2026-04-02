@@ -194,9 +194,7 @@ export class FeeService implements IFeeService {
 
     // get fees from oldest to newest blocks
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      const fee = await this.getFeeFromBlock(block, requestDetails);
-      const gasUsedRatio = this.getGasUsedRatioForBlock(block);
+      const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(blockNumber, requestDetails);
 
       feeHistory.baseFeePerGas?.push(fee);
       feeHistory.gasUsedRatio?.push(gasUsedRatio);
@@ -208,8 +206,7 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
-      const nextBlock = await this.mirrorNodeClient.getBlock(newestBlockNumber + 1, requestDetails);
-      nextBaseFeePerGas = await this.getFeeFromBlock(nextBlock, requestDetails);
+      nextBaseFeePerGas = (await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails)).fee;
     }
 
     if (nextBaseFeePerGas) {
@@ -228,20 +225,23 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    * @private
    */
-  private async getFeeFromBlock(block: MirrorNodeBlock, requestDetails: RequestDetails): Promise<string> {
-    let fee = 0;
+  private async getFeeHistoryDataFromBlock(
+    blockNumber: number,
+    requestDetails: RequestDetails,
+  ): Promise<{ fee: string; gasUsedRatio: number }> {
     try {
-      fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      const gasUsedRatio = this.getGasUsedRatioForBlock(block);
+      return { fee: numberTo0x(fee), gasUsedRatio };
     } catch (error) {
       this.logger.warn(
         error,
-        `Fee history cannot retrieve block or fee. Returning %s fee for block %s`,
-        fee,
-        block.number,
+        `Fee history cannot retrieve block or fee. Returning zero fee and gasUsedRatio for block %s`,
+        blockNumber,
       );
+      return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
     }
-
-    return numberTo0x(fee);
   }
 
   /**
