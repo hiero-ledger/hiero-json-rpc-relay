@@ -68,7 +68,8 @@ export class FilterService implements IFilterService {
    * @private
    */
   private getCacheKey(filterId: string): string {
-    return `${constants.CACHE_KEY.FILTERID}_${filterId}`;
+    const formattedFilterId = prepend0x(trimPrecedingZeros(filterId) ?? '0');
+    return `${constants.CACHE_KEY.FILTERID}_${formattedFilterId}`;
   }
 
   /**
