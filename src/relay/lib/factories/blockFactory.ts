@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import type { AuthorizationLike } from 'ethers';
-import { Signature, Transaction as EthersTransaction } from 'ethers';
+import { Signature } from 'ethers/crypto';
+import type { AuthorizationLike } from 'ethers/transaction';
+import { Transaction as EthersTransaction } from 'ethers/transaction';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import { obtainBlockGasLimit } from '../config/blockGasLimit';
