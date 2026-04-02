@@ -8,6 +8,11 @@ const dotenv = require('dotenv');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
 const { CliHelper } = require('./cli-helper');
+const pkg = require('../package.json');
+const MANDATORY_ENV_OVERRIDES = {
+  'npm_package_version': pkg.version,
+  'REDIS_ENABLED': 'false'
+};
 
 /**
  * This script is the entry point for the Hiero JSON-RPC Relay CLI.
@@ -36,7 +41,7 @@ try {
             stdio: 'inherit',
             env: {
               ...process.env,
-              ...CliHelper.MANDATORY_ENV_OVERRIDES
+              ...MANDATORY_ENV_OVERRIDES
             }
           });
 
@@ -51,7 +56,7 @@ try {
           stdio: stdIoInfo.stdio,
           env: {
             ...process.env,
-            ...CliHelper.MANDATORY_ENV_OVERRIDES,
+            ...MANDATORY_ENV_OVERRIDES,
             ...readOnlyEnvs,
             ...networkEnvs,
             ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
@@ -168,10 +173,10 @@ try {
   console.log(`\n${e.message}`);
 }
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   CliHelper.gracefulStop(childProcess, spawn);
 });
 
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   CliHelper.gracefulStop(childProcess, spawn);
 });

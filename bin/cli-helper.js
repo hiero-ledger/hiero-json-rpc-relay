@@ -2,14 +2,6 @@
 
 export class CliHelper {
   /**
-   * Hardcoded env values
-   */
-  static MANDATORY_ENV_OVERRIDES = {
-    'npm_package_version': '1.0.0',
-    'REDIS_ENABLED': 'false'
-  };
-
-  /**
    * Populates environment variables based on the specified network.
    *
    * @param {string} network - The network to configure. Accepted values are:
@@ -29,9 +21,9 @@ export class CliHelper {
       case 'mainnet': {
         return {
           CHAIN_ID: '0x127',
-          HEDERA_NETWORK: '{ "0.mainnet.hedera.com:50211": "0.0.3" }',
-          MIRROR_NODE_URL: 'https://mainnet-public.mirrornode.hedera.com:443',
-          MIRROR_NODE_URL_WEB3: 'https://mainnet-public.mirrornode.hedera.com:443'
+          HEDERA_NETWORK: '{"0.mainnet.hedera.com:50211":"0.0.3"}',
+          MIRROR_NODE_URL: 'https://mainnet-public.mirrornode.hedera.com',
+          MIRROR_NODE_URL_WEB3: 'https://mainnet-public.mirrornode.hedera.com'
         };
       }
       case 'testnet': {
@@ -105,25 +97,21 @@ export class CliHelper {
    */
   static gracefulStop = (child, spawn) => {
     if (!child) {
+      process.exit(0);
       return;
     }
+
+    child.on('close', (code, signal) => {
+      console.log('Caught interrupt signal. Shutting down gracefully...');
+      process.exit(0);
+    });
 
     const { pid } = child;
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', pid, '/T', '/F']);
     } else {
-      try {
-        process.kill(-pid, 'SIGTERM');
-      } catch (e) {
-        try {
-          process.kill(pid, 'SIGTERM');
-        } catch {
-        }
-      }
+      child.kill('SIGTERM');
     }
-
-    console.log('Caught interrupt signal. Shutting down gracefully...');
-    process.exit(0);
   };
 
   /**

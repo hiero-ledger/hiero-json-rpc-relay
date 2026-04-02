@@ -148,6 +148,10 @@ hiero-relay -c ./env/.relay.env
 
 ---
 
+## Notes
+
+Hiero JSON-RPC Relay CLI is not published yet.
+
 ## License
 
 This project is licensed under the [Apache-2.0 License](LICENSE).
