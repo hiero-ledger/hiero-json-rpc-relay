@@ -95,19 +95,19 @@ hiero-relay -n testnet -r -l debug --logging-path ./logs/relay.log
 **Start relay with both http and ws servers:**
 
 ```bash
-hiero-relay -n testnet -r --rpc-ws-enabled true
+hiero-relay -n testnet -r --rpc-ws-enabled
 ```
 
 **Start relay with ws server only:**
 
 ```bash
-hiero-relay -n testnet -r --rpc-http-enabled false --rpc-ws-enabled true
+hiero-relay -n testnet -r --rpc-http-enabled false --rpc-ws-enabled
 ```
 
 **Start relay with both http and ws servers with specific subdomains**
 
 ```bash
-hiero-relay -n testnet -r --rpc-ws-enabled true --rpc-http-api eth net debug --rpc-ws-api web3
+hiero-relay -n testnet -r --rpc-ws-enabled --rpc-http-api eth net debug --rpc-ws-api web3
 ```
 
 ---

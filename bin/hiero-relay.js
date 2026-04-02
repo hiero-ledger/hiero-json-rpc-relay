@@ -70,9 +70,9 @@ try {
             ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
             ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
             ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {}),
-            ...(argv.hasOwnProperty('json-pretty-print-enabled') ? { PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] } : {}),
-            ...(argv.hasOwnProperty('rpc-http-enabled') ? { RPC_HTTP_ENABLED: argv['rpc-http-enabled'] } : {}),
-            ...(argv.hasOwnProperty('rpc-ws-enabled') ? { RPC_WS_ENABLED: argv['rpc-ws-enabled'] } : {}),
+            ...({ PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] }),
+            ...({ RPC_HTTP_ENABLED: argv['rpc-http-enabled'] }),
+            ...({ RPC_WS_ENABLED: argv['rpc-ws-enabled'] }),
             ...(argv['rpc-http-api']?.length ? { RELAY_RPC_HTTP_API: JSON.stringify(argv['rpc-http-api']) } : {}),
             ...(argv['rpc-ws-api']?.length ? { RELAY_RPC_WS_API: JSON.stringify(argv['rpc-ws-api']) } : {}),
           }

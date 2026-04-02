@@ -167,7 +167,7 @@ export default class KoaJsonRpc {
   async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
     const subdomain = request.method.split('_')[0] ?? null;
     if (!RELAY_RPC_HTTP_API.has(subdomain)) {
-      return jsonRespError(null, spec.MethodNotFound(subdomain), requestId);
+      return jsonRespError(request.id, spec.MethodNotFound(subdomain), requestId);
     }
 
     try {
