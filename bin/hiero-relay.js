@@ -7,10 +7,10 @@ const yargs = require('yargs');
 const dotenv = require('dotenv');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
-const { CliHelper } = require('./cli-helper');
-const pkg = require('../package.json');
+
+const { CliHelper } = require(`${__dirname}/cli-helper`);
 const MANDATORY_ENV_OVERRIDES = {
-  'npm_package_version': pkg.version,
+  'npm_package_version': require(`${__dirname}/../package.json`).version,
   'REDIS_ENABLED': 'false'
 };
 const INDEX_PATH = `${__dirname}/../.standalone/dist/index.js`;
