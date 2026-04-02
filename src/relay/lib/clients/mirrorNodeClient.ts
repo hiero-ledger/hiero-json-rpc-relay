@@ -556,7 +556,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     results = [],
     page = 1,
-    pageMax: number = constants.MAX_MIRROR_NODE_PAGINATION,
+    pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
@@ -668,6 +668,9 @@ export class MirrorNodeClient {
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
       'transactions',
       requestDetails,
+      [], // results
+      1, // page
+      ConfigService.get('MIRROR_NODE_ACCOUNT_TXS_PG_MAX'),
     );
   }
 

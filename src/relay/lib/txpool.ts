@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ethers } from 'ethers';
+import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { numberTo0x } from '../formatters';
@@ -93,7 +93,7 @@ export class TxPoolImpl implements TxPool {
     const txs: TxPoolTransaction[] = [];
 
     rlpTxs.forEach((rlpTx: string) => {
-      const tx: ethers.Transaction = ethers.Transaction.from(rlpTx);
+      const tx: Transaction = Transaction.from(rlpTx);
 
       const txPoolTransaction: TxPoolTransaction = {
         blockHash: constants.ZERO_HEX_32_BYTE,
