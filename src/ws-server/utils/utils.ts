@@ -121,6 +121,7 @@ export const getBatchRequestsMaxSize = (): number => {
 
 /**
  * Verifies if the provided method is supported.
+ * @param {Relay} relay - the relay instance
  * @param {string} method - The method to verify.
  * @returns {boolean} A boolean indicating whether the method is supported.
  */
