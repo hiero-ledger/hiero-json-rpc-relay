@@ -2,17 +2,20 @@ As an implementation of [HIP 419](https://hips.hedera.com/hip/hip-482), the Hede
 
 ## Requests
 
-Requests to the Relay will take the form of HTTP calls to an endpoints method.
-A curl example to the `eth_chainId` takes the form
-Request
+The Relay accepts requests over two transports:
+
+**HTTP**
 
 ```shell
-  curl ${RELAY_ENDPOINT_URL} -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"2","method":"eth_chainId","params":[null]}'
+curl ${RELAY_ENDPOINT_URL} -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"2","method":"eth_chainId","params":[null]}'
 ```
 
-Where
+Where `RELAY_ENDPOINT_URL` is the HTTP endpoint, default `http://localhost:7546`.
 
-- RELAY_ENDPOINT_URL - HTTP url endpoint, default `http://localhost:7546`
+**WebSocket**
+
+All standard JSON-RPC methods are also available over WebSocket using the same request format. The WebSocket endpoint defaults to `ws://localhost:8546`. In addition to the standard methods, the WebSocket server supports `eth_subscribe` and `eth_unsubscribe` for real-time event streaming. See [live-events-api.md](./live-events-api.md) for details.
 
 ## Result Schema
 
@@ -120,7 +123,6 @@ Below is a comprehensive table of all Ethereum JSON-RPC methods from the [Ethere
 | [net_version](https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version)                                                         | **Implemented**                                           | N/A                                       | Returns configured chain ID as string                                                                                                     |
 | [web3_clientVersion](https://ethereum.org/en/developers/docs/apis/json-rpc/#web3_clientversion)                                           | **Implemented**                                           | N/A                                       | Returns relay version information                                                                                                         |
 | [web3_sha3](https://ethereum.org/en/developers/docs/apis/json-rpc/#web3_sha3)                                                             | **Implemented**                                           | N/A                                       | Computes Keccak-256 hash locally                                                                                                          |
-
 #### Non-Standard / Extended Methods
 
 These methods are extensions provided by various Ethereum clients but are not part of the core Ethereum JSON-RPC specification.
@@ -143,7 +145,6 @@ These methods are extensions provided by various Ethereum clients but are not pa
 | [txpool_content](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-content)                   | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
 | [txpool_contentFrom](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-contentfrom)           | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
 | [txpool_status](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool#txpool-status)                     | **Implemented** - Requires `TXPOOL_API_ENABLED=true` and `ENABLE_TX_POOL=true`   | N/A          |                                                        |
-
 ### Live events API
 
 Details for the Real-Time Events API can be found [here](./live-events-api.md)
