@@ -433,9 +433,9 @@ export class Relay {
    * configured attempt budget is exhausted.
    *
    * Each attempt calls {@link MirrorNodeClient.checkServerReadiness}, which targets the
-   * dedicated `GET /health/readiness` endpoint. Any genuine HTTP response is treated as
-   * confirmation that the server is reachable; only network-level failures (ECONNREFUSED,
-   * connection timeout) trigger a retry.
+   * dedicated `GET /health/readiness` endpoint. Only transient network or service
+   * unavailability conditions (ECONNREFUSED, connection timeout, 502 Bad Gateway,
+   * 503 Service Unavailable, or 504 Gateway Timeout) trigger a retry; all other errors abort startup immediately.
    *
    * Attempts are bounded by `MIRROR_NODE_STARTUP_MAX_ATTEMPTS` (total attempt count).
    *
