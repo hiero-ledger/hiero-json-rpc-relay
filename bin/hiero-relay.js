@@ -8,6 +8,16 @@ const dotenv = require('dotenv');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
 const { CliHelper } = require('./cli-helper');
+const pkg = require('../package.json');
+const MANDATORY_ENV_OVERRIDES = {
+  'npm_package_version': pkg.version,
+  'REDIS_ENABLED': 'false'
+};
+const INDEX_PATH = '.standalone/dist/index.js';
+if (!fs.existsSync(INDEX_PATH)) {
+  console.log(`Error: Artifact doesn't exist at ${INDEX_PATH}`);
+  process.exit(1);
+}
 
 /**
  * This script is the entry point for the Hiero JSON-RPC Relay CLI.
@@ -32,12 +42,14 @@ try {
             throw res.error;
           }
 
-          childProcess = spawn('node', ['.standalone/dist/index.js'], {
+          childProcess = spawn('node', [INDEX_PATH], {
             stdio: 'inherit',
             env: {
               ...process.env,
-              ...CliHelper.MANDATORY_ENV_OVERRIDES
+              ...MANDATORY_ENV_OVERRIDES
             }
+          }).on('error', (err) => {
+            console.log(`Process failure: ${err}`);
           });
 
           return;
@@ -47,11 +59,11 @@ try {
         const networkEnvs = CliHelper.populateEnvBasedOnNetwork(argv.network);
         const stdIoInfo = CliHelper.getStdio(argv['logging-path']);
 
-        childProcess = spawn('node', ['.standalone/dist/index.js'], {
+        childProcess = spawn('node', [INDEX_PATH], {
           stdio: stdIoInfo.stdio,
           env: {
             ...process.env,
-            ...CliHelper.MANDATORY_ENV_OVERRIDES,
+            ...MANDATORY_ENV_OVERRIDES,
             ...readOnlyEnvs,
             ...networkEnvs,
             ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
@@ -64,8 +76,9 @@ try {
             ...(argv['rpc-http-api']?.length ? { RELAY_RPC_HTTP_API: JSON.stringify(argv['rpc-http-api']) } : {}),
             ...(argv['rpc-ws-api']?.length ? { RELAY_RPC_WS_API: JSON.stringify(argv['rpc-ws-api']) } : {}),
           }
+        }).on('error', (err) => {
+          console.log(`Process failure: ${err}`);
         });
-
 
         if (stdIoInfo.overrideStd) {
           const logStream = fs.createWriteStream(argv['logging-path'], { flags: 'a' });
@@ -188,9 +201,7 @@ try {
       }
       return true;
     })
-    .demandCommand()
-    .strictCommands()
-    .recommendCommands()
+    .strict()
     .epilogue(
       `
     Requirements:
@@ -205,10 +216,10 @@ try {
   console.log(`\n${e.message}`);
 }
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   CliHelper.gracefulStop(childProcess, spawn);
 });
 
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   CliHelper.gracefulStop(childProcess, spawn);
 });
