@@ -13,7 +13,7 @@ const MANDATORY_ENV_OVERRIDES = {
   'npm_package_version': pkg.version,
   'REDIS_ENABLED': 'false'
 };
-const INDEX_PATH = '.standalone/dist/index.js';
+const INDEX_PATH = `${__dirname}/../.standalone/dist/index.js`;
 if (!fs.existsSync(INDEX_PATH)) {
   console.log(`Error: Artifact doesn't exist at ${INDEX_PATH}`);
   process.exit(1);
