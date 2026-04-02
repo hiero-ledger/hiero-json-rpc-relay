@@ -10,7 +10,7 @@ import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
 import { validateJsonRpcRequest, verifySupportedMethod } from '../../../src/ws-server/utils/utils';
 import { validateSubscribeEthLogsParams } from '../../../src/ws-server/utils/validators';
 import { contractAddress1, contractAddress2 } from '../../relay/helpers';
-import { WsTestHelper } from '../helper';
+import { RPC_METHODS, WsTestHelper } from '../helper';
 
 const logger = pino({ level: 'silent' });
 
@@ -76,10 +76,11 @@ describe('validations unit test', async function () {
 
   describe('verifySupportedMethod()', () => {
     it('should return true for methods present in the relay registry', () => {
-      const REGISTRY_METHODS = ['eth_chainId', 'eth_blockNumber', 'eth_feeHistory', 'eth_getLogs'];
-      const mockRelay = { rpcMethodRegistry: new Map(REGISTRY_METHODS.map((m) => [m, sinon.stub()])) } as any;
+      const mockRelay = {
+        rpcMethodRegistry: new Map(RPC_METHODS.REGISTRY_METHODS.map((m) => [m, sinon.stub()])),
+      } as any;
 
-      REGISTRY_METHODS.forEach((method) => {
+      RPC_METHODS.REGISTRY_METHODS.forEach((method) => {
         expect(verifySupportedMethod(mockRelay, method), method).to.be.true;
       });
     });
@@ -93,7 +94,14 @@ describe('validations unit test', async function () {
 
     it('should return false for unknown method names', () => {
       const mockRelay = { rpcMethodRegistry: new Map() } as any;
-      const GARBAGE_METHODS = ['eth_contractIdd', 'eth_getCall', 'getLogs', 'blockNum', 'eth_feehistory'];
+      const GARBAGE_METHODS = [
+        ...RPC_METHODS.UNSUPPORTED_METHODS,
+        'eth_contractIdd',
+        'eth_getCall',
+        'getLogs',
+        'blockNum',
+        'eth_feehistory',
+      ];
 
       GARBAGE_METHODS.forEach((method) => {
         expect(verifySupportedMethod(mockRelay, method), method).to.be.false;

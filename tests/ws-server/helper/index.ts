@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
+export { RPC_METHODS } from './rpcMethods';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
