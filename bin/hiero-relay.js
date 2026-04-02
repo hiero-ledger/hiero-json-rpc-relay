@@ -13,6 +13,11 @@ const MANDATORY_ENV_OVERRIDES = {
   'npm_package_version': pkg.version,
   'REDIS_ENABLED': 'false'
 };
+const INDEX_PATH = '.standalone/dist/index.js';
+if (!fs.existsSync(INDEX_PATH)) {
+  console.log(`Error: Artifact doesn't exist at ${INDEX_PATH}`);
+  process.exit(1);
+}
 
 /**
  * This script is the entry point for the Hiero JSON-RPC Relay CLI.
@@ -37,12 +42,14 @@ try {
             throw res.error;
           }
 
-          childProcess = spawn('node', ['.standalone/dist/index.js'], {
+          childProcess = spawn('node', [INDEX_PATH], {
             stdio: 'inherit',
             env: {
               ...process.env,
               ...MANDATORY_ENV_OVERRIDES
             }
+          }).on('error', (err) => {
+            console.log(`Process failure: ${err}`);
           });
 
           return;
@@ -52,7 +59,7 @@ try {
         const networkEnvs = CliHelper.populateEnvBasedOnNetwork(argv.network);
         const stdIoInfo = CliHelper.getStdio(argv['logging-path']);
 
-        childProcess = spawn('node', ['.standalone/dist/index.js'], {
+        childProcess = spawn('node', [INDEX_PATH], {
           stdio: stdIoInfo.stdio,
           env: {
             ...process.env,
@@ -64,8 +71,9 @@ try {
             ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
             ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {})
           }
+        }).on('error', (err) => {
+          console.log(`Process failure: ${err}`);
         });
-
 
         if (stdIoInfo.overrideStd) {
           const logStream = fs.createWriteStream(argv['logging-path'], { flags: 'a' });
@@ -156,9 +164,7 @@ try {
       }
       return true;
     })
-    .demandCommand()
-    .strictCommands()
-    .recommendCommands()
+    .strict()
     .epilogue(
       `
     Requirements:
