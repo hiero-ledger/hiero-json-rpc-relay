@@ -55,6 +55,11 @@ try {
           return;
         }
 
+        if (!argv['rpc-http-enabled'] && !argv['rpc-ws-enabled']) {
+          parser.showHelp();
+          console.log('\nError: At least one transport must be enabled (--rpc-http-enabled or --rpc-ws-enabled)');
+          return;
+        }
         const readOnlyEnvs = CliHelper.populateEnvBaseOnReadOnlyOption(argv);
         const networkEnvs = CliHelper.populateEnvBasedOnNetwork(argv.network);
         const stdIoInfo = CliHelper.getStdio(argv['logging-path']);
