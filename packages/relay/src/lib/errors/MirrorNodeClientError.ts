@@ -18,6 +18,9 @@ export class MirrorNodeClientError extends Error {
     NOT_FOUND: 404,
     TOO_MANY_REQUESTS: 429,
     NO_CONTENT: 204,
+    BAD_GATEWAY: 502,
+    SERVICE_UNAVAILABLE: 503,
+    GATEWAY_TIMEOUT: 504,
   };
 
   static messages = {
@@ -54,8 +57,18 @@ export class MirrorNodeClientError extends Error {
     return this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNABORTED;
   }
 
+  /**
+   * Returns true for transient conditions that are safe to retry during Mirror Node startup:
+   * ECONNREFUSED, connection timeout, 502 (Bad Gateway), 503 (Service Unavailable), 504 (Gateway Timeout).
+   */
   public isNetworkUnavailable(): boolean {
-    return this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNREFUSED || this.isTimeout();
+    return (
+      this.statusCode === MirrorNodeClientError.ErrorCodes.ECONNREFUSED ||
+      this.isTimeout() ||
+      this.statusCode === MirrorNodeClientError.statusCodes.BAD_GATEWAY ||
+      this.statusCode === MirrorNodeClientError.statusCodes.SERVICE_UNAVAILABLE ||
+      this.statusCode === MirrorNodeClientError.statusCodes.GATEWAY_TIMEOUT
+    );
   }
 
   public isContractRevert() {
