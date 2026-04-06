@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import { Logger } from 'pino';
 
 import { ConfigService } from '../../../../../config-service/services';
-import { numberTo0x, parseNumericEnvVar, prepend0x, toHash32, trimPrecedingZeros } from '../../../../formatters';
+import { numberTo0x, parseNumericEnvVar, prepend0x, trimPrecedingZeros } from '../../../../formatters';
 import { Utils } from '../../../../utils';
 import { MirrorNodeClient } from '../../../clients';
 import type { ICacheClient } from '../../../clients/cache/ICacheClient';
@@ -30,39 +30,9 @@ export type PaymasterAccountWhitelist = [accountId: string, whitelist: string[]]
  */
 export class CommonService implements ICommonService {
   /**
-   * The LRU cache used for caching items from requests.
-   *
-   * @private
-   */
-  private readonly cacheService: ICacheClient;
-
-  /**
-   * The interface through which we interact with the mirror node
-   * @private
-   */
-  private readonly mirrorNodeClient: MirrorNodeClient;
-
-  /**
-   * The logger used for logging all output from this class.
-   * @private
-   */
-  private readonly logger: Logger;
-
-  /**
    * public constants
    */
   public static readonly latestBlockNumber = 'getLatestBlockNumber';
-
-  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
-  private readonly maxTimestampParamRange = 604800; // 7 days
-
-  /**
-   * @private
-   */
-  private static getLogsBlockRangeLimit() {
-    return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
-  }
-
   /**
    * A global whitelist of addresses for the main operator if PAYMASTER_ENABLED is set to true.
    *
@@ -74,21 +44,6 @@ export class CommonService implements ICommonService {
   public static readonly PAYMASTER_WHITELIST: string[] = ConfigService.get('PAYMASTER_WHITELIST').map((e) =>
     e.toLowerCase(),
   );
-
-  /**
-   * A map of paymaster accounts keyed by their unique account identifier.
-   *
-   * The map is built from the `PAYMASTER_ACCOUNTS` configuration entry, which is expected to be an array of tuples
-   * in the form: `[accountId: string, account: PaymasterAccount]`.
-   *
-   * This structure is introduced for efficient lookup.
-   */
-  private static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
-    ConfigService.get('PAYMASTER_ACCOUNTS').map(
-      (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
-    ),
-  );
-
   /**
    * A reverse lookup map that associates whitelisted wallet addresses with their corresponding paymaster account IDs.
    *
@@ -104,6 +59,37 @@ export class CommonService implements ICommonService {
       ([accountId, whitelist]) => whitelist.map((addr) => [addr.toLowerCase(), accountId]),
     ),
   );
+  /**
+   * A map of paymaster accounts keyed by their unique account identifier.
+   *
+   * The map is built from the `PAYMASTER_ACCOUNTS` configuration entry, which is expected to be an array of tuples
+   * in the form: `[accountId: string, account: PaymasterAccount]`.
+   *
+   * This structure is introduced for efficient lookup.
+   */
+  private static readonly PAYMASTER_ACCOUNTS_MAP: Map<string, PaymasterAccount> = new Map(
+    ConfigService.get('PAYMASTER_ACCOUNTS').map(
+      (acc) => [acc[0], [acc[0], acc[1], acc[2], Number(acc[3])]] as [string, PaymasterAccount],
+    ),
+  );
+  /**
+   * The LRU cache used for caching items from requests.
+   *
+   * @private
+   */
+  private readonly cacheService: ICacheClient;
+  /**
+   * The interface through which we interact with the mirror node
+   * @private
+   */
+  private readonly mirrorNodeClient: MirrorNodeClient;
+  /**
+   * The logger used for logging all output from this class.
+   * @private
+   */
+  private readonly logger: Logger;
+  private readonly maxBlockRange = parseNumericEnvVar('MAX_BLOCK_RANGE', 'MAX_BLOCK_RANGE');
+  private readonly maxTimestampParamRange = 604800; // 7 days
 
   constructor(mirrorNodeClient: MirrorNodeClient, logger: Logger, cacheService: ICacheClient) {
     this.mirrorNodeClient = mirrorNodeClient;
@@ -113,6 +99,75 @@ export class CommonService implements ICommonService {
 
   public static blockTagIsLatestOrPendingStrict(tag: string | null): boolean {
     return tag === constants.BLOCK_LATEST || tag === constants.BLOCK_PENDING;
+  }
+
+  public static redirectBytecodeAddressReplace(address: string): string {
+    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
+    const redirectBytecodePostfix =
+      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
+    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
+  }
+
+  /**
+   * Determines whether a transaction can be subsidized by a dedicated paymaster
+   * and returns the corresponding paymaster information if eligible.
+   *
+   * The method performs the following checks in order:
+   * 1. If a specific paymaster is mapped to the given `toAddress` in the `PAYMASTER_ACCOUNTS_WHITELISTS_MAP`,
+   *    the corresponding account details are retrieved from `PAYMASTER_ACCOUNTS_MAP` and returned. A specific paymaster
+   *    can NOT be used for contract deployment.
+   * 2. If the default paymaster feature is enabled and the provided `toAddress` is whitelisted (or a wildcard `*`
+   *    is present), it returns the main operator paymaster configuration.
+   *
+   * @param toAddress - The destination address of the transaction. If `null`, it is assumed to be a contract deployment.
+   *
+   * @returns An object containing:
+   * - `accountId`: The paymaster account ID to be used for subsidizing gas.
+   * - `gasAllowance`: The maximum gas allowance (in HBAR) provided by the paymaster.
+   *
+   * Returns `null` if the transaction is not eligible for paymaster subsidization.
+   */
+  public static getPaymasterIfTxCanBeSubsidized(
+    toAddress: string | null,
+  ): { accountId: string; gasAllowance: number } | null {
+    // handle paymaster accounts
+    if (toAddress) {
+      const paymasterAccountId = CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.get(
+        prepend0x(toAddress.toLowerCase()),
+      );
+      if (paymasterAccountId) {
+        const paymasterAccount = CommonService.PAYMASTER_ACCOUNTS_MAP.get(paymasterAccountId);
+        if (paymasterAccount) {
+          const [accountId, , , gasAllowance] = paymasterAccount;
+          return {
+            accountId,
+            gasAllowance,
+          };
+        }
+      }
+    }
+
+    // handle default paymaster functionality
+    if (ConfigService.get('PAYMASTER_ENABLED')) {
+      if (
+        CommonService.PAYMASTER_WHITELIST.includes('*') ||
+        (toAddress && CommonService.PAYMASTER_WHITELIST.includes(prepend0x(toAddress.toLowerCase())))
+      ) {
+        return {
+          accountId: ConfigService.get('OPERATOR_ID_MAIN')!,
+          gasAllowance: ConfigService.get('MAX_GAS_ALLOWANCE_HBAR')!,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * @private
+   */
+  private static getLogsBlockRangeLimit() {
+    return ConfigService.get('ETH_GET_LOGS_BLOCK_RANGE_LIMIT');
   }
 
   public blockTagIsLatestOrPending = (tag): boolean => {
@@ -460,20 +515,7 @@ export class CommonService implements ICommonService {
 
     const logs: Log[] = [];
     for (const log of logResults as MirrorNodeContractLog[]) {
-      logs.push(
-        new Log({
-          address: log.address,
-          blockTimestamp: numberTo0x(Number(log.timestamp.split('.')[0])),
-          blockHash: toHash32(log.block_hash),
-          blockNumber: numberTo0x(log.block_number),
-          data: log.data,
-          logIndex: numberTo0x(log.index),
-          removed: false,
-          topics: log.topics,
-          transactionHash: toHash32(log.transaction_hash),
-          transactionIndex: numberTo0x(log.transaction_index),
-        }),
-      );
+      logs.push(Log.fromMirrorNodeContractLog(log));
     }
 
     return logs;
@@ -590,23 +632,6 @@ export class CommonService implements ICommonService {
     }
   }
 
-  private isBlockTagEarliest = (tag: string): boolean => {
-    return tag === constants.BLOCK_EARLIEST;
-  };
-
-  private isBlockTagFinalized = (tag: string): boolean => {
-    return (
-      tag === constants.BLOCK_FINALIZED ||
-      tag === constants.BLOCK_LATEST ||
-      tag === constants.BLOCK_PENDING ||
-      tag === constants.BLOCK_SAFE
-    );
-  };
-
-  private isBlockNumValid = (num: string) => {
-    return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
-  };
-
   public isBlockParamValid = (tag: string | null) => {
     return tag == null || this.isBlockTagEarliest(tag) || this.isBlockTagFinalized(tag) || this.isBlockNumValid(tag);
   };
@@ -664,65 +689,20 @@ export class CommonService implements ICommonService {
     return numberTo0x(gasPriceForTimestamp);
   }
 
-  public static redirectBytecodeAddressReplace(address: string): string {
-    const redirectBytecodePrefix = '6080604052348015600f57600080fd5b506000610167905077618dc65e';
-    const redirectBytecodePostfix =
-      '600052366000602037600080366018016008845af43d806000803e8160008114605857816000f35b816000fdfea2646970667358221220d8378feed472ba49a0005514ef7087017f707b45fb9bf56bb81bb93ff19a238b64736f6c634300080b0033';
-    return `0x${redirectBytecodePrefix}${address.slice(2)}${redirectBytecodePostfix}`;
-  }
+  private isBlockTagEarliest = (tag: string): boolean => {
+    return tag === constants.BLOCK_EARLIEST;
+  };
 
-  /**
-   * Determines whether a transaction can be subsidized by a dedicated paymaster
-   * and returns the corresponding paymaster information if eligible.
-   *
-   * The method performs the following checks in order:
-   * 1. If a specific paymaster is mapped to the given `toAddress` in the `PAYMASTER_ACCOUNTS_WHITELISTS_MAP`,
-   *    the corresponding account details are retrieved from `PAYMASTER_ACCOUNTS_MAP` and returned. A specific paymaster
-   *    can NOT be used for contract deployment.
-   * 2. If the default paymaster feature is enabled and the provided `toAddress` is whitelisted (or a wildcard `*`
-   *    is present), it returns the main operator paymaster configuration.
-   *
-   * @param toAddress - The destination address of the transaction. If `null`, it is assumed to be a contract deployment.
-   *
-   * @returns An object containing:
-   * - `accountId`: The paymaster account ID to be used for subsidizing gas.
-   * - `gasAllowance`: The maximum gas allowance (in HBAR) provided by the paymaster.
-   *
-   * Returns `null` if the transaction is not eligible for paymaster subsidization.
-   */
-  public static getPaymasterIfTxCanBeSubsidized(
-    toAddress: string | null,
-  ): { accountId: string; gasAllowance: number } | null {
-    // handle paymaster accounts
-    if (toAddress) {
-      const paymasterAccountId = CommonService.PAYMASTER_ACCOUNTS_WHITELISTS_MAP.get(
-        prepend0x(toAddress.toLowerCase()),
-      );
-      if (paymasterAccountId) {
-        const paymasterAccount = CommonService.PAYMASTER_ACCOUNTS_MAP.get(paymasterAccountId);
-        if (paymasterAccount) {
-          const [accountId, , , gasAllowance] = paymasterAccount;
-          return {
-            accountId,
-            gasAllowance,
-          };
-        }
-      }
-    }
+  private isBlockTagFinalized = (tag: string): boolean => {
+    return (
+      tag === constants.BLOCK_FINALIZED ||
+      tag === constants.BLOCK_LATEST ||
+      tag === constants.BLOCK_PENDING ||
+      tag === constants.BLOCK_SAFE
+    );
+  };
 
-    // handle default paymaster functionality
-    if (ConfigService.get('PAYMASTER_ENABLED')) {
-      if (
-        CommonService.PAYMASTER_WHITELIST.includes('*') ||
-        (toAddress && CommonService.PAYMASTER_WHITELIST.includes(prepend0x(toAddress.toLowerCase())))
-      ) {
-        return {
-          accountId: ConfigService.get('OPERATOR_ID_MAIN')!,
-          gasAllowance: ConfigService.get('MAX_GAS_ALLOWANCE_HBAR')!,
-        };
-      }
-    }
-
-    return null;
-  }
+  private isBlockNumValid = (num: string) => {
+    return /^0[xX]([1-9A-Fa-f]+[0-9A-Fa-f]{0,13}|0)$/.test(num) && Number.MAX_SAFE_INTEGER >= Number(num);
+  };
 }

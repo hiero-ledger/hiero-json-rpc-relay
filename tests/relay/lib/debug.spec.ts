@@ -1805,6 +1805,34 @@ describe('Debug API Test Suite', async function () {
             .filter((call) => call.args[0] === contractResultWrongNonce.hash);
           expect(wrongNonceActionsCalls).to.be.empty;
         });
+
+        it('should not make per-transaction log API calls when logs are pre-fetched at block level', async function () {
+          // No EVM transactions - only synthetic
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+          // Block-level log pre-fetch provides the synthetic log
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+          // Synthetic tx has no contract result or actions
+          sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+          restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
+          // Address resolution for synthetic log topics
+          restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+          restMock.onGet(ACCOUNT_BY_ADDRESS).reply(200, JSON.stringify({ evm_address: accountAddress }));
+
+          // Spy before the call - must not be invoked since the log is pre-fetched
+          const getLogsWithParamsSpy = sinon.stub(CommonService.prototype, 'getLogsWithParams');
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(getLogsWithParamsSpy.callCount).to.equal(0);
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0].txHash).to.equal(syntheticTxHash);
+          expect(result[0].result.from).to.equal(accountsResult.evm_address);
+          expect(result[0].result.to).to.equal(accountAddress);
+        });
       });
 
       it('should handle error scenarios', async function () {
