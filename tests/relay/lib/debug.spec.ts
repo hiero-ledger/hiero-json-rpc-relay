@@ -1605,6 +1605,42 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.be.an('array').with.lengthOf(1);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
         });
+
+        it("should pass each transaction its own actions, not another transaction's", async function () {
+          // Distinct action arrays per hash
+          const actionsForHash1 = [makeCreateAction({ index: 0, from: contractResult1.hash })];
+          const actionsForHash2 = [
+            makeCreateAction({ index: 0, from: contractResult2.hash }),
+            makeCreateAction({ index: 1, from: contractResult2.hash }),
+          ];
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+          sinon
+            .stub(mirrorNodeInstance, 'getContractsResultsActions')
+            .withArgs(contractResult1.hash, sinon.match.any)
+            .resolves(actionsForHash1)
+            .withArgs(contractResult2.hash, sinon.match.any)
+            .resolves(actionsForHash2);
+
+          const callTracerSpy = sinon
+            .stub(debugService, 'callTracer')
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1)
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          const callForHash1 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult1.hash);
+          const callForHash2 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult2.hash);
+
+          expect(callForHash1?.args[4]).to.deep.equal(actionsForHash1);
+          expect(callForHash2?.args[4]).to.deep.equal(actionsForHash2);
+        });
       });
 
       describe('with PrestateTracer', async function () {
