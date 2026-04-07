@@ -176,6 +176,7 @@ export class BlockService implements IBlockService {
    * @param index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
     return null;
   }
@@ -187,6 +188,7 @@ export class BlockService implements IBlockService {
    * @param index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
     return null;
   }
@@ -197,6 +199,7 @@ export class BlockService implements IBlockService {
    * @param blockHash - The block hash
    * @returns '0x0' as Hedera does not support uncle blocks
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getUncleCountByBlockHash(blockHash: string): string {
     return constants.ZERO_HEX;
   }
@@ -207,6 +210,7 @@ export class BlockService implements IBlockService {
    * @param blockNumOrTag - The block number or tag
    * @returns '0x0' as Hedera does not support uncle blocks
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getUncleCountByBlockNumber(blockNumOrTag: string): string {
     return constants.ZERO_HEX;
   }
