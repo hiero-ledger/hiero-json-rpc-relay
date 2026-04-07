@@ -186,9 +186,7 @@ describe('@erc20 Acceptance Tests', async function () {
               });
 
               describe('when the spender has enough allowance', function () {
-                // eslint-disable-next-line no-undef
                 let tx;
-                receipt;
                 before(async function () {
                   tx = await contract
                     .connect(tokenOwnerWallet)
