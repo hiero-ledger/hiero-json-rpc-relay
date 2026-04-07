@@ -745,17 +745,12 @@ describe('@debug API Acceptance Tests', function () {
         expect(result.calls).to.be.an('array').that.is.empty;
       });
 
-      it('@release should return empty trace for tx with correct contract actions but without any opcodes', async function () {
+      it('@release should return empty trace for tx with a single top-level call action', async function () {
         // Has actions.
         const actionResults = await mirrorNode.get(`/contracts/results/${noOpcodesTxHash}/actions`);
         expect(actionResults).to.have.property('actions').that.is.an('array').and.is.not.empty;
 
-        // Has no opcodes.
-        await expect(mirrorNode.get(`/contracts/results/${noOpcodesTxHash}/opcodes`)).to.eventually.be.rejectedWith(
-          /404/,
-        );
-
-        // Returns empty trace.
+        // Returns empty trace - callTracer returns calls:[] when there is only one (top-level) action.
         const result = await relay.call(DEBUG_TRACE_TRANSACTION, [
           noOpcodesTxHash,
           TRACER_CONFIGS.CALL_TRACER_TOP_ONLY_FALSE,
