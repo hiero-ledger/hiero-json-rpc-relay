@@ -38,7 +38,6 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
   let mainContractAddress: string;
   let HTSTokenContractAddress: string;
   let NftHTSTokenContractAddress: string;
-  let HTSTokenContract: ethers.Contract;
   let mainContract: ethers.Contract;
   let mainContractOwner: ethers.Contract;
   let mainContractReceiverWalletFirst: ethers.Contract;
@@ -79,7 +78,6 @@ describe('@tokenmanagement HTS Precompile Token Management Acceptance Tests', as
     HTSTokenContractAddress = await createHTSToken();
     NftHTSTokenContractAddress = await createNftHTSToken();
 
-    HTSTokenContract = new ethers.Contract(HTSTokenContractAddress, ERC20MockJson.abi, accounts[0].wallet);
     mainContract = new ethers.Contract(mainContractAddress, TokenManagementJson.abi, accounts[0].wallet);
 
     mainContractOwner = mainContract;
