@@ -102,7 +102,7 @@ export async function initializeWsServer(
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     next();
   });
 
@@ -148,7 +148,6 @@ export async function initializeWsServer(
         connectionId: ctx.websocket.id,
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       context.run({ requestId, connectionId: requestDetails.connectionId! }, async () => {
         // Increment the total messages counter for each message received
         wsMetricRegistry.getCounter('totalMessageCounter').inc();
