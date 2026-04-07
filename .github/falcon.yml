@@ -1,0 +1,13 @@
+network:
+  --release-tag: 'v0.72.0'
+  --node-aliases: 'node1'
+setup:
+  --release-tag: 'v0.72.0'
+  --node-aliases: 'node1'
+consensusNode:
+  --node-aliases: 'node1'
+mirrorNode:
+  --enable-ingress: true
+  --pinger: true
+  --mirror-node-version: 'v0.151.0'
+  --values-file: .github/mirror-node-values.yaml
