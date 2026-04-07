@@ -5,6 +5,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import { defineConfig } from 'eslint/config';
 import prettierConfig from 'eslint-config-prettier';
+import nPlugin from 'eslint-plugin-n';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
 
@@ -27,18 +28,18 @@ const headerRule = {
 export default defineConfig([
   // Global ignores
   {
-    ignores: ['**/node_modules/**', '**/dist/**'],
+    ignores: [
+      '**/node_modules/**', '**/dist/**', '**/coverage/**', '**/*.d.ts', 'tools/**',
+      'dapp-example/**', 'k6/**', 'scripts/**', '.github/**', 'docs/**'],
   },
 
-  // Base recommended configs
-  js.configs.recommended,
-
-  // Main configuration for all JS/TS files
+  // Main configuration for all TS files
   {
-    files: ['**/*.js', '**/*.mjs', '**/*.cjs', '**/*.ts'],
+    files: ['**/*.ts'],
     plugins: {
       '@typescript-eslint': tsPlugin,
       'simple-import-sort': simpleImportSort,
+      n: nPlugin,
       local: {
         rules: {
           header: headerRule,
@@ -57,6 +58,8 @@ export default defineConfig([
       },
     },
     rules: {
+      // Base recommended JS rules applied to TS
+      ...js.configs.recommended.rules,
       // Merge recommended TypeScript rules
       ...tsPlugin.configs.recommended.rules,
       // Merge prettier config rules (disables conflicting rules)
@@ -64,11 +67,12 @@ export default defineConfig([
       // Custom rules
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-var-requires': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': 'error',
       'no-trailing-spaces': 'error',
       'no-useless-escape': 'warn',
       'prefer-const': 'error',
+      'eqeqeq': ["error", "always", { "null": "ignore" }],
+      'no-console': 'warn',
       'comma-dangle': [
         'error',
         {
@@ -81,18 +85,18 @@ export default defineConfig([
       ],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'off',
-      'local/header': 'error',
+      // Type-aware rules — require parserOptions.project -> this can significantly increase CPU usage
+      // '@typescript-eslint/no-floating-promises': 'error',
+      // '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+      'n/no-process-exit': 'error',
     },
   },
 
-  // Config for eslint config files themselves
+  // SPDX header required only on source and test files
   {
-    files: ['eslint.config.js', '.eslintrc.{js,cjs}'],
-    languageOptions: {
-      sourceType: 'script',
-      globals: {
-        ...globals.node,
-      },
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    rules: {
+      'local/header': 'error',
     },
   },
 
@@ -106,6 +110,7 @@ export default defineConfig([
     },
     rules: {
       '@typescript-eslint/no-unused-expressions': 'off',
+      'no-console': 'off',
     },
   },
 ]);
