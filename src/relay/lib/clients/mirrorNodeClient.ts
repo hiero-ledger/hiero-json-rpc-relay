@@ -863,9 +863,9 @@ export class MirrorNodeClient {
     );
 
     if (
-      response !== undefined &&
-      response.transaction_index !== undefined &&
-      response.block_number !== undefined &&
+      response != null &&
+      response.transaction_index != null &&
+      response.block_number != null &&
       response.block_hash !== constants.EMPTY_HEX &&
       response.result === 'SUCCESS'
     ) {
