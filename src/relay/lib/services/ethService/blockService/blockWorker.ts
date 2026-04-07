@@ -203,7 +203,7 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
 
     receipts.push({
       transactionIndex: transactionIndexHex,
-      type: crPerTx && crPerTx.type != undefined ? intToHex(crPerTx.type) : null,
+      type: crPerTx && crPerTx.type !== undefined ? intToHex(crPerTx.type) : null,
       root: crPerTx ? crPerTx.root : constants.ZERO_HEX_32_BYTE,
       status: crPerTx ? crPerTx.status : constants.ONE_HEX,
       cumulativeGasUsed: intToHex(cumulativeGas),
@@ -338,7 +338,7 @@ export async function getBlock(
       commonService.getLogsWithParams(null, params, requestDetails, calculatedSliceCount),
     ]);
 
-    if (contractResults == null && logs.length == 0) {
+    if (contractResults == null && logs.length === 0) {
       return null;
     }
 
