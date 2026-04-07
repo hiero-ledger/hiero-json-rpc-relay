@@ -370,11 +370,11 @@ export class Relay {
     });
 
     hapiService.eventEmitter.on('execute_transaction', (args: IExecuteTransactionEventPayload) => {
-      this.metricService.captureTransactionMetrics(args).then();
+      void this.metricService.captureTransactionMetrics(args);
     });
 
     hapiService.eventEmitter.on('execute_query', (args: IExecuteQueryEventPayload) => {
-      this.metricService.addExpenseAndCaptureMetrics(args);
+      void this.metricService.addExpenseAndCaptureMetrics(args);
     });
 
     this.txpoolImpl = new TxPoolImpl(transactionPoolService);
@@ -404,7 +404,7 @@ export class Relay {
     this.initOperatorMetric(this.operatorAccountId, this.mirrorNodeClient, this.logger, this.register);
 
     // Populate pre-configured spending plans asynchronously
-    this.populatePreconfiguredSpendingPlans().then();
+    void this.populatePreconfiguredSpendingPlans();
 
     // Create RPC method registry
     const rpcNamespaceRegistry = ['eth', 'net', 'web3', 'debug', 'txpool'].map((namespace) => ({
