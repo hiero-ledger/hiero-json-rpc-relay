@@ -85,9 +85,6 @@ export default defineConfig([
       ],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'off',
-      // Type-aware rules — require parserOptions.project -> this can significantly increase CPU usage
-      // '@typescript-eslint/no-floating-promises': 'error',
-      // '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
       'n/no-process-exit': 'error',
     },
   },
