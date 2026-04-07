@@ -61,11 +61,14 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot falcon deploy \
-          --values-file .github/falcon.yml \
-          --dev \
-          --force-port-forward
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.64.1' }} one-shot single deploy \
+            --dev \
+            --force-port-forward
+            --deploy-relay=false
         timeout-minutes: 15
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
       - name: Start the local relay
         run: npm run start &
