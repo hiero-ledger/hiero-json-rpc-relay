@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { ITokenEvent } from "../types/token/ITokenEvent";
 import { expect } from "chai";
-
 import { IFungibleTokenEvent } from "../types/token/IFungibleTokenEvent";
 import { INonFungibleTokenEvent } from "../types/token/INonFungibleTokenEvent";
-import { ITokenEvent } from "../types/token/ITokenEvent";
 
 const FUNGIBLE_TYPES = ["ERC20", "HTSFT"];
 const NON_FUNGIBLE_TYPES = ["ERC721", "HTSNFT"];

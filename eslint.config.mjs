@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
-import { defineConfig } from 'eslint/config';
 import prettierConfig from 'eslint-config-prettier';
 import nPlugin from 'eslint-plugin-n';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';

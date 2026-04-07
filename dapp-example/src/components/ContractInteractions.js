@@ -1,8 +1,7 @@
-import { Button, Link,TextField, Typography } from '@mui/material';
-import { ethers } from 'ethers';
-import React, { useCallback, useEffect,useState } from 'react';
-
+import React, { useState, useCallback, useEffect } from 'react';
+import { Button, Typography, TextField, Link } from '@mui/material';
 import Greeter from '../contracts/Greeter.json';
+import { ethers } from 'ethers';
 
 const ContractInteractions = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);

@@ -1,7 +1,6 @@
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button, TextField, Typography } from '@mui/material';
 import { ethers } from 'ethers';
-import React, { useCallback, useEffect,useState } from 'react';
-
 import IHRC from '../contracts/IHRC.json';
 
 const AssociateHTSTokensForm = ({ signer, isConnected, chain, address }) => {

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 import exec from 'k6/execution';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
-import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
 import { markdownReport } from '../lib/common.js';
 import { funcs, options, scenarioDurationGauge } from './test/index.js';
+import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
 
 function handleSummary(data) {
   return {

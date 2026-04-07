@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Gravatar } from "../generated/schema";
 import {
   NewGravatar,
   UpdatedGravatar,
 } from "../generated/GravatarRegistry/GravatarRegistry";
-import { Gravatar } from "../generated/schema";
 
 export function handleNewGravatar(event: NewGravatar): void {
   const gravatar = new Gravatar(event.params.id.toHexString());

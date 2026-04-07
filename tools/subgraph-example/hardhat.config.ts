@@ -1,10 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /* eslint-disable prettier/prettier */
+import * as dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
 import "@typechain/hardhat";
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-graph";
-
+import { task } from "hardhat/config";
+import {
+  mintNFT,
+  transferERC20,
+  createGravatar,
+  updateGravatarName,
+  transferHtsFT,
+  mintHtsNft,
+} from "./scripts";
 import {
   Client,
   LocalProvider,
@@ -14,19 +25,6 @@ import {
   TokenType,
   Wallet,
 } from "@hashgraph/sdk";
-import * as dotenv from "dotenv";
-import * as fs from "fs";
-import { task } from "hardhat/config";
-import * as path from "path";
-
-import {
-  createGravatar,
-  mintHtsNft,
-  mintNFT,
-  transferERC20,
-  transferHtsFT,
-  updateGravatarName,
-} from "./scripts";
 
 dotenv.config();
 

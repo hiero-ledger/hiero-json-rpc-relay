@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as dotenv from "dotenv";
-import hre from "hardhat";
-
 import expected from "./expected.json";
+import hre from "hardhat";
+import { IGravatarResponse } from "./types/gravatar/IGravatarResponse";
+import { ITokenResponse } from "./types/token/ITokenResponse";
 import {
   getData,
   verifyGravatarEvents,
   verifyTokenEvents,
 } from "./helpers/subgraph-helpers";
-import { IGravatarResponse } from "./types/gravatar/IGravatarResponse";
-import { ITokenResponse } from "./types/token/ITokenResponse";
 
 dotenv.config();
 

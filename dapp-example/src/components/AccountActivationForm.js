@@ -1,6 +1,5 @@
 import { Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
 import { useCallback, useState } from 'react';
-
 import useHederaSdk from '../hooks/useHederaSdkClient';
 
 const AccountActivationForm = ({ isConnected, toAccountId, alias, isActive, evmAddress, fetchAccountBalance }) => {

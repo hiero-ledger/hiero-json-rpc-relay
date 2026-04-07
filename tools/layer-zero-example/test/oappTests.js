@@ -17,7 +17,7 @@ describe('OAppTests', function() {
       BSC_EID,
       DATA_FROM_HEDERA,
       Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toHex(),
-      { gasLimit: 10_000_000, value: '5000000000000000000' },
+      { gasLimit: 10_000_000, value: '5000000000000000000' }
     );
 
     const receipt = await tx.wait();
@@ -34,7 +34,7 @@ describe('OAppTests', function() {
       HEDERA_EID,
       DATA_FROM_BSC,
       Options.newOptions().addExecutorLzReceiveOption(300000, 0).toHex(),
-      { gasLimit: 12_000_000, value: '1000000000000000' },
+      { gasLimit: 12_000_000, value: '1000000000000000' }
     );
 
     const receipt = await tx.wait();

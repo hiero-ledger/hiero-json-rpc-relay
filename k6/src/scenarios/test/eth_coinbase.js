@@ -3,7 +3,7 @@
 import http from 'k6/http';
 
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { getPayLoad,httpParams, is400Status } from './common.js';
+import { is400Status, httpParams, getPayLoad } from './common.js';
 
 const url = __ENV.RELAY_BASE_URL;
 

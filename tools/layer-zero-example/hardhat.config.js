@@ -12,26 +12,26 @@ module.exports = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200,
-          },
-        },
-      },
-    ],
+            runs: 200
+          }
+        }
+      }
+    ]
   },
   defaultNetwork: 'hedera_testnet',
   networks: {
     hedera_testnet: {
       url: 'https://testnet.hashio.io/api',
       accounts: [process.env.HEDERA_PK],
-      chainId: 296,
+      chainId: 296
     },
     bsc_testnet: {
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545',
       chainId: 97,
       gasPrice: 20000000000,
-      accounts: [process.env.BSC_PK],
-    },
-  },
+      accounts: [process.env.BSC_PK]
+    }
+  }
 };
 
 const getEndpointAddress = (network) => {
@@ -114,7 +114,7 @@ task('deploy-hts-connector', 'Deploy HTS connector contract')
     const contractFactory = await ethers.getContractFactory('ExampleHTSConnector');
     const contract = await contractFactory.deploy('T_NAME', 'T_SYMBOL', ENDPOINT_V2, signers[0].address, {
       gasLimit: 10_000_000,
-      value: '30000000000000000000', // 30 hbars
+      value: '30000000000000000000' // 30 hbars
     });
     await contract.deployTransaction.wait();
 
@@ -145,7 +145,7 @@ task('create-hts-token', 'Create a HTS token')
     const contractFactory = await ethers.getContractFactory('CreateHTS');
     const contract = await contractFactory.deploy('T_NAME', 'T_SYMBOL', signers[0].address, {
       gasLimit: 10_000_000,
-      value: '30000000000000000000', // 30 hbars
+      value: '30000000000000000000' // 30 hbars
     });
     await contract.deployTransaction.wait();
 

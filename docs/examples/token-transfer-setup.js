@@ -1,12 +1,13 @@
 import {
-    AccountBalanceQuery,
-    AccountId,
-    AccountInfoQuery,
     Client,
-    Hbar,
     PrivateKey,
-TokenAssociateTransaction,
-TokenCreateTransaction,     TransferTransaction } from "@hashgraph/sdk";
+    Hbar,
+    AccountId,
+    AccountBalanceQuery,
+    AccountInfoQuery,
+    TransferTransaction, TokenCreateTransaction, TokenAssociateTransaction,
+} from "@hashgraph/sdk";
+
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -25,16 +26,16 @@ async function main() {
         // by this account and be signed by this key
         client = Client.forName(process.env.HEDERA_NETWORK).setOperator(
             AccountId.fromString(process.env.OPERATOR_ID),
-            PrivateKey.fromString(process.env.OPERATOR_KEY),
+            PrivateKey.fromString(process.env.OPERATOR_KEY)
         );
     } catch (error) {
         throw new Error(
-            "Environment variables HEDERA_NETWORK, OPERATOR_ID, and OPERATOR_KEY are required.",
+            "Environment variables HEDERA_NETWORK, OPERATOR_ID, and OPERATOR_KEY are required."
         );
     }
 
     //Create token to be transferred into new accounts
-    const resp = await new TokenCreateTransaction()
+    let resp = await new TokenCreateTransaction()
         .setTokenName("demo")
         .setTokenSymbol("D")
         .setDecimals(3)
@@ -60,7 +61,7 @@ async function main() {
         ).getReceipt(client);
 
         console.log(
-            `  Sent 10 tokens from account ${client.operatorAccountId.toString()} to account ${accountId.toString()} on token ${tokenId.toString()}`,
+            `  Sent 10 tokens from account ${client.operatorAccountId.toString()} to account ${accountId.toString()} on token ${tokenId.toString()}`
         );
 
         const balance = await new AccountBalanceQuery()

@@ -64,13 +64,13 @@ describe('ONFTAdapterTests', function() {
       tokenId: 1,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      onftCmd: ethers.utils.arrayify('0x'),
+      onftCmd: ethers.utils.arrayify('0x')
     };
 
     const contract = await ethers.getContractAt('ExampleONFTAdapter', process.env.ONFT_ADAPTER_HEDERA_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '500000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 10_000_000,
-      value: '5000000000000000000',
+      value: '5000000000000000000'
     });
 
     const receipt = await tx.wait();
@@ -90,13 +90,13 @@ describe('ONFTAdapterTests', function() {
       tokenId: 2,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      onftCmd: ethers.utils.arrayify('0x'),
+      onftCmd: ethers.utils.arrayify('0x')
     };
 
     const contract = await ethers.getContractAt('ExampleONFTAdapter', process.env.ONFT_ADAPTER_BSC_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '1000000000000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 1_000_000,
-      value: '1000000000000000',
+      value: '1000000000000000'
     });
 
     const receipt = await tx.wait();

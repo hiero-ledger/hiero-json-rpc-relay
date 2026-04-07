@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { createConfig,http } from 'wagmi';
+import { http, createConfig } from 'wagmi';
 import { hedera, hederaTestnet } from 'wagmi/chains';
 import { coinbaseWallet, injected } from 'wagmi/connectors';
 

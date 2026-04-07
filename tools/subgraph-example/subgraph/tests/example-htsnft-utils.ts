@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Address, BigInt,ethereum } from "@graphprotocol/graph-ts";
 import { newMockEvent } from "matchstick-as";
-
+import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts";
 import {
-  ApprovalForAll,
   ExampleHTSNFTApproval,
+  ApprovalForAll,
   ExampleHTSNFTTransfer,
 } from "../generated/ExampleHTSNFT/ExampleHTSNFT";
 
@@ -14,11 +13,11 @@ export function createExampleHTSNFTApprovalEvent(
   approved: Address,
   tokenId: BigInt,
 ): ExampleHTSNFTApproval {
-  const exampleHtsnftApprovalEvent = changetype<ExampleHTSNFTApproval>(
+  let exampleHtsnftApprovalEvent = changetype<ExampleHTSNFTApproval>(
     newMockEvent(),
   );
 
-  exampleHtsnftApprovalEvent.parameters = [];
+  exampleHtsnftApprovalEvent.parameters = new Array();
 
   exampleHtsnftApprovalEvent.parameters.push(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
@@ -41,9 +40,9 @@ export function createApprovalForAllEvent(
   operator: Address,
   approved: boolean,
 ): ApprovalForAll {
-  const approvalForAllEvent = changetype<ApprovalForAll>(newMockEvent());
+  let approvalForAllEvent = changetype<ApprovalForAll>(newMockEvent());
 
-  approvalForAllEvent.parameters = [];
+  approvalForAllEvent.parameters = new Array();
 
   approvalForAllEvent.parameters.push(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
@@ -63,11 +62,11 @@ export function createExampleHTSNFTTransferEvent(
   to: Address,
   tokenId: BigInt,
 ): ExampleHTSNFTTransfer {
-  const exampleHtsnftTransferEvent = changetype<ExampleHTSNFTTransfer>(
+  let exampleHtsnftTransferEvent = changetype<ExampleHTSNFTTransfer>(
     newMockEvent(),
   );
 
-  exampleHtsnftTransferEvent.parameters = [];
+  exampleHtsnftTransferEvent.parameters = new Array();
 
   exampleHtsnftTransferEvent.parameters.push(
     new ethereum.EventParam("from", ethereum.Value.fromAddress(from)),

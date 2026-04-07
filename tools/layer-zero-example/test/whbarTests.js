@@ -15,7 +15,7 @@ describe('WHBARTests', function() {
     const contract = await ethers.getContractAt('WHBAR', process.env.WHBAR_HEDERA_CONTRACT);
 
     const tx = await contract.deposit({
-      value: '1000000000000000000', // 1 hbar
+      value: '1000000000000000000' // 1 hbar
     });
     await tx.wait();
     console.log(`(${hre.network.name}) successfully sent to Hedera via tx: ${tx.hash}`);
@@ -65,13 +65,13 @@ describe('WHBARTests', function() {
       minAmountLD: amount,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      oftCmd: ethers.utils.arrayify('0x'),
+      oftCmd: ethers.utils.arrayify('0x')
     };
 
     const contract = await ethers.getContractAt('ExampleOFTAdapter', process.env.WHBAR_HEDERA_ADAPTER_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '500000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 10_000_000,
-      value: '5000000000000000000',
+      value: '5000000000000000000'
     });
 
     const receipt = await tx.wait();
@@ -92,13 +92,13 @@ describe('WHBARTests', function() {
       minAmountLD: amount,
       extraOptions: Options.newOptions().addExecutorLzReceiveOption(3000000, 0).toBytes(),
       composeMsg: ethers.utils.arrayify('0x'),
-      oftCmd: ethers.utils.arrayify('0x'),
+      oftCmd: ethers.utils.arrayify('0x')
     };
 
     const contract = await ethers.getContractAt('ExampleOFTAdapter', process.env.WHBAR_BSC_ADAPTER_CONTRACT);
     const tx = await contract.send(sendParam, { nativeFee: '1000000000000000', lzTokenFee: 0 }, signers[0].address, {
       gasLimit: 1_000_000,
-      value: '1000000000000000',
+      value: '1000000000000000'
     });
 
     const receipt = await tx.wait();

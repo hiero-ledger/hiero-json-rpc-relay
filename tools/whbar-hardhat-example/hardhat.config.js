@@ -11,38 +11,38 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 500,
+        runs: 500
       },
       evmVersion: 'cancun',
-    },
+    }
   },
   mocha: {
-    timeout: 3600000,
+    timeout: 3600000
   },
   defaultNetwork: process.env.NETWORK,
   networks: {
     hedera_mainnet: {
       url: 'https://mainnet.hashio.io/api',
       accounts: [process.env.ECDSA_HEX_PRIVATE_KEY],
-      chainId: 295,
+      chainId: 295
     },
     hedera_testnet: {
       url: 'https://testnet.hashio.io/api',
       accounts: [process.env.ECDSA_HEX_PRIVATE_KEY],
-      chainId: 296,
+      chainId: 296
     },
     hedera_previewnet: {
       url: 'https://previewnet.hashio.io/api',
       accounts: [process.env.ECDSA_HEX_PRIVATE_KEY],
-      chainId: 297,
+      chainId: 297
     },
     bsc_testnet: {
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545',
       chainId: 97,
       gasPrice: 20000000000,
-      accounts: [process.env.ECDSA_HEX_PRIVATE_KEY],
-    },
-  },
+      accounts: [process.env.ECDSA_HEX_PRIVATE_KEY]
+    }
+  }
 };
 
 task('deploy-whbar-multichain')
@@ -61,16 +61,16 @@ task('deploy-whbar-multichain')
       const provider = new ethers.JsonRpcProvider(
         networksConfig[network].url,
         new ethers.Network(network, networksConfig[network].chainId),
-        { batchMaxSize: 1 },
+        { batchMaxSize: 1 }
       );
 
       signerCrossChainInfo[network] = {
         nonce: await provider.getTransactionCount(wallet.address),
-        balance: await provider.getBalance(wallet.address),
+        balance: await provider.getBalance(wallet.address)
       };
     }
 
-    const signerNonce = Object.values(signerCrossChainInfo)[0].nonce;
+    let signerNonce = Object.values(signerCrossChainInfo)[0].nonce;
     for (const info of Object.values(signerCrossChainInfo)) {
       if (info.nonce !== signerNonce) {
         console.log(signerCrossChainInfo);
@@ -93,7 +93,7 @@ task('deploy-whbar-multichain')
       const provider = new ethers.JsonRpcProvider(
         networksConfig[network].url,
         new ethers.Network(network, networksConfig[network].chainId),
-        { batchMaxSize: 1 },
+        { batchMaxSize: 1 }
       );
 
       const connectedWallet = wallet.connect(provider);

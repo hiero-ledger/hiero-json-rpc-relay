@@ -1,12 +1,13 @@
 import {
-    AccountBalanceQuery,
-    AccountId,
-    AccountInfoQuery,
     Client,
-    Hbar,
     PrivateKey,
+    Hbar,
+    AccountId,
+    AccountBalanceQuery,
+    AccountInfoQuery,
     TransferTransaction,
 } from "@hashgraph/sdk";
+
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -24,11 +25,11 @@ async function main() {
         // by this account and be signed by this key
         client = Client.forName(process.env.HEDERA_NETWORK).setOperator(
             AccountId.fromString(process.env.OPERATOR_ID),
-            PrivateKey.fromString(process.env.OPERATOR_KEY),
+            PrivateKey.fromString(process.env.OPERATOR_KEY)
         );
     } catch (error) {
         throw new Error(
-            "Environment variables HEDERA_NETWORK, OPERATOR_ID, and OPERATOR_KEY are required.",
+            "Environment variables HEDERA_NETWORK, OPERATOR_ID, and OPERATOR_KEY are required."
         );
     }
 

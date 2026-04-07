@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Address, BigInt } from "@graphprotocol/graph-ts";
 import {
-  afterAll,
   assert,
-  beforeAll,
-  clearStore,
   describe,
   test,
+  clearStore,
+  beforeAll,
+  afterAll,
 } from "matchstick-as/assembly/index";
-
+import { Address, BigInt } from "@graphprotocol/graph-ts";
 import { handleApproval } from "../src/example-htsft";
 import { createApprovalEvent } from "./example-htsft-utils";
 
@@ -18,14 +17,14 @@ import { createApprovalEvent } from "./example-htsft-utils";
 
 describe("Describe entity assertions", () => {
   beforeAll(() => {
-    const owner = Address.fromString(
+    let owner = Address.fromString(
       "0x0000000000000000000000000000000000000001",
     );
-    const spender = Address.fromString(
+    let spender = Address.fromString(
       "0x0000000000000000000000000000000000000001",
     );
-    const value = BigInt.fromI32(234);
-    const newApprovalEvent = createApprovalEvent(owner, spender, value);
+    let value = BigInt.fromI32(234);
+    let newApprovalEvent = createApprovalEvent(owner, spender, value);
     handleApproval(newApprovalEvent);
   });
 

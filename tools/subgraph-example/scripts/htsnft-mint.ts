@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  TokenId,
   Client,
   LocalProvider,
-  TokenId,
-  TokenMintTransaction,
   Wallet,
+  TokenMintTransaction,
 } from "@hashgraph/sdk";
 
 export async function mintHtsNft(receiver: string, hre: any) {
@@ -26,7 +26,7 @@ export async function mintHtsNft(receiver: string, hre: any) {
     .setTokenId(tokenId)
     .setMetadata([Buffer.from("2")])
     .freezeWithSigner(wallet);
-  const mintTxSign = await (await mintTx).signWithSigner(wallet);
+  let mintTxSign = await (await mintTx).signWithSigner(wallet);
   const mintTxRecipe = await (
     await mintTxSign.executeWithSigner(wallet)
   ).getReceiptWithSigner(wallet);

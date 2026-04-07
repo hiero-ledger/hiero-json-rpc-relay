@@ -2,9 +2,9 @@
 
 import http from 'k6/http';
 
-import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
+import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
 
 const methodName = 'eth_getTransactionReceipt';
 const { options, run } = new TestScenarioBuilder()

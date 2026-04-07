@@ -2,7 +2,7 @@
 
 import { useAccount, useBalance } from 'wagmi';
 
-function calculateBalance(value: bigint, decimals: number) {
+function calculateBalance(value: BigInt, decimals: number) {
   return Number(value) / 10 ** decimals;
 }
 

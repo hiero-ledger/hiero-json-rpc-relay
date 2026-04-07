@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Address, BigInt,ethereum } from "@graphprotocol/graph-ts";
 import { newMockEvent } from "matchstick-as";
-
+import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts";
 import {
   Approval,
   ExampleERC20Transfer,
@@ -13,9 +12,9 @@ export function createApprovalEvent(
   spender: Address,
   value: BigInt,
 ): Approval {
-  const approvalEvent = changetype<Approval>(newMockEvent());
+  let approvalEvent = changetype<Approval>(newMockEvent());
 
-  approvalEvent.parameters = [];
+  approvalEvent.parameters = new Array();
 
   approvalEvent.parameters.push(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
@@ -35,11 +34,11 @@ export function createExampleERC20TransferEvent(
   to: Address,
   value: BigInt,
 ): ExampleERC20Transfer {
-  const exampleErc20TransferEvent = changetype<ExampleERC20Transfer>(
+  let exampleErc20TransferEvent = changetype<ExampleERC20Transfer>(
     newMockEvent(),
   );
 
-  exampleErc20TransferEvent.parameters = [];
+  exampleErc20TransferEvent.parameters = new Array();
 
   exampleErc20TransferEvent.parameters.push(
     new ethereum.EventParam("from", ethereum.Value.fromAddress(from)),
