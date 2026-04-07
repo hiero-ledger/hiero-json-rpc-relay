@@ -24,7 +24,6 @@ export const RPC_METHOD_KEY = 'hedera-rpc-method';
  * @param _context - The decorator context
  * @returns The method function with RPC metadata attached
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function rpcMethod(target: any, _context: ClassMethodDecoratorContext): any {
   target[RPC_METHOD_KEY] = true;
 

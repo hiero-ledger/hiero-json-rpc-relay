@@ -67,7 +67,7 @@ export default defineConfig([
       // Custom rules
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-trailing-spaces': 'error',
       'no-useless-escape': 'warn',
       'prefer-const': 'error',
