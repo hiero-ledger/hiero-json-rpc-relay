@@ -129,7 +129,6 @@ jobs:
 
       - name: Run acceptance tests
         run: |
-            ps aux | grep kubectl
             if [[ -n "$OPERATOR_KEY" ]] && [[ "$OPERATOR_KEY" != "" ]]; then
               echo "Overriding OPERATOR_KEY_MAIN with the secret value"
               export OPERATOR_KEY_MAIN="$OPERATOR_KEY"
