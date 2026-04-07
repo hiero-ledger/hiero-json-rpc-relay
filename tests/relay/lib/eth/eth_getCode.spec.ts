@@ -6,7 +6,6 @@ import chaiAsPromised from 'chai-as-promised';
 
 import { JsonRpcError, predefined } from '../../../../src/relay';
 import constants from '../../../../src/relay/lib/constants';
-import { ContractService } from '../../../../src/relay/lib/services';
 import { CommonService } from '../../../../src/relay/lib/services';
 import { RequestDetails } from '../../../../src/relay/lib/types';
 import { overrideEnvsInMochaDescribe } from '../../helpers';

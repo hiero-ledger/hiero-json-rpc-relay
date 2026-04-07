@@ -928,7 +928,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -942,7 +942,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: [],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -956,7 +956,7 @@ describe('Validator', async () => {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
           topics: undefined,
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -969,7 +969,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816',
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -982,7 +982,7 @@ describe('Validator', async () => {
         validateSchema(OBJECTS_VALIDATIONS.ethSubscribeLogsParams, {
           address: ['0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816', '0xea4168c4cbb733ec22dea4a4bfc5f74b6fe27816'],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 
@@ -1000,7 +1000,7 @@ describe('Validator', async () => {
             '0xd78a0cb8bb633d06981248b816e7bd33c2a35a6089241d099fa519e361cab902',
           ],
         });
-      } catch (error) {
+      } catch {
         errorOccurred = true;
       }
 

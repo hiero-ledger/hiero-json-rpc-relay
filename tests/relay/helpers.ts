@@ -1128,7 +1128,7 @@ export const verifyResult = async <T>(
   }
 };
 
-export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheService) => {
+export const mockWorkersPool = async (mirrorNodeInstance, commonService) => {
   const deps = {
     '../../../clients/mirrorNodeClient': {
       MirrorNodeClient: class {

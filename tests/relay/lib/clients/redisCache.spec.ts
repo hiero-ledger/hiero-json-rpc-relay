@@ -2,7 +2,6 @@
 
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { pino } from 'pino';
 import { RedisClientType } from 'redis';
 import sinon from 'sinon';
 
