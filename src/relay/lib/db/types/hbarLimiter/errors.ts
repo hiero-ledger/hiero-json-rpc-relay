@@ -22,9 +22,8 @@ export class EvmAddressHbarSpendingPlanNotFoundError extends Error {
 }
 
 export class IPAddressHbarSpendingPlanNotFoundError extends Error {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(ipAddress: string) {
-    super(`IPAddressHbarSpendingPlan not found`);
+    super(`IPAddressHbarSpendingPlan not found for IP address ${ipAddress}`);
     this.name = 'IPAddressHbarSpendingPlanNotFoundError';
   }
 }
