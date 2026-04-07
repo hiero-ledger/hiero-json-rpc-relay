@@ -229,7 +229,7 @@ export class MirrorNodeClient {
 
     // Set the Is-Modularized header for Mirror Node requests only if the routing preference is explicitly configured.
     // This controls traffic flow between traditional and modularized Mirror Node services.
-    if (ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES') != undefined) {
+    if (ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES') !== undefined) {
       axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = ConfigService.get(
         'USE_MIRROR_NODE_MODULARIZED_SERVICES',
       )!.toString();
@@ -314,7 +314,7 @@ export class MirrorNodeClient {
 
     // set  up eth call  accepted error codes.
     const parsedAcceptedError = ConfigService.get('ETH_CALL_ACCEPTED_ERRORS');
-    if (parsedAcceptedError.length != 0) {
+    if (parsedAcceptedError.length !== 0) {
       MirrorNodeClient.acceptedErrorStatusesResponsePerRequestPathMap.set(
         MirrorNodeClient.CONTRACT_CALL_ENDPOINT,
         parsedAcceptedError,
@@ -379,7 +379,7 @@ export class MirrorNodeClient {
 
       let response: AxiosResponse<T, any>;
       if (method === MirrorNodeClient.HTTP_GET) {
-        if (pathLabel == MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
+        if (pathLabel === MirrorNodeClient.GET_CONTRACTS_RESULTS_OPCODES) {
           response = await this.web3Client.get<T>(path, axiosRequestConfig);
         } else {
           // JavaScript supports integers only up to 53 bits. When a number exceeding this limit
@@ -808,7 +808,7 @@ export class MirrorNodeClient {
 
   public async isValidContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedResponse: any = await this.getIsValidContractCache(contractIdOrAddress);
-    if (cachedResponse != undefined) {
+    if (cachedResponse !== undefined) {
       return cachedResponse;
     }
 
@@ -828,7 +828,7 @@ export class MirrorNodeClient {
   public async getContractId(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
-    if (cachedResponse != undefined) {
+    if (cachedResponse !== undefined) {
       return cachedResponse;
     }
 
@@ -863,10 +863,10 @@ export class MirrorNodeClient {
     );
 
     if (
-      response != undefined &&
-      response.transaction_index != undefined &&
-      response.block_number != undefined &&
-      response.block_hash != constants.EMPTY_HEX &&
+      response !== undefined &&
+      response.transaction_index !== undefined &&
+      response.block_number !== undefined &&
+      response.block_hash !== constants.EMPTY_HEX &&
       response.result === 'SUCCESS'
     ) {
       await this.cacheService.set(
@@ -917,7 +917,7 @@ export class MirrorNodeClient {
             contractObject &&
             (contractObject.transaction_index == null ||
               contractObject.block_number == null ||
-              contractObject.block_hash == constants.EMPTY_HEX)
+              contractObject.block_hash === constants.EMPTY_HEX)
           ) {
             // Found immature record, log the info, set flag and exit record traversal
             if (this.logger.isLevelEnabled('debug')) {
@@ -1277,7 +1277,7 @@ export class MirrorNodeClient {
   public async getEarliestBlock(requestDetails: RequestDetails) {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.earliest`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCKS_ENDPOINT);
-    if (cachedResponse != undefined) {
+    if (cachedResponse !== undefined) {
       return cachedResponse;
     }
 
@@ -1546,7 +1546,7 @@ export class MirrorNodeClient {
   }
 
   setQueryParam(queryParamObject, key, value) {
-    if (key && value != undefined && value !== '') {
+    if (key && value !== undefined && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
       }
@@ -1695,7 +1695,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
   ): Promise<MirrorNodeContractLog[]> {
-    const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
+    const { ...baseParams } = contractLogsResultsParams || {};
     const sliceParams: IContractLogsResultsParams = {
       ...baseParams,
       timestamp: [slice.from, slice.to],
@@ -1763,7 +1763,7 @@ export class MirrorNodeClient {
 
       // Add the activeRequest to the pool and set up self-cleanup
       activeRequestsPool.add(activeRequest);
-      activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
+      void activeRequest.finally(() => activeRequestsPool.delete(activeRequest));
 
       // Throttle: pause iteration when concurrency limit is reached
       // Resume and add new requests to the pool when any active request completes
@@ -1930,7 +1930,7 @@ export class MirrorNodeClient {
       // the index is needed afterward for detecting the resolved promise type (contract, account, or token)
       // @ts-ignore
       data = await Promise.any(promises.map((promise, index) => promise.then((value) => ({ value, index }))));
-    } catch (e) {
+    } catch {
       return null;
     }
 
