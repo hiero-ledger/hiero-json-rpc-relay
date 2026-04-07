@@ -808,7 +808,7 @@ export class MirrorNodeClient {
 
   public async isValidContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedResponse: any = await this.getIsValidContractCache(contractIdOrAddress);
-    if (cachedResponse !== undefined) {
+    if (cachedResponse) {
       return cachedResponse;
     }
 
