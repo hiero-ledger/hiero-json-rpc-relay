@@ -15,7 +15,7 @@ const { options, run } = new TestScenarioBuilder()
     methodName,
     scenarioName,
     [subscribeEvents.newPendingTransactions],
-    { methodName: (r) => isErrorResponse(r) }
+    { methodName: (r) => isErrorResponse(r) },
   ))
   .build();
 

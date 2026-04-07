@@ -1,6 +1,8 @@
 import 'cypress-wait-until';
-import * as bootstrapInfo from '../../../src/contracts/.bootstrapInfo.json';
+
 import { ethers } from 'ethers';
+
+import * as bootstrapInfo from '../../../src/contracts/.bootstrapInfo.json';
 
 describe('Test Core Hedera User Scenarios', function () {
   this.timeout(180000);

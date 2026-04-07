@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Address, BigInt,ethereum } from "@graphprotocol/graph-ts";
 import { newMockEvent } from "matchstick-as";
-import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts";
+
 import {
   Approval,
   ExampleHTSFTTransfer,
@@ -12,9 +13,9 @@ export function createApprovalEvent(
   spender: Address,
   value: BigInt,
 ): Approval {
-  let approvalEvent = changetype<Approval>(newMockEvent());
+  const approvalEvent = changetype<Approval>(newMockEvent());
 
-  approvalEvent.parameters = new Array();
+  approvalEvent.parameters = [];
 
   approvalEvent.parameters.push(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
@@ -34,11 +35,11 @@ export function createExampleHTSFTTransferEvent(
   to: Address,
   value: BigInt,
 ): ExampleHTSFTTransfer {
-  let exampleHtsFTTransferEvent = changetype<ExampleHTSFTTransfer>(
+  const exampleHtsFTTransferEvent = changetype<ExampleHTSFTTransfer>(
     newMockEvent(),
   );
 
-  exampleHtsFTTransferEvent.parameters = new Array();
+  exampleHtsFTTransferEvent.parameters = [];
 
   exampleHtsFTTransferEvent.parameters.push(
     new ethereum.EventParam("from", ethereum.Value.fromAddress(from)),

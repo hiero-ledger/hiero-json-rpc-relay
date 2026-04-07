@@ -165,7 +165,7 @@ const deployAndFundContractTransferTx = async function (wallet) {
   }
 
   const provider = new ethers.JsonRpcProvider(new ethers.FetchRequest(process.env.RPC_URL), undefined, {
-    batchMaxCount: 1
+    batchMaxCount: 1,
   });
   const mainWallet = new ethers.Wallet(mainPrivateKeyString, provider);
   const mainCompressedKey = mainWallet.signingKey.compressedPublicKey.replace('0x', '');

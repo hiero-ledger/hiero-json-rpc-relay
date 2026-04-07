@@ -2,8 +2,8 @@
 
 import { expect, use } from 'chai';
 import dotenv from 'dotenv';
-import { providers, Wallet } from 'ethers';
 import { createFixtureLoader, deployContract, solidity } from 'ethereum-waffle';
+import { providers, Wallet } from 'ethers';
 
 import SampleContract from '../build/SampleContract.json' assert { type: "json" };
 

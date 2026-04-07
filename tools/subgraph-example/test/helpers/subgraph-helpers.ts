@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ITokenEvent } from "../types/token/ITokenEvent";
 import { expect } from "chai";
-import { IQueryResponse } from "../types/IQueryResponse";
 import fetch from "node-fetch";
-import { IGravatarEvent } from "../types/gravatar/IGravatarEvent";
+
 import {
   FungibleTokenStrategy,
   NonFungibleTokenStrategy,
   TokenAssertionStrategy,
 } from "../assertions/TokenAssertionStrategy";
+import { IGravatarEvent } from "../types/gravatar/IGravatarEvent";
+import { IQueryResponse } from "../types/IQueryResponse";
+import { ITokenEvent } from "../types/token/ITokenEvent";
 
 const URL = "http://127.0.0.1:8000/subgraphs/name/subgraph-example";
 

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getSequentialTestScenarios } from '../../lib/common.js';
-
 // import test modules
 import * as eth_chainId from './eth_chainId.js';
 import * as eth_subscribe_logs from './eth_subscribe_logs.js';

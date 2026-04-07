@@ -14,7 +14,7 @@ const { options, run } = new TestScenarioBuilder()
     methodName,
     scenarioName,
     [],
-    { methodName: (r) => isNonErrorResponse(r) }
+    { methodName: (r) => isNonErrorResponse(r) },
   ))
   .build();
 

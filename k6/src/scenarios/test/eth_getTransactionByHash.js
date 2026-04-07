@@ -2,9 +2,9 @@
 
 import http from 'k6/http';
 
-import { TestScenarioBuilder } from '../../lib/common.js';
-import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
 import { setupTestParameters } from '../../lib/bootstrapEnvParameters.js';
+import { TestScenarioBuilder } from '../../lib/common.js';
+import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
 
 const methodName = 'eth_getTransactionByHash';
 const { options, run } = new TestScenarioBuilder()

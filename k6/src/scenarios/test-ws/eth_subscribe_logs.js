@@ -17,7 +17,7 @@ const { options, run } = new TestScenarioBuilder()
       methodName,
       scenarioName,
       [subscribeEvents.logs, { address: testParameters.contractsAddresses[0] }],
-      { methodName: (r) => isNonErrorResponse(r) }
+      { methodName: (r) => isNonErrorResponse(r) },
     );
   })
   .build();

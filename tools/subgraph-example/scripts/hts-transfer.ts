@@ -2,14 +2,14 @@
 
 import {
   AccountId,
-  TokenId,
   Client,
   LocalProvider,
-  Wallet,
-  TokenAssociateTransaction,
-  TransferTransaction,
   PrivateKey,
   ReceiptStatusError,
+  TokenAssociateTransaction,
+  TokenId,
+  TransferTransaction,
+  Wallet,
 } from "@hashgraph/sdk";
 import { ethers } from "ethers";
 
@@ -31,7 +31,7 @@ export async function transferHtsFT(receiver: string, hre: any) {
   const accountId = AccountId.fromString("0.0.1013");
 
   try {
-    let associateTx = await new TokenAssociateTransaction()
+    const associateTx = await new TokenAssociateTransaction()
       .setAccountId(accountId)
       .setTokenIds([tokenId])
       .freezeWithSigner(wallet);

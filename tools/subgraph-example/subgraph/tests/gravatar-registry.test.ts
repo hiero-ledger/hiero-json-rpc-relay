@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Address,BigInt } from "@graphprotocol/graph-ts";
 import {
+  afterAll,
   assert,
+  beforeAll,
+  clearStore,
   describe,
   test,
-  clearStore,
-  beforeAll,
-  afterAll,
 } from "matchstick-as/assembly/index";
-import { BigInt, Address } from "@graphprotocol/graph-ts";
-import { NewGravatar } from "../generated/schema";
+
 import { NewGravatar as NewGravatarEvent } from "../generated/GravatarRegistry/GravatarRegistry";
+import { NewGravatar } from "../generated/schema";
 import { handleNewGravatar } from "../src/gravatar-registry";
 import { createNewGravatarEvent } from "./gravatar-registry-utils";
 
@@ -19,13 +20,13 @@ import { createNewGravatarEvent } from "./gravatar-registry-utils";
 
 describe("Describe entity assertions", () => {
   beforeAll(() => {
-    let id = BigInt.fromI32(234);
-    let owner = Address.fromString(
+    const id = BigInt.fromI32(234);
+    const owner = Address.fromString(
       "0x0000000000000000000000000000000000000001",
     );
-    let displayName = "Example string value";
-    let imageUrl = "Example string value";
-    let newNewGravatarEvent = createNewGravatarEvent(
+    const displayName = "Example string value";
+    const imageUrl = "Example string value";
+    const newNewGravatarEvent = createNewGravatarEvent(
       id,
       owner,
       displayName,

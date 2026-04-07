@@ -31,16 +31,16 @@ task("contract-call", async (taskArgs) => {
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   mocha: {
-    timeout: 3600000
+    timeout: 3600000,
   },
   solidity: {
     version: "0.8.9",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 500
-      }
-    }
+        runs: 500,
+      },
+    },
   },
   // This specifies network configurations used when running Hardhat tasks
   defaultNetwork: "local",
@@ -49,13 +49,13 @@ module.exports = {
       // Your Hedera Local Node address pulled from the .env file
       url: process.env.LOCAL_NODE_ENDPOINT,
       // Conditionally assign accounts when private key value is present
-      accounts: process.env.LOCAL_NODE_OPERATOR_PRIVATE_KEY ? [process.env.LOCAL_NODE_OPERATOR_PRIVATE_KEY] : []
+      accounts: process.env.LOCAL_NODE_OPERATOR_PRIVATE_KEY ? [process.env.LOCAL_NODE_OPERATOR_PRIVATE_KEY] : [],
     },
     testnet: {
       // HashIO testnet endpoint
       url: 'https://testnet.hashio.io/api',
       // Conditionally assign accounts when private key value is present
-      accounts: process.env.TESTNET_OPERATOR_PRIVATE_KEY ? [process.env.TESTNET_OPERATOR_PRIVATE_KEY] : []
+      accounts: process.env.TESTNET_OPERATOR_PRIVATE_KEY ? [process.env.TESTNET_OPERATOR_PRIVATE_KEY] : [],
     },
 
     /**
@@ -65,7 +65,7 @@ module.exports = {
       // HashIO mainnet endpoint
       url: 'https://mainnet.hashio.io/api',
       // Conditionally assign accounts when private key value is present
-      accounts: process.env.MAINNET_OPERATOR_PRIVATE_KEY ? [process.env.MAINNET_OPERATOR_PRIVATE_KEY] : []
+      accounts: process.env.MAINNET_OPERATOR_PRIVATE_KEY ? [process.env.MAINNET_OPERATOR_PRIVATE_KEY] : [],
     },
 
     /**
@@ -75,7 +75,7 @@ module.exports = {
       // HashIO previewnet endpoint
       url:'https://previewnet.hashio.io/api',
       // Conditionally assign accounts when private key value is present
-      accounts: process.env.PREVIEWNET_OPERATOR_PRIVATE_KEY ? [process.env.PREVIEWNET_OPERATOR_PRIVATE_KEY] : []
-    }
-  }
+      accounts: process.env.PREVIEWNET_OPERATOR_PRIVATE_KEY ? [process.env.PREVIEWNET_OPERATOR_PRIVATE_KEY] : [],
+    },
+  },
 };

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Greeter from './contracts/Greeter.json' with { type: 'json' };
+import * as HederaSDK from '@hashgraph/sdk';
 import { ethers, formatEther, parseEther } from 'ethers';
 import * as fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import * as HederaSDK from '@hashgraph/sdk';
+import Greeter from './contracts/Greeter.json' with { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +44,7 @@ function randomIntFromInterval(min, max) {
 async function getSignedTxs(wallet, greeterContracts, gasPrice, gasLimit, chainId) {
   const amount = process.env.SIGNED_TXS ? process.env.SIGNED_TXS : 5;
   console.log(`Generating (${amount}) Txs for Performance Test...`);
-  let nonce = 0; // since all wallets are new and have no transactions, no need to get nonce from the network
+  const nonce = 0; // since all wallets are new and have no transactions, no need to get nonce from the network
   const signedTxCollection = [];
   for (let i = 0; i < amount; i++) {
     const greeterContractAddress = randomIntFromInterval(0, greeterContracts.length - 1);
@@ -69,7 +69,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   const CHAIN_ID_TO_NETWORK = {
     297n: 'Previewnet',
     296n: 'Testnet',
-    295n: 'Mainnet'
+    295n: 'Mainnet',
   };
   const network = CHAIN_ID_TO_NETWORK[chainId] ?? 'LocalNode';
   const mirrorNodeBaseUrl = `${process.env.MIRROR_BASE_URL}/api/v1`;
@@ -86,7 +86,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   function createClient(network, accountId, privateKey) {
     return HederaSDK.Client[`for${network}`]().setOperator(
         HederaSDK.AccountId.fromString(accountId),
-        privateKey
+        privateKey,
       );
   }
 
@@ -100,7 +100,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   }
 
   async function createFungibleToken(mainAccountInfo, mainAccountPk, mainAccountClient) {
-    let tokenCreateTx = new HederaSDK.TokenCreateTransaction()
+    const tokenCreateTx = new HederaSDK.TokenCreateTransaction()
       .setTokenName('TestToken')
       .setTokenSymbol('TT')
       .setTokenType(HederaSDK.TokenType.FungibleCommon)
@@ -134,7 +134,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   await updateMaxAutomaticTokenAssociations(network, signerPk, signerInfo.account);
 
   // create an array of HTS transfer promises and execute them
-  let tokenTransferPromises = [];
+  const tokenTransferPromises = [];
   for (let i = 0; i < syntheticTxPerBlock; i++) {
     const tokenTransferTransaction = new HederaSDK.TransferTransaction()
       .addTokenTransfer(tokenId, HederaSDK.AccountId.fromString(signerInfo.account), 1)
@@ -149,11 +149,11 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
   // get the log info from MN
   const txHash = Buffer.from(txIds[0].transactionHash).toString('hex');
   const logInfo = await (await fetch(
-    `${mirrorNodeBaseUrl}/contracts/results/logs?transaction.hash=${txHash}`
+    `${mirrorNodeBaseUrl}/contracts/results/logs?transaction.hash=${txHash}`,
   )).json();
 
   const blockInfo = await (await fetch(
-    `${mirrorNodeBaseUrl}/blocks/${logInfo.logs[0].block_number}`
+    `${mirrorNodeBaseUrl}/blocks/${logInfo.logs[0].block_number}`,
   )).json();
   if (blockInfo.count < syntheticTxPerBlock) {
     throw Error(`There was a problem sending ${syntheticTxPerBlock} transactions and block ${logInfo.logs[0].block_number} does not contain enough synthetic transactions.`);
@@ -203,9 +203,9 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
     console.log('address: ', wallet.address);
 
     // amount to send (HBAR)
-    let amountInEther = process.env.WALLET_BALANCE || '10';
+    const amountInEther = process.env.WALLET_BALANCE || '10';
     // Create transaction
-    let tx = {
+    const tx = {
       to: wallet.address,
       // Convert currency unit from ether to wei
       value: parseEther(amountInEther),
@@ -222,7 +222,7 @@ async function getBlockNumberAndHashWithManySyntheticTxs(chainId, mainWallet, ma
     const walletProvider = new ethers.Wallet(wallet.privateKey, new LoggingProvider(process.env.RELAY_BASE_URL));
     const signedTxCollection = await getSignedTxs(walletProvider, smartContracts, gasPrice, gasLimit, chainId);
 
-    let walletData = {};
+    const walletData = {};
     walletData['index'] = i;
     walletData['address'] = wallet.address;
     walletData['privateKey'] = wallet.privateKey;

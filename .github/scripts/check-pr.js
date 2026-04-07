@@ -11,8 +11,8 @@ const yellow = text => `\x1b[33m${text}\x1b[0m`;
 const blue = text => `\x1b[34m${text}\x1b[0m`;
 
 /**
- * @param {string} endpoint 
- * @returns 
+ * @param {string} endpoint
+ * @returns
  */
 async function _get(endpoint) {
   return await fetch('https://api.github.com/repos/' + endpoint, {
@@ -23,9 +23,9 @@ async function _get(endpoint) {
 }
 
 /**
- * 
- * @param {string | number} prNumber 
- * @returns 
+ *
+ * @param {string | number} prNumber
+ * @returns
  */
 async function getPRDetails(prNumber) {
   const response = await _get(`${owner}/${repo}/pulls/${prNumber}`);
@@ -51,14 +51,14 @@ async function getContributors() {
 }
 
 /**
- * @param {string} text 
+ * @param {string} text
  */
 function stripHTMLTags(text) {
   return text.replace(/<\/?[^>]+(>|$)/g, '');
 }
 
 /**
- * @param {string} text 
+ * @param {string} text
  */
 function removeCodeBlocks(text) {
   // Remove fenced code blocks (triple backticks or tildes)
@@ -89,7 +89,7 @@ function extractPRReferences(text) {
 }
 
 /**
- * @param {string} text 
+ * @param {string} text
  */
 function extractIssueReferences(text) {
   // Regex to match issue references with any number of digits
@@ -112,7 +112,7 @@ function extractIssueReferences(text) {
 }
 
 /**
- * @param {string} text 
+ * @param {string} text
  */
 function cleanText(text) {
   let cleanText = text;
@@ -122,8 +122,8 @@ function cleanText(text) {
 }
 
 /**
- * 
- * @param {*} pr 
+ *
+ * @param {*} pr
  * @param {string[]} errors
  */
 async function checkPRLabelsAndMilestone(pr, errors) {
@@ -142,8 +142,8 @@ function isDependabotOrSnykPR(pr) {
 }
 
 /**
- * @param {string} text 
- * @param {string[]} errors 
+ * @param {string} text
+ * @param {string[]} errors
  */
 async function processIssueReferencesInText(text, errors) {
   const issueReferences = extractIssueReferences(text);
@@ -184,8 +184,8 @@ async function processIssueReferencesInText(text, errors) {
 }
 
 /**
- * @param {string} text 
- * @param {{login: string}[]} contributors 
+ * @param {string} text
+ * @param {{login: string}[]} contributors
  */
 async function processPRReferencesInText(text, contributors, errors) {
   const prReferences = extractPRReferences(text);
@@ -206,8 +206,8 @@ async function processPRReferencesInText(text, contributors, errors) {
 }
 
 /**
- * @param {string} prRef 
- * @param {{login: string}[]} contributors 
+ * @param {string} prRef
+ * @param {{login: string}[]} contributors
  */
 async function processReferencedPR(prRef, contributors) {
   // Attempt to fetch the PR to validate its existence

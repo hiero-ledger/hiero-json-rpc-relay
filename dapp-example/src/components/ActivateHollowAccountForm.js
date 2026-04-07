@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
 import { Button, TextField, Typography } from '@mui/material';
 import { ethers } from 'ethers';
-import ContractTransferTx from '../contracts/ContractTransferTx.json';
+import React, { useCallback, useEffect,useState } from 'react';
+
 import bootstrapInfo from '../contracts/.bootstrapInfo.json';
+import ContractTransferTx from '../contracts/ContractTransferTx.json';
 
 const ActivateHollowAccountForm = ({ signer, isConnected, chain, address }) => {
   const [isLoading, setIsLoading] = useState(false);

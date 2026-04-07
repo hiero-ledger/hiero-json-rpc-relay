@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Address, BigInt } from "@graphprotocol/graph-ts";
 import {
+  afterAll,
   assert,
+  beforeAll,
+  clearStore,
   describe,
   test,
-  clearStore,
-  beforeAll,
-  afterAll,
 } from "matchstick-as/assembly/index";
-import { Address, BigInt } from "@graphprotocol/graph-ts";
+
 import { handleExampleHTSNFTApproval } from "../src/example-htsnft";
 import { createExampleHTSNFTApprovalEvent } from "./example-htsnft-utils";
 
@@ -17,14 +18,14 @@ import { createExampleHTSNFTApprovalEvent } from "./example-htsnft-utils";
 
 describe("Describe entity assertions", () => {
   beforeAll(() => {
-    let owner = Address.fromString(
+    const owner = Address.fromString(
       "0x0000000000000000000000000000000000000001",
     );
-    let approved = Address.fromString(
+    const approved = Address.fromString(
       "0x0000000000000000000000000000000000000001",
     );
-    let tokenId = BigInt.fromI32(234);
-    let newExampleHTSNFTApprovalEvent = createExampleHTSNFTApprovalEvent(
+    const tokenId = BigInt.fromI32(234);
+    const newExampleHTSNFTApprovalEvent = createExampleHTSNFTApprovalEvent(
       owner,
       approved,
       tokenId,

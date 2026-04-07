@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getSequentialTestScenarios } from '../../lib/common.js';
-
 // import test modules
 import * as debug_traceBlockByNumber from './debug_traceBlockByNumber.js';
 import * as debug_traceTransaction from './debug_traceTransaction.js';
@@ -20,10 +19,10 @@ import * as eth_getBlockByHash from './eth_getBlockByHash.js';
 import * as eth_getBlockByHash_withManySyntheticTxs from './eth_getBlockByHash_withManySyntheticTxs.js';
 import * as eth_getBlockByNumber from './eth_getBlockByNumber.js';
 import * as eth_getBlockByNumber_withManySyntheticTxs from './eth_getBlockByNumber_withManySyntheticTxs.js';
-import * as eth_getBlockTransactionCountByHash from './eth_getBlockTransactionCountByHash.js';
-import * as eth_getBlockTransactionCountByNumber from './eth_getBlockTransactionCountByNumber.js';
 import * as eth_getBlockReceipts from './eth_getBlockReceipts.js';
 import * as eth_getBlockReceipts_withManySyntheticTxs from './eth_getBlockReceipts_withManySyntheticTxs.js';
+import * as eth_getBlockTransactionCountByHash from './eth_getBlockTransactionCountByHash.js';
+import * as eth_getBlockTransactionCountByNumber from './eth_getBlockTransactionCountByNumber.js';
 import * as eth_getCode from './eth_getCode.js';
 import * as eth_getFilterChanges from './eth_getFilterChanges.js';
 import * as eth_getFilterLogs from './eth_getFilterLogs.js';

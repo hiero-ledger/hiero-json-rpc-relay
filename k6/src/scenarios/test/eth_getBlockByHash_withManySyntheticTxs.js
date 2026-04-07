@@ -3,7 +3,7 @@
 import http from 'k6/http';
 
 import { TestScenarioBuilder } from '../../lib/common.js';
-import { isNonErrorResponse, httpParams, getPayLoad } from './common.js';
+import { getPayLoad,httpParams, isNonErrorResponse } from './common.js';
 
 const methodName = 'eth_getBlockByHash';
 const { options, run } = new TestScenarioBuilder()
@@ -12,7 +12,7 @@ const { options, run } = new TestScenarioBuilder()
     return http.post(
       __ENV.RELAY_BASE_URL,
       getPayLoad(methodName, [testParameters.blockHashWithManySyntheticTxs.slice(0, 66), true]),
-      httpParams
+      httpParams,
     );
   })
   .check(methodName, isNonErrorResponse)

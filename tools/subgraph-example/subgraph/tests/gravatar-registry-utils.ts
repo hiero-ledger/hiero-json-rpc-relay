@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { Address,BigInt, ethereum } from "@graphprotocol/graph-ts";
 import { newMockEvent } from "matchstick-as";
-import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
+
 import {
   NewGravatar,
   UpdatedGravatar,
@@ -13,9 +14,9 @@ export function createNewGravatarEvent(
   displayName: string,
   imageUrl: string,
 ): NewGravatar {
-  let newGravatarEvent = changetype<NewGravatar>(newMockEvent());
+  const newGravatarEvent = changetype<NewGravatar>(newMockEvent());
 
-  newGravatarEvent.parameters = new Array();
+  newGravatarEvent.parameters = [];
 
   newGravatarEvent.parameters.push(
     new ethereum.EventParam("id", ethereum.Value.fromUnsignedBigInt(id)),
@@ -42,9 +43,9 @@ export function createUpdatedGravatarEvent(
   displayName: string,
   imageUrl: string,
 ): UpdatedGravatar {
-  let updatedGravatarEvent = changetype<UpdatedGravatar>(newMockEvent());
+  const updatedGravatarEvent = changetype<UpdatedGravatar>(newMockEvent());
 
-  updatedGravatarEvent.parameters = new Array();
+  updatedGravatarEvent.parameters = [];
 
   updatedGravatarEvent.parameters.push(
     new ethereum.EventParam("id", ethereum.Value.fromUnsignedBigInt(id)),

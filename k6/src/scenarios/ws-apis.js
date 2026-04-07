@@ -18,11 +18,11 @@
  *
  */
 
-import exec from 'k6/execution';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
+import exec from 'k6/execution';
 
-import { markdownReport } from '../lib/common.js';
 import { setupTestParameters } from '../lib/bootstrapEnvParameters.js';
+import { markdownReport } from '../lib/common.js';
 import { funcs, options } from './test-ws/index.js';
 
 function handleSummary(data) {

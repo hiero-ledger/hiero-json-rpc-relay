@@ -10,6 +10,6 @@ module.exports = {
     "mochaJunitReporterReporterOptions": {
         "mochaFile": `${__dirname}/test-results.[hash].xml`,
         "includePending": true,
-        "outputs": true
+        "outputs": true,
     },
 };

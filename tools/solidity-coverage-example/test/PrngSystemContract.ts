@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
-import { PrngSystemContract } from '../typechain-types';
 import { ContractTransactionResponse } from 'ethers';
+import { ethers } from 'hardhat';
+
+import { PrngSystemContract } from '../typechain-types';
 
 export const Events = {
   PseudoRandomSeed: 'PseudoRandomSeed',

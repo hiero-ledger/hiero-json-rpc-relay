@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import ws from 'k6/ws';
 import { check } from 'k6';
+import ws from 'k6/ws';
+
 import { scenarioDurationGauge } from './index.js';
 
 const errorField = 'error';

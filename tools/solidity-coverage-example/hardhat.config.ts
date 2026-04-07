@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /** @type import('hardhat/config').HardhatUserConfig */
-import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
 import 'solidity-coverage';
+
+import { HardhatUserConfig } from 'hardhat/config';
 
 const config: HardhatUserConfig = {
   solidity: '0.8.19',
