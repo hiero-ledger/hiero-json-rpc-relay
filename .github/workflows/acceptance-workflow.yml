@@ -136,13 +136,14 @@ jobs:
           echo "Namespace debug 1"
           kubectl get ns -o name | sed 's|^namespace/||'
           echo "Namespace debug 2"
-          kubectl get ns -o name | sed 's|^namespace/||' | grep '^solo' | grep -v '^solo-setup$' | head -n1
+          kubectl get ns -o name | sed 's|^namespace/||' | grep 'hiero' | head -n1
+          NS=$(kubectl get ns -o name | sed 's|^namespace/||' | grep 'hiero' | head -n1)
           for row in "${FORWARDS[@]}"; do
             IFS='|' read -r include port <<<"$row"
             POD="$(kubectl get pods -A --no-headers | grep -E mirror | grep "$include" | head -n 1 | awk '{print $2}' | head -n1)"
             echo "Debugging port: $port"
             echo "Debugging POD: $POD"
-            kubectl port-forward "$POD" -n one-shot "$port:$port" >/dev/null 2>&1 &
+            kubectl port-forward "$POD" -n "$NS" "$port:$port" >/dev/null 2>&1 &
           done
 
       - name: Start Redis
