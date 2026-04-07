@@ -89,6 +89,12 @@ jobs:
             --deploy-relay=false
         timeout-minutes: 15
 
+      - name: Forward solo mirror node web3 port
+        run: |
+          NS=$(kubectl get ns -o name | sed 's|^namespace/||' | grep 'hiero' | head -n1)
+          POD="$(kubectl get pods -A --no-headers | grep -E mirror | grep "web3" | head -n 1 | awk '{print $2}' | head -n1)"
+          kubectl port-forward "$POD" -n "$NS" "8545:8545" >/dev/null 2>&1 &
+
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
