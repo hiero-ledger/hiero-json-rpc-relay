@@ -126,7 +126,7 @@ export class Precheck {
    * @param accountNonce - The nonce of the account.
    */
   nonce(tx: Transaction, accountNonce: number | undefined): void {
-    if (accountNonce == undefined) {
+    if (accountNonce === undefined) {
       throw predefined.RESOURCE_NOT_FOUND(`Account nonce unavailable for address: ${tx.from}.`);
     }
 
@@ -212,7 +212,7 @@ export class Precheck {
    * @param accountBalance - The account balance information.
    */
   balance(tx: Transaction, accountBalance: IAccountBalance | undefined): void {
-    if (accountBalance?.balance == undefined) {
+    if (accountBalance?.balance === undefined) {
       throw predefined.RESOURCE_NOT_FOUND(`Account balance unavailable for address: ${tx.from}.`);
     }
 
