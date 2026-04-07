@@ -321,7 +321,7 @@ export class TransactionService implements ITransactionService {
     const useAsyncTxProcessing = ConfigService.get('USE_ASYNC_TX_PROCESSING');
     if (useAsyncTxProcessing) {
       // Fire and forget - lock will be released after consensus submission
-      this.sendRawTransactionProcessor(
+      void this.sendRawTransactionProcessor(
         transactionBuffer,
         parsedTx,
         networkGasPriceInWeiBars,
@@ -761,9 +761,12 @@ export class TransactionService implements ITransactionService {
        *  After transaction execution, whether successful or not, any entity associated with the 'fileId' should be removed from the Hedera network.
        */
       if (fileId) {
-        this.hapiService
-          .deleteFile(fileId, requestDetails, constants.ETH_SEND_RAW_TRANSACTION, originalCallerAddress)
-          .then();
+        void this.hapiService.deleteFile(
+          fileId,
+          requestDetails,
+          constants.ETH_SEND_RAW_TRANSACTION,
+          originalCallerAddress,
+        );
       }
     }
 
