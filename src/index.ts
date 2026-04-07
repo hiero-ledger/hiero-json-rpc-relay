@@ -36,6 +36,7 @@ async function main() {
 
   if (!rpcHttpEnabled && !rpcWsEnabled) {
     logger.fatal('At least one transport must be enabled (RPC_HTTP_ENABLED or RPC_WS_ENABLED)');
+    // eslint-disable-next-line n/no-process-exit
     process.exit(1);
   }
 
@@ -94,14 +95,18 @@ async function main() {
     const shutdown = async () => {
       logger.info('Shutting down...');
       await Promise.all(servers.map((s) => s.stop()));
+      // eslint-disable-next-line n/no-process-exit
       process.exit(0);
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
   } catch (error) {
     logger.fatal(error);
+    // eslint-disable-next-line n/no-process-exit
     process.exit(1);
   }
 }
 
-main();
+main()
+  .then(() => logger.info('Relay started successfully'))
+  .catch((err) => logger.fatal({ err }, 'Failed to start the relay'));
