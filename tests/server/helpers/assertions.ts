@@ -390,7 +390,7 @@ export default class Assertions {
     }
   };
 
-  static expectRevert = async (promise, _code) => {
+  static expectRevert = async (promise) => {
     try {
       const tx = await promise;
       const receipt = await tx.wait();
@@ -467,7 +467,7 @@ export default class Assertions {
     // Validate excluded values are encoded
     expect(excludedValues.every(hasValidHash));
     if (result.calls) {
-      result.calls.forEach((_call) => {
+      result.calls.forEach(() => {
         expect(nestedExcludedValues.every(hasValidHash));
       });
     }

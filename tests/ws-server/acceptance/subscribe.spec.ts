@@ -230,7 +230,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
           webSocket.on('message', function incoming(data) {
             const parsed = JSON.parse(data);
             if (parsed.id !== null || parsed.method) {
-              if (subscriptionId == '') {
+              if (subscriptionId === '') {
                 subscriptionId = parsed.result;
               } else {
                 latestEventFromSubscription = parsed;
@@ -545,7 +545,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       it('when the server sends a message', async function () {
         let eventCaptured = false;
-        wsProvider.on({ address: logContractSigner.target }, function (data) {
+        wsProvider.on({ address: logContractSigner.target }, function () {
           eventCaptured = true;
         });
 
@@ -982,7 +982,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
             ]);
 
             await wsProvider.send('eth_unsubscribe', [subId]);
-          } catch (e: any) {
+          } catch {
             errorsHandled++;
           }
         }

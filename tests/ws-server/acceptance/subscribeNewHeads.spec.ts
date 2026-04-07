@@ -82,6 +82,7 @@ describe('@web-socket-batch-3 eth_subscribe newHeads', async function () {
   const CHAIN_ID = ConfigService.get('CHAIN_ID');
   const ONE_TINYBAR = Utils.add0xPrefix(Utils.toHex(ethers.parseUnits('1', 10)));
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let mirrorNodeServer, rpcServer, wsServer;
 
   let wsProvider;
