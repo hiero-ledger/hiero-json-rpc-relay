@@ -178,10 +178,9 @@ export class Receipt {
    */
   constructor(txHash: string, record: TransactionRecord, block: Block) {
     const gasUsed = record.contractFunctionResult == null ? 0 : record.contractFunctionResult.gasUsed;
-    const contractAddress =
-      record.contractFunctionResult === undefined
-        ? undefined
-        : '0x' + record.contractFunctionResult.contractId?.toSolidityAddress();
+    const contractAddress = record.contractFunctionResult
+      ? `0x${record.contractFunctionResult!.contractId?.toSolidityAddress()}`
+      : undefined;
 
     this.transactionHash = txHash;
     this.transactionIndex = '0x0';
