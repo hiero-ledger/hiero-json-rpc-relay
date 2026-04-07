@@ -212,9 +212,9 @@ export class ConfigService {
 
   private get<K extends ConfigKey>(name: K): GetTypeOfConfigKey<K> {
     const configEntry = GlobalConfig.ENTRIES[name];
-    let value = this.envs[name] == undefined ? configEntry?.defaultValue : this.envs[name];
+    let value = this.envs[name] ?? configEntry?.defaultValue;
 
-    if (value == undefined && configEntry?.required) {
+    if (value === undefined && configEntry?.required) {
       throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
     }
 
