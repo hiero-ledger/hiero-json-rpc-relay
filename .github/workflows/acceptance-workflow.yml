@@ -125,6 +125,15 @@ jobs:
             "grpc|5600"
             "web3|8545"
           )
+          echo "Debugging headers listing"
+          kubectl get pods -A --no-headers
+          echo "Debugging headers filtered by mirror"
+          kubectl get pods -A --no-headers | grep -E mirror
+          echo "Debugging headers filtered by mirror and rest"
+          kubectl get pods -A --no-headers | grep -E mirror | grep rest
+          echo "Debugging pod name"
+          kubectl get pods -A --no-headers | grep -E mirror | grep rest | head -n 1 | awk '{print $2}' | head -n1
+          echo "Debugging port: $port"
           for row in "${FORWARDS[@]}"; do
             IFS='|' read -r include port <<<"$row"
             POD="$(kubectl get pods -A --no-headers | grep -E mirror | grep "$include" | head -n 1 | awk '{print $2}' | head -n1)"
