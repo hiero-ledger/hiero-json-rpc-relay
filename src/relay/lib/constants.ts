@@ -112,7 +112,7 @@ export default {
   ETH_GET_GAS_PRICE_CACHE_TTL_MS_DEFAULT: `${CACHE_TTL.FIFTEEN_MINUTES}`,
   ETH_GAS_FEE_TTL: `${CACHE_TTL.HALF_HOUR}`,
   ETH_FEE_HISTORY_TTL: `${CACHE_TTL.HALF_HOUR}`,
-  // eslint-disable-next line no-useless-escape
+  // eslint-disable-next-line no-useless-escape
   TRANSACTION_ID_REGEX: /\d{1}\.\d{1}\.\d{1,10}\@\d{1,10}\.\d{1,9}/,
 
   CHAIN_IDS: {
