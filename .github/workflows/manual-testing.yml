@@ -65,6 +65,7 @@ jobs:
     with:
       testfilter: ratelimiter
       test_ws_server: true
+      test_rate_limits: true
       networkTag: ${{inputs.networkNodeTag}}
       mirrorTag: ${{inputs.mirrorNodeTag}}
     secrets:
