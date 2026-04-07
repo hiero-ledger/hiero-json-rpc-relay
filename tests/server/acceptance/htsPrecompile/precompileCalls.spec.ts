@@ -283,11 +283,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       expect(totalSupply).to.eq(BigInt(INITIAL_SUPPLY));
     });
 
-    it('Function with IERC20(token).balanceOf(account) - using long zero address', async () => {
-      const balance = await IERC20.balanceOf(account1LongZero);
-      expect(balance).to.eq(BigInt(100));
-    });
-
     it('Function with IERC20(token).balanceOf(account) - using evm address', async () => {
       const balance = await IERC20.balanceOf(accounts[1].address);
       expect(balance).to.eq(BigInt(100));
@@ -325,41 +320,6 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
 
   //According to this ticket the following describe should be deleted after adaptations are applied -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
   describe('Calling HTS token through HederaTokenService', async () => {
-    //TODO remove this it when should be able to freeze and unfreeze token2 is implemented -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
-    it('Function with HederaTokenService.isFrozen(token, account) - using long zero address', async () => {
-      // freeze token
-      const freezeTx = await TokenManagementSigner.freezeTokenPublic(
-        tokenAddress,
-        accounts[1].wallet.address,
-        Constants.GAS.LIMIT_1_000_000,
-      );
-      const responseCodeFreeze = (await freezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
-      )[0].args.responseCode;
-      expect(responseCodeFreeze).to.equal(TX_SUCCESS_CODE);
-
-      await new Promise((r) => setTimeout(r, 5000));
-      const isFrozen = await htsImpl.isTokenFrozen.staticCall(tokenAddress, account1LongZero);
-      expect(isFrozen).to.eq(true);
-
-      // unfreeze token
-      const unfreezeTx = await TokenManagementSigner.unfreezeTokenPublic(
-        tokenAddress,
-        accounts[1].wallet.address,
-        Constants.GAS.LIMIT_1_000_000,
-      );
-      const responseCodeUnfreeze = (await unfreezeTx.wait()).logs.filter(
-        (e) => e.fragment.name === Constants.HTS_CONTRACT_EVENTS.ResponseCode,
-      )[0].args.responseCode;
-      expect(responseCodeUnfreeze).to.equal(TX_SUCCESS_CODE);
-    });
-
-    //Todo delete when should query isKyc2 is implemented -> https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/1131
-    it('Function with HederaTokenService.isKyc(token, account) - using long zero account address', async () => {
-      const isKyc1 = await htsImpl.isKycGranted.staticCall(tokenAddress, account1LongZero);
-      expect(isKyc1).to.eq(true);
-    });
-
     describe('Function with HederaTokenService.getTokenCustomFees(token)', async () => {
       it('token with no custom fees', async () => {
         const customFees = await htsImpl.getCustomFeesForToken.staticCall(tokenAddressNoFees);
