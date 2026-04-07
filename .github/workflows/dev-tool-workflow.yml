@@ -97,8 +97,11 @@ jobs:
       - name: Start Redis
         run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
-      - name: Start the local relay
+      - name: Start the local relay http server
         run: npm run start &
+
+      - name: Start the local relay ws server
+        run: npm run start:ws &
 
       - name: Install dependencies
         run: cd ${{ inputs.directory }}/ && npm ci
