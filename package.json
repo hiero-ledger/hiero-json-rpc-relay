@@ -94,6 +94,7 @@
     "test:relay": "c8 ts-mocha --recursive './tests/relay/**/*.spec.ts' --exit",
     "test:server": "c8 ts-mocha --recursive './tests/server/integration/**/*.spec.ts' --exit",
     "test:ws-server": "c8 ts-mocha --recursive './tests/ws-server/unit/**/*.spec.ts' --exit",
+    "typecheck": "tsc --noEmit -p tsconfig.eslint.json",
     "openrpctest": "ts-mocha tests/relay/lib/openrpc.spec.ts --exit",
     "bump-version": "SEM_VER=${npm_config_semver} SNAPSHOT=${npm_config_snapshot} node scripts/.bump-version.js",
     "prepare": "husky",
