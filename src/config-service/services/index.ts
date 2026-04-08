@@ -214,11 +214,11 @@ export class ConfigService {
     const configEntry = GlobalConfig.ENTRIES[name];
     let value = this.envs[name] ?? configEntry?.defaultValue;
 
-    if (value === undefined && configEntry?.required) {
+    if (value == null && configEntry?.required) {
       throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
     }
 
-    if (name === 'CHAIN_ID' && value !== undefined) {
+    if (name === 'CHAIN_ID' && value) {
       value = `0x${Number(value).toString(16)}`;
     }
 

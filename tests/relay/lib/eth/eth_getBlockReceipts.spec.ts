@@ -64,7 +64,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
   const requestDetails = new RequestDetails({ requestId: 'eth_getBlockReceiptsTest', ipAddress: '0.0.0.0' });
 
   before(async () => {
-    await mockWorkersPool(mirrorNodeInstance, commonService, cacheService);
+    await mockWorkersPool(mirrorNodeInstance, commonService);
   });
 
   this.beforeEach(async () => {
@@ -86,7 +86,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   function setupStandardResponses(overrides: Partial<Record<string, any>> = {}) {
     Object.entries(DEFAULTS).forEach(([url, body]) => {
-      const toReply = overrides[url] !== undefined ? overrides[url] : body;
+      const toReply = overrides[url] != null ? overrides[url] : body;
       restMock.onGet(url).reply(200, JSON.stringify(toReply));
     });
   }

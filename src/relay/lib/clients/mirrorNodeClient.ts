@@ -266,18 +266,18 @@ export class MirrorNodeClient {
       web3Url = restUrl;
     }
 
-    if (restClient !== undefined) {
+    if (restClient) {
       this.restUrl = '';
       this.web3Url = '';
 
       this.restClient = restClient;
-      this.web3Client = web3Client ? web3Client : restClient;
+      this.web3Client = web3Client ?? restClient;
     } else {
       this.restUrl = this.buildUrl(restUrl);
       this.web3Url = this.buildUrl(web3Url);
 
-      this.restClient = restClient ? restClient : this.createAxiosClient(this.restUrl);
-      this.web3Client = web3Client ? web3Client : this.createAxiosClient(this.web3Url);
+      this.restClient = restClient ?? this.createAxiosClient(this.restUrl);
+      this.web3Client = web3Client ?? this.createAxiosClient(this.web3Url);
     }
 
     this.logger = logger;
@@ -637,7 +637,7 @@ export class MirrorNodeClient {
     const queryParamsFiltered = Object.fromEntries(
       Object.entries(queryParamObject).filter(([key, value]) => {
         if (key === MirrorNodeClient.ACCOUNT_TRANSACTIONS_PROPERTY && value) return false;
-        return value !== undefined && value !== '';
+        return value != null && value !== '';
       }),
     );
     const queryParams = this.getQueryParams(queryParamsFiltered);
@@ -828,7 +828,7 @@ export class MirrorNodeClient {
   public async getContractId(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
-    if (cachedResponse !== undefined) {
+    if (cachedResponse) {
       return cachedResponse;
     }
 
@@ -1277,7 +1277,7 @@ export class MirrorNodeClient {
   public async getEarliestBlock(requestDetails: RequestDetails) {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.earliest`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCKS_ENDPOINT);
-    if (cachedResponse !== undefined) {
+    if (cachedResponse) {
       return cachedResponse;
     }
 
@@ -1546,7 +1546,7 @@ export class MirrorNodeClient {
   }
 
   setQueryParam(queryParamObject, key, value) {
-    if (key && value !== undefined && value !== '') {
+    if (key && value != null && value !== '') {
       if (!queryParamObject[key]) {
         queryParamObject[key] = value;
       }

@@ -38,7 +38,7 @@ export function validateObject<T extends object = any>(object: T, filters: IObje
     }
   }
 
-  const paramsMatchingFilters = Object.keys(filters.properties).filter((key) => object[key] !== undefined);
+  const paramsMatchingFilters = Object.keys(filters.properties).filter((key) => object[key] != null);
   return !filters.failOnEmpty || paramsMatchingFilters.length > 0;
 }
 

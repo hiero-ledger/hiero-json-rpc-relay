@@ -162,7 +162,7 @@ export const areSubscriptionsEnabled = (): boolean => {
  */
 export const constructValidLogSubscriptionFilter = (filters: any): object => {
   return Object.fromEntries(
-    Object.entries(filters).filter(([key, value]) => value !== undefined && ['address', 'topics'].includes(key)),
+    Object.entries(filters).filter(([key, value]) => value && ['address', 'topics'].includes(key)),
   );
 };
 

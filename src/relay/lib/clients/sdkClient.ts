@@ -720,7 +720,7 @@ export class SDKClient {
     const consensusMaxExecutionTimeEnv = process.env.CONSENSUS_MAX_EXECUTION_TIME;
 
     // Case 1: Both are explicitly set - use SDK_GRPC_DEADLINE and warn about redundant configuration
-    if (sdkGrpcDeadlineEnv !== undefined && consensusMaxExecutionTimeEnv !== undefined) {
+    if (sdkGrpcDeadlineEnv != null && consensusMaxExecutionTimeEnv != null) {
       logger.warn(
         `Detected both SDK_GRPC_DEADLINE and CONSENSUS_MAX_EXECUTION_TIME in configuration. CONSENSUS_MAX_EXECUTION_TIME is deprecated; please remove it and use SDK_GRPC_DEADLINE exclusively.`,
       );
@@ -728,12 +728,12 @@ export class SDKClient {
     }
 
     // Case 2: Only SDK_GRPC_DEADLINE is set - preferred path
-    if (sdkGrpcDeadlineEnv !== undefined) {
+    if (sdkGrpcDeadlineEnv != null) {
       return ConfigService.get('SDK_GRPC_DEADLINE');
     }
 
     // Case 3: Only CONSENSUS_MAX_EXECUTION_TIME is set - legacy configuration, advise migration
-    if (consensusMaxExecutionTimeEnv !== undefined) {
+    if (consensusMaxExecutionTimeEnv != null) {
       logger.warn(
         `CONSENSUS_MAX_EXECUTION_TIME is deprecated and will be removed in a future release. Please migrate to SDK_GRPC_DEADLINE for configuring the max execution time for the SDK.`,
       );
