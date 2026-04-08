@@ -1,94 +1,9 @@
 ## Enhancements
 
-- chore: cherry pick: retry Mirror Node connection on startup with configurable backoff [#5174](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5174)
-- chore: cherry pick: eliminate unnecessary pino worker threads to reduce memory footprint [#5157](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5157)
-- chore: cherry pick: reduce memory footprint by replacing full ethers.js import with… [#5156](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5156)
-- chore: cherry pick fix: Fix arm64 Docker build crash by using bookworm-slim for build stage [#5155](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5155)
-- feat: updates Dockerfile to use bookworm for build [#5153](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5153)
-- Fix arm64 Docker build crash by using bookworm-slim for build stage [#5152](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5152)
-- [A5 Solo] Retry Mirror Node connection on startup [#5151](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5151)
-- fix: eliminate unnecessary pino worker threads to reduce memory footprint [#5149](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5149)
-- feat: reduce memory footprint by replacing full ethers.js import with selective submodule imports [#5147](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5147)
-- [SOLO A5] fix: eliminate unnecessary pino worker threads to reduce memory footprint [#5138](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5138)
-- feat: removed MIRROR\_NODE\_QUERY\_LIMIT constant and replaced it's usages with MIRROR\_NODE\_LIMIT\_PARAM env variable (#5103) [#5124](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5124)
-- feat: reduce Piscina worker thread logs with idle timeout and log suppression (#5080) [#5119](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5119)
-- feat: use the latest version of buildx (#5117) [#5118](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5118)
-- Expose MIRROR\_NODE\_QUERY\_LIMIT as a configurable value [#5103](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5103)
-- feat: fix `debug_trace*` returns plain text for output instead of hex-encoded value [#5102](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5102)
-- feat: use `call_operation_type` instead of `call_type` on `debug_*` endpoints [#5098](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5098)
-- feat: apply openrpcschema update suggestions (#4915) [#5097](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5097)
-- feat: fix not iterable rpc params [#5096](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5096)
-- feat: determine blockGasLimit based on hapi version [#5095](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5095)
-- feat: add support for correct 16bytes 0prefixed filterid format (#5091) [#5094](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5094)
-- [NEED INVESTIGATION] web3\_clientVersion periodically failed with rpcParams is not iterable [#5093](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5093)
-- Make sure FilterId validation check the uint type instead of bytes [#5091](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5091)
-- fix: mask MIRROR\_NODE\_URL\_HEADER\_X\_API\_KEY in /config endpoint [#5090](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5090)
-- feat: should not filter out transactions with Hedera-specific revert reasons from block-related and `debug_` methods [#5089](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5089)
-- feat: introduce WORKERS\_POOL\_ENABLED config to optionally disable worker thread pool [#5070](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5070)
-- BlockGasLimit per Block and Release [#5065](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5065)
-- feat: add `Authorization` header to the MN requests [#5061](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5061)
-- chore: optimize Dockerfile using standalone multi-stage build and Node File Trace technique [#5059](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5059)
-- fix: debug\_traceBlockByNumber returns -32001 for blocks with ERROR\_DECODING\_BYTESTRING / INSUFFICIENT\_TX\_FEE transactions [#5053](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5053)
-- fix: debug trace top-level type field uses call\_type instead of call\_operation\_type, leaking Hedera-specific SYSTEM type [#5052](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5052)
-- feat: ensuring filter identifier is always proper uint format [#5049](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5049)
-- feat: return complete logs for synthetic transactions in eth getblockreceiptseth gettransactionreceipt (#5043) [#5044](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5044)
-- Return complete logs for synthetic transactions in eth\_getBlockReceipts/eth\_getTransactionReceipt [#5043](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5043)
-- MIRROR\_NODE\_URL\_HEADER\_X\_API\_KEY at /config level [#5042](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5042)
-- fix: debug trace top-level output field contains plain text instead of hex-encoded value for Hedera-specific failures [#5035](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5035)
-- feat: use hardcoded zero value for base fee per gas (#5023) [breaking change] [#5034](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5034)
-- [Pectra] eth\_getCode behavior change [#5033](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5033)
-- feat: extend paymaster follow-up [#5032](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5032)
-- baseFeePerGas should be always 0 [#5023](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5023)
-- Enable mirror node client to be able to set Authorization Header [#5006](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5006)
-- Ensure filter identifier is always proper uint format [#4995](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4995)
-- Enhance Resource Efficiency: Optionally Disable Worker Thread Pool for Low-Memory Profiles [#4987](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4987)
-- Dockerfile Optimization for Memory Efficiency and Runtime Reliability [#4986](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4986)
-- feat: extend the existing conformity check process (#4915) [#4963](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4963)
-- feat: allow sendRawTransaction flow to continue if redis is down [#4959](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4959)
-- feat: add debug\_getRawTransaction method [#4958](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4958)
-- `getPendingCount()` Redis Error Handling — Divergent Behavior by Caller [#4934](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4934)
-- feat: add `debug_getRawHeader` method [#4926](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4926)
-- feat: add `debug_getRawReceipts` method [#4919](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4919)
-- [CONFORMITY] Align our openrpc.json updating script the latest Ethereum Spec + Extend the existing conformity check process [#4915](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4915)
-- feat: add `debug_getRawBlock` method [#4909](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4909)
-- feat: added support for debug\_getBadBlocks (#4889) [#4894](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4894)
-- Add `debug_getRawTransaction` method [#4893](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4893)
-- Add `debug_getRawReceipts` method [#4892](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4892)
-- Add `debug_getRawHeader` method [#4891](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4891)
-- Add `debug_getRawBlock` method [#4890](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4890)
-- Add `debug_getBadBlocks` method [#4889](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4889)
-- feat: add test coverage for `eth_call` revertion details [#4884](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4884)
-- fix: add synthetic transaction support for eth\_getTransactionByBlockHashAnd Index and eth\_getTransactionByBlockNumberAndIndex [#4873](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4873)
-- feat: adds debug\_traceBlockByHash support [#4867](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4867)
-- Synthetic transactions are not returned on `eth_getTransactionByBlockHashAndIndex` [#4859](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4859)
-- Synthetic transactions are not returned on `eth_getTransactionByBlockNumberAndIndex` [#4858](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4858)
-- Add debug\_traceBlockByHash [#4843](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4843)
-- Track: MN - Multiple `500` responses from MN when try to fetch logs with nested topics size bigger than 20 [#4838](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4838)
-- 1 Server: 2 protocols Allow users to pick which protocol to start [#4797](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4797)
-- Implement Fix for Paging Limit and Large Block Retrieval [#3849](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/3849)
-
-## Bug Fixes
-
-- Review [00:29:59.846] INFO (config-service/68): HAPI\_CLIENT\_ERROR\_RESET = 21,50 [#5080](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5080)
-- feat: return proper fallback value when tx pool is disabled (#5071) [#5072](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5072)
-- getPendingTransaction shoudl return fallback value when tx pool is disabled [#5071](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5071)
-- fix: returning empty tracer object on transactions without executed opcodes (#4965) [#4989](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4989)
-- fix: fixed cumulativeGasUsed calculations in eth\_getBlockReceipts and eth\_getTransactionReceipt (#4921) [#4936](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4936)
-- Fix cumulativeGasUsed: use per-transaction cumulative gas, not block total [#4921](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/4921)
-- fix: convert maxFeePerGas/maxPriorityFeePerGas from tinybars to weibars [#4902](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4902)
-
-## Documentation
-
-- docs: update tx pool to reflect RLP hex storage instead of tx hash [#5075](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5075)
-- Update TX pool doc, to reflect RPC encoded data usage [#5067](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5067)
-- feat: prepare initial version of openjson rpc file (#4915) [#4957](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/4957)
-
-## Internal Changes
-
-- Use the latest version of buildx [#5117](https://github.com/hiero-ledger/hiero-json-rpc-relay/issues/5117)
+- feat: move getBalance to specific worker #5146 [#5232](https://github.com/hiero-ledger/hiero-json-rpc-relay/pull/5232)
 
 ## :heart: Contributors
 
 Thank you to all the contributors who worked on this release:
 
-@BartoszSolkaBD, @bootcodes, @crypt0grapher, @jasuwienas, @natanasow, @quiet-node, and @simzzz
+@quiet-node
