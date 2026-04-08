@@ -172,46 +172,42 @@ export class BlockService implements IBlockService {
   /**
    * Always returns null. There are no uncles in Hedera.
    *
-   * @param blockHash - The block hash
-   * @param index - The uncle index
+   * @param _blockHash - The block hash
+   * @param _index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getUncleByBlockHashAndIndex(blockHash: string, index: string): null {
+  getUncleByBlockHashAndIndex(_blockHash: string, _index: string): null {
     return null;
   }
 
   /**
    * Always returns null. There are no uncles in Hedera.
    *
-   * @param blockNumOrTag - The block number or tag
-   * @param index - The uncle index
+   * @param _blockNumOrTag - The block number or tag
+   * @param _index - The uncle index
    * @returns null as Hedera does not support uncle blocks
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getUncleByBlockNumberAndIndex(blockNumOrTag: string, index: string): null {
+  getUncleByBlockNumberAndIndex(_blockNumOrTag: string, _index: string): null {
     return null;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
    *
-   * @param blockHash - The block hash
+   * @param _blockHash - The block hash
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getUncleCountByBlockHash(blockHash: string): string {
+  getUncleCountByBlockHash(_blockHash: string): string {
     return constants.ZERO_HEX;
   }
 
   /**
    * Always returns '0x0'. There are no uncles in Hedera.
    *
-   * @param blockNumOrTag - The block number or tag
+   * @param _blockNumOrTag - The block number or tag
    * @returns '0x0' as Hedera does not support uncle blocks
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getUncleCountByBlockNumber(blockNumOrTag: string): string {
+  getUncleCountByBlockNumber(_blockNumOrTag: string): string {
     return constants.ZERO_HEX;
   }
 
