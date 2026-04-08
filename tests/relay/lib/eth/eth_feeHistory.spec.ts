@@ -170,7 +170,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 
@@ -194,6 +194,35 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     it('eth_feeHistory on mirror 500', async function () {
       const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
       feeHistoryOnErrorExpect(feeHistory);
+    });
+  });
+
+  describe('eth_feeHistory when block fetch returns null', function () {
+    const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
+
+    this.beforeEach(() => {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+      restMock.onGet(`blocks/${latestBlock.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+    });
+
+    it('returns zero fee and zero gasUsedRatio', async function () {
+      const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+
+      expect(feeHistory).to.exist;
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
+    });
+
+    it('returns zero fee and zero gasUsedRatio with reward percentiles', async function () {
+      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+
+      expect(feeHistory).to.exist;
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      const rewards = feeHistory['reward'][0];
+      expect(rewards[0]).to.equal('0x0');
+      expect(rewards[1]).to.equal('0x0');
     });
   });
 

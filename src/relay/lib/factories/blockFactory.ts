@@ -37,7 +37,7 @@ export class BlockFactory {
       difficulty: constants.ZERO_HEX,
       extraData: constants.EMPTY_HEX,
       gasLimit: numberTo0x(obtainBlockGasLimit(blockResponse.hapi_version)),
-      gasUsed: numberTo0x(blockResponse.gas_used),
+      gasUsed: numberTo0x(blockResponse.gas_used ?? 0),
       hash: blockHash,
       logsBloom: blockResponse.logs_bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
       miner: constants.ZERO_ADDRESS_HEX,

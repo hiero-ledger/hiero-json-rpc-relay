@@ -229,18 +229,30 @@ export class FeeService implements IFeeService {
     blockNumber: number,
     requestDetails: RequestDetails,
   ): Promise<{ fee: string; gasUsedRatio: number }> {
+    let block: MirrorNodeBlock | undefined;
     try {
-      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
-      const gasUsedRatio = this.getGasUsedRatioForBlock(block);
-      return { fee: numberTo0x(fee), gasUsedRatio };
+      block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+      if (!block) {
+        this.logger.warn(`Fee history: block ${blockNumber} not found. Returning zero fee and gasUsedRatio.`);
+        return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
+      }
     } catch (error) {
       this.logger.warn(
         error,
-        `Fee history cannot retrieve block or fee. Returning zero fee and gasUsedRatio for block %s`,
+        `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
         blockNumber,
       );
       return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
+    }
+
+    const gasUsedRatio = this.getGasUsedRatioForBlock(block);
+
+    try {
+      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      return { fee: numberTo0x(fee), gasUsedRatio };
+    } catch (error) {
+      this.logger.warn(error, `Fee history cannot retrieve fee. Returning zero fee for block %s`, blockNumber);
+      return { fee: constants.ZERO_HEX, gasUsedRatio };
     }
   }
 
@@ -256,7 +268,7 @@ export class FeeService implements IFeeService {
    */
   private getGasUsedRatioForBlock(block: MirrorNodeBlock): number {
     const blockGasLimit = obtainBlockGasLimit(block.hapi_version);
-    const gasUsed = block.gas_used || 0;
+    const gasUsed = block.gas_used ?? 0;
     const blockNumber = block.number;
 
     if (gasUsed > blockGasLimit) {
