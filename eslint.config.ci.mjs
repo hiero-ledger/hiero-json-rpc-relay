@@ -3,7 +3,7 @@
 // CI-only ESLint config — extends the base config with type-aware rules.
 // These rules require parserOptions.project (full TypeScript program build)
 // and are too expensive to run on every save locally.
-// Run via: npx eslint --flag unstable_config_lookup_from_file . --config eslint.config.ci.mjs
+// Run via: npx eslint . --config eslint.config.ci.mjs
 
 import { defineConfig } from 'eslint/config';
 import tsParser from '@typescript-eslint/parser';

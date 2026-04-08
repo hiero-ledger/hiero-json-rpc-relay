@@ -218,7 +218,7 @@ export class ConfigService {
       throw new Error(`Configuration error: ${name} is a mandatory configuration for relay operation.`);
     }
 
-    if (name === 'CHAIN_ID' && value) {
+    if (name === 'CHAIN_ID' && value != null) {
       value = `0x${Number(value).toString(16)}`;
     }
 

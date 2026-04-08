@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import 'fs';
-
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect } from 'chai';

@@ -1695,7 +1695,7 @@ export class MirrorNodeClient {
     contractLogsResultsParams: IContractLogsResultsParams | undefined,
     limitOrderParams: ILimitOrderParams | undefined,
   ): Promise<MirrorNodeContractLog[]> {
-    const { ...baseParams } = contractLogsResultsParams || {};
+    const { timestamp: _originalTimestamp, ...baseParams } = contractLogsResultsParams || {};
     const sliceParams: IContractLogsResultsParams = {
       ...baseParams,
       timestamp: [slice.from, slice.to],
