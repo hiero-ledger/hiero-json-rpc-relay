@@ -2495,10 +2495,6 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
           const toAddress = Utils.idToEvmAddress(receipt.accountId.toString());
           const verifyAccount = await mirrorNode.get(`/accounts/${toAddress}`);
 
-          if (verifyAccount && !verifyAccount.account) {
-            verifyAccount === (await mirrorNode.get(`/accounts/${toAddress}`));
-          }
-
           expect(verifyAccount.receiver_sig_required).to.be.true;
 
           const tx = {

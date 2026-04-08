@@ -231,7 +231,7 @@ export class MirrorNodeClient {
     // Set the Is-Modularized header for Mirror Node requests only if the routing preference is explicitly configured.
     // This controls traffic flow between traditional and modularized Mirror Node services.
     const modularizedServices = ConfigService.get('USE_MIRROR_NODE_MODULARIZED_SERVICES');
-    if (modularizedServices) {
+    if (modularizedServices != null) {
       axiosClient.defaults.headers.common[MirrorNodeClient.IS_MODULARIZED] = modularizedServices.toString();
     }
 
@@ -744,7 +744,7 @@ export class MirrorNodeClient {
   public async getBlock(hashOrBlockNumber: string | number, requestDetails: RequestDetails): Promise<MirrorNodeBlock> {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.${hashOrBlockNumber}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCK_ENDPOINT);
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -808,7 +808,7 @@ export class MirrorNodeClient {
 
   public async isValidContract(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedResponse: any = await this.getIsValidContractCache(contractIdOrAddress);
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -828,7 +828,7 @@ export class MirrorNodeClient {
   public async getContractId(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -852,7 +852,7 @@ export class MirrorNodeClient {
     const cacheKey = `${constants.CACHE_KEY.GET_CONTRACT_RESULT}.${transactionIdOrHash}`;
     const cachedResponse = await this.cacheService.getAsync(cacheKey, MirrorNodeClient.GET_CONTRACT_RESULT_ENDPOINT);
 
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -1277,7 +1277,7 @@ export class MirrorNodeClient {
   public async getEarliestBlock(requestDetails: RequestDetails) {
     const cachedLabel = `${constants.CACHE_KEY.GET_BLOCK}.earliest`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_BLOCKS_ENDPOINT);
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
@@ -1867,7 +1867,7 @@ export class MirrorNodeClient {
       cachedLabel,
       callerName,
     );
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 

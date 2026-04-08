@@ -81,7 +81,7 @@ export async function getBalance(
       // If no balance and no account, then we need to make a request to the mirror node for the account.
       mirrorAccount = await mirrorNodeClient.getAccount(account, requestDetails);
       // Test if exists here
-      if (mirrorAccount && mirrorAccount?.balance && mirrorAccount?.balance?.balance) {
+      if (mirrorAccount != null) {
         balanceFound = true;
         weibars = BigInt(mirrorAccount.balance.balance) * BigInt(constants.TINYBAR_TO_WEIBAR_COEF);
       }

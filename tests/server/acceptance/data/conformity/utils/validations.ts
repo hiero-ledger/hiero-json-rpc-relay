@@ -13,12 +13,10 @@ let execApisOpenRpcData: any = null;
 function getExecApisOpenRpcData() {
   if (!execApisOpenRpcData) {
     const filePath = path.resolve(__dirname, '../../../../../../openrpc_exec_apis.json');
-    if (fs.existsSync(filePath)) {
-      execApisOpenRpcData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      return execApisOpenRpcData;
-    }
-    throw new Error(`OpenRPC data file not found at path: ${filePath}`);
+    if (!fs.existsSync(filePath)) throw new Error(`OpenRPC data file not found at path: ${filePath}`);
+    execApisOpenRpcData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   }
+  return execApisOpenRpcData;
 }
 
 const ajv = new Ajv({ strict: false });
