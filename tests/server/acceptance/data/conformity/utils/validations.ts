@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+import fs from 'node:fs';
+import path from 'node:path';
+
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect } from 'chai';
-import * as fs from 'fs';
-import * as path from 'path';
 
 import { ErrorResponse, JsonRpcResponse, Method, Schema } from './interfaces';
 
