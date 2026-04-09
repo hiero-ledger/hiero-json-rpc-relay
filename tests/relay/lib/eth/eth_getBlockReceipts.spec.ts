@@ -86,7 +86,7 @@ describe('@ethGetBlockReceipts using MirrorNode', async function () {
 
   function setupStandardResponses(overrides: Partial<Record<string, any>> = {}) {
     Object.entries(DEFAULTS).forEach(([url, body]) => {
-      const toReply = overrides[url] != null ? overrides[url] : body;
+      const toReply = overrides[url] !== undefined ? overrides[url] : body;
       restMock.onGet(url).reply(200, JSON.stringify(toReply));
     });
   }

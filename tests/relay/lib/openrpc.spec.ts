@@ -89,7 +89,7 @@ describe('Open RPC Specification', function () {
     openRpcDocument = await parseOpenRPCDocument(JSON.stringify(openRpcSchema));
     methodsResponseSchema = openRpcDocument.methods
       .filter((method) => 'name' in method)
-      .filter((method) => method.result != null)
+      .filter((method) => method.result !== undefined)
       .reduce(
         (res, method) => ({
           ...res,
