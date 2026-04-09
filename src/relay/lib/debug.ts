@@ -956,7 +956,7 @@ export class DebugImpl implements Debug {
     // Build pre-fetched data map
     const preFetchedData: TxHashToContractResultOrActionsMap = {};
 
-    const actionsMap = new Map<string, ContractAction[]>(actionsResults.map((ar) => [ar.txHash, ar.actions]));
+    const actionsMap = new Map<string, ContractAction[]>(actionsResults.map(({txHash, actions}) => [txHash, actions]));
 
     txHashArray.forEach((txHash) => {
       const contractResult = contractResultsByHash.get(txHash);
