@@ -53,11 +53,30 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
-      - name: Start the hedera local node
-        run: npx hedera start -d
+      - name: Setup Kind
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          install_only: true
+          node_image: kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d
+          version: v0.29.0
+          kubectl_version: v1.32.5
+          verbosity: 3
+          wait: 120s
 
-      - name: Stop the local node's relay
-        run: docker stop json-rpc-relay
+      - name: Start the solo node
+        run: |
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+            --values-file .github/falcon.yml \
+            --dev \
+            --force-port-forward \
+            --deploy-relay=false
+        timeout-minutes: 15
+
+      - name: Forward solo ports
+        run: .github/scripts/forward-ports.sh
+
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
 
       - name: Start the local relay
         run: npm run start &
