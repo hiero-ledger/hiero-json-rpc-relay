@@ -708,7 +708,7 @@ export class DebugImpl implements Debug {
 
       const { resolvedFrom, resolvedTo } = await this.resolveMultipleAddresses(from, to, requestDetails);
 
-      const value = numberTo0x(tinybarsToWeibars(amount) ?? 0);
+      const value = numberTo0x(amount != null ? BigInt(amount.toString()) : BigInt(0));
       const errorResult = result !== constants.SUCCESS ? result : undefined;
 
       return {

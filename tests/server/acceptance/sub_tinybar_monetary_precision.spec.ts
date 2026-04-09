@@ -18,9 +18,10 @@ import { expect } from 'chai';
 import { ethers } from 'ethers';
 
 import { ConfigService } from '../../../src/config-service/services';
-import constants from '../../../src/relay/lib/constants';
+import constants, { TracerType } from '../../../src/relay/lib/constants';
 import { withOverriddenEnvsInMochaTest } from '../../relay/helpers';
 import RelayClient from '../clients/relayClient';
+import EquivalenceContractJson from '../contracts/EquivalenceContract.json';
 import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
@@ -44,6 +45,7 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
   const accounts: AliasAccount[] = [];
   let sender: ethers.Wallet;
   let recipient: string;
+  let equivalenceContract: ethers.Contract;
 
   before(async function () {
     const initialAccount: AliasAccount = global.accounts[0];
@@ -51,6 +53,11 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
     global.accounts.push(...accounts);
     sender = accounts[1].wallet;
     recipient = accounts[2].address;
+    equivalenceContract = await Utils.deployContract(
+      EquivalenceContractJson.abi,
+      EquivalenceContractJson.bytecode,
+      accounts[0].wallet,
+    );
   });
 
   async function waitForRelayTransaction(txHash: string, maxAttempts = 40): Promise<any> {
@@ -287,6 +294,29 @@ describe('@sub_tinybar_monetary_precision Acceptance Tests', function () {
       const found = block.transactions.find((t: any) => t.hash?.toLowerCase() === hash.toLowerCase());
       expect(found, 'tx in block').to.exist;
       assertEthGetTxMatchesSigned(signedTx, found);
+    });
+  });
+
+  describe('debug_traceTransaction callTracer — value field via hbar=false', function () {
+    withOverriddenEnvsInMochaTest({ DEBUG_API_ENABLED: true }, () => {
+      it('callTracer top-level value matches signed transaction value (1 tinybar)', async function () {
+        // makeCallWithAmount forwards the full value to recipient (real EOA), so the tx succeeds.
+        // getContractResult uses hbar=false, so mirror node returns amount already in weibars.
+        const contractWithSender = equivalenceContract.connect(sender) as ethers.Contract;
+        const tx = await contractWithSender.makeCallWithAmount(recipient, '0x', {
+          value: ONE_TINYBAR_WEI,
+          gasLimit: 100_000,
+        });
+        await relay.pollForValidTransactionReceipt(tx.hash);
+
+        const result = await relay.call('debug_traceTransaction', [
+          tx.hash,
+          { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: true } },
+        ]);
+
+        expect(result, 'callTracer result').to.not.be.null;
+        expect(BigInt(result.value)).to.equal(ONE_TINYBAR_WEI);
+      });
     });
   });
 });

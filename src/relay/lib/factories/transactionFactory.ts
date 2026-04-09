@@ -153,8 +153,8 @@ export const createTransactionFromContractResult = (cr: any): Transaction | null
 
   return TransactionFactory.createTransactionByType(cr.type, {
     ...commonFields,
-    maxPriorityFeePerGas: formatGasFee(cr.max_priority_fee_per_gas),
-    maxFeePerGas: formatGasFee(cr.max_fee_per_gas),
+    maxPriorityFeePerGas: cr.max_priority_fee_per_gas,
+    maxFeePerGas: cr.max_fee_per_gas,
     authorizationList: cr.authorization_list,
   });
 };

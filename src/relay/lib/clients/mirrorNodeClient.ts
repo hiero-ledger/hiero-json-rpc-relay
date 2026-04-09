@@ -166,6 +166,14 @@ export class MirrorNodeClient {
     'MIRROR_NODE_CONTRACT_RESULTS_LOGS_BLOCK_RANGE_PG_MAX',
   );
 
+  /**
+   * Appends `hbar=false` to a mirror node path so that monetary fields
+   * (`amount`, `gas_price`, EIP-1559 fee fields) are returned in weibars
+   * instead of the default tinybars.
+   *
+   * @param path - The mirror node resource path, with or without existing query params.
+   * @returns The path with `hbar=false` appended as a query parameter.
+   */
   private static withHbarDisabled(path: string): string {
     const sep = path.includes('?') ? '&' : '?';
     return `${path}${sep}hbar=false`;
