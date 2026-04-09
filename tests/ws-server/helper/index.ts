@@ -76,6 +76,26 @@ export class WsTestHelper {
   }
 
   /**
+   * Required: `app.proxy = true` on the WS server.
+   */
+  static sendRequestWithIp(method: string, params: any[], ip: string): Promise<any> {
+    const ws = new WebSocket(WsTestConstant.WS_RELAY_URL, undefined, {
+      headers: { 'X-Forwarded-For': ip },
+    });
+
+    return new Promise((resolve, reject) => {
+      ws.on('error', reject);
+      ws.on('open', () => {
+        ws.send(JSON.stringify(WsTestHelper.prepareJsonRpcObject(method, params)));
+      });
+      ws.on('message', (data: Buffer) => {
+        ws.close();
+        resolve(JSON.parse(data.toString()));
+      });
+    });
+  }
+
+  /**
    * Temporarily overrides environment variables for the duration of the encapsulating describe block.
    * @param envs - An object containing key-value pairs of environment variables to set.
    *
