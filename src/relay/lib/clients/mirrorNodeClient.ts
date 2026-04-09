@@ -156,8 +156,7 @@ export class MirrorNodeClient {
    */
   private readonly cacheService: ICacheClient;
 
-  // eslint-disable-next-line no-useless-escape
-  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d\.]+)/;
+  static readonly EVM_ADDRESS_REGEX: RegExp = /\/accounts\/([\d.]+)/;
 
   public static readonly mirrorNodeContractResultsPageMax = ConfigService.get('MIRROR_NODE_CONTRACT_RESULTS_PG_MAX');
   public static readonly mirrorNodeContractResultsLogsPageMax = ConfigService.get(
