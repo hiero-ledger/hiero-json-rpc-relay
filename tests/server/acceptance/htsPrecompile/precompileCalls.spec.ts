@@ -179,6 +179,7 @@ describe('@precompile-calls Tests for eth_call with HTS', async function () {
       adminPrivateKey: accounts[0].privateKey,
     };
     const mintResult0 = await servicesNode.mintNFT({ ...mintArgs, tokenId: nftTokenId0 });
+    await servicesNode.mintNFT({ ...mintArgs, tokenId: nftTokenId1 });
 
     // associate tokens, grant KYC
     for (const account of [accounts[1], accounts[2]]) {
