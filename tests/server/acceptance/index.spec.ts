@@ -170,11 +170,11 @@ describe('RPC Server Acceptance Tests', function () {
     logger.info('Stop relay');
 
     const relayServer: Server = global.relayServer;
-    if (relayServer) {
+    if (relayServer !== undefined) {
       relayServer.close();
     }
 
-    if (ConfigService.get('TEST_WS_SERVER') && global.socketServer) {
+    if (ConfigService.get('TEST_WS_SERVER') && global.socketServer !== undefined) {
       global.socketServer.close();
     }
   }
