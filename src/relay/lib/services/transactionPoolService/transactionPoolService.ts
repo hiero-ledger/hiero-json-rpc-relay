@@ -199,7 +199,7 @@ export class TransactionPoolService implements ITransactionPoolService {
     try {
       return await this.storage.getList(addressLowerCased);
     } catch (error) {
-      if (fallbackValue != null) {
+      if (fallbackValue !== undefined) {
         this.logger.warn(error, `getPendingCount storage error, falling back to ${fallbackValue}`);
         return fallbackValue;
       }
