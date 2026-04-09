@@ -11,7 +11,6 @@ import baseConfig from './eslint.config.mjs';
 
 export default defineConfig([
   ...baseConfig,
-
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],
     languageOptions: {
