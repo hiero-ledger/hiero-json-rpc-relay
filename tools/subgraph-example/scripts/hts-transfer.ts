@@ -28,7 +28,7 @@ export async function transferHtsFT(receiver: string, hre: any) {
   const tokenId = TokenId.fromSolidityAddress(
     networks.default.local.ExampleHTSFT.address,
   );
-  const accountId = AccountId.fromString("0.0.1013");
+  const accountId = AccountId.fromString("0.0.1003");
 
   try {
     let associateTx = await new TokenAssociateTransaction()

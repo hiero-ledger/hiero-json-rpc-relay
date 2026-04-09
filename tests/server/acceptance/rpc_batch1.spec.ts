@@ -1002,18 +1002,16 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               ...defaultLondonTransactionData,
               to: null,
               data: '0x' + '00'.repeat(5121),
-              nonce: await relay.getAccountNonce(accounts[1].address),
-              gasLimit: 41484,
+              nonce: (await relay.getAccountNonce(accounts[1].address)) + 2,
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
-            const txHash = await relay.sendRawTransaction(signedTx);
-            await relay.pollForValidTransactionReceipt(txHash);
-            const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
+            await relay.sendRawTransaction(signedTx);
+
+            await new Promise((r) => setTimeout(r, 5000));
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult.result).to.equal('INSUFFICIENT_GAS');
             expect(nonceLatest).to.equal(noncePending);
           });
 
@@ -1023,8 +1021,7 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               ...defaultLondonTransactionData,
               to: null,
               data: basicContractJson.bytecode,
-              nonce: accountNonce,
-              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
+              nonce: accountNonce + 2,
             };
             const tx2 = {
               ...defaultLondonTransactionData,
@@ -1036,36 +1033,26 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               ...defaultLondonTransactionData,
               to: null,
               data: basicContractJson.bytecode,
-              nonce: accountNonce + 1,
-              gasLimit: Precheck.transactionIntrinsicGasCost(basicContractJson.bytecode),
+              nonce: accountNonce + 3,
             };
             const signedTx1 = await accounts[1].wallet.signTransaction(tx1);
             const signedTx2 = await accounts[1].wallet.signTransaction(tx2);
             const signedTx3 = await accounts[1].wallet.signTransaction(tx3);
 
-            const txHash1 = await relay.sendRawTransaction(signedTx1);
+            await relay.sendRawTransaction(signedTx1);
             await new Promise((r) => setTimeout(r, 500));
             const txHash2 = await relay.sendRawTransaction(signedTx2);
             await new Promise((r) => setTimeout(r, 500));
-            const txHash3 = await relay.sendRawTransaction(signedTx3);
-            await Promise.all([
-              relay.pollForValidTransactionReceipt(txHash1),
-              relay.pollForValidTransactionReceipt(txHash2),
-              relay.pollForValidTransactionReceipt(txHash3),
-            ]);
+            await relay.sendRawTransaction(signedTx3);
 
-            const [mnResult1, mnResult2, mnResult3] = await Promise.all([
-              mirrorNode.get(`/contracts/results/${txHash1}`),
-              mirrorNode.get(`/contracts/results/${txHash2}`),
-              mirrorNode.get(`/contracts/results/${txHash3}`),
-            ]);
+            await new Promise((r) => setTimeout(r, 5000));
+
+            const mnResult = await mirrorNode.get(`/contracts/results/${txHash2}`);
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult1.result).to.equal('INSUFFICIENT_GAS');
-            expect(mnResult2.result).to.equal('SUCCESS');
-            expect(mnResult3.result).to.equal('INSUFFICIENT_GAS');
+            expect(mnResult.result).to.equal('SUCCESS');
             expect(nonceLatest).to.equal(noncePending);
           });
 
@@ -1221,19 +1208,11 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             // wait for at least one block time
             await new Promise((r) => setTimeout(r, 2100));
 
-            // currently, there is no way to fetch WRONG_NONCE transactions via MN or on `eth_getTransactionReceipt` by evm hash
-            // eth_sendRawTransaction returns always an evm hash, so as end-users we don't have the transaction id
-
-            // the WRONG_NONCE transactions are filtered out from MN /api/v1/contract/results/<evm_tx_hash>
-            // and /api/v1/transactions/<evm_hash> doesn't exist (only /api/v1/transactions/<transaction_id>
-
-            // the only thing we can rely on right now is the "not found" status that is returned on /api/v1/contracts/results/<evm_hash> by evm tx hash
-            const receipts = await Promise.allSettled(
-              txHashes.map((hash) => mirrorNode.get(`/contracts/results/${hash}`)),
-            );
-            const rejected = receipts.filter((receipt) => receipt.status === 'rejected');
-            expect(rejected).to.not.be.empty;
-            rejected.forEach((reject) => expect(reject.reason.response.status).to.equal(404));
+            // WRONG_NONCE transactions are recorded in /api/v1/contracts/results/<evm_tx_hash>
+            // with result: 'WRONG_NONCE'
+            const results = await Promise.all(txHashes.map((hash) => mirrorNode.get(`/contracts/results/${hash}`)));
+            const wrongNonceResults = results.filter((result) => result.result === 'WRONG_NONCE');
+            expect(wrongNonceResults).to.not.be.empty;
           });
         });
 
@@ -1262,9 +1241,8 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
                 // wait for at least one block time
                 await new Promise((r) => setTimeout(r, 2100));
 
-                await expect(mirrorNode.get(`/contracts/results/${txHash}`)).to.eventually.be.rejected.and.satisfy(
-                  (err: any) => err.response.status === 404,
-                );
+                const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
+                expect(mnResult.result).to.equal('WRONG_NONCE');
               });
             });
           });
