@@ -203,7 +203,8 @@ function buildReceiptRootHashes(txHashes: string[], contractResults: any[], logs
 
     receipts.push({
       transactionIndex: transactionIndexHex,
-      type: crPerTx && crPerTx.type != null ? intToHex(crPerTx.type) : null,
+      // eslint-disable-next-line eqeqeq
+      type: crPerTx && crPerTx.type != undefined ? intToHex(crPerTx.type) : null,
       root: crPerTx ? crPerTx.root : constants.ZERO_HEX_32_BYTE,
       status: crPerTx ? crPerTx.status : constants.ONE_HEX,
       cumulativeGasUsed: intToHex(cumulativeGas),

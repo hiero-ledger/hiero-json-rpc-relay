@@ -102,7 +102,7 @@ export class LruRateLimitStore implements RateLimitStore {
    * @returns True if the IP exists, false otherwise.
    */
   private checkIpExist(ip: string): boolean {
-    return this.database[ip] != null;
+    return this.database[ip] !== undefined;
   }
 
   /**
@@ -112,7 +112,7 @@ export class LruRateLimitStore implements RateLimitStore {
    * @returns True if the method exists, false otherwise.
    */
   private checkMethodExist(ip: string, method: string): boolean {
-    return this.database[ip].methodInfo[method] != null;
+    return this.database[ip].methodInfo[method] !== undefined;
   }
 
   /**
