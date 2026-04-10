@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * This list is used only for building test mocks;
+ * relay.rpcMethodRegistry is the source of truth
+ */
 const REGISTRY_METHODS = [
   'eth_accounts',
   'eth_blockNumber',
