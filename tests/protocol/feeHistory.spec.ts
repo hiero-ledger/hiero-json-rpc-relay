@@ -4,11 +4,11 @@ import { expect } from 'chai';
 
 import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 
-describe('@release @protocol-acceptance eth_feeHistory', async function () {
+describe('@release @protocol-acceptance eth_feeHistory', async () => {
   const METHOD_NAME = 'eth_feeHistory';
 
   after(async () => {
-    if (global && global.socketServer) {
+    if (global?.socketServer) {
       expect(global.socketServer._connections).to.eq(0);
     }
   });
