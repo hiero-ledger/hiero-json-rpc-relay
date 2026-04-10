@@ -2,7 +2,7 @@
 
 import { expect } from 'chai';
 import pino from 'pino';
-import { RedisClientType } from 'redis';
+import type { RedisClientType } from 'redis';
 
 import { RedisClientManager } from '../../src/relay/lib/clients/redisClientManager';
 import { WsTestHelper } from '../ws-server/helper';
@@ -16,7 +16,7 @@ import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
  *   - Both the HTTP and WebSocket servers must be running in-process
  *   - app.proxy = true must be set on both servers
  */
-describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function () {
+describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', () => {
   this.timeout(30_000);
 
   // Methods with one dedicated method per test to prevent counter bleed
@@ -39,22 +39,22 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
     TIER_3_RATE_LIMIT: RATE_LIMIT,
   });
 
-  before(async function () {
+  before(async () => {
     if (!RedisClientManager.isRedisEnabled()) {
       return this.skip();
     }
     redisClient = await RedisClientManager.getClient(logger);
   });
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     if (!redisClient) return;
     await redisClient.flushAll();
   });
 
-  after(async function () {});
+  after(async () => {});
 
-  describe('Cross-transport counter sharing', function () {
-    it('HTTP requests consume the same counter that blocks WebSocket requests', async function () {
+  describe('Cross-transport counter sharing', () => {
+    it('HTTP requests consume the same counter that blocks WebSocket requests', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
       // Exhaust the limit over HTTP
@@ -69,7 +69,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       expect(wsResp.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
-    it('WebSocket requests consume the same counter that blocks HTTP requests', async function () {
+    it('WebSocket requests consume the same counter that blocks HTTP requests', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
       // Exhaust the limit over WS
@@ -84,7 +84,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       expect(httpResp.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
-    it('interleaved HTTP and WS requests consume a single shared counter', async function () {
+    it('interleaved HTTP and WS requests consume a single shared counter', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
       // 1 HTTP + 1 WS = RATE_LIMIT (2); the third must be blocked
@@ -99,7 +99,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       expect(resp3.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
-    it('Redis flush resets counters for both transports', async function () {
+    it('Redis flush resets counters for both transports', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
       // Exhaust over HTTP
@@ -120,8 +120,8 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
     });
   });
 
-  describe('IP isolation', function () {
-    it('exhausting the limit for IP_A does not affect IP_B', async function () {
+  describe('IP isolation', () => {
+    it('exhausting the limit for IP_A does not affect IP_B', async () => {
       const [http] = ALL_PROTOCOL_CLIENTS;
 
       // Exhaust limit for IP_A
@@ -138,7 +138,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       expect(respB.error, 'IP_B should not be rate limited').to.not.exist;
     });
 
-    it('IP isolation holds across transports', async function () {
+    it('IP isolation holds across transports', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
       // Exhaust limit for IP_A over WS
