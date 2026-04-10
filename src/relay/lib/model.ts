@@ -389,6 +389,12 @@ export class Log {
     this.transactionIndex = args.transactionIndex;
   }
 
+  /**
+   * Creates a `Log` instance from a mirror node contract log entry.
+   *
+   * @param log - The mirror node contract log to convert.
+   * @returns A new `Log` populated with data from the mirror node contract log.
+   */
   static fromMirrorNodeContractLog(log: MirrorNodeContractLog): Log {
     return new Log({
       address: log.address,
