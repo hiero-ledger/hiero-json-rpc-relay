@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Server } from 'node:http';
+import type { Server } from 'node:http';
 
 import { AccountId, Hbar } from '@hashgraph/sdk';
 import chai from 'chai';
