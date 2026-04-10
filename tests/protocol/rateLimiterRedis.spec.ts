@@ -16,7 +16,7 @@ import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
  *   - Both the HTTP and WebSocket servers must be running in-process
  *   - app.proxy = true must be set on both servers
  */
-describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', () => {
+describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function () {
   this.timeout(30_000);
 
   // Methods with one dedicated method per test to prevent counter bleed
@@ -39,7 +39,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', () => {
     TIER_3_RATE_LIMIT: RATE_LIMIT,
   });
 
-  before(async () => {
+  before(async function () {
     if (!RedisClientManager.isRedisEnabled()) {
       return this.skip();
     }
@@ -53,7 +53,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', () => {
 
   after(async () => {});
 
-  describe('Cross-transport counter sharing', () => {
+  describe('Cross-transport counter sharing', function () {
     it('HTTP requests consume the same counter that blocks WebSocket requests', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
@@ -120,7 +120,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', () => {
     });
   });
 
-  describe('IP isolation', () => {
+  describe('IP isolation', function () {
     it('exhausting the limit for IP_A does not affect IP_B', async () => {
       const [http] = ALL_PROTOCOL_CLIENTS;
 
