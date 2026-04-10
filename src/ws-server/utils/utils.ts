@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
 import { ConfigService } from '../../config-service/services';
-import { predefined, Relay } from '../../relay';
-import { RequestDetails } from '../../relay/lib/types';
-import { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
+import { predefined, type Relay } from '../../relay';
+import type { RequestDetails } from '../../relay/lib/types';
+import type { IJsonRpcRequest } from '../../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { type IJsonRpcResponse, jsonRespError } from '../../server/koaJsonRpc/lib/RpcResponse';
-import ConnectionLimiter from '../metrics/connectionLimiter';
-import WsMetricRegistry from '../metrics/wsMetricRegistry';
-import { SubscriptionService } from '../service/subscriptionService';
+import type ConnectionLimiter from '../metrics/connectionLimiter';
+import type WsMetricRegistry from '../metrics/wsMetricRegistry';
+import { type SubscriptionService } from '../service/subscriptionService';
 import { WS_CONSTANTS } from './constants';
 
 const hasOwnProperty = (obj: any, prop: any) => Object.prototype.hasOwnProperty.call(obj, prop);
