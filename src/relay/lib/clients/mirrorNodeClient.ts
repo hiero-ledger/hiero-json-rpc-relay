@@ -636,7 +636,8 @@ export class MirrorNodeClient {
     const queryParamsFiltered = Object.fromEntries(
       Object.entries(queryParamObject).filter(([key, value]) => {
         if (key === MirrorNodeClient.ACCOUNT_TRANSACTIONS_PROPERTY && value) return false;
-        return value != null && value !== '';
+        // eslint-disable-next-line eqeqeq
+        return value != undefined && value !== '';
       }),
     );
     const queryParams = this.getQueryParams(queryParamsFiltered);
