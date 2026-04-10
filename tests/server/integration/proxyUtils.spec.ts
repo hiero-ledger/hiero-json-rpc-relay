@@ -218,4 +218,39 @@ describe('proxyUtils', function () {
       expect(next.calledOnce).to.be.true;
     });
   });
+
+  describe('ctx.ip resolution', function () {
+    it('ctx.ip is the socket address when app.proxy is false (baseline)', async function () {
+      const app = new Koa();
+      const ips: string[] = [];
+      app.use(async (ctx) => {
+        ips.push(ctx.ip);
+        ctx.body = 'ok';
+      });
+      const server = app.listen(0);
+      const port = (server.address() as { port: number }).port;
+      await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.1' } });
+      await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.2' } });
+      server.close();
+      expect(ips[0]).to.equal('127.0.0.1');
+      expect(ips[1]).to.equal('127.0.0.1');
+    });
+
+    it('ctx.ip reads X-Forwarded-For per request when applyProxyMiddleware is applied', async function () {
+      const app = new Koa();
+      applyProxyMiddleware(app);
+      const ips: string[] = [];
+      app.use(async (ctx) => {
+        ips.push(ctx.ip);
+        ctx.body = 'ok';
+      });
+      const server = app.listen(0);
+      const port = (server.address() as { port: number }).port;
+      await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.1' } });
+      await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.2' } });
+      server.close();
+      expect(ips[0]).to.equal('10.0.0.1');
+      expect(ips[1]).to.equal('10.0.0.2');
+    });
+  });
 });
