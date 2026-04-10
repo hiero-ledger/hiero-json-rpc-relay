@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import fs from 'node:fs';
 import type { Server } from 'node:http';
+import path from 'node:path';
+import { GCProfiler } from 'node:v8';
 
 import { AccountId, Hbar } from '@hashgraph/sdk';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import fs from 'fs';
-import path from 'path';
 import pino from 'pino';
-import { GCProfiler } from 'v8';
 
 import { ConfigService } from '../src/config-service/services';
 import constants from '../src/relay/lib/constants';
@@ -20,7 +20,7 @@ import MirrorClient from './server/clients/mirrorClient';
 import RelayClient from './server/clients/relayClient';
 import ServicesClient from './server/clients/servicesClient';
 import { Utils } from './server/helpers/utils';
-import { AliasAccount } from './server/types/AliasAccount';
+import type { AliasAccount } from './server/types/AliasAccount';
 
 chai.use(chaiAsPromised);
 
@@ -119,7 +119,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
       await global.mirrorNode.get(`/accounts/${initialAccount.address}`);
     });
 
-    after(async function () {
+    after(async () => {
       const operatorAddress = `0x${AccountId.fromString(OPERATOR_ID).toSolidityAddress()}`;
       const accounts: AliasAccount[] = global.accounts;
       for (let i = 0; i < accounts.length; i++) {
