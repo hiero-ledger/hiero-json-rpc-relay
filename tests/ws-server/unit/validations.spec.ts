@@ -101,6 +101,9 @@ describe('validations unit test', async function () {
         'getLogs',
         'blockNum',
         'eth_feehistory',
+        'debug_unknownOp',
+        'net_unknownMethod',
+        'web3_unknownMethod',
       ];
 
       GARBAGE_METHODS.forEach((method) => {
