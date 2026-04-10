@@ -22,8 +22,8 @@ export class EvmAddressHbarSpendingPlanNotFoundError extends Error {
 }
 
 export class IPAddressHbarSpendingPlanNotFoundError extends Error {
-  constructor(ipAddress: string) {
-    super(`IPAddressHbarSpendingPlan not found for IP address ${ipAddress}`);
+  constructor(_ipAddress: string) {
+    super(`IPAddressHbarSpendingPlan not found`);
     this.name = 'IPAddressHbarSpendingPlanNotFoundError';
   }
 }
