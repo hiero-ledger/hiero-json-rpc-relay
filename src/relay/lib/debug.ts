@@ -54,8 +54,17 @@ import {
 import type { ContractAction, MirrorNodeBlock, MirrorNodeContractResult } from './types/mirrorNode';
 import { rpcParamValidationRules } from './validators';
 
+/**
+ * Represents pre-fetched data used during block tracing to avoid redundant mirror node requests.
+ */
 interface PreFetchedData {
-  logs: MirrorNodeContractLog[];
+  /**
+   * A map of contract logs keyed by transaction hash.
+   */
+  logs: Map<string, MirrorNodeContractLog>;
+  /**
+   * A map of transaction hashes to their corresponding contract results or actions.
+   */
   txHashMap: TxHashToContractResultOrActionsMap;
 }
 
@@ -653,7 +662,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
     preFetchedTransactionsResponse?: MirrorNodeContractResult,
     preFetchedActionsResponse?: ContractAction[],
-    preFetchedLogs?: MirrorNodeContractLog[],
+    preFetchedLogs?: Map<string, MirrorNodeContractLog>,
   ): Promise<CallTracerResult> {
     let actionsResponse = preFetchedActionsResponse;
     let transactionsResponse = preFetchedTransactionsResponse;
@@ -691,12 +700,11 @@ export class DebugImpl implements Debug {
       }
 
       if (!actionsResponse?.[0]?.call_operation_type || !transactionsResponse) {
-        const mirrorNodeContractLog = preFetchedLogs?.find((log) => log.transaction_hash === transactionHash);
         return (await this.handleSyntheticTransaction(
           transactionHash,
           TracerType.CallTracer,
           requestDetails,
-          mirrorNodeContractLog,
+          preFetchedLogs?.get(transactionHash),
         )) as CallTracerResult;
       }
 
@@ -761,7 +769,7 @@ export class DebugImpl implements Debug {
     requestDetails: RequestDetails,
     preFetchedActionsResponse?: ContractAction[],
     preFetchedContractResult?: MirrorNodeContractResult,
-    preFetchedLogs?: MirrorNodeContractLog[],
+    preFetchedLogs?: Map<string, MirrorNodeContractLog>,
   ): Promise<EntityTraceStateMap> {
     // Try to get cached result first
     const cacheKey = `${constants.CACHE_KEY.PRESTATE_TRACER}_${transactionHash}_${onlyTopCall}`;
@@ -789,14 +797,12 @@ export class DebugImpl implements Debug {
         return this.getEmptyTracerObject(TracerType.PrestateTracer) as EntityTraceStateMap;
       }
 
-      const mirrorNodeContractLog = preFetchedLogs?.find((log) => log.transaction_hash === transactionHash);
-
       // No contract result and no actions -> synthetic or truly missing
       return (await this.handleSyntheticTransaction(
         transactionHash,
         TracerType.PrestateTracer,
         requestDetails,
-        mirrorNodeContractLog,
+        preFetchedLogs?.get(transactionHash),
       )) as EntityTraceStateMap;
     }
 
@@ -968,17 +974,17 @@ export class DebugImpl implements Debug {
 
     // Build pre-fetched data object
     const preFetchedData: PreFetchedData = {
-      logs: [],
+      logs: new Map((allLogs || []).map((log) => [log.transaction_hash, log])),
       txHashMap: {},
     };
-    preFetchedData.logs = allLogs || [];
 
+    const actionsMap = new Map(actionsResults.map(({ txHash, actions }) => [txHash, actions]));
     txHashArray.forEach((txHash) => {
       const contractResult = contractResultsByHash.get(txHash);
-      const actionsResult = actionsResults.find((ar) => ar.txHash === txHash);
+      const actionsResult = actionsMap.get(txHash);
       preFetchedData.txHashMap[txHash] = {
         ...(contractResult && { contractResult }),
-        ...(actionsResult?.actions && actionsResult.actions.length > 0 && { actions: actionsResult.actions }),
+        ...(actionsResult && actionsResult.length > 0 && { actions: actionsResult }),
       };
     });
 

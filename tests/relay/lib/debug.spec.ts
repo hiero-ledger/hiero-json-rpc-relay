@@ -1806,9 +1806,49 @@ describe('Debug API Test Suite', async function () {
           expect(wrongNonceActionsCalls).to.be.empty;
         });
 
+        it('should include WRONG_NONCE transactions with empty prestate and skip actions fetch for them (PrestateTracer)', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResultWrongNonce]);
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+
+          const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
+          prestateTracerStub
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult1);
+          prestateTracerStub
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves({});
+          prestateTracerStub
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves({});
+
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(3);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: {} });
+          expect(result[2]).to.deep.equal({ txHash: syntheticTxHash, result: {} });
+
+          // Verify actions were NOT fetched for the WRONG_NONCE transaction
+          const wrongNonceActionsCalls = getActionsStub
+            .getCalls()
+            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
+          expect(wrongNonceActionsCalls).to.be.empty;
+        });
+
         it('should not make per-transaction log API calls when logs are pre-fetched at block level', async function () {
           // No EVM transactions - only synthetic
-          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([]);
+          // null (not []) so that the per-transaction call inside callTracer is falsy and skips
+          // the "contract result with no actions" branch, which would otherwise call Buffer.from(undefined)
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves(null);
           // Block-level log pre-fetch provides the synthetic log
           sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
           // Synthetic tx has no contract result or actions
