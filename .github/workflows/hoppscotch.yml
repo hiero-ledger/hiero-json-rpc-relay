@@ -69,6 +69,7 @@ jobs:
             --enable-ingress: true
             --pinger: true
             --mirror-node-version: "v0.151.0"
+            --values-file: .github/mirror-node-values.yaml
           EOF
 
       - name: Setup Kind

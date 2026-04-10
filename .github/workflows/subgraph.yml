@@ -55,6 +55,7 @@ jobs:
         run: npm run build
 
       - name: Generate falcon-values config file
+        working-directory: .
         run: |
           cat > .github/falcon.yml <<EOF
           network:
@@ -70,6 +71,7 @@ jobs:
             --enable-ingress: true
             --pinger: true
             --mirror-node-version: "v0.151.0"
+            --values-file: .github/mirror-node-values.yaml
           EOF
 
       - name: Setup Kind
