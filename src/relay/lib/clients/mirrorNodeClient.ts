@@ -828,7 +828,7 @@ export class MirrorNodeClient {
   public async getContractId(contractIdOrAddress: string, requestDetails: RequestDetails, retries?: number) {
     const cachedLabel = `${constants.CACHE_KEY.GET_CONTRACT}.id.${contractIdOrAddress}`;
     const cachedResponse: any = await this.cacheService.getAsync(cachedLabel, MirrorNodeClient.GET_CONTRACT_ENDPOINT);
-    if (cachedResponse) {
+    if (cachedResponse != null) {
       return cachedResponse;
     }
 
