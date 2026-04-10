@@ -34,6 +34,9 @@ on:
       relayTag:
         required: false
         type: string
+      soloVersion:
+        required: false
+        type: string
     secrets:
       operator_key:
         description: 'The ED25519, ECDSA, or DER encoded private key of the operator'
@@ -97,6 +100,24 @@ jobs:
       - name: Build Typescript
         run: npm run build
 
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+            --force-port-forward: true
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+          EOF
+
       - name: Setup Kind
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
@@ -112,7 +133,7 @@ jobs:
           npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
-            --force-port-forward \
+            --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 

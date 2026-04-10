@@ -6,7 +6,7 @@ npx @hashgraph/solo falcon destroy || true
 sleep 5
 
 echo "starting Hiero Solo one-shot falcon deploy"
-npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false --force-port-forward &
+npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false --deploy-explorer=false &
 
 echo "(re)starting local Redis on port 6379"
 docker run -d --name redis -p 6379:6379 redis:7-alpine >/dev/null

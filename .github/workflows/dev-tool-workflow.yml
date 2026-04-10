@@ -9,6 +9,15 @@ on:
       directory:
         required: true
         type: string
+      networkTag:
+        required: false
+        type: string
+      mirrorTag:
+        required: false
+        type: string
+      soloVersion:
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -62,12 +71,30 @@ jobs:
           verbosity: 3
           wait: 120s
 
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+            --force-port-forward: true
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
+          EOF
+
       - name: Start the solo node
         run: |
           npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
-            --force-port-forward \
+            --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 

@@ -38,7 +38,7 @@ Run `npm install` or `yarn [install]`
 
 Start a local single-node Hiero network using Solo:
 
-`npx @hashgraph/solo one-shot falcon deploy --dev --force-port-forward`
+`npx @hashgraph/solo one-shot falcon deploy --dev`
 
 Note: If you previously used the Hedera local node CLI, replace it with the Solo command above.
 

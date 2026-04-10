@@ -54,6 +54,24 @@ jobs:
         working-directory: .
         run: npm run build
 
+      - name: Generate falcon-values config file
+        run: |
+          cat > .github/falcon.yml <<EOF
+          network:
+            --release-tag: "v0.72.0"
+            --node-aliases: "node1"
+          setup:
+            --release-tag: "v0.72.0"
+            --node-aliases: "node1"
+          consensusNode:
+            --node-aliases: "node1"
+            --force-port-forward: true
+          mirrorNode:
+            --enable-ingress: true
+            --pinger: true
+            --mirror-node-version: "v0.151.0"
+          EOF
+
       - name: Setup Kind
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
@@ -67,10 +85,11 @@ jobs:
       - name: Start the solo node
         working-directory: .
         run: |
-          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
+          npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
-            --force-port-forward \
+            --force-port-forward=false \
+            --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 
