@@ -227,7 +227,8 @@ describe('proxyUtils', function () {
         ips.push(ctx.ip);
         ctx.body = 'ok';
       });
-      const server = app.listen(0);
+      const server = app.listen(0, '127.0.0.1');
+      await new Promise<void>((resolve) => server.once('listening', resolve));
       const port = (server.address() as { port: number }).port;
       await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.1' } });
       await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.2' } });
@@ -244,7 +245,8 @@ describe('proxyUtils', function () {
         ips.push(ctx.ip);
         ctx.body = 'ok';
       });
-      const server = app.listen(0);
+      const server = app.listen(0, '127.0.0.1');
+      await new Promise<void>((resolve) => server.once('listening', resolve));
       const port = (server.address() as { port: number }).port;
       await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.1' } });
       await fetch(`http://127.0.0.1:${port}`, { headers: { 'x-forwarded-for': '10.0.0.2' } });
