@@ -1005,13 +1005,14 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
               nonce: (await relay.getAccountNonce(accounts[1].address)) + 2,
             };
             const signedTx = await accounts[1].wallet.signTransaction(tx);
-            await relay.sendRawTransaction(signedTx);
-
-            await new Promise((r) => setTimeout(r, 5000));
+            const txHash = await relay.sendRawTransaction(signedTx);
+            await relay.pollForValidTransactionReceipt(txHash);
+            const mnResult = await mirrorNode.get(`/contracts/results/${txHash}`);
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
+            expect(mnResult.result).to.equal('WRONG_NONCE');
             expect(nonceLatest).to.equal(noncePending);
           });
 
@@ -1039,20 +1040,29 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
             const signedTx2 = await accounts[1].wallet.signTransaction(tx2);
             const signedTx3 = await accounts[1].wallet.signTransaction(tx3);
 
-            await relay.sendRawTransaction(signedTx1);
+            const txHash1 = await relay.sendRawTransaction(signedTx1);
             await new Promise((r) => setTimeout(r, 500));
             const txHash2 = await relay.sendRawTransaction(signedTx2);
             await new Promise((r) => setTimeout(r, 500));
-            await relay.sendRawTransaction(signedTx3);
+            const txHash3 = await relay.sendRawTransaction(signedTx3);
+            await Promise.all([
+              relay.pollForValidTransactionReceipt(txHash1),
+              relay.pollForValidTransactionReceipt(txHash2),
+              relay.pollForValidTransactionReceipt(txHash3),
+            ]);
 
-            await new Promise((r) => setTimeout(r, 5000));
-
-            const mnResult = await mirrorNode.get(`/contracts/results/${txHash2}`);
+            const [mnResult1, mnResult2, mnResult3] = await Promise.all([
+              mirrorNode.get(`/contracts/results/${txHash1}`),
+              mirrorNode.get(`/contracts/results/${txHash2}`),
+              mirrorNode.get(`/contracts/results/${txHash3}`),
+            ]);
 
             const nonceLatest = await relay.getAccountNonce(accounts[1].address);
             const noncePending = await relay.getAccountNonce(accounts[1].address, 'pending');
 
-            expect(mnResult.result).to.equal('SUCCESS');
+            expect(mnResult1.result).to.equal('WRONG_NONCE');
+            expect(mnResult2.result).to.equal('SUCCESS');
+            expect(mnResult3.result).to.equal('WRONG_NONCE');
             expect(nonceLatest).to.equal(noncePending);
           });
 
