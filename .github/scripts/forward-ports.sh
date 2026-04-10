@@ -23,17 +23,17 @@ listen() {
   local pod="$1"
   local ports="$2"
   (
-    while true; do
+  #  while true; do
       if ! ps aux | grep -F kubectl | grep -F port-forward | grep -F " ${ports}" | grep -v grep >/dev/null; then
         kubectl port-forward --address 0.0.0.0 "$pod" -n "$NS" "${ports}" >/dev/null 2>&1 &
       fi
-      sleep 1
-    done
+   #   sleep 1
+  #  done
   ) &
 }
 
 for row in "${FORWARDS[@]}"; do
   IFS='|' read -r include ports <<<"$row"
-  POD="$(kubectl get pods -n "$NS" --no-headers | grep -E "$include" | head -n 1 | awk '{print $2}' | head -n1)"
+  POD="$(kubectl get pods -A --no-headers | grep -E "$include" | head -n 1 | awk '{print $2}' | head -n1)"
   listen "$POD" "$ports"
 done
