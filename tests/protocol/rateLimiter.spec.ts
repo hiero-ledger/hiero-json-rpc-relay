@@ -8,7 +8,7 @@ import { ALL_PROTOCOL_CLIENTS } from './helpers/protocolClient';
 /**
  * Protocol-level rate limiting tests.
  */
-describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
+describe('@protocol-acceptance @ratelimiter Rate Limiting', () => {
   this.timeout(30_000);
 
   WsTestHelper.overrideEnvsInMochaDescribe({
@@ -45,43 +45,43 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
   }
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
-    describe(`${client.label} transport`, function () {
-      describe('Tier 1 methods', function () {
-        it('should rate limit eth_mining after the limit is exceeded', async function () {
+    describe(`${client.label} transport`, () => {
+      describe('Tier 1 methods', () => {
+        it('should rate limit eth_mining after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_mining', [], RATE_LIMIT);
         });
 
-        it('should rate limit eth_syncing after the limit is exceeded', async function () {
+        it('should rate limit eth_syncing after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_syncing', [], RATE_LIMIT);
         });
       });
 
-      describe('Tier 2 methods', function () {
-        it('should rate limit eth_blockNumber after the limit is exceeded', async function () {
+      describe('Tier 2 methods', () => {
+        it('should rate limit eth_blockNumber after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_blockNumber', [], RATE_LIMIT);
         });
 
-        it('should rate limit eth_gasPrice after the limit is exceeded', async function () {
+        it('should rate limit eth_gasPrice after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_gasPrice', [], RATE_LIMIT);
         });
 
-        it('should rate limit eth_accounts after the limit is exceeded', async function () {
+        it('should rate limit eth_accounts after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_accounts', [], RATE_LIMIT);
         });
       });
 
-      describe('Tier 3 methods', function () {
-        it('should rate limit web3_clientVersion after the limit is exceeded', async function () {
+      describe('Tier 3 methods', () => {
+        it('should rate limit web3_clientVersion after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'web3_clientVersion', [], RATE_LIMIT);
         });
 
-        it('should rate limit net_listening after the limit is exceeded', async function () {
+        it('should rate limit net_listening after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'net_listening', [], RATE_LIMIT);
         });
       });
 
-      describe('Rate limit counter isolation', function () {
-        it('should maintain independent counters per method', async function () {
+      describe('Rate limit counter isolation', () => {
+        it('should maintain independent counters per method', async () => {
           // exhaust the tier-1 limit for eth_hashrate
           for (let i = 0; i < RATE_LIMIT; i++) {
             const response = await client.callRaw('eth_hashrate', []);
