@@ -1,82 +1,116 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import Koa from 'koa';
+import type Koa from 'koa';
+
+const MAX_FORWARDED_HEADER_LENGTH = 1000;
+const MAX_IP_LENGTH = 45; // Max IPv6 length
+const SAFE_IP_CHARS = /^[a-fA-F0-9:.]+$/;
 
 /**
- * Parse RFC 7239 Forwarded header to extract the original client IP
+ * Extracts an IP address from a quoted `for=` value.
  *
- * This function safely parses the Forwarded header.
- * It includes input length limits and basic validation to prevent malicious input from
- * causing performance issues.
+ * Handles both plain quoted IPv4 (`for="192.168.1.1"`) and
+ * bracket-wrapped IPv6 inside quotes (`for="[2001:db8::1]"`).
  *
- * @param forwardedHeader - The Forwarded header value
- * @returns The client IP address or null if not found
+ * @param value - The forwarded header entry string.
+ * @param start - Index of the opening `"` character.
+ * @returns The extracted IP string, or `null` if the closing quote is missing.
+ */
+function extractQuotedIp(value: string, start: number): string | null {
+  const closeQuoteIndex = value.indexOf('"', start + 1);
+  if (closeQuoteIndex === -1) return null;
+  const ip = value.substring(start + 1, closeQuoteIndex);
+  // Handle IPv6 in brackets within quotes: for="[2001:db8::1]"
+  return ip.startsWith('[') && ip.endsWith(']') ? ip.substring(1, ip.length - 1) : ip;
+}
+
+/**
+ * Extracts an IPv6 address from a bracketed `for=` value (e.g. `for=[2001:db8::1]`).
+ *
+ * @param value - The forwarded header entry string.
+ * @param start - Index of the opening `[` character.
+ * @returns The extracted IPv6 string, or `null` if the closing bracket is missing.
+ */
+function extractBracketedIp(value: string, start: number): string | null {
+  const closeBracketIndex = value.indexOf(']', start + 1);
+  if (closeBracketIndex === -1) return null;
+  return value.substring(start + 1, closeBracketIndex);
+}
+
+/**
+ * Extracts an unquoted IP address from a `for=` value (e.g. `for=192.168.1.1`).
+ *
+ * Reads characters until a delimiter (`;`, `,`, space, or tab) is encountered.
+ *
+ * @param value - The forwarded header entry string.
+ * @param start - Index of the first character of the IP value.
+ * @returns The extracted IP string (may be empty if the value starts with a delimiter).
+ */
+function extractUnquotedIp(value: string, start: number): string {
+  const end = value.split('').findIndex((c, i) => i >= start && /[;, \t]/.test(c));
+  return value.substring(start, end === -1 ? value.length : end);
+}
+
+/**
+ * Locates the `for=` parameter in a single forwarded entry and delegates
+ * extraction to the appropriate helper based on the value's opening character.
+ *
+ * @param entry - A single (already trimmed) forwarded entry, e.g. `for=192.168.1.1;proto=https`.
+ * @returns The raw extracted IP string, or `null` if the `for=` parameter is absent or malformed.
+ */
+function extractIpFromForEntry(entry: string): string | null {
+  // Find the 'for=' parameter using safe string parsing
+  const forIndex = entry.toLowerCase().indexOf('for=');
+  if (forIndex === -1) return null;
+
+  // Extract the value after 'for='
+  const valueStart = forIndex + 4; // Length of 'for='
+  if (valueStart >= entry.length) return null;
+
+  const char = entry[valueStart];
+  if (char === '"') return extractQuotedIp(entry, valueStart);
+  if (char === '[') return extractBracketedIp(entry, valueStart);
+  return extractUnquotedIp(entry, valueStart);
+}
+
+/**
+ * Validates that a candidate IP string is non-empty, within the maximum
+ * allowed length, and contains only characters valid in IPv4/IPv6 addresses.
+ *
+ * @param ip - The candidate IP string to validate.
+ * @returns `true` if the string passes all basic checks, `false` otherwise.
+ */
+function isValidIp(ip: string): boolean {
+  return ip.length > 0 && ip.length <= MAX_IP_LENGTH && SAFE_IP_CHARS.test(ip);
+}
+
+/**
+ * Parses the value of an HTTP `Forwarded` header and returns the IP address
+ * of the original client (the `for=` field of the first entry).
+ *
+ * Supports the following `for=` value formats:
+ * - Unquoted IPv4: `for=192.168.1.1`
+ * - Quoted IPv4: `for="192.168.1.1"`
+ * - Bracketed IPv6: `for=[2001:db8::1]`
+ * - Quoted bracketed IPv6: `for="[2001:db8::1]"`
+ *
+ * Input is capped at {@link MAX_FORWARDED_HEADER_LENGTH} characters to prevent DoS attacks.
+ *
+ * @param forwardedHeader - The raw value of the `Forwarded` HTTP header.
+ * @returns The extracted IP address string, or `null` if the header is absent,
+ *   malformed, exceeds the length limit, or fails basic IP validation.
  */
 export function parseForwardedHeader(forwardedHeader: string): string | null {
   try {
     // Limit input length to prevent DoS attacks
-    if (forwardedHeader.length > 1000) {
-      return null;
-    }
+    if (forwardedHeader.length > MAX_FORWARDED_HEADER_LENGTH) return null;
 
-    // Split by comma to handle multiple forwarded entries
-    const entries = forwardedHeader.split(',');
-
-    // Take the first entry (original client)
-    const firstEntry = entries[0]?.trim();
+    // Split by comma to handle multiple forwarded entries and take the first entry (original client)
+    const firstEntry = forwardedHeader.split(',')[0]?.trim();
     if (!firstEntry) return null;
 
-    // Find the 'for=' parameter using safe string parsing
-    const forIndex = firstEntry.toLowerCase().indexOf('for=');
-    if (forIndex === -1) return null;
-
-    // Extract the value after 'for='
-    const valueStart = forIndex + 4; // Length of 'for='
-    if (valueStart >= firstEntry.length) return null;
-
-    let ip: string;
-    const char = firstEntry[valueStart];
-
-    if (char === '"') {
-      // Quoted value: for="192.168.1.1" or for="[2001:db8::1]"
-      const closeQuoteIndex = firstEntry.indexOf('"', valueStart + 1);
-      if (closeQuoteIndex === -1) return null;
-      ip = firstEntry.substring(valueStart + 1, closeQuoteIndex);
-
-      // Handle IPv6 in brackets within quotes: for="[2001:db8::1]"
-      if (ip.startsWith('[') && ip.endsWith(']')) {
-        ip = ip.substring(1, ip.length - 1);
-      }
-    } else if (char === '[') {
-      // IPv6 in brackets: for=[2001:db8::1]
-      const closeBracketIndex = firstEntry.indexOf(']', valueStart + 1);
-      if (closeBracketIndex === -1) return null;
-      ip = firstEntry.substring(valueStart + 1, closeBracketIndex);
-    } else {
-      // Unquoted value: for=192.168.1.1
-      let endIndex = valueStart;
-      while (endIndex < firstEntry.length) {
-        const c = firstEntry[endIndex];
-        if (c === ';' || c === ',' || c === ' ' || c === '\t') {
-          break;
-        }
-        endIndex++;
-      }
-      ip = firstEntry.substring(valueStart, endIndex);
-    }
-
-    // Basic validation: ensure we have a non-empty result
-    if (!ip || ip.length === 0 || ip.length > 45) {
-      // Max IPv6 length is 45 chars
-      return null;
-    }
-
-    // Basic IP format validation (very permissive)
-    if (!/^[a-fA-F0-9:.]+$/.test(ip)) {
-      return null;
-    }
-
-    return ip;
+    const ip = extractIpFromForEntry(firstEntry);
+    return ip && isValidIp(ip) ? ip : null;
   } catch {
     // If parsing fails, return null to avoid breaking the request
     return null;
