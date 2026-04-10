@@ -5,9 +5,8 @@ import Koa from 'koa';
 /**
  * Parse RFC 7239 Forwarded header to extract the original client IP
  *
- * This function safely parses the Forwarded header without using regex to avoid
- * ReDoS (Regular Expression Denial of Service) vulnerabilities. It includes
- * input length limits and basic validation to prevent malicious input from
+ * This function safely parses the Forwarded header.
+ * It includes input length limits and basic validation to prevent malicious input from
  * causing performance issues.
  *
  * @param forwardedHeader - The Forwarded header value
