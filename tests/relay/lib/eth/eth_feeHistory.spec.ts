@@ -15,7 +15,6 @@ import {
   BLOCKS_LIMIT_ORDER_URL,
   DEFAULT_BLOCK,
   DEFAULT_NETWORK_FEES,
-  GAS_USED_RATIO,
   NOT_FOUND_RES,
 } from './eth-config';
 import { generateEthTestEnv } from './eth-helpers';
@@ -77,7 +76,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x870ab1a800');
       expect(feeHistory['baseFeePerGas'][1]).to.equal('0x84b6a5c400');
       expect(feeHistory['baseFeePerGas'][2]).to.equal('0x84b6a5c400');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+      //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${previousBlock.number.toString(16)}`);
       const rewards = feeHistory['reward'][0];
       expect(rewards[0]).to.equal('0x0');
@@ -157,7 +157,8 @@ describe('@ethFeeHistory using MirrorNode', async function () {
 
     expect(firstFeeHistory).to.exist;
     expect(firstFeeHistory['baseFeePerGas'][0]).to.equal(BASE_FEE_PER_GAS_HEX);
-    expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+    //0.03333333333333333 comes from gasUsed 1_000_000 / 30_000_000 gasLimit for the test block (hapi version 0.28.1)
+    expect(firstFeeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
     expect(firstFeeHistory['oldestBlock']).to.equal(hexBlockNumber);
 
     expect(firstFeeHistory).to.equal(secondFeeHistory);
@@ -169,7 +170,7 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     function feeHistoryOnErrorExpect(feeHistory: any) {
       expect(feeHistory).to.exist;
       expect(feeHistory['baseFeePerGas'][0]).to.equal('0x0');
-      expect(feeHistory['gasUsedRatio'][0]).to.equal(GAS_USED_RATIO);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0.03333333333333333);
       expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
     }
 
@@ -193,6 +194,35 @@ describe('@ethFeeHistory using MirrorNode', async function () {
     it('eth_feeHistory on mirror 500', async function () {
       const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
       feeHistoryOnErrorExpect(feeHistory);
+    });
+  });
+
+  describe('eth_feeHistory when block fetch returns null', function () {
+    const latestBlock = { ...DEFAULT_BLOCK, number: BLOCK_NUMBER_3 };
+
+    this.beforeEach(() => {
+      restMock.onGet(BLOCKS_LIMIT_ORDER_URL).reply(200, JSON.stringify({ blocks: [latestBlock] }));
+      restMock.onGet(`blocks/${latestBlock.number}`).reply(404, JSON.stringify(NOT_FOUND_RES));
+    });
+
+    it('returns zero fee and zero gasUsedRatio', async function () {
+      const feeHistory = await ethImpl.feeHistory(1, 'latest', null, requestDetails);
+
+      expect(feeHistory).to.exist;
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      expect(feeHistory['oldestBlock']).to.equal(`0x${latestBlock.number.toString(16)}`);
+    });
+
+    it('returns zero fee and zero gasUsedRatio with reward percentiles', async function () {
+      const feeHistory = await ethImpl.feeHistory(1, 'latest', [25, 75], requestDetails);
+
+      expect(feeHistory).to.exist;
+      expect(feeHistory['baseFeePerGas'][0]).to.equal(constants.ZERO_HEX);
+      expect(feeHistory['gasUsedRatio'][0]).to.equal(0);
+      const rewards = feeHistory['reward'][0];
+      expect(rewards[0]).to.equal('0x0');
+      expect(rewards[1]).to.equal('0x0');
     });
   });
 
