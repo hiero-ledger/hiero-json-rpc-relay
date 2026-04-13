@@ -12,7 +12,7 @@ RELAY_ENDPOINT=
 ```
 
  - `OPERATOR_PRIVATE_KEY` is your account ECDSA hex-encoded private key.
- - `RELAY_ENDPOINT` is a path to your JSON RPC Api. `https://testnet.hashio.io/api` for testnet. Remember to start your Hedera local node if you want to use the http://localhost:7546 endpoint.
+ - `RELAY_ENDPOINT` is a path to your JSON RPC Api. `https://testnet.hashio.io/api` for testnet. Remember to start your local node if you want to use the http://localhost:7546 endpoint.
 
 ## Setup & Install
 
