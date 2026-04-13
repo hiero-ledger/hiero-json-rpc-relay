@@ -4,7 +4,7 @@
 import { Status, TransactionRecord } from '@hashgraph/sdk';
 
 import { numberTo0x, toHash32 } from '../formatters';
-import { MirrorNodeContractLog } from './types';
+import type { MirrorNodeContractLog } from './types';
 
 /**
  * Represents an Ethereum-compatible block model.
