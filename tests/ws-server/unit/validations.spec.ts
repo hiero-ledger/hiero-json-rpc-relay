@@ -4,6 +4,7 @@ import chai, { expect } from 'chai';
 import pino from 'pino';
 import sinon from 'sinon';
 
+import type { Relay } from '../../../src/relay';
 import { MirrorNodeClient } from '../../../src/relay/lib/clients';
 import { RequestDetails } from '../../../src/relay/lib/types';
 import { WS_CONSTANTS } from '../../../src/ws-server/utils/constants';
@@ -78,7 +79,7 @@ describe('validations unit test', async function () {
     it('should return true for methods present in the relay registry', () => {
       const mockRelay = {
         rpcMethodRegistry: new Map(RPC_METHODS.REGISTRY_METHODS.map((m) => [m, sinon.stub()])),
-      } as any;
+      } as unknown as Relay;
 
       RPC_METHODS.REGISTRY_METHODS.forEach((method) => {
         expect(verifySupportedMethod(mockRelay, method), method).to.be.true;
@@ -86,7 +87,7 @@ describe('validations unit test', async function () {
     });
 
     it('should return true for WS-only methods eth_subscribe and eth_unsubscribe even when not in registry', () => {
-      const mockRelay = { rpcMethodRegistry: new Map() } as any;
+      const mockRelay = { rpcMethodRegistry: new Map() } as unknown as Relay;
 
       expect(verifySupportedMethod(mockRelay, WS_CONSTANTS.METHODS.ETH_SUBSCRIBE)).to.be.true;
       expect(verifySupportedMethod(mockRelay, WS_CONSTANTS.METHODS.ETH_UNSUBSCRIBE)).to.be.true;

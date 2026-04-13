@@ -238,7 +238,7 @@ describe('Utilities unit tests', async function () {
     });
 
     it('should return true when method is in rpcMethodRegistry', () => {
-      relayStub.rpcMethodRegistry.set('eth_getBalance', {} as any);
+      relayStub.rpcMethodRegistry.set('eth_getBalance', sinon.stub());
       expect(verifySupportedMethod(relayStub as unknown as Relay, 'eth_getBalance')).to.be.true;
     });
 

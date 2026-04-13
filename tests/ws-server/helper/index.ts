@@ -78,7 +78,11 @@ export class WsTestHelper {
   /**
    * Required: `app.proxy = true` on the WS server.
    */
-  static sendRequestWithIp(method: string, params: any[], ip: string): Promise<any> {
+  static sendRequestWithIp(
+    method: string,
+    params: unknown[],
+    ip: string,
+  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
     const ws = new WebSocket(WsTestConstant.WS_RELAY_URL, undefined, {
       headers: { 'X-Forwarded-For': ip },
     });
@@ -93,7 +97,7 @@ export class WsTestHelper {
       });
       ws.on('message', (data: Buffer) => {
         ws.close();
-        resolve(JSON.parse(data.toString()));
+        resolve(JSON.parse(data.toString()) as { result?: unknown; error?: { code: number; message: string } });
       });
     });
   }

@@ -5,6 +5,8 @@ import type Koa from 'koa';
 const MAX_FORWARDED_HEADER_LENGTH = 1000;
 const MAX_IP_LENGTH = 45; // Max IPv6 length
 const SAFE_IP_CHARS = /^[a-fA-F0-9:.]+$/;
+const HEADER_FORWARDED = 'forwarded';
+const HEADER_X_FORWARDED_FOR = 'x-forwarded-for';
 
 /**
  * Extracts an IP address from a quoted `for=` value.
@@ -50,8 +52,9 @@ function extractBracketedIp(value: string, start: number): string | null {
  * @returns The extracted IP string (may be empty if the value starts with a delimiter).
  */
 function extractUnquotedIp(value: string, start: number): string {
-  const end = value.split('').findIndex((c, i) => i >= start && /[;, \t]/.test(c));
-  return value.substring(start, end === -1 ? value.length : end);
+  const relativeEnd = value.slice(start).search(/[;, \t]/);
+  if (relativeEnd === -1) return value.slice(start);
+  return value.slice(start, start + relativeEnd);
 }
 
 /**
@@ -131,14 +134,14 @@ export function applyProxyMiddleware(app: Koa): void {
 
   app.use(async (ctx, next) => {
     // Only process if X-Forwarded-For doesn't exist but Forwarded does
-    if (!ctx.request.headers['x-forwarded-for'] && ctx.request.headers['forwarded']) {
-      const forwardedHeader = ctx.request.headers['forwarded'] as string;
+    if (!ctx.request.headers[HEADER_X_FORWARDED_FOR] && ctx.request.headers[HEADER_FORWARDED]) {
+      const forwardedHeader = ctx.request.headers[HEADER_FORWARDED] as string;
       // Parse the Forwarded header to extract the client IP
       // Format: Forwarded: for="192.168.1.1";by="10.0.0.1", for="203.0.113.1";by="10.0.0.2"
       const clientIp = parseForwardedHeader(forwardedHeader);
       if (clientIp) {
         // Set X-Forwarded-For so Koa can parse it normally
-        ctx.request.headers['x-forwarded-for'] = clientIp;
+        ctx.request.headers[HEADER_X_FORWARDED_FOR] = clientIp;
       }
     }
     await next();

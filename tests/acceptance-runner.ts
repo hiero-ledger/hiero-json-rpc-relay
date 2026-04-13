@@ -78,7 +78,7 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
     global.logger = logger;
     global.initialBalance = INITIAL_BALANCE;
 
-    global.restartLocalRelay = async function () {
+    global.restartLocalRelay = async () => {
       if (global.relayIsLocal) {
         stopRelay();
         await new Promise((r) => setTimeout(r, 5000)); // wait for server to shutdown
