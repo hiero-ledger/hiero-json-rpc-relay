@@ -26,7 +26,7 @@ import constants, { CallType, TracerType } from './constants';
 import { cache, RPC_LAYOUT, rpcMethod, rpcParamLayoutConfig } from './decorators';
 import { predefined } from './errors/JsonRpcError';
 import { BlockFactory } from './factories/blockFactory';
-import { Block, type Log } from './model';
+import { type Block, Log } from './model';
 import {
   BlockService,
   CommonService,
