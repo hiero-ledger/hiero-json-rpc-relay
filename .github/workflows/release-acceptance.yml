@@ -90,7 +90,6 @@ jobs:
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
-            --force-port-forward: true
           mirrorNode:
             --enable-ingress: true
             --pinger: true
@@ -125,12 +124,6 @@ jobs:
 
       - name: Run acceptance tests
         run: npm run acceptancetest:release
-
-      - name: Run hedera local
-        run: hedera restart -d
-  
-      - name: Stop  relay
-        run: docker stop json-rpc-relay json-rpc-relay-ws
 
       - name: Upload Test Results
         if: always()

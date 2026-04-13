@@ -60,7 +60,6 @@ jobs:
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
-            --force-port-forward: true
           mirrorNode:
             --enable-ingress: true
             --pinger: true
@@ -83,6 +82,7 @@ jobs:
           npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
+            --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
 

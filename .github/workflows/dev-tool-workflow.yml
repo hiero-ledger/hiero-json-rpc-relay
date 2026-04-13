@@ -82,7 +82,6 @@ jobs:
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
-            --force-port-forward: true
           mirrorNode:
             --enable-ingress: true
             --pinger: true
