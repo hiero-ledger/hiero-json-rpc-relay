@@ -89,7 +89,6 @@ jobs:
           npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
-            --force-port-forward=false \
             --deploy-explorer=false \
             --deploy-relay=false
         timeout-minutes: 15
