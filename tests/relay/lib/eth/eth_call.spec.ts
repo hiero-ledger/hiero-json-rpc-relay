@@ -331,6 +331,35 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
+    it('eth_call with non-empty authorizationList', async function () {
+      const authEntry = {
+        chainId: '0x12a',
+        nonce: '0x5',
+        address: CONTRACT_ADDRESS_2,
+        yParity: '0x0',
+        r: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        s: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      };
+      const callData = {
+        ...defaultCallData,
+        from: ACCOUNT_ADDRESS_1,
+        to: CONTRACT_ADDRESS_2,
+        data: CONTRACT_CALL_DATA,
+        gas: MAX_GAS_LIMIT,
+        authorizationList: [authEntry],
+      };
+      await mockContractCall({ ...callData, block: 'latest' }, false, 200, { result: '0x00' }, requestDetails);
+
+      web3Mock.resetHistory();
+      const result = await contractService.call(callData, 'latest', requestDetails);
+
+      expect(result).to.equal('0x00');
+      expect(web3Mock.history.post.length).to.gte(1);
+      const sentBody = JSON.parse(web3Mock.history.post[0].data);
+      expect(sentBody.authorizationList).to.be.an('array').with.lengthOf(1);
+      expect(sentBody.authorizationList[0]).to.deep.equal(authEntry);
+    });
+
     it('eth_call with all fields but mirrorNode throws 429 hence rejected with COULD_NOT_SIMULATE_TRANSACTION', async function () {
       const callData = {
         ...defaultCallData,

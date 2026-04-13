@@ -180,6 +180,34 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT).toLowerCase());
   });
 
+  it('should eth_estimateGas with non-empty authorizationList passes list to mirror node', async function () {
+    const authEntry = {
+      chainId: '0x12a',
+      nonce: '0x5',
+      address: RECEIVER_ADDRESS,
+      yParity: '0x0',
+      r: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      s: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+    const callData: IContractCallRequest = {
+      from: '0x81cb089c285e5ee3a7353704fb114955037443af',
+      to: RECEIVER_ADDRESS,
+      data: '0x01',
+      authorizationList: [authEntry],
+    };
+    await mockContractCall(callData, true, 200, { result: '0x5208' }, requestDetails);
+
+    web3Mock.resetHistory();
+    const gas = await ethImpl.estimateGas(callData, null, requestDetails);
+
+    expect(gas).to.be.a('string');
+    expect((gas as string).startsWith('0x')).to.be.true;
+    expect(web3Mock.history.post.length).to.gte(1);
+    const sentBody = JSON.parse(web3Mock.history.post[0].data);
+    expect(sentBody.authorizationList).to.be.an('array').with.lengthOf(1);
+    expect(sentBody.authorizationList[0]).to.deep.equal(authEntry);
+  });
+
   it('should eth_estimateGas for contract deploy throws COULD_NOT_SIMULATE_TRANSACTION error on 400', async function () {
     const callData: IContractCallRequest = {
       data: '0x01',

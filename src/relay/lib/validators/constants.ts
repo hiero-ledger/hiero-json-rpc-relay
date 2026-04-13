@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export const BASE_HEX_REGEX = '^0[xX][a-fA-F0-9]';
+export const ADDRESS_REGEX = BASE_HEX_REGEX + '{40}$';
 export const DEFAULT_HEX_ERROR = 'Expected 0x prefixed hexadecimal value';
 export const EVEN_HEX_ERROR = `${DEFAULT_HEX_ERROR} with even length`;
 export const HASH_ERROR = 'Expected 0x prefixed string representing the hash (32 bytes)';

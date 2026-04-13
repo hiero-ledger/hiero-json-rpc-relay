@@ -827,7 +827,65 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
   });
 
   /**
-   * We’ll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
+   * Skip until the Mirror Node supports authorization_list in /contracts/call simulations.
+   * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
+   */
+  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', function () {
+    const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
+
+    it('eth_call with authorizationList simulates delegated code', async function () {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const result = await relay.call('eth_call', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+        'latest',
+      ]);
+
+      expect(result).to.be.a('string');
+      expect(result.startsWith('0x')).to.be.true;
+    });
+
+    it('eth_estimateGas with authorizationList returns a non-zero gas estimate', async function () {
+      const signer = accounts[1];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: DELEGATION_TARGET,
+          nonce: currentNonce,
+        }),
+      ];
+
+      const gas = await relay.call('eth_estimateGas', [
+        {
+          from: signer.address,
+          to: DELEGATION_TARGET,
+          data: '0x',
+          authorizationList,
+        },
+      ]);
+
+      expect(gas).to.be.a('string');
+      expect(gas.startsWith('0x')).to.be.true;
+      expect(BigInt(gas)).to.be.greaterThan(BigInt(0));
+    });
+  });
+
+  /**
+   * We'll need to skip these tests for now, until the Authorization List is fully implemented in the Mirror Node:
    * https://github.com/hiero-ledger/hiero-mirror-node/issues/12379.
    */
   describe.skip('EIP-7702 (authorizationList)', function () {

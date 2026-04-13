@@ -581,6 +581,66 @@ describe('Validator', async () => {
     });
   });
 
+  describe('validates hex64 type correctly', async () => {
+    const validation = { 0: { type: 'hex64' as const } };
+
+    it('accepts a full 32-byte (64 hex char) value', async () => {
+      const valid = '0x' + 'a'.repeat(64);
+      expect(() => validateParams([valid], validation)).to.not.throw();
+    });
+
+    it('accepts a short value (leading zeros stripped)', async () => {
+      expect(() => validateParams(['0x1'], validation)).to.not.throw();
+    });
+
+    it('throws when value exceeds 64 hex chars', async () => {
+      const tooLong = '0x' + 'a'.repeat(65);
+      expect(() => validateParams([tooLong], validation)).to.throw(
+        expectInvalidParam(0, Constants.HASH_ERROR, tooLong),
+      );
+    });
+
+    it('throws when value is not 0x-prefixed', async () => {
+      const noPrefix = 'a'.repeat(64);
+      expect(() => validateParams([noPrefix], validation)).to.throw(
+        expectInvalidParam(0, Constants.HASH_ERROR, noPrefix),
+      );
+    });
+
+    it('throws when value contains non-hex characters', async () => {
+      expect(() => validateParams(['0xnothex'], validation)).to.throw(
+        expectInvalidParam(0, Constants.HASH_ERROR, '0xnothex'),
+      );
+    });
+  });
+
+  describe('validates yParityHex type correctly', async () => {
+    const validation = { 0: { type: 'yParityHex' as const } };
+    const yParityError = TYPES['yParityHex'].error;
+
+    it('accepts 0x0 (even parity)', async () => {
+      expect(() => validateParams(['0x0'], validation)).to.not.throw();
+    });
+
+    it('accepts 0x1 (odd parity)', async () => {
+      expect(() => validateParams(['0x1'], validation)).to.not.throw();
+    });
+
+    it('throws when value has more than 2 hex chars after 0x', async () => {
+      expect(() => validateParams(['0x123'], validation)).to.throw(expectInvalidParam(0, yParityError, '0x123'));
+    });
+
+    it('throws when value is not 0x-prefixed', async () => {
+      expect(() => validateParams(['1'], validation)).to.throw(expectInvalidParam(0, yParityError, '1'));
+    });
+
+    it('throws when value is a non-hex string', async () => {
+      expect(() => validateParams(['notparity'], validation)).to.throw(
+        expectInvalidParam(0, yParityError, 'notparity'),
+      );
+    });
+  });
+
   describeTests('tracerType', {
     validCases: [Constants.TracerType.CallTracer, Constants.TracerType.OpcodeLogger],
     invalidCases: [
@@ -819,6 +879,150 @@ describe('Validator', async () => {
 
       validateParams([transactionParam], validation);
       expect(transactionParam).not.to.haveOwnProperty('form');
+    });
+
+    it('preserves authorizationList through Transaction Object param validation', async () => {
+      const authEntry = {
+        chainId: '0x12a',
+        nonce: '0x5',
+        address: '0x0000000000000000000000000000000000000167',
+        yParity: '0x0',
+        r: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        s: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      };
+      const transactionParam = {
+        to: '0x0000000000000000000000000000000000000167',
+        authorizationList: [authEntry],
+      };
+      const validation = { 0: { type: 'transaction' } };
+
+      validateParams([transactionParam], validation);
+
+      expect(transactionParam).to.haveOwnProperty('authorizationList');
+      expect(transactionParam.authorizationList).to.be.an('array').with.lengthOf(1);
+      expect(transactionParam.authorizationList[0]).to.deep.equal(authEntry);
+    });
+  });
+
+  describe('validates authorizationList in Transaction Object', async () => {
+    const validation = { 0: { type: 'transaction' as const, required: false } };
+    const arrayError = TYPES['array'].error;
+    const name = 'TransactionObject';
+
+    const validEntry = {
+      chainId: '0x12a',
+      nonce: '0x5',
+      address: '0x0000000000000000000000000000000000000167',
+      yParity: '0x0',
+      r: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      s: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+
+    it('does not throw for a valid authorizationList entry', () => {
+      expect(() => validateParams([{ authorizationList: [validEntry] }], validation)).to.not.throw();
+    });
+
+    it('does not throw for an empty authorizationList', () => {
+      expect(() => validateParams([{ authorizationList: [] }], validation)).to.not.throw();
+    });
+
+    it('preserves additional properties on entries', () => {
+      const entryWithExtra = { ...validEntry, extra: 'allowed' };
+      const tx = { authorizationList: [entryWithExtra] };
+      validateParams([tx], validation);
+      expect(tx.authorizationList[0]).to.haveOwnProperty('extra', 'allowed');
+    });
+
+    it('throws when authorizationList is not an array', () => {
+      expect(() => validateParams([{ authorizationList: 'not-an-array' }], validation)).to.throw(
+        expectInvalidObject('authorizationList', arrayError, name, 'not-an-array'),
+      );
+    });
+
+    it('throws when entry is missing required field: address', () => {
+      const { address: _a, ...entryWithoutAddress } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutAddress] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry is missing required field: chainId', () => {
+      const { chainId: _c, ...entryWithoutChainId } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutChainId] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry is missing required field: nonce', () => {
+      const { nonce: _n, ...entryWithoutNonce } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutNonce] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry is missing required field: r', () => {
+      const { r: _r, ...entryWithoutR } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutR] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry is missing required field: s', () => {
+      const { s: _s, ...entryWithoutS } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutS] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry is missing required field: yParity', () => {
+      const { yParity: _y, ...entryWithoutYParity } = validEntry;
+      expect(() => validateParams([{ authorizationList: [entryWithoutYParity] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry has invalid address', () => {
+      expect(() =>
+        validateParams([{ authorizationList: [{ ...validEntry, address: '0x1234' }] }], validation),
+      ).to.throw(`Invalid parameter 'authorizationList' for ${name}`);
+    });
+
+    it('throws when entry has invalid chainId', () => {
+      expect(() =>
+        validateParams([{ authorizationList: [{ ...validEntry, chainId: 'not-hex' }] }], validation),
+      ).to.throw(`Invalid parameter 'authorizationList' for ${name}`);
+    });
+
+    it('throws when entry has invalid r (too long)', () => {
+      const rTooLong = '0x' + 'a'.repeat(65);
+      expect(() => validateParams([{ authorizationList: [{ ...validEntry, r: rTooLong }] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry has invalid r (non-hex)', () => {
+      expect(() => validateParams([{ authorizationList: [{ ...validEntry, r: 'not-hex' }] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry has invalid s (too long)', () => {
+      const sTooLong = '0x' + 'b'.repeat(65);
+      expect(() => validateParams([{ authorizationList: [{ ...validEntry, s: sTooLong }] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry has invalid nonce', () => {
+      expect(() => validateParams([{ authorizationList: [{ ...validEntry, nonce: 'not-hex' }] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
+    });
+
+    it('throws when entry has invalid yParity', () => {
+      expect(() => validateParams([{ authorizationList: [{ ...validEntry, yParity: '0x123' }] }], validation)).to.throw(
+        `Invalid parameter 'authorizationList' for ${name}`,
+      );
     });
   });
 
