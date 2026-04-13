@@ -14,23 +14,34 @@ export interface CallRawOptions {
  */
 export interface RpcProtocolClient {
   readonly label: string;
-  call(method: string, params: any[]): Promise<any>;
+  call(method: string, params: unknown[]): Promise<unknown>;
   callRaw(
     method: string,
-    params: any[],
+    params: unknown[],
     options?: CallRawOptions,
-  ): Promise<{ result?: any; error?: { code: number; message: string } }>;
+  ): Promise<{ result?: unknown; error?: { code: number; message: string } }>;
 }
+
+type TestGlobal = typeof globalThis & {
+  relay: {
+    call(method: string, params: unknown[]): Promise<unknown>;
+    provider: { _getConnection(): { url: string } };
+  };
+};
 
 class HttpProtocolClient implements RpcProtocolClient {
   readonly label = 'HTTP';
 
-  async call(method: string, params: any[]): Promise<any> {
-    return (global as any).relay.call(method, params);
+  async call(method: string, params: unknown[]): Promise<unknown> {
+    return (global as TestGlobal).relay.call(method, params);
   }
 
-  async callRaw(method: string, params: any[], options?: CallRawOptions): Promise<any> {
-    const url: string = (global as any).relay.provider._getConnection().url;
+  async callRaw(
+    method: string,
+    params: unknown[],
+    options?: CallRawOptions,
+  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+    const url: string = (global as TestGlobal).relay.provider._getConnection().url;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (options?.ip) {
       headers['X-Forwarded-For'] = options.ip;
@@ -47,17 +58,19 @@ class HttpProtocolClient implements RpcProtocolClient {
 class WsProtocolClient implements RpcProtocolClient {
   readonly label = 'WebSocket';
 
-  async call(method: string, params: any[]): Promise<any> {
+  async call(method: string, params: unknown[]): Promise<unknown> {
     const response = await this.callRaw(method, params);
     if (response.error) {
-      const err: any = new Error(response.error.message);
-      err.code = response.error.code;
-      throw err;
+      throw Object.assign(new Error(response.error.message), { code: response.error.code });
     }
     return response.result;
   }
 
-  async callRaw(method: string, params: any[], options?: CallRawOptions): Promise<any> {
+  async callRaw(
+    method: string,
+    params: unknown[],
+    options?: CallRawOptions,
+  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
     if (options?.ip) {
       return WsTestHelper.sendRequestWithIp(method, params, options.ip);
     }

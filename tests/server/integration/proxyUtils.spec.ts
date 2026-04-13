@@ -6,124 +6,124 @@ import sinon from 'sinon';
 
 import { applyProxyMiddleware, parseForwardedHeader } from '../../../src/server/utils/proxyUtils';
 
-describe('proxyUtils', function () {
-  describe('parseForwardedHeader', function () {
-    describe('returns null for invalid / edge-case inputs', function () {
-      it('should return null when header exceeds 1000 characters', function () {
-        const longHeader = 'for=' + 'a'.repeat(1000);
+describe('proxyUtils', () => {
+  describe('parseForwardedHeader', () => {
+    describe('returns null for invalid / edge-case inputs', () => {
+      it('should return null when header exceeds 1000 characters', () => {
+        const longHeader = `for=${'a'.repeat(1000)}`;
         expect(parseForwardedHeader(longHeader)).to.be.null;
       });
 
-      it('should return null when first entry is empty (comma-only input)', function () {
+      it('should return null when first entry is empty (comma-only input)', () => {
         expect(parseForwardedHeader(',')).to.be.null;
       });
 
-      it('should return null when there is no for= parameter', function () {
+      it('should return null when there is no for= parameter', () => {
         expect(parseForwardedHeader('proto=https;by=10.0.0.1')).to.be.null;
       });
 
-      it('should return null when for= has no value', function () {
+      it('should return null when for= has no value', () => {
         expect(parseForwardedHeader('for=')).to.be.null;
       });
 
-      it('should return null when quoted value has no closing quote', function () {
+      it('should return null when quoted value has no closing quote', () => {
         expect(parseForwardedHeader('for="192.168.1.1')).to.be.null;
       });
 
-      it('should return null when bracketed IPv6 has no closing bracket', function () {
+      it('should return null when bracketed IPv6 has no closing bracket', () => {
         expect(parseForwardedHeader('for=[2001:db8::1')).to.be.null;
       });
 
-      it('should return null when extracted IP contains invalid characters', function () {
+      it('should return null when extracted IP contains invalid characters', () => {
         expect(parseForwardedHeader('for=not-an-ip!')).to.be.null;
       });
 
-      it('should return null when extracted IP exceeds 45 characters', function () {
+      it('should return null when extracted IP exceeds 45 characters', () => {
         // 46 hex chars — too long for any valid IP
         const longIp = 'a'.repeat(46);
         expect(parseForwardedHeader(`for=${longIp}`)).to.be.null;
       });
 
-      it('should return null for empty quoted value (for="")', function () {
+      it('should return null for empty quoted value (for="")', () => {
         expect(parseForwardedHeader('for=""')).to.be.null;
       });
     });
 
-    describe('unquoted IPv4', function () {
-      it('should parse a plain unquoted IPv4 address', function () {
+    describe('unquoted IPv4', () => {
+      it('should parse a plain unquoted IPv4 address', () => {
         expect(parseForwardedHeader('for=192.168.1.1')).to.equal('192.168.1.1');
       });
 
-      it('should stop at semicolon delimiter', function () {
+      it('should stop at semicolon delimiter', () => {
         expect(parseForwardedHeader('for=192.168.1.1;proto=https')).to.equal('192.168.1.1');
       });
 
-      it('should stop at space delimiter', function () {
+      it('should stop at space delimiter', () => {
         expect(parseForwardedHeader('for=192.168.1.1 extra')).to.equal('192.168.1.1');
       });
 
-      it('should stop at tab delimiter', function () {
+      it('should stop at tab delimiter', () => {
         expect(parseForwardedHeader('for=192.168.1.1\textra')).to.equal('192.168.1.1');
       });
 
-      it('should be case-insensitive for the for= key', function () {
+      it('should be case-insensitive for the for= key', () => {
         expect(parseForwardedHeader('FOR=192.168.1.1')).to.equal('192.168.1.1');
         expect(parseForwardedHeader('For=192.168.1.1')).to.equal('192.168.1.1');
       });
     });
 
-    describe('quoted IPv4', function () {
-      it('should parse a quoted IPv4 address', function () {
+    describe('quoted IPv4', () => {
+      it('should parse a quoted IPv4 address', () => {
         expect(parseForwardedHeader('for="192.168.1.1"')).to.equal('192.168.1.1');
       });
 
-      it('should parse a quoted IPv4 with additional parameters', function () {
+      it('should parse a quoted IPv4 with additional parameters', () => {
         expect(parseForwardedHeader('for="192.168.1.1";by="10.0.0.1"')).to.equal('192.168.1.1');
       });
     });
 
-    describe('bracketed IPv6', function () {
-      it('should parse an unquoted bracketed IPv6 address', function () {
+    describe('bracketed IPv6', () => {
+      it('should parse an unquoted bracketed IPv6 address', () => {
         expect(parseForwardedHeader('for=[2001:db8::1]')).to.equal('2001:db8::1');
       });
     });
 
-    describe('quoted bracketed IPv6', function () {
-      it('should parse a quoted bracketed IPv6 address', function () {
+    describe('quoted bracketed IPv6', () => {
+      it('should parse a quoted bracketed IPv6 address', () => {
         expect(parseForwardedHeader('for="[2001:db8::1]"')).to.equal('2001:db8::1');
       });
 
-      it('should parse a quoted non-bracketed IPv6 address', function () {
+      it('should parse a quoted non-bracketed IPv6 address', () => {
         // quoted but no brackets — treated as plain quoted value
         expect(parseForwardedHeader('for="2001:db8::1"')).to.equal('2001:db8::1');
       });
     });
 
-    describe('multiple entries', function () {
-      it('should use only the first entry when multiple comma-separated entries exist', function () {
+    describe('multiple entries', () => {
+      it('should use only the first entry when multiple comma-separated entries exist', () => {
         expect(parseForwardedHeader('for=192.168.1.1, for=10.0.0.1')).to.equal('192.168.1.1');
       });
 
-      it('should use only the first entry with quoted IPs', function () {
+      it('should use only the first entry with quoted IPs', () => {
         expect(parseForwardedHeader('for="192.168.1.1";by="10.0.0.1", for="203.0.113.1"')).to.equal('192.168.1.1');
       });
     });
   });
 
-  describe('applyProxyMiddleware', function () {
+  describe('applyProxyMiddleware', () => {
     let app: Koa;
 
-    beforeEach(function () {
+    beforeEach(() => {
       app = new Koa();
     });
 
-    it('should set app.proxy to true', function () {
+    it('should set app.proxy to true', () => {
       expect(app.proxy).to.be.false;
       applyProxyMiddleware(app);
       expect(app.proxy).to.be.true;
     });
 
-    it('should set x-forwarded-for from Forwarded header when x-forwarded-for is absent', async function () {
+    it('should set x-forwarded-for from Forwarded header when x-forwarded-for is absent', async () => {
       applyProxyMiddleware(app);
 
       const ctx = {
@@ -144,7 +144,7 @@ describe('proxyUtils', function () {
       expect(next.calledOnce).to.be.true;
     });
 
-    it('should not override x-forwarded-for when it is already present', async function () {
+    it('should not override x-forwarded-for when it is already present', async () => {
       applyProxyMiddleware(app);
 
       const ctx = {
@@ -165,7 +165,7 @@ describe('proxyUtils', function () {
       expect(next.calledOnce).to.be.true;
     });
 
-    it('should not set x-forwarded-for when Forwarded header is absent', async function () {
+    it('should not set x-forwarded-for when Forwarded header is absent', async () => {
       applyProxyMiddleware(app);
 
       const ctx = {
@@ -183,7 +183,7 @@ describe('proxyUtils', function () {
       expect(next.calledOnce).to.be.true;
     });
 
-    it('should not set x-forwarded-for when Forwarded header is malformed', async function () {
+    it('should not set x-forwarded-for when Forwarded header is malformed', async () => {
       applyProxyMiddleware(app);
 
       const ctx = {
@@ -203,7 +203,7 @@ describe('proxyUtils', function () {
       expect(next.calledOnce).to.be.true;
     });
 
-    it('should always call next regardless of header state', async function () {
+    it('should always call next regardless of header state', async () => {
       applyProxyMiddleware(app);
 
       const ctx = {
@@ -219,8 +219,8 @@ describe('proxyUtils', function () {
     });
   });
 
-  describe('ctx.ip resolution', function () {
-    it('ctx.ip is the socket address when app.proxy is false (baseline)', async function () {
+  describe('ctx.ip resolution', () => {
+    it('ctx.ip is the socket address when app.proxy is false (baseline)', async () => {
       const app = new Koa();
       const ips: string[] = [];
       app.use(async (ctx) => {
@@ -237,7 +237,7 @@ describe('proxyUtils', function () {
       expect(ips[1]).to.equal('127.0.0.1');
     });
 
-    it('ctx.ip reads X-Forwarded-For per request when applyProxyMiddleware is applied', async function () {
+    it('ctx.ip reads X-Forwarded-For per request when applyProxyMiddleware is applied', async () => {
       const app = new Koa();
       applyProxyMiddleware(app);
       const ips: string[] = [];

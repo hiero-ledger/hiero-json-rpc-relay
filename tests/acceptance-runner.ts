@@ -134,14 +134,12 @@ export function registerAcceptanceSuite(options: AcceptanceSuiteOptions): void {
           const gasEstimation = await account.wallet.provider?.estimateGas(tx);
 
           // we multiply by 10 to add tolerance
-          // @ts-ignore
-          const cost = BigInt(gasEstimation * feeData?.gasPrice) * BigInt(10);
+          const cost = (gasEstimation ?? 0n) * (feeData?.gasPrice ?? 0n) * 10n;
 
           await account.wallet.sendTransaction({
             to: operatorAddress,
             gasLimit: gasEstimation,
-            // @ts-ignore
-            value: balance - cost,
+            value: (balance ?? 0n) - cost,
           });
           logger.info(`Account ${account.address} refunded back to operator ${balance} th.`);
         } catch (error) {

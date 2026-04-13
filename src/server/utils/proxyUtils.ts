@@ -21,7 +21,10 @@ function extractQuotedIp(value: string, start: number): string | null {
   if (closeQuoteIndex === -1) return null;
   const ip = value.substring(start + 1, closeQuoteIndex);
   // Handle IPv6 in brackets within quotes: for="[2001:db8::1]"
-  return ip.startsWith('[') && ip.endsWith(']') ? ip.substring(1, ip.length - 1) : ip;
+  if (ip.startsWith('[') && ip.endsWith(']')) {
+    return ip.substring(1, ip.length - 1);
+  }
+  return ip;
 }
 
 /**

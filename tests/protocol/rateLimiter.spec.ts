@@ -28,7 +28,7 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
   async function assertRateLimitedAfterN(
     client: (typeof ALL_PROTOCOL_CLIENTS)[number],
     method: string,
-    params: any[],
+    params: unknown[],
     limit: number,
   ): Promise<void> {
     for (let i = 0; i < limit; i++) {
@@ -45,8 +45,8 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
   }
 
   for (const client of ALL_PROTOCOL_CLIENTS) {
-    describe(`${client.label} transport`, function () {
-      describe('Tier 1 methods', function () {
+    describe(`${client.label} transport`, () => {
+      describe('Tier 1 methods', () => {
         it('should rate limit eth_mining after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_mining', [], RATE_LIMIT);
         });
@@ -56,7 +56,7 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
         });
       });
 
-      describe('Tier 2 methods', function () {
+      describe('Tier 2 methods', () => {
         it('should rate limit eth_blockNumber after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'eth_blockNumber', [], RATE_LIMIT);
         });
@@ -70,7 +70,7 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
         });
       });
 
-      describe('Tier 3 methods', function () {
+      describe('Tier 3 methods', () => {
         it('should rate limit web3_clientVersion after the limit is exceeded', async () => {
           await assertRateLimitedAfterN(client, 'web3_clientVersion', [], RATE_LIMIT);
         });
@@ -80,7 +80,7 @@ describe('@protocol-acceptance @ratelimiter Rate Limiting', function () {
         });
       });
 
-      describe('Rate limit counter isolation', function () {
+      describe('Rate limit counter isolation', () => {
         it('should maintain independent counters per method', async () => {
           // exhaust the tier-1 limit for eth_hashrate
           for (let i = 0; i < RATE_LIMIT; i++) {

@@ -53,7 +53,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
 
   after(async () => {});
 
-  describe('Cross-transport counter sharing', function () {
+  describe('Cross-transport counter sharing', () => {
     it('HTTP requests consume the same counter that blocks WebSocket requests', async () => {
       const [http, ws] = ALL_PROTOCOL_CLIENTS;
 
@@ -66,7 +66,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       // The next request over WS must be blocked (shared Redis counter)
       const wsResp = await ws.callRaw(TIER1_METHOD_A, [], { ip: IP_A });
       expect(wsResp.error, 'WS request should be rate limited after HTTP exhausted the counter').to.exist;
-      expect(wsResp.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+      expect(wsResp.error?.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
     it('WebSocket requests consume the same counter that blocks HTTP requests', async () => {
@@ -81,7 +81,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       // The next request over HTTP must be blocked
       const httpResp = await http.callRaw(TIER1_METHOD_B, [], { ip: IP_A });
       expect(httpResp.error, 'HTTP request should be rate limited after WS exhausted the counter').to.exist;
-      expect(httpResp.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+      expect(httpResp.error?.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
     it('interleaved HTTP and WS requests consume a single shared counter', async () => {
@@ -96,7 +96,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
 
       const resp3 = await http.callRaw(TIER2_METHOD_A, [], { ip: IP_A });
       expect(resp3.error, 'third request should be rate limited').to.exist;
-      expect(resp3.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+      expect(resp3.error?.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
     });
 
     it('Redis flush resets counters for both transports', async () => {
@@ -120,7 +120,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
     });
   });
 
-  describe('IP isolation', function () {
+  describe('IP isolation', () => {
     it('exhausting the limit for IP_A does not affect IP_B', async () => {
       const [http] = ALL_PROTOCOL_CLIENTS;
 
@@ -131,7 +131,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       }
       const rateLimitedA = await http.callRaw(TIER1_METHOD_A, [], { ip: IP_A });
       expect(rateLimitedA.error, 'IP_A should be rate limited').to.exist;
-      expect(rateLimitedA.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+      expect(rateLimitedA.error?.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
 
       // IP_B has an independent counter and must not be affected
       const respB = await http.callRaw(TIER1_METHOD_A, [], { ip: IP_B });
@@ -150,7 +150,7 @@ describe('@protocol-acceptance @ratelimiter-redis Redis Rate Limiting', function
       // IP_A is blocked on HTTP too (shared counter)
       const rateLimitedHttp = await http.callRaw(TIER1_METHOD_B, [], { ip: IP_A });
       expect(rateLimitedHttp.error, 'IP_A should be rate limited on HTTP').to.exist;
-      expect(rateLimitedHttp.error!.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
+      expect(rateLimitedHttp.error?.code).to.equal(IP_RATE_LIMIT_ERROR_CODE);
 
       // IP_B is unaffected on both transports
       const respBHttp = await http.callRaw(TIER1_METHOD_B, [], { ip: IP_B });
