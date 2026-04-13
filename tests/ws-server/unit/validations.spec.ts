@@ -94,7 +94,7 @@ describe('validations unit test', async function () {
     });
 
     it('should return false for unknown method names', () => {
-      const mockRelay = { rpcMethodRegistry: new Map() } as any;
+      const mockRelay = { rpcMethodRegistry: new Map() } as unknown as Relay;
       const GARBAGE_METHODS = [
         ...RPC_METHODS.UNSUPPORTED_METHODS,
         'eth_contractIdd',
