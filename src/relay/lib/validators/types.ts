@@ -3,19 +3,18 @@
 import { predefined } from '../errors/JsonRpcError';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
 import * as Constants from './constants';
+import { ADDRESS_REGEX } from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
 
 export const TYPES = {
   address: {
-    test: (param) => new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param),
+    test: (param) => new RegExp(ADDRESS_REGEX).test(param),
     error: Constants.ADDRESS_ERROR,
   },
   addressFilter: {
     test: (param: string | string[]) => {
-      return Array.isArray(param)
-        ? validateArray(param.flat(), 'address')
-        : new RegExp(Constants.BASE_HEX_REGEX + '{40}$').test(param);
+      return Array.isArray(param) ? validateArray(param.flat(), 'address') : new RegExp(ADDRESS_REGEX).test(param);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
@@ -157,6 +156,18 @@ export const TYPES = {
       return typeof param === 'object' && !Array.isArray(param);
     },
     error: 'Expected StateOverride object (currently accepting any object structure)',
+  },
+  yParityHex: {
+    test: (param: string) => /^0x([0-9a-fA-F]?){1,2}$/.test(param),
+    error: 'Expected 0x-prefixed yParity value (0 for even, 1 for odd)',
+  },
+  authorizationListEntry: {
+    test: (param: any) => {
+      if (Object.prototype.toString.call(param) !== '[object Object]') return false;
+      validateSchema(OBJECTS_VALIDATIONS.authorizationListEntry, param);
+      return true;
+    },
+    error: 'Expected valid AuthorizationListEntry object',
   },
 } satisfies {
   [paramTypeName: string]: {

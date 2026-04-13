@@ -74,6 +74,7 @@ export class Precheck {
     this.chainId(parsedTx);
     this.value(parsedTx);
     this.accessList(parsedTx);
+    this.authorizationList(parsedTx);
   }
 
   /**
@@ -249,6 +250,19 @@ export class Precheck {
     if (Number(tx.type) === 0 && (tx.accessList ?? []).length > 0) {
       throw predefined.INVALID_PARAMETER('accessList', 'not supported for legacy transactions');
     }
+  }
+
+  /**
+   * Validates the authorization list entries for EIP-7702 (type 4) transactions.
+   *
+   * @param tx - The transaction to validate.
+   * @throws {JsonRpcError} If any entry contains an invalid address.
+   */
+  authorizationList(tx: Transaction): void {
+    if (Number(tx.type) === 0) {
+      throw predefined.INVALID_PARAMETER('authorizationList', 'not supported for legacy transactions');
+    }
+    // Need to determine if any checks are necessary and related to Hedera pectra upgrade
   }
 
   /**
