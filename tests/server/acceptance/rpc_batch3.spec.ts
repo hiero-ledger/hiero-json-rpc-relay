@@ -160,7 +160,7 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
     });
 
-    it('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async function () {
+    it('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async () => {
       const signer = accounts[0];
       const currentNonce = await relay.getAccountNonce(signer.address);
 

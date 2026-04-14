@@ -2,7 +2,7 @@
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { AbiCoder, keccak256, Transaction } from 'ethers';
+import { AbiCoder, keccak256, type Transaction } from 'ethers';
 import { createStubInstance, SinonStub, SinonStubbedInstance, stub } from 'sinon';
 import { v4 as uuid } from 'uuid';
 
@@ -180,7 +180,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     expect((gas as string).toLowerCase()).to.equal(numberTo0x(constants.TX_DEFAULT_GAS_DEFAULT).toLowerCase());
   });
 
-  it('should eth_estimateGas with non-empty authorizationList passes list to mirror node', async function () {
+  it('should eth_estimateGas with non-empty authorizationList passes list to mirror node', async () => {
     const authEntry = {
       chainId: '0x12a',
       nonce: '0x5',
@@ -519,7 +519,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
   });
 
   withOverriddenEnvsInMochaTest({ ESTIMATE_GAS_THROWS: 'false' }, () => {
-    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async function () {
+    it('should eth_estimateGas with contract revert and message does not equal executionReverted and ESTIMATE_GAS_THROWS is set to false', async () => {
       const originalEstimateGas = contractService.estimateGas;
       contractService.estimateGas = async () => {
         return numberTo0x(Precheck.transactionIntrinsicGasCost(transaction as Transaction));
@@ -533,7 +533,7 @@ describe('@ethEstimateGas Estimate Gas spec', async function () {
     });
   });
 
-  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async function () {
+  it('should eth_estimateGas with contract revert and message equals "execution reverted: Invalid number of recipients"', async () => {
     await mockContractCall(
       transaction,
       true,

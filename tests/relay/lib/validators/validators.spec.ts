@@ -585,7 +585,7 @@ describe('Validator', async () => {
     const validation = { 0: { type: 'hex64' as const } };
 
     it('accepts a full 32-byte (64 hex char) value', async () => {
-      const valid = '0x' + 'a'.repeat(64);
+      const valid = `0x${'a'.repeat(64)}`;
       expect(() => validateParams([valid], validation)).to.not.throw();
     });
 
@@ -594,7 +594,7 @@ describe('Validator', async () => {
     });
 
     it('throws when value exceeds 64 hex chars', async () => {
-      const tooLong = '0x' + 'a'.repeat(65);
+      const tooLong = `0x${'a'.repeat(65)}`;
       expect(() => validateParams([tooLong], validation)).to.throw(
         expectInvalidParam(0, Constants.HASH_ERROR, tooLong),
       );
@@ -616,7 +616,7 @@ describe('Validator', async () => {
 
   describe('validates yParityHex type correctly', async () => {
     const validation = { 0: { type: 'yParityHex' as const } };
-    const yParityError = TYPES['yParityHex'].error;
+    const yParityError = TYPES.yParityHex.error;
 
     it('accepts 0x0 (even parity)', async () => {
       expect(() => validateParams(['0x0'], validation)).to.not.throw();
@@ -906,7 +906,7 @@ describe('Validator', async () => {
 
   describe('validates authorizationList in Transaction Object', async () => {
     const validation = { 0: { type: 'transaction' as const, required: false } };
-    const arrayError = TYPES['array'].error;
+    const arrayError = TYPES.array.error;
     const name = 'TransactionObject';
 
     const validEntry = {
@@ -994,7 +994,7 @@ describe('Validator', async () => {
     });
 
     it('throws when entry has invalid r (too long)', () => {
-      const rTooLong = '0x' + 'a'.repeat(65);
+      const rTooLong = `0x${'a'.repeat(65)}`;
       expect(() => validateParams([{ authorizationList: [{ ...validEntry, r: rTooLong }] }], validation)).to.throw(
         `Invalid parameter 'authorizationList' for ${name}`,
       );
@@ -1007,7 +1007,7 @@ describe('Validator', async () => {
     });
 
     it('throws when entry has invalid s (too long)', () => {
-      const sTooLong = '0x' + 'b'.repeat(65);
+      const sTooLong = `0x${'b'.repeat(65)}`;
       expect(() => validateParams([{ authorizationList: [{ ...validEntry, s: sTooLong }] }], validation)).to.throw(
         `Invalid parameter 'authorizationList' for ${name}`,
       );
