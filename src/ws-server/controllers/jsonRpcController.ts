@@ -99,11 +99,6 @@ export const getRequestResult = async (
   // eslint-disable-next-line prefer-const
   let { method, params } = request;
 
-  const subdomain = method.split('_')[0] ?? null;
-  if (!RELAY_RPC_WS_API.has(subdomain)) {
-    return jsonRespError(null, spec.MethodNotFound(subdomain), requestDetails.requestId);
-  }
-
   // support go-ethereum client by turning undefined into empty array
   if (!params) params = [];
 
@@ -114,6 +109,11 @@ export const getRequestResult = async (
   // ensure the request aligns with JSON-RPC 2.0 Specification
   if (!validateJsonRpcRequest(request, logger)) {
     return jsonRespError(request.id || null, spec.InvalidRequest, requestDetails.requestId);
+  }
+
+  const subdomain = method.split('_')[0] ?? null;
+  if (!RELAY_RPC_WS_API.has(subdomain)) {
+    return jsonRespError(request.id || null, spec.MethodNotFound(subdomain), requestDetails.requestId);
   }
 
   // verify supported method
