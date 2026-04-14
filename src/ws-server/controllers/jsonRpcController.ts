@@ -31,7 +31,7 @@ export type ISharedParams = {
   subscriptionService: SubscriptionService;
 };
 
-const RELAY_RPC_WS_API = new Set(ConfigService.get('RELAY_RPC_WS_API'));
+const RPC_WS_API = new Set(ConfigService.get('RPC_WS_API'));
 
 /**
  * Handles sending requests to a Relay by calling a specified method with given parameters.
@@ -112,7 +112,7 @@ export const getRequestResult = async (
   }
 
   const subdomain = method.split('_')[0] ?? null;
-  if (!RELAY_RPC_WS_API.has(subdomain)) {
+  if (!RPC_WS_API.has(subdomain)) {
     return jsonRespError(request.id || null, spec.MethodNotFound(subdomain), requestDetails.requestId);
   }
 

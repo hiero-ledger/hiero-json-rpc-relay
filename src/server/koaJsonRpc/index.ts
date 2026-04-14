@@ -27,7 +27,7 @@ const REQUEST_ID_HEADER_NAME = 'X-Request-Id';
 const responseSuccessStatusCode = '200';
 const METRIC_HISTOGRAM_NAME = 'rpc_relay_method_result';
 const BATCH_REQUEST_METHOD_NAME = 'batch_request';
-const RELAY_RPC_HTTP_API = new Set(ConfigService.get('RELAY_RPC_HTTP_API'));
+const RPC_HTTP_API = new Set(ConfigService.get('RPC_HTTP_API'));
 
 export default class KoaJsonRpc {
   private readonly methodConfig: MethodRateLimitConfiguration;
@@ -166,7 +166,7 @@ export default class KoaJsonRpc {
 
   async getRequestResult(request: IJsonRpcRequest, ipAddress: string, requestId: string): Promise<IJsonRpcResponse> {
     const subdomain = request.method.split('_')[0] ?? null;
-    if (!RELAY_RPC_HTTP_API.has(subdomain)) {
+    if (!RPC_HTTP_API.has(subdomain)) {
       return jsonRespError(request.id, spec.MethodNotFound(request.method), requestId);
     }
 

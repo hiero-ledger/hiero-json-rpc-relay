@@ -78,8 +78,8 @@ try {
             ...({ PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] }),
             ...({ RPC_HTTP_ENABLED: argv['rpc-http-enabled'] }),
             ...({ RPC_WS_ENABLED: argv['rpc-ws-enabled'] }),
-            ...(argv['rpc-http-api']?.length ? { RELAY_RPC_HTTP_API: JSON.stringify(argv['rpc-http-api']) } : {}),
-            ...(argv['rpc-ws-api']?.length ? { RELAY_RPC_WS_API: JSON.stringify(argv['rpc-ws-api']) } : {}),
+            ...(argv['rpc-http-api']?.length ? { RPC_HTTP_API: JSON.stringify(argv['rpc-http-api']) } : {}),
+            ...(argv['rpc-ws-api']?.length ? { RPC_WS_API: JSON.stringify(argv['rpc-ws-api']) } : {}),
           }
         }).on('error', (err) => {
           console.log(`Process failure: ${err}`);
