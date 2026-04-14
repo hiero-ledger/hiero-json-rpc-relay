@@ -122,7 +122,7 @@ try {
       demandOption: false,
       describe: 'Operator key format.',
       type: 'string',
-      choices: ['HEX_ED25519', 'HEX_ECDSA']
+      choices: ['HEX_ED25519', 'HEX_ECDSA', 'DER']
     })
     .option('chain-id', {
       demandOption: false,

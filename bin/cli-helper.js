@@ -56,7 +56,7 @@ export class CliHelper {
    * @param {string} [argv['operator-id']] - Operator account ID (required if not in read-only mode).
    * @param {string} [argv['operator-key']] - Operator private key (required if not in read-only mode).
    * @param {string} [argv['operator-key-format']] - Format of the operator key (required if not in read-only mode).
-   *                                                Accepted values: "HEX_ECDSA", "HEX_ED25519".
+   *                                                Accepted values: "HEX_ECDSA", "HEX_ED25519", "DER".
    *
    * @returns {Object} An object containing either:
    *                   - { READ_ONLY: true } if read-only mode is enabled.
@@ -73,7 +73,7 @@ export class CliHelper {
         throw new Error('Argument: --operator-key is required unless read-only mode is enabled.');
       }
       if (!argv['operator-key-format']) {
-        throw new Error('Argument: --operator-key-format is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA" or "HEX_ED25519".');
+        throw new Error('Argument: --operator-key-format is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA", "HEX_ED25519" or "DER".');
       }
 
       return {

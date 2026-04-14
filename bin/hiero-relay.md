@@ -51,7 +51,7 @@ If no command is specified, the relay starts with default settings. For more inf
 | `--read-only`            | `-r`  | boolean | Run the relay in read-only mode (no operator ID/key required) | ❌        | -                                                  |
 | `--operator-id`          | -     | string  | Operator ID in `<realm>.<shard>.<num>` format                 | ❌ (required only when `--read-only false`)       | -                                                  |
 | `--operator-key`         | -     | string  | Operator key                                                  | ❌ (required only when `--read-only false`)       | -                                                  |
-| `--operator-key-format`  | -     | string  | Operator key format                                           | ❌ (required only when `--read-only false`)       | `HEX_ED25519`, `HEX_ECDSA`                         |
+| `--operator-key-format`  | -     | string  | Operator key format                                           | ❌ (required only when `--read-only false`)       | `HEX_ED25519`, `HEX_ECDSA`, `DER`                         |
 | `--chain-id`             | -     | string  | Select a chain ID                                             | ❌        | `0x127`, `0x128`, `0x129`                          |
 | `--mirror-node-rest-url` | -     | string  | Mirror node REST URL                                          | ❌        | -                                                  |
 | `--mirror-node-web3-url` | -     | string  | Mirror node WEB3 URL                                          | ❌        | -                                                  |
