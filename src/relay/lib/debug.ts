@@ -978,7 +978,9 @@ export class DebugImpl implements Debug {
       txHashMap: {},
     };
 
-    const actionsMap = new Map(actionsResults.map(({ txHash, actions }) => [txHash, actions]));
+    const actionsMap = new Map<string, ContractAction[]>(
+      actionsResults.map(({ txHash, actions }) => [txHash, actions]),
+    );
     txHashArray.forEach((txHash) => {
       const contractResult = contractResultsByHash.get(txHash);
       const actionsResult = actionsMap.get(txHash);
