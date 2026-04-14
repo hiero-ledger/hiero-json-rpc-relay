@@ -20,6 +20,7 @@ import KoaJsonRpc from '../server/koaJsonRpc';
 import { IJsonRpcRequest } from '../server/koaJsonRpc/lib/IJsonRpcRequest';
 import { spec } from '../server/koaJsonRpc/lib/RpcError';
 import { jsonRespError, jsonRespResult } from '../server/koaJsonRpc/lib/RpcResponse';
+import { applyProxyMiddleware } from '../server/utils/proxyUtils';
 import { getRequestResult } from './controllers/jsonRpcController';
 import ConnectionLimiter from './metrics/connectionLimiter';
 import WsMetricRegistry from './metrics/wsMetricRegistry';
@@ -98,6 +99,9 @@ export async function initializeWsServer(
   const pingInterval = ConfigService.get('WS_PING_INTERVAL');
 
   const app = websockify(new Koa());
+
+  // Enable proxy support and RFC 7239 Forwarded header translation
+  applyProxyMiddleware(app);
 
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();

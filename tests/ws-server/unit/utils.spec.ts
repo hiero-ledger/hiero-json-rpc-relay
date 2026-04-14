@@ -18,6 +18,7 @@ import {
   getWsBatchRequestsEnabled,
   handleConnectionClose,
   sendToClient,
+  verifySupportedMethod,
 } from '../../../src/ws-server/utils/utils';
 import { WsTestHelper } from '../helper';
 
@@ -221,6 +222,40 @@ describe('Utilities unit tests', async function () {
       it('should return true', () => {
         expect(getWsBatchRequestsEnabled()).to.be.true;
       });
+    });
+  });
+
+  describe('verifySupportedMethod', () => {
+    let relayStub: sinon.SinonStubbedInstance<Relay>;
+
+    beforeEach(() => {
+      relayStub = sinon.createStubInstance(Relay);
+      relayStub.rpcMethodRegistry = new Map();
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return true when method is in rpcMethodRegistry', () => {
+      relayStub.rpcMethodRegistry.set('eth_getBalance', sinon.stub());
+      expect(verifySupportedMethod(relayStub as unknown as Relay, 'eth_getBalance')).to.be.true;
+    });
+
+    it('should return true when method is eth_subscribe', () => {
+      expect(verifySupportedMethod(relayStub as unknown as Relay, 'eth_subscribe')).to.be.true;
+    });
+
+    it('should return true when method is eth_unsubscribe', () => {
+      expect(verifySupportedMethod(relayStub as unknown as Relay, 'eth_unsubscribe')).to.be.true;
+    });
+
+    it('should return false when method is not supported', () => {
+      expect(verifySupportedMethod(relayStub as unknown as Relay, 'eth_unknownMethod')).to.be.false;
+    });
+
+    it('should return false for an empty string method', () => {
+      expect(verifySupportedMethod(relayStub as unknown as Relay, '')).to.be.false;
     });
   });
 
