@@ -12,6 +12,19 @@ on:
     tags:
       - v*
   workflow_dispatch:
+    inputs:
+      networkTag:
+        description: 'Hedera network node image tag'
+        required: false
+        type: string
+      mirrorTag:
+        description: 'Hedera mirror node image tag'
+        required: false
+        type: string
+      soloVersion:
+        description: 'Solo version'
+        required: false
+        type: string
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -57,17 +70,17 @@ jobs:
         run: |
           cat > .github/falcon.yml <<EOF
           network:
-            --release-tag: "v0.72.0"
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
             --node-aliases: "node1"
           setup:
-            --release-tag: "v0.72.0"
+            --release-tag: "${{ inputs.networkTag || 'v0.72.0' }}"
             --node-aliases: "node1"
           consensusNode:
             --node-aliases: "node1"
           mirrorNode:
             --enable-ingress: true
             --pinger: true
-            --mirror-node-version: "v0.151.0"
+            --mirror-node-version: "${{ inputs.mirrorTag || 'v0.151.0' }}"
             --values-file: .github/mirror-node-values.yaml
           EOF
 
@@ -83,7 +96,7 @@ jobs:
 
       - name: Start the solo node
         run: |
-          npx @hashgraph/solo@0.68.0 one-shot falcon deploy \
+          npx @hashgraph/solo@${{ inputs.soloVersion || '0.68.0' }} one-shot falcon deploy \
             --values-file .github/falcon.yml \
             --dev \
             --deploy-explorer=false \

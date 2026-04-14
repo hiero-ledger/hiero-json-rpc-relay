@@ -126,9 +126,9 @@ To deploy the subgraph:
 
 _NOTE: At this time the whole test workflow can't be proficiently automated, so you'll need to perform some manual steps:_
 
-1. Be sure to start a clean local node using Hiero Solo. If a previous local node is running, stop it.
-   1. Run `npx @hashgraph/solo falcon destroy` to ensure any previous local network is torn down.
-   2. Run `npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false` to start a clean single-node local network.
+1. Be sure to start a clean Solo instance. If a previous Solo instance is running, stop it.
+   1. Run `npx @hashgraph/solo falcon destroy` to ensure any previous solo network is torn down.
+   2. Run `npx @hashgraph/solo one-shot falcon deploy --dev --deploy-relay=false` to start a clean single-node instance of solo.
 2. After the node has started, execute `npx hardhat prepare` task, which will deploy and interact with the contracts.
 3. Be sure to start a clean graph-node by executing `yarn/npm run graph-local-clean` and then `yarn/npm run graph-local`
 4. Create and deploy the subgraph by executing `yarn/npm run create-local` and `yarn deploy-local --network local` or `npx run deploy-local -- --network local` and follow the instructions

@@ -1,6 +1,6 @@
 # Hedera Hardhat Viem Example Project
 
-This Hedera Hardhat Viem Example Project offers boilerplate code for testing and deploying smart contracts via Hardhat with Viem. It includes configuration for both community-hosted and local ([Hiero Solo Node](https://github.com/hiero-ledger/solo)) instances of the [Hedera JSON RPC Relay](https://github.com/hiero-ledger/hiero-json-rpc-relay). 
+This Hedera Hardhat Viem Example Project offers boilerplate code for testing and deploying smart contracts via Hardhat with Viem. It includes configuration for both community-hosted and local ([Solo](https://github.com/hiero-ledger/solo)) instances of the [Hedera JSON RPC Relay](https://github.com/hiero-ledger/hiero-json-rpc-relay). 
 
 :fire: Check out the step-by-step tutorial [here](https://docs.hedera.com/hedera/tutorials/smart-contracts/deploy-a-smart-contract-using-hardhat-and-hedera-json-rpc-relays).
 
