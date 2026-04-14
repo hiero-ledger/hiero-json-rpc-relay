@@ -66,10 +66,10 @@ try {
             ...MANDATORY_ENV_OVERRIDES,
             ...readOnlyEnvs,
             ...networkEnvs,
-            ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
-            ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
-            ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
-            ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {})
+            ...(argv['chain-id'] && { CHAIN_ID: argv['chain-id'] }),
+            ...(argv['mirror-node-rest-url'] && { MIRROR_NODE_URL: argv['mirror-node-rest-url'] }),
+            ...(argv['mirror-node-web3-url'] && { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] }),
+            ...(argv['logging'] && { LOG_LEVEL: argv['logging'] }),
           }
         }).on('error', (err) => {
           console.log(`Process failure: ${err}`);

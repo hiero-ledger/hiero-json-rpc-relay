@@ -65,27 +65,29 @@ export class CliHelper {
    * @throws {Error} Throws an error if required operator credentials are missing while read-only mode is disabled.
    */
   static populateEnvBaseOnReadOnlyOption = (argv) => {
-    if (!argv['read-only']) {
-      if (!argv['operator-id']) {
-        throw new Error('Argument: --operator-id is required unless read-only mode is enabled.');
-      }
-      if (!argv['operator-key']) {
-        throw new Error('Argument: --operator-key is required unless read-only mode is enabled.');
-      }
-      if (!argv['operator-key-format']) {
-        throw new Error('Argument: --operator-key-format is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA", "HEX_ED25519" or "DER".');
-      }
-
+    if (argv['read-only']) {
       return {
-        READ_ONLY: false,
-        OPERATOR_ID_MAIN: argv['operator-id'],
-        OPERATOR_KEY_MAIN: argv['operator-key'],
-        OPERATOR_KEY_FORMAT: argv['operator-key-format'],
+        READ_ONLY: true,
       };
     }
 
+    if (!argv['operator-id']) {
+      throw new Error('Argument: --operator-id is required unless read-only mode is enabled.');
+    }
+
+    if (!argv['operator-key']) {
+      throw new Error('Argument: --operator-key is required unless read-only mode is enabled.');
+    }
+
+    if (!argv['operator-key-format']) {
+      throw new Error('Argument: --operator-key-format is required unless read-only mode is enabled. Possible choices are: "HEX_ECDSA", "HEX_ED25519" or "DER".');
+    }
+
     return {
-      READ_ONLY: true
+      READ_ONLY: false,
+      OPERATOR_ID_MAIN: argv['operator-id'],
+      OPERATOR_KEY_MAIN: argv['operator-key'],
+      OPERATOR_KEY_FORMAT: argv['operator-key-format'],
     };
   };
 
