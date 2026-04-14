@@ -80,7 +80,7 @@ export class CliHelper {
         READ_ONLY: false,
         OPERATOR_ID_MAIN: argv['operator-id'],
         OPERATOR_KEY_MAIN: argv['operator-key'],
-        OPERATOR_KEY_FORMAT: argv['operator-key-format']
+        OPERATOR_KEY_FORMAT: argv['operator-key-format'],
       };
     }
 

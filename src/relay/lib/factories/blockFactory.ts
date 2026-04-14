@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { RLP } from '@ethereumjs/rlp';
-import type { AuthorizationLike } from 'ethers';
-import { Signature, Transaction as EthersTransaction } from 'ethers';
+import { Signature } from 'ethers/crypto';
+import type { AuthorizationLike } from 'ethers/transaction';
+import { Transaction as EthersTransaction } from 'ethers/transaction';
 
 import { numberTo0x, prepend0x, strip0x, toHash32 } from '../../formatters';
 import { obtainBlockGasLimit } from '../config/blockGasLimit';
@@ -37,7 +38,7 @@ export class BlockFactory {
       difficulty: constants.ZERO_HEX,
       extraData: constants.EMPTY_HEX,
       gasLimit: numberTo0x(obtainBlockGasLimit(blockResponse.hapi_version)),
-      gasUsed: numberTo0x(blockResponse.gas_used),
+      gasUsed: numberTo0x(blockResponse.gas_used ?? 0),
       hash: blockHash,
       logsBloom: blockResponse.logs_bloom === constants.EMPTY_HEX ? constants.EMPTY_BLOOM : blockResponse.logs_bloom,
       miner: constants.ZERO_ADDRESS_HEX,
