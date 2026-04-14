@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# TODO(solo#3995)
+#
 # Right now with solo base cli we can't choose the exposing service endpoints.
 # So access has to be provided through a separate kubectl port-forward script that binds the forwarded
 # ports on 0.0.0.0.
