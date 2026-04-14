@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
 export interface ILockableResource {
   locked?: boolean;

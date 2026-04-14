@@ -206,7 +206,7 @@ describe('PollerService', async function () {
       const loggerTraceSpy = sandbox.spy(logger, 'trace');
 
       // getLogs will take 3 seconds to execute
-      ethImplStub.getLogs.callsFake(() => new Promise((resolve) => setTimeout(() => resolve(logsArray as any), 3000)));
+      ethImplStub.getLogs.callsFake(() => new Promise((resolve) => setTimeout(() => resolve(logsArray), 3000)));
 
       poller.add(logsTag, callback);
 
@@ -234,7 +234,7 @@ describe('PollerService', async function () {
 
       // Simulate slow getBlockByNumber resolving after 2.5 seconds
       ethImplStub.getBlockByNumber.callsFake(
-        () => new Promise((resolve) => setTimeout(() => resolve({ ...mockBlock } as any), 2500)),
+        () => new Promise((resolve) => setTimeout(() => resolve({ ...mockBlock }), 2500)),
       );
 
       poller.add(newHeadsTag, callback);
