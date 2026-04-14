@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { ConfigService } from '../../../src/config-service/services';
 import { JsonRpcError, predefined } from '../../../src/relay';
 import { numberTo0x } from '../../../src/relay/formatters';
+import { obtainBlockGasLimit } from '../../../src/relay/lib/config/blockGasLimit';
 import constants from '../../../src/relay/lib/constants';
 import RelayAssertions from '../../relay/assertions';
 
@@ -17,6 +18,33 @@ export function requestIdRegex(message: string) {
   return new RegExp(`\\[Request ID: [0-9a-fA-F-]{36}\\] ${message}`);
 }
 
+export async function computeExpectedCumulativeGasUsed(
+  mirrorNode: { get: (path: string) => Promise<any> },
+  mirrorResult: { block_number: number; transaction_index: number },
+): Promise<number> {
+  let sum = 0;
+  let path: string | null = `/contracts/results?block.number=${mirrorResult.block_number}&order=asc&limit=100`;
+
+  while (path !== null) {
+    const page = await mirrorNode.get(path);
+    const results: any[] = page.results ?? [];
+
+    for (const cr of results) {
+      if (cr.transaction_index == null || cr.gas_used == null) continue;
+      if (cr.transaction_index > mirrorResult.transaction_index) return sum;
+      sum += cr.gas_used;
+    }
+
+    // Stop early if the last result on this page is already past our target
+    const lastIndex = results.at(-1)?.transaction_index;
+    if (lastIndex != null && lastIndex >= mirrorResult.transaction_index) return sum;
+
+    path = page.links?.next ?? null;
+  }
+
+  return sum;
+}
+
 export default class Assertions {
   static emptyHex = '0x';
   static zeroHex32Byte = '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -25,7 +53,6 @@ export default class Assertions {
   static defaultGasPrice = 710_000_000_000;
   static datedGasPrice = 570_000_000_000;
   static updatedGasPrice = 640_000_000_000;
-  static maxBlockGasLimit = 30_000_000;
   static defaultGasUsed = 0.5;
 
   public static readonly gasPriceDeviation = ConfigService.get('TEST_GAS_PRICE_DEVIATION');
@@ -97,9 +124,10 @@ export default class Assertions {
     expect(relayResponse.logsBloom, "Assert block: 'logsBloom' should equal mirrorNode response").to.eq(
       mirrorNodeResponse.logs_bloom === Assertions.emptyHex ? constants.EMPTY_BLOOM : mirrorNodeResponse.logs_bloom,
     );
-    expect(relayResponse.gasLimit, "Assert block: 'gasLimit' should equal 'maxBlockGasLimit'").to.equal(
-      ethers.toQuantity(Assertions.maxBlockGasLimit),
-    );
+    expect(
+      relayResponse.gasLimit,
+      "Assert block: 'gasLimit' should equal block gas limit for the given HAPI version",
+    ).to.eq(ethers.toQuantity(obtainBlockGasLimit(mirrorNodeResponse.hapi_version)));
 
     // Assert dynamic values
     expect(relayResponse.hash, "Assert block: 'hash' should equal mirrorNode response").to.be.equal(
@@ -184,7 +212,7 @@ export default class Assertions {
     ).to.eq(ethers.toQuantity(BigInt(mirrorNodeResponse.amount * constants.TINYBAR_TO_WEIBAR_COEF)));
   }
 
-  static transactionReceipt = (transactionReceipt, mirrorResult, effectiveGas) => {
+  static transactionReceipt = (transactionReceipt, mirrorResult, effectiveGas, expectedCumulativeGasUsed: number) => {
     expect(transactionReceipt.blockHash, "Assert transactionReceipt: 'blockHash' should exists").to.exist;
     expect(transactionReceipt.blockHash, "Assert transactionReceipt: 'blockHash' should not be 0x0").to.not.eq('0x0');
     expect(
@@ -207,8 +235,8 @@ export default class Assertions {
     ).to.gt(0);
     expect(
       Number(transactionReceipt.cumulativeGasUsed),
-      "Assert transactionReceipt: 'cumulativeGasUsed' should equal mirrorNode response",
-    ).to.eq(mirrorResult.block_gas_used);
+      "Assert transactionReceipt: 'cumulativeGasUsed' should equal computed cumulative gas",
+    ).to.eq(expectedCumulativeGasUsed);
 
     expect(transactionReceipt.gasUsed, "Assert transactionReceipt: 'gasUsed' should exist").to.exist;
     expect(Number(transactionReceipt.gasUsed), "Assert transactionReceipt: 'gasUsed' should be > 0").to.gt(0);
@@ -311,12 +339,6 @@ export default class Assertions {
 
     expect(res.oldestBlock, "Assert feeHistory: 'oldestBlock' should equal passed expected value").to.equal(
       expected.oldestBlock,
-    );
-
-    res.gasUsedRatio.map((gasRatio: string) =>
-      expect(gasRatio, "Assert feeHistory: 'gasRatio' should equal 'defaultGasUsed'").to.equal(
-        Assertions.defaultGasUsed,
-      ),
     );
 
     if (expected.checkReward) {

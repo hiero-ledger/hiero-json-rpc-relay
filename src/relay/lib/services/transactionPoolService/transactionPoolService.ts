@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from 'ethers';
+import { Transaction } from 'ethers/transaction';
 import { Logger } from 'pino';
 import { Counter, Gauge, Registry } from 'prom-client';
 
