@@ -101,7 +101,7 @@ export class CliHelper {
       return;
     }
 
-    child.on('close', (code, signal) => {
+    child.on('close', () => {
       console.log('Caught interrupt signal. Shutting down gracefully...');
       process.exit(0);
     });
