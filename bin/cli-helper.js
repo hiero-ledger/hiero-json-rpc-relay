@@ -108,6 +108,10 @@ export class CliHelper {
       process.exit(0);
     });
 
+    setTimeout(() => {
+      process.exit(1);
+    }, 10_000).unref();
+
     const { pid } = child;
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', pid, '/T', '/F']);
