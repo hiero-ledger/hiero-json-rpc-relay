@@ -199,4 +199,63 @@ describe('PollerService', async function () {
       expect(clearIntervalSpy.notCalled).to.be.true;
     });
   });
+
+  describe('locks', () => {
+    it('should skip polling cycle when previous logs poll is still locked, then resume after release', async () => {
+      const callback = sinon.stub();
+      const loggerTraceSpy = sandbox.spy(logger, 'trace');
+
+      // getLogs will take 3 seconds to execute
+      ethImplStub.getLogs.callsFake(() => new Promise((resolve) => setTimeout(() => resolve(logsArray as any), 3000)));
+
+      poller.add(logsTag, callback);
+
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getLogs.callCount).to.equal(1);
+
+      // After 2 seconds we expect the getLogs to be called only once, previous execution is not finished yet
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getLogs.callCount).to.equal(1);
+      expect(loggerTraceSpy.calledWith('Previous polling attempt took too long so the current one is skipped.')).to.be
+        .true;
+
+      // After 3 seconds promise still pending, still only one call
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getLogs.callCount).to.equal(1);
+
+      // After 5 seconds we should have the initial called already resolved, so the second call should be made
+      await clock.tickAsync(2000);
+      expect(ethImplStub.getLogs.callCount).to.equal(2);
+    });
+
+    it('should skip newHeads polling cycle while locked, then resume after release', async () => {
+      const callback = sinon.stub();
+      const loggerTraceSpy = sandbox.spy(logger, 'trace');
+
+      // Simulate slow getBlockByNumber resolving after 2.5 seconds
+      ethImplStub.getBlockByNumber.callsFake(
+        () => new Promise((resolve) => setTimeout(() => resolve({ ...mockBlock } as any), 2500)),
+      );
+
+      poller.add(newHeadsTag, callback);
+
+      // After first second lock is acquired and the 1st call pending
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getBlockByNumber.callCount).to.equal(1);
+
+      // After 2 seconds, the lock prevents another call
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getBlockByNumber.callCount).to.equal(1);
+      expect(loggerTraceSpy.calledWith('Previous polling attempt took too long so the current one is skipped.')).to.be
+        .true;
+
+      // After 3 seconds the slow call resolves, so the second call should be made soon
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getBlockByNumber.callCount).to.equal(1);
+
+      // And it eventually is.
+      await clock.tickAsync(1000);
+      expect(ethImplStub.getBlockByNumber.callCount).to.equal(2);
+    });
+  });
 });

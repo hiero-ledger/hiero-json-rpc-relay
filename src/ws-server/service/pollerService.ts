@@ -6,8 +6,9 @@ import { ConfigService } from '../../config-service/services';
 import { Eth, Relay } from '../../relay';
 import { RequestDetails } from '../../relay/lib/types';
 import { Utils } from '../../relay/utils';
+import { AbstractLockableService, type ILockableResource } from './lockableService';
 
-export interface Poll {
+export interface Poll extends ILockableResource {
   tag: string;
   callback: (...args: unknown[]) => unknown;
   lastPolled?: string;
@@ -15,9 +16,9 @@ export interface Poll {
 
 const LOGGER_PREFIX = 'Poller:';
 
-export class PollerService {
+export class PollerService extends AbstractLockableService {
   private readonly eth: Eth;
-  private readonly logger: Logger;
+  protected readonly logger: Logger;
   private polls: Poll[];
   private interval?: NodeJS.Timer;
   private latestBlock?: string;
@@ -29,6 +30,7 @@ export class PollerService {
   private NEW_HEADS_EVENT = 'newHeads';
 
   constructor(relay: Relay, logger: Logger, register: Registry) {
+    super();
     this.eth = relay.eth();
     this.logger = logger;
     this.polls = [];
@@ -57,6 +59,7 @@ export class PollerService {
    */
   private poll() {
     this.polls.forEach(async (poll) => {
+      if (!this.lock(poll)) return;
       try {
         if (this.logger.isLevelEnabled('debug')) {
           this.logger.debug(`${LOGGER_PREFIX} Fetching data for tag: ${poll.tag}`);
@@ -108,6 +111,7 @@ export class PollerService {
       } catch (error) {
         this.logger.error(error, `Poller error`);
       }
+      this.release(poll);
     });
   }
 
