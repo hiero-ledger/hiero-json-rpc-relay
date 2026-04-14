@@ -130,8 +130,8 @@ The CLI listens to `SIGINT` and `SIGTERM` signals and stops the relay gracefully
 You can configure the relay using a `.env` file by specifying operator IDs, keys, chain IDs, and mirror node URLs. Example `.env` file:
 
 ```
-OPERATOR_ID=0.0.1234
-OPERATOR_KEY=<YOUR_KEY>
+OPERATOR_ID_MAIN=0.0.1234
+OPERATOR_KEY_MAIN=<YOUR_KEY>
 CHAIN_ID=0x127
 MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com
 MIRROR_NODE_URL_WEB3=https://web3.testnet.mirrornode.hedera.com
