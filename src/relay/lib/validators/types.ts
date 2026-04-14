@@ -3,18 +3,19 @@
 import { predefined } from '../errors/JsonRpcError';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
 import * as Constants from './constants';
-import { ADDRESS_REGEX } from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
 
 export const TYPES = {
   address: {
-    test: (param) => new RegExp(ADDRESS_REGEX).test(param),
+    test: (param) => new RegExp(Constants.ADDRESS_REGEX).test(param),
     error: Constants.ADDRESS_ERROR,
   },
   addressFilter: {
     test: (param: string | string[]) => {
-      return Array.isArray(param) ? validateArray(param.flat(), 'address') : new RegExp(ADDRESS_REGEX).test(param);
+      return Array.isArray(param)
+        ? validateArray(param.flat(), 'address')
+        : new RegExp(Constants.ADDRESS_REGEX).test(param);
     },
     error: `${Constants.ADDRESS_ERROR} or an array of addresses`,
   },
