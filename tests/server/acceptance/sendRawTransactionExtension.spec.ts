@@ -832,10 +832,10 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
    * Skip until the Mirror Node supports authorization_list in /contracts/call simulations.
    * Tracks: https://github.com/hiero-ledger/hiero-mirror-node/issues/12379
    */
-  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', function () {
+  describe.skip('EIP-7702 authorizationList in eth_call and eth_estimateGas', () => {
     const DELEGATION_TARGET = '0x0000000000000000000000000000000000000167';
 
-    it('eth_call with authorizationList simulates delegated code', async function () {
+    it('eth_call with authorizationList simulates delegated code', async () => {
       const signer = accounts[1];
       const currentNonce = await relay.getAccountNonce(signer.address);
 
@@ -860,7 +860,7 @@ describe('@sendRawTransactionExtension Acceptance Tests', function () {
       expect(result.startsWith('0x')).to.be.true;
     });
 
-    it('eth_estimateGas with authorizationList returns a non-zero gas estimate', async function () {
+    it('eth_estimateGas with authorizationList returns a non-zero gas estimate', async () => {
       const signer = accounts[1];
       const currentNonce = await relay.getAccountNonce(signer.address);
 

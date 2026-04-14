@@ -309,7 +309,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it('eth_call with non-empty accessList', async function () {
+    it('eth_call with non-empty accessList', async () => {
       const callData = {
         ...defaultCallData,
         from: ACCOUNT_ADDRESS_1,
@@ -331,7 +331,7 @@ describe('@ethCall Eth Call spec', async function () {
       expect(result).to.equal('0x00');
     });
 
-    it('eth_call with non-empty authorizationList', async function () {
+    it('eth_call with non-empty authorizationList', async () => {
       const authEntry = {
         chainId: '0x12a',
         nonce: '0x5',
