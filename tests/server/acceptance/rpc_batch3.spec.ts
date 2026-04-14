@@ -160,6 +160,29 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
       expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
     });
 
+    it('@release should execute "eth_call" request to Basic contract with an authorizationList provided', async function () {
+      const signer = accounts[0];
+      const currentNonce = await relay.getAccountNonce(signer.address);
+
+      const authorizationList = [
+        await signer.wallet.authorize({
+          address: basicContractAddress,
+          nonce: currentNonce + 1,
+        }),
+      ];
+
+      const callData = {
+        from: signer.address,
+        to: basicContractAddress,
+        gas: numberTo0x(30000),
+        data: BASIC_CONTRACT_PING_CALL_DATA,
+        authorizationList,
+      };
+
+      const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest']);
+      expect(res).to.eq(BASIC_CONTRACT_PING_RESULT);
+    });
+
     it('@release should execute "eth_call" request to simulate deploying a contract with `to` field being null', async function () {
       const callData = {
         from: accounts[0].address,

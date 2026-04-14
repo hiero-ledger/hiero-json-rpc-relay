@@ -2177,6 +2177,37 @@ describe('@api-batch-1 RPC Server Acceptance Tests', function () {
         expect(info).to.have.property('access_list');
       });
 
+      it('@xts should execute "eth_sendRawTransaction" of type 4 (EIP-7702) with authorizationList', async function () {
+        const signer = accounts[2];
+        const currentNonce = await relay.getAccountNonce(signer.address);
+
+        const authorizationList = [
+          await signer.wallet.authorize({
+            address: parentContractAddress,
+            nonce: currentNonce + 1,
+          }),
+        ];
+
+        const transaction = {
+          type: 4,
+          chainId: Number(CHAIN_ID),
+          nonce: currentNonce,
+          maxPriorityFeePerGas: defaultGasPrice,
+          maxFeePerGas: defaultGasPrice,
+          gasLimit: defaultGasLimit,
+          to: accounts[0].address,
+          value: ONE_TINYBAR,
+          authorizationList,
+        };
+
+        const signedTx = await signer.wallet.signTransaction(transaction);
+        const transactionHash = await relay.sendRawTransaction(signedTx);
+        await relay.pollForValidTransactionReceipt(transactionHash);
+        const info = await mirrorNode.get(`/contracts/results/${transactionHash}`);
+        expect(info).to.have.property('type');
+        expect(info.type).to.be.equal(4);
+      });
+
       it('@xts should execute "eth_sendRawTransaction" and deploy a contract with reasonable transaction fee within expected bounds', async function () {
         const balanceBefore = await relay.getBalance(accounts[3].wallet.address, 'latest');
 

@@ -259,7 +259,7 @@ export class Precheck {
    * @throws {JsonRpcError} If any entry contains an invalid address.
    */
   authorizationList(tx: Transaction): void {
-    if (Number(tx.type) === 0) {
+    if (Number(tx.type) === 0 && tx.authorizationList && tx.authorizationList.length > 0) {
       throw predefined.INVALID_PARAMETER('authorizationList', 'not supported for legacy transactions');
     }
     // Need to determine if any checks are necessary and related to Hedera pectra upgrade
