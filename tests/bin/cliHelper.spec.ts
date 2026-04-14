@@ -54,6 +54,24 @@ describe('CliHelper', () => {
       expect(result).to.deep.equal({ READ_ONLY: true });
     });
 
+    it('should accept DER as a valid operator-key-format', () => {
+      const argv = {
+        'read-only': false,
+        'operator-id': '0.0.456',
+        'operator-key': 'der-key',
+        'operator-key-format': 'DER',
+      };
+
+      const result = CliHelper.populateEnvBaseOnReadOnlyOption(argv);
+
+      expect(result).to.deep.equal({
+        READ_ONLY: false,
+        OPERATOR_ID_MAIN: '0.0.456',
+        OPERATOR_KEY_MAIN: 'der-key',
+        OPERATOR_KEY_FORMAT: 'DER',
+      });
+    });
+
     it('should throw if operator-id is missing', () => {
       expect(() =>
         CliHelper.populateEnvBaseOnReadOnlyOption({
