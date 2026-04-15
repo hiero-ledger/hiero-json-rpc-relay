@@ -259,10 +259,21 @@ export class Precheck {
    * @throws {JsonRpcError} If any entry contains an invalid address.
    */
   authorizationList(tx: Transaction): void {
-    if (Number(tx.type) === 0 && tx.authorizationList && tx.authorizationList.length > 0) {
-      throw predefined.INVALID_PARAMETER('authorizationList', 'not supported for legacy transactions');
+    if (Number(tx.type) !== 4 && tx.authorizationList) {
+      throw predefined.INVALID_PARAMETER('authorizationList', 'not supported for non-type-4 transactions');
     }
-    // Need to determine if any checks are necessary and related to Hedera pectra upgrade
+    if (tx.type === 4 && !tx.authorizationList) {
+      throw predefined.INVALID_PARAMETER('authorizationList', 'must be set');
+    }
+
+    if (tx.type === 4 && tx.authorizationList && tx.authorizationList.length === 0) {
+      throw predefined.INVALID_PARAMETER('authorizationList', 'can not be empty list');
+    }
+
+    // EIP-7702 mandates that tx.to must not be null
+    if (tx.type === 4 && tx.to == null) {
+      throw predefined.INVALID_PARAMETER('to', 'must not be null for type 4 transaction');
+    }
   }
 
   /**

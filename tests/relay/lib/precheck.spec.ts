@@ -1071,4 +1071,78 @@ describe('Precheck', async function () {
       expect(() => precheck.accessList(parsedTxWithMatchingChainId)).to.not.throw;
     });
   });
+
+  describe('authorizationList', () => {
+    const authEntry = {
+      chainId: BigInt(298), // 0x12a = defaultChainId
+      address: contractAddress1,
+      nonce: BigInt(0),
+      signature: { r: '0x' + 'aa'.repeat(32), s: '0x' + 'bb'.repeat(32), yParity: 0 },
+    };
+
+    // The method only reads tx.type, tx.authorizationList, and tx.to.
+    const makeTx = (overrides: Record<string, unknown> = {}) =>
+      ({
+        type: 2,
+        authorizationList: undefined as any,
+        to: contractAddress1,
+        ...overrides,
+      }) as unknown as Transaction;
+
+    it('should not throw for type 2 tx without authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx())).not.to.throw();
+    });
+
+    it('should not throw for type 1 tx without authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 1 }))).not.to.throw();
+    });
+
+    it('should not throw for type 0 tx without authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 0 }))).not.to.throw();
+    });
+
+    it('should throw "not supported for non-type-4 transactions" for type 2 tx with authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 2, authorizationList: [authEntry] }))).to.throw(
+        'not supported for non-type-4 transactions',
+      );
+    });
+
+    it('should throw "not supported for non-type-4 transactions" for type 1 tx with authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 1, authorizationList: [authEntry] }))).to.throw(
+        'not supported for non-type-4 transactions',
+      );
+    });
+
+    it('should throw "not supported for non-type-4 transactions" for type 0 tx with authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 0, authorizationList: [authEntry] }))).to.throw(
+        'not supported for non-type-4 transactions',
+      );
+    });
+
+    it('should throw "not supported for non-type-4 transactions" for non-type-4 tx with empty authorizationList array', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 2, authorizationList: [] }))).to.throw(
+        'not supported for non-type-4 transactions',
+      );
+    });
+
+    it('should throw "can not be empty list" for type 4 tx with empty authorizationList', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [] }))).to.throw(
+        'can not be empty list',
+      );
+    });
+
+    it('should not throw for type 4 tx with non-empty authorizationList and valid to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry] }))).not.to.throw();
+    });
+
+    it('should throw for type 4 tx with valid authorizationList but null to', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4, authorizationList: [authEntry], to: null }))).to.throw(
+        'must not be null for type 4 transaction',
+      );
+    });
+
+    it('should throw for type 4 tx with authorizationList not set', () => {
+      expect(() => precheck.authorizationList(makeTx({ type: 4 }))).to.throw('must be set');
+    });
+  });
 });
