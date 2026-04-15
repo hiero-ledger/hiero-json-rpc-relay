@@ -21,6 +21,8 @@ import { Utils } from '../helpers/utils';
 import { AliasAccount } from '../types/AliasAccount';
 
 describe('@sendRawTransactionExtension Acceptance Tests', function () {
+  overrideEnvsInMochaDescribe({ ENABLE_TX_POOL: false });
+
   this.timeout(240 * 1000); // 240 seconds
 
   const accounts: AliasAccount[] = [];

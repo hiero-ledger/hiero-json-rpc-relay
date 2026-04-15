@@ -1721,8 +1721,8 @@ describe('MirrorNodeClient', async function () {
       expect(results).to.deep.equal(mockedResults);
     });
 
-    it('stops paginating when it reaches MAX_MIRROR_NODE_PAGINATION', async () => {
-      const pages = constants.MAX_MIRROR_NODE_PAGINATION * 2;
+    it('stops paginating when it reaches MIRROR_NODE_PAGINATION_MAX', async () => {
+      const pages = ConfigService.get('MIRROR_NODE_PAGINATION_MAX') * 2;
       mockPages(pages);
 
       try {
@@ -1736,7 +1736,7 @@ describe('MirrorNodeClient', async function () {
       } catch (e: any) {
         const errorRef = predefined.PAGINATION_MAX(0); // reference error for all properties except message
         expect(e.message).to.equal(
-          `Exceeded maximum mirror node pagination count: ${constants.MAX_MIRROR_NODE_PAGINATION}`,
+          `Exceeded maximum mirror node pagination count: ${ConfigService.get('MIRROR_NODE_PAGINATION_MAX')}`,
         );
         expect(e.code).to.equal(errorRef.code);
       }
@@ -2645,6 +2645,77 @@ describe('MirrorNodeClient', async function () {
           expect(uniqueHashes.size).to.equal(4);
         });
       });
+    });
+  });
+
+  describe('checkServerReadiness', () => {
+    let readinessClient: MirrorNodeClient;
+    let readinessMock: MockAdapter;
+
+    before(() => {
+      // Create a client without an injected axios instance so restUrl is populated
+      // and checkServerReadiness performs a real probe.
+      readinessClient = new MirrorNodeClient(
+        'http://localhost:5551/api/v1',
+        logger.child({ name: 'mirror-node-readiness' }),
+        registry,
+        cacheService,
+      );
+      readinessMock = new MockAdapter((readinessClient as any).restClient);
+    });
+
+    afterEach(() => {
+      readinessMock.reset();
+    });
+
+    it('should resolve when the health endpoint returns 200', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(200);
+      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
+    });
+
+    it('should throw MirrorNodeClientError with status 503 when Mirror Node returns 503', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(503);
+      const error = await readinessClient.checkServerReadiness().catch((e) => e);
+      expect(error).to.be.instanceOf(MirrorNodeClientError);
+      expect((error as MirrorNodeClientError).statusCode).to.equal(503);
+    });
+
+    it('should throw MirrorNodeClientError with status 502 when a gateway returns 502', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(502);
+      const error = await readinessClient.checkServerReadiness().catch((e) => e);
+      expect(error).to.be.instanceOf(MirrorNodeClientError);
+      expect((error as MirrorNodeClientError).statusCode).to.equal(502);
+    });
+
+    it('should throw MirrorNodeClientError with status 504 when a gateway returns 504', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(504);
+      const error = await readinessClient.checkServerReadiness().catch((e) => e);
+      expect(error).to.be.instanceOf(MirrorNodeClientError);
+      expect((error as MirrorNodeClientError).statusCode).to.equal(504);
+    });
+
+    it('should throw MirrorNodeClientError when the connection times out (no HTTP response)', async () => {
+      readinessMock.onGet(/\/health\/readiness/).timeout();
+      const error = await readinessClient.checkServerReadiness().catch((e) => e);
+      expect(error).to.be.instanceOf(MirrorNodeClientError);
+      // ECONNABORTED maps to the internal pseudo-code 504
+      expect((error as MirrorNodeClientError).statusCode).to.equal(MirrorNodeClientError.ErrorCodes.ECONNABORTED);
+    });
+
+    it('should throw MirrorNodeClientError when no HTTP response is received (network error)', async () => {
+      readinessMock.onGet(/\/health\/readiness/).networkError();
+      const error = await readinessClient.checkServerReadiness().catch((e) => e);
+      expect(error).to.be.instanceOf(MirrorNodeClientError);
+    });
+
+    it('should resolve when Mirror Node returns 500 (server reachable, non-transient error)', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(500);
+      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
+    });
+
+    it('should resolve when Mirror Node returns 404 (server reachable, non-transient error)', async () => {
+      readinessMock.onGet(/\/health\/readiness/).reply(404);
+      await expect(readinessClient.checkServerReadiness()).to.not.be.rejected;
     });
   });
 });

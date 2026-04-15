@@ -1147,6 +1147,7 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
   };
   const blockWorker = proxyquire('../../src/relay/lib/services/ethService/blockService/blockWorker', deps);
   const commonWorker = proxyquire('../../src/relay/lib/services/ethService/ethCommonService/commonWorker', deps);
+  const accountWorker = proxyquire('../../src/relay/lib/services/ethService/accountService/accountWorker', deps);
 
   WorkersPool['instance'] = {
     run: async (task: any) => {
@@ -1178,6 +1179,8 @@ export const mockWorkersPool = async (mirrorNodeInstance, commonService, cacheSe
               task.topics,
               task.requestDetails,
             );
+          case 'getBalance':
+            return await accountWorker.getBalance(task.account, task.blockNumberOrTagOrHash, task.requestDetails);
           default:
             throw new Error(`Unsupported task type ${task.type}`);
         }

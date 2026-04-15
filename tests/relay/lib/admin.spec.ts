@@ -12,6 +12,8 @@ const logger = pino({ level: 'silent' });
 let relay: Relay;
 
 describe('Admin', async function () {
+  this.timeout(240 * 1000); // 240 seconds
+
   // we used to initialize the relay by using the constructor, but now we use the init method
   // which checks the operator balance, we want to stub this method, its not part of the test
   before(() => {

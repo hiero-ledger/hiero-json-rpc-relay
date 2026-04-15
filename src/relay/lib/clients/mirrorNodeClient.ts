@@ -569,7 +569,7 @@ export class MirrorNodeClient {
     requestDetails: RequestDetails,
     results = [],
     page = 1,
-    pageMax: number = constants.MAX_MIRROR_NODE_PAGINATION,
+    pageMax: number = ConfigService.get('MIRROR_NODE_PAGINATION_MAX'),
   ) {
     const result = await this.get(url, pathLabel, requestDetails);
 
@@ -597,13 +597,14 @@ export class MirrorNodeClient {
    * is ready to accept API requests.
    *
    * The probe targets `GET /health/readiness`, which the Mirror Node exposes specifically
-   * for infrastructure health checks (Kubernetes readiness probes). Any genuine HTTP
-   * response — including 4xx from reverse-proxy setups that block the path — is treated
-   * as confirmation that the server is reachable at the network level. Only network-layer
-   * failures (ECONNREFUSED, connection timeout) are surfaced as errors.
+   * for infrastructure health checks (Kubernetes readiness probes). Most HTTP responses
+   * are treated as confirmation that the server is reachable at the network level, with
+   * the exception of 502 (Bad Gateway), 503 (Service Unavailable), and 504 (Gateway
+   * Timeout), which are thrown as errors so the startup retry loop can handle them as
+   * transient unavailability.
    *
    * @throws {MirrorNodeClientError} When the server is not reachable due to a
-   *   network-level failure (ECONNREFUSED or connection timeout).
+   *   network-level failure (ECONNREFUSED, connection timeout, 502, 503, or 504).
    */
   public async checkServerReadiness(): Promise<void> {
     // When constructed with an injected Axios instance the base URL is unavailable;
@@ -616,12 +617,24 @@ export class MirrorNodeClient {
     try {
       await this.restClient.get(healthUrl);
     } catch (error: unknown) {
-      // Any genuine HTTP response (4xx, 5xx) confirms the server is reachable at the
-      // network level — only the application layer rejected the request.
-      const axiosError = error as { response?: unknown; code?: string; message?: string };
+      const axiosError = error as { response?: { status?: number }; code?: string; message?: string };
+
       if (axiosError.response) {
+        // HTTP response received, meaning network is up but might be temporarily unavailable due to migration process.
+        // Throw only for transient gateway errors (502/503/504); all other responses mean the server is reachable.
+        const httpStatus = axiosError.response.status ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
+        if (
+          httpStatus === MirrorNodeClientError.statusCodes.BAD_GATEWAY ||
+          httpStatus === MirrorNodeClientError.statusCodes.SERVICE_UNAVAILABLE ||
+          httpStatus === MirrorNodeClientError.statusCodes.GATEWAY_TIMEOUT
+        ) {
+          throw new MirrorNodeClientError(axiosError, httpStatus);
+        }
         return;
       }
+
+      // No HTTP response, meaning request never completed (ECONNREFUSED, ECONNABORTED, etc.).
+      // Map the axios error code to an internal pseudo-code and always throw.
       const statusCode =
         MirrorNodeClientError.ErrorCodes[axiosError.code ?? ''] ?? MirrorNodeClient.unknownServerErrorHttpStatusCode;
       throw new MirrorNodeClientError(axiosError, statusCode);
@@ -681,6 +694,9 @@ export class MirrorNodeClient {
       MirrorNodeClient.GET_ACCOUNTS_BY_ID_ENDPOINT,
       'transactions',
       requestDetails,
+      [], // results
+      1, // page
+      ConfigService.get('MIRROR_NODE_ACCOUNT_TXS_PG_MAX'),
     );
   }
 

@@ -6,9 +6,10 @@ import { Logger } from 'pino';
 import { ConfigService } from '../../../../../config-service/services';
 import { numberTo0x } from '../../../../formatters';
 import { MirrorNodeClient } from '../../../clients';
+import { obtainBlockGasLimit } from '../../../config/blockGasLimit';
 import constants from '../../../constants';
 import { JsonRpcError, predefined } from '../../../errors/JsonRpcError';
-import { IFeeHistory, RequestDetails } from '../../../types';
+import { IFeeHistory, MirrorNodeBlock, RequestDetails } from '../../../types';
 import { ICommonService } from '../ethCommonService/ICommonService';
 import { IFeeService } from '../feeService/IFeeService';
 
@@ -193,10 +194,10 @@ export class FeeService implements IFeeService {
 
     // get fees from oldest to newest blocks
     for (let blockNumber = oldestBlockNumber; blockNumber <= newestBlockNumber; blockNumber++) {
-      const fee = await this.getFeeByBlockNumber(blockNumber, requestDetails);
+      const { fee, gasUsedRatio } = await this.getFeeHistoryDataFromBlock(blockNumber, requestDetails);
 
       feeHistory.baseFeePerGas?.push(fee);
-      feeHistory.gasUsedRatio?.push(constants.DEFAULT_GAS_USED_RATIO);
+      feeHistory.gasUsedRatio?.push(gasUsedRatio);
     }
 
     // get latest block fee
@@ -205,7 +206,7 @@ export class FeeService implements IFeeService {
 
     if (latestBlockNumber > newestBlockNumber) {
       // get next block fee if the newest block is not the latest
-      nextBaseFeePerGas = await this.getFeeByBlockNumber(newestBlockNumber + 1, requestDetails);
+      nextBaseFeePerGas = (await this.getFeeHistoryDataFromBlock(newestBlockNumber + 1, requestDetails)).fee;
     }
 
     if (nextBaseFeePerGas) {
@@ -224,20 +225,61 @@ export class FeeService implements IFeeService {
    * @param requestDetails
    * @private
    */
-  private async getFeeByBlockNumber(blockNumber: number, requestDetails: RequestDetails): Promise<string> {
-    let fee = 0;
+  private async getFeeHistoryDataFromBlock(
+    blockNumber: number,
+    requestDetails: RequestDetails,
+  ): Promise<{ fee: string; gasUsedRatio: number }> {
+    let block: MirrorNodeBlock | undefined;
     try {
-      const block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
-      fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      block = await this.mirrorNodeClient.getBlock(blockNumber, requestDetails);
+      if (!block) {
+        this.logger.warn(`Fee history: block ${blockNumber} not found. Returning zero fee and gasUsedRatio.`);
+        return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
+      }
     } catch (error) {
       this.logger.warn(
         error,
-        `Fee history cannot retrieve block or fee. Returning %s fee for block %s`,
-        fee,
+        `Fee history cannot retrieve block. Returning zero fee and gasUsedRatio for block %s`,
         blockNumber,
       );
+      return { fee: constants.ZERO_HEX, gasUsedRatio: 0 };
     }
 
-    return numberTo0x(fee);
+    const gasUsedRatio = this.getGasUsedRatioForBlock(block);
+
+    try {
+      const fee = await this.common.getGasPriceInWeibars(requestDetails, `lte:${block.timestamp.to}`);
+      return { fee: numberTo0x(fee), gasUsedRatio };
+    } catch (error) {
+      this.logger.warn(error, `Fee history cannot retrieve fee. Returning zero fee for block %s`, blockNumber);
+      return { fee: constants.ZERO_HEX, gasUsedRatio };
+    }
+  }
+
+  /**
+   * Returns the `gasUsedRatio` entry for for a block
+   * `gasUsed / blockGasLimit`, using {@link MirrorNodeBlock.gas_used} as gas used.
+   *
+   * If `gasUsed` exceeds that limit, logs a warning and returns `1` (100% usage).
+   *
+   * @param block - Mirror node block metadata (must include `number`, `gas_used`)
+   * @returns Ratio in the range [0, 1] suitable for JSON-RPC `gasUsedRatio`
+   * @private
+   */
+  private getGasUsedRatioForBlock(block: MirrorNodeBlock): number {
+    const blockGasLimit = obtainBlockGasLimit(block.hapi_version);
+    const gasUsed = block.gas_used ?? 0;
+    const blockNumber = block.number;
+
+    if (gasUsed > blockGasLimit) {
+      this.logger.warn(
+        'eth_feeHistory: gasUsed exceeds block gas limit for block %s; Gas used: %s, Block gas limit: %s; clamping gasUsedRatio to 1',
+        blockNumber,
+        gasUsed,
+        blockGasLimit,
+      );
+      return 1;
+    }
+    return gasUsed / blockGasLimit;
   }
 }

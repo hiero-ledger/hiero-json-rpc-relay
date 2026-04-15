@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ethers, Transaction } from 'ethers';
+import { Transaction } from 'ethers/transaction';
 
 import { ConfigService } from '../../config-service/services';
 import { prepend0x } from '../formatters';
@@ -66,7 +66,7 @@ export class Precheck {
    * @param parsedTx - The parsed transaction.
    * @throws If the transaction does not meet tx-pool eligibility requirements.
    */
-  validateBasicPropertiesStateless(parsedTx: ethers.Transaction) {
+  validateBasicPropertiesStateless(parsedTx: Transaction) {
     this.callDataSize(parsedTx);
     this.transactionSize(parsedTx);
     this.transactionType(parsedTx);
@@ -88,7 +88,7 @@ export class Precheck {
    * @throws If the transaction does not meet send-time requirements.
    */
   async validateAccountAndNetworkStateful(
-    parsedTx: ethers.Transaction,
+    parsedTx: Transaction,
     networkGasPriceInWeiBars: number,
     requestDetails: RequestDetails,
   ): Promise<void> {
