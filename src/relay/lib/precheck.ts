@@ -10,6 +10,7 @@ import { predefined } from './errors/JsonRpcError';
 import { CommonService, TransactionPoolService } from './services';
 import { RequestDetails } from './types';
 import { IAccountBalance } from './types/mirrorNode';
+import { validateAuthorizationList } from './validators/authorizationList';
 
 /**
  * Precheck class for handling various prechecks before sending a raw transaction.
@@ -259,16 +260,7 @@ export class Precheck {
    * @throws {JsonRpcError} If any entry contains an invalid address.
    */
   authorizationList(tx: Transaction): void {
-    if (Number(tx.type) !== 4 && tx.authorizationList) {
-      throw predefined.INVALID_PARAMETER('authorizationList', 'not supported for non-type-4 transactions');
-    }
-    if (tx.type === 4 && !tx.authorizationList) {
-      throw predefined.INVALID_PARAMETER('authorizationList', 'must be set');
-    }
-
-    if (tx.type === 4 && tx.authorizationList && tx.authorizationList.length === 0) {
-      throw predefined.INVALID_PARAMETER('authorizationList', 'can not be empty list');
-    }
+    validateAuthorizationList(Number(tx.type), tx.authorizationList);
 
     // EIP-7702 mandates that tx.to must not be null
     if (tx.type === 4 && tx.to == null) {
