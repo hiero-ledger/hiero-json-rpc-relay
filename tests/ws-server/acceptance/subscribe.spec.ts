@@ -399,7 +399,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       // subscribe
       let subId = await provider.send('eth_subscribe', ['logs', { address: logContractSigner.target }]);
       // unsubscribe
-      let result = await unsubscribeAndCloseConnections(provider, subId);
+      const result = await unsubscribeAndCloseConnections(provider, subId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       expect(server._connections).to.equal(1);
@@ -419,12 +419,12 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       expect(server._connections).to.equal(3);
 
       // unsubscribe
-      result = await unsubscribeAndCloseConnections(provider2, subId2);
+      await unsubscribeAndCloseConnections(provider2, subId2);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       expect(server._connections).to.equal(2);
 
       // unsubscribe
-      result = await unsubscribeAndCloseConnections(provider, subId);
+      await unsubscribeAndCloseConnections(provider, subId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       expect(server._connections).to.equal(1);
     });
@@ -545,7 +545,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
 
       it('when the server sends a message', async function () {
         let eventCaptured = false;
-        wsProvider.on({ address: logContractSigner.target }, function () {
+        wsProvider.on({ address: logContractSigner.target }, () => {
           eventCaptured = true;
         });
 
@@ -786,7 +786,7 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       const balanceAfter = await htsToken.balanceOf(htsAccounts[1].wallet.address);
       expect(balanceAfter.toString()).to.eq('1', 'token is successfully transferred');
 
-      expect(htsEventsReceived.length).to.eq(1, 'log is captured');
+      expect(htsEventsReceived.length).to.eq(2, '2 logs are captured');
       Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
         htsAccounts[0].wallet.address,
         htsAccounts[1].wallet.address,
@@ -809,11 +809,10 @@ describe('@web-socket-batch-3 eth_subscribe', async function () {
       await tx2.wait();
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // FIXME enable assert when allowance bug is fixed in mirror node (expected to be fixed in v0.87)
-      // const allowanceAfter = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
-      // expect(allowanceAfter.toString()).to.eq('0', 'token is successfully transferred');
+      const allowanceAfter = await htsToken.allowance(htsAccounts[0].wallet.address, htsAccounts[1].wallet.address);
+      expect(allowanceAfter.toString()).to.eq('0', 'token is successfully transferred');
 
-      expect(htsEventsReceived.length).to.eq(2, 'logs are captured');
+      expect(htsEventsReceived.length).to.eq(3, 'logs are captured');
 
       Assertions.expectLogArgs(htsEventsReceived[0], htsToken, [
         htsAccounts[0].wallet.address,

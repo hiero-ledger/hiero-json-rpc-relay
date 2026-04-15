@@ -1,7 +1,7 @@
 // retrieves the client's current block number
 
 // Reason for override:
-// Every time the Hedera local node starts,
+// Every time the Hiero Solo node starts,
 // the mirror-node-monitor service also starts along with it.
 //
 // This service pings the node every 2ms,

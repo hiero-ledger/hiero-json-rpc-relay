@@ -3,6 +3,9 @@
 // Used for fake implementation of block history
 import { Status, TransactionRecord } from '@hashgraph/sdk';
 
+import { numberTo0x, toHash32 } from '../formatters';
+import type { MirrorNodeContractLog } from './types';
+
 /**
  * Represents an Ethereum-compatible block model.
  *
@@ -383,5 +386,26 @@ export class Log {
     this.topics = args.topics;
     this.transactionHash = args.transactionHash;
     this.transactionIndex = args.transactionIndex;
+  }
+
+  /**
+   * Creates a `Log` instance from a mirror node contract log entry.
+   *
+   * @param log - The mirror node contract log to convert.
+   * @returns A new `Log` populated with data from the mirror node contract log.
+   */
+  static fromMirrorNodeContractLog(log: MirrorNodeContractLog): Log {
+    return new Log({
+      address: log.address,
+      blockTimestamp: numberTo0x(Number(log.timestamp.split('.')[0])),
+      blockHash: toHash32(log.block_hash),
+      blockNumber: numberTo0x(log.block_number),
+      data: log.data,
+      logIndex: numberTo0x(log.index),
+      removed: false,
+      topics: log.topics,
+      transactionHash: toHash32(log.transaction_hash),
+      transactionIndex: numberTo0x(log.transaction_index),
+    });
   }
 }

@@ -320,7 +320,7 @@ describe('Debug API Test Suite', async function () {
     timestamp: '0x698afa66',
     difficulty: '0x0',
     extraData: '0x',
-    gasLimit: '0x1c9c380',
+    gasLimit: '0x8f0d180',
     baseFeePerGas: '0xd63445f000',
     gasUsed: '0xa32c1',
     logsBloom:
@@ -453,7 +453,7 @@ describe('Debug API Test Suite', async function () {
           '84' +
           '01de1f54' + // number
           '84' +
-          '01c9c380' + // gasLimit
+          '08f0d180' + // gasLimit
           '83' +
           '0a32c1' + // gasUsed
           '84' +
@@ -514,7 +514,7 @@ describe('Debug API Test Suite', async function () {
           '84' +
           '01de1f54' + // number
           '84' +
-          '01c9c380' + // gasLimit
+          '08f0d180' + // gasLimit
           '83' +
           '0a32c1' + // gasUsed
           '84' +
@@ -1605,6 +1605,104 @@ describe('Debug API Test Suite', async function () {
           expect(result).to.be.an('array').with.lengthOf(1);
           expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: callTracerResult1 });
         });
+
+        it("should pass each transaction its own actions, not another transaction's", async function () {
+          // Distinct action arrays per hash
+          const actionsForHash1 = [makeCreateAction({ index: 0, from: contractResult1.hash })];
+          const actionsForHash2 = [
+            makeCreateAction({ index: 0, from: contractResult2.hash }),
+            makeCreateAction({ index: 1, from: contractResult2.hash }),
+          ];
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
+          getActionsStub.withArgs(contractResult1.hash, sinon.match.any).resolves(actionsForHash1);
+          getActionsStub.withArgs(contractResult2.hash, sinon.match.any).resolves(actionsForHash2);
+
+          const callTracerSpy = sinon.stub(debugService, 'callTracer');
+          callTracerSpy
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1);
+          callTracerSpy
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          const callForHash1 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult1.hash);
+          const callForHash2 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult2.hash);
+
+          expect(callForHash1?.args[4]).to.deep.equal(actionsForHash1);
+          expect(callForHash2?.args[4]).to.deep.equal(actionsForHash2);
+        });
+
+        it('should pass undefined actions (not []) to callTracer when one transaction has empty actions', async function () {
+          // hash1 has real actions; hash2 returns [] - the length > 0 guard must exclude it from preFetchedData
+          const actionsForHash1 = [makeCreateAction({ index: 0, from: contractResult1.hash })];
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
+          getActionsStub.withArgs(contractResult1.hash, sinon.match.any).resolves(actionsForHash1);
+          getActionsStub.withArgs(contractResult2.hash, sinon.match.any).resolves([]);
+
+          const callTracerSpy = sinon.stub(debugService, 'callTracer');
+          callTracerSpy
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1);
+          callTracerSpy
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          const callForHash1 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult1.hash);
+          const callForHash2 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult2.hash);
+
+          expect(callForHash1?.args[4]).to.deep.equal(actionsForHash1);
+          // empty actions - callTracer must receive undefined
+          expect(callForHash2?.args[4]).to.be.undefined;
+        });
+
+        it('should pass undefined actions to callTracer when getContractsResultsActions throws for a transaction', async function () {
+          // The catch block returns { txHash, actions: [] }, which the length > 0 guard strips from preFetchedData
+          const actionsForHash1 = [makeCreateAction({ index: 0, from: contractResult1.hash })];
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves([contractResult1, contractResult2]);
+
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions');
+          getActionsStub.withArgs(contractResult1.hash, sinon.match.any).resolves(actionsForHash1);
+          getActionsStub.withArgs(contractResult2.hash, sinon.match.any).rejects(new Error('mirror node unavailable'));
+
+          const callTracerSpy = sinon.stub(debugService, 'callTracer');
+          callTracerSpy
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult1);
+          callTracerSpy
+            .withArgs(contractResult2.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(callTracerResult2);
+
+          await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          const callForHash1 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult1.hash);
+          const callForHash2 = callTracerSpy.getCalls().find((c) => c.args[0] === contractResult2.hash);
+
+          expect(callForHash1?.args[4]).to.deep.equal(actionsForHash1);
+          // failed fetch - callTracer must receive undefined
+          expect(callForHash2?.args[4]).to.be.undefined;
+        });
       });
 
       describe('with PrestateTracer', async function () {
@@ -1804,6 +1902,95 @@ describe('Debug API Test Suite', async function () {
             .getCalls()
             .filter((call) => call.args[0] === contractResultWrongNonce.hash);
           expect(wrongNonceActionsCalls).to.be.empty;
+        });
+
+        it('should include WRONG_NONCE transactions with empty prestate and skip actions fetch for them (PrestateTracer)', async function () {
+          sinon
+            .stub(mirrorNodeInstance, 'getContractResultWithRetry')
+            .resolves([contractResult1, contractResultWrongNonce]);
+
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+
+          const prestateTracerStub = sinon.stub(debugService, 'prestateTracer');
+          prestateTracerStub
+            .withArgs(contractResult1.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves(prestateTracerResult1);
+          prestateTracerStub
+            .withArgs(contractResultWrongNonce.hash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves({});
+          prestateTracerStub
+            .withArgs(syntheticTxHash, sinon.match.any, sinon.match.any, sinon.match.any, sinon.match.any)
+            .resolves({});
+
+          const getActionsStub = sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(result).to.be.an('array').with.lengthOf(3);
+          expect(result[0]).to.deep.equal({ txHash: contractResult1.hash, result: prestateTracerResult1 });
+          expect(result[1]).to.deep.equal({ txHash: contractResultWrongNonce.hash, result: {} });
+          expect(result[2]).to.deep.equal({ txHash: syntheticTxHash, result: {} });
+
+          // Verify actions were NOT fetched for the WRONG_NONCE transaction
+          const wrongNonceActionsCalls = getActionsStub
+            .getCalls()
+            .filter((call) => call.args[0] === contractResultWrongNonce.hash);
+          expect(wrongNonceActionsCalls).to.be.empty;
+        });
+
+        it('should not make per-transaction log API calls when logs are pre-fetched at block level', async function () {
+          // No EVM transactions - only synthetic
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves(null);
+          // Block-level log pre-fetch provides the synthetic log
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+          // Synthetic tx has no contract result or actions
+          sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+          restMock.onGet(CONTRACTS_RESULTS_SYNTHETIC).reply(404);
+          // Address resolution for synthetic log topics
+          restMock.onGet(SENDER_BY_ADDRESS).reply(200, JSON.stringify(accountsResult));
+          restMock.onGet(ACCOUNT_BY_ADDRESS).reply(200, JSON.stringify({ evm_address: accountAddress }));
+
+          // Spy before the call - must not be invoked since the log is pre-fetched
+          const getLogsWithParamsSpy = sinon.stub(CommonService.prototype, 'getLogsWithParams');
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.CallTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(getLogsWithParamsSpy.callCount).to.equal(0);
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0].txHash).to.equal(syntheticTxHash);
+          expect(result[0].result.from).to.equal(accountsResult.evm_address);
+          expect(result[0].result.to).to.equal(accountAddress);
+        });
+
+        it('should not make per-transaction log API calls when logs are pre-fetched at block level (PrestateTracer)', async function () {
+          // No EVM transactions - only synthetic
+          sinon.stub(mirrorNodeInstance, 'getContractResultWithRetry').resolves(null);
+          // Block-level log pre-fetch provides the synthetic log
+          sinon.stub(mirrorNodeInstance, 'getContractResultsLogsWithRetry').resolves([syntheticLog]);
+          // Synthetic tx has no contract result or actions
+          sinon.stub(mirrorNodeInstance, 'getContractsResultsActions').resolves([]);
+
+          // Spy before the call - must not be invoked since the log is pre-fetched
+          const getLogsWithParamsSpy = sinon.stub(CommonService.prototype, 'getLogsWithParams');
+
+          const result = await debugService.traceBlockByNumber(
+            blockNumber,
+            { tracer: TracerType.PrestateTracer, tracerConfig: { onlyTopCall: false } },
+            requestDetails,
+          );
+
+          expect(getLogsWithParamsSpy.callCount).to.equal(0);
+          expect(result).to.be.an('array').with.lengthOf(1);
+          expect(result[0].txHash).to.equal(syntheticTxHash);
+          expect(result[0].result).to.deep.equal({});
         });
       });
 

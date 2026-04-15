@@ -4,11 +4,9 @@
   "description": "This is a example hardhat viem project",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test",
-    "local-node": "npx @hashgraph/hedera-local restart -d"
+    "test": "npx hardhat test"
   },
   "dependencies": {
-    "@hashgraph/hedera-local": "^2.39.0",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
     "dotenv": "^17.2.3"
   },

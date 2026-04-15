@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import { WebSocketProvider } from 'ethers';
 import WebSocket from 'ws';
+export { RPC_METHODS } from './rpcMethods';
 
 import { ConfigService } from '../../../src/config-service/services';
 import { ConfigServiceTestHelper } from '../../config-service/configServiceTestHelper';
@@ -72,6 +73,33 @@ export class WsTestHelper {
       method,
       params,
     };
+  }
+
+  /**
+   * Required: `app.proxy = true` on the WS server.
+   */
+  static sendRequestWithIp(
+    method: string,
+    params: unknown[],
+    ip: string,
+  ): Promise<{ result?: unknown; error?: { code: number; message: string } }> {
+    const ws = new WebSocket(WsTestConstant.WS_RELAY_URL, undefined, {
+      headers: { 'X-Forwarded-For': ip },
+    });
+
+    return new Promise((resolve, reject) => {
+      ws.on('error', (err) => {
+        ws.close();
+        reject(err);
+      });
+      ws.on('open', () => {
+        ws.send(JSON.stringify(WsTestHelper.prepareJsonRpcObject(method, params)));
+      });
+      ws.on('message', (data: Buffer) => {
+        ws.close();
+        resolve(JSON.parse(data.toString()) as { result?: unknown; error?: { code: number; message: string } });
+      });
+    });
   }
 
   /**
