@@ -109,7 +109,7 @@ export class CliHelper {
     });
 
     setTimeout(() => {
-      process.exit(1);
+      process.exit(0);
     }, 10_000).unref();
 
     const { pid } = child;
