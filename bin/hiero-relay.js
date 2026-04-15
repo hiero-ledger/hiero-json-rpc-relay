@@ -7,7 +7,7 @@ const yargs = require('yargs');
 const dotenv = require('dotenv');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
-
+const pkg = require(`${__dirname}/../package.json`);
 const { CliHelper } = require(`${__dirname}/cli-helper`);
 const MANDATORY_ENV_OVERRIDES = {
   'npm_package_version': require(`${__dirname}/../package.json`).version,
@@ -60,6 +60,7 @@ try {
           console.log('\nError: At least one transport must be enabled (--rpc-http-enabled or --rpc-ws-enabled)');
           return;
         }
+
         const readOnlyEnvs = CliHelper.populateEnvBaseOnReadOnlyOption(argv);
         const networkEnvs = CliHelper.populateEnvBasedOnNetwork(argv.network);
         const stdIoInfo = CliHelper.getStdio(argv['logging-path']);
@@ -71,10 +72,10 @@ try {
             ...MANDATORY_ENV_OVERRIDES,
             ...readOnlyEnvs,
             ...networkEnvs,
-            ...(argv['chain-id'] ? { CHAIN_ID: argv['chain-id'] } : {}),
-            ...(argv['mirror-node-rest-url'] ? { MIRROR_NODE_URL: argv['mirror-node-rest-url'] } : {}),
-            ...(argv['mirror-node-web3-url'] ? { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] } : {}),
-            ...(argv['logging'] ? { LOG_LEVEL: argv['logging'] } : {}),
+            ...(argv['chain-id'] && { CHAIN_ID: argv['chain-id'] }),
+            ...(argv['mirror-node-rest-url'] && { MIRROR_NODE_URL: argv['mirror-node-rest-url'] }),
+            ...(argv['mirror-node-web3-url'] && { MIRROR_NODE_URL_WEB3: argv['mirror-node-web3-url'] }),
+            ...(argv['logging'] && { LOG_LEVEL: argv['logging'] }),
             ...({ PRETTY_LOGS_ENABLED: argv['json-pretty-print-enabled'] }),
             ...({ RPC_HTTP_ENABLED: argv['rpc-http-enabled'] }),
             ...({ RPC_WS_ENABLED: argv['rpc-ws-enabled'] }),
