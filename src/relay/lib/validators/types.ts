@@ -2,6 +2,7 @@
 
 import { predefined } from '../errors/JsonRpcError';
 import { ICallTracerConfig, IOpcodeLoggerConfig, ITracerConfig, ITracerConfigWrapper } from '../types';
+import { validateAuthorizationList } from './authorizationList';
 import * as Constants from './constants';
 import { OBJECTS_VALIDATIONS, validateSchema, validateTracerConfigWrapper } from './objectTypes';
 import { validateArray } from './utils';
@@ -92,7 +93,9 @@ export const TYPES = {
   transaction: {
     test: (param: any) => {
       if (Object.prototype.toString.call(param) === '[object Object]') {
-        return validateSchema(OBJECTS_VALIDATIONS.transaction, param);
+        if (!validateSchema(OBJECTS_VALIDATIONS.transaction, param)) return false;
+        validateAuthorizationList(Number(param.type), param.authorizationList);
+        return true;
       }
 
       return false;
