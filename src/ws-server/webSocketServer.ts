@@ -106,6 +106,7 @@ export async function initializeWsServer(
   app.ws.use((ctx: Koa.Context, next: Koa.Next) => {
     const connectionId = subscriptionService.generateId();
     ctx.websocket.id = connectionId;
+
     next();
   });
 
